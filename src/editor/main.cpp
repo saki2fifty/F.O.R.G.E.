@@ -325,28 +325,32 @@ int main(int argc, char** argv) {
                 forge::ui::help(
                     "During play this preview shows runtime positions. Inspector edits "
                     "still affect authoring; Restart applies them to a fresh play world.");
-                const auto available = ImGui::GetContentRegionAvail();
-                const float aspect =
-                    available.x / std::max(1.0f, available.y - ImGui::GetFrameHeightWithSpacing());
                 const auto& preview = play.active() ? play.snapshot() : doc;
-                if (forge::ui::button("Frame selected", "Center the camera on the selected visible "
-                                                        "block. Shortcut: F over the viewport.")) {
-                    if (selected.empty() || !camera.frame(preview, selected, aspect))
-                        message = "Selected entity has no visible block, or exceeds camera range.";
-                }
-                ImGui::SameLine();
-                if (forge::ui::button(
-                        "Fit scene",
-                        "Fit all visible blocks, accounting for the viewport aspect ratio.")) {
-                    if (!camera.frame(preview, "", aspect))
-                        message = "No visible blocks to frame, or scene exceeds camera range.";
-                }
-                ImGui::SameLine();
+                const float toolbar_width =
+                    ImGui::CalcTextSize("Frame selected").x + ImGui::CalcTextSize("Fit scene").x +
+                    ImGui::CalcTextSize("Reset view").x + 6 * ImGui::GetStyle().FramePadding.x +
+                    2 * ImGui::GetStyle().ItemSpacing.x;
+                const bool horizontal = ImGui::GetContentRegionAvail().x >= toolbar_width;
+                const bool frame_selected =
+                    forge::ui::button("Frame selected", "Center the camera on the selected visible "
+                                                        "block. Shortcut: F over the viewport.");
+                if (horizontal)
+                    ImGui::SameLine();
+                const bool fit_scene = forge::ui::button(
+                    "Fit scene",
+                    "Fit all visible blocks, accounting for the viewport aspect ratio.");
+                if (horizontal)
+                    ImGui::SameLine();
                 if (forge::ui::button("Reset view", "Reset the editor camera to its startup "
                                                     "position. Scene data is unchanged."))
                     camera = forge::EditorCamera{};
                 auto size = ImGui::GetContentRegionAvail();
                 if (size.x > 1 && size.y > 1) {
+                    if (frame_selected &&
+                        (selected.empty() || !camera.frame(preview, selected, size.x / size.y)))
+                        message = "Selected entity has no visible block, or exceeds camera range.";
+                    if (fit_scene && !camera.frame(preview, "", size.x / size.y))
+                        message = "No visible blocks to frame, or scene exceeds camera range.";
                     auto* texture =
                         viewport.render(context, play.active() ? play.snapshot() : doc,
                                         unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
