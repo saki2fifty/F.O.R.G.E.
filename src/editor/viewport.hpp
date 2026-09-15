@@ -3,13 +3,14 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "camera.hpp"
 #include <forge/scene.hpp>
 namespace forge {
 class Viewport {
   public:
     explicit Viewport(Diligent::IRenderDevice* device);
     Diligent::ITextureView* render(Diligent::IDeviceContext* context, const Json& scene,
-                                   unsigned width, unsigned height);
+                                   unsigned width, unsigned height, const EditorCamera& camera);
 
   private:
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;

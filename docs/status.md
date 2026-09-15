@@ -56,3 +56,12 @@ Desktop check for scene organization:
 3. Select the parent and Duplicate subtree; expand the copy and check its child.
 4. Delete the copy, then Undo and Redo. Undo again, Save, close and reopen; check the hierarchy.
 5. Try parenting the original parent under its child. The command should be rejected in Console and leave the scene unchanged.
+
+
+## Viewport navigation increment
+
+The Scene view now has an editor-only orbit camera: right-drag to orbit, middle-drag to pan, wheel to zoom, F while hovering the image to frame the selected visible block. Frame selected, Fit scene, and Reset view buttons provide equivalent framing/reset controls. Camera navigation leaves scene data and running gameplay unchanged. Ctrl+Plus/Minus still scales the interface. The camera resets when reopening the editor; camera persistence, fly navigation, picking, and gizmos remain future work.
+
+Projection uses +Y up, +Z forward, a 60-degree vertical field of view, and D3D depth [0,1]. Five float4 constants explicitly carry object position/aspect and camera basis/projection data, avoiding matrix packing ambiguity. Framing uses the visible diagnostic cubes' bounding sphere and the narrower viewport angle; orbit pitch and zoom distance are bounded. This remains the block diagnostic renderer, not production game rendering.
+
+Local camera geometry, process/scaling, and native integration tests pass. Windows compilation and embedded HLSL validation are pending. Desktop check: move blocks apart, Fit scene, orbit/pan/zoom, frame a World selection with F, resize the Scene panel, and verify Inspector positions stay unchanged. Check that mouse gestures over other panels do not move the camera and Ctrl+Plus/Minus still scales the UI.

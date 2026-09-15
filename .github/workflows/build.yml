@@ -147,6 +147,9 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_editor_tests forge_fault_runtime forge_editor_native_tests --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Compile preview shaders
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tests/preview_shader_test.py
       - name: Test editor process isolation and scaling
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R editor_ --output-on-failure

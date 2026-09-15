@@ -5,13 +5,16 @@ using namespace Diligent;
 namespace forge {
 Viewport::Viewport(IRenderDevice* device) : device_(device) {
     const char* vs = R"(
-cbuffer ObjectData { float4 centerAspect; };
+cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; };
 struct Out { float4 position : SV_POSITION; float3 color : COLOR0; };
 Out main(uint id : SV_VertexID) {
     float3 v[8]={float3(-1,-1,-1),float3(-1,1,-1),float3(1,1,-1),float3(1,-1,-1),float3(-1,-1,1),float3(-1,1,1),float3(1,1,1),float3(1,-1,1)};
     uint indices[36]={2,0,1,2,3,0,4,6,5,4,7,6,0,7,4,0,3,7,1,0,4,1,4,5,1,5,2,5,6,2,3,6,7,3,2,6};
-    float3 p=v[indices[id]]*0.5+centerAspect.xyz+float3(0,-1,6);
-    Out o; o.position=float4(p.x/centerAspect.w,p.y,p.z*1.001-0.1001,p.z);
+    float3 offset=v[indices[id]]*0.5+centerAspect.xyz-eyeNear.xyz;
+    float3 p=float3(dot(offset,rightFocal.xyz),dot(offset,upFar.xyz),dot(offset,forwardPad.xyz));
+    float depthScale=upFar.w/(upFar.w-eyeNear.w);
+    Out o; o.position=float4(p.x*rightFocal.w/centerAspect.w,p.y*rightFocal.w,
+                             (p.z-eyeNear.w)*depthScale,p.z);
     o.color=float3(0.2,0.6,0.7)*(0.6+0.4*float(id/6)/5); return o;
 })";
     const char* ps =
@@ -45,7 +48,7 @@ Out main(uint id : SV_VertexID) {
         throw std::runtime_error("Preview pipeline creation failed");
     BufferDesc buffer;
     buffer.Name = "FORGE preview position";
-    buffer.Size = 16;
+    buffer.Size = 80;
     buffer.Usage = USAGE_DYNAMIC;
     buffer.BindFlags = BIND_UNIFORM_BUFFER;
     buffer.CPUAccessFlags = CPU_ACCESS_WRITE;
@@ -59,7 +62,7 @@ Out main(uint id : SV_VertexID) {
     pipeline_->CreateShaderResourceBinding(&resources_, true);
 }
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
-                               unsigned height) {
+                               unsigned height, const EditorCamera& camera) {
     if (!color_ || color_->GetDesc().Width != width || color_->GetDesc().Height != height) {
         color_.Release();
         depth_.Release();
@@ -96,6 +99,18 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             data[1] = p.at("y").get<float>();
             data[2] = p.at("z").get<float>();
             data[3] = float(width) / float(height);
+            const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
+                       forward = camera.forward();
+            for (unsigned i = 0; i < 3; ++i) {
+                data[4 + i] = eye[i];
+                data[8 + i] = right[i];
+                data[12 + i] = up[i];
+                data[16 + i] = forward[i];
+            }
+            data[7] = EditorCamera::near_plane;
+            data[11] = EditorCamera::focal;
+            data[15] = EditorCamera::far_plane;
+            data[19] = 0;
         }
         context->CommitShaderResources(resources_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         DrawAttribs draw;

@@ -106,6 +106,8 @@ int main(int argc, char** argv) {
             scene.load(scene_path);
         bool initialize_layout = !std::filesystem::exists(ini);
         forge::Viewport viewport(device);
+        forge::EditorCamera camera;
+        int camera_drag = -1;
         std::string selected, name_entity, authored_name;
         char entity_name[1024]{};
         bool running = true;
@@ -312,24 +314,75 @@ int main(int argc, char** argv) {
                     }
             }
             ImGui::End();
-            if (ImGui::Begin("Scene")) {
-                forge::ui::heading("Block preview",
-                                   "Diligent renders a cube for each entity with a position. "
-                                   "Camera is fixed for this foundation build.");
+            if (ImGui::Begin("Scene", nullptr,
+                             ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar)) {
+                forge::ui::heading(
+                    "Block preview",
+                    "Diligent renders a cube for each entity with a position. "
+                    "Orbit, pan, and frame this editor-only camera without editing the scene.");
                 ImGui::TextUnformatted(play.active() ? "PLAY | isolated scene copy"
                                                      : "EDIT | authored scene");
                 forge::ui::help(
                     "During play this preview shows runtime positions. Inspector edits "
                     "still affect authoring; Restart applies them to a fresh play world.");
+                const auto available = ImGui::GetContentRegionAvail();
+                const float aspect =
+                    available.x / std::max(1.0f, available.y - ImGui::GetFrameHeightWithSpacing());
+                const auto& preview = play.active() ? play.snapshot() : doc;
+                if (forge::ui::button("Frame selected", "Center the camera on the selected visible "
+                                                        "block. Shortcut: F over the viewport.")) {
+                    if (selected.empty() || !camera.frame(preview, selected, aspect))
+                        message = "Selected entity has no visible block, or exceeds camera range.";
+                }
+                ImGui::SameLine();
+                if (forge::ui::button(
+                        "Fit scene",
+                        "Fit all visible blocks, accounting for the viewport aspect ratio.")) {
+                    if (!camera.frame(preview, "", aspect))
+                        message = "No visible blocks to frame, or scene exceeds camera range.";
+                }
+                ImGui::SameLine();
+                if (forge::ui::button("Reset view", "Reset the editor camera to its startup "
+                                                    "position. Scene data is unchanged."))
+                    camera = forge::EditorCamera{};
                 auto size = ImGui::GetContentRegionAvail();
                 if (size.x > 1 && size.y > 1) {
-                    auto* texture = viewport.render(context, play.active() ? play.snapshot() : doc,
-                                                    unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
-                                                    unsigned(std::clamp(size.y, 1.0f, 4096.0f)));
+                    auto* texture =
+                        viewport.render(context, play.active() ? play.snapshot() : doc,
+                                        unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
+                                        unsigned(std::clamp(size.y, 1.0f, 4096.0f)), camera);
                     ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, size);
-                    forge::ui::help("Authoring preview. Select an entity in World and edit its "
-                                    "position in Inspector.");
+                    const bool hovered = ImGui::IsItemHovered();
+                    const auto& io = ImGui::GetIO();
+                    if (!ImGui::IsWindowFocused() ||
+                        (camera_drag >= 0 && !ImGui::IsMouseDown(camera_drag)))
+                        camera_drag = -1;
+                    if (hovered) {
+                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                            camera_drag = ImGuiMouseButton_Right;
+                        else if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle))
+                            camera_drag = ImGuiMouseButton_Middle;
+                        if (!io.KeyCtrl)
+                            camera.zoom(io.MouseWheel);
+                        if (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
+                            if (selected.empty() ||
+                                !camera.frame(preview, selected, size.x / size.y))
+                                message = "Selected entity has no visible block, or exceeds camera "
+                                          "range.";
+                        }
+                    }
+                    if (camera_drag == ImGuiMouseButton_Right)
+                        camera.orbit(io.MouseDelta.x, io.MouseDelta.y);
+                    else if (camera_drag == ImGuiMouseButton_Middle)
+                        camera.pan(io.MouseDelta.x, io.MouseDelta.y, size.y);
+                    forge::ui::help(
+                        "Right-drag: orbit. Middle-drag: pan. Wheel: zoom. F: frame selected. "
+                        "Camera navigation changes neither the authored scene nor gameplay.");
+                } else {
+                    camera_drag = -1;
                 }
+            } else {
+                camera_drag = -1;
             }
             ImGui::End();
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
