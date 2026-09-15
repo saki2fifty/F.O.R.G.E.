@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "play.hpp"
 #include "viewport.hpp"
@@ -105,7 +106,8 @@ int main(int argc, char** argv) {
             scene.load(scene_path);
         bool initialize_layout = !std::filesystem::exists(ini);
         forge::Viewport viewport(device);
-        std::string selected;
+        std::string selected, name_entity, authored_name;
+        char entity_name[1024]{};
         bool running = true;
         unsigned next_id = 1;
         while (running) {
@@ -214,14 +216,7 @@ int main(int argc, char** argv) {
             if (ImGui::Begin("World")) {
                 forge::ui::heading("Entities",
                                    "Authored entities identified by stable project IDs.");
-                for (const auto& e : doc["entities"]) {
-                    auto id = e.at("id").get<std::string>();
-                    auto label = e.at("name").get<std::string>() + "##" + id;
-                    if (ImGui::Selectable(label.c_str(), id == selected))
-                        selected = id;
-                    forge::ui::help(
-                        "Select this entity to inspect and edit its authored properties.");
-                }
+                forge::ui::hierarchy(doc, selected);
             }
             ImGui::End();
             if (ImGui::Begin("Inspector")) {
@@ -229,8 +224,74 @@ int main(int argc, char** argv) {
                                                  "undoable and serialize with the scene.");
                 for (auto& e : doc["entities"])
                     if (e.at("id") == selected) {
-                        ImGui::TextUnformatted(e.at("name").get_ref<const std::string&>().c_str());
-                        forge::ui::help("Display name of the selected entity.");
+                        const auto name = e.at("name").get<std::string>();
+                        if (name_entity != selected || authored_name != name) {
+                            SDL_strlcpy(entity_name, name.c_str(), sizeof(entity_name));
+                            name_entity = selected;
+                            authored_name = name;
+                        }
+                        try {
+                            if (ImGui::InputText("Name", entity_name, sizeof(entity_name),
+                                                 ImGuiInputTextFlags_EnterReturnsTrue)) {
+                                scene.rename_entity(selected, entity_name);
+                                e["name"] = entity_name;
+                            }
+                            forge::ui::help(
+                                "Rename this entity. Press Enter to commit one undoable edit.");
+                            ImGui::TextWrapped("ID: %s", selected.c_str());
+                            forge::ui::help(
+                                "Stable authored identity. Renaming does not change this ID.");
+                            const auto parent = e.value("parent", std::string{});
+                            const bool choose_parent = ImGui::BeginCombo(
+                                "Parent", parent.empty() ? "Scene root" : parent.c_str());
+                            forge::ui::help("Change the Flecs ChildOf relationship. Positions "
+                                            "remain in world units. Cycles are rejected.");
+                            std::string new_parent = parent;
+                            if (choose_parent) {
+                                if (ImGui::Selectable("Scene root", parent.empty()))
+                                    new_parent.clear();
+                                forge::ui::help("Place this entity at the scene root.");
+                                for (const auto& candidate : doc["entities"]) {
+                                    const auto id = candidate.at("id").get<std::string>();
+                                    if (id == selected)
+                                        continue;
+                                    ImGui::PushID(id.c_str());
+                                    if (ImGui::Selectable(candidate.at("name")
+                                                              .get_ref<const std::string&>()
+                                                              .c_str(),
+                                                          id == parent))
+                                        new_parent = id;
+                                    forge::ui::help("Use this entity as the parent. A descendant "
+                                                    "cannot become its ancestor's parent.");
+                                    ImGui::PopID();
+                                }
+                                ImGui::EndCombo();
+                            }
+                            if (new_parent != parent) {
+                                scene.reparent_entity(selected, new_parent);
+                                if (new_parent.empty())
+                                    e.erase("parent");
+                                else
+                                    e["parent"] = new_parent;
+                            }
+                            if (forge::ui::button(
+                                    "Duplicate subtree",
+                                    "Copy this entity and its descendants with new stable IDs. "
+                                    "Undo restores the previous scene.")) {
+                                selected = scene.duplicate_subtree(selected);
+                                break;
+                            }
+                            if (forge::ui::button(
+                                    "Delete subtree",
+                                    "Delete this entity and all descendants. Undo restores them. "
+                                    "Prefabs used outside the subtree cannot be deleted.")) {
+                                scene.delete_subtree(selected);
+                                selected.clear();
+                                break;
+                            }
+                        } catch (const std::exception& ex) {
+                            message = ex.what();
+                        }
                         if (e["components"].contains("forge.position")) {
                             auto& p = e["components"]["forge.position"];
                             for (const auto& field : schema.at("components").at(0).at("fields")) {

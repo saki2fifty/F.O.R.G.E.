@@ -24,6 +24,10 @@ class Scene {
     void save(const std::filesystem::path& path) const;
     void load(const std::filesystem::path& path);
     void edit(const Json& document);
+    void rename_entity(const std::string& id, const std::string& name);
+    void reparent_entity(const std::string& id, const std::string& parent);
+    std::string duplicate_subtree(const std::string& id);
+    void delete_subtree(const std::string& id);
     bool undo();
     bool redo();
     void translate(float x, float y, float z);

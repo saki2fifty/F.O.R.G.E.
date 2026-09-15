@@ -43,3 +43,9 @@ The Diligent Release defaults enable AVX2 CPU instructions. This development bui
 
 ## Native editor integration validation
 Local headless integration tests exercise real CMake/Ninja builds, failed syntax retention, compatible replacement, probe crashes, activation-crash rollback, schema restart, source watching, and runtime checkpoint recovery. Windows compilation, both editor test suites, developer-launcher validation, and packaging passed in [run 34984715619](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/34984715619), source `f2c1cca8227e8bc375047a5734e529e77960eb35`. Interactive desktop validation of the Native panel remains to be done. Rebuild after reopening an editor session to select a validated module; existing build artifacts remain cached.
+
+## Scene organization increment
+
+The World panel displays nested parent/child entities. Inspector supports rename (Enter to commit), reparent to an entity or scene root, duplicate subtree, and delete subtree. Each command is one undoable edit. Duplicate preserves unknown data and remaps internal parent/base links; opaque plugin-specific references are preserved as-is because their schemas are unknown. Deleting a prefab referenced outside the subtree is rejected. Parenting changes Flecs ChildOf organization; Position remains world-space, with no transform inheritance yet.
+
+Core tests cover hierarchy save/load, stable IDs, duplicate collision avoidance, relationship remapping, invalid reparent rejection, protected prefab deletion, and undo/redo. Windows build validation is pending; interactive hierarchy controls require a Windows desktop check.

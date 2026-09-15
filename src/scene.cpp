@@ -57,6 +57,49 @@ void validate(const Json& doc) {
             visit(id);
         }
     }
+    // Prefab expansion follows base links and then child links. Validate their
+    // combined graph before Flecs can attempt recursive child instantiation.
+    std::map<std::string, std::vector<std::string>> expansion;
+    for (const auto& [id, e] : entities) {
+        if (e->contains("base"))
+            expansion[id].push_back(e->at("base").get<std::string>());
+        if (e->contains("parent"))
+            expansion[e->at("parent").get<std::string>()].push_back(id);
+    }
+    std::set<std::string> visiting, done;
+    std::function<void(const std::string&)> visit = [&](const std::string& id) {
+        if (done.contains(id))
+            return;
+        if (!visiting.insert(id).second)
+            throw std::runtime_error(
+                "Parent and prefab links would recursively instantiate the hierarchy");
+        for (const auto& next : expansion[id])
+            visit(next);
+        visiting.erase(id);
+        done.insert(id);
+    };
+    for (const auto& [id, e] : entities) {
+        (void)e;
+        visit(id);
+    }
+}
+Json& find_entity(Json& doc, const std::string& id) {
+    for (auto& entity : doc["entities"])
+        if (entity.at("id") == id)
+            return entity;
+    throw std::runtime_error("Entity no longer exists");
+}
+std::set<std::string> subtree(Json& doc, const std::string& id) {
+    find_entity(doc, id);
+    std::set<std::string> ids{id};
+    bool changed;
+    do {
+        changed = false;
+        for (const auto& e : doc["entities"])
+            if (ids.contains(e.value("parent", std::string{})))
+                changed |= ids.insert(e.at("id").get<std::string>()).second;
+    } while (changed);
+    return ids;
 }
 } // namespace
 Scene::Scene() { replace(Json{{"version", 1}, {"entities", Json::array()}}); }
@@ -181,11 +224,76 @@ void Scene::load(const std::filesystem::path& path) {
 }
 void Scene::edit(const Json& doc) {
     auto before = document();
+    if (before == doc)
+        return;
     replace(doc);
     undo_.push_back(std::move(before));
     redo_.clear();
     if (undo_.size() > 100)
         undo_.erase(undo_.begin());
+}
+void Scene::rename_entity(const std::string& id, const std::string& name) {
+    if (name.empty() || name.find_first_not_of(" \t\r\n") == std::string::npos)
+        throw std::runtime_error("Entity name must not be blank");
+    auto doc = document();
+    find_entity(doc, id)["name"] = name;
+    edit(doc);
+}
+void Scene::reparent_entity(const std::string& id, const std::string& parent) {
+    auto doc = document();
+    auto& e = find_entity(doc, id);
+    if (parent.empty())
+        e.erase("parent");
+    else
+        e["parent"] = parent;
+    edit(doc); // Existing relationship validation rejects missing parents and cycles.
+}
+std::string Scene::duplicate_subtree(const std::string& id) {
+    auto doc = document();
+    const auto ids = subtree(doc, id);
+    std::set<std::string> occupied;
+    for (const auto& e : doc["entities"])
+        occupied.insert(e.at("id").get<std::string>());
+    std::map<std::string, std::string> remap;
+    for (const auto& original : ids) {
+        unsigned suffix = 1;
+        std::string copy;
+        do {
+            copy = original + "-copy-" + std::to_string(suffix++);
+        } while (!occupied.insert(copy).second);
+        remap[original] = copy;
+    }
+    auto copies = Json::array();
+    for (auto e : doc["entities"]) {
+        const auto original = e.at("id").get<std::string>();
+        if (!ids.contains(original))
+            continue;
+        e["id"] = remap.at(original);
+        if (original == id)
+            e["name"] = e.at("name").get<std::string>() + " Copy";
+        for (const char* relation : {"parent", "base"})
+            if (e.contains(relation) && remap.contains(e.at(relation).get<std::string>()))
+                e[relation] = remap.at(e.at(relation).get<std::string>());
+        copies.push_back(std::move(e));
+    }
+    for (auto& e : copies)
+        doc["entities"].push_back(std::move(e));
+    edit(doc);
+    return remap.at(id);
+}
+void Scene::delete_subtree(const std::string& id) {
+    auto doc = document();
+    const auto ids = subtree(doc, id);
+    auto remaining = Json::array();
+    for (const auto& e : doc["entities"]) {
+        if (ids.contains(e.at("id").get<std::string>()))
+            continue;
+        if (ids.contains(e.value("base", std::string{})))
+            throw std::runtime_error("Cannot delete a prefab used outside this subtree");
+        remaining.push_back(e);
+    }
+    doc["entities"] = std::move(remaining);
+    edit(doc);
 }
 bool Scene::undo() {
     if (undo_.empty())
