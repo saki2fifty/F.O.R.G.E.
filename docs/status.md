@@ -13,6 +13,9 @@ SDL3/D3D12 editor; pinned ImGui docking; initial workspace; reflected Position I
 The preview renderer has passed a Linux C++ syntax check against the pinned Diligent headers. Windows compilation and linking passed in [run 34942452023](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/34942452023). The user confirmed rendering, editing, undo/redo, saving, docking persistence, tooltips, and basic stability on Windows. Additional DPI/display configurations remain unverified.
 
 ## Current editor increment
+
+Windows build and automated process/scaling tests passed in [run 34945457048](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/34945457048), source commit `1ea9350dd8469396303eecaff8c25a0cbbc5e573`. The updated theme, shortcuts, and Play controls still need an interactive desktop check.
+
 - Slate theme with consistent spacing, restrained blue accents, and rounded controls.
 - Persistent interface scale, 65–200%: Ctrl+Minus zooms out, Ctrl+Plus/Ctrl+Equals zooms in, Ctrl+0 resets. Keypad equivalents work. Both fonts and widget geometry scale; viewport camera zoom is separate.
 - Play/Restart/Stop launch the adjacent runtime through SDL3 nonblocking process pipes.
