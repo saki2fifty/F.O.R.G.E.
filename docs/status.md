@@ -48,4 +48,11 @@ Local headless integration tests exercise real CMake/Ninja builds, failed syntax
 
 The World panel displays nested parent/child entities. Inspector supports rename (Enter to commit), reparent to an entity or scene root, duplicate subtree, and delete subtree. Each command is one undoable edit. Duplicate preserves unknown data and remaps internal parent/base links; opaque plugin-specific references are preserved as-is because their schemas are unknown. Deleting a prefab referenced outside the subtree is rejected. Parenting changes Flecs ChildOf organization; Position remains world-space, with no transform inheritance yet.
 
-Core tests cover hierarchy save/load, stable IDs, duplicate collision avoidance, relationship remapping, invalid reparent rejection, protected prefab deletion, and undo/redo. Windows build validation is pending; interactive hierarchy controls require a Windows desktop check.
+Core tests cover hierarchy save/load, stable IDs, duplicate collision avoidance, relationship remapping, invalid reparent rejection, protected prefab deletion, and undo/redo. Windows compilation, core tests, editor native/process tests, and packaging passed in [run 34992573961](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/34992573961), source `894890765cc69b6d62249eeb6e03284fac5b4edc`. Interactive hierarchy controls require a Windows desktop check.
+
+Desktop check for scene organization:
+1. Add two entities. Rename each in Inspector, pressing Enter.
+2. Select the second entity and choose the first in Parent. Expand the first in World.
+3. Select the parent and Duplicate subtree; expand the copy and check its child.
+4. Delete the copy, then Undo and Redo. Undo again, Save, close and reopen; check the hierarchy.
+5. Try parenting the original parent under its child. The command should be rejected in Console and leave the scene unchanged.
