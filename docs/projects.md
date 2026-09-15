@@ -1,42 +1,39 @@
-# Projects, scenes, and recovery
+# Project and document formats
 
-Use **File > New project** to choose an existing parent folder and a new project name. FORGE creates a new subfolder containing `Scenes`, `Assets`, `Native`, and `forge.project.json`. Existing folders are never overwritten. Use **Open project** to select an existing project folder; the last eight successful opens appear under **Recent projects**. The last project is reopened at startup.
+End-user instructions live in the separate [Projects](../manual/editor/projects.md), [Scenes](../manual/editor/scenes.md), and [Saving and recovery](../manual/editor/saving-recovery.md) manual pages. This document describes the storage and controller contracts.
 
-The version 1 manifest names the project and its startup scene:
+## Project manifest
+
+`forge.project.json` version 1 contains a display name and a project-relative startup scene:
 
 ```json
 {"version": 1, "name": "MyGame", "startup_scene": "Scenes/main.scene.json"}
 ```
 
-A project opens its startup scene, rather than the last scene you edited. To change startup selection, edit the manifest while the editor is closed. Legacy folders with `main.scene.json` remain supported. A fresh launch in a folder without a manifest or scene begins with an empty scene.
+The startup path must resolve to a `.json` file inside the canonical project root. Scene destinations cannot be the root manifest or files beneath `.forge`. A missing manifest selects the legacy `main.scene.json` path. Initial startup can allow an empty legacy folder; opening a project through the normal project command requires its startup scene.
 
-## Scene commands
+Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the manifest in a sibling directory before renaming it into place. Existing destinations are rejected. This is not a cross-process project locking protocol.
 
-| Command | Shortcut | Behavior |
-| --- | --- | --- |
-| New scene | Ctrl+N | Start an empty untitled scene |
-| Open scene | Ctrl+O | Choose a JSON scene within this project |
-| Save | Ctrl+S | Save active scene; untitled scenes ask for a filename |
-| Save As | Ctrl+Shift+S | Save under another filename within this project |
-| Reload from disk | File menu | Reopen the active scene file |
-| Undo / Redo | Ctrl+Z / Ctrl+Shift+Z or Ctrl+Y | Undo or redo authored changes |
-| Duplicate subtree | Ctrl+D | Duplicate the selected entity and descendants |
-| Delete subtree | Delete, with World focused | Delete selection and descendants |
+## Authoring document state
 
-Keyboard commands are suppressed while typing or interacting with modal dialogs. Opening or creating a scene clears its undo history. Switching scenes/projects stops play and resets the editor camera. Switching is blocked during native compilation. Project switches recreate the native build controller for the new root.
+`SceneDocument` owns the active project/path, saved JSON baseline, persisted-file flag, and cached dirty state. `Scene` owns Flecs state and bounded undo/redo history. A successful validated replacement advances the scene revision; a document reset also clears history. Dirty comparison only recomputes after revision changes.
 
-The title bar prefixes unsaved scenes with `*`; World also shows saved/unsaved state. New/Open/Reload/project switching and closing the editor offer **Save and continue**, **Discard changes**, or **Cancel** when edits are unsaved. A failed save or open preserves the current scene. Save rejects externally changed or deleted active files: use Save As with another filename to preserve both versions. This is conflict detection, not concurrent editing or merging.
+Open validates before replacing active state. Save checks the active file against the saved baseline and rejects external changes or deletion before writing atomically. Save As commits the new filename/baseline only after a successful write. These checks detect conflicts but do not provide cross-process compare-and-swap or merging.
 
-Scene files must use `.json` and stay inside the project. The manifest and `.forge` working area are not scene-save destinations. Save As adds `.scene.json` to extensionless selections. Native OS dialogs handle file selection; diagnostics appear in Console or the active modal.
+## Recovery envelope
 
-## Recovery
+Recovery files reside in `.forge/recovery`. A deterministic 64-bit FNV-1a hash of the relative scene path selects the filename; untitled scenes use one project-local slot. The version-1 envelope contains:
 
-Every 30 seconds, changed unsaved scenes receive an atomic recovery snapshot under `.forge/recovery`. **File > Create recovery snapshot** writes one immediately. Snapshots do not overwrite scene files. Successful saves clear the corresponding snapshot; explicitly discarding edits clears it after the requested operation succeeds.
+```json
+{"version": 1, "scene": "Scenes/main.scene.json", "base": {}, "document": {}}
+```
 
-Opening a scene with a snapshot offers recovery. **File > Recover current scene** restores a matching snapshot as one undoable edit. The saved baseline must still match; a mismatch or malformed snapshot produces a diagnostic and preserves the recovery file. Save after inspecting the restored scene.
+`base` contains the saved JSON baseline and `document` the unsaved scene. Untitled records use an empty scene path and null base. A named recovery must match the current path and baseline before it becomes one undoable edit. Untitled recovery resets into an unsaved document. Malformed or mismatched records are retained for inspection.
 
-Untitled scenes have one recovery slot per project. **Recover untitled scene** can restore it after restarting, including when the project startup scene is opened first. Choosing **Later** preserves a snapshot for manual recovery. There is no recovery browser or merge tool yet. Open other named scenes individually to discover their snapshots.
+Autosave writes changed dirty revisions at approximately 30-second intervals. Successful saves remove matching recovery files. An explicit discard removes the old snapshot only after the requested transition succeeds.
 
-## Validation scope
+## Editor coordination and validation
 
-Automated document/controller tests cover project creation, scene round trips, dirty/undo state, external-write/deletion conflicts, invalid opens, protected destinations, named and untitled recovery, and pending Save/Discard/Cancel transitions. Headless tests do not interact with native OS dialogs. Desktop checks should include selecting folders/files, cancelling a Save As dialog, and recovering a snapshot after terminating the editor without a normal save.
+`EditorFiles` coordinates asynchronous SDL dialogs and Save/Discard/Cancel transitions on the main thread. Dialog callbacks copy path/error data into synchronized shared state; callbacks do not mutate scene or UI state. Project switches stop play and recreate the native controller. Scene/project changes are blocked during native builds.
+
+`tests/document_tests.hpp` exercises project creation, dirty state, undo-to-baseline, failed opens, destination constraints, external conflicts, recovery, and guarded transitions. Native file-dialog interaction remains a desktop acceptance check. Layout/preferences are global; last active scene and per-project camera persistence are not implemented.
