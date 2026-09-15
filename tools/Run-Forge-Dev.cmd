@@ -3,7 +3,10 @@ setlocal
 set "FORGE_VS="
 set "FORGE_VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if not exist "%FORGE_VSWHERE%" goto missing
-for /f "usebackq delims=" %%i in (`"%FORGE_VSWHERE%" -latest -products * -version "[17.0,18.0)" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "FORGE_VS=%%i"
+pushd "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer"
+if errorlevel 1 goto missing
+for /f "usebackq delims=" %%i in (`vswhere.exe -latest -products * -version "[17.0,18.0)" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "FORGE_VS=%%i"
+popd
 if not defined FORGE_VS goto missing
 call "%FORGE_VS%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
 if errorlevel 1 goto missing
