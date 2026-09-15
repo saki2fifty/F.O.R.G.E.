@@ -89,13 +89,13 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c
       - run: python -m pip install cmake==4.4.3 ninja==1.13.2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --preset windows-editor -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+      - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --build --preset windows-editor --target forge_editor forge_runtime --parallel 2
+      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: python tools/package_windows.py --build ../AgentFiles/build/windows-editor --dependencies ../AgentFiles/dependencies/windows-editor --output ../AgentFiles/packages/FORGE-Windows-x64.zip
+        run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output ../AgentFiles/packages/FORGE-Windows-x64.zip
       - name: Upload Windows package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
