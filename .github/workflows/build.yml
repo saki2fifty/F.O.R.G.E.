@@ -126,7 +126,7 @@ jobs:
           restore-keys: |
             ${{ steps.cache-key.outputs.key }}-
       - name: Discard an incomplete cache restore
-        if: steps.editor-cache.outcome == 'failure'
+        if: ${{ !inputs.clean_build && (steps.editor-cache.outcome == 'failure' || steps.editor-cache.outputs.cache-matched-key == '') }}
         shell: pwsh
         working-directory: ${{ runner.temp }}
         run: |
