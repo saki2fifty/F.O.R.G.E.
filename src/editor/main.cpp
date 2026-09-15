@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
                 forge::ui::initialize_workspace(dock);
                 initialize_layout = false;
             }
-            if (ImGui::BeginMainMenuBar()) {
+            if (forge::ui::begin_toolbar()) {
                 try {
                     if (forge::ui::button(
                             "Save", "Atomically save the authored scene to main.scene.json.")) {
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
                 ImGui::Text("UI %.0f%%", forge::ui::interface_scale * 100);
                 forge::ui::help("Interface zoom: Ctrl+Minus / Ctrl+Plus (or Ctrl+Equals). "
                                 "Ctrl+0 resets to 100%. Saved between sessions.");
-                ImGui::EndMainMenuBar();
+                forge::ui::end_toolbar();
             }
             auto doc = scene.document();
             const auto schema = scene.schema();

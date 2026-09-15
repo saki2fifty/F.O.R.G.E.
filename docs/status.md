@@ -77,3 +77,10 @@ The bottom status bar reserves docking space and wraps fields on smaller windows
 Rendering calls Diligent `Present(0)`, with no application FPS cap. The pinned Diligent backend requests tearing where supported in windowed mode; driver/compositor settings can still affect observed presentation rates. Frame-loop timing is not a GPU execution-time measurement. GPU utilization and runtime-worker telemetry are not implemented.
 
 Local headless tests pass for altitude input and release behavior, reversed pan, telemetry arithmetic, and bottom-bar layout/docking separation at 65%, 100%, and 200% scale in 640- and 1440-pixel windows. Windows compilation, native CPU/memory counter validation, shader compilation, and editor suites passed in [run 35004329757](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35004329757), source `2fe63eeab60af141a04692db865c2e129fbdec20`. Live presentation rates and the final status-bar appearance remain desktop checks.
+
+
+## Toolbar spacing and contextual help
+
+The top toolbar reserves extra space above and below its controls, scaled with text size, while retaining regular button sizes. Docked panels begin below the full padded toolbar. Existing workspace layouts and interface zoom remain supported.
+
+Shared tooltips now wait for approximately 0.4 seconds of hover, require a stationary pointer, wrap long text, and prefer placement outside the hovered control (below, above, then beside it). Large surfaces with no external space use an on-screen placement away from the pointer. Tooltips are suppressed during mouse-button gestures; disabled controls retain help and the global Tooltips toggle still applies. Local ImGui tests cover spacing, docking clearance, tooltip delay/non-overlap/wrapping/edge placement, disabled controls and toggle at 65%, 90%, 100%, and 200% scale. Windows validation is pending for this polish batch.

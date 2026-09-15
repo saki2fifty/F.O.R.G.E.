@@ -5,9 +5,75 @@
 #include <imgui_internal.h>
 namespace forge::ui {
 inline bool tooltips = true;
+inline ImVec2 tooltip_position(const ImRect& item, ImVec2 size, const ImRect& screen, float gap) {
+    const float x =
+        std::clamp(item.Min.x, screen.Min.x, std::max(screen.Min.x, screen.Max.x - size.x));
+    const float y =
+        std::clamp(item.Min.y, screen.Min.y, std::max(screen.Min.y, screen.Max.y - size.y));
+    if (item.Max.y + gap + size.y <= screen.Max.y)
+        return {x, item.Max.y + gap};
+    if (item.Min.y - gap - size.y >= screen.Min.y)
+        return {x, item.Min.y - gap - size.y};
+    if (item.Max.x + gap + size.x <= screen.Max.x)
+        return {item.Max.x + gap, y};
+    if (item.Min.x - gap - size.x >= screen.Min.x)
+        return {item.Min.x - gap - size.x, y};
+    // Large surfaces (e.g. the viewport image) may leave no external space.
+    // Keep the tooltip on screen and on the opposite side from the pointer.
+    const auto mouse = ImGui::GetIO().MousePos;
+    return {mouse.x < screen.GetCenter().x ? std::max(screen.Min.x, screen.Max.x - size.x)
+                                           : screen.Min.x,
+            mouse.y < screen.GetCenter().y ? std::max(screen.Min.y, screen.Max.y - size.y)
+                                           : screen.Min.y};
+}
 inline void help(const char* text) {
-    if (tooltips && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", text);
+    if (!tooltips || ImGui::IsAnyMouseDown() ||
+        !ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
+        return;
+    const auto& style = ImGui::GetStyle();
+    const auto* viewport = ImGui::GetWindowViewport();
+    const float gap = std::max(6.0f, ImGui::GetFontSize() * 0.6f);
+    const ImRect screen{
+        ImVec2(viewport->Pos.x + gap, viewport->Pos.y + gap),
+        ImVec2(viewport->Pos.x + viewport->Size.x - gap, viewport->Pos.y + viewport->Size.y - gap)};
+    const float wrap = std::max(
+        1.0f, std::min(ImGui::GetFontSize() * 30, screen.GetWidth() - 2 * style.WindowPadding.x));
+    const auto text_size = ImGui::CalcTextSize(text, nullptr, false, wrap);
+    const ImVec2 size{std::ceil(text_size.x + 2 * style.WindowPadding.x),
+                      std::ceil(text_size.y + 2 * style.WindowPadding.y)};
+    const ImRect item{ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+    ImGui::SetNextWindowPos(tooltip_position(item, size, screen, gap));
+    ImGui::SetNextWindowSize(size);
+    if (ImGui::BeginTooltip()) {
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
+        ImGui::TextUnformatted(text);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+// Keep toolbar controls at their regular size, adding space around the row
+// instead of inflating every button's frame padding.
+inline bool begin_toolbar() {
+    const auto& style = ImGui::GetStyle();
+    const float padding = std::max(6.0f, ImGui::GetFontSize() * 0.75f);
+    ImGui::GetCurrentContext()->NextWindowData.MenuBarOffsetMinVal = {style.WindowPadding.x,
+                                                                      padding};
+    const auto flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar |
+                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing;
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, style.Colors[ImGuiCol_MenuBarBg]);
+    const bool visible =
+        ImGui::BeginViewportSideBar("##FORGE-toolbar", ImGui::GetMainViewport(), ImGuiDir_Up,
+                                    ImGui::GetFrameHeight() + 2 * padding, flags);
+    ImGui::PopStyleColor();
+    ImGui::GetCurrentContext()->NextWindowData.MenuBarOffsetMinVal = {0, 0};
+    if (visible && ImGui::BeginMenuBar())
+        return true;
+    ImGui::End();
+    return false;
+}
+inline void end_toolbar() {
+    ImGui::EndMenuBar();
+    ImGui::End();
 }
 inline bool button(const char* label, const char* description) {
     const bool result = ImGui::Button(label);
@@ -44,6 +110,10 @@ inline void style(float scale = 1.0f) {
     ImGui::GetStyle() = ImGuiStyle{};
     ImGui::StyleColorsDark();
     auto& s = ImGui::GetStyle();
+    s.HoverDelayNormal = 0.4f;
+    s.HoverFlagsForTooltipMouse = ImGuiHoveredFlags_Stationary | ImGuiHoveredFlags_DelayNormal |
+                                  ImGuiHoveredFlags_NoSharedDelay |
+                                  ImGuiHoveredFlags_AllowWhenDisabled;
     s.WindowRounding = 6;
     s.ChildRounding = 5;
     s.FrameRounding = 4;

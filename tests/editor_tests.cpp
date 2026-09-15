@@ -156,7 +156,7 @@ void test_telemetry_and_status() {
     stats.frames = averages;
     stats.cpu = 25;
     stats.process.working_set = 512 * 1048576ULL;
-    for (float scale : {0.65f, 1.0f, 2.0f}) {
+    for (float scale : {0.65f, 0.9f, 1.0f, 2.0f}) {
         forge::ui::style(scale);
         for (float window_width : {1440.0f, 640.0f}) {
             io.DisplaySize = {window_width, 900};
@@ -164,17 +164,108 @@ void test_telemetry_and_status() {
                 ImGui::NewFrame();
                 forge::ui::status_bar(stats, false, 17);
                 ImGui::DockSpaceOverViewport();
+                if (forge::ui::begin_toolbar()) {
+                    ImGui::Button("Save");
+                    const auto minimum = ImGui::GetItemRectMin(), maximum = ImGui::GetItemRectMax();
+                    const auto* toolbar = ImGui::GetCurrentWindow();
+                    require(minimum.y - toolbar->Pos.y >= 5 * scale &&
+                                toolbar->Pos.y + toolbar->Size.y - maximum.y >= 5 * scale,
+                            "Toolbar lacks padding above/below controls");
+                    forge::ui::end_toolbar();
+                }
                 ImGui::Render();
             }
             const auto* bar = ImGui::FindWindowByName("##FORGE-status");
             const auto* viewport = ImGui::GetMainViewport();
             require(bar && bar->Active, "Permanent status bar is missing");
+            const auto* toolbar = ImGui::FindWindowByName("##FORGE-toolbar");
+            require(toolbar && viewport->WorkPos.y >= toolbar->Pos.y + toolbar->Size.y - 1,
+                    "Docking work area overlaps toolbar");
             require(std::abs(bar->Pos.y + bar->Size.y - viewport->Size.y) < 1,
                     "Status bar is not pinned to the bottom");
             require(viewport->WorkPos.y + viewport->WorkSize.y <= bar->Pos.y + 1,
                     "Docking work area overlaps status bar");
             require(bar->ContentSize.x <= bar->Size.x - 2 * ImGui::GetStyle().WindowPadding.x + 1,
                     "Status fields overflow at supported scale/width");
+        }
+    }
+    ImGui::DestroyContext();
+}
+void test_tooltip_placement() {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {800, 600};
+    io.DeltaTime = 0.05f;
+    io.ConfigInputTrickleEventQueue = false;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    for (float scale : {0.65f, 0.9f, 1.0f, 2.0f}) {
+        forge::ui::style(scale);
+        for (bool bottom : {false, true}) {
+            const ImVec2 anchor{400, bottom ? 520.0f : 60.0f};
+            bool disabled = false;
+            float wrap_limit = 0;
+            ImRect item;
+            auto frame = [&]() {
+                ImGui::NewFrame();
+                ImGui::SetNextWindowPos({0, 0});
+                ImGui::SetNextWindowSize(io.DisplaySize);
+                ImGui::Begin("Tooltip fixture", nullptr,
+                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
+                ImGui::SetCursorScreenPos(anchor);
+                ImGui::BeginDisabled(disabled);
+                ImGui::Button("Delete subtree");
+                item = {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+                wrap_limit = ImGui::GetFontSize() * 30 + 2 * ImGui::GetStyle().WindowPadding.x + 1;
+                forge::ui::help("Delete this entity and all descendants. Undo restores them. "
+                                "Prefabs used outside the subtree cannot be deleted.");
+                ImGui::EndDisabled();
+                ImGui::End();
+                ImGui::Render();
+            };
+            auto tooltip = [&]() -> ImGuiWindow* {
+                auto& context = *ImGui::GetCurrentContext();
+                for (auto* window : context.Windows)
+                    if ((window->Flags & ImGuiWindowFlags_Tooltip) &&
+                        window->LastFrameActive == context.FrameCount)
+                        return window;
+                return nullptr;
+            };
+            io.AddMousePosEvent(5, 5);
+            frame();
+            frame();
+            io.AddMousePosEvent(anchor.x + 10, anchor.y + 10);
+            frame();
+            frame();
+            require(!tooltip(), "Tooltip appeared without hover delay");
+            for (int i = 0; i < 16; ++i)
+                frame();
+            auto* tip = tooltip();
+            require(tip, "Delayed tooltip did not appear");
+            const ImRect bounds{tip->Pos, {tip->Pos.x + tip->Size.x, tip->Pos.y + tip->Size.y}};
+            require(!bounds.Overlaps(item), "Tooltip covers the hovered control");
+            require(bounds.Min.x >= 0 && bounds.Min.y >= 0 && bounds.Max.x <= 801 &&
+                        bounds.Max.y <= 601,
+                    "Tooltip leaves the screen");
+            require(tip->Size.x <= wrap_limit,
+                    ("Long tooltip did not wrap: scale=" + std::to_string(scale) + " width=" +
+                     std::to_string(tip->Size.x) + " limit=" + std::to_string(wrap_limit))
+                        .c_str());
+            forge::ui::tooltips = false;
+            frame();
+            require(!tooltip(), "Global tooltip toggle ignored");
+            forge::ui::tooltips = true;
+            disabled = true;
+            for (int i = 0; i < 16; ++i)
+                frame();
+            require(tooltip(), "Disabled control lost contextual help");
+            io.AddMouseButtonEvent(ImGuiMouseButton_Right, true);
+            frame();
+            require(!tooltip(), "Tooltip appeared during a mouse gesture");
+            io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
+            frame();
         }
     }
     ImGui::DestroyContext();
@@ -199,6 +290,7 @@ int main(int argc, char** argv) {
         ImGui::DestroyContext();
         test_camera_input();
         test_telemetry_and_status();
+        test_tooltip_placement();
         forge::Scene authored;
         auto original = authored.document();
         original["entities"].push_back(
