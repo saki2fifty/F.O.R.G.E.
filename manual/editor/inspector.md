@@ -17,4 +17,10 @@ During Play, Inspector still edits the authored scene. Use Restart to copy those
 
 **Name** commits when you press Enter. **ID** shows the stable identity and is read-only. **Parent**, **Duplicate subtree**, and **Delete subtree** operate on scene organization; their behavior is explained in [Entities and hierarchy](entities-hierarchy.md).
 
-Only the supported Position fields have property controls today. Materials, arbitrary component editing, multi-selection, rotation, scale, and transform gizmos are not implemented.
+## Position commands
+
+**Reset position** sets X, Y, and Z to zero. **Place on ground** sets Y to 0.5 while keeping X and Z, placing the unit block's bottom on the reference plane. It does not query terrain or collisions. **Snap position** rounds all three coordinates to multiples of the Scene panel's snap Step. Each command is one undoable edit.
+
+For direct manipulation, use the [Viewport move handles](viewport.md). Inspector shows the move preview but disables its controls during the drag; releasing the mouse commits it.
+
+Only the supported Position fields have property controls today. Materials, arbitrary component editing, multi-selection, rotation, and scale are not implemented.

@@ -7,6 +7,7 @@ FORGE uses dockable panels so you can arrange the workspace around your task. Dr
 - **World** lists scene entities and their parent/child organization.
 - **Inspector** edits the World selection.
 - **Scene** shows the block preview and camera controls.
+- **Content** browses project scene files and opens them through the save guard.
 - **Native** creates and compiles gameplay source.
 - **Console** displays editor, file, runtime, and compiler diagnostics.
 

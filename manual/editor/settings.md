@@ -16,6 +16,6 @@ Pause the pointer over a control to show help after roughly 0.4 seconds. Long he
 
 ## Persisted preferences
 
-FORGE remembers interface scale, tooltip state, panel layout, recent/last projects, and native tool/build-on-save settings in its Windows user preferences area. Camera placement and undo history do not persist yet.
+FORGE remembers interface scale, tooltip state, panel layout, recent/last projects, and native tool/build-on-save settings in its Windows user preferences area. Scene tool preferences also persist: move handles, grid, snap spacing, and flight speed. Use **Save view** in Scene to keep a per-scene camera bookmark. Undo history does not persist.
 
 There is no theme picker or general settings dialog yet. See [Panels and windows](panels-windows.md).

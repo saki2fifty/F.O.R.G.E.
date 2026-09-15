@@ -9,6 +9,7 @@ Start with [Your first scene](getting-started/first-scene.md). The offline editi
 - [Projects](editor/projects.md): create, open, and return to projects.
 - [Scenes](editor/scenes.md): create and switch scene files.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
+- [Content browser](editor/content-browser.md): find and open project scene files.
 - [Inspector](editor/inspector.md): edit the selected entity's properties.
 - [Saving and recovery](editor/saving-recovery.md): protect unsaved work and restore snapshots.
 - [Undo and redo](editor/undo-redo.md): reverse authored changes.

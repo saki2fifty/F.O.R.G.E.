@@ -11,6 +11,7 @@ class EditorCamera {
     using Vec = std::array<float, 3>;
     Vec target{0, 1, 0};
     float yaw = 0, pitch = 0, distance = 6;
+    float fly_speed = 5;
     static constexpr float focal = 1.7320508f; // 60-degree vertical field of view.
     static constexpr float near_plane = 0.05f, far_plane = 1000000;
     Vec forward() const {
@@ -59,7 +60,8 @@ class EditorCamera {
         if (length == 0)
             return;
         // Normalize the world-space direction, including vertical flight while tilted.
-        const float step = 5 * std::min(seconds, 0.1f) / std::max(1.0f, length);
+        const float step =
+            std::clamp(fly_speed, 0.1f, 1000.0f) * std::min(seconds, 0.1f) / std::max(1.0f, length);
         for (unsigned i = 0; i < 3; ++i)
             target[i] += direction[i] * step;
     }

@@ -10,7 +10,7 @@ Choose **File → New scene**, or press Ctrl+N. The scene starts empty and is na
 
 Choose **File → Open scene...**, or press Ctrl+O, and select a JSON scene inside the current project. If you have unsaved edits, choose whether to save, discard, or cancel before opening it.
 
-A successful open clears the previous scene's undo history, stops play, and resets the viewport camera. An invalid or unreadable scene produces a Console diagnostic and leaves the current authored scene available.
+A successful open clears the previous scene's undo history, stops play, and restores its saved view bookmark, or resets the viewport camera if none exists. An invalid or unreadable scene produces a Console diagnostic and leaves the current authored scene available.
 
 ## Save another copy
 
@@ -23,3 +23,7 @@ Scene destinations must end in `.json`. The project manifest and `.forge` workin
 Choose **File → Reload from disk** to reopen the active file, resolving any unsaved edits first. This is useful after editing a scene file externally. An untitled scene has no disk file to reload.
 
 See [Saving and recovery](saving-recovery.md) for conflict handling and [Undo and redo](undo-redo.md) for reversing edits.
+
+## Browse project scenes
+
+The **Content** panel lists project-relative JSON scene candidates. Filter the list, select a file and choose **Open selected**, or double-click it. Opening uses the same unsaved-change guard as File → Open scene. See [Content browser](content-browser.md).

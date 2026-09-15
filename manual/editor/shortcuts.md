@@ -22,6 +22,16 @@ Commands that edit scenes are suppressed while typing or interacting with modal 
 
 Keypad plus, minus, and zero are also supported.
 
+## Viewport authoring
+
+- Left-click: select the nearest visible block; empty space clears selection.
+- Drag an axis handle: translate along its world axis.
+- Drag the center square: translate in the viewing plane.
+- Ctrl during a move: temporarily enable snapping.
+- Escape during a move: cancel without changing the authored scene.
+
+Viewport authoring is disabled during Play. A completed move is one Undo operation.
+
 ## Viewport navigation
 
 - MMB drag: orbit.

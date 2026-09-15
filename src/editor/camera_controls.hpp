@@ -4,13 +4,20 @@
 namespace forge::ui {
 // Submit at the image origin. An actual interactive item owns the drag and
 // acquires window focus on RMB/MMB, even when another docked panel had focus.
-inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_focused) {
+struct ViewportInput {
+    bool hovered = false, active = false, activated = false;
+};
+inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_focused,
+                            ViewportInput* input = nullptr) {
     ImGui::InvisibleButton("##viewport-navigation", size,
-                           ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+                           ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle |
+                               (input ? ImGuiButtonFlags_MouseButtonLeft : 0));
     const bool hovered = ImGui::IsItemHovered();
     const bool activated = ImGui::IsItemActivated();
     if (activated && application_focused)
         ImGui::SetWindowFocus();
+    if (input)
+        *input = {hovered, ImGui::IsItemActive(), activated};
     const auto& io = ImGui::GetIO();
     if (application_focused && ImGui::IsItemActive() && ImGui::IsWindowFocused()) {
         // The press may arrive with motion from another panel: start rotation
@@ -31,13 +38,15 @@ inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_
                     io.DeltaTime, float(ImGui::IsKeyDown(ImGuiKey_Space)) - float(io.KeyShift));
         }
     }
-    if (application_focused && hovered && !io.KeyCtrl)
+    if (application_focused && hovered && !io.KeyCtrl && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
         camera.zoom(io.MouseWheel);
     const bool frame = application_focused && hovered && !io.WantTextInput &&
+                       !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
                        ImGui::IsKeyPressed(ImGuiKey_F, false);
     help("MMB-drag: orbit. Shift+MMB-drag: pan. RMB-drag: look; hold RMB + WASD to fly, Space up, "
          "Shift down. "
-         "Wheel: zoom. F: frame selected. Click-drag directly over this view to start navigation.");
+         "Wheel: zoom. F: frame selected. LMB selects the nearest block; drag a selected axis or "
+         "center to move. Ctrl snaps; Escape cancels. Move tools are disabled in Play.");
     return frame;
 }
 } // namespace forge::ui

@@ -1,3 +1,4 @@
+#include "authoring_tests.hpp"
 #include "camera.hpp"
 #include "camera_controls.hpp"
 #include "document_tests.hpp"
@@ -294,6 +295,9 @@ int main(int argc, char** argv) {
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
         test_documents();
+        test_authoring();
+        for (float scale : {0.65f, 1.0f, 2.0f})
+            test_authoring_input(scale);
         test_camera_input();
         test_telemetry_and_status();
         test_tooltip_placement();

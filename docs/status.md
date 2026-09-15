@@ -29,7 +29,7 @@ The Native panel creates gameplay source, incrementally builds it, probes candid
 - IPC viewport frame transport.
 - Arbitrary gameplay component/system/observer registration, general reflected schema migration and lifecycle-aware DLL retirement. Current ABI only supports stateless callbacks over host-owned Position data.
 - Actual native editor-plugin loading, registration APIs, automatic startup-crash recovery and package UI.
-- Asset browser/import/caching/cooking; gizmos/snapping; complete prefab overrides; multi-edit.
+- Asset browser/import/caching/cooking; rotation/scale gizmos; complete prefab overrides; multi-edit.
 - PBR game rendering, Jolt, audio, animation, navigation, game UI and standalone playable export.
 - First-person reference game, advanced 3D tools, Linux graphics, dedicated 2D editing and multiplayer.
 
@@ -60,7 +60,7 @@ Desktop check for scene organization:
 
 ## Viewport navigation increment
 
-The Scene view has an editor-only orbit/fly camera: MMB-drag to orbit, Shift+MMB-drag to pan, RMB-drag to look around, and hold RMB with WASD to fly at 5 world units/second. While holding RMB, Space raises altitude and Shift lowers it along world Y; both together cancel vertical input. Wheel zooms; F while hovering the image frames the selected visible block. Drag left/down with MMB to reveal more of the right/top faces; Shift+MMB left/down moves the camera right/up (horizontal pan reversed per user preference). RMB look keeps the camera position fixed. Navigation acquires Scene focus on a press directly over the viewport, even when World was selected. Frame selected, Fit scene, and Reset view buttons provide equivalent framing/reset controls. Camera navigation leaves scene data and running gameplay unchanged. Ctrl+Plus/Minus still scales the interface. The camera resets when reopening the editor; camera persistence, picking, and gizmos remain future work.
+The Scene view has an editor-only orbit/fly camera: MMB-drag to orbit, Shift+MMB-drag to pan, RMB-drag to look around, and hold RMB with WASD to fly at 5 world units/second. While holding RMB, Space raises altitude and Shift lowers it along world Y; both together cancel vertical input. Wheel zooms; F while hovering the image frames the selected visible block. Drag left/down with MMB to reveal more of the right/top faces; Shift+MMB left/down moves the camera right/up (horizontal pan reversed per user preference). RMB look keeps the camera position fixed. Navigation acquires Scene focus on a press directly over the viewport, even when World was selected. Frame selected, Fit scene, and Reset view buttons provide equivalent framing/reset controls. Camera navigation leaves scene data and running gameplay unchanged. Ctrl+Plus/Minus still scales the interface. The original increment reset the camera when reopening; the later scene-authoring tools add explicit view bookmarks, picking, and translation handles.
 
 Projection uses +Y up, +Z forward, a 60-degree vertical field of view, and D3D depth [0,1]. Five float4 constants explicitly carry object position/aspect and camera basis/projection data, avoiding matrix packing ambiguity. Framing uses the visible diagnostic cubes' bounding sphere and the narrower viewport angle; orbit pitch and zoom distance are bounded. This remains the block diagnostic renderer, not production game rendering.
 
@@ -98,3 +98,10 @@ The product uses `Build: yymmdd-counter` with UTC dates and a globally increasin
 The separate [user manual](../manual/README.md) contains 15 function-based pages covering the implemented editor, with plain explanations and how-to steps. Packaging includes Markdown sources and a navigable offline HTML edition. **Help → User Manual** requests the default browser; **Copy build information** copies ID/source. Technical documents remain here in `docs/`.
 
 Local core/editor regressions, Windows-header syntax, manual link/render/identity tests, release reservation rollover/re-download tests, and actionlint pass. Windows build **260915-000006**, source `4a0de76101959a89e8d6a8f4ade91b2d4215a7f1`, passed all jobs in [run 35012535659](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35012535659). Native iteration passed in 6.85s and editor/document/UI tests in 6.14s. Both executable `--version` checks matched the reserved ID. ZIP CRC, manifest hashes, source identity, and manual edition were verified. The offline manual was visually inspected in Chrome on Linux; launching it through Help on Windows remains a desktop check.
+
+
+## Scene authoring tools
+
+Added nearest-block viewport selection, selection outline, world-axis and viewing-plane move handles, snap/temporary Ctrl snap, one-command drag undo, cancellation, an XZ reference grid overlay, adjustable flight speed, per-scene view bookmarks, hierarchy filtering/expand-collapse/alphabetical siblings, a bounded project JSON scene browser, and Inspector reset/ground/snap commands. Scene/project opening restores a saved view bookmark if present. See the [Viewport](../manual/editor/viewport.md), [Content browser](../manual/editor/content-browser.md), and [Inspector](../manual/editor/inspector.md) guides.
+
+Move tools support Position translation only and are disabled during Play. Grid and selection lines are editor overlays, not depth-tested against blocks. The Content browser discovers scene candidates; it does not import assets. Camera bookmarks are explicit Save view snapshots, not continuous camera autosaves. Windows validation is pending.

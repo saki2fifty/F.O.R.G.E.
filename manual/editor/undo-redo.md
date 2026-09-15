@@ -6,7 +6,7 @@ Use **Undo** in the toolbar or Ctrl+Z. Use **Redo**, Ctrl+Shift+Z, or Ctrl+Y to 
 
 ## What is recorded
 
-Adding, renaming, reparenting, duplicating, deleting, and editing supported properties enter scene history. A subtree duplicate or deletion is one undoable operation. Restoring a named scene recovery snapshot is also undoable.
+Adding, renaming, reparenting, duplicating, deleting, and editing supported properties enter scene history. A subtree duplicate, deletion, completed viewport move, or Inspector position command is one undoable operation. Restoring a named scene recovery snapshot is also undoable.
 
 Saving does not clear history. Undoing back to the saved contents clears the unsaved indicator. A new edit after Undo clears the redo branch.
 

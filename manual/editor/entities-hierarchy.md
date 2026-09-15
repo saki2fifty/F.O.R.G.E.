@@ -4,7 +4,7 @@ Entities are the things you author in a scene. World lists them in a tree; Inspe
 
 ## Add and select an entity
 
-Select **Add entity** in the top toolbar. FORGE creates an entity with a unique authored ID and Position. Click its row in **World** to select it. Viewport clicking does not select entities yet.
+Select **Add entity** in the top toolbar. FORGE creates an entity with a unique authored ID and Position. Click its row in **World**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
 
 ## Rename an entity
 
@@ -23,3 +23,9 @@ Positions remain world-space values. Moving a parent does not move its children 
 **Delete subtree** removes the selection and its descendants. Delete also works when World has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet.
 
 See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
+
+## Search and expand the tree
+
+Use **Search names or IDs...** in World to filter the hierarchy. Matching descendants keep their ancestor rows visible, and matching paths open automatically. Matching is case-insensitive for ASCII text. Clear the search to show all entities again.
+
+Entities are listed alphabetically within each parent. **Expand all** opens all branches; **Collapse all** closes them. An active search keeps matching paths open even after Collapse all.

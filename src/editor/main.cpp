@@ -1,12 +1,15 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
 #include "camera_controls.hpp"
+#include "content.hpp"
 #include "files.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "play.hpp"
+#include "scene_tools.hpp"
 #include "status_bar.hpp"
+#include "view_state.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
@@ -73,6 +76,9 @@ int main(int argc, char** argv) {
         char cmake_path[1024] = "cmake";
         char ninja_path[1024] = "ninja";
         bool auto_build = false;
+        forge::ui::SceneTools scene_tools;
+        forge::ContentBrowser content;
+        char hierarchy_filter[256]{};
         std::vector<std::string> recent_projects;
         std::string last_project;
         try {
@@ -87,6 +93,12 @@ int main(int argc, char** argv) {
                 SDL_strlcpy(ninja_path, j.value("ninja", std::string("ninja")).c_str(),
                             sizeof(ninja_path));
                 auto_build = j.value("auto_build", false);
+                scene_tools.grid = j.value("grid", true);
+                scene_tools.move_tool = j.value("move_tool", true);
+                scene_tools.snap = j.value("snap", false);
+                scene_tools.snap_step = std::clamp(j.value("snap_step", 1.0f), 0.01f, 1000.0f);
+                scene_tools.grid_step = std::clamp(j.value("grid_step", 1.0f), 0.1f, 1000.0f);
+                scene_tools.fly_speed = std::clamp(j.value("fly_speed", 5.0f), 0.1f, 1000.0f);
                 recent_projects = j.value("recent_projects", std::vector<std::string>{});
                 last_project = j.value("last_project", std::string{});
             }
@@ -99,6 +111,12 @@ int main(int argc, char** argv) {
                                             {"cmake", cmake_path},
                                             {"ninja", ninja_path},
                                             {"auto_build", auto_build},
+                                            {"grid", scene_tools.grid},
+                                            {"move_tool", scene_tools.move_tool},
+                                            {"snap", scene_tools.snap},
+                                            {"snap_step", scene_tools.snap_step},
+                                            {"grid_step", scene_tools.grid_step},
+                                            {"fly_speed", scene_tools.fly_speed},
                                             {"recent_projects", recent_projects},
                                             {"last_project", last_project}}
                                     .dump(2));
@@ -129,6 +147,11 @@ int main(int argc, char** argv) {
         bool initialize_layout = !std::filesystem::exists(ini);
         forge::Viewport viewport(device);
         forge::EditorCamera camera;
+        try {
+            forge::restore_view(files.document, camera);
+        } catch (const std::exception& e) {
+            message = e.what();
+        }
         forge::Telemetry telemetry;
         std::string selected, name_entity, authored_name;
         char entity_name[1024]{};
@@ -165,6 +188,12 @@ int main(int argc, char** argv) {
                 play.stop();
                 selected.clear();
                 camera = {};
+                scene_tools.move.cancel();
+                try {
+                    forge::restore_view(files.document, camera);
+                } catch (const std::exception& e) {
+                    message = e.what();
+                }
                 if (active_project != files.document.project()) {
                     active_project = files.document.project();
                     native = std::make_unique<forge::NativeBuild>(
@@ -301,7 +330,12 @@ int main(int argc, char** argv) {
                 SDL_SetWindowTitle(window.get(), title.c_str());
                 current_title = title;
             }
-            auto doc = scene.document();
+            if (scene_tools.move.active() &&
+                (!scene_tools.move.valid_for(scene) ||
+                 !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || play.active() ||
+                 files.busy()))
+                scene_tools.move.cancel();
+            auto doc = scene_tools.move.preview(scene.document());
             const auto schema = scene.schema();
             if (ImGui::Begin("World")) {
                 forge::ui::heading("Entities", "Authored entities identified by stable project "
@@ -311,7 +345,19 @@ int main(int argc, char** argv) {
                                                                   : "New scene");
                 forge::ui::help("Save writes the current scene; dirty scenes get a recovery "
                                 "snapshot every 30 seconds.");
-                forge::ui::hierarchy(doc, selected);
+                ImGui::InputTextWithHint("##entity-filter", "Search names or IDs...",
+                                         hierarchy_filter, sizeof(hierarchy_filter));
+                forge::ui::help("Filter entity names and IDs; matching descendants retain their "
+                                "ancestors. ASCII case-insensitive.");
+                int expand = 0;
+                if (forge::ui::button("Expand all", "Expand all hierarchy branches."))
+                    expand = 1;
+                ImGui::SameLine();
+                if (forge::ui::button(
+                        "Collapse all",
+                        "Collapse all hierarchy branches. Search keeps matching paths open."))
+                    expand = -1;
+                forge::ui::hierarchy(doc, selected, hierarchy_filter, expand);
                 if (ImGui::IsWindowFocused() && !files.busy() && !ImGui::GetIO().WantTextInput &&
                     !ImGui::IsAnyItemActive() && !selected.empty() &&
                     ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
@@ -325,6 +371,7 @@ int main(int argc, char** argv) {
             }
             ImGui::End();
             if (ImGui::Begin("Inspector")) {
+                ImGui::BeginDisabled(scene_tools.move.active());
                 forge::ui::heading("Properties", "Position properties use world units. Changes are "
                                                  "undoable and serialize with the scene.");
                 for (auto& e : doc["entities"])
@@ -398,6 +445,39 @@ int main(int argc, char** argv) {
                             message = ex.what();
                         }
                         if (e["components"].contains("forge.position")) {
+                            try {
+                                auto position = forge::entity_position(doc, selected);
+                                if (position) {
+                                    bool apply = false;
+                                    if (forge::ui::button("Reset position",
+                                                          "Set this entity's world position to 0, "
+                                                          "0, 0 as one undoable edit.")) {
+                                        *position = {0, 0, 0};
+                                        apply = true;
+                                    }
+                                    if (forge::ui::button(
+                                            "Place on ground",
+                                            "Set this unit block's center Y to 0.5, keeping X and "
+                                            "Z. This is not collision or terrain placement.")) {
+                                        (*position)[1] = 0.5f;
+                                        apply = true;
+                                    }
+                                    if (forge::ui::button("Snap position",
+                                                          "Round all three coordinates to "
+                                                          "multiples of the Scene snap Step.")) {
+                                        for (auto& value : *position)
+                                            value = std::round(value / scene_tools.snap_step) *
+                                                    scene_tools.snap_step;
+                                        apply = true;
+                                    }
+                                    if (apply) {
+                                        forge::set_position(doc, selected, *position);
+                                        scene.edit(doc);
+                                    }
+                                }
+                            } catch (const std::exception& ex) {
+                                message = ex.what();
+                            }
                             auto& p = e["components"]["forge.position"];
                             for (const auto& field : schema.at("components").at(0).at("fields")) {
                                 const auto field_name = field.at("id").get<std::string>();
@@ -415,6 +495,7 @@ int main(int argc, char** argv) {
                             }
                         }
                     }
+                ImGui::EndDisabled();
             }
             ImGui::End();
             if (ImGui::Begin("Scene", nullptr,
@@ -428,6 +509,26 @@ int main(int argc, char** argv) {
                 forge::ui::help(
                     "During play this preview shows runtime positions. Inspector edits "
                     "still affect authoring; Restart applies them to a fresh play world.");
+                try {
+                    if (scene_tools.controls())
+                        save_preferences();
+                    if (forge::ui::button("Save view",
+                                          "Store one camera bookmark for this scene; restores "
+                                          "automatically when the scene opens.")) {
+                        forge::save_view(files.document, camera);
+                        message = "View bookmark saved";
+                    }
+                    ImGui::SameLine();
+                    if (forge::ui::button("Restore view", "Restore this scene's saved camera "
+                                                          "bookmark without modifying entities."))
+                        message = forge::restore_view(files.document, camera)
+                                      ? "View restored"
+                                      : "No saved view for this scene";
+                } catch (const std::exception& e) {
+                    message = e.what();
+                }
+                camera.fly_speed = scene_tools.fly_speed;
+                doc = scene.document();
                 const auto& preview = play.active() ? play.snapshot() : doc;
                 const float toolbar_width =
                     ImGui::CalcTextSize("Frame selected").x + ImGui::CalcTextSize("Fit scene").x +
@@ -454,23 +555,43 @@ int main(int argc, char** argv) {
                         message = "Selected entity has no visible block, or exceeds camera range.";
                     if (fit_scene && !camera.frame(preview, "", size.x / size.y))
                         message = "No visible blocks to frame, or scene exceeds camera range.";
-                    auto* texture =
-                        viewport.render(context, play.active() ? play.snapshot() : doc,
-                                        unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
-                                        unsigned(std::clamp(size.y, 1.0f, 4096.0f)), camera);
                     const auto image_origin = ImGui::GetCursorScreenPos();
-                    ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, size);
-                    ImGui::SetCursorScreenPos(image_origin);
-                    if (forge::ui::camera_controls(
-                            camera, size,
-                            (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) != 0)) {
+                    const bool focused =
+                        (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) != 0;
+                    forge::ui::ViewportInput input;
+                    if (forge::ui::camera_controls(camera, size, focused, &input)) {
                         if (selected.empty() || !camera.frame(preview, selected, size.x / size.y))
                             message =
                                 "Selected entity has no visible block, or exceeds camera range.";
                     }
+                    const bool can_edit =
+                        focused && !play.active() && !files.busy() &&
+                        !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                         ImGuiPopupFlags_AnyPopupLevel);
+                    scene_tools.input(scene, camera, selected, image_origin, size, input, can_edit,
+                                      message);
+                    const auto rendered = play.active()
+                                              ? play.snapshot()
+                                              : scene_tools.move.preview(scene.document());
+                    const float render_scale = std::min(1.0f, 4096.0f / std::max(size.x, size.y));
+                    auto* texture = viewport.render(
+                        context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),
+                        unsigned(std::max(1.0f, size.y * render_scale)), camera);
+                    ImGui::GetWindowDrawList()->AddImage(
+                        ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
+                        {image_origin.x + size.x, image_origin.y + size.y});
+                    scene_tools.draw(rendered, camera, selected, image_origin, size, can_edit);
+
+                } else {
+                    scene_tools.move.cancel();
                 }
+            } else {
+                scene_tools.move.cancel();
             }
             ImGui::End();
+            if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
+                ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
+            content.draw(files);
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                 ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
             if (ImGui::Begin("Native")) {
