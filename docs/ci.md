@@ -1,0 +1,21 @@
+# Build checks and Windows packages
+
+Pushes and pull requests run Linux/Windows core tests, cache-invalidation tests, and formatting. They do not compile the D3D12 editor or publish a ZIP. Superseded push/PR runs on the same ref are cancelled; manual builds are not cancelled by a code push.
+
+Request a Windows package using **Build and test → Run workflow**, with **windows_package** enabled. From the GitHub CLI:
+
+```sh
+gh workflow run build.yml --ref forge/windows-build -f windows_package=true
+```
+
+Use your intended branch in place of `forge/windows-build`. GitHub's Run workflow UI requires the workflow on the default branch; branch-specific dispatch can also be requested through the API/CLI. The package artifact remains `FORGE-Windows-x64`. No new package is needed merely to validate documentation or portable code edits.
+
+## Cache behavior
+
+Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out rather than restored from cache, so Ninja sees fresh source files and recompiles them.
+
+The compatibility key includes the runner image, architecture, MSVC version, Windows SDK, CMake/Ninja versions, absolute checkout path, and CMake configuration/dependency pins. The source commit is appended to the cache entry key; a compatible prior commit can supply a restore fallback. There is no fallback across different compatibility keys. Only successful tested/package builds save a cache. Cache upload failures do not prevent artifact delivery; a failed restore is discarded before a fresh configure.
+
+Enable **clean_build** to bypass both cache restore and cache save for a clean verification. Cache misses after runner/toolchain updates or cache eviction are expected. The first build has to populate the cache; there is no measured warm-build speed claim until it has been tested.
+
+This uses the official [cache restore/save actions](https://github.com/actions/cache), pinned to v6.1.0 commit `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`. Cache matching and scope follow [GitHub's dependency-cache rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).

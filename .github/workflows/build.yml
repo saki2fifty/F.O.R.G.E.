@@ -3,6 +3,18 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      windows_package:
+        description: Build and upload the Windows editor ZIP
+        type: boolean
+        default: true
+      clean_build:
+        description: Ignore the build cache for a clean verification
+        type: boolean
+        default: false
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 permissions:
   contents: read
 jobs:
@@ -45,6 +57,9 @@ jobs:
         if: runner.os == 'Windows'
       - run: python -m pip install cmake==4.4.3 ninja==1.13.2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Test build-cache invalidation
+        run: python tests/ci_cache_test.py
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --preset core
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build --preset core --parallel 2
@@ -54,6 +69,7 @@ jobs:
       - run: cmake --install ../AgentFiles/build/core --prefix ../AgentFiles/install/core --component Runtime
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
   editor:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_package
     runs-on: windows-2022
     timeout-minutes: 60
     env:
@@ -93,6 +109,31 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: cmd
         run: tools\Run-Forge-Dev.cmd --check
+      - name: Identify compatible Windows build cache
+        id: cache-key
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_cache_key.py
+      - name: Restore Windows dependencies and build outputs
+        id: editor-cache
+        continue-on-error: true
+        if: ${{ !inputs.clean_build }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.cache-key.outputs.key }}-${{ github.sha }}
+          restore-keys: |
+            ${{ steps.cache-key.outputs.key }}-
+      - name: Discard an incomplete cache restore
+        if: steps.editor-cache.outcome == 'failure'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          foreach ($directory in @('b', 'd')) {
+            $cachePath = Join-Path $env:RUNNER_TEMP "forge-work/AgentFiles/$directory"
+            if (Test-Path $cachePath) { Remove-Item -LiteralPath $cachePath -Recurse -Force }
+          }
       - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_editor_tests forge_fault_runtime forge_editor_native_tests --parallel 2
@@ -103,6 +144,15 @@ jobs:
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output ../AgentFiles/packages/FORGE-Windows-x64.zip
+      - name: Save verified Windows build cache
+        continue-on-error: true
+        if: ${{ !inputs.clean_build && steps.editor-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.cache-key.outputs.key }}-${{ github.sha }}
       - name: Upload Windows package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
