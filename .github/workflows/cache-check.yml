@@ -32,6 +32,13 @@ jobs:
           if ($LASTEXITCODE) { throw 'git fetch failed' }
           git -C $source checkout --detach FETCH_HEAD
           if ($LASTEXITCODE) { throw 'git checkout failed' }
+      - name: Prepare cache workspace path
+        id: cache-workspace
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          $preload = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE/tools/cache_workspace.cjs'
+          "preload=$($preload.Replace('\', '/'))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - name: Create cache probe
         shell: pwsh
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -41,7 +48,7 @@ jobs:
           Set-Content -LiteralPath "$probe/payload.txt" -Value 'FORGE cache transport'
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         env:
-          NODE_OPTIONS: '--require "${{ runner.temp }}/forge-work/FORGE/tools/cache_workspace.cjs"'
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
         with:
           path: ${{ runner.temp }}/forge-work/AgentFiles/cache-probe
           key: forge-cache-probe-${{ github.run_id }}-${{ github.run_attempt }}
@@ -51,7 +58,7 @@ jobs:
         run: Remove-Item -LiteralPath "${{ runner.temp }}/forge-work/AgentFiles/cache-probe" -Recurse -Force
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         env:
-          NODE_OPTIONS: '--require "${{ runner.temp }}/forge-work/FORGE/tools/cache_workspace.cjs"'
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
         with:
           path: ${{ runner.temp }}/forge-work/AgentFiles/cache-probe
           key: forge-cache-probe-${{ github.run_id }}-${{ github.run_attempt }}

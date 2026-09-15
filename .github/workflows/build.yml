@@ -109,6 +109,13 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: cmd
         run: tools\Run-Forge-Dev.cmd --check
+      - name: Prepare cache workspace path
+        id: cache-workspace
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          $preload = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE/tools/cache_workspace.cjs'
+          "preload=$($preload.Replace('\', '/'))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - name: Identify compatible Windows build cache
         id: cache-key
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -119,7 +126,7 @@ jobs:
         if: ${{ !inputs.clean_build }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         env:
-          NODE_OPTIONS: '--require "${{ runner.temp }}/forge-work/FORGE/tools/cache_workspace.cjs"'
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
         with:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b
@@ -151,7 +158,7 @@ jobs:
         if: ${{ !inputs.clean_build && steps.editor-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         env:
-          NODE_OPTIONS: '--require "${{ runner.temp }}/forge-work/FORGE/tools/cache_workspace.cjs"'
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
         with:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b
