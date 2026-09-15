@@ -38,7 +38,7 @@ class EditorCamera {
         const auto r = right(), u = up();
         const float scale = 2 * distance / (focal * height);
         for (unsigned i = 0; i < 3; ++i)
-            target[i] += (dx * r[i] + dy * u[i]) * scale;
+            target[i] += (-dx * r[i] + dy * u[i]) * scale;
     }
     void look(float dx, float dy) {
         const auto position = eye();
@@ -47,18 +47,21 @@ class EditorCamera {
         for (unsigned i = 0; i < 3; ++i)
             target[i] = position[i] + f[i] * distance;
     }
-    void fly(float sideways, float ahead, float seconds) {
+    void fly(float sideways, float ahead, float seconds, float altitude = 0) {
         if (!std::isfinite(sideways) || !std::isfinite(ahead) || !std::isfinite(seconds) ||
-            seconds <= 0)
+            !std::isfinite(altitude) || seconds <= 0)
             return;
-        const float length = std::hypot(sideways, ahead);
+        const auto r = right(), f = forward();
+        Vec direction;
+        for (unsigned i = 0; i < 3; ++i)
+            direction[i] = r[i] * sideways + f[i] * ahead + (i == 1 ? altitude : 0);
+        const float length = std::hypot(direction[0], direction[1], direction[2]);
         if (length == 0)
             return;
-        // Constant world-units/second, normalized so diagonals do not move faster.
+        // Normalize the world-space direction, including vertical flight while tilted.
         const float step = 5 * std::min(seconds, 0.1f) / std::max(1.0f, length);
-        const auto r = right(), f = forward();
         for (unsigned i = 0; i < 3; ++i)
-            target[i] += (r[i] * sideways + f[i] * ahead) * step;
+            target[i] += direction[i] * step;
     }
     void zoom(float wheel) {
         if (std::isfinite(wheel))

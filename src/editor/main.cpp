@@ -4,6 +4,7 @@
 #include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "play.hpp"
+#include "status_bar.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
@@ -108,6 +109,7 @@ int main(int argc, char** argv) {
         bool initialize_layout = !std::filesystem::exists(ini);
         forge::Viewport viewport(device);
         forge::EditorCamera camera;
+        forge::Telemetry telemetry;
         std::string selected, name_entity, authored_name;
         char entity_name[1024]{};
         bool running = true;
@@ -143,6 +145,7 @@ int main(int argc, char** argv) {
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
             if (width <= 0 || height <= 0 ||
                 SDL_GetWindowFlags(window.get()) & SDL_WINDOW_MINIMIZED) {
+                telemetry.pause();
                 SDL_Delay(20);
                 continue;
             }
@@ -150,6 +153,8 @@ int main(int argc, char** argv) {
                 swap->GetDesc().Height != unsigned(height))
                 swap->Resize(width, height);
             gui->NewFrame(width, height, swap->GetDesc().PreTransform);
+            telemetry.frame();
+            forge::ui::status_bar(telemetry, play.active(), scene.entity_count());
             const auto dock = ImGui::DockSpaceOverViewport();
             if (initialize_layout) {
                 forge::ui::initialize_workspace(dock);
@@ -447,7 +452,7 @@ int main(int argc, char** argv) {
             const float clear[] = {0.04f, 0.05f, 0.06f, 1};
             context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             gui->Render(context);
-            swap->Present(1);
+            swap->Present(0);
         }
         ImGui::SaveIniSettingsToDisk(ini.c_str());
         context->Flush();

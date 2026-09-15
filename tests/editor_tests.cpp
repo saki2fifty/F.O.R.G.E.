@@ -1,6 +1,7 @@
 #include "camera.hpp"
 #include "camera_controls.hpp"
 #include "play.hpp"
+#include "status_bar.hpp"
 #include "widgets.hpp"
 #include <iostream>
 #include <limits>
@@ -61,8 +62,8 @@ void test_camera_input() {
     require(scene_focused, "Shift+MMB did not acquire Scene from World");
     io.AddMousePosEvent(460, 190);
     frame();
-    require(camera.eye()[0] < 0 && camera.eye()[1] > 1 && camera.yaw == 0 && camera.pitch == 0,
-            "Shift+MMB left/down must pan left/up without rotating");
+    require(camera.eye()[0] > 0 && camera.eye()[1] > 1 && camera.yaw == 0 && camera.pitch == 0,
+            "Shift+MMB left/down must pan right/up without rotating");
     io.AddMouseButtonEvent(ImGuiMouseButton_Middle, false);
     io.AddKeyEvent(ImGuiMod_Shift, false);
     frame();
@@ -81,6 +82,23 @@ void test_camera_input() {
     io.AddKeyEvent(ImGuiKey_W, true);
     frame();
     require(camera.eye() != position, "RMB+W did not fly");
+    io.AddKeyEvent(ImGuiKey_W, false);
+    const auto before_up = camera.eye();
+    io.AddKeyEvent(ImGuiKey_Space, true);
+    frame();
+    require(camera.eye()[1] > before_up[1] && std::abs(camera.eye()[0] - before_up[0]) < 0.00001f &&
+                std::abs(camera.eye()[2] - before_up[2]) < 0.00001f,
+            "RMB+Space must ascend in world Y");
+    io.AddKeyEvent(ImGuiKey_Space, false);
+    const auto before_down = camera.eye();
+    io.AddKeyEvent(ImGuiMod_Shift, true);
+    frame();
+    require(camera.eye()[1] < before_down[1], "RMB+Shift must descend");
+    io.AddKeyEvent(ImGuiKey_Space, true);
+    const auto opposed = camera.eye();
+    frame();
+    require(camera.eye() == opposed, "Space and Shift should cancel altitude movement");
+    io.AddKeyEvent(ImGuiMod_Shift, false);
     io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
     frame();
     const auto stopped = camera.eye();
@@ -94,6 +112,7 @@ void test_camera_input() {
     require(camera.eye() == before_focus_loss, "Camera moved after application focus loss");
     io.AddFocusEvent(true);
     io.AddKeyEvent(ImGuiKey_W, false);
+    io.AddKeyEvent(ImGuiKey_Space, false);
     frame();
     io.AddMousePosEvent(100, 100);
     io.AddMouseButtonEvent(ImGuiMouseButton_Right, true);
@@ -102,6 +121,62 @@ void test_camera_input() {
     io.AddMousePosEvent(500, 150);
     frame();
     require(camera.eye() == before_focus_loss, "Drag begun outside viewport acquired flight");
+    ImGui::DestroyContext();
+}
+void test_telemetry_and_status() {
+    forge::FrameAverages averages;
+    for (int i = 0; i < 3; ++i)
+        require(!averages.add(0.125), "Averages sampled too early");
+    require(averages.add(0.125) && averages.fps == 8 && averages.milliseconds == 125,
+            "Frame rate/average frame time calculation failed");
+    require(!averages.add(std::numeric_limits<double>::quiet_NaN()),
+            "Invalid frame sample accepted");
+    forge::ProcessCounters before, after;
+    before.cpu_ticks = 100;
+    after.cpu_ticks = 10000100;
+    after.processors = 8;
+    require(forge::cpu_percent(before, after, 0.5) == 25, "CPU capacity normalization failed");
+    require(!forge::cpu_percent(after, before, 0.5), "Counter reset accepted");
+    require(!forge::cpu_percent(before, after, 0), "Zero sampling period accepted");
+#ifdef _WIN32
+    const auto native = forge::process_counters();
+    require(native.cpu_ticks.has_value() && native.processors > 0,
+            "Windows CPU counters unavailable");
+    require(native.working_set.value_or(0) > 0 && native.private_bytes.value_or(0) > 0,
+            "Windows process memory counters unavailable");
+#endif
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    forge::Telemetry stats;
+    stats.frames = averages;
+    stats.cpu = 25;
+    stats.process.working_set = 512 * 1048576ULL;
+    for (float scale : {0.65f, 1.0f, 2.0f}) {
+        forge::ui::style(scale);
+        for (float window_width : {1440.0f, 640.0f}) {
+            io.DisplaySize = {window_width, 900};
+            for (int frame = 0; frame < 3; ++frame) {
+                ImGui::NewFrame();
+                forge::ui::status_bar(stats, false, 17);
+                ImGui::DockSpaceOverViewport();
+                ImGui::Render();
+            }
+            const auto* bar = ImGui::FindWindowByName("##FORGE-status");
+            const auto* viewport = ImGui::GetMainViewport();
+            require(bar && bar->Active, "Permanent status bar is missing");
+            require(std::abs(bar->Pos.y + bar->Size.y - viewport->Size.y) < 1,
+                    "Status bar is not pinned to the bottom");
+            require(viewport->WorkPos.y + viewport->WorkSize.y <= bar->Pos.y + 1,
+                    "Docking work area overlaps status bar");
+            require(bar->ContentSize.x <= bar->Size.x - 2 * ImGui::GetStyle().WindowPadding.x + 1,
+                    "Status fields overflow at supported scale/width");
+        }
+    }
     ImGui::DestroyContext();
 }
 int main(int argc, char** argv) {
@@ -123,6 +198,7 @@ int main(int argc, char** argv) {
         require(forge::ui::interface_scale == 0.65f, "Scale minimum failed");
         ImGui::DestroyContext();
         test_camera_input();
+        test_telemetry_and_status();
         forge::Scene authored;
         auto original = authored.document();
         original["entities"].push_back(

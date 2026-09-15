@@ -19,6 +19,7 @@ class Scene {
     Scene();
     flecs::world& world() { return *world_; }
     Json document() const;
+    std::size_t entity_count() const { return entities_.size(); }
     Json schema() const;
     void replace(const Json& document);
     void save(const std::filesystem::path& path) const;

@@ -28,14 +28,15 @@ inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_
                 camera.fly(
                     float(ImGui::IsKeyDown(ImGuiKey_D)) - float(ImGui::IsKeyDown(ImGuiKey_A)),
                     float(ImGui::IsKeyDown(ImGuiKey_W)) - float(ImGui::IsKeyDown(ImGuiKey_S)),
-                    io.DeltaTime);
+                    io.DeltaTime, float(ImGui::IsKeyDown(ImGuiKey_Space)) - float(io.KeyShift));
         }
     }
     if (application_focused && hovered && !io.KeyCtrl)
         camera.zoom(io.MouseWheel);
     const bool frame = application_focused && hovered && !io.WantTextInput &&
                        ImGui::IsKeyPressed(ImGuiKey_F, false);
-    help("MMB-drag: orbit. Shift+MMB-drag: pan. RMB-drag: look; hold RMB + WASD to fly. "
+    help("MMB-drag: orbit. Shift+MMB-drag: pan. RMB-drag: look; hold RMB + WASD to fly, Space up, "
+         "Shift down. "
          "Wheel: zoom. F: frame selected. Click-drag directly over this view to start navigation.");
     return frame;
 }
