@@ -1,0 +1,64 @@
+name: Cache transport check
+on:
+  push:
+    paths:
+      - .github/workflows/cache-check.yml
+      - tools/cache_workspace.cjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cache:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Windows source without trailing-dot paths
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        env:
+          FORGE_COMMIT: ${{ github.sha }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+      - name: Create cache probe
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP 'forge-work/AgentFiles/cache-probe'
+          New-Item -ItemType Directory -Force $probe | Out-Null
+          Set-Content -LiteralPath "$probe/payload.txt" -Value 'FORGE cache transport'
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        env:
+          NODE_OPTIONS: '--require "${{ runner.temp }}/forge-work/FORGE/tools/cache_workspace.cjs"'
+        with:
+          path: ${{ runner.temp }}/forge-work/AgentFiles/cache-probe
+          key: forge-cache-probe-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Remove original probe
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: Remove-Item -LiteralPath "${{ runner.temp }}/forge-work/AgentFiles/cache-probe" -Recurse -Force
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        env:
+          NODE_OPTIONS: '--require "${{ runner.temp }}/forge-work/FORGE/tools/cache_workspace.cjs"'
+        with:
+          path: ${{ runner.temp }}/forge-work/AgentFiles/cache-probe
+          key: forge-cache-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          fail-on-cache-miss: true
+      - name: Verify restored probe
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: |
+          $value = Get-Content -LiteralPath "${{ runner.temp }}/forge-work/AgentFiles/cache-probe/payload.txt"
+          if ($value -ne 'FORGE cache transport') { throw 'Cache restore did not preserve the payload' }
