@@ -2,6 +2,7 @@
 #include "ImGuiImplSDL3.hpp"
 #include "camera_controls.hpp"
 #include "files.hpp"
+#include "help.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "play.hpp"
@@ -10,12 +11,18 @@
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <forge/build.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <iostream>
 #include <memory>
 using namespace Diligent;
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--version") {
+        std::cout << "FORGE editor | Build: " << forge::build_id << '\n';
+        return 0;
+    }
+    std::clog << "FORGE editor | Build: " << forge::build_id << '\n';
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         std::cerr << SDL_GetError();
         return 1;
@@ -205,6 +212,7 @@ int main(int argc, char** argv) {
             }
             if (forge::ui::begin_toolbar()) {
                 files.menu();
+                forge::ui::help_menu(std::filesystem::path(base), message);
                 try {
                     if (forge::ui::button(
                             "Save",
@@ -288,7 +296,7 @@ int main(int argc, char** argv) {
                                (files.document.path().empty()
                                     ? "Untitled"
                                     : forge::path_text(files.document.path().filename())) +
-                               " | F.O.R.G.E.";
+                               " | F.O.R.G.E. | Build: " + forge::build_id;
             if (title != current_title) {
                 SDL_SetWindowTitle(window.get(), title.c_str());
                 current_title = title;

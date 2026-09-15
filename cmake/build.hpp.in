@@ -1,0 +1,5 @@
+#pragma once
+namespace forge {
+inline constexpr const char* build_id = "@FORGE_BUILD_ID@";
+inline constexpr const char* source_commit = "@FORGE_SOURCE_COMMIT@";
+} // namespace forge

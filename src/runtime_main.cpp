@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/build.hpp>
 #include <forge/module.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
@@ -6,7 +7,12 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-int main() {
+int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--version") {
+        std::cout << "FORGE runtime | Build: " << forge::build_id << '\n';
+        return 0;
+    }
+    std::clog << "FORGE runtime | Build: " << forge::build_id << '\n';
 #ifdef _WIN32
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif

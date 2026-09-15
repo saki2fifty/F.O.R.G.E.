@@ -1,6 +1,7 @@
 #include "camera.hpp"
 #include "camera_controls.hpp"
 #include "document_tests.hpp"
+#include "help.hpp"
 #include "play.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
@@ -289,6 +290,9 @@ int main(int argc, char** argv) {
         forge::ui::style(-1);
         require(forge::ui::interface_scale == 0.65f, "Scale minimum failed");
         ImGui::DestroyContext();
+        require(forge::ui::local_file_url(std::filesystem::current_path() / "space #%.html")
+                        .find("space%20%23%25.html") != std::string::npos,
+                "Manual URL did not escape path characters");
         test_documents();
         test_camera_input();
         test_telemetry_and_status();

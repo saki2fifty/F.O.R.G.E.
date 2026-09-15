@@ -7,6 +7,8 @@ import os
 import struct
 import tempfile
 import zipfile
+from build_identity import validate_build_id
+from build_manual import build_manual
 
 
 def check_pe64(path):
@@ -24,6 +26,8 @@ def check_pe64(path):
 
 def package(build, dependencies, output):
     build, dependencies, output = map(Path, (build, dependencies, output))
+    metadata = json.loads((build/'build.json').read_text())
+    build_id = validate_build_id(metadata['build_id'])
     cache = (build/'CMakeCache.txt').read_text()
     if 'CMAKE_BUILD_TYPE:STRING=Release' not in cache:
         raise ValueError('A Release build is required; Debug CRT binaries are not distributable')
@@ -45,9 +49,18 @@ def package(build, dependencies, output):
         if not matches:
             raise ValueError(f'No license notice found in {source}')
         notices.extend((p, 'licenses/'+name+'/'+p.relative_to(source).as_posix()) for p in matches)
-    manifest = {'architecture': 'windows-x64', 'configuration': 'Release', 'files': {
+    manifest = {'build_id': build_id, 'source_commit': metadata['source_commit'], 'architecture': 'windows-x64', 'configuration': 'Release', 'files': {
         p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}}
     source = Path(__file__).resolve().parents[1]
+    manual_output = build/'manual'
+    # Render from current sources; stale removed pages cannot leak from a cached build.
+    import shutil
+    shutil.rmtree(manual_output, ignore_errors=True)
+    build_manual(source/'manual', manual_output, build_id)
+    manual_files = sorted(p for p in manual_output.rglob('*') if p.is_file())
+    for page in manual_files:
+        manifest['files']['manual/'+page.relative_to(manual_output).as_posix()] = hashlib.sha256(page.read_bytes()).hexdigest()
+    manifest['files']['build.json'] = hashlib.sha256((build/'build.json').read_bytes()).hexdigest()
     sdk_files = ('include/forge/module_api.h', 'samples/native/movement.c', 'samples/native/CMakeLists.txt')
     for relative in sdk_files:
         manifest['files']['sdk/'+relative] = hashlib.sha256((source/relative).read_bytes()).hexdigest()
@@ -65,9 +78,12 @@ def package(build, dependencies, output):
             for relative in sdk_files:
                 archive.write(source/relative, 'sdk/'+relative)
             archive.writestr('Run-Forge-Dev.cmd', launcher)
+            archive.write(build/'build.json', 'build.json')
+            for page in manual_files:
+                archive.write(page, 'manual/'+page.relative_to(manual_output).as_posix())
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
             archive.writestr('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\nforge_editor.exe "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            archive.writestr('README.txt', 'FORGE Windows x64 development build\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.24+ and Ninja installed. In Native: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            archive.writestr('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.24+ and Ninja installed. In Native: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
         os.replace(temporary, output)
     finally:
         Path(temporary).unlink(missing_ok=True)

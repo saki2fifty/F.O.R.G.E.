@@ -3,12 +3,16 @@
 
 Native ECS game editor under development. Windows/D3D12 is the first editor target; the portable core can be built and tested on Linux.
 
+## User manual
+
+Read the [FORGE User Manual](manual/README.md) for feature explanations and how-to guides. Windows packages include an offline edition under **Help → User Manual**. Technical implementation documents remain in `docs/`.
+
 ## Current implementation
 - Flecs scene state, stable authored IDs, parent/prefab relationships, reflected position metadata, atomic scene replacement and saves, undo/redo, unknown-component preservation.
 - Headless runtime with a versioned process protocol and a minimal C17-compatible gameplay module ABI.
 - Native C/C++ project generation, incremental CMake builds, source watching, unique module artifacts, isolated candidate probing, constrained reload and runtime checkpoint recovery through a CLI.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
-- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, World/Inspector/Console panels, and a Diligent cube preview. Windows compilation is validated in GitHub Actions; interactive GPU execution remains unverified.
+- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, World/Inspector/Console panels, and a Diligent cube preview. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
 
 This is a foundation, not a complete game editor. General native component registration/migration, asset importing, physics/audio, game export and the first-person sample are still pending. See [implementation status](docs/status.md).
 
@@ -37,7 +41,7 @@ cmake --build --preset windows-editor --target forge_editor forge_runtime
 ../AgentFiles/build/windows-editor/forge_editor.exe /absolute/path/to/game-project
 ```
 
-The editor reads and saves `main.scene.json` in the supplied project directory. User layout/settings are stored through SDL's application preferences directory.
+The editor opens the project manifest startup scene, with legacy `main.scene.json` folders supported. See [Projects](manual/editor/projects.md) and [Scenes](manual/editor/scenes.md). User layout/settings are stored through SDL's application preferences directory.
 
 See [native iteration](docs/native-modules.md), [scene format](docs/scene-format.md), and [dependency baselines](docs/dependencies.md).
 

@@ -89,3 +89,12 @@ Shared tooltips now wait for approximately 0.4 seconds of hover, require a stati
 ## Project and document authoring batch
 
 Added project creation/opening, versioned manifests, recent/last projects, native file/folder dialogs, New/Open/Reload/Save As, dirty indicators, guarded switching/quit, keyboard editing shortcuts, 30-second autosaves, and named/untitled recovery. See [Projects, scenes, and recovery](projects.md) for behavior and limitations. Local core and editor suites and a Windows-header syntax check pass. Windows compilation, core suites, native iteration (7.06s), and editor/document/process/UI tests (6.15s) passed in [run 35009462534](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35009462534), source `e7e0a4ff39494331b94ccfd4137a98da2e0f6cbb`. Build 000005 passed ZIP CRC and manifest SHA256 verification. Native dialog interaction and recovery modal appearance remain desktop checks.
+
+
+## Build identity and end-user manual
+
+The product uses `Build: yymmdd-counter` with UTC dates and a globally increasing counter, continuing after 000005. No release-channel labels are used. Editor title/Help, executable `--version`, startup logs, package metadata, and the offline manual share the identifier. Scene, API, and IPC compatibility versions remain independent.
+
+The separate [user manual](../manual/README.md) contains 15 function-based pages covering the implemented editor, with plain explanations and how-to steps. Packaging includes Markdown sources and a navigable offline HTML edition. **Help → User Manual** requests the default browser; **Copy build information** copies ID/source. Technical documents remain here in `docs/`.
+
+Local core/editor regressions, Windows-header syntax, manual link/render/identity tests, release reservation rollover/re-download tests, and actionlint pass. Windows packaging and interactive Help/browser checks are pending.

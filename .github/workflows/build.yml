@@ -8,6 +8,10 @@ on:
         description: Build and upload the Windows editor ZIP
         type: boolean
         default: true
+      build_id:
+        description: Reserved UTC yymmdd-counter identifier (required for a Windows package)
+        type: string
+        default: ""
       clean_build:
         description: Ignore the build cache for a clean verification
         type: boolean
@@ -57,6 +61,9 @@ jobs:
         if: runner.os == 'Windows'
       - run: python -m pip install cmake==4.4.3 ninja==1.13.2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Validate manual and build identity
+        run: python tests/manual_test.py
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Test build-cache invalidation
         run: python tests/ci_cache_test.py
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
@@ -73,6 +80,8 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 60
     env:
+      FORGE_BUILD_ID: ${{ inputs.build_id }}
+      FORGE_SOURCE_COMMIT: ${{ github.sha }}
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: core.longpaths
       GIT_CONFIG_VALUE_0: "true"
@@ -105,6 +114,11 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c
       - run: python -m pip install cmake==4.4.3 ninja==1.13.2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Validate reserved build identity and manual
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: |
+          python -c "import os,sys; sys.path.insert(0,'tools'); from build_identity import validate_build_id; print(validate_build_id(os.environ['FORGE_BUILD_ID']))"
+          python tests/manual_test.py
       - name: Check native developer launcher
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: cmd
@@ -143,7 +157,7 @@ jobs:
             $cachePath = Join-Path $env:RUNNER_TEMP "forge-work/AgentFiles/$directory"
             if (Test-Path $cachePath) { Remove-Item -LiteralPath $cachePath -Recurse -Force }
           }
-      - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+      - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_editor_tests forge_fault_runtime forge_editor_native_tests --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
@@ -153,9 +167,18 @@ jobs:
       - name: Test editor process isolation and scaling
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R editor_ --output-on-failure
+      - name: Verify compiled build identifiers
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          foreach ($binary in @('forge_editor.exe', 'forge_runtime.exe')) {
+            $reported = & "../AgentFiles/b/$binary" --version
+            if ($LASTEXITCODE -ne 0 -or -not $reported.EndsWith("Build: $env:FORGE_BUILD_ID")) { throw "Build identifier mismatch: $binary" }
+            Write-Output $reported
+          }
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output ../AgentFiles/packages/FORGE-Windows-x64.zip
+        run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip"
       - name: Save verified Windows build cache
         continue-on-error: true
         if: ${{ !inputs.clean_build && steps.editor-cache.outputs.cache-hit != 'true' }}
@@ -171,7 +194,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: FORGE-Windows-x64
-          path: ${{ runner.temp }}/forge-work/AgentFiles/packages/FORGE-Windows-x64.zip
+          path: ${{ runner.temp }}/forge-work/AgentFiles/packages/*-FORGE-Windows-x64.zip
           if-no-files-found: error
           retention-days: 14
   format:
