@@ -1,0 +1,43 @@
+{
+  "version": 5,
+  "configurePresets": [
+    {
+      "name": "core",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../AgentFiles/build/core",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FORGE_BUILD_EDITOR": "OFF",
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/../AgentFiles/dependencies/core"
+      }
+    },
+    {
+      "name": "windows-editor",
+      "inherits": "core",
+      "binaryDir": "${sourceDir}/../AgentFiles/build/windows-editor",
+      "cacheVariables": {
+        "FORGE_BUILD_EDITOR": "ON",
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/../AgentFiles/dependencies/windows-editor"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "core",
+      "configurePreset": "core"
+    },
+    {
+      "name": "windows-editor",
+      "configurePreset": "windows-editor"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "core",
+      "configurePreset": "core",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

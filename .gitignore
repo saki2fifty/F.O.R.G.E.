@@ -1,0 +1,8 @@
+/build*/
+/.cache/
+*.user
+*.suo
+*.pdb
+
+__pycache__/
+*.pyc
