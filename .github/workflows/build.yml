@@ -91,8 +91,11 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime --parallel 2
+      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_editor_tests forge_fault_runtime --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Test editor process isolation and scaling
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: ctest --test-dir ../AgentFiles/b -R editor_process_and_scale --output-on-failure
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output ../AgentFiles/packages/FORGE-Windows-x64.zip

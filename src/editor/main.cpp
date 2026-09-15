@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "play.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
@@ -63,10 +64,22 @@ int main(int argc, char** argv) {
                 forge::Json j;
                 f >> j;
                 forge::ui::tooltips = j.value("tooltips", true);
+                forge::ui::style(j.value("interface_scale", 1.0f));
             }
         } catch (const std::exception&) { /* Recover malformed user preferences with defaults. */
         }
+        auto save_preferences = [&] {
+            forge::atomic_write(settings,
+                                forge::Json{{"tooltips", forge::ui::tooltips},
+                                            {"interface_scale", forge::ui::interface_scale}}
+                                    .dump(2));
+        };
         forge::Scene scene;
+        forge::PlaySession play;
+        const char* base = SDL_GetBasePath();
+        if (!base)
+            throw std::runtime_error("Cannot locate runtime directory");
+        const auto runtime_path = (std::filesystem::path(base) / "forge_runtime.exe").string();
         const std::filesystem::path project =
             argc > 1 ? std::filesystem::absolute(argv[1]) : std::filesystem::current_path();
         const auto scene_path = project / "main.scene.json";
@@ -83,9 +96,28 @@ int main(int argc, char** argv) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 gui->HandleSDLEvent(&event);
+                if (event.type == SDL_EVENT_KEY_DOWN && (event.key.mod & SDL_KMOD_CTRL)) {
+                    float scale = forge::ui::interface_scale;
+                    if (event.key.key == SDLK_MINUS || event.key.key == SDLK_KP_MINUS)
+                        scale -= 0.1f;
+                    else if (event.key.key == SDLK_EQUALS || event.key.key == SDLK_PLUS ||
+                             event.key.key == SDLK_KP_PLUS)
+                        scale += 0.1f;
+                    else if (event.key.key == SDLK_0 || event.key.key == SDLK_KP_0)
+                        scale = 1.0f;
+                    if (scale != forge::ui::interface_scale) {
+                        forge::ui::style(scale);
+                        try {
+                            save_preferences();
+                        } catch (const std::exception& e) {
+                            message = e.what();
+                        }
+                    }
+                }
                 if (event.type == SDL_EVENT_QUIT)
                     running = false;
             }
+            play.pump();
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
             if (width <= 0 || height <= 0 ||
@@ -132,14 +164,25 @@ int main(int argc, char** argv) {
                         scene.edit(doc);
                         selected = id;
                     }
+                    if (forge::ui::button(
+                            play.active() ? "Restart" : "Play",
+                            "Start a fresh isolated play world from the current authored scene."))
+                        play.start(runtime_path, scene.document());
+                    ImGui::BeginDisabled(!play.active());
+                    if (forge::ui::button("Stop",
+                                          "Stop gameplay and return to your authored scene."))
+                        play.stop();
+                    ImGui::EndDisabled();
                     if (ImGui::Checkbox("Tooltips", &forge::ui::tooltips))
-                        forge::atomic_write(settings,
-                                            forge::Json{{"tooltips", forge::ui::tooltips}}.dump(2));
+                        save_preferences();
                     forge::ui::help("Show contextual help for editor controls, fields, and section "
                                     "headers. Saved between sessions.");
                 } catch (const std::exception& e) {
                     message = e.what();
                 }
+                ImGui::Text("UI %.0f%%", forge::ui::interface_scale * 100);
+                forge::ui::help("Interface zoom: Ctrl+Minus / Ctrl+Plus (or Ctrl+Equals). "
+                                "Ctrl+0 resets to 100%. Saved between sessions.");
                 ImGui::EndMainMenuBar();
             }
             auto doc = scene.document();
@@ -188,11 +231,16 @@ int main(int argc, char** argv) {
                 forge::ui::heading("Block preview",
                                    "Diligent renders a cube for each entity with a position. "
                                    "Camera is fixed for this foundation build.");
+                ImGui::TextUnformatted(play.active() ? "PLAY | isolated scene copy"
+                                                     : "EDIT | authored scene");
+                forge::ui::help(
+                    "During play this preview shows runtime positions. Inspector edits "
+                    "still affect authoring; Restart applies them to a fresh play world.");
                 auto size = ImGui::GetContentRegionAvail();
                 if (size.x > 1 && size.y > 1) {
-                    auto* texture =
-                        viewport.render(context, doc, unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
-                                        unsigned(std::clamp(size.y, 1.0f, 4096.0f)));
+                    auto* texture = viewport.render(context, play.active() ? play.snapshot() : doc,
+                                                    unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
+                                                    unsigned(std::clamp(size.y, 1.0f, 4096.0f)));
                     ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, size);
                     forge::ui::help("Authoring preview. Select an entity in World and edit its "
                                     "position in Inspector.");
@@ -203,6 +251,14 @@ int main(int argc, char** argv) {
                 forge::ui::heading("Status", "Latest editor operation or validation diagnostic.");
                 ImGui::TextWrapped("%s", message.c_str());
                 forge::ui::help("Latest operation result.");
+                if (!play.log().empty()) {
+                    ImGui::TextWrapped("%s", play.log().c_str());
+                    forge::ui::help(
+                        "Recent runtime error output, limited to 64 KiB per play session.");
+                }
+                ImGui::TextWrapped("%s", play.status().c_str());
+                forge::ui::help("Play process status. A runtime failure leaves the editor and "
+                                "authored scene available.");
             }
             ImGui::End();
             auto* rtv = swap->GetCurrentBackBufferRTV();

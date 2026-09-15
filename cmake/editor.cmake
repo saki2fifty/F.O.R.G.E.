@@ -25,3 +25,13 @@ target_include_directories(forge_editor PRIVATE src/editor "${diligent_SOURCE_DI
 target_compile_definitions(forge_editor PRIVATE UNICODE _UNICODE NOMINMAX)
 target_link_libraries(forge_editor PRIVATE forge_core SDL3::SDL3 imgui Diligent-Imgui Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings)
 copy_required_dlls(forge_editor)
+
+if(BUILD_TESTING)
+ add_executable(forge_fault_runtime tests/fault_runtime.cpp)
+ target_link_libraries(forge_fault_runtime PRIVATE nlohmann_json::nlohmann_json)
+ add_executable(forge_editor_tests tests/editor_tests.cpp)
+ target_include_directories(forge_editor_tests PRIVATE src/editor)
+ target_link_libraries(forge_editor_tests PRIVATE forge_core SDL3::SDL3 imgui)
+ add_test(NAME editor_process_and_scale COMMAND forge_editor_tests $<TARGET_FILE:forge_runtime> $<TARGET_FILE:forge_fault_runtime>)
+ set_tests_properties(editor_process_and_scale PROPERTIES TIMEOUT 20)
+endif()
