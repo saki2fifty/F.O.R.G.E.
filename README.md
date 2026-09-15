@@ -8,7 +8,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 - Headless runtime with a versioned process protocol and a minimal C17-compatible gameplay module ABI.
 - Native C/C++ project generation, incremental CMake builds, source watching, unique module artifacts, isolated candidate probing, constrained reload and runtime checkpoint recovery through a CLI.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
-- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, World/Inspector/Console panels, and a Diligent cube preview. Windows compilation and GPU execution have not yet been validated.
+- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, World/Inspector/Console panels, and a Diligent cube preview. Windows compilation is validated in GitHub Actions; interactive GPU execution remains unverified.
 
 This is a foundation, not a complete game editor. General native component registration/migration, editor-managed play/build integration, asset importing, physics/audio, game export and the first-person sample are still pending. See [implementation status](docs/status.md).
 
