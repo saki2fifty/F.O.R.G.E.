@@ -5,7 +5,7 @@
 #include <forge/scene.hpp>
 #include <limits>
 namespace forge {
-// Editor-only orbit camera: +Y up, +Z forward, D3D depth [0,1].
+// Editor-only orbit/fly camera: +Y up, +Z forward, D3D depth [0,1].
 class EditorCamera {
   public:
     using Vec = std::array<float, 3>;
@@ -29,8 +29,8 @@ class EditorCamera {
     void orbit(float dx, float dy) {
         if (!std::isfinite(dx) || !std::isfinite(dy))
             return;
-        yaw = std::remainder(yaw - dx * 0.006f, 6.2831853f);
-        pitch = std::clamp(pitch + dy * 0.006f, -1.5f, 1.5f);
+        yaw = std::remainder(yaw + dx * 0.006f, 6.2831853f);
+        pitch = std::clamp(pitch - dy * 0.006f, -1.5f, 1.5f);
     }
     void pan(float dx, float dy, float height) {
         if (!std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(height) || height <= 0)
@@ -38,7 +38,27 @@ class EditorCamera {
         const auto r = right(), u = up();
         const float scale = 2 * distance / (focal * height);
         for (unsigned i = 0; i < 3; ++i)
-            target[i] += (-dx * r[i] + dy * u[i]) * scale;
+            target[i] += (dx * r[i] + dy * u[i]) * scale;
+    }
+    void look(float dx, float dy) {
+        const auto position = eye();
+        orbit(dx, dy);
+        const auto f = forward();
+        for (unsigned i = 0; i < 3; ++i)
+            target[i] = position[i] + f[i] * distance;
+    }
+    void fly(float sideways, float ahead, float seconds) {
+        if (!std::isfinite(sideways) || !std::isfinite(ahead) || !std::isfinite(seconds) ||
+            seconds <= 0)
+            return;
+        const float length = std::hypot(sideways, ahead);
+        if (length == 0)
+            return;
+        // Constant world-units/second, normalized so diagonals do not move faster.
+        const float step = 5 * std::min(seconds, 0.1f) / std::max(1.0f, length);
+        const auto r = right(), f = forward();
+        for (unsigned i = 0; i < 3; ++i)
+            target[i] += (r[i] * sideways + f[i] * ahead) * step;
     }
     void zoom(float wheel) {
         if (std::isfinite(wheel))

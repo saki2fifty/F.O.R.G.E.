@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "camera_controls.hpp"
 #include "play.hpp"
 #include "widgets.hpp"
 #include <iostream>
@@ -8,6 +9,100 @@
 void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
+}
+void test_camera_input() {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {900, 500};
+    io.DeltaTime = 1.0f / 60;
+    io.ConfigInputTrickleEventQueue = false;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    forge::EditorCamera camera;
+    bool scene_focused = false;
+    auto frame = [&](bool focus_world = false, bool application_focused = true) {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({250, 400});
+        if (focus_world)
+            ImGui::SetNextWindowFocus();
+        ImGui::Begin("World test");
+        ImGui::TextUnformatted("World selection");
+        ImGui::End();
+        ImGui::SetNextWindowPos({300, 0});
+        ImGui::SetNextWindowSize({500, 400});
+        ImGui::Begin("Scene test");
+        forge::ui::camera_controls(camera, {450, 320}, application_focused);
+        scene_focused = ImGui::IsWindowFocused();
+        ImGui::End();
+        ImGui::Render();
+    };
+    frame();
+    frame(true);
+    require(!scene_focused, "Fixture did not focus World");
+    io.AddMousePosEvent(500, 150);
+    frame();
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, true);
+    frame();
+    require(scene_focused, "MMB did not acquire Scene from World");
+    io.AddMousePosEvent(480, 170);
+    frame();
+    require(camera.eye()[0] > 0 && camera.eye()[1] > 1,
+            "MMB left/down must reveal right/top faces");
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, false);
+    frame();
+    camera = {};
+    frame(true);
+    io.AddKeyEvent(ImGuiMod_Shift, true);
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, true);
+    frame();
+    require(scene_focused, "Shift+MMB did not acquire Scene from World");
+    io.AddMousePosEvent(460, 190);
+    frame();
+    require(camera.eye()[0] < 0 && camera.eye()[1] > 1 && camera.yaw == 0 && camera.pitch == 0,
+            "Shift+MMB left/down must pan left/up without rotating");
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, false);
+    io.AddKeyEvent(ImGuiMod_Shift, false);
+    frame();
+    camera = {};
+    frame(true);
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, true);
+    frame();
+    require(scene_focused, "RMB did not acquire Scene from World");
+    const auto position = camera.eye();
+    io.AddMousePosEvent(490, 200);
+    frame();
+    for (unsigned i = 0; i < 3; ++i)
+        require(std::abs(camera.eye()[i] - position[i]) < 0.00001f,
+                "RMB look moved camera position");
+    require(camera.yaw > 0 && camera.pitch < 0, "RMB look direction failed");
+    io.AddKeyEvent(ImGuiKey_W, true);
+    frame();
+    require(camera.eye() != position, "RMB+W did not fly");
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
+    frame();
+    const auto stopped = camera.eye();
+    frame();
+    require(camera.eye() == stopped, "Flight continued after RMB release");
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, true);
+    frame();
+    io.AddFocusEvent(false);
+    const auto before_focus_loss = camera.eye();
+    frame(false, false);
+    require(camera.eye() == before_focus_loss, "Camera moved after application focus loss");
+    io.AddFocusEvent(true);
+    io.AddKeyEvent(ImGuiKey_W, false);
+    frame();
+    io.AddMousePosEvent(100, 100);
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_W, true);
+    io.AddMousePosEvent(500, 150);
+    frame();
+    require(camera.eye() == before_focus_loss, "Drag begun outside viewport acquired flight");
+    ImGui::DestroyContext();
 }
 int main(int argc, char** argv) {
     try {
@@ -27,6 +122,7 @@ int main(int argc, char** argv) {
         forge::ui::style(-1);
         require(forge::ui::interface_scale == 0.65f, "Scale minimum failed");
         ImGui::DestroyContext();
+        test_camera_input();
         forge::Scene authored;
         auto original = authored.document();
         original["entities"].push_back(
@@ -70,9 +166,23 @@ int main(int argc, char** argv) {
                 camera.zoom(-20);
             require(camera.distance == 100000, "Zoom maximum failed");
             camera.orbit(0, 100000);
-            require(camera.pitch == 1.5f, "Orbit crossed pole");
+            require(camera.pitch == -1.5f, "Orbit crossed pole");
             camera.zoom(std::numeric_limits<float>::quiet_NaN());
             require(std::isfinite(camera.distance), "Nonfinite wheel damaged camera");
+            for (const auto& input : {std::array<float, 2>{0, 1}, {0, -1}, {-1, 0}, {1, 0}}) {
+                forge::EditorCamera flying;
+                const auto start = flying.eye();
+                flying.fly(input[0], input[1], 0.1f);
+                require(std::abs(flying.eye()[0] - start[0] - input[0] * 0.5f) < 0.00001f &&
+                            std::abs(flying.eye()[2] - start[2] - input[1] * 0.5f) < 0.00001f,
+                        "WASD flight axis/sign failed");
+            }
+            forge::EditorCamera diagonal, single_axis;
+            diagonal.fly(1, 1, 0.1f);
+            single_axis.fly(0, 1, 0.1f);
+            require(std::abs(std::hypot(diagonal.eye()[0], diagonal.eye()[2] + 6) -
+                             (single_axis.eye()[2] + 6)) < 0.00001f,
+                    "Diagonal flight is faster");
             require(original == before, "Camera mutated scene");
         }
         forge::PlaySession play;

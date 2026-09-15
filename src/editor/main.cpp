@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "camera_controls.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "play.hpp"
@@ -107,7 +108,6 @@ int main(int argc, char** argv) {
         bool initialize_layout = !std::filesystem::exists(ini);
         forge::Viewport viewport(device);
         forge::EditorCamera camera;
-        int camera_drag = -1;
         std::string selected, name_entity, authored_name;
         char entity_name[1024]{};
         bool running = true;
@@ -355,38 +355,17 @@ int main(int argc, char** argv) {
                         viewport.render(context, play.active() ? play.snapshot() : doc,
                                         unsigned(std::clamp(size.x, 1.0f, 4096.0f)),
                                         unsigned(std::clamp(size.y, 1.0f, 4096.0f)), camera);
+                    const auto image_origin = ImGui::GetCursorScreenPos();
                     ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, size);
-                    const bool hovered = ImGui::IsItemHovered();
-                    const auto& io = ImGui::GetIO();
-                    if (!ImGui::IsWindowFocused() ||
-                        (camera_drag >= 0 && !ImGui::IsMouseDown(camera_drag)))
-                        camera_drag = -1;
-                    if (hovered) {
-                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-                            camera_drag = ImGuiMouseButton_Right;
-                        else if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle))
-                            camera_drag = ImGuiMouseButton_Middle;
-                        if (!io.KeyCtrl)
-                            camera.zoom(io.MouseWheel);
-                        if (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
-                            if (selected.empty() ||
-                                !camera.frame(preview, selected, size.x / size.y))
-                                message = "Selected entity has no visible block, or exceeds camera "
-                                          "range.";
-                        }
+                    ImGui::SetCursorScreenPos(image_origin);
+                    if (forge::ui::camera_controls(
+                            camera, size,
+                            (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) != 0)) {
+                        if (selected.empty() || !camera.frame(preview, selected, size.x / size.y))
+                            message =
+                                "Selected entity has no visible block, or exceeds camera range.";
                     }
-                    if (camera_drag == ImGuiMouseButton_Right)
-                        camera.orbit(io.MouseDelta.x, io.MouseDelta.y);
-                    else if (camera_drag == ImGuiMouseButton_Middle)
-                        camera.pan(io.MouseDelta.x, io.MouseDelta.y, size.y);
-                    forge::ui::help(
-                        "Right-drag: orbit. Middle-drag: pan. Wheel: zoom. F: frame selected. "
-                        "Camera navigation changes neither the authored scene nor gameplay.");
-                } else {
-                    camera_drag = -1;
                 }
-            } else {
-                camera_drag = -1;
             }
             ImGui::End();
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
