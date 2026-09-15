@@ -144,6 +144,12 @@ void Scene::replace(const Json& doc) {
         entities_[id] = e.id();
     world_ = std::move(next);
     source_ = doc;
+    ++revision_;
+}
+void Scene::reset(const Json& doc) {
+    replace(doc);
+    undo_.clear();
+    redo_.clear();
 }
 Json Scene::document() const {
     auto doc = source_;
@@ -318,5 +324,6 @@ void Scene::translate(float x, float y, float z) {
     world_->each(
         [&](flecs::entity e, const Position& p) { e.set<Position>({p.x + x, p.y + y, p.z + z}); });
     world_->defer_end();
+    ++revision_;
 }
 } // namespace forge

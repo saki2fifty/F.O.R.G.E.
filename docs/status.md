@@ -29,7 +29,7 @@ The Native panel creates gameplay source, incrementally builds it, probes candid
 - IPC viewport frame transport.
 - Arbitrary gameplay component/system/observer registration, general reflected schema migration and lifecycle-aware DLL retirement. Current ABI only supports stateless callbacks over host-owned Position data.
 - Actual native editor-plugin loading, registration APIs, automatic startup-crash recovery and package UI.
-- Asset browser/import/caching/cooking; project wizard; autosave recovery; gizmos/snapping; complete prefab overrides; multi-edit.
+- Asset browser/import/caching/cooking; gizmos/snapping; complete prefab overrides; multi-edit.
 - PBR game rendering, Jolt, audio, animation, navigation, game UI and standalone playable export.
 - First-person reference game, advanced 3D tools, Linux graphics, dedicated 2D editing and multiplayer.
 
@@ -83,4 +83,9 @@ Local headless tests pass for altitude input and release behavior, reversed pan,
 
 The top toolbar reserves extra space above and below its controls, scaled with text size, while retaining regular button sizes. Docked panels begin below the full padded toolbar. Existing workspace layouts and interface zoom remain supported.
 
-Shared tooltips now wait for approximately 0.4 seconds of hover, require a stationary pointer, wrap long text, and prefer placement outside the hovered control (below, above, then beside it). Large surfaces with no external space use an on-screen placement away from the pointer. Tooltips are suppressed during mouse-button gestures; disabled controls retain help and the global Tooltips toggle still applies. Local ImGui tests cover spacing, docking clearance, tooltip delay/non-overlap/wrapping/edge placement, disabled controls and toggle at 65%, 90%, 100%, and 200% scale. Windows compilation, shader checks, core suites, and editor UI/process/native tests passed in [run 35006382837](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35006382837), source `e518bbd01d117cea5dbb30b59e7245b49b5055c5`. Visual desktop acceptance remains pending.
+Shared tooltips now wait for approximately 0.4 seconds of hover, require a stationary pointer, wrap long text, and prefer placement outside the hovered control (below, above, then beside it). Large surfaces with no external space use an on-screen placement away from the pointer. Tooltips are suppressed during mouse-button gestures; disabled controls retain help and the global Tooltips toggle still applies. Local ImGui tests cover spacing, docking clearance, tooltip delay/non-overlap/wrapping/edge placement, disabled controls and toggle at 65%, 90%, 100%, and 200% scale. Windows compilation, shader checks, core suites, and editor UI/process/native tests passed in [run 35006382837](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35006382837), source `e518bbd01d117cea5dbb30b59e7245b49b5055c5`. The user confirmed toolbar spacing and tooltip appearance on Windows.
+
+
+## Project and document authoring batch
+
+Added project creation/opening, versioned manifests, recent/last projects, native file/folder dialogs, New/Open/Reload/Save As, dirty indicators, guarded switching/quit, keyboard editing shortcuts, 30-second autosaves, and named/untitled recovery. See [Projects, scenes, and recovery](projects.md) for behavior and limitations. Local core and editor suites and a Windows-header syntax check pass. Windows package validation is pending; native dialog interaction remains a desktop check.

@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
 #include "camera_controls.hpp"
+#include "files.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "play.hpp"
@@ -65,6 +66,8 @@ int main(int argc, char** argv) {
         char cmake_path[1024] = "cmake";
         char ninja_path[1024] = "ninja";
         bool auto_build = false;
+        std::vector<std::string> recent_projects;
+        std::string last_project;
         try {
             std::ifstream f(settings);
             if (f) {
@@ -77,6 +80,8 @@ int main(int argc, char** argv) {
                 SDL_strlcpy(ninja_path, j.value("ninja", std::string("ninja")).c_str(),
                             sizeof(ninja_path));
                 auto_build = j.value("auto_build", false);
+                recent_projects = j.value("recent_projects", std::vector<std::string>{});
+                last_project = j.value("last_project", std::string{});
             }
         } catch (const std::exception&) { /* Recover malformed user preferences with defaults. */
         }
@@ -86,7 +91,9 @@ int main(int argc, char** argv) {
                                             {"interface_scale", forge::ui::interface_scale},
                                             {"cmake", cmake_path},
                                             {"ninja", ninja_path},
-                                            {"auto_build", auto_build}}
+                                            {"auto_build", auto_build},
+                                            {"recent_projects", recent_projects},
+                                            {"last_project", last_project}}
                                     .dump(2));
         };
         forge::Scene scene;
@@ -95,17 +102,23 @@ int main(int argc, char** argv) {
         if (!base)
             throw std::runtime_error("Cannot locate runtime directory");
         const auto runtime_path = (std::filesystem::path(base) / "forge_runtime.exe").string();
-        const std::filesystem::path project =
-            argc > 1 ? std::filesystem::absolute(argv[1]) : std::filesystem::current_path();
-        const auto scene_path = project / "main.scene.json";
-        forge::NativeBuild native(project, std::filesystem::path(base) / "sdk", runtime_path);
-        native.cmake = cmake_path;
-        native.ninja = ninja_path;
-        native.auto_build = auto_build;
+        forge::EditorFiles files(scene, window.get(), recent_projects);
         std::string message =
             "Ready. Block preview is an authoring diagnostic, not the final game renderer.";
-        if (std::filesystem::exists(scene_path))
-            scene.load(scene_path);
+        try {
+            files.start(argc > 1               ? std::filesystem::u8path(argv[1])
+                        : last_project.empty() ? std::filesystem::current_path()
+                                               : std::filesystem::u8path(last_project));
+        } catch (const std::exception& e) {
+            message = e.what();
+            files.start(std::filesystem::current_path());
+        }
+        auto native = std::make_unique<forge::NativeBuild>(
+            files.document.project(), std::filesystem::path(base) / "sdk", runtime_path);
+        native->cmake = cmake_path;
+        native->ninja = ninja_path;
+        native->auto_build = auto_build;
+        auto active_project = files.document.project();
         bool initialize_layout = !std::filesystem::exists(ini);
         forge::Viewport viewport(device);
         forge::EditorCamera camera;
@@ -113,6 +126,7 @@ int main(int argc, char** argv) {
         std::string selected, name_entity, authored_name;
         char entity_name[1024]{};
         bool running = true;
+        std::string current_title;
         unsigned next_id = 1;
         while (running) {
             SDL_Event event;
@@ -137,10 +151,39 @@ int main(int argc, char** argv) {
                     }
                 }
                 if (event.type == SDL_EVENT_QUIT)
-                    running = false;
+                    files.request({forge::EditorFiles::Command::Quit, {}, {}});
+            }
+            files.pump(!native->busy());
+            if (files.changed) {
+                play.stop();
+                selected.clear();
+                camera = {};
+                if (active_project != files.document.project()) {
+                    active_project = files.document.project();
+                    native = std::make_unique<forge::NativeBuild>(
+                        active_project, std::filesystem::path(base) / "sdk", runtime_path);
+                    native->cmake = cmake_path;
+                    native->ninja = ninja_path;
+                    native->auto_build = auto_build;
+                }
+                files.changed = false;
+            }
+            if (files.preferences_changed) {
+                last_project = forge::path_text(files.document.project());
+                try {
+                    save_preferences();
+                } catch (const std::exception& e) {
+                    message = e.what();
+                }
+                files.preferences_changed = false;
+            }
+            if (files.quit) {
+                running = false;
+                continue;
             }
             play.pump();
-            native.pump(play, scene.document());
+            native->pump(play, scene.document());
+            files.set_switch_available(!native->busy());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
             if (width <= 0 || height <= 0 ||
@@ -161,12 +204,12 @@ int main(int argc, char** argv) {
                 initialize_layout = false;
             }
             if (forge::ui::begin_toolbar()) {
+                files.menu();
                 try {
                     if (forge::ui::button(
-                            "Save", "Atomically save the authored scene to main.scene.json.")) {
-                        scene.save(scene_path);
-                        message = "Scene saved.";
-                    }
+                            "Save",
+                            "Save the active scene. Ctrl+S. Untitled scenes ask for a location."))
+                        files.save();
                     if (forge::ui::button("Undo", "Restore the previous authored scene edit."))
                         scene.undo();
                     if (forge::ui::button("Redo", "Reapply the last undone edit."))
@@ -190,11 +233,11 @@ int main(int argc, char** argv) {
                         scene.edit(doc);
                         selected = id;
                     }
-                    ImGui::BeginDisabled(native.busy());
+                    ImGui::BeginDisabled(native->busy());
                     if (forge::ui::button(
                             play.active() ? "Restart" : "Play",
                             "Start a fresh isolated play world from the current authored scene."))
-                        play.start(runtime_path, scene.document(), native.artifact());
+                        play.start(runtime_path, scene.document(), native->artifact());
                     if (play.can_recover() &&
                         forge::ui::button(
                             "Recover",
@@ -218,12 +261,59 @@ int main(int argc, char** argv) {
                                 "Ctrl+0 resets to 100%. Saved between sessions.");
                 forge::ui::end_toolbar();
             }
+            files.shortcuts();
+            if (!files.busy() &&
+                !ImGui::IsPopupOpen(nullptr,
+                                    ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
+                !ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
+                ImGui::GetIO().KeyCtrl) {
+                try {
+                    if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+                        if (ImGui::GetIO().KeyShift)
+                            scene.redo();
+                        else
+                            scene.undo();
+                    }
+                    if (ImGui::IsKeyPressed(ImGuiKey_Y, false))
+                        scene.redo();
+                    if (!selected.empty() && ImGui::IsKeyPressed(ImGuiKey_D, false))
+                        selected = scene.duplicate_subtree(selected);
+                } catch (const std::exception& e) {
+                    message = e.what();
+                }
+            }
+            files.draw_dialogs();
+            const auto title = std::string(files.document.dirty() ? "* " : "") +
+                               files.document.name() + " / " +
+                               (files.document.path().empty()
+                                    ? "Untitled"
+                                    : forge::path_text(files.document.path().filename())) +
+                               " | F.O.R.G.E.";
+            if (title != current_title) {
+                SDL_SetWindowTitle(window.get(), title.c_str());
+                current_title = title;
+            }
             auto doc = scene.document();
             const auto schema = scene.schema();
             if (ImGui::Begin("World")) {
-                forge::ui::heading("Entities",
-                                   "Authored entities identified by stable project IDs.");
+                forge::ui::heading("Entities", "Authored entities identified by stable project "
+                                               "IDs. Ctrl+D duplicates a selected subtree.");
+                ImGui::TextUnformatted(files.document.dirty()     ? "Unsaved changes"
+                                       : files.document.on_disk() ? "Saved"
+                                                                  : "New scene");
+                forge::ui::help("Save writes the current scene; dirty scenes get a recovery "
+                                "snapshot every 30 seconds.");
                 forge::ui::hierarchy(doc, selected);
+                if (ImGui::IsWindowFocused() && !files.busy() && !ImGui::GetIO().WantTextInput &&
+                    !ImGui::IsAnyItemActive() && !selected.empty() &&
+                    ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+                    try {
+                        scene.delete_subtree(selected);
+                        selected.clear();
+                    } catch (const std::exception& e) {
+                        message = e.what();
+                    }
+                }
             }
             ImGui::End();
             if (ImGui::Begin("Inspector")) {
@@ -378,32 +468,32 @@ int main(int argc, char** argv) {
             if (ImGui::Begin("Native")) {
                 forge::ui::heading("Gameplay", "C++ gameplay compiles outside the editor. Only "
                                                "isolated runtimes load gameplay DLLs.");
-                ImGui::BeginDisabled(native.busy());
+                ImGui::BeginDisabled(native->busy());
                 try {
                     if (forge::ui::button("Create source",
                                           "Create Native/gameplay.cpp and CMakeLists.txt. Existing "
                                           "files are never overwritten."))
-                        native.create_source();
+                        native->create_source();
                     if (forge::ui::button(
                             "Build & Reload",
                             "Incrementally compile, probe a unique candidate DLL, then reload at a "
                             "runtime boundary. Failed builds retain the previous module."))
-                        native.build();
+                        native->build();
                     if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
-                        native.cmake = cmake_path;
+                        native->cmake = cmake_path;
                         save_preferences();
                     }
                     forge::ui::help("CMake executable path or command on PATH. Version 3.24 or "
                                     "newer required.");
                     if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
-                        native.ninja = ninja_path;
+                        native->ninja = ninja_path;
                         save_preferences();
                     }
                     forge::ui::help(
                         "Ninja executable path or command on PATH. Launch FORGE from an x64 Native "
                         "Tools command prompt to provide the MSVC compiler environment.");
                     if (ImGui::Checkbox("Build on save", &auto_build)) {
-                        native.auto_build = auto_build;
+                        native->auto_build = auto_build;
                         save_preferences();
                     }
                     forge::ui::help(
@@ -413,10 +503,10 @@ int main(int argc, char** argv) {
                     message = e.what();
                 }
                 ImGui::EndDisabled();
-                ImGui::TextWrapped("%s", native.source_path().c_str());
+                ImGui::TextWrapped("%s", native->source_path().c_str());
                 forge::ui::help("Edit this source in your code editor. The sample moves entities "
                                 "along the X axis.");
-                ImGui::TextWrapped("%s", native.status().c_str());
+                ImGui::TextWrapped("%s", native->status().c_str());
                 forge::ui::help("Native build and candidate activation status.");
                 ImGui::TextWrapped(
                     "Windows: use Run-Forge-Dev.cmd or an x64 Native Tools command prompt. "
@@ -429,11 +519,17 @@ int main(int argc, char** argv) {
                 forge::ui::heading("Status", "Latest editor operation or validation diagnostic.");
                 ImGui::TextWrapped("%s", message.c_str());
                 forge::ui::help("Latest operation result.");
-                if (!native.log().empty()) {
+                ImGui::TextWrapped("%s", files.status.c_str());
+                forge::ui::help("Latest project, file, autosave, or recovery result.");
+                ImGui::TextWrapped("Project: %s",
+                                   forge::path_text(files.document.project()).c_str());
+                forge::ui::help("Current project root. Native builds, scenes, and recovery "
+                                "snapshots belong to this project.");
+                if (!native->log().empty()) {
                     forge::ui::heading("Build output",
                                        "Recent compiler output. The complete current log is in "
                                        "Project/.forge/native/build.log.");
-                    ImGui::TextUnformatted(native.log().c_str());
+                    ImGui::TextUnformatted(native->log().c_str());
                     forge::ui::help("Compiler diagnostics and build/validation results. Scroll "
                                     "horizontally for long source locations.");
                 }

@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "camera_controls.hpp"
+#include "document_tests.hpp"
 #include "play.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
@@ -288,6 +289,7 @@ int main(int argc, char** argv) {
         forge::ui::style(-1);
         require(forge::ui::interface_scale == 0.65f, "Scale minimum failed");
         ImGui::DestroyContext();
+        test_documents();
         test_camera_input();
         test_telemetry_and_status();
         test_tooltip_placement();

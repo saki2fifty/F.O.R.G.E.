@@ -19,6 +19,8 @@ class Scene {
     Scene();
     flecs::world& world() { return *world_; }
     Json document() const;
+    std::uint64_t revision() const { return revision_; }
+    void reset(const Json& document);
     std::size_t entity_count() const { return entities_.size(); }
     Json schema() const;
     void replace(const Json& document);
@@ -34,6 +36,7 @@ class Scene {
     void translate(float x, float y, float z);
 
   private:
+    std::uint64_t revision_ = 0;
     std::unique_ptr<flecs::world> world_;
     Json source_;
     std::map<std::string, flecs::entity_t> entities_;
