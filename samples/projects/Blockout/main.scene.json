@@ -1,0 +1,353 @@
+{
+  "version": 1,
+  "entities": [
+    {
+      "id": "floor",
+      "name": "Floor",
+      "components": {
+        "forge.position": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 12,
+          "y": 1,
+          "z": 12
+        },
+        "forge.tint": {
+          "r": 0.3,
+          "g": 0.35,
+          "b": 0.4
+        },
+        "forge.primitive": {
+          "kind": 3
+        }
+      }
+    },
+    {
+      "id": "back-wall",
+      "name": "Back wall",
+      "components": {
+        "forge.position": {
+          "x": 0,
+          "y": 1.5,
+          "z": 5.8
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 12,
+          "y": 3,
+          "z": 0.25
+        },
+        "forge.tint": {
+          "r": 0.25,
+          "g": 0.4,
+          "b": 0.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        }
+      }
+    },
+    {
+      "id": "left-wall",
+      "name": "Left wall",
+      "components": {
+        "forge.position": {
+          "x": -5.8,
+          "y": 1.5,
+          "z": 0
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 0.25,
+          "y": 3,
+          "z": 12
+        },
+        "forge.tint": {
+          "r": 0.25,
+          "g": 0.4,
+          "b": 0.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        }
+      }
+    },
+    {
+      "id": "platform",
+      "name": "Platform",
+      "components": {
+        "forge.position": {
+          "x": 0,
+          "y": 0.35,
+          "z": 1
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 4,
+          "y": 0.7,
+          "z": 3
+        },
+        "forge.tint": {
+          "r": 0.5,
+          "g": 0.5,
+          "b": 0.55
+        },
+        "forge.primitive": {
+          "kind": 0
+        }
+      }
+    },
+    {
+      "id": "ramp",
+      "name": "Ramp",
+      "components": {
+        "forge.position": {
+          "x": 0,
+          "y": 0.3,
+          "z": -1.1
+        },
+        "forge.rotation": {
+          "x": -18,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 2,
+          "y": 0.2,
+          "z": 2
+        },
+        "forge.tint": {
+          "r": 0.8,
+          "g": 0.55,
+          "b": 0.2
+        },
+        "forge.primitive": {
+          "kind": 0
+        }
+      }
+    },
+    {
+      "id": "column-1",
+      "name": "Column 1",
+      "components": {
+        "forge.position": {
+          "x": -4,
+          "y": 1.5,
+          "z": -3
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 0.7,
+          "y": 3,
+          "z": 0.7
+        },
+        "forge.tint": {
+          "r": 0.65,
+          "g": 0.7,
+          "b": 0.75
+        },
+        "forge.primitive": {
+          "kind": 2
+        }
+      }
+    },
+    {
+      "id": "column-2",
+      "name": "Column 2",
+      "components": {
+        "forge.position": {
+          "x": 4,
+          "y": 1.5,
+          "z": -3
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 0.7,
+          "y": 3,
+          "z": 0.7
+        },
+        "forge.tint": {
+          "r": 0.65,
+          "g": 0.7,
+          "b": 0.75
+        },
+        "forge.primitive": {
+          "kind": 2
+        }
+      }
+    },
+    {
+      "id": "column-3",
+      "name": "Column 3",
+      "components": {
+        "forge.position": {
+          "x": -4,
+          "y": 1.5,
+          "z": 3
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 0.7,
+          "y": 3,
+          "z": 0.7
+        },
+        "forge.tint": {
+          "r": 0.65,
+          "g": 0.7,
+          "b": 0.75
+        },
+        "forge.primitive": {
+          "kind": 2
+        }
+      }
+    },
+    {
+      "id": "column-4",
+      "name": "Column 4",
+      "components": {
+        "forge.position": {
+          "x": 4,
+          "y": 1.5,
+          "z": 3
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 0.7,
+          "y": 3,
+          "z": 0.7
+        },
+        "forge.tint": {
+          "r": 0.65,
+          "g": 0.7,
+          "b": 0.75
+        },
+        "forge.primitive": {
+          "kind": 2
+        }
+      }
+    },
+    {
+      "id": "marker",
+      "name": "Sphere marker",
+      "components": {
+        "forge.position": {
+          "x": 0,
+          "y": 1.5,
+          "z": 1
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 1.4,
+          "y": 1.4,
+          "z": 1.4
+        },
+        "forge.tint": {
+          "r": 0.85,
+          "g": 0.25,
+          "b": 0.18
+        },
+        "forge.primitive": {
+          "kind": 1
+        }
+      }
+    },
+    {
+      "id": "oval",
+      "name": "Stretched sphere",
+      "components": {
+        "forge.position": {
+          "x": 3,
+          "y": 0.75,
+          "z": 0
+        },
+        "forge.rotation": {
+          "x": 0,
+          "y": 35,
+          "z": 0
+        },
+        "forge.scale": {
+          "x": 2,
+          "y": 1.5,
+          "z": 0.8
+        },
+        "forge.tint": {
+          "r": 0.2,
+          "g": 0.7,
+          "b": 0.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        }
+      }
+    },
+    {
+      "id": "tilted-block",
+      "name": "Tilted block",
+      "components": {
+        "forge.position": {
+          "x": -2,
+          "y": 1,
+          "z": -2
+        },
+        "forge.rotation": {
+          "x": 15,
+          "y": 35,
+          "z": 20
+        },
+        "forge.scale": {
+          "x": 1.5,
+          "y": 0.7,
+          "z": 1
+        },
+        "forge.tint": {
+          "r": 0.8,
+          "g": 0.6,
+          "b": 0.15
+        },
+        "forge.primitive": {
+          "kind": 0
+        }
+      }
+    }
+  ]
+}

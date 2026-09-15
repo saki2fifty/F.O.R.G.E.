@@ -16,7 +16,8 @@ class Viewport {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> constants_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> constants_, vertices_;
+    std::array<unsigned, 4> starts_{}, counts_{};
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> resources_;
 };
 } // namespace forge

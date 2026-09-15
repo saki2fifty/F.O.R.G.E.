@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <forge/geometry.hpp>
 #include <forge/scene.hpp>
 #include <limits>
 namespace forge {
@@ -81,12 +82,10 @@ class EditorCamera {
             if ((!selected.empty() && e.at("id") != selected) || e.value("prefab", false) ||
                 !e.at("components").contains("forge.position"))
                 continue;
-            const auto& p = e.at("components").at("forge.position");
-            const Vec center{p.at("x").get<float>(), p.at("y").get<float>(),
-                             p.at("z").get<float>()};
+            const auto bounds = object_bounds(e);
             for (unsigned i = 0; i < 3; ++i) {
-                lo[i] = std::min(lo[i], center[i] - 0.5f);
-                hi[i] = std::max(hi[i], center[i] + 0.5f);
+                lo[i] = std::min(lo[i], bounds.first[i]);
+                hi[i] = std::max(hi[i], bounds.second[i]);
             }
             found = true;
         }

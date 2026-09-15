@@ -1,3 +1,4 @@
+#include "geometry_tests.hpp"
 #include <forge/module.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
@@ -8,6 +9,7 @@ void check(bool value, const char* message) {
 }
 int main(int argc, char** argv) {
     try {
+        test_geometry();
         check(argc == 2, "module argument");
         forge::Scene scene;
         forge::Json doc = {

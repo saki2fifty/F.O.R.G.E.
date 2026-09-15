@@ -29,4 +29,6 @@ Parenting currently organizes entities without moving them or making their posit
 3. Select **Stop** to return to authoring. Blocks remain stationary unless a gameplay module changes them.
 4. Use **File → Open scene** to reopen your saved scene.
 
+For more shapes, color, rotation, and scale, try [Build a blockout scene](blockout.md).
+
 Continue with [Viewport](../editor/viewport.md) for navigation and [Saving and recovery](../editor/saving-recovery.md) for protecting edits.

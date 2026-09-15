@@ -77,7 +77,7 @@ struct SceneTools {
         if (input.activated && ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Right) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-            const auto doc = scene.document();
+            const auto doc = render_document(scene.document());
             int hit = -2;
             if (const auto p = entity_position(doc, selected); move_tool && p) {
                 const auto points = handles(camera, *p, size);
@@ -191,16 +191,27 @@ struct SceneTools {
             line({0, 0, cz - range}, {0, 0, cz + range}, IM_COL32(90, 150, 255, 150));
         }
         if (const auto center = entity_position(doc, selected)) {
-            for (unsigned corner = 0; corner < 8; ++corner)
-                for (unsigned axis = 0; axis < 3; ++axis)
-                    if (!(corner & (1u << axis))) {
-                        Vec3 a = *center, b;
-                        for (unsigned i = 0; i < 3; ++i)
-                            a[i] += (corner & (1u << i)) ? 0.51f : -0.51f;
-                        b = a;
-                        b[axis] += 1.02f;
-                        line(a, b, IM_COL32(255, 200, 75, 255), 2 * interface_scale);
-                    }
+            const Json* entity = nullptr;
+            for (const auto& candidate : doc.at("entities"))
+                if (candidate.at("id") == selected)
+                    entity = &candidate;
+            if (entity) {
+                const ObjectTransform transform(*entity);
+                for (unsigned corner = 0; corner < 8; ++corner)
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        if (!(corner & (1u << axis))) {
+                            Vec3 a{}, b;
+                            for (unsigned i = 0; i < 3; ++i)
+                                a[i] = primitive_kind(*entity) == 3 && i == 1 ? 0
+                                       : (corner & (1u << i))                 ? 0.5f
+                                                                              : -0.5f;
+                            b = a;
+                            if (!(primitive_kind(*entity) == 3 && axis == 1))
+                                b[axis] += 1;
+                            line(transform.point(a), transform.point(b),
+                                 IM_COL32(255, 200, 75, 255), 2 * interface_scale);
+                        }
+            }
             if (move_tool && can_edit) {
                 const auto points = handles(camera, *center, size);
                 if (points[3]) {

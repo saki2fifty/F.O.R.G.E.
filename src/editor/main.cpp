@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "blockout.hpp"
 #include "camera_controls.hpp"
 #include "content.hpp"
 #include "files.hpp"
@@ -78,6 +79,7 @@ int main(int argc, char** argv) {
         bool auto_build = false;
         forge::ui::SceneTools scene_tools;
         forge::ContentBrowser content;
+        forge::BlockoutProperties blockout;
         char hierarchy_filter[256]{};
         std::vector<std::string> recent_projects;
         std::string last_project;
@@ -93,6 +95,7 @@ int main(int argc, char** argv) {
                 SDL_strlcpy(ninja_path, j.value("ninja", std::string("ninja")).c_str(),
                             sizeof(ninja_path));
                 auto_build = j.value("auto_build", false);
+                blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
                 scene_tools.move_tool = j.value("move_tool", true);
                 scene_tools.snap = j.value("snap", false);
@@ -111,6 +114,7 @@ int main(int argc, char** argv) {
                                             {"cmake", cmake_path},
                                             {"ninja", ninja_path},
                                             {"auto_build", auto_build},
+                                            {"create_at_view_target", blockout.at_view_target},
                                             {"grid", scene_tools.grid},
                                             {"move_tool", scene_tools.move_tool},
                                             {"snap", scene_tools.snap},
@@ -157,7 +161,6 @@ int main(int argc, char** argv) {
         char entity_name[1024]{};
         bool running = true;
         std::string current_title;
-        unsigned next_id = 1;
         while (running) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
@@ -189,6 +192,7 @@ int main(int argc, char** argv) {
                 selected.clear();
                 camera = {};
                 scene_tools.move.cancel();
+                blockout.cancel();
                 try {
                     forge::restore_view(files.document, camera);
                 } catch (const std::exception& e) {
@@ -254,22 +258,27 @@ int main(int argc, char** argv) {
                     if (forge::ui::button(
                             "Add entity",
                             "Create an entity with a stable ID and an editable position.")) {
-                        auto doc = scene.document();
-                        std::string id;
-                        bool found;
-                        do {
-                            id = "entity-" + std::to_string(next_id++);
-                            found = false;
-                            for (const auto& e : doc["entities"])
-                                found |= e["id"] == id;
-                        } while (found);
-                        doc["entities"].push_back(
-                            {{"id", id},
-                             {"name", id},
-                             {"components", {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}}}}}});
-                        scene.edit(doc);
-                        selected = id;
+                        selected = forge::create_primitive(scene, 0, {0, 1, 0});
                     }
+                    if (ImGui::BeginMenu("Create")) {
+                        if (ImGui::Checkbox("At view target", &blockout.at_view_target))
+                            save_preferences();
+                        forge::ui::help("Create the primitive at the camera's orbit target instead "
+                                        "of the default origin placement.");
+                        for (unsigned kind = 0; kind < 4; ++kind) {
+                            if (ImGui::MenuItem(forge::primitive_names[kind]))
+                                selected = forge::create_primitive(
+                                    scene, kind,
+                                    blockout.at_view_target
+                                        ? camera.target
+                                        : forge::Float3{0, kind == 3 ? 0.0f : 1.0f, 0});
+                            forge::ui::help("Create a built-in primitive with reflected position, "
+                                            "rotation, scale, and opaque color. Undo removes it.");
+                        }
+                        ImGui::EndMenu();
+                    }
+                    forge::ui::help(
+                        "Create Cube, Sphere, Cylinder, or Plane primitives for scene blockout.");
                     ImGui::BeginDisabled(native->busy());
                     if (forge::ui::button(
                             play.active() ? "Restart" : "Play",
@@ -335,7 +344,10 @@ int main(int argc, char** argv) {
                  !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || play.active() ||
                  files.busy()))
                 scene_tools.move.cancel();
-            auto doc = scene_tools.move.preview(scene.document());
+            blockout.check(scene);
+            if (!(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || files.busy())
+                blockout.cancel();
+            auto doc = scene_tools.move.preview(blockout.preview(scene.document()));
             const auto schema = scene.schema();
             if (ImGui::Begin("World")) {
                 forge::ui::heading("Entities", "Authored entities identified by stable project "
@@ -455,11 +467,15 @@ int main(int argc, char** argv) {
                                         *position = {0, 0, 0};
                                         apply = true;
                                     }
-                                    if (forge::ui::button(
-                                            "Place on ground",
-                                            "Set this unit block's center Y to 0.5, keeping X and "
-                                            "Z. This is not collision or terrain placement.")) {
-                                        (*position)[1] = 0.5f;
+                                    if (forge::ui::button("Place on ground",
+                                                          "Place the transformed mesh bounds on "
+                                                          "world Y=0, keeping X and Z. This is not "
+                                                          "collision or terrain placement.")) {
+                                        const auto effective = forge::render_document(doc);
+                                        for (const auto& target : effective.at("entities"))
+                                            if (target.at("id") == selected)
+                                                (*position)[1] -=
+                                                    forge::object_bounds(target).first[1];
                                         apply = true;
                                     }
                                     if (forge::ui::button("Snap position",
@@ -494,15 +510,18 @@ int main(int argc, char** argv) {
                                 }
                             }
                         }
+                        blockout.draw(scene, selected, message);
                     }
                 ImGui::EndDisabled();
+            } else {
+                blockout.cancel();
             }
             ImGui::End();
             if (ImGui::Begin("Scene", nullptr,
                              ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar)) {
                 forge::ui::heading(
-                    "Block preview",
-                    "Diligent renders a cube for each entity with a position. "
+                    "Scene preview",
+                    "Diligent renders transformed built-in meshes with opaque blockout color. "
                     "Orbit, pan, and frame this editor-only camera without editing the scene.");
                 ImGui::TextUnformatted(play.active() ? "PLAY | isolated scene copy"
                                                      : "EDIT | authored scene");
@@ -528,8 +547,8 @@ int main(int argc, char** argv) {
                     message = e.what();
                 }
                 camera.fly_speed = scene_tools.fly_speed;
-                doc = scene.document();
-                const auto& preview = play.active() ? play.snapshot() : doc;
+                doc = forge::render_document(blockout.preview(scene.document()));
+                const auto preview = play.active() ? forge::render_document(play.snapshot()) : doc;
                 const float toolbar_width =
                     ImGui::CalcTextSize("Frame selected").x + ImGui::CalcTextSize("Fit scene").x +
                     ImGui::CalcTextSize("Reset view").x + 6 * ImGui::GetStyle().FramePadding.x +
@@ -565,14 +584,15 @@ int main(int argc, char** argv) {
                                 "Selected entity has no visible block, or exceeds camera range.";
                     }
                     const bool can_edit =
-                        focused && !play.active() && !files.busy() &&
+                        focused && !play.active() && !files.busy() && !blockout.active() &&
                         !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
                                                          ImGuiPopupFlags_AnyPopupLevel);
                     scene_tools.input(scene, camera, selected, image_origin, size, input, can_edit,
                                       message);
-                    const auto rendered = play.active()
-                                              ? play.snapshot()
-                                              : scene_tools.move.preview(scene.document());
+                    const auto rendered = forge::render_document(
+                        play.active()
+                            ? play.snapshot()
+                            : scene_tools.move.preview(blockout.preview(scene.document())));
                     const float render_scale = std::min(1.0f, 4096.0f / std::max(size.x, size.y));
                     auto* texture = viewport.render(
                         context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),

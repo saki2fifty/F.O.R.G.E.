@@ -2,7 +2,7 @@
 
 FORGE is the Flecs-Oriented Runtime & Game Editor. Use this manual to learn the editor's current controls and complete everyday authoring tasks.
 
-Start with [Your first scene](getting-started/first-scene.md). The offline edition is included with each Windows ZIP and opens through **Help → User Manual**. Its build identifier matches the packaged editor. Markdown pages in the repository track the current source.
+Start with [Your first scene](getting-started/first-scene.md), or try [Build a blockout scene](getting-started/blockout.md) with the packaged example. The offline edition is included with each Windows ZIP and opens through **Help → User Manual**. Its build identifier matches the packaged editor. Markdown pages in the repository track the current source.
 
 ## Projects and authored content
 
@@ -10,6 +10,8 @@ Start with [Your first scene](getting-started/first-scene.md). The offline editi
 - [Scenes](editor/scenes.md): create and switch scene files.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
 - [Content browser](editor/content-browser.md): find and open project scene files.
+- [Primitives and color](editor/primitives.md): create built-in shapes and give them a tint.
+- [Transforms](editor/transforms.md): rotate, scale, copy, paste, and reset objects.
 - [Inspector](editor/inspector.md): edit the selected entity's properties.
 - [Saving and recovery](editor/saving-recovery.md): protect unsaved work and restore snapshots.
 - [Undo and redo](editor/undo-redo.md): reverse authored changes.
@@ -29,4 +31,4 @@ Start with [Your first scene](getting-started/first-scene.md). The offline editi
 
 ## Current boundaries
 
-The viewport draws diagnostic cubes. Production materials, imported meshes, physics, audio, animation, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
+The viewport draws transformed built-in blockout meshes. Production materials, imported meshes, physics, audio, animation, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.

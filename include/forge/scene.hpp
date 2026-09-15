@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <filesystem>
 #include <flecs.h>
 #include <map>
@@ -11,6 +12,18 @@ using Json = nlohmann::json;
 struct Position {
     float x{}, y{}, z{};
 };
+struct Rotation {
+    float x{}, y{}, z{};
+}; // Degrees, local X then Y then Z.
+struct Scale {
+    float x = 1, y = 1, z = 1;
+};
+struct Tint {
+    float r = 0.2f, g = 0.6f, b = 0.7f;
+};
+struct Primitive {
+    std::uint32_t kind = 0;
+}; // Cube, sphere, cylinder, plane.
 struct StableId {
     std::string value;
 };

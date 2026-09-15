@@ -11,6 +11,21 @@ def request(command, **fields):
 try:
     assert request('ping')['ok']
     assert not request('unknown')['ok']
+    example=json.loads((Path(__file__).resolve().parents[1]/'samples/projects/Blockout/main.scene.json').read_text())
+    loaded=request('replace', scene=example)
+    assert loaded['ok']
+    # Reflected numbers use float32 storage; compare authored numeric values with tolerance.
+    import math
+    def equivalent(a, b):
+        if isinstance(a, dict):
+            return a.keys()==b.keys() and all(equivalent(a[k], b[k]) for k in a)
+        if isinstance(a, list):
+            return len(a)==len(b) and all(equivalent(x, y) for x,y in zip(a,b))
+        if isinstance(a, (int,float)):
+            return math.isclose(a,b,rel_tol=1e-6,abs_tol=1e-6)
+        return a==b
+    assert equivalent(example, loaded['scene'])
+    assert request('snapshot')['scene']==loaded['scene']
     assert request('load_module', path=module)['ok']
     assert request('step', seconds=0.1)['ok']
     assert not request('step', seconds=-1)['ok']

@@ -1,6 +1,6 @@
 # Inspector
 
-Inspector shows properties for the entity selected in World. Its current editable controls cover the name, hierarchy, and Position.
+Inspector shows properties for the entity selected in World. Its current editable controls cover the name, hierarchy, position, rotation, scale, primitive shape, and color.
 
 ## Change a position
 
@@ -19,8 +19,8 @@ During Play, Inspector still edits the authored scene. Use Restart to copy those
 
 ## Position commands
 
-**Reset position** sets X, Y, and Z to zero. **Place on ground** sets Y to 0.5 while keeping X and Z, placing the unit block's bottom on the reference plane. It does not query terrain or collisions. **Snap position** rounds all three coordinates to multiples of the Scene panel's snap Step. Each command is one undoable edit.
+**Reset position** sets X, Y, and Z to zero. **Place on ground** moves the lowest point of the transformed mesh to Y=0 while keeping X and Z. It does not query terrain or collisions. **Snap position** rounds all three coordinates to multiples of the Scene panel's snap Step. Each command is one undoable edit.
 
 For direct manipulation, use the [Viewport move handles](viewport.md). Inspector shows the move preview but disables its controls during the drag; releasing the mouse commits it.
 
-Only the supported Position fields have property controls today. Materials, arbitrary component editing, multi-selection, rotation, and scale are not implemented.
+See [Transforms](transforms.md) for Rotation/Scale fields and Copy/Paste/Reset transform. See [Primitives and color](primitives.md) for Shape and Color controls. Materials, arbitrary component editing, and multi-selection are not implemented.

@@ -1,10 +1,10 @@
 # Entities and hierarchy
 
-Entities are the things you author in a scene. World lists them in a tree; Inspector edits the selected entity. An entity with Position appears as a diagnostic block in the viewport.
+Entities are the things you author in a scene. World lists them in a tree; Inspector edits the selected entity. An entity with Position appears as a built-in primitive in the viewport, defaulting to a cube.
 
 ## Add and select an entity
 
-Select **Add entity** in the top toolbar. FORGE creates an entity with a unique authored ID and Position. Click its row in **World**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
+Select **Add entity** in the top toolbar. FORGE creates a cube with a unique authored ID, transform, and color. Use the Create menu for other shapes. Click its row in **World**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
 
 ## Rename an entity
 

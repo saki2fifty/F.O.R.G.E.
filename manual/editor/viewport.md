@@ -1,6 +1,6 @@
 # Viewport
 
-The Scene panel previews authored blocks or the current play world's blocks. Camera navigation changes your view without editing entity positions.
+The Scene panel previews authored primitives or the current play world's primitives. Camera navigation changes your view without editing entity positions.
 
 ## Orbit and look
 
@@ -20,7 +20,7 @@ Gestures that begin outside the image do not acquire viewport navigation. Losing
 
 Select an entity in World, hover the Scene image, and press F to frame its visible block. **Frame selected** provides the same command. **Fit scene** frames the visible blocks together; **Reset view** restores the default camera.
 
-Left-click a visible block to select the nearest block under the pointer. Clicking empty space clears selection. The selected block has an amber wire outline; it can show through other blocks to help locate the selection. Selection changes Inspector and World. Selection through this view is disabled during Play.
+Left-click a visible block to select the nearest block under the pointer. Clicking empty space clears selection. The selected object has an amber outline of its rotated bounds; it can show through other blocks to help locate the selection. Selection changes Inspector and World. Selection through this view is disabled during Play.
 
 ## Move a selected block
 
@@ -33,7 +33,7 @@ Enable **Move handles** in Scene. The selected block shows red X, green Y, and b
 
 A drag previews the new position without saving partial changes. Losing application focus, resizing the viewport, or changing scenes cancels it. An axis pointing nearly straight toward the camera is hidden because it has too little screen length to drag; orbit to expose it. Moves affect the selected entity only. Parenting still does not make children follow parent positions.
 
-Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **Step**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation, scale, multi-selection, and local-axis handles are not available yet.
+Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **Step**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale handles, multi-selection, and local-axis move handles are not available yet.
 
 ## Reference grid and flight speed
 

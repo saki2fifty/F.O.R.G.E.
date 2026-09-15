@@ -1,5 +1,6 @@
 #pragma once
 #include "camera.hpp"
+#include <forge/geometry.hpp>
 #include <optional>
 namespace forge {
 using Vec3 = EditorCamera::Vec;
@@ -59,22 +60,8 @@ inline std::string pick_block(const Json& doc, const EditorCamera& camera, float
         const auto center = block_position(e);
         if (!center)
             continue;
-        float enter = EditorCamera::near_plane, leave = nearest;
-        for (unsigned axis = 0; axis < 3; ++axis) {
-            const float lo = (*center)[axis] - 0.5f, hi = (*center)[axis] + 0.5f;
-            if (std::abs(ray[axis]) < 0.000001f) {
-                if (eye[axis] < lo || eye[axis] > hi)
-                    leave = -1;
-            } else {
-                float a = (lo - eye[axis]) / ray[axis], b = (hi - eye[axis]) / ray[axis];
-                if (a > b)
-                    std::swap(a, b);
-                enter = std::max(enter, a);
-                leave = std::min(leave, b);
-            }
-        }
-        if (enter <= leave && enter < nearest) {
-            nearest = enter;
+        if (const auto distance = object_hit(e, eye, ray, EditorCamera::near_plane, nearest)) {
+            nearest = *distance;
             selected = id;
         }
     }
@@ -112,7 +99,7 @@ class MoveGesture {
     const Vec3& origin() const { return start_; }
     int axis() const { return axis_; }
     bool begin(const Scene& scene, const std::string& id, int axis) {
-        const auto p = entity_position(scene.document(), id);
+        const auto p = entity_position(render_document(scene.document()), id);
         if (!p || axis < -1 || axis > 2)
             return false;
         id_ = id;

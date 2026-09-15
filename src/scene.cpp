@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -31,6 +32,30 @@ void validate(const Json& doc) {
                 if (!std::isfinite(value))
                     throw std::runtime_error("Position must be finite");
             }
+        }
+        for (const char* component : {"forge.rotation", "forge.scale", "forge.tint"}) {
+            if (!e.at("components").contains(component))
+                continue;
+            const auto& fields = e.at("components").at(component);
+            const bool tint = std::string(component) == "forge.tint";
+            const std::array<const char*, 3> axes = tint
+                                                        ? std::array<const char*, 3>{"r", "g", "b"}
+                                                        : std::array<const char*, 3>{"x", "y", "z"};
+            for (const char* field : axes) {
+                if (!fields.at(field).is_number())
+                    throw std::runtime_error("Transform/color fields must be numbers");
+                const float value = fields.at(field).get<float>();
+                if (!std::isfinite(value) || (tint && (value < 0 || value > 1)) ||
+                    (std::string(component) == "forge.scale" &&
+                     (value < 0.001f || value > 10000)) ||
+                    (std::string(component) == "forge.rotation" && std::abs(value) > 360000))
+                    throw std::runtime_error("Invalid rotation, scale, or color range");
+            }
+        }
+        if (e.at("components").contains("forge.primitive")) {
+            const auto& kind = e.at("components").at("forge.primitive").at("kind");
+            if (!kind.is_number_integer() || kind.get<double>() < 0 || kind.get<double>() > 3)
+                throw std::runtime_error("Unknown primitive kind");
         }
     }
     for (const char* relation : {"parent", "base"}) {
@@ -116,6 +141,24 @@ void Scene::replace(const Json& doc) {
         next->component<Position>().lookup(axis).set_doc_brief(description.c_str());
     }
     next->component<Position>().add(flecs::OnInstantiate, flecs::Inherit);
+    next->component<Rotation>("forge.rotation")
+        .member<float>("x")
+        .member<float>("y")
+        .member<float>("z")
+        .add(flecs::OnInstantiate, flecs::Inherit);
+    next->component<Scale>("forge.scale")
+        .member<float>("x")
+        .member<float>("y")
+        .member<float>("z")
+        .add(flecs::OnInstantiate, flecs::Inherit);
+    next->component<Tint>("forge.tint")
+        .member<float>("r")
+        .member<float>("g")
+        .member<float>("b")
+        .add(flecs::OnInstantiate, flecs::Inherit);
+    next->component<Primitive>("forge.primitive")
+        .member<std::uint32_t>("kind")
+        .add(flecs::OnInstantiate, flecs::Inherit);
     next->component<StableId>("forge.stable_id");
     std::map<std::string, flecs::entity> entities;
     for (const auto& item : doc.at("entities")) {
@@ -129,6 +172,20 @@ void Scene::replace(const Json& doc) {
             e.set<Position>(
                 {p.at("x").get<float>(), p.at("y").get<float>(), p.at("z").get<float>()});
         }
+        if (c.contains("forge.rotation")) {
+            const auto& p = c.at("forge.rotation");
+            e.set<Rotation>({p.at("x"), p.at("y"), p.at("z")});
+        }
+        if (c.contains("forge.scale")) {
+            const auto& p = c.at("forge.scale");
+            e.set<Scale>({p.at("x"), p.at("y"), p.at("z")});
+        }
+        if (c.contains("forge.tint")) {
+            const auto& p = c.at("forge.tint");
+            e.set<Tint>({p.at("r"), p.at("g"), p.at("b")});
+        }
+        if (c.contains("forge.primitive"))
+            e.set<Primitive>({c.at("forge.primitive").at("kind").get<unsigned>()});
         entities.emplace(id, e);
     }
     for (const auto& item : doc.at("entities")) {
@@ -169,25 +226,61 @@ Json Scene::document() const {
             data["z"] = p.z;
         }
     }
+    for (auto& item : doc["entities"]) {
+        const auto e = world_->entity(entities_.at(item.at("id").get<std::string>()));
+        auto& c = item["components"];
+        if (e.owns<Rotation>()) {
+            const auto& p = e.get<Rotation>();
+            c["forge.rotation"]["x"] = p.x;
+            c["forge.rotation"]["y"] = p.y;
+            c["forge.rotation"]["z"] = p.z;
+        }
+        if (e.owns<Scale>()) {
+            const auto& p = e.get<Scale>();
+            c["forge.scale"]["x"] = p.x;
+            c["forge.scale"]["y"] = p.y;
+            c["forge.scale"]["z"] = p.z;
+        }
+        if (e.owns<Tint>()) {
+            const auto& p = e.get<Tint>();
+            c["forge.tint"]["r"] = p.r;
+            c["forge.tint"]["g"] = p.g;
+            c["forge.tint"]["b"] = p.b;
+        }
+        if (e.owns<Primitive>())
+            c["forge.primitive"]["kind"] = e.get<Primitive>().kind;
+    }
     return doc;
 }
 Json Scene::schema() const {
-    auto component = world_->component<Position>();
-    const auto* structure = ecs_get(world_->c_ptr(), component.id(), EcsStruct);
-    if (!structure)
-        throw std::runtime_error("Position reflection metadata is missing");
-    Json fields = Json::array();
-    const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
-    for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
-        const auto& member = members[i];
-        const char* description = ecs_doc_get_brief(world_->c_ptr(), member.member);
-        fields.push_back({{"id", member.name},
-                          {"type", "float32"},
-                          {"description", description ? description : ""}});
+    Json components = Json::array();
+    const char* identifiers[] = {"forge.position", "forge.rotation", "forge.scale", "forge.tint",
+                                 "forge.primitive"};
+    unsigned index = 0;
+    for (const auto& item : std::initializer_list<std::pair<flecs::entity, const char*>>{
+             {world_->component<Position>(), "Position in world units"},
+             {world_->component<Rotation>(), "Euler rotation in degrees, X then Y then Z"},
+             {world_->component<Scale>(), "Positive local-axis scale, from 0.001 to 10000"},
+             {world_->component<Tint>(), "Opaque blockout color, channels from 0 to 1"},
+             {world_->component<Primitive>(),
+              "Primitive kind: 0 cube, 1 sphere, 2 cylinder, 3 plane"}}) {
+        const auto* structure = ecs_get(world_->c_ptr(), item.first.id(), EcsStruct);
+        if (!structure)
+            throw std::runtime_error("Reflection metadata is missing");
+        Json fields = Json::array();
+        const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
+        for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
+            const auto& member = members[i];
+            fields.push_back(
+                {{"id", member.name},
+                 {"type", item.first == world_->component<Primitive>() ? "uint32" : "float32"},
+                 {"description", item.second}});
+        }
+        components.push_back({{"id", identifiers[index++]}, {"fields", fields}});
     }
-    return Json{{"version", 1},
-                {"components", Json::array({{{"id", "forge.position"}, {"fields", fields}}})}};
+    return Json{{"version", 1}, {"components", components}};
 }
+
 void atomic_write(const std::filesystem::path& path, const std::string& contents) {
     if (path.empty())
         throw std::runtime_error("Empty save path");
