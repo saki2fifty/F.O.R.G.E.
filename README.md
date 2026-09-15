@@ -10,7 +10,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
 - Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, World/Inspector/Console panels, and a Diligent cube preview. Windows compilation is validated in GitHub Actions; interactive GPU execution remains unverified.
 
-This is a foundation, not a complete game editor. General native component registration/migration, editor-managed native build/reload integration, asset importing, physics/audio, game export and the first-person sample are still pending. See [implementation status](docs/status.md).
+This is a foundation, not a complete game editor. General native component registration/migration, asset importing, physics/audio, game export and the first-person sample are still pending. See [implementation status](docs/status.md).
 
 ## Build and test
 Requires Git, CMake 3.24+, Ninja, Python 3.10+, and a C++20/C17 compiler. Windows requires an MSVC developer shell and Windows SDK.
@@ -50,4 +50,4 @@ See [native iteration](docs/native-modules.md), [scene format](docs/scene-format
 - **Restart**: replace the play world with a fresh copy, including your latest authored edits.
 - **Stop**: return the viewport to authoring. Inspector edits and Save always affect the authored scene.
 
-Initial Play controls do not load gameplay modules yet. Native module builds and reload use the [native iteration CLI](docs/native-modules.md).
+Use **Native → Create source → Build & Reload**, then Play to run gameplay. **Build on save** watches native source files; Console shows compiler diagnostics. See [native iteration](docs/native-modules.md) for the Windows developer launcher and tool requirements.

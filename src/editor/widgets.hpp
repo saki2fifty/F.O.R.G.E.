@@ -34,6 +34,7 @@ inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("World", left);
     ImGui::DockBuilderDockWindow("Inspector", right);
     ImGui::DockBuilderDockWindow("Console", bottom);
+    ImGui::DockBuilderDockWindow("Native", bottom);
     ImGui::DockBuilderDockWindow("Scene", center);
     ImGui::DockBuilderFinish(dock);
 }

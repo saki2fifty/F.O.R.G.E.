@@ -25,8 +25,17 @@ target_include_directories(forge_editor PRIVATE src/editor "${diligent_SOURCE_DI
 target_compile_definitions(forge_editor PRIVATE UNICODE _UNICODE NOMINMAX)
 target_link_libraries(forge_editor PRIVATE forge_core SDL3::SDL3 imgui Diligent-Imgui Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings)
 copy_required_dlls(forge_editor)
+add_custom_command(TARGET forge_editor POST_BUILD
+ COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:forge_editor>/sdk/include/forge" "$<TARGET_FILE_DIR:forge_editor>/sdk/samples/native"
+ COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/include/forge/module_api.h" "$<TARGET_FILE_DIR:forge_editor>/sdk/include/forge/"
+ COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/samples/native/movement.c" "${PROJECT_SOURCE_DIR}/samples/native/CMakeLists.txt" "$<TARGET_FILE_DIR:forge_editor>/sdk/samples/native/")
 
 if(BUILD_TESTING)
+ add_executable(forge_editor_native_tests tests/editor_native_tests.cpp)
+ target_include_directories(forge_editor_native_tests PRIVATE src/editor)
+ target_link_libraries(forge_editor_native_tests PRIVATE forge_core SDL3::SDL3)
+ add_test(NAME editor_native_iteration COMMAND forge_editor_native_tests "${PROJECT_SOURCE_DIR}" $<TARGET_FILE:forge_runtime> "${CMAKE_COMMAND}" "${CMAKE_MAKE_PROGRAM}")
+ set_tests_properties(editor_native_iteration PROPERTIES TIMEOUT 240)
  add_executable(forge_fault_runtime tests/fault_runtime.cpp)
  target_link_libraries(forge_fault_runtime PRIVATE nlohmann_json::nlohmann_json)
  add_executable(forge_editor_tests tests/editor_tests.cpp)

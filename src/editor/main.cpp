@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "native_build.hpp"
 #include "play.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
@@ -58,6 +59,9 @@ int main(int argc, char** argv) {
         ini = (config / "workspace.ini").string();
         ImGui::GetIO().IniFilename = ini.c_str();
         const auto settings = config / "settings.json";
+        char cmake_path[1024] = "cmake";
+        char ninja_path[1024] = "ninja";
+        bool auto_build = false;
         try {
             std::ifstream f(settings);
             if (f) {
@@ -65,13 +69,21 @@ int main(int argc, char** argv) {
                 f >> j;
                 forge::ui::tooltips = j.value("tooltips", true);
                 forge::ui::style(j.value("interface_scale", 1.0f));
+                SDL_strlcpy(cmake_path, j.value("cmake", std::string("cmake")).c_str(),
+                            sizeof(cmake_path));
+                SDL_strlcpy(ninja_path, j.value("ninja", std::string("ninja")).c_str(),
+                            sizeof(ninja_path));
+                auto_build = j.value("auto_build", false);
             }
         } catch (const std::exception&) { /* Recover malformed user preferences with defaults. */
         }
         auto save_preferences = [&] {
             forge::atomic_write(settings,
                                 forge::Json{{"tooltips", forge::ui::tooltips},
-                                            {"interface_scale", forge::ui::interface_scale}}
+                                            {"interface_scale", forge::ui::interface_scale},
+                                            {"cmake", cmake_path},
+                                            {"ninja", ninja_path},
+                                            {"auto_build", auto_build}}
                                     .dump(2));
         };
         forge::Scene scene;
@@ -83,6 +95,10 @@ int main(int argc, char** argv) {
         const std::filesystem::path project =
             argc > 1 ? std::filesystem::absolute(argv[1]) : std::filesystem::current_path();
         const auto scene_path = project / "main.scene.json";
+        forge::NativeBuild native(project, std::filesystem::path(base) / "sdk", runtime_path);
+        native.cmake = cmake_path;
+        native.ninja = ninja_path;
+        native.auto_build = auto_build;
         std::string message =
             "Ready. Block preview is an authoring diagnostic, not the final game renderer.";
         if (std::filesystem::exists(scene_path))
@@ -118,6 +134,7 @@ int main(int argc, char** argv) {
                     running = false;
             }
             play.pump();
+            native.pump(play, scene.document());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
             if (width <= 0 || height <= 0 ||
@@ -164,10 +181,17 @@ int main(int argc, char** argv) {
                         scene.edit(doc);
                         selected = id;
                     }
+                    ImGui::BeginDisabled(native.busy());
                     if (forge::ui::button(
                             play.active() ? "Restart" : "Play",
                             "Start a fresh isolated play world from the current authored scene."))
-                        play.start(runtime_path, scene.document());
+                        play.start(runtime_path, scene.document(), native.artifact());
+                    if (play.can_recover() &&
+                        forge::ui::button(
+                            "Recover",
+                            "Resume the last completed play checkpoint with its previous module."))
+                        play.recover();
+                    ImGui::EndDisabled();
                     ImGui::BeginDisabled(!play.active());
                     if (forge::ui::button("Stop",
                                           "Stop gameplay and return to your authored scene."))
@@ -247,10 +271,70 @@ int main(int argc, char** argv) {
                 }
             }
             ImGui::End();
-            if (ImGui::Begin("Console")) {
+            if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
+                ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Native")) {
+                forge::ui::heading("Gameplay", "C++ gameplay compiles outside the editor. Only "
+                                               "isolated runtimes load gameplay DLLs.");
+                ImGui::BeginDisabled(native.busy());
+                try {
+                    if (forge::ui::button("Create source",
+                                          "Create Native/gameplay.cpp and CMakeLists.txt. Existing "
+                                          "files are never overwritten."))
+                        native.create_source();
+                    if (forge::ui::button(
+                            "Build & Reload",
+                            "Incrementally compile, probe a unique candidate DLL, then reload at a "
+                            "runtime boundary. Failed builds retain the previous module."))
+                        native.build();
+                    if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
+                        native.cmake = cmake_path;
+                        save_preferences();
+                    }
+                    forge::ui::help("CMake executable path or command on PATH. Version 3.24 or "
+                                    "newer required.");
+                    if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
+                        native.ninja = ninja_path;
+                        save_preferences();
+                    }
+                    forge::ui::help(
+                        "Ninja executable path or command on PATH. Launch FORGE from an x64 Native "
+                        "Tools command prompt to provide the MSVC compiler environment.");
+                    if (ImGui::Checkbox("Build on save", &auto_build)) {
+                        native.auto_build = auto_build;
+                        save_preferences();
+                    }
+                    forge::ui::help(
+                        "Watch C/C++ headers, sources and CMake files in Native. Builds after "
+                        "saves settle; play continues during compilation.");
+                } catch (const std::exception& e) {
+                    message = e.what();
+                }
+                ImGui::EndDisabled();
+                ImGui::TextWrapped("%s", native.source_path().c_str());
+                forge::ui::help("Edit this source in your code editor. The sample moves entities "
+                                "along the X axis.");
+                ImGui::TextWrapped("%s", native.status().c_str());
+                forge::ui::help("Native build and candidate activation status.");
+                ImGui::TextWrapped(
+                    "Windows: use Run-Forge-Dev.cmd or an x64 Native Tools command prompt. "
+                    "Requires Visual Studio C++ tools, CMake and Ninja.");
+                forge::ui::help("These tools compile your gameplay locally. They are not needed to "
+                                "open the editor.");
+            }
+            ImGui::End();
+            if (ImGui::Begin("Console", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
                 forge::ui::heading("Status", "Latest editor operation or validation diagnostic.");
                 ImGui::TextWrapped("%s", message.c_str());
                 forge::ui::help("Latest operation result.");
+                if (!native.log().empty()) {
+                    forge::ui::heading("Build output",
+                                       "Recent compiler output. The complete current log is in "
+                                       "Project/.forge/native/build.log.");
+                    ImGui::TextUnformatted(native.log().c_str());
+                    forge::ui::help("Compiler diagnostics and build/validation results. Scroll "
+                                    "horizontally for long source locations.");
+                }
                 if (!play.log().empty()) {
                     ImGui::TextWrapped("%s", play.log().c_str());
                     forge::ui::help(

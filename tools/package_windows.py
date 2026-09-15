@@ -47,6 +47,12 @@ def package(build, dependencies, output):
         notices.extend((p, 'licenses/'+name+'/'+p.relative_to(source).as_posix()) for p in matches)
     manifest = {'architecture': 'windows-x64', 'configuration': 'Release', 'files': {
         p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}}
+    source = Path(__file__).resolve().parents[1]
+    sdk_files = ('include/forge/module_api.h', 'samples/native/movement.c', 'samples/native/CMakeLists.txt')
+    for relative in sdk_files:
+        manifest['files']['sdk/'+relative] = hashlib.sha256((source/relative).read_bytes()).hexdigest()
+    launcher = (source/'tools/Run-Forge-Dev.cmd').read_text().replace('\n', '\r\n')
+    manifest['files']['Run-Forge-Dev.cmd'] = hashlib.sha256(launcher.encode()).hexdigest()
     output.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(dir=output.parent, suffix='.zip.pending')
     os.close(fd)
@@ -56,9 +62,12 @@ def package(build, dependencies, output):
                 archive.write(image, image.name)
             for notice, name in notices:
                 archive.write(notice, name)
+            for relative in sdk_files:
+                archive.write(source/relative, 'sdk/'+relative)
+            archive.writestr('Run-Forge-Dev.cmd', launcher)
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
             archive.writestr('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\nforge_editor.exe "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            archive.writestr('README.txt', 'FORGE Windows x64 development build\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            archive.writestr('README.txt', 'FORGE Windows x64 development build\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.24+ and Ninja installed. In Native: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
         os.replace(temporary, output)
     finally:
         Path(temporary).unlink(missing_ok=True)
