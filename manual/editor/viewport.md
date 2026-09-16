@@ -39,7 +39,7 @@ Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multip
 
 ## Reference grid and flight speed
 
-**View → Grid** shows a world-anchored XZ reference plane at Y=0. It appears infinite: there is no rectangular patch edge, and fine lines fade into coarser divisions as they recede toward the horizon. It is visible from above and below, with opaque scene objects covering the grid where appropriate.
+**View → Grid** shows a world-anchored XZ reference plane at Y=0. It appears infinite: there is no rectangular patch edge. Thin, muted lines keep approximately one-pixel coverage as you zoom. Small divisions blend away as they become crowded, with subtle emphasis on larger divisions. The whole grid gradually loses contrast at shallow viewing angles toward the horizon, including the colored world axes. It is visible from above and below, with opaque scene objects covering the grid where appropriate.
 
 Red marks world X at Z=0; blue marks world Z at X=0. Both cross at world `(0,0,0)`. The colored axes and gray lines are part of the same ground rendering, so look, pan, orbit and flight do not move them relative to objects or world coordinates. Their screen positions naturally change with the camera view. Looking exactly along the plane makes it edge-on; looking away from it hides it.
 

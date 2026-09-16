@@ -154,8 +154,30 @@ int main(int argc, char** argv) {
             "Hidden grid still drew geometry");
         auto spacing = render("spacing", {true, 2});
         require(spacing != top, "Spacing change retained stale grid");
+        // Measure a single grid line away from crossings/axes. Thin lines may
+        // straddle two pixels; their shoulders must not become a wide soft band.
+        auto check_line_width = [&](const Pixels& image, unsigned w, unsigned h) {
+            const auto at = forge::project_point(camera, {1, 0, .5f}, float(w), float(h));
+            require(bool(at), "Line-width fixture outside view");
+            const int cx = int((*at)[0]), cy = int((*at)[1]);
+            int peak = 0, total = 0, visible = 0;
+            for (int dx = -4; dx <= 4; ++dx) {
+                const auto p = image[cy * w + cx + dx];
+                const int contrast = std::max(0, int(p[0]) - int(no_grid[0][0]));
+                peak = std::max(peak, contrast);
+                total += contrast;
+                visible += contrast > 3;
+            }
+            require(peak > 8, "Thin grid line is too faint to read");
+            require(visible <= 2 && total <= peak * 2 + 3, "Grid line widened into a soft band");
+        };
+        camera.yaw = 0;
+        check_line_width(render("thin-top"), width, height);
+        check_line_width(render("thin-top-large", {}, 1280, 800), 1280, 800);
+        camera.distance = 8;
+        check_line_width(render("thin-top-close"), width, height);
         // Existing world lines retain brightness when fine/major classifications swap.
-        const float transition = 10 * forge::EditorCamera::focal * height / 24;
+        const float transition = forge::EditorCamera::focal * height / 8;
         auto line_brightness = [&](const Pixels& image) {
             const auto at = forge::project_point(camera, {30, 0, 25}, width, height);
             require(bool(at), "LOD fixture outside view");
@@ -165,12 +187,15 @@ int main(int argc, char** argv) {
                     sum += image[(int((*at)[1]) + dy) * width + int((*at)[0]) + dx][0];
             return sum / 49;
         };
-        camera.distance = transition * .9999f;
-        const auto before_lod = line_brightness(render("lod-before"));
-        camera.distance = transition * 1.0001f;
-        const auto after_lod = line_brightness(render("lod-after"));
-        require(std::abs(after_lod - before_lod) < 2,
-                "Grid division transition pops in brightness");
+        for (float level : {1.0f, 10.0f}) {
+            camera.distance = transition * level * .9999f;
+            const auto before_lod =
+                line_brightness(render(level == 1 ? "lod-before" : "lod2-before"));
+            camera.distance = transition * level * 1.0001f;
+            const auto after_lod = line_brightness(render(level == 1 ? "lod-after" : "lod2-after"));
+            require(std::abs(after_lod - before_lod) < 2,
+                    "Grid division transition pops in brightness");
+        }
         // A wide top view must show gray grid lines beyond the old +/-20-unit patch.
         camera.distance = 100;
         auto wide = render("wide");
@@ -184,6 +209,31 @@ int main(int argc, char** argv) {
                     p[0] > 20 && p[1] > 20 && p[2] > 20 && std::abs(int(p[0]) - int(p[2])) < 35;
             }
         require(distant_grid, "Grid still has a finite patch edge");
+        // The same world Z axis must lose contrast gradually toward the horizon.
+        // This catches the old height-scaled distant cutoff with no angular fade.
+        camera.pitch = 0;
+        camera.target = {0, 6, 12};
+        camera.distance = 12;
+        auto horizon = render("horizon");
+        auto axis_contrast = [&](float z) {
+            const auto at = forge::project_point(camera, {0, 0, z}, width, height);
+            require(bool(at), "Fade fixture outside view");
+            int peak = 0;
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const auto p = horizon[(int((*at)[1]) + dy) * width + int((*at)[0]) + dx];
+                    peak = std::max(peak, int(p[2]) - int(p[0]));
+                }
+            return peak;
+        };
+        const int near_contrast = axis_contrast(20), middle_contrast = axis_contrast(60),
+                  far_contrast = axis_contrast(180);
+        require(near_contrast > middle_contrast + 15 && middle_contrast > far_contrast + 8,
+                "Grid axes do not fade progressively toward the horizon");
+        std::cout << "Horizon contrast near/middle/far: " << near_contrast << '/' << middle_contrast
+                  << '/' << far_contrast << '\n';
+        camera.target = {0, 0, 0};
+        camera.align(1, 1);
         camera.distance = 12;
         scene["entities"].push_back(
             {{"id", "cube"},
@@ -212,7 +262,7 @@ int main(int argc, char** argv) {
                 "Grid drew behind an upward-looking camera");
         context->WaitForIdle();
         std::cout << "D3D12 WARP: grid axis alignment, look/pan/orbit/fly/zoom, resize, "
-                     "visibility, spacing, extent and occlusion passed\n";
+                     "visibility, spacing, thin lines, horizon fade, extent and occlusion passed\n";
         return 0;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

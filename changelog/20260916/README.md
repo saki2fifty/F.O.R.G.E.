@@ -81,3 +81,10 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 - Visually inspected final rendered grid/pan/top/cube and adjacent grid-level images. Build 260916-000015 passed the initial renderer baseline but was superseded before delivery by the smooth grid-level refinement.
 - Verified ZIP CRC, manifest hashes, source/build identity, three x64 executables, 23 matching manual sources and 23 offline HTML build IDs. ZIP SHA-256: `50986bca77b5c7e9ac17baa611651ca6d805a5531ad6af99295acf6d8e772b99`. Test executables and render-check images are excluded from the user package.
 - Real desktop interaction on the user's GPU remains an acceptance check: look/pan/orbit around fixed objects, inspect grid alignment, then select a cube and switch Move (W)/Select (Q). Performance investigation remains paused.
+
+## Grid appearance — Blender source review
+
+- Reviewed Blender's actual released 4.5.0 grid fragment shader, draw setup and shared line-filter definitions at source `8cb6b388974a817afedf1317ce26f0c75aa5f181`, plus its current grid implementation at `0d06dbf12428041baec34f93952b660acca0f4fe`. The released shader is the closest match to FORGE's existing procedural ground pass.
+- Replaced broad line coverage with a thin pixel filter; muted the gray and axis palette, with subtle major divisions. Replaced the largest-ground-derivative density rule with projected horizontal pixel scale and smoothly disappearing detail levels.
+- Added progressive angle-based fading across the ground and colored axes. Removed the camera-height-driven fade boundary; final distance fading now follows the camera clip range. World-zero alignment, infinite extent and opaque-object occlusion remain.
+- Added rendered-image regressions for line width at two viewport sizes and zoom distances, progressive horizon contrast, and both grid-level transitions. Updated the viewport manual. Windows validation and desktop appearance review remain pending.
