@@ -8,7 +8,13 @@ struct ViewportInput {
     bool hovered = false, active = false, activated = false;
 };
 inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_focused,
-                            ViewportInput* input = nullptr) {
+                            ViewportInput* input = nullptr, bool blocked = false) {
+    if (blocked) {
+        if (input)
+            *input = {};
+        ImGui::Dummy(size);
+        return false;
+    }
     ImGui::InvisibleButton("##viewport-navigation", size,
                            ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle |
                                (input ? ImGuiButtonFlags_MouseButtonLeft : 0));
@@ -46,7 +52,8 @@ inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_
     help("MMB-drag: orbit. Shift+MMB-drag: pan. RMB-drag: look; hold RMB + WASD to fly, Space up, "
          "Shift down. "
          "Wheel: zoom. F: frame selected. LMB selects the nearest block; drag a selected axis or "
-         "center to move. Ctrl snaps; Escape cancels. Move tools are disabled in Play.");
+         "center to move. Ctrl snaps; Escape cancels. R: rotate; S: scale, then X/Y/Z constrains. "
+         "Object tools are disabled in Play.");
     return frame;
 }
 } // namespace forge::ui

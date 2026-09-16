@@ -13,6 +13,7 @@ class EditorCamera {
     Vec target{0, 1, 0};
     float yaw = 0, pitch = 0, distance = 6;
     float fly_speed = 5;
+    static constexpr float pole = 1.5707963267948966f;
     static constexpr float focal = 1.7320508f; // 60-degree vertical field of view.
     static constexpr float near_plane = 0.05f, far_plane = 1000000;
     Vec forward() const {
@@ -32,7 +33,23 @@ class EditorCamera {
         if (!std::isfinite(dx) || !std::isfinite(dy))
             return;
         yaw = std::remainder(yaw + dx * 0.006f, 6.2831853f);
-        pitch = std::clamp(pitch - dy * 0.006f, -1.5f, 1.5f);
+        pitch = std::clamp(pitch - dy * 0.006f, -pole, pole);
+    }
+    void align(unsigned axis, int sign) {
+        if (axis > 2 || (sign != -1 && sign != 1))
+            return;
+        // Look from the chosen signed world axis toward the current orbit target.
+        pitch = axis == 1 ? -sign * pole : 0;
+        yaw = axis == 0 ? -sign * pole : (axis == 2 && sign > 0 ? 3.141592653589793f : 0);
+    }
+    const char* view_name() const {
+        const auto f = forward();
+        for (unsigned i = 0; i < 3; ++i)
+            if (std::abs(f[i]) > 0.999999f) {
+                const char* names[3][2] = {{"+X", "-X"}, {"Top (+Y)", "Bottom (-Y)"}, {"+Z", "-Z"}};
+                return names[i][f[i] > 0 ? 1 : 0];
+            }
+        return "User";
     }
     void pan(float dx, float dy, float height) {
         if (!std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(height) || height <= 0)

@@ -11,7 +11,7 @@ Commands that edit scenes are suppressed while typing or interacting with modal 
 - Ctrl+Z: undo.
 - Ctrl+Shift+Z or Ctrl+Y: redo.
 - Ctrl+D: duplicate the selected subtree.
-- Delete: delete the selected subtree when World has focus.
+- Delete: delete the selected subtree when Hierarchy has focus.
 - Enter in Inspector Name: commit the name.
 
 ## Interface size
@@ -31,6 +31,17 @@ Keypad plus, minus, and zero are also supported.
 - Escape during a move: cancel without changing the authored scene.
 
 Viewport authoring is disabled during Play. A completed move is one Undo operation.
+
+## Rotate and scale
+
+- R: start rotation over the Scene image.
+- S: start scale over the Scene image.
+- X / Y / Z during a transform: constrain its axis; repeat to clear the constraint.
+- Number keys, decimal point, minus and Backspace: enter/edit degrees or multiplier.
+- Enter or left-click inside the image: apply one undoable transform.
+- Escape or RMB: cancel.
+
+Rotation constraints use world axes; scale constraints use local axes. Holding RMB keeps S available for flying backward. See [Transforms](transforms.md).
 
 ## Viewport navigation
 

@@ -1,10 +1,10 @@
 # Live automation
 
-Use a trusted local script to inspect or edit the scene you have open in FORGE. Script edits appear in the World and Scene panels and share the editor's undo history. The connection starts **off** every time you launch the editor.
+Use a trusted local script to inspect or edit the scene you have open in FORGE. Script edits appear in the Hierarchy and Scene panels and share the editor's undo history. The connection starts **off** every time you launch the editor.
 
 ## Start a connection
 
-Open **Automation → Local connection...**. The **Local automation** window offers two choices:
+Open **Tools → Automation → Local connection...**. The **Local automation** window offers two choices:
 
 - **Start read only** allows scene inspection, entity queries, diagnostics and component schema discovery.
 - **Start with scene edits** also allows the supported scene commands, scene replacement, undo and redo.

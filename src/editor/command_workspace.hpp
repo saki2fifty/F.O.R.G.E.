@@ -79,7 +79,7 @@ inline std::vector<PaletteEntry> palette_entries(const std::string& selected, fl
 class CommandWorkspace {
   public:
     bool diagnostics_open = false, schema_open = false;
-    void menu() {
+    void menu(const std::function<void()>& extra = {}) {
         if (ImGui::BeginMenu("Tools")) {
             if (ImGui::MenuItem("Command palette", "Ctrl+Shift+P"))
                 request_open_ = true;
@@ -90,6 +90,10 @@ class CommandWorkspace {
                  "scene.");
             ImGui::MenuItem("Component schema", nullptr, &schema_open);
             help("View the built-in Flecs reflected schema used by authoring commands.");
+            if (extra) {
+                ImGui::Separator();
+                extra();
+            }
             ImGui::EndMenu();
         }
         help("Authoring command search, scene diagnostics, and reflected component information.");

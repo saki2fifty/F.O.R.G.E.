@@ -16,29 +16,9 @@ struct SceneTools {
         help("Show world-axis translation handles. Drag an axis or the center square. Escape "
              "cancels.");
         ImGui::SameLine();
-        changed |= ImGui::Checkbox("Grid", &grid);
-        help("Show a world XZ reference grid overlay at Y=0. It is not depth-tested against "
-             "blocks.");
         changed |= ImGui::Checkbox("Snap", &snap);
-        help("Snap moved coordinates to world-grid multiples. Hold Ctrl during a drag to "
-             "temporarily snap.");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(90 * interface_scale);
-        changed |= ImGui::DragFloat("Step", &snap_step, 0.05f, 0.01f, 1000, "%.2f",
-                                    ImGuiSliderFlags_AlwaysClamp);
-        help("Move snap spacing in world units, from 0.01 to 1000. Also used by Snap position.");
-        if (ImGui::TreeNode("View settings")) {
-            help(
-                "Persistent grid spacing and flight speed. Camera bookmarks belong to each scene.");
-            changed |= ImGui::DragFloat("Grid spacing", &grid_step, 0.1f, 0.1f, 1000, "%.1f",
-                                        ImGuiSliderFlags_AlwaysClamp);
-            help("Spacing of the editor-only reference grid, in world units.");
-            changed |= ImGui::DragFloat("Fly speed", &fly_speed, 0.2f, 0.1f, 1000, "%.1f",
-                                        ImGuiSliderFlags_AlwaysClamp);
-            help("RMB+WASD/Space/Shift flight speed in world units per second.");
-            ImGui::TreePop();
-        }
-        help("Expand grid spacing and flight speed controls.");
+        help("Snap moved positions to world-grid multiples. Hold Ctrl temporarily. Spacing is "
+             "under View.");
         return changed;
     }
     std::array<std::optional<ImVec2>, 4> handles(const EditorCamera& camera, Vec3 p,
@@ -238,7 +218,7 @@ struct SceneTools {
                       IM_COL32(190, 205, 220, 220),
                       move.active()
                           ? "Moving | release to apply | Esc cancels"
-                          : (can_edit ? "LMB select | axis / center drag moves | Ctrl snaps"
+                          : (can_edit ? "LMB select | drag handles: move | R: rotate | S: scale"
                                       : "Navigation only | move tools inactive"));
         draw->PopClipRect();
     }

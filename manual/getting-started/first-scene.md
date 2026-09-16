@@ -14,8 +14,8 @@ The editor requires Windows x64, an AVX2-capable processor, and a D3D12-capable 
 ## Create and organize blocks
 
 1. Select **File → New project**. Enter a project name and choose an existing parent folder, then select **Create**.
-2. Select **Add entity** twice. The blocks begin at the same position, so they may look like one block.
-3. Select one entity in **World**. In **Inspector**, enter a name and press Enter.
+2. Select **Create → Cube** twice. The blocks begin at the same position, so they may look like one block.
+3. Select one entity in **Hierarchy**. In **Inspector**, enter a name and press Enter.
 4. Change its Position X value, or drag its red X move handle in Scene, to move it away from the other block.
 5. Choose the other entity in **Parent** to organize it underneath that entity.
 6. Select **Fit scene** in **Scene** to see both blocks.

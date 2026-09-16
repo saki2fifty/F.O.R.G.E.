@@ -91,18 +91,31 @@ class BlockoutProperties {
         if (suppressed_ && !ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsAnyItemActive())
             suppressed_ = false;
         const bool scale = name == "forge.scale";
+        const bool position = name == "forge.position";
         auto doc = render_document(preview(scene.document()));
         auto value = read_xyz(blockout_entity(doc, id).at("components"), name.c_str(),
                               scale ? Float3{1, 1, 1} : Float3{});
-        const bool changed =
-            ImGui::DragFloat3(scale ? "Scale" : "Rotation", value.data(), scale ? 0.01f : 0.5f,
-                              scale ? 0.001f : -360000.0f, scale ? 10000.0f : 360000.0f, "%.3f",
-                              ImGuiSliderFlags_AlwaysClamp);
+        const bool changed = ImGui::DragFloat3(scale      ? "Scale"
+                                               : position ? "Position"
+                                                          : "Rotation",
+                                               value.data(),
+                                               scale      ? 0.01f
+                                               : position ? 0.05f
+                                                          : 0.5f,
+                                               scale      ? 0.001f
+                                               : position ? -1000000.0f
+                                                          : -360000.0f,
+                                               scale      ? 10000.0f
+                                               : position ? 1000000.0f
+                                                          : 360000.0f,
+                                               "%.3f", ImGuiSliderFlags_AlwaysClamp);
         const bool released = ImGui::IsItemDeactivatedAfterEdit();
-        ui::help(scale ? "Positive X/Y/Z scale. Drag or Ctrl-click to type. Values range from "
-                         "0.001 to 10000. Release commits one undo step; Escape cancels."
-                       : "Euler X/Y/Z angles in degrees. Applied X, then Y, then Z. Drag or "
-                         "Ctrl-click to type; release commits one undo step. Escape cancels.");
+        ui::help(position ? "World X/Y/Z position. Drag or Ctrl-click to type. Release commits one "
+                            "undo step; Escape cancels."
+                 : scale  ? "Positive X/Y/Z scale. Drag or Ctrl-click to type. Values range from "
+                            "0.001 to 10000. Release commits one undo step; Escape cancels."
+                          : "Euler X/Y/Z angles in degrees. Applied X, then Y, then Z. Drag or "
+                            "Ctrl-click to type; release commits one undo step. Escape cancels.");
         if (changed)
             stage(scene, id, name, value, {"x", "y", "z"});
         if (released && component_ == name)
@@ -121,11 +134,39 @@ class BlockoutProperties {
             const auto& entity = blockout_entity(doc, id);
             if (!entity.at("components").contains("forge.position"))
                 return;
-            ui::heading("Rotation and scale",
+            ui::heading("Transform",
                         "Local-axis scale, then Euler X/Y/Z rotation, then world position. Parent "
                         "transforms are not inherited.");
+            vector_control(scene, id, "forge.position");
             vector_control(scene, id, "forge.rotation");
             vector_control(scene, id, "forge.scale");
+            ImGui::BeginDisabled(active());
+            if (ui::button("Copy transform", "Copy effective position, rotation, and scale into "
+                                             "the editor's internal clipboard.")) {
+                copy_transform(scene.document(), id);
+                status = "Transform copied";
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!clipboard_);
+            if (ui::button("Paste transform", "Replace position, rotation, and scale as one "
+                                              "undoable edit. Color and shape are unchanged.")) {
+                paste_transform(scene, id);
+                status = "Transform pasted";
+            }
+            ImGui::EndDisabled();
+            if (ui::button(
+                    "Reset transform",
+                    "Set position and rotation to zero and scale to one as one undoable edit.")) {
+                authoring_command(scene, "transform.reset", {{"entity", id}});
+            }
+            ImGui::EndDisabled();
+            if (ImGui::BeginPopupContextItem("##transform-actions")) {
+                if (ImGui::MenuItem("Reset position"))
+                    authoring_command(scene, "transform.position",
+                                      {{"entity", id}, {"value", {{"x", 0}, {"y", 0}, {"z", 0}}}});
+                ui::help("Reset position only; retain rotation and scale.");
+                ImGui::EndPopup();
+            }
             ui::heading("Primitive appearance", "Built-in meshes and opaque blockout tint. This is "
                                                 "not a material or texture system.");
             int kind = int(primitive_kind(entity));
@@ -147,26 +188,6 @@ class BlockoutProperties {
             if (component_ == "forge.tint" && !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
                 !ImGui::IsAnyItemActive())
                 commit(scene);
-            ImGui::BeginDisabled(active());
-            if (ui::button("Copy transform", "Copy effective position, rotation, and scale into "
-                                             "the editor's internal clipboard.")) {
-                copy_transform(scene.document(), id);
-                status = "Transform copied";
-            }
-            ImGui::SameLine();
-            ImGui::BeginDisabled(!clipboard_);
-            if (ui::button("Paste transform", "Replace position, rotation, and scale as one "
-                                              "undoable edit. Color and shape are unchanged.")) {
-                paste_transform(scene, id);
-                status = "Transform pasted";
-            }
-            ImGui::EndDisabled();
-            if (ui::button(
-                    "Reset transform",
-                    "Set position and rotation to zero and scale to one as one undoable edit.")) {
-                authoring_command(scene, "transform.reset", {{"entity", id}});
-            }
-            ImGui::EndDisabled();
         } catch (const std::exception& e) {
             cancel();
             status = e.what();
@@ -182,6 +203,7 @@ class BlockoutProperties {
             if (!std::isfinite(number) ||
                 (component == "forge.scale" && (number < 0.001f || number > 10000)) ||
                 (component == "forge.rotation" && std::abs(number) > 360000) ||
+                (component == "forge.position" && std::abs(number) > 1000000) ||
                 (component == "forge.tint" && (number < 0 || number > 1)))
                 throw std::runtime_error("Invalid property value; edit rejected");
         if (active() && (pending_ != id || component_ != component))

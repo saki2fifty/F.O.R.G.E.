@@ -40,7 +40,8 @@ inline bool restore_view(const SceneDocument& document, EditorCamera& camera) {
         if (!std::isfinite(value) || std::abs(value) > 1000000)
             throw std::runtime_error("Invalid bookmark position");
     if (!std::isfinite(next.yaw) || !std::isfinite(next.pitch) || !std::isfinite(next.distance) ||
-        std::abs(next.pitch) > 1.5f || next.distance < 0.25f || next.distance > 100000)
+        std::abs(next.pitch) > EditorCamera::pole || next.distance < 0.25f ||
+        next.distance > 100000)
         throw std::runtime_error("Invalid bookmark camera");
     camera = next;
     return true;

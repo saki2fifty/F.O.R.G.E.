@@ -1,6 +1,6 @@
 # Native gameplay
 
-The Native panel creates and compiles a small C++ gameplay module for the current project. The supplied sample moves entities along X. This is a constrained gameplay interface; general component/system registration is not available yet.
+The Gameplay Code panel creates and compiles a small C++ gameplay module for the current project. The supplied sample moves entities along X. This is a constrained gameplay interface; general component/system registration is not available yet.
 
 ## Prepare Windows tools
 
@@ -9,9 +9,9 @@ Install Visual Studio 2022 C++ build tools with the Windows SDK, CMake 3.24 or n
 ## Build your first module
 
 1. Open your project and add an entity.
-2. In **Native**, select **Create source**. Existing source files are not overwritten.
-3. Check **CMake** and **Ninja**. Use command names on PATH or full executable paths.
-4. Select **Build & Reload** and watch the status and Console output.
+2. In **Gameplay Code**, select **Create source**. Existing source files are not overwritten.
+3. Expand **Compiler setup** and check **CMake** and **Ninja**. Use command names on PATH or full executable paths.
+4. Select **Build & Reload** and watch the status and Build output in the same panel.
 5. Select **Play** after a successful build. The sample moves the block along X.
 
 Edit `Native/gameplay.cpp` in your code editor. Enable **Build on save** to watch supported source changes and start incremental compilation automatically. The current complete build log is stored in `.forge/native/build.log`.

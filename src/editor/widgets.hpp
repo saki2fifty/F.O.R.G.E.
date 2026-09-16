@@ -94,13 +94,14 @@ inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->WorkSize);
     ImGuiID center = dock;
-    auto left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.2f, nullptr, &center);
-    auto right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.25f, nullptr, &center);
     auto bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.22f, nullptr, &center);
-    ImGui::DockBuilderDockWindow("World", left);
+    auto left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.18f, nullptr, &center);
+    auto right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.25f, nullptr, &center);
+    ImGui::DockBuilderDockWindow("Hierarchy###World", left);
+    ImGui::DockBuilderDockWindow("Content", bottom);
     ImGui::DockBuilderDockWindow("Inspector", right);
     ImGui::DockBuilderDockWindow("Console", bottom);
-    ImGui::DockBuilderDockWindow("Native", bottom);
+    ImGui::DockBuilderDockWindow("Gameplay Code###Native", bottom);
     ImGui::DockBuilderDockWindow("Scene", center);
     ImGui::DockBuilderFinish(dock);
 }

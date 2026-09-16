@@ -7,6 +7,7 @@ namespace forge::ui {
 class AutomationWorkspace {
   public:
     bool open = false;
+    bool active() const { return live_.active(); }
     void menu() {
         if (ImGui::BeginMenu(live_.active() ? "Automation (on)" : "Automation")) {
             if (ImGui::MenuItem("Local connection..."))

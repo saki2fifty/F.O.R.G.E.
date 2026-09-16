@@ -13,6 +13,7 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
     if (error)
         throw std::runtime_error("Cannot read project folder: " + error.message());
     unsigned visited = 0;
+    std::uintmax_t scanned_bytes = 0;
     for (; it != end; it.increment(error)) {
         if (++visited > 10000)
             throw std::runtime_error("Scene scan exceeds 10000 entries; use File > Open scene");
@@ -31,6 +32,21 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
         }
         if (entry.is_regular_file() && entry.path().extension() == ".json" &&
             name != "forge.project.json") {
+            // Recognize legacy/custom .json scenes by structure, not just the extension.
+            const auto bytes = entry.file_size();
+            scanned_bytes += bytes;
+            if (scanned_bytes > 64 * 1024 * 1024)
+                throw std::runtime_error("Scene scan exceeds 64 MiB; use File > Open scene");
+            if (bytes > 8 * 1024 * 1024)
+                continue;
+            try {
+                const auto candidate = read_json(entry.path());
+                if (!candidate.is_object() || !candidate.contains("version") ||
+                    !candidate.contains("entities") || !candidate.at("entities").is_array())
+                    continue;
+            } catch (const std::exception&) {
+                continue;
+            }
             result.push_back(entry.path().lexically_relative(root));
             if (result.size() >= 4096)
                 throw std::runtime_error(
@@ -46,13 +62,16 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
-    void draw(EditorFiles& files) {
-        if (!ImGui::Begin("Content")) {
+    void draw(EditorFiles& files, bool* open = nullptr) {
+        if (!ImGui::Begin("Content", open)) {
             ImGui::End();
             return;
         }
-        ui::heading("Project scenes", "Browse JSON scene candidates within the current project. "
-                                      "Open validates scene contents.");
+        ui::heading("Project scenes",
+                    "Browse recognized scene documents within the current project. "
+                    "Open validates scene contents.");
+        ImGui::Text("Project: %s", files.document.name().c_str());
+        ui::help(path_text(files.document.project()).c_str());
         if (root_ != files.document.project()) {
             root_ = files.document.project();
             selected_.clear();
@@ -102,12 +121,12 @@ class ContentBrowser {
         ImGui::EndChild();
         ImGui::BeginDisabled(selected_.empty() || files.busy());
         if (ui::button("Open selected",
-                       "Open the selected scene candidate. Unsaved edits are resolved first."))
+                       "Open the selected scene. Unsaved edits are resolved first."))
             files.request({EditorFiles::Command::OpenScene, root_ / selected_, {}});
         ImGui::EndDisabled();
-        ImGui::TextWrapped(
-            "%s", error_.empty() ? "JSON scene files only. Asset importing is not available yet."
-                                 : error_.c_str());
+        ImGui::TextWrapped("%s", error_.empty()
+                                     ? "Scenes only. Asset importing is not available yet."
+                                     : error_.c_str());
         ui::help("The browser skips .forge, .git, symbolic links, and folders deeper than 16 "
                  "levels. It refreshes every five seconds while visible.");
         ImGui::End();

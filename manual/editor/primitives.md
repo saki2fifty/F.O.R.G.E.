@@ -4,14 +4,14 @@ Primitives are built-in shapes for blocking out a level before detailed assets a
 
 ## Create a shape
 
-Open **Create** in the top toolbar and choose a shape. **Add entity** remains a shortcut for creating a cube.
+Open **Create** in the top toolbar and choose a shape.
 
 - **Cube** starts one world unit wide, high, and deep.
 - **Sphere** starts with a diameter of one world unit.
 - **Cylinder** starts one unit high with a diameter of one unit, along local Y.
 - **Plane** lies flat in local XZ and starts four units wide and deep. It has no thickness and is visible from either side.
 
-Normal creation places Cube, Sphere, and Cylinder at world position 0, 1, 0; Plane starts at 0, 0, 0. Enable **Create → At view target** to create at the camera's orbit target instead. That choice persists between launches. It applies to the Create menu; Add entity keeps its default placement.
+Normal creation places Cube, Sphere, and Cylinder at world position 0, 1, 0; Plane starts at 0, 0, 0. Enable **Create → At view target** to create at the camera's orbit target instead. That choice persists between launches. The same placement setting applies to Create and command-palette creation.
 
 The new object becomes selected. Move it with the handles or edit its position in Inspector. Creation is undoable.
 

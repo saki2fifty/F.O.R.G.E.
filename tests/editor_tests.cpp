@@ -6,6 +6,7 @@
 #include "command_workspace_tests.hpp"
 #include "document_tests.hpp"
 #include "help.hpp"
+#include "interaction_tests.hpp"
 #include "play.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
@@ -305,9 +306,13 @@ int main(int argc, char** argv) {
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_command_workspace(scale);
         for (float scale : {0.65f, 1.0f, 2.0f})
-            test_property_drag(scale);
+            for (const char* component : {"forge.rotation", "forge.position", "forge.scale"})
+                test_property_drag(scale, component);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_authoring_input(scale);
+        test_transforms();
+        for (float scale : {0.65f, 1.0f, 2.0f})
+            test_interaction_input(scale);
         test_camera_input();
         test_telemetry_and_status();
         test_tooltip_placement();
@@ -354,7 +359,7 @@ int main(int argc, char** argv) {
                 camera.zoom(-20);
             require(camera.distance == 100000, "Zoom maximum failed");
             camera.orbit(0, 100000);
-            require(camera.pitch == -1.5f, "Orbit crossed pole");
+            require(camera.pitch == -forge::EditorCamera::pole, "Orbit crossed pole");
             camera.zoom(std::numeric_limits<float>::quiet_NaN());
             require(std::isfinite(camera.distance), "Nonfinite wheel damaged camera");
             for (const auto& input : {std::array<float, 2>{0, 1}, {0, -1}, {-1, 0}, {1, 0}}) {

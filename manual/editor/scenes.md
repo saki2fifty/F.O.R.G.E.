@@ -4,7 +4,7 @@ A scene stores your authored entities, their hierarchy, and component values. Yo
 
 ## Create a scene
 
-Choose **File → New scene**, or press Ctrl+N. The scene starts empty and is named **Untitled** until you save it. Select **Add entity** to begin authoring.
+Choose **File → New scene**, or press Ctrl+N. The scene starts empty and is named **Untitled** until you save it. Select **Create → Cube** to begin authoring.
 
 ## Open a scene
 
@@ -26,4 +26,4 @@ See [Saving and recovery](saving-recovery.md) for conflict handling and [Undo an
 
 ## Browse project scenes
 
-The **Content** panel lists project-relative JSON scene candidates. Filter the list, select a file and choose **Open selected**, or double-click it. Opening uses the same unsaved-change guard as File → Open scene. See [Content browser](content-browser.md).
+The **Content** panel lists project-relative recognized JSON scenes. Filter the list, select a file and choose **Open selected**, or double-click it. Opening uses the same unsaved-change guard as File → Open scene. See [Content browser](content-browser.md).

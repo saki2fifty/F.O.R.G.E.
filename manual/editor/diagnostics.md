@@ -14,7 +14,7 @@ Findings are informational:
 - An entity without effective Position is not drawn in the preview.
 - Unknown component data is retained when saving, but the current runtime does not implement it.
 
-Click a finding to select its entity, then inspect it in World or Inspector. Findings never automatically delete or repair anything. This window does not yet validate imported assets or standalone export requirements.
+Click a finding to select its entity, then inspect it in Hierarchy or Inspector. Findings never automatically delete or repair anything. This window does not yet validate imported assets or standalone export requirements.
 
 ## Component schema
 

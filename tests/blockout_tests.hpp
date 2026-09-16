@@ -41,7 +41,7 @@ inline void test_blockout() {
         }
     }
 }
-inline void test_property_drag(float scale) {
+inline void test_property_drag(float scale, const char* component = "forge.rotation") {
     ImGui::CreateContext();
     forge::ui::style(scale);
     auto& io = ImGui::GetIO();
@@ -64,7 +64,7 @@ inline void test_property_drag(float scale) {
         ImGui::SetNextWindowSize({900, 500});
         ImGui::Begin("Property test");
         ImGui::SetNextItemWidth(600);
-        properties.vector_control(scene, id, "forge.rotation");
+        properties.vector_control(scene, id, component);
         begin = ImGui::GetItemRectMin();
         end = ImGui::GetItemRectMax();
         ImGui::End();
@@ -81,7 +81,8 @@ inline void test_property_drag(float scale) {
     frame();
     require(properties.active() && scene.document() == before,
             "Inspector drag did not stage outside authored scene");
-    require(properties.preview(before)["entities"][0]["components"]["forge.rotation"]["x"] != 0,
+    require(properties.preview(before)["entities"][0]["components"][component]["x"] !=
+                before["entities"][0]["components"][component]["x"],
             "Inspector preview did not rotate");
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
     frame();

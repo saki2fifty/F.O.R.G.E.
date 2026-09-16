@@ -111,7 +111,10 @@ inline void test_authoring() {
     forge::atomic_write(root / "Game/.forge/internal.json", "{}");
     forge::atomic_write(root / "Game/Scenes/second.json", "{}");
     const auto files = forge::scene_files(root / "Game");
-    require(files.size() == 2, "Browser included manifest or internal data");
+    require(files.size() == 1, "Browser included non-scene JSON, manifest or internal data");
+    forge::atomic_write(root / "Game/Scenes/custom.json", authoring_fixture().dump());
+    require(forge::scene_files(root / "Game").size() == 2,
+            "Browser excluded a legacy custom JSON scene");
 }
 inline void test_authoring_input(float scale) {
     ImGui::CreateContext();

@@ -32,3 +32,9 @@ If an editor process crashes, the operating system releases its ownership. Open 
 Keep active projects on a local writable filesystem. Network-share locking and simultaneous editing with older FORGE builds are not supported by this ownership contract. External text editors can still change scene files; FORGE's Save protection detects changes against its last saved version.
 
 A trusted script can work through the owning editor using [Live automation](live-automation.md).
+
+## First launch and the active project
+
+Launching `forge_editor.exe` without a project argument first reopens your last project. On a fresh installation, it creates a **Scratch** project under your personal FORGE settings folder, outside the application ZIP folder. If the last project cannot be opened, Console explains the fallback to Scratch. An explicitly supplied project that cannot be opened reports an error instead.
+
+The Content panel shows the project name; hover it for the complete folder path. The title bar also identifies the project and scene. Use File → New project or Open project to choose where your game belongs. Launchers with an explicit Project argument keep using that directory. Existing projects and scenes are retained.

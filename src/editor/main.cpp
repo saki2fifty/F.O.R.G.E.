@@ -9,12 +9,15 @@
 #include "help.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
+#include "orientation.hpp"
 #include "play.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
+#include "transform_gesture.hpp"
 #include "view_state.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
+#include "workspace.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <forge/build.hpp>
@@ -75,11 +78,23 @@ int main(int argc, char** argv) {
         SDL_free(preferences);
         ini = (config / "workspace.ini").string();
         ImGui::GetIO().IniFilename = ini.c_str();
+        if (std::filesystem::exists(ini)) {
+            std::ifstream previous(ini);
+            const std::string text((std::istreambuf_iterator<char>(previous)), {});
+            const auto migrated = forge::ui::migrate_layout(text);
+            if (migrated != text) {
+                forge::atomic_write(config / "workspace-before-layout-update.ini", text);
+                forge::atomic_write(ini, migrated);
+            }
+        }
         const auto settings = config / "settings.json";
         char cmake_path[1024] = "cmake";
         char ninja_path[1024] = "ninja";
         bool auto_build = false;
         forge::ui::SceneTools scene_tools;
+        forge::ui::ModalTransform modal;
+        forge::ui::OrientationGizmo orientation;
+        forge::ui::Workspace workspace;
         forge::ContentBrowser content;
         forge::BlockoutProperties blockout;
         forge::ui::CommandWorkspace commands;
@@ -97,6 +112,8 @@ int main(int argc, char** argv) {
                             sizeof(cmake_path));
                 SDL_strlcpy(ninja_path, j.value("ninja", std::string("ninja")).c_str(),
                             sizeof(ninja_path));
+                workspace.load(j);
+                orientation.visible = j.value("orientation_gizmo", true);
                 auto_build = j.value("auto_build", false);
                 blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
@@ -113,6 +130,8 @@ int main(int argc, char** argv) {
         auto save_preferences = [&] {
             forge::atomic_write(settings,
                                 forge::Json{{"tooltips", forge::ui::tooltips},
+                                            {"panels", workspace.settings()},
+                                            {"orientation_gizmo", orientation.visible},
                                             {"interface_scale", forge::ui::interface_scale},
                                             {"cmake", cmake_path},
                                             {"ninja", ninja_path},
@@ -138,13 +157,36 @@ int main(int argc, char** argv) {
         forge::EditorFiles files(scene, window.get(), recent_projects);
         std::string message =
             "Ready. Block preview is an authoring diagnostic, not the final game renderer.";
+        auto perform = [&](auto&& action) {
+            try {
+                action();
+            } catch (const std::exception& e) {
+                message = e.what();
+            }
+        };
+        auto open_scratch = [&] {
+            const auto scratch = config / "Projects" / "Scratch";
+            if (!std::filesystem::exists(scratch)) {
+                std::filesystem::create_directories(scratch.parent_path());
+                forge::SceneDocument::create_project(scratch, "Scratch");
+            }
+            files.start(scratch);
+        };
         try {
-            files.start(argc > 1               ? std::filesystem::u8path(argv[1])
-                        : last_project.empty() ? std::filesystem::current_path()
-                                               : std::filesystem::u8path(last_project));
+            if (argc > 1)
+                files.start(std::filesystem::u8path(argv[1]));
+            else if (!last_project.empty())
+                files.start(std::filesystem::u8path(last_project));
+            else {
+                open_scratch();
+                message = "Scratch project opened. Use File > New project or Open project for your "
+                          "own game.";
+            }
         } catch (const std::exception& e) {
-            message = e.what();
-            files.start(std::filesystem::current_path());
+            if (argc > 1)
+                throw;
+            message = std::string(e.what()) + ". Opening the Scratch project.";
+            open_scratch();
         }
         auto native = std::make_unique<forge::NativeBuild>(
             files.document.project(), std::filesystem::path(base) / "sdk", runtime_path);
@@ -181,7 +223,7 @@ int main(int argc, char** argv) {
                     if (scale != forge::ui::interface_scale) {
                         forge::ui::style(scale);
                         try {
-                            save_preferences();
+                            perform(save_preferences);
                         } catch (const std::exception& e) {
                             message = e.what();
                         }
@@ -196,6 +238,7 @@ int main(int argc, char** argv) {
                 selected.clear();
                 camera = {};
                 scene_tools.move.cancel();
+                modal.cancel();
                 blockout.cancel();
                 try {
                     forge::restore_view(files.document, camera);
@@ -215,7 +258,7 @@ int main(int argc, char** argv) {
             if (files.preferences_changed) {
                 last_project = forge::path_text(files.document.project());
                 try {
-                    save_preferences();
+                    perform(save_preferences);
                 } catch (const std::exception& e) {
                     message = e.what();
                 }
@@ -243,7 +286,8 @@ int main(int argc, char** argv) {
                 play.active()                     ? "Stop play before editing"
                 : native->busy()                  ? "Wait for the native build"
                 : (files.busy() || files.changed) ? "Finish the file operation"
-                : (scene_tools.move.active() || blockout.active() || ImGui::IsAnyItemActive() ||
+                : (scene_tools.move.active() || modal.active() || blockout.active() ||
+                   ImGui::IsAnyItemActive() ||
                    ImGui::IsPopupOpen(nullptr,
                                       ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
                     ? "Finish the active UI interaction"
@@ -253,41 +297,58 @@ int main(int argc, char** argv) {
             telemetry.frame();
             forge::ui::status_bar(telemetry, play.active(), scene.entity_count());
             const auto dock = ImGui::DockSpaceOverViewport();
-            if (initialize_layout) {
+            if (initialize_layout || workspace.reset) {
+                workspace.reset = false;
                 forge::ui::initialize_workspace(dock);
                 initialize_layout = false;
             }
+            const bool edit_locked = play.active() || native->busy() || files.busy() ||
+                                     scene_tools.move.active() || modal.active() ||
+                                     blockout.active();
+            const auto panels_before = workspace.settings();
             if (forge::ui::begin_toolbar()) {
+                ImGui::BeginDisabled(edit_locked);
                 files.menu();
-                commands.menu();
-                automation.menu();
+                ImGui::EndDisabled();
+                commands.menu([&] { automation.menu(); });
+                if (workspace.menu()) {
+                    try {
+                        perform(save_preferences);
+                    } catch (const std::exception& e) {
+                        message = e.what();
+                    }
+                }
                 forge::ui::help_menu(std::filesystem::path(base), message);
+                if (automation.active()) {
+                    ImGui::TextColored({.5f, .8f, 1, 1}, "API on");
+                    forge::ui::help("A local automation connection is active. Tools > Automation > "
+                                    "Stop connection revokes access.");
+                }
                 try {
+                    ImGui::Separator();
+                    ImGui::BeginDisabled(edit_locked);
                     if (forge::ui::button(
                             "Save",
                             "Save the active scene. Ctrl+S. Untitled scenes ask for a location."))
                         files.save();
                     if (forge::ui::button("Undo", "Restore the previous authored scene edit."))
-                        forge::authoring_history(scene, false);
+                        perform([&] { forge::authoring_history(scene, false); });
                     if (forge::ui::button("Redo", "Reapply the last undone edit."))
-                        forge::authoring_history(scene, true);
-                    if (forge::ui::button(
-                            "Add entity",
-                            "Create an entity with a stable ID and an editable position.")) {
-                        selected = forge::create_primitive(scene, 0, {0, 1, 0});
-                    }
+                        perform([&] { forge::authoring_history(scene, true); });
                     if (ImGui::BeginMenu("Create")) {
                         if (ImGui::Checkbox("At view target", &blockout.at_view_target))
-                            save_preferences();
+                            perform(save_preferences);
                         forge::ui::help("Create the primitive at the camera's orbit target instead "
                                         "of the default origin placement.");
                         for (unsigned kind = 0; kind < 4; ++kind) {
                             if (ImGui::MenuItem(forge::primitive_names[kind]))
-                                selected = forge::create_primitive(
-                                    scene, kind,
-                                    blockout.at_view_target
-                                        ? camera.target
-                                        : forge::Float3{0, kind == 3 ? 0.0f : 1.0f, 0});
+                                perform([&] {
+                                    selected = forge::create_primitive(
+                                        scene, kind,
+                                        blockout.at_view_target
+                                            ? camera.target
+                                            : forge::Float3{0, kind == 3 ? 0.0f : 1.0f, 0});
+                                });
                             forge::ui::help("Create a built-in primitive with reflected position, "
                                             "rotation, scale, and opaque color. Undo removes it.");
                         }
@@ -295,16 +356,21 @@ int main(int argc, char** argv) {
                     }
                     forge::ui::help(
                         "Create Cube, Sphere, Cylinder, or Plane primitives for scene blockout.");
-                    ImGui::BeginDisabled(native->busy());
+                    ImGui::EndDisabled();
+                    ImGui::Separator();
+                    ImGui::BeginDisabled(native->busy() || files.busy() || modal.active() ||
+                                         scene_tools.move.active() || blockout.active());
                     if (forge::ui::button(
                             play.active() ? "Restart" : "Play",
                             "Start a fresh isolated play world from the current authored scene."))
-                        play.start(runtime_path, scene.document(), native->artifact());
+                        perform([&] {
+                            play.start(runtime_path, scene.document(), native->artifact());
+                        });
                     if (play.can_recover() &&
                         forge::ui::button(
                             "Recover",
                             "Resume the last completed play checkpoint with its previous module."))
-                        play.recover();
+                        perform([&] { play.recover(); });
                     ImGui::EndDisabled();
                     ImGui::BeginDisabled(!play.active());
                     if (forge::ui::button("Stop",
@@ -312,7 +378,7 @@ int main(int argc, char** argv) {
                         play.stop();
                     ImGui::EndDisabled();
                     if (ImGui::Checkbox("Tooltips", &forge::ui::tooltips))
-                        save_preferences();
+                        perform(save_preferences);
                     forge::ui::help("Show contextual help for editor controls, fields, and section "
                                     "headers. Saved between sessions.");
                 } catch (const std::exception& e) {
@@ -323,8 +389,9 @@ int main(int argc, char** argv) {
                                 "Ctrl+0 resets to 100%. Saved between sessions.");
                 forge::ui::end_toolbar();
             }
-            files.shortcuts();
-            if (!files.busy() &&
+            if (!edit_locked)
+                files.shortcuts();
+            if (!edit_locked &&
                 !ImGui::IsPopupOpen(nullptr,
                                     ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
                 !ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
@@ -332,12 +399,12 @@ int main(int argc, char** argv) {
                 try {
                     if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
                         if (ImGui::GetIO().KeyShift)
-                            forge::authoring_history(scene, true);
+                            perform([&] { forge::authoring_history(scene, true); });
                         else
-                            forge::authoring_history(scene, false);
+                            perform([&] { forge::authoring_history(scene, false); });
                     }
                     if (ImGui::IsKeyPressed(ImGuiKey_Y, false))
-                        forge::authoring_history(scene, true);
+                        perform([&] { forge::authoring_history(scene, true); });
                     if (!selected.empty() && ImGui::IsKeyPressed(ImGuiKey_D, false))
                         selected = forge::authoring_command(scene, "entity.duplicate",
                                                             {{"entity", selected}})
@@ -348,9 +415,7 @@ int main(int argc, char** argv) {
                 }
             }
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
-                          blockout.at_view_target,
-                          files.busy() || scene_tools.move.active() || blockout.active() ||
-                              play.active());
+                          blockout.at_view_target, edit_locked);
             files.draw_dialogs();
             automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +
@@ -368,368 +433,438 @@ int main(int argc, char** argv) {
                  !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || play.active() ||
                  files.busy()))
                 scene_tools.move.cancel();
+            if (modal.active() && (!modal.gesture.valid(scene, selected) ||
+                                   !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) ||
+                                   play.active() || files.busy()))
+                modal.cancel();
             blockout.check(scene);
             if (!(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || files.busy())
                 blockout.cancel();
-            auto doc = scene_tools.move.preview(blockout.preview(scene.document()));
-            const auto schema = scene.schema();
-            if (ImGui::Begin("World")) {
-                forge::ui::heading("Entities", "Authored entities identified by stable project "
-                                               "IDs. Ctrl+D duplicates a selected subtree.");
-                ImGui::TextUnformatted(files.document.dirty()     ? "Unsaved changes"
-                                       : files.document.on_disk() ? "Saved"
-                                                                  : "New scene");
-                forge::ui::help("Save writes the current scene; dirty scenes get a recovery "
-                                "snapshot every 30 seconds.");
-                ImGui::InputTextWithHint("##entity-filter", "Search names or IDs...",
-                                         hierarchy_filter, sizeof(hierarchy_filter));
-                forge::ui::help("Filter entity names and IDs; matching descendants retain their "
-                                "ancestors. ASCII case-insensitive.");
-                int expand = 0;
-                if (forge::ui::button("Expand all", "Expand all hierarchy branches."))
-                    expand = 1;
-                ImGui::SameLine();
-                if (forge::ui::button(
-                        "Collapse all",
-                        "Collapse all hierarchy branches. Search keeps matching paths open."))
-                    expand = -1;
-                forge::ui::hierarchy(doc, selected, hierarchy_filter, expand);
-                if (ImGui::IsWindowFocused() && !files.busy() && !ImGui::GetIO().WantTextInput &&
-                    !ImGui::IsAnyItemActive() && !selected.empty() &&
-                    ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
-                    try {
-                        forge::authoring_command(scene, "entity.delete", {{"entity", selected}});
-                        selected.clear();
-                    } catch (const std::exception& e) {
-                        message = e.what();
+            auto doc = modal.preview(scene_tools.move.preview(blockout.preview(scene.document())));
+            if (workspace.hierarchy) {
+                if (ImGui::Begin("Hierarchy###World", &workspace.hierarchy)) {
+                    ImGui::TextUnformatted(files.document.dirty()     ? "Unsaved changes"
+                                           : files.document.on_disk() ? "Saved"
+                                                                      : "New scene");
+                    forge::ui::help("Save writes the current scene; dirty scenes get a recovery "
+                                    "snapshot every 30 seconds.");
+                    ImGui::InputTextWithHint("##entity-filter", "Search names or IDs...",
+                                             hierarchy_filter, sizeof(hierarchy_filter));
+                    forge::ui::help(
+                        "Filter entity names and IDs; matching descendants retain their "
+                        "ancestors. ASCII case-insensitive.");
+                    int expand = 0;
+                    if (forge::ui::button("Expand all", "Expand all hierarchy branches."))
+                        expand = 1;
+                    ImGui::SameLine();
+                    if (forge::ui::button(
+                            "Collapse all",
+                            "Collapse all hierarchy branches. Search keeps matching paths open."))
+                        expand = -1;
+                    forge::ui::hierarchy(doc, selected, hierarchy_filter, expand);
+                    if (ImGui::IsWindowFocused() && !edit_locked && !ImGui::GetIO().WantTextInput &&
+                        !ImGui::IsAnyItemActive() && !selected.empty() &&
+                        ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+                        try {
+                            forge::authoring_command(scene, "entity.delete",
+                                                     {{"entity", selected}});
+                            selected.clear();
+                        } catch (const std::exception& e) {
+                            message = e.what();
+                        }
                     }
                 }
+                ImGui::End();
             }
-            ImGui::End();
-            if (ImGui::Begin("Inspector")) {
-                ImGui::BeginDisabled(scene_tools.move.active());
-                forge::ui::heading("Properties", "Position properties use world units. Changes are "
-                                                 "undoable and serialize with the scene.");
-                for (auto& e : doc["entities"])
-                    if (e.at("id") == selected) {
-                        const auto name = e.at("name").get<std::string>();
-                        if (name_entity != selected || authored_name != name) {
-                            SDL_strlcpy(entity_name, name.c_str(), sizeof(entity_name));
-                            name_entity = selected;
-                            authored_name = name;
-                        }
-                        try {
-                            if (ImGui::InputText("Name", entity_name, sizeof(entity_name),
-                                                 ImGuiInputTextFlags_EnterReturnsTrue)) {
-                                forge::authoring_command(
-                                    scene, "entity.rename",
-                                    {{"entity", selected}, {"name", entity_name}});
-                                e["name"] = entity_name;
+            if (workspace.inspector) {
+                if (ImGui::Begin("Inspector", &workspace.inspector)) {
+                    ImGui::BeginDisabled(play.active() || native->busy() || files.busy() ||
+                                         scene_tools.move.active() || modal.active());
+                    if (selected.empty()) {
+                        ImGui::TextWrapped(
+                            "Select an object in the Scene or Hierarchy to edit its properties.");
+                        forge::ui::help("Click a scene object or hierarchy row.");
+                    }
+                    for (auto& e : doc["entities"])
+                        if (e.at("id") == selected) {
+                            const auto name = e.at("name").get<std::string>();
+                            if (name_entity != selected || authored_name != name) {
+                                SDL_strlcpy(entity_name, name.c_str(), sizeof(entity_name));
+                                name_entity = selected;
+                                authored_name = name;
                             }
-                            forge::ui::help(
-                                "Rename this entity. Press Enter to commit one undoable edit.");
-                            ImGui::TextWrapped("ID: %s", selected.c_str());
-                            forge::ui::help(
-                                "Stable authored identity. Renaming does not change this ID.");
-                            const auto parent = e.value("parent", std::string{});
-                            const bool choose_parent = ImGui::BeginCombo(
-                                "Parent", parent.empty() ? "Scene root" : parent.c_str());
-                            forge::ui::help("Change the Flecs ChildOf relationship. Positions "
-                                            "remain in world units. Cycles are rejected.");
-                            std::string new_parent = parent;
-                            if (choose_parent) {
-                                if (ImGui::Selectable("Scene root", parent.empty()))
-                                    new_parent.clear();
-                                forge::ui::help("Place this entity at the scene root.");
-                                for (const auto& candidate : doc["entities"]) {
-                                    const auto id = candidate.at("id").get<std::string>();
-                                    if (id == selected)
-                                        continue;
-                                    ImGui::PushID(id.c_str());
-                                    if (ImGui::Selectable(candidate.at("name")
-                                                              .get_ref<const std::string&>()
-                                                              .c_str(),
-                                                          id == parent))
-                                        new_parent = id;
-                                    forge::ui::help("Use this entity as the parent. A descendant "
-                                                    "cannot become its ancestor's parent.");
-                                    ImGui::PopID();
-                                }
-                                ImGui::EndCombo();
-                            }
-                            if (new_parent != parent) {
-                                forge::authoring_command(
-                                    scene, "entity.reparent",
-                                    {{"entity", selected}, {"parent", new_parent}});
-                                if (new_parent.empty())
-                                    e.erase("parent");
-                                else
-                                    e["parent"] = new_parent;
-                            }
-                            if (forge::ui::button(
-                                    "Duplicate subtree",
-                                    "Copy this entity and its descendants with new stable IDs. "
-                                    "Undo restores the previous scene.")) {
-                                selected = forge::authoring_command(scene, "entity.duplicate",
-                                                                    {{"entity", selected}})
-                                               .at("selected")
-                                               .get<std::string>();
-                                break;
-                            }
-                            if (forge::ui::button(
-                                    "Delete subtree",
-                                    "Delete this entity and all descendants. Undo restores them. "
-                                    "Prefabs used outside the subtree cannot be deleted.")) {
-                                forge::authoring_command(scene, "entity.delete",
-                                                         {{"entity", selected}});
-                                selected.clear();
-                                break;
-                            }
-                        } catch (const std::exception& ex) {
-                            message = ex.what();
-                        }
-                        if (e["components"].contains("forge.position")) {
                             try {
-                                auto position = forge::entity_position(doc, selected);
-                                if (position) {
-                                    bool apply = false;
-                                    if (forge::ui::button(
-                                            "Reset position",
-                                            "Set world position to zero as one undoable edit.")) {
-                                        forge::authoring_command(
-                                            scene, "transform.position",
-                                            {{"entity", selected},
-                                             {"value", {{"x", 0}, {"y", 0}, {"z", 0}}}});
-                                        apply = true;
+                                if (ImGui::InputText("Name", entity_name, sizeof(entity_name),
+                                                     ImGuiInputTextFlags_EnterReturnsTrue)) {
+                                    forge::authoring_command(
+                                        scene, "entity.rename",
+                                        {{"entity", selected}, {"name", entity_name}});
+                                    e["name"] = entity_name;
+                                }
+                                forge::ui::help(
+                                    "Rename this entity. Press Enter to commit one undoable edit.");
+                                if (ImGui::TreeNode("Details")) {
+                                    ImGui::TextWrapped("ID: %s", selected.c_str());
+                                    forge::ui::help("Stable authored identity. Renaming does not "
+                                                    "change this ID.");
+                                    ImGui::TreePop();
+                                }
+                                forge::ui::help("Technical identity for this object.");
+                                const auto parent = e.value("parent", std::string{});
+                                std::string parent_name = "Scene root";
+                                for (const auto& candidate : doc["entities"])
+                                    if (candidate.at("id") == parent)
+                                        parent_name = candidate.at("name").get<std::string>();
+                                const bool choose_parent =
+                                    ImGui::BeginCombo("Parent", parent_name.c_str());
+                                forge::ui::help("Change the Flecs ChildOf relationship. Positions "
+                                                "remain in world units. Cycles are rejected.");
+                                std::string new_parent = parent;
+                                if (choose_parent) {
+                                    if (ImGui::Selectable("Scene root", parent.empty()))
+                                        new_parent.clear();
+                                    forge::ui::help("Place this entity at the scene root.");
+                                    for (const auto& candidate : doc["entities"]) {
+                                        const auto id = candidate.at("id").get<std::string>();
+                                        if (id == selected)
+                                            continue;
+                                        ImGui::PushID(id.c_str());
+                                        if (ImGui::Selectable(candidate.at("name")
+                                                                  .get_ref<const std::string&>()
+                                                                  .c_str(),
+                                                              id == parent))
+                                            new_parent = id;
+                                        forge::ui::help(
+                                            "Use this entity as the parent. A descendant "
+                                            "cannot become its ancestor's parent.");
+                                        ImGui::PopID();
                                     }
-                                    if (forge::ui::button(
-                                            "Place on ground",
-                                            "Place the transformed mesh bottom at world Y=0. This "
-                                            "is not collision or terrain placement.")) {
-                                        forge::authoring_command(scene, "transform.ground",
-                                                                 {{"entity", selected}});
-                                        apply = true;
-                                    }
-                                    if (forge::ui::button(
-                                            "Snap position",
-                                            "Round world coordinates to the Scene snap Step.")) {
-                                        forge::authoring_command(scene, "transform.snap",
-                                                                 {{"entity", selected},
-                                                                  {"step", scene_tools.snap_step}});
-                                        apply = true;
-                                    }
-                                    if (apply) {
-                                        const auto updated =
-                                            forge::entity_position(scene.document(), selected);
-                                        if (updated)
-                                            forge::set_position(doc, selected, *updated);
-                                    }
+                                    ImGui::EndCombo();
+                                }
+                                if (new_parent != parent) {
+                                    forge::authoring_command(
+                                        scene, "entity.reparent",
+                                        {{"entity", selected}, {"parent", new_parent}});
+                                    if (new_parent.empty())
+                                        e.erase("parent");
+                                    else
+                                        e["parent"] = new_parent;
                                 }
                             } catch (const std::exception& ex) {
                                 message = ex.what();
                             }
-                            auto& p = e["components"]["forge.position"];
-                            for (const auto& field : schema.at("components").at(0).at("fields")) {
-                                const auto field_name = field.at("id").get<std::string>();
-                                const auto help = field.at("description").get<std::string>();
-                                const char* axis = field_name.c_str();
-                                float value = p.at(axis).get<float>();
-                                if (forge::ui::scalar(axis, &value, help.c_str())) {
-                                    p[axis] = value;
-                                    try {
-                                        forge::authoring_command(scene, "property.set",
-                                                                 {{"entity", selected},
-                                                                  {"component", "forge.position"},
-                                                                  {"field", field_name},
-                                                                  {"value", value}});
-                                    } catch (const std::exception& ex) {
-                                        message = ex.what();
+                            blockout.draw(scene, selected, message);
+                            ImGui::BeginDisabled(blockout.active());
+                            if (ImGui::Button("Object actions"))
+                                ImGui::OpenPopup("##object-actions");
+                            forge::ui::help("Duplicate or delete this object and its children; "
+                                            "ground or snap its position.");
+                            if (ImGui::BeginPopup("##object-actions")) {
+                                try {
+                                    if (ImGui::MenuItem("Duplicate subtree", "Ctrl+D"))
+                                        selected =
+                                            forge::authoring_command(scene, "entity.duplicate",
+                                                                     {{"entity", selected}})
+                                                .at("selected")
+                                                .get<std::string>();
+                                    forge::ui::help("Duplicate this object and descendants with "
+                                                    "new identities.");
+                                    if (ImGui::MenuItem("Delete subtree", "Delete")) {
+                                        forge::authoring_command(scene, "entity.delete",
+                                                                 {{"entity", selected}});
+                                        selected.clear();
                                     }
+                                    forge::ui::help(
+                                        "Delete this object and descendants. Undo restores them.");
+                                    if (ImGui::MenuItem("Place on ground"))
+                                        forge::authoring_command(scene, "transform.ground",
+                                                                 {{"entity", selected}});
+                                    forge::ui::help(
+                                        "Place the transformed mesh bottom at world Y=0.");
+                                    if (ImGui::MenuItem("Snap position"))
+                                        forge::authoring_command(scene, "transform.snap",
+                                                                 {{"entity", selected},
+                                                                  {"step", scene_tools.snap_step}});
+                                    forge::ui::help(
+                                        "Round position to the Scene View snap spacing.");
+                                } catch (const std::exception& ex) {
+                                    message = ex.what();
                                 }
+                                ImGui::EndPopup();
                             }
+                            ImGui::EndDisabled();
                         }
-                        blockout.draw(scene, selected, message);
-                    }
-                ImGui::EndDisabled();
+                    ImGui::EndDisabled();
+                } else {
+                    blockout.cancel();
+                }
+                ImGui::End();
             } else {
                 blockout.cancel();
             }
-            ImGui::End();
-            if (ImGui::Begin("Scene", nullptr,
-                             ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar)) {
-                forge::ui::heading(
-                    "Scene preview",
-                    "Diligent renders transformed built-in meshes with opaque blockout color. "
-                    "Orbit, pan, and frame this editor-only camera without editing the scene.");
-                ImGui::TextUnformatted(play.active() ? "PLAY | isolated scene copy"
-                                                     : "EDIT | authored scene");
-                forge::ui::help(
-                    "During play this preview shows runtime positions. Inspector edits "
-                    "still affect authoring; Restart applies them to a fresh play world.");
-                try {
-                    if (scene_tools.controls())
-                        save_preferences();
-                    if (forge::ui::button("Save view",
-                                          "Store one camera bookmark for this scene; restores "
-                                          "automatically when the scene opens.")) {
-                        forge::save_view(files.document, camera);
-                        message = "View bookmark saved";
+            if (workspace.scene) {
+                if (ImGui::Begin("Scene", &workspace.scene,
+                                 ImGuiWindowFlags_NoScrollWithMouse |
+                                     ImGuiWindowFlags_NoScrollbar)) {
+                    ImGui::Text("%s%s  |  %s",
+                                files.document.path().empty()
+                                    ? "Untitled"
+                                    : forge::path_text(files.document.path().filename()).c_str(),
+                                files.document.dirty() ? " *" : "",
+                                play.active() ? "PLAY" : "EDIT");
+                    forge::ui::help("Active scene. * means unsaved changes. Play uses an isolated "
+                                    "copy; stop play to edit.");
+                    bool frame_selected = false, fit_scene = false;
+                    ImGui::BeginDisabled(modal.active() || scene_tools.move.active());
+                    try {
+                        if (scene_tools.controls())
+                            perform(save_preferences);
+                        ImGui::SameLine();
+                        if (ImGui::Button("View"))
+                            ImGui::OpenPopup("##scene-view");
+                        forge::ui::help("Frame objects, save/restore camera views, and configure "
+                                        "grid, snap, flight and orientation display.");
+                        if (ImGui::BeginPopup("##scene-view")) {
+                            frame_selected = ImGui::MenuItem("Frame selected", "F");
+                            forge::ui::help("Center the camera on the selected visible object.");
+                            fit_scene = ImGui::MenuItem("Fit scene");
+                            forge::ui::help("Frame all visible objects.");
+                            if (ImGui::MenuItem("Reset view"))
+                                camera = {};
+                            forge::ui::help("Reset the editor camera without editing objects.");
+                            if (ImGui::MenuItem("Save view"))
+                                perform([&] {
+                                    forge::save_view(files.document, camera);
+                                    message = "View bookmark saved";
+                                });
+                            forge::ui::help("Remember one camera bookmark for this scene.");
+                            if (ImGui::MenuItem("Restore view"))
+                                perform([&] {
+                                    message = forge::restore_view(files.document, camera)
+                                                  ? "View restored"
+                                                  : "No saved view";
+                                });
+                            forge::ui::help("Return to the saved camera bookmark.");
+                            ImGui::Separator();
+                            bool changed =
+                                ImGui::Checkbox("Orientation gizmo", &orientation.visible);
+                            forge::ui::help("Show the clickable world-axis navigation widget.");
+                            changed |= ImGui::Checkbox("Grid", &scene_tools.grid);
+                            forge::ui::help("Show the world XZ grid at Y=0.");
+                            changed |=
+                                ImGui::DragFloat("Snap spacing", &scene_tools.snap_step, .05f, .01f,
+                                                 1000, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                            forge::ui::help("Move snap spacing in world units.");
+                            changed |=
+                                ImGui::DragFloat("Grid spacing", &scene_tools.grid_step, .1f, .1f,
+                                                 1000, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+                            forge::ui::help("Reference grid spacing in world units.");
+                            changed |=
+                                ImGui::DragFloat("Fly speed", &scene_tools.fly_speed, .2f, .1f,
+                                                 1000, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+                            forge::ui::help("RMB flight speed in world units per second.");
+                            if (changed)
+                                perform(save_preferences);
+                            ImGui::EndPopup();
+                        }
+                    } catch (const std::exception& e) {
+                        message = e.what();
                     }
-                    ImGui::SameLine();
-                    if (forge::ui::button("Restore view", "Restore this scene's saved camera "
-                                                          "bookmark without modifying entities."))
-                        message = forge::restore_view(files.document, camera)
-                                      ? "View restored"
-                                      : "No saved view for this scene";
-                } catch (const std::exception& e) {
-                    message = e.what();
-                }
-                camera.fly_speed = scene_tools.fly_speed;
-                doc = forge::render_document(blockout.preview(scene.document()));
-                const auto preview = play.active() ? forge::render_document(play.snapshot()) : doc;
-                const float toolbar_width =
-                    ImGui::CalcTextSize("Frame selected").x + ImGui::CalcTextSize("Fit scene").x +
-                    ImGui::CalcTextSize("Reset view").x + 6 * ImGui::GetStyle().FramePadding.x +
-                    2 * ImGui::GetStyle().ItemSpacing.x;
-                const bool horizontal = ImGui::GetContentRegionAvail().x >= toolbar_width;
-                const bool frame_selected =
-                    forge::ui::button("Frame selected", "Center the camera on the selected visible "
-                                                        "block. Shortcut: F over the viewport.");
-                if (horizontal)
-                    ImGui::SameLine();
-                const bool fit_scene = forge::ui::button(
-                    "Fit scene",
-                    "Fit all visible blocks, accounting for the viewport aspect ratio.");
-                if (horizontal)
-                    ImGui::SameLine();
-                if (forge::ui::button("Reset view", "Reset the editor camera to its startup "
-                                                    "position. Scene data is unchanged."))
-                    camera = forge::EditorCamera{};
-                auto size = ImGui::GetContentRegionAvail();
-                if (size.x > 1 && size.y > 1) {
-                    if (frame_selected &&
-                        (selected.empty() || !camera.frame(preview, selected, size.x / size.y)))
-                        message = "Selected entity has no visible block, or exceeds camera range.";
-                    if (fit_scene && !camera.frame(preview, "", size.x / size.y))
-                        message = "No visible blocks to frame, or scene exceeds camera range.";
-                    const auto image_origin = ImGui::GetCursorScreenPos();
-                    const bool focused =
-                        (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) != 0;
-                    forge::ui::ViewportInput input;
-                    if (forge::ui::camera_controls(camera, size, focused, &input)) {
-                        if (selected.empty() || !camera.frame(preview, selected, size.x / size.y))
+                    ImGui::EndDisabled();
+                    camera.fly_speed = scene_tools.fly_speed;
+                    doc = forge::render_document(blockout.preview(scene.document()));
+                    const auto preview =
+                        play.active() ? forge::render_document(play.snapshot()) : doc;
+                    auto size = ImGui::GetContentRegionAvail();
+                    if (size.x > 1 && size.y > 1) {
+                        if (frame_selected &&
+                            (selected.empty() || !camera.frame(preview, selected, size.x / size.y)))
                             message =
                                 "Selected entity has no visible block, or exceeds camera range.";
-                    }
-                    const bool can_edit =
-                        focused && !play.active() && !files.busy() && !blockout.active() &&
-                        !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
-                                                         ImGuiPopupFlags_AnyPopupLevel);
-                    scene_tools.input(scene, camera, selected, image_origin, size, input, can_edit,
-                                      message);
-                    const auto rendered = forge::render_document(
-                        play.active()
-                            ? play.snapshot()
-                            : scene_tools.move.preview(blockout.preview(scene.document())));
-                    const float render_scale = std::min(1.0f, 4096.0f / std::max(size.x, size.y));
-                    auto* texture = viewport.render(
-                        context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),
-                        unsigned(std::max(1.0f, size.y * render_scale)), camera);
-                    ImGui::GetWindowDrawList()->AddImage(
-                        ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
-                        {image_origin.x + size.x, image_origin.y + size.y});
-                    scene_tools.draw(rendered, camera, selected, image_origin, size, can_edit);
+                        if (fit_scene && !camera.frame(preview, "", size.x / size.y))
+                            message = "No visible blocks to frame, or scene exceeds camera range.";
+                        const auto image_origin = ImGui::GetCursorScreenPos();
+                        const bool focused =
+                            (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) != 0;
+                        const bool popup = ImGui::IsPopupOpen(
+                            nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+                        const bool gizmo = orientation.input(
+                            camera, image_origin, size,
+                            focused && !modal.active() && !scene_tools.move.active() && !popup);
+                        ImGui::SetCursorScreenPos(image_origin);
+                        forge::ui::ViewportInput input;
+                        const bool was_modal = modal.active();
+                        if (forge::ui::camera_controls(camera, size, focused, &input,
+                                                       gizmo || was_modal || popup)) {
+                            if (selected.empty() ||
+                                !camera.frame(preview, selected, size.x / size.y))
+                                message = "Selected entity has no visible block, or exceeds camera "
+                                          "range.";
+                        }
+                        const bool can_edit =
+                            focused && !play.active() && !native->busy() && !files.busy() &&
+                            !blockout.active() &&
+                            !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                             ImGuiPopupFlags_AnyPopupLevel);
+                        const auto mouse = ImGui::GetIO().MousePos;
+                        const bool over_image =
+                            ImGui::IsWindowHovered() && mouse.x >= image_origin.x &&
+                            mouse.y >= image_origin.y && mouse.x < image_origin.x + size.x &&
+                            mouse.y < image_origin.y + size.y;
+                        modal.input(scene, selected, camera, image_origin, size,
+                                    over_image && !gizmo, can_edit && !scene_tools.move.active(),
+                                    message);
+                        scene_tools.input(scene, camera, selected, image_origin, size, input,
+                                          can_edit && !gizmo && !was_modal && !modal.active(),
+                                          message);
+                        const auto rendered = forge::render_document(
+                            play.active() ? play.snapshot()
+                                          : modal.preview(scene_tools.move.preview(
+                                                blockout.preview(scene.document()))));
+                        const float render_scale =
+                            std::min(1.0f, 4096.0f / std::max(size.x, size.y));
+                        auto* texture = viewport.render(
+                            context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),
+                            unsigned(std::max(1.0f, size.y * render_scale)), camera);
+                        ImGui::GetWindowDrawList()->AddImage(
+                            ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
+                            {image_origin.x + size.x, image_origin.y + size.y});
+                        scene_tools.draw(rendered, camera, selected, image_origin, size,
+                                         can_edit && !modal.active());
+                        orientation.draw(camera, image_origin, size);
+                        modal.draw(image_origin, size);
+                        ImGui::GetWindowDrawList()->AddText(
+                            {image_origin.x + 8,
+                             image_origin.y + 8 +
+                                 (modal.active() ? ImGui::GetTextLineHeight() + 20 : 0)},
+                            IM_COL32(185, 200, 215, 255),
+                            (std::string(camera.view_name()) + " | Perspective").c_str());
 
+                    } else {
+                        scene_tools.move.cancel();
+                        modal.cancel();
+                    }
                 } else {
                     scene_tools.move.cancel();
+                    modal.cancel();
                 }
+                ImGui::End();
             } else {
                 scene_tools.move.cancel();
+                modal.cancel();
             }
-            ImGui::End();
+            if (workspace.content) {
+                ImGui::BeginDisabled(modal.active() || scene_tools.move.active() ||
+                                     blockout.active() || play.active());
+                content.draw(files, &workspace.content);
+                ImGui::EndDisabled();
+            }
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                 ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
-            content.draw(files);
-            if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
-                ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
-            if (ImGui::Begin("Native")) {
-                forge::ui::heading("Gameplay", "C++ gameplay compiles outside the editor. Only "
-                                               "isolated runtimes load gameplay DLLs.");
-                ImGui::BeginDisabled(native->busy());
+            if (workspace.build) {
+                if (ImGui::Begin("Gameplay Code###Native", &workspace.build)) {
+                    forge::ui::heading("Gameplay", "C++ gameplay compiles outside the editor. Only "
+                                                   "isolated runtimes load gameplay DLLs.");
+                    ImGui::BeginDisabled(native->busy() || modal.active() ||
+                                         scene_tools.move.active() || blockout.active());
+                    try {
+                        if (forge::ui::button(
+                                "Create source",
+                                "Create Native/gameplay.cpp and CMakeLists.txt. Existing "
+                                "files are never overwritten."))
+                            native->create_source();
+                        if (forge::ui::button(
+                                "Build & Reload",
+                                "Incrementally compile, probe a unique candidate DLL, then reload "
+                                "at a "
+                                "runtime boundary. Failed builds retain the previous module."))
+                            native->build();
+                        if (ImGui::TreeNode("Compiler setup")) {
+                            forge::ui::help(
+                                "Advanced executable paths for local gameplay compilation.");
+                            if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
+                                native->cmake = cmake_path;
+                                perform(save_preferences);
+                            }
+                            forge::ui::help(
+                                "CMake executable path or command on PATH. Version 3.24 or "
+                                "newer required.");
+                            if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
+                                native->ninja = ninja_path;
+                                perform(save_preferences);
+                            }
+                            forge::ui::help(
+                                "Ninja executable path or command on PATH. Launch FORGE from an "
+                                "x64 Native "
+                                "Tools command prompt to provide the MSVC compiler environment.");
+                            ImGui::TreePop();
+                        }
+                        forge::ui::help("Expand compiler and build-tool paths.");
+                        if (ImGui::Checkbox("Build on save", &auto_build)) {
+                            native->auto_build = auto_build;
+                            perform(save_preferences);
+                        }
+                        forge::ui::help(
+                            "Watch C/C++ headers, sources and CMake files in Native. Builds after "
+                            "saves settle; play continues during compilation.");
+                    } catch (const std::exception& e) {
+                        message = e.what();
+                    }
+                    ImGui::EndDisabled();
+                    ImGui::TextWrapped("%s", native->source_path().c_str());
+                    forge::ui::help(
+                        "Edit this source in your code editor. The sample moves entities "
+                        "along the X axis.");
+                    if (!native->log().empty()) {
+                        forge::ui::heading("Build output",
+                                           "Recent compiler output. The complete current log is in "
+                                           "Project/.forge/native/build.log.");
+                        ImGui::TextUnformatted(native->log().c_str());
+                        forge::ui::help("Compiler diagnostics and build/validation results. Scroll "
+                                        "horizontally for long source locations.");
+                    }
+                    ImGui::TextWrapped("%s", native->status().c_str());
+                    forge::ui::help("Native build and candidate activation status.");
+                    ImGui::TextWrapped(
+                        "Windows: use Run-Forge-Dev.cmd or an x64 Native Tools command prompt. "
+                        "Requires Visual Studio C++ tools, CMake and Ninja.");
+                    forge::ui::help(
+                        "These tools compile your gameplay locally. They are not needed to "
+                        "open the editor.");
+                }
+                ImGui::End();
+            }
+            if (workspace.console) {
+                if (ImGui::Begin("Console", &workspace.console,
+                                 ImGuiWindowFlags_HorizontalScrollbar)) {
+                    forge::ui::heading("Status",
+                                       "Latest editor operation or validation diagnostic.");
+                    ImGui::TextWrapped("%s", message.c_str());
+                    forge::ui::help("Latest operation result.");
+                    ImGui::TextWrapped("%s", files.status.c_str());
+                    forge::ui::help("Latest project, file, autosave, or recovery result.");
+                    ImGui::TextWrapped("Project: %s",
+                                       forge::path_text(files.document.project()).c_str());
+                    forge::ui::help("Current project root. Native builds, scenes, and recovery "
+                                    "snapshots belong to this project.");
+                    if (!play.log().empty()) {
+                        ImGui::TextWrapped("%s", play.log().c_str());
+                        forge::ui::help(
+                            "Recent runtime error output, limited to 64 KiB per play session.");
+                    }
+                    ImGui::TextWrapped("%s", play.status().c_str());
+                    forge::ui::help("Play process status. A runtime failure leaves the editor and "
+                                    "authored scene available.");
+                }
+                ImGui::End();
+            }
+            if (panels_before != workspace.settings()) {
                 try {
-                    if (forge::ui::button("Create source",
-                                          "Create Native/gameplay.cpp and CMakeLists.txt. Existing "
-                                          "files are never overwritten."))
-                        native->create_source();
-                    if (forge::ui::button(
-                            "Build & Reload",
-                            "Incrementally compile, probe a unique candidate DLL, then reload at a "
-                            "runtime boundary. Failed builds retain the previous module."))
-                        native->build();
-                    if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
-                        native->cmake = cmake_path;
-                        save_preferences();
-                    }
-                    forge::ui::help("CMake executable path or command on PATH. Version 3.24 or "
-                                    "newer required.");
-                    if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
-                        native->ninja = ninja_path;
-                        save_preferences();
-                    }
-                    forge::ui::help(
-                        "Ninja executable path or command on PATH. Launch FORGE from an x64 Native "
-                        "Tools command prompt to provide the MSVC compiler environment.");
-                    if (ImGui::Checkbox("Build on save", &auto_build)) {
-                        native->auto_build = auto_build;
-                        save_preferences();
-                    }
-                    forge::ui::help(
-                        "Watch C/C++ headers, sources and CMake files in Native. Builds after "
-                        "saves settle; play continues during compilation.");
+                    perform(save_preferences);
                 } catch (const std::exception& e) {
                     message = e.what();
                 }
-                ImGui::EndDisabled();
-                ImGui::TextWrapped("%s", native->source_path().c_str());
-                forge::ui::help("Edit this source in your code editor. The sample moves entities "
-                                "along the X axis.");
-                ImGui::TextWrapped("%s", native->status().c_str());
-                forge::ui::help("Native build and candidate activation status.");
-                ImGui::TextWrapped(
-                    "Windows: use Run-Forge-Dev.cmd or an x64 Native Tools command prompt. "
-                    "Requires Visual Studio C++ tools, CMake and Ninja.");
-                forge::ui::help("These tools compile your gameplay locally. They are not needed to "
-                                "open the editor.");
             }
-            ImGui::End();
-            if (ImGui::Begin("Console", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
-                forge::ui::heading("Status", "Latest editor operation or validation diagnostic.");
-                ImGui::TextWrapped("%s", message.c_str());
-                forge::ui::help("Latest operation result.");
-                ImGui::TextWrapped("%s", files.status.c_str());
-                forge::ui::help("Latest project, file, autosave, or recovery result.");
-                ImGui::TextWrapped("Project: %s",
-                                   forge::path_text(files.document.project()).c_str());
-                forge::ui::help("Current project root. Native builds, scenes, and recovery "
-                                "snapshots belong to this project.");
-                if (!native->log().empty()) {
-                    forge::ui::heading("Build output",
-                                       "Recent compiler output. The complete current log is in "
-                                       "Project/.forge/native/build.log.");
-                    ImGui::TextUnformatted(native->log().c_str());
-                    forge::ui::help("Compiler diagnostics and build/validation results. Scroll "
-                                    "horizontally for long source locations.");
-                }
-                if (!play.log().empty()) {
-                    ImGui::TextWrapped("%s", play.log().c_str());
-                    forge::ui::help(
-                        "Recent runtime error output, limited to 64 KiB per play session.");
-                }
-                ImGui::TextWrapped("%s", play.status().c_str());
-                forge::ui::help("Play process status. A runtime failure leaves the editor and "
-                                "authored scene available.");
-            }
-            ImGui::End();
             auto* rtv = swap->GetCurrentBackBufferRTV();
             context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             const float clear[] = {0.04f, 0.05f, 0.06f, 1};

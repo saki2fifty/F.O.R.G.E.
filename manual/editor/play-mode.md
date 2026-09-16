@@ -8,7 +8,7 @@ Play starts a separate runtime process with a copy of the authored scene. This l
 - **Restart** replaces it with a fresh copy of your latest authored scene.
 - **Stop** ends play and returns the preview to authored positions.
 
-Inspector edits and Save always affect the authored scene. Runtime movement is not automatically written back. Without an active gameplay module, the diagnostic blocks normally stay stationary.
+Stop Play before editing or saving. Runtime movement is not automatically written back into the authored scene. Without an active gameplay module, the diagnostic blocks normally stay stationary.
 
 ## Recover after a runtime crash
 

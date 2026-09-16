@@ -17,7 +17,7 @@ Search ignores letter case. Actions that require a selection are disabled when n
 - Create Cube, Sphere, Cylinder, or Plane. The Create menu's At view target setting also applies here.
 - Duplicate or delete a subtree, or move an entity to the scene root.
 - Reset all transforms, just rotation, or just scale.
-- Place on ground or snap to the Scene panel's Step.
+- Place on ground or snap to the Scene View menu’s Snap spacing.
 - Switch primitive shape or apply a blockout color preset.
 - Undo or redo an edit.
 - Open Scene diagnostics or Component schema.

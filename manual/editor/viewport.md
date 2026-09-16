@@ -18,9 +18,9 @@ Gestures that begin outside the image do not acquire viewport navigation. Losing
 
 ## Frame what you need
 
-Select an entity in World, hover the Scene image, and press F to frame its visible block. **Frame selected** provides the same command. **Fit scene** frames the visible blocks together; **Reset view** restores the default camera.
+Select an entity in Hierarchy, hover the Scene image, and press F to frame its visible block. **View → Frame selected** provides the same command. **Fit scene** frames the visible blocks together; **Reset view** restores the default camera.
 
-Left-click a visible block to select the nearest block under the pointer. Clicking empty space clears selection. The selected object has an amber outline of its rotated bounds; it can show through other blocks to help locate the selection. Selection changes Inspector and World. Selection through this view is disabled during Play.
+Left-click a visible block to select the nearest block under the pointer. Clicking empty space clears selection. The selected object has an amber outline of its rotated bounds; it can show through other blocks to help locate the selection. Selection changes Inspector and Hierarchy. Selection through this view is disabled during Play.
 
 ## Move a selected block
 
@@ -33,16 +33,26 @@ Enable **Move handles** in Scene. The selected block shows red X, green Y, and b
 
 A drag previews the new position without saving partial changes. Losing application focus, resizing the viewport, or changing scenes cancels it. An axis pointing nearly straight toward the camera is hidden because it has too little screen length to drag; orbit to expose it. Moves affect the selected entity only. Parenting still does not make children follow parent positions.
 
-Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **Step**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale handles, multi-selection, and local-axis move handles are not available yet.
+Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **View → Snap spacing**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale handles, multi-selection, and local-axis move handles are not available yet.
 
 ## Reference grid and flight speed
 
 **Grid** shows an XZ reference grid at world Y=0, centered near the camera target. Red marks X and blue marks Z. This is an editor overlay and can show through blocks; it is not collision geometry or a rendered game surface.
 
-Expand **View settings** to change **Grid spacing** and **Fly speed**. Flight speed applies to RMB+WASD, Space, and Shift. Move-handle visibility, grid visibility/spacing, snapping/step, and flight speed persist between editor launches.
+Open **View** to change **Grid spacing** and **Fly speed**. Flight speed applies to RMB+WASD, Space, and Shift. Move-handle visibility, grid visibility/spacing, snapping/step, and flight speed persist between editor launches.
 
 ## Save a camera bookmark
 
-Choose **Save view** to store one camera bookmark for the current scene. **Restore view** returns to it. The bookmark also restores automatically when that scene opens again, including after an editor restart. A scene without a bookmark opens with the default camera.
+Choose **View → Save view** to store one camera bookmark for the current scene. **View → Restore view** returns to it. The bookmark also restores automatically when that scene opens again, including after an editor restart. A scene without a bookmark opens with the default camera.
 
 Bookmarks are stored separately from scene content under the project's `.forge` folder. They do not enter scene undo history. Each saved scene path has its own bookmark; untitled scenes share one slot. Save As does not copy the old filename's bookmark to the new filename.
+
+## Orientation gizmo
+
+The widget in the image's upper-right corner shows world X in red, Y in green, and Z in blue. Positive endpoints are filled; negative endpoints carry a minus sign.
+
+Click an endpoint to look from that side toward the current camera target. **+Y** gives an exact top view and **-Y** an exact bottom view. Click the current viewing-axis endpoint again to flip to the opposite side. Drag the widget to orbit. It works without an object selected and does not create scene edits or undo entries.
+
+The view label identifies axis views and the current **Perspective** projection. An axis view remains perspective; orthographic projection is not available yet. Toggle **View → Orientation gizmo** to hide or show it. The setting persists. The widget hides when the viewport is too small to fit it.
+
+For object rotation and scaling with **R / S**, followed by **X / Y / Z**, see [Transforms](transforms.md).

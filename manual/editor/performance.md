@@ -12,7 +12,7 @@ The permanent bottom bar helps you see how the editor is running. Console explai
 
 ## Find an error
 
-Open Console and read the latest file/editor message, runtime status, or compiler output. Native compilation also writes its current complete log to `.forge/native/build.log`. The launchers retain console output on an editor failure.
+Open Console and read the latest file/editor message, or runtime status. Compiler output is in Gameplay Code. Native compilation also writes its current complete log to `.forge/native/build.log`. The launchers retain console output on an editor failure.
 
 ## Report a problem
 
