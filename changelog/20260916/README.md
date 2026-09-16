@@ -105,3 +105,8 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 
 - Upgraded SDL 3.2.20 to stable 3.4.16, pinned `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c`. Includes upstream Windows input/device startup and file-dialog fixes. No FORGE API migration or input-contract changes.
 - Built the new SDL in a separate Linux headless harness with the previously pinned ImGui; editor process/scaling/input/layout and native iteration tests passed. The local harness disables unavailable Linux desktop backends; Windows native event delivery, dialogs and mixed-monitor DPI still require platform/desktop validation.
+
+### Dependency modernization — Dear ImGui
+
+- Upgraded docking 1.92.2b to the stable-release docking tag 1.92.9b, pinned `b48d1afbe8ee8b238e2961dc363a949dd7304e23`; no moving branch. Explicitly preserve the existing bitmap font and live numeric editing despite upstream default changes. No editor redesign or multi-window feature enablement.
+- Existing Linux editor/native suites pass with the new Flecs/SDL/ImGui combination. Added SDL queue-to-ImGui keyboard/mouse/window-filtering/focus-loss coverage. Added Windows D3D12 WARP checks for dynamic font textures at three UI scales and external texture IDs; Windows execution is pending. Updated Windows editor/test sources pass local MinGW syntax checking.

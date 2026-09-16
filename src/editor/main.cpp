@@ -72,6 +72,8 @@ int main(int argc, char** argv) {
         auto gui =
             ImGuiImplSDL3::Create(ImGuiDiligentCreateInfo{device, swap->GetDesc()}, window.get());
         forge::ui::style();
+        // Keep the existing face instead of the new scale-dependent default selection.
+        ImGui::GetIO().Fonts->AddFontDefaultBitmap();
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         char* preferences = SDL_GetPrefPath("FORGE", "Editor");
         if (!preferences)
@@ -296,6 +298,8 @@ int main(int argc, char** argv) {
                     : "";
             automation.pump(files.document, automation_busy);
             gui->NewFrame(width, height, swap->GetDesc().PreTransform);
+            // Preserve live numeric edits; ImGui 1.92.9 changed its default to commit-on-exit.
+            ImGui::PushItemFlag(ImGuiItemFlags_LiveEditOnInputScalar, true);
             telemetry.frame();
             forge::ui::status_bar(telemetry, play.active(), scene.entity_count());
             const auto dock = ImGui::DockSpaceOverViewport();
@@ -893,6 +897,7 @@ int main(int argc, char** argv) {
             context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             const float clear[] = {0.04f, 0.05f, 0.06f, 1};
             context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            ImGui::PopItemFlag();
             gui->Render(context);
             const auto present = forge::ui::Performance::Clock::now();
             swap->Present(0);

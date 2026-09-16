@@ -9,6 +9,7 @@
 #include "interaction_tests.hpp"
 #include "play.hpp"
 #include "scene_cache_tests.hpp"
+#include "sdl_input_tests.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
 #include "workspace_tests.hpp"
@@ -281,6 +282,7 @@ void test_tooltip_placement() {
 }
 int main(int argc, char** argv) {
     try {
+        test_sdl_input_backend();
         require(argc == 3, "Expected runtime and fault worker paths");
         ImGui::CreateContext();
         forge::ui::style(1.0f);

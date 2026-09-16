@@ -9,8 +9,10 @@
 // Renderer interfaces.
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
+#include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
 #include "viewport.hpp"
+#include "widgets.hpp"
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -59,6 +61,60 @@ void save(const Pixels& pixels, unsigned width, unsigned height,
     output << "P6\n" << width << ' ' << height << "\n255\n";
     for (auto p : pixels)
         output.write(reinterpret_cast<const char*>(p.data()), 3);
+}
+void check_imgui(IRenderDevice* device, IDeviceContext* context,
+                 const std::filesystem::path& images) {
+    TextureDesc desc;
+    desc.Name = "ImGui regression target";
+    desc.Type = RESOURCE_DIM_TEX_2D;
+    desc.Width = 320;
+    desc.Height = 120;
+    desc.Format = TEX_FORMAT_RGBA8_UNORM;
+    desc.BindFlags = BIND_RENDER_TARGET;
+    RefCntAutoPtr<ITexture> target;
+    device->CreateTexture(desc, nullptr, &target);
+    require(bool(target), "ImGui target allocation failed");
+    auto* rtv = target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+    ImGuiImplDiligent gui({device, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_UNKNOWN});
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {320, 120};
+    io.DeltaTime = 1.0f / 60;
+    io.Fonts->AddFontDefaultBitmap();
+    desc.Name = "ImGui external texture";
+    desc.Width = desc.Height = 2;
+    desc.BindFlags = BIND_SHADER_RESOURCE;
+    desc.Usage = USAGE_IMMUTABLE;
+    const std::uint32_t green[] = {0xff00ff00, 0xff00ff00, 0xff00ff00, 0xff00ff00};
+    TextureSubResData subresource{green, 8};
+    TextureData initial{&subresource, 1};
+    RefCntAutoPtr<ITexture> external;
+    device->CreateTexture(desc, &initial, &external);
+    require(bool(external), "ImGui external texture allocation failed");
+    for (float scale : {0.65f, 1.0f, 2.0f, 1.0f}) {
+        forge::ui::style(scale);
+        gui.NewFrame(320, 120, SURFACE_TRANSFORM_IDENTITY);
+        auto* draw = ImGui::GetBackgroundDrawList();
+        draw->AddText({10, 10}, IM_COL32_WHITE, "FORGE 123");
+        draw->AddImage(ImTextureRef{reinterpret_cast<ImTextureID>(
+                           external->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE))},
+                       {240, 10}, {280, 50});
+        context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const float black[] = {0, 0, 0, 1};
+        context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        gui.Render(context);
+        const auto pixels = readback(device, context, rtv);
+        unsigned text_pixels = 0;
+        for (unsigned y = 5; y < 80; ++y)
+            for (unsigned x = 5; x < 220; ++x)
+                text_pixels += pixels[y * 320 + x][0] > 100;
+        require(text_pixels > 30, "ImGui font texture failed to render after scaling");
+        const auto sample = pixels[25 * 320 + 250];
+        require(sample[1] > 240 && sample[0] < 10 && sample[2] < 10,
+                "ImGui external texture ID failed to render");
+        save(pixels, 320, 120, images / ("imgui-" + std::to_string(scale) + ".ppm"));
+    }
+    context->WaitForIdle();
 }
 void check_axes(const Pixels& pixels, unsigned width, unsigned height,
                 const forge::EditorCamera& camera) {
@@ -112,6 +168,7 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IDeviceContext> context;
         factory->AttachToD3D12Device(native.Get(), 1, queues, engine, &device, &context);
         require(device && context, "Diligent device attachment failed");
+        check_imgui(device, context, images);
         forge::Viewport viewport(device);
         forge::Json scene{{"version", 1}, {"entities", forge::Json::array()}};
         forge::EditorCamera camera;
