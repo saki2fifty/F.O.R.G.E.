@@ -16,7 +16,7 @@ struct OrientationGizmo {
     std::array<int, 6> order{};
     float radius = 0;
     void geometry(const EditorCamera& camera, ImVec2 origin, ImVec2 size) {
-        const float edge = std::min(116 * interface_scale, std::min(size.x, size.y));
+        const float edge = std::min(104 * interface_scale, std::min(size.x, size.y));
         extent = {edge, edge};
         corner = {origin.x + size.x - edge, origin.y};
         center = {corner.x + edge * .5f, corner.y + edge * .5f};

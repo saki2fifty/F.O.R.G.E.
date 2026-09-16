@@ -1,4 +1,7 @@
 # F.O.R.G.E.
+
+[![CHANGELOG — Browse daily updates](changelog/badge.svg)](changelog/README.md)
+
 **Flecs-Oriented Runtime & Game Editor**
 
 Native ECS game editor under development. Windows/D3D12 is the first editor target; the portable core can be built and tested on Linux.
@@ -12,7 +15,7 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 - Headless runtime with a versioned process protocol and a minimal C17-compatible gameplay module ABI.
 - Native C/C++ project generation, incremental CMake builds, source watching, unique module artifacts, isolated candidate probing, constrained reload and runtime checkpoint recovery through a CLI.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
-- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, World/Inspector/Console panels, and a Diligent cube preview. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
+- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and a Diligent primitive preview. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
 
 This is a foundation, not a complete game editor. General native component registration/migration, asset importing, physics/audio, game export and the first-person sample are still pending. See [implementation status](docs/status.md).
 

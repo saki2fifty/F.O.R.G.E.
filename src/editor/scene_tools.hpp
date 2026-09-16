@@ -167,8 +167,12 @@ struct SceneTools {
                 line({x, 0, cz - range}, {x, 0, cz + range}, IM_COL32(110, 135, 160, 75));
                 line({cx - range, 0, z}, {cx + range, 0, z}, IM_COL32(110, 135, 160, 75));
             }
-            line({cx - range, 0, 0}, {cx + range, 0, 0}, IM_COL32(240, 90, 90, 150));
-            line({0, 0, cz - range}, {0, 0, cz + range}, IM_COL32(90, 150, 255, 150));
+            for (unsigned axis : {0u, 2u})
+                if (const auto points = project_world_axis(camera, axis, size.x, size.y))
+                    draw->AddLine({origin.x + (*points)[0][0], origin.y + (*points)[0][1]},
+                                  {origin.x + (*points)[1][0], origin.y + (*points)[1][1]},
+                                  axis == 0 ? IM_COL32(240, 90, 90, 150)
+                                            : IM_COL32(90, 150, 255, 150));
         }
         if (const auto center = entity_position(doc, selected)) {
             const Json* entity = nullptr;

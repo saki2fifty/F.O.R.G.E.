@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="274" height="38" role="img" aria-label="CHANGELOG: Browse daily updates">
+  <title>CHANGELOG — Browse daily updates</title>
+  <rect width="274" height="38" rx="8" fill="#142336"/>
+  <path d="M8 0h133v38H8a8 8 0 0 1-8-8V8a8 8 0 0 1 8-8" fill="#2168b5"/>
+  <g fill="none" stroke="#fff" stroke-width="1.5"><rect x="13" y="12" width="15" height="15" rx="2"/><path d="M13 17h15M17 9v6m7-6v6"/></g>
+  <g fill="#fff" font-family="Arial, sans-serif" font-size="12"><text x="37" y="24" font-weight="700">CHANGELOG</text><text x="153" y="24">Daily updates →</text></g>
+</svg>

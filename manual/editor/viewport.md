@@ -37,7 +37,7 @@ Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multip
 
 ## Reference grid and flight speed
 
-**Grid** shows an XZ reference grid at world Y=0, centered near the camera target. Red marks X and blue marks Z. This is an editor overlay and can show through blocks; it is not collision geometry or a rendered game surface.
+**Grid** shows an XZ reference grid at world Y=0, centered near the camera target. Red marks the world X axis at Z=0 and blue marks world Z at X=0; both pass through world zero. The colored axes extend to the edges of the visible view and stay anchored in the world when the gray grid patch shifts. Their screen positions still change with camera perspective. This is an editor overlay and can show through blocks; it is not collision geometry or a rendered game surface.
 
 Open **View** to change **Grid spacing** and **Fly speed**. Flight speed applies to RMB+WASD, Space, and Shift. Move-handle visibility, grid visibility/spacing, snapping/step, and flight speed persist between editor launches.
 
@@ -49,10 +49,14 @@ Bookmarks are stored separately from scene content under the project's `.forge` 
 
 ## Orientation gizmo
 
-The widget in the image's upper-right corner shows world X in red, Y in green, and Z in blue. Positive endpoints are filled; negative endpoints carry a minus sign.
+The compact widget in the image's upper-right corner shows world X in red, Y in green, and Z in blue. Positive endpoints are filled; negative endpoints carry a minus sign.
 
 Click an endpoint to look from that side toward the current camera target. **+Y** gives an exact top view and **-Y** an exact bottom view. Click the current viewing-axis endpoint again to flip to the opposite side. Drag the widget to orbit. It works without an object selected and does not create scene edits or undo entries.
 
 The view label identifies axis views and the current **Perspective** projection. An axis view remains perspective; orthographic projection is not available yet. Toggle **View → Orientation gizmo** to hide or show it. The setting persists. The widget hides when the viewport is too small to fit it.
 
 For object rotation and scaling with **R / S**, followed by **X / Y / Z**, see [Transforms](transforms.md).
+
+## Static preview performance
+
+An unchanged EDIT view reuses its rendered scene image. Navigation, object edits, resize and transform previews refresh it immediately; Play renders continuously. Grid, selection overlays and the interface remain responsive every frame. See [Performance](performance.md) for measurement and comparison controls.

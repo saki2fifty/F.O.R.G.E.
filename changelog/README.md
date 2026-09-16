@@ -1,0 +1,9 @@
+# Changelog
+
+Browse FORGE changes by **UTC day**, newest first. Each day has one continuously maintained page, organized by function, with build results and known limitations. Build counters increase across dates; they do not reset.
+
+| Day | Changes |
+| --- | --- |
+| [2026-09-16](20260916/README.md) | Authoring API and local automation; workspace and transform tools; startup recovery; smaller orientation widget, fixed world axes, editor performance diagnostics and caching. |
+
+This history starts on September 16, 2026. Earlier work is summarized in [implementation status](../docs/status.md). Learn how to use current features in the separate [User Manual](../manual/README.md).

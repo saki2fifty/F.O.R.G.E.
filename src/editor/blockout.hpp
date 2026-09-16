@@ -1,11 +1,12 @@
 #pragma once
+#include "scene_cache.hpp"
 #include "widgets.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
 #include <optional>
 #include <set>
 namespace forge {
-inline Json& blockout_entity(Json& doc, const std::string& id) {
+template <class Document> inline auto& blockout_entity(Document& doc, const std::string& id) {
     for (auto& entity : doc["entities"])
         if (entity.at("id") == id)
             return entity;
@@ -92,9 +93,10 @@ class BlockoutProperties {
             suppressed_ = false;
         const bool scale = name == "forge.scale";
         const bool position = name == "forge.position";
-        auto doc = render_document(preview(scene.document()));
-        auto value = read_xyz(blockout_entity(doc, id).at("components"), name.c_str(),
-                              scale ? Float3{1, 1, 1} : Float3{});
+        const auto& components = blockout_entity(snapshot_.effective(scene), id).at("components");
+        auto value = read_xyz(components, name.c_str(), scale ? Float3{1, 1, 1} : Float3{});
+        if (pending_ == id && component_ == name)
+            value = {values_.at("x"), values_.at("y"), values_.at("z")};
         const bool changed = ImGui::DragFloat3(scale      ? "Scale"
                                                : position ? "Position"
                                                           : "Rotation",
@@ -130,8 +132,10 @@ class BlockoutProperties {
                 abort();
                 status = "Property edit cancelled";
             }
-            auto doc = render_document(preview(scene.document()));
-            const auto& entity = blockout_entity(doc, id);
+            // Keep just the selected entity stable while controls may commit a new revision.
+            auto entity = blockout_entity(snapshot_.effective(scene), id);
+            if (pending_ == id)
+                entity["components"][component_] = values_;
             if (!entity.at("components").contains("forge.position"))
                 return;
             ui::heading("Transform",
@@ -218,6 +222,7 @@ class BlockoutProperties {
         for (unsigned i = 0; i < 3; ++i)
             values_[fields[i]] = value[i];
     }
+    AuthoringSnapshot snapshot_;
     bool suppressed_ = false;
     std::optional<Json> clipboard_;
     std::string pending_, component_;

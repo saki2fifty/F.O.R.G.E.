@@ -33,6 +33,7 @@ class PlaySession {
         reload_result_ = Reload::Pending;
     }
     const Json& snapshot() const { return snapshot_; }
+    std::uint64_t snapshot_version() const { return snapshot_version_; }
     const std::string& status() const { return status_; }
     const std::string& log() const { return log_; }
     void stop() {
@@ -69,6 +70,7 @@ class PlaySession {
     void launch(const Json& scene) {
         stop();
         snapshot_ = scene;
+        ++snapshot_version_;
         stage_ = Stage::Replace;
         const auto& executable = executable_;
         const char* args[] = {executable.c_str(), nullptr};
@@ -156,6 +158,7 @@ class PlaySession {
                     throw std::runtime_error(error);
                 }
                 snapshot_ = response.at("scene");
+                ++snapshot_version_;
                 waiting_ = false;
                 if (stage_ == Stage::Replace) {
                     if (!loading_.empty()) {
@@ -239,6 +242,7 @@ class PlaySession {
     Json checkpoint_;
     bool transaction_ = false, restoring_ = false, probe_ = false, recoverable_ = false;
     Json snapshot_;
+    std::uint64_t snapshot_version_ = 0;
     std::string outgoing_, incoming_, log_;
     std::string status_ = "Stopped. Play uses a copy of your authored scene.";
     bool waiting_ = false;

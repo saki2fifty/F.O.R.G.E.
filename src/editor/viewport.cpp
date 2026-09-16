@@ -86,7 +86,15 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     pipeline_->CreateShaderResourceBinding(&resources_, true);
 }
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
-                               unsigned height, const EditorCamera& camera) {
+                               unsigned height, const EditorCamera& camera,
+                               std::uint64_t generation, bool live) {
+    const auto key = viewport_frame_key(generation, width, height, camera);
+    // Static blockout preview only. Play renders continuously; future time-dependent
+    // materials/effects must also opt out of retained EDIT frames.
+    if (!live && frame_ && *frame_ == key) {
+        ++retained;
+        return color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
     if (!color_ || color_->GetDesc().Width != width || color_->GetDesc().Height != height) {
         color_.Release();
         depth_.Release();
@@ -117,6 +125,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     Uint64 offset = 0;
     context->SetVertexBuffers(0, 1, buffers, &offset, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                               SET_VERTEX_BUFFERS_FLAG_RESET);
+    const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
+               forward = camera.forward();
     for (const auto& entity : scene.at("entities")) {
         if (entity.value("prefab", false) || !entity.at("components").contains("forge.position"))
             continue;
@@ -127,8 +137,6 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             data[1] = p.at("y").get<float>();
             data[2] = p.at("z").get<float>();
             data[3] = float(width) / float(height);
-            const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
-                       forward = camera.forward();
             for (unsigned i = 0; i < 3; ++i) {
                 data[4 + i] = eye[i];
                 data[8 + i] = right[i];
@@ -161,6 +169,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->Draw(draw);
     }
+    ++redraws;
+    frame_ = key;
     return color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 } // namespace forge

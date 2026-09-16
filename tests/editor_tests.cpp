@@ -8,6 +8,7 @@
 #include "help.hpp"
 #include "interaction_tests.hpp"
 #include "play.hpp"
+#include "scene_cache_tests.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
 #include "workspace_tests.hpp"
@@ -304,6 +305,8 @@ int main(int argc, char** argv) {
             test_automation_workspace(scale);
         test_authoring();
         test_blockout();
+        test_scene_cache();
+        test_world_grid_axes();
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_command_workspace(scale);
         for (float scale : {0.65f, 1.0f, 2.0f})

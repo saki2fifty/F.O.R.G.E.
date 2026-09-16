@@ -10,7 +10,9 @@
 #include "hierarchy.hpp"
 #include "native_build.hpp"
 #include "orientation.hpp"
+#include "performance.hpp"
 #include "play.hpp"
+#include "scene_cache.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
 #include "transform_gesture.hpp"
@@ -192,6 +194,8 @@ int main(int argc, char** argv) {
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
         forge::Viewport viewport(device);
+        forge::AuthoringSnapshot authoring_snapshot;
+        forge::PreviewSnapshot preview_snapshot;
         forge::EditorCamera camera;
         try {
             forge::restore_view(files.document, camera);
@@ -199,11 +203,13 @@ int main(int argc, char** argv) {
             message = e.what();
         }
         forge::Telemetry telemetry;
+        forge::ui::Performance performance;
         std::string selected, name_entity, authored_name;
         char entity_name[1024]{};
         bool running = true;
         std::string current_title;
         while (running) {
+            performance.begin();
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 gui->HandleSDLEvent(&event);
@@ -265,7 +271,7 @@ int main(int argc, char** argv) {
                 continue;
             }
             play.pump();
-            native->pump(play, scene.document());
+            native->pump(play, authoring_snapshot.document(scene));
             files.set_switch_available(!native->busy());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
@@ -306,7 +312,10 @@ int main(int argc, char** argv) {
                 ImGui::BeginDisabled(edit_locked);
                 files.menu();
                 ImGui::EndDisabled();
-                commands.menu([&] { automation.menu(); });
+                commands.menu([&] {
+                    automation.menu();
+                    performance.menu();
+                });
                 if (workspace.menu()) {
                     try {
                         perform(save_preferences);
@@ -436,7 +445,7 @@ int main(int argc, char** argv) {
             blockout.check(scene);
             if (!(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || files.busy())
                 blockout.cancel();
-            auto doc = modal.preview(scene_tools.move.preview(blockout.preview(scene.document())));
+            const auto& doc = authoring_snapshot.document(scene);
             if (workspace.hierarchy) {
                 if (ImGui::Begin("Hierarchy###World", &workspace.hierarchy)) {
                     ImGui::TextUnformatted(files.document.dirty()     ? "Unsaved changes"
@@ -481,7 +490,7 @@ int main(int argc, char** argv) {
                             "Select an object in the Scene or Hierarchy to edit its properties.");
                         forge::ui::help("Click a scene object or hierarchy row.");
                     }
-                    for (auto& e : doc["entities"])
+                    for (const auto& e : doc["entities"])
                         if (e.at("id") == selected) {
                             const auto name = e.at("name").get<std::string>();
                             if (name_entity != selected || authored_name != name) {
@@ -495,7 +504,6 @@ int main(int argc, char** argv) {
                                     forge::authoring_command(
                                         scene, "entity.rename",
                                         {{"entity", selected}, {"name", entity_name}});
-                                    e["name"] = entity_name;
                                 }
                                 forge::ui::help(
                                     "Rename this entity. Press Enter to commit one undoable edit.");
@@ -541,10 +549,6 @@ int main(int argc, char** argv) {
                                     forge::authoring_command(
                                         scene, "entity.reparent",
                                         {{"entity", selected}, {"parent", new_parent}});
-                                    if (new_parent.empty())
-                                        e.erase("parent");
-                                    else
-                                        e["parent"] = new_parent;
                                 }
                             } catch (const std::exception& ex) {
                                 message = ex.what();
@@ -668,9 +672,24 @@ int main(int argc, char** argv) {
                     }
                     ImGui::EndDisabled();
                     camera.fly_speed = scene_tools.fly_speed;
-                    doc = forge::render_document(blockout.preview(scene.document()));
-                    const auto preview =
-                        play.active() ? forge::render_document(play.snapshot()) : doc;
+                    auto read_preview = [&]() -> const forge::Json& {
+                        return preview_snapshot.get(
+                            play.active() ? play.snapshot_version() : scene.revision(),
+                            play.active(),
+                            blockout.active() || scene_tools.move.active() || modal.active(), [&] {
+                                if (play.active())
+                                    return forge::render_document(play.snapshot());
+                                auto source = authoring_snapshot.document(scene);
+                                if (blockout.active())
+                                    source = blockout.preview(source);
+                                if (scene_tools.move.active())
+                                    source = scene_tools.move.preview(source);
+                                if (modal.active())
+                                    source = modal.preview(source);
+                                return forge::render_document(source);
+                            });
+                    };
+                    const auto& preview = read_preview();
                     auto size = ImGui::GetContentRegionAvail();
                     if (size.x > 1 && size.y > 1) {
                         if (frame_selected &&
@@ -713,15 +732,16 @@ int main(int argc, char** argv) {
                         scene_tools.input(scene, camera, selected, image_origin, size, input,
                                           can_edit && !gizmo && !was_modal && !modal.active(),
                                           message);
-                        const auto rendered = forge::render_document(
-                            play.active() ? play.snapshot()
-                                          : modal.preview(scene_tools.move.preview(
-                                                blockout.preview(scene.document()))));
+                        const auto& rendered = read_preview();
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
+                        const auto scene_submit = forge::ui::Performance::Clock::now();
                         auto* texture = viewport.render(
                             context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),
-                            unsigned(std::max(1.0f, size.y * render_scale)), camera);
+                            unsigned(std::max(1.0f, size.y * render_scale)), camera,
+                            preview_snapshot.generation(), play.active() || performance.continuous);
+                        performance.scene_ms = forge::ui::Performance::milliseconds(
+                            scene_submit, forge::ui::Performance::Clock::now());
                         ImGui::GetWindowDrawList()->AddImage(
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
                             {image_origin.x + size.x, image_origin.y + size.y});
@@ -861,12 +881,16 @@ int main(int argc, char** argv) {
                     message = e.what();
                 }
             }
+            performance.draw(viewport.redraws, viewport.retained);
+            const auto ui_submit = forge::ui::Performance::Clock::now();
             auto* rtv = swap->GetCurrentBackBufferRTV();
             context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             const float clear[] = {0.04f, 0.05f, 0.06f, 1};
             context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             gui->Render(context);
+            const auto present = forge::ui::Performance::Clock::now();
             swap->Present(0);
+            performance.finish(ui_submit, present);
         }
         if (startup_layout.save_enabled)
             ImGui::SaveIniSettingsToDisk(ini.c_str());
