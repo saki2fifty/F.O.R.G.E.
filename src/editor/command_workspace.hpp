@@ -233,7 +233,8 @@ class CommandWorkspace {
                 ImGui::PushID(int(n++));
                 const auto label = item.at("entity").get<std::string>() + " / " +
                                    item.at("code").get<std::string>();
-                if (ImGui::Selectable(label.c_str(), selected == item.at("entity")))
+                if (ImGui::Selectable(label.c_str(),
+                                      selected == item.at("entity").get_ref<const std::string&>()))
                     selected = item.at("entity");
                 help(item.at("message").get_ref<const std::string&>().c_str());
                 ImGui::TextWrapped("%s", item.at("message").get_ref<const std::string&>().c_str());
