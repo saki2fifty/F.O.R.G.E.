@@ -135,3 +135,11 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 ### Phase 1 — Windows validation follow-up
 
 - Build 260916-000020 passed Windows and Linux core suites (8/8 each) and formatting. The Windows-only WARP fixture failed to compile because its new context variable reused the existing Diligent `engine` identifier. Renamed the fixture variable; no product behavior changed. Build 20 remains consumed and is not delivered. A new reserved build will complete editor/WARP/package validation.
+
+### Phase 1 — verified Windows delivery
+
+- Delivered **Build 260916-000021**, source `68c59dc29b5cdfbbc1b544228e1ffabb90af2754`, [clean run 35159609066](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35159609066). All jobs passed. Build 20 remains a failed, consumed reservation; it was not delivered.
+- Windows core 8/8 passed (6.80s). Windows Release editor validation 7/7 passed: D3D12 WARP 0.72s, native iteration 7.02s, SDL/ImGui process/input/layout/scaling 6.37s, lifetime 0.03s, API 0.03s, live API 1.22s and CLI 0.20s. Four shaders and all three executable build identifiers passed. Linux CI core and formatting also passed.
+- All 24 accepted Build 17 scene/grid PPM images and all 27 Build 19 images (including ImGui font/texture checks) are byte-identical. Fixtures now consume live Flecs-derived effective snapshots through the existing renderer. Interactive desktop acceptance of this build remains a user check.
+- ZIP CRC, manifest hashes, reserved source/build, three x64 PE executables and 23 matching manual source pages/offline HTML identities verified. SHA-256: `0c2f9a51c999bd3957a193973fab7a24b6718ed986ddaf2bca235c7388daecdc`. Previous package archived; package folder contains only the latest numbered ZIP and current extraction. Cleanup dry run is a no-op.
+- Phase 1 stops here. No UUID migration, transform redesign, Parent/TreeSpawner migration, fixed clock, new subsystem or editor redesign was started.
