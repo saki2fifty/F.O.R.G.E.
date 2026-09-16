@@ -110,3 +110,8 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 
 - Upgraded docking 1.92.2b to the stable-release docking tag 1.92.9b, pinned `b48d1afbe8ee8b238e2961dc363a949dd7304e23`; no moving branch. Explicitly preserve the existing bitmap font and live numeric editing despite upstream default changes. No editor redesign or multi-window feature enablement.
 - Existing Linux editor/native suites pass with the new Flecs/SDL/ImGui combination. Added SDL queue-to-ImGui keyboard/mouse/window-filtering/focus-loss coverage. Added Windows D3D12 WARP checks for dynamic font textures at three UI scales and external texture IDs; Windows execution is pending. Updated Windows editor/test sources pass local MinGW syntax checking.
+
+### Dependency modernization — build provenance
+
+- Retained current JSON3.12.0, CMake4.4.3 and Ninja1.13.2. Retained Diligent's coordinated snapshot/API256020: current upstream Core/Tools revisions are identical; only disabled FX/Samples differ. Documented all four superproject gitlinks.
+- Explicitly select the existing VS2022 MSVC14.44.35207 and Windows SDK10.0.26100.0 in both Windows CI jobs. Recorded newer official VS/MSVC/SDK availability and reasons to retain this supported baseline; C++20/C17, static editor CRT and runtime OS targeting remain unchanged. Clean Windows validation follows.
