@@ -31,6 +31,13 @@ add_custom_command(TARGET forge_editor POST_BUILD
  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/samples/native/movement.c" "${PROJECT_SOURCE_DIR}/samples/native/CMakeLists.txt" "$<TARGET_FILE_DIR:forge_editor>/sdk/samples/native/")
 
 if(BUILD_TESTING)
+ add_executable(forge_viewport_tests tests/viewport_render_tests.cpp src/editor/viewport.cpp)
+ target_include_directories(forge_viewport_tests PRIVATE src/editor "${diligent_SOURCE_DIR}/DiligentCore")
+ target_compile_definitions(forge_viewport_tests PRIVATE UNICODE _UNICODE NOMINMAX)
+ target_link_libraries(forge_viewport_tests PRIVATE forge_core Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings d3d12 dxgi)
+ copy_required_dlls(forge_viewport_tests)
+ add_test(NAME editor_viewport_render COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images")
+ set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 60)
  add_executable(forge_editor_native_tests tests/editor_native_tests.cpp)
  target_include_directories(forge_editor_native_tests PRIVATE src/editor)
  target_link_libraries(forge_editor_native_tests PRIVATE forge_core SDL3::SDL3)

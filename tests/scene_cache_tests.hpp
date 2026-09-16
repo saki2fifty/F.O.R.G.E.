@@ -77,57 +77,44 @@ inline void test_scene_cache() {
     require(key != forge::viewport_frame_key(1, 800, 600, camera), "Zoom kept texture");
 }
 inline void test_world_grid_axes() {
-    for (unsigned view = 0; view < 8; ++view) {
-        forge::EditorCamera camera;
-        camera.target = {0, 0, 0};
-        if (view < 6)
-            camera.align(view / 2, view % 2 ? -1 : 1);
-        else
-            camera.orbit(83, -48);
-        if (view == 7)
-            camera.pan(30, -25, 600);
-        for (unsigned axis : {0u, 2u}) {
-            const auto line = forge::project_world_axis(camera, axis, 800, 600);
-            require(bool(line), "Visible world axis disappeared");
-            for (const auto& point : *line)
-                require(std::isfinite(point[0]) && std::isfinite(point[1]) && point[0] >= -.01f &&
-                            point[0] <= 800.01f && point[1] >= -.01f && point[1] <= 600.01f,
-                        "World axis escaped frustum");
-            for (float distance : {-1.0f, 0.0f, 1.0f}) {
-                forge::Vec3 world{};
-                world[axis] = distance;
-                const auto p = forge::project_point(camera, world, 800, 600);
-                if (!p)
-                    continue;
-                const auto a = (*line)[0], b = (*line)[1];
-                const float length = std::hypot(b[0] - a[0], b[1] - a[1]);
-                if (length > .01f)
-                    require(std::abs(((*p)[0] - a[0]) * (b[1] - a[1]) -
-                                     ((*p)[1] - a[1]) * (b[0] - a[0])) /
-                                    length <
-                                .01f,
-                            "Grid axis drifted away from fixed world coordinates");
-            }
-        }
-    }
+    static_assert(sizeof(forge::GridConstants) == 80);
     forge::EditorCamera camera;
     camera.target = {0, 0, 0};
     camera.pitch = -.5f;
-    const auto original = forge::project_world_axis(camera, 0, 800, 600);
-    // Same eye and orientation, different orbit target/distance: projection is identical.
-    const auto f = camera.forward();
-    for (unsigned i = 0; i < 3; ++i)
-        camera.target[i] += f[i] * 10;
-    camera.distance += 10;
-    const auto shifted = forge::project_world_axis(camera, 0, 800, 600);
-    require(original && shifted, "Axis vanished after target change");
-    for (unsigned i = 0; i < 2; ++i)
-        for (unsigned j = 0; j < 2; ++j)
-            require(std::abs((*original)[i][j] - (*shifted)[i][j]) < .01f,
-                    "Axis endpoints depend on orbit target rather than world origin");
-    require(!forge::project_world_axis(camera, 0, 0, 600), "Zero-width axis projection accepted");
-    camera = {};
-    camera.target = {0, 10, 0};
-    camera.pitch = forge::EditorCamera::pole;
-    require(!forge::project_world_axis(camera, 0, 800, 600), "Axis behind camera was drawn");
+    camera.distance = 12;
+    for (unsigned motion = 0; motion < 6; ++motion) {
+        if (motion == 1)
+            camera.look(30, 15);
+        if (motion == 2)
+            camera.pan(50, -30, 600);
+        if (motion == 3)
+            camera.orbit(-30, -20);
+        if (motion == 4)
+            camera.fly(.5f, .5f, .1f, .1f);
+        if (motion == 5)
+            camera.align(1, 1);
+        const auto constants = forge::grid_constants(camera, 800, 600, {});
+        for (forge::Vec3 p : {forge::Vec3{0, 0, 3}, forge::Vec3{3, 0, 0}, forge::Vec3{2, 0, 4}}) {
+            const auto pixel = forge::project_point(camera, p, 800, 600);
+            require(bool(pixel), "Grid fixture behind camera");
+            // Reconstruct the ground point using the exact shader uniform layout.
+            const float sx = (2 * (*pixel)[0] - constants.viewport_fade[0]) /
+                             (constants.right_focal[3] * constants.viewport_fade[1]);
+            const float sy = (2 * (*pixel)[1] - constants.viewport_fade[1]) /
+                             (constants.right_focal[3] * constants.viewport_fade[1]);
+            forge::Vec3 ray;
+            for (unsigned i = 0; i < 3; ++i)
+                ray[i] = constants.forward_near[i] + constants.right_focal[i] * sx -
+                         constants.up_far[i] * sy;
+            const float depth = -constants.eye_spacing[1] / ray[1];
+            for (unsigned i = 0; i < 3; ++i)
+                require(std::abs(constants.eye_spacing[i] + ray[i] * depth - p[i]) < .0001f,
+                        "Shader ground projection disagrees with meshes/handles after navigation");
+        }
+    }
+    const auto key = forge::viewport_frame_key(1, 800, 600, camera);
+    require(key != forge::viewport_frame_key(1, 800, 600, camera, {false, 1}),
+            "Grid visibility did not invalidate retained frame");
+    require(key != forge::viewport_frame_key(1, 800, 600, camera, {true, 2}),
+            "Grid spacing did not invalidate retained frame");
 }

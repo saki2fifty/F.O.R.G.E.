@@ -59,3 +59,7 @@ See [Viewport](viewport.md) for directions and [Scenes](scenes.md) for file beha
 ## Command search
 
 Press **Ctrl+Shift+P** after finishing a drag or text edit to open the [Command palette](commands.md). Search, choose with Up/Down, and press Enter. Escape closes it.
+
+## Scene tool selection
+
+Hover the Scene image and press **W** for Move or **Q** for Select. Move shows the selected object’s X/Y/Z handles. Select hides handles. These keys do not switch tools while navigating with RMB/MMB or typing into a field.

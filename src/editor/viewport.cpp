@@ -84,11 +84,55 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
         throw std::runtime_error("Preview shader constants missing");
     variable->Set(constants_);
     pipeline_->CreateShaderResourceBinding(&resources_, true);
+    shader.Desc.Name = "FORGE grid VS";
+    shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
+    shader.Source = grid_vertex_shader;
+    vertex.Release();
+    device_->CreateShader(shader, &vertex);
+    shader.Desc.Name = "FORGE grid PS";
+    shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
+    shader.Source = grid_pixel_shader;
+    pixel.Release();
+    device_->CreateShader(shader, &pixel);
+    if (!vertex || !pixel)
+        throw std::runtime_error("Grid shader compilation failed");
+    GraphicsPipelineStateCreateInfo grid;
+    grid.PSODesc.Name = "FORGE world ground grid";
+    grid.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+    grid.GraphicsPipeline.NumRenderTargets = 1;
+    grid.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
+    grid.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
+    grid.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    grid.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
+    grid.GraphicsPipeline.DepthStencilDesc.DepthEnable = True;
+    grid.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = False;
+    grid.GraphicsPipeline.DepthStencilDesc.DepthFunc = COMPARISON_FUNC_LESS_EQUAL;
+    auto& blend = grid.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    blend.BlendEnable = True;
+    blend.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
+    blend.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+    blend.SrcBlendAlpha = BLEND_FACTOR_ONE;
+    blend.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
+    grid.pVS = vertex;
+    grid.pPS = pixel;
+    device_->CreateGraphicsPipelineState(grid, &grid_pipeline_);
+    if (!grid_pipeline_)
+        throw std::runtime_error("Grid pipeline creation failed");
+    buffer.Name = "FORGE grid camera";
+    buffer.Size = sizeof(GridConstants);
+    device_->CreateBuffer(buffer, nullptr, &grid_constants_);
+    if (!grid_constants_)
+        throw std::runtime_error("Grid camera buffer creation failed");
+    variable = grid_pipeline_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "GridView");
+    if (!variable)
+        throw std::runtime_error("Grid shader camera binding missing");
+    variable->Set(grid_constants_);
+    grid_pipeline_->CreateShaderResourceBinding(&grid_resources_, true);
 }
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
                                unsigned height, const EditorCamera& camera,
-                               std::uint64_t generation, bool live) {
-    const auto key = viewport_frame_key(generation, width, height, camera);
+                               std::uint64_t generation, bool live, GridSettings grid) {
+    const auto key = viewport_frame_key(generation, width, height, camera, grid);
     // Static blockout preview only. Play renders continuously; future time-dependent
     // materials/effects must also opt out of retained EDIT frames.
     if (!live && frame_ && *frame_ == key) {
@@ -166,6 +210,18 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         const auto kind = primitive_kind(entity);
         draw.NumVertices = counts_.at(kind);
         draw.StartVertexLocation = starts_.at(kind);
+        draw.Flags = DRAW_FLAG_VERIFY_ALL;
+        context->Draw(draw);
+    }
+    if (grid.visible) {
+        {
+            MapHelper<GridConstants> data(context, grid_constants_, MAP_WRITE, MAP_FLAG_DISCARD);
+            *data = grid_constants(camera, width, height, grid);
+        }
+        context->SetPipelineState(grid_pipeline_);
+        context->CommitShaderResources(grid_resources_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        DrawAttribs draw;
+        draw.NumVertices = 3;
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->Draw(draw);
     }

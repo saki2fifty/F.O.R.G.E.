@@ -12,15 +12,15 @@ class Viewport {
     explicit Viewport(Diligent::IRenderDevice* device);
     Diligent::ITextureView* render(Diligent::IDeviceContext* context, const Json& scene,
                                    unsigned width, unsigned height, const EditorCamera& camera,
-                                   std::uint64_t generation, bool live);
+                                   std::uint64_t generation, bool live, GridSettings grid = {});
 
   private:
     std::optional<ViewportFrameKey> frame_;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> constants_, vertices_;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_, grid_pipeline_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> constants_, vertices_, grid_constants_;
     std::array<unsigned, 4> starts_{}, counts_{};
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> resources_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> resources_, grid_resources_;
 };
 } // namespace forge

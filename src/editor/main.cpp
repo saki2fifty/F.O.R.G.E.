@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
                 auto_build = j.value("auto_build", false);
                 blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
-                scene_tools.move_tool = j.value("move_tool", true);
+                scene_tools.move_tool = j.value("scene_tool", std::string("move")) != "select";
                 scene_tools.snap = j.value("snap", false);
                 scene_tools.snap_step = std::clamp(j.value("snap_step", 1.0f), 0.01f, 1000.0f);
                 scene_tools.grid_step = std::clamp(j.value("grid_step", 1.0f), 0.1f, 1000.0f);
@@ -124,24 +124,24 @@ int main(int argc, char** argv) {
         } catch (const std::exception&) { /* Recover malformed user preferences with defaults. */
         }
         auto save_preferences = [&] {
-            forge::atomic_write(settings,
-                                forge::Json{{"tooltips", forge::ui::tooltips},
-                                            {"panels", workspace.settings()},
-                                            {"orientation_gizmo", orientation.visible},
-                                            {"interface_scale", forge::ui::interface_scale},
-                                            {"cmake", cmake_path},
-                                            {"ninja", ninja_path},
-                                            {"auto_build", auto_build},
-                                            {"create_at_view_target", blockout.at_view_target},
-                                            {"grid", scene_tools.grid},
-                                            {"move_tool", scene_tools.move_tool},
-                                            {"snap", scene_tools.snap},
-                                            {"snap_step", scene_tools.snap_step},
-                                            {"grid_step", scene_tools.grid_step},
-                                            {"fly_speed", scene_tools.fly_speed},
-                                            {"recent_projects", recent_projects},
-                                            {"last_project", last_project}}
-                                    .dump(2));
+            forge::atomic_write(
+                settings, forge::Json{{"tooltips", forge::ui::tooltips},
+                                      {"panels", workspace.settings()},
+                                      {"orientation_gizmo", orientation.visible},
+                                      {"interface_scale", forge::ui::interface_scale},
+                                      {"cmake", cmake_path},
+                                      {"ninja", ninja_path},
+                                      {"auto_build", auto_build},
+                                      {"create_at_view_target", blockout.at_view_target},
+                                      {"grid", scene_tools.grid},
+                                      {"scene_tool", scene_tools.move_tool ? "move" : "select"},
+                                      {"snap", scene_tools.snap},
+                                      {"snap_step", scene_tools.snap_step},
+                                      {"grid_step", scene_tools.grid_step},
+                                      {"fly_speed", scene_tools.fly_speed},
+                                      {"recent_projects", recent_projects},
+                                      {"last_project", last_project}}
+                              .dump(2));
         };
         forge::Scene scene;
         forge::ui::AutomationWorkspace automation;
@@ -650,7 +650,8 @@ int main(int argc, char** argv) {
                                 ImGui::Checkbox("Orientation gizmo", &orientation.visible);
                             forge::ui::help("Show the clickable world-axis navigation widget.");
                             changed |= ImGui::Checkbox("Grid", &scene_tools.grid);
-                            forge::ui::help("Show the world XZ grid at Y=0.");
+                            forge::ui::help("Show the world-anchored XZ grid at Y=0, fading toward "
+                                            "the horizon.");
                             changed |=
                                 ImGui::DragFloat("Snap spacing", &scene_tools.snap_step, .05f, .01f,
                                                  1000, "%.2f", ImGuiSliderFlags_AlwaysClamp);
@@ -658,7 +659,8 @@ int main(int argc, char** argv) {
                             changed |=
                                 ImGui::DragFloat("Grid spacing", &scene_tools.grid_step, .1f, .1f,
                                                  1000, "%.1f", ImGuiSliderFlags_AlwaysClamp);
-                            forge::ui::help("Reference grid spacing in world units.");
+                            forge::ui::help("Base grid spacing in world units. Coarser divisions "
+                                            "fade in with distance; snap spacing is independent.");
                             changed |=
                                 ImGui::DragFloat("Fly speed", &scene_tools.fly_speed, .2f, .1f,
                                                  1000, "%.1f", ImGuiSliderFlags_AlwaysClamp);
@@ -729,9 +731,12 @@ int main(int argc, char** argv) {
                         modal.input(scene, selected, camera, image_origin, size,
                                     over_image && !gizmo, can_edit && !scene_tools.move.active(),
                                     message);
+                        const bool previous_move_tool = scene_tools.move_tool;
                         scene_tools.input(scene, camera, selected, image_origin, size, input,
                                           can_edit && !gizmo && !was_modal && !modal.active(),
                                           message);
+                        if (previous_move_tool != scene_tools.move_tool)
+                            perform(save_preferences);
                         const auto& rendered = read_preview();
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
@@ -739,7 +744,8 @@ int main(int argc, char** argv) {
                         auto* texture = viewport.render(
                             context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),
                             unsigned(std::max(1.0f, size.y * render_scale)), camera,
-                            preview_snapshot.generation(), play.active() || performance.continuous);
+                            preview_snapshot.generation(), play.active() || performance.continuous,
+                            {scene_tools.grid, scene_tools.grid_step});
                         performance.scene_ms = forge::ui::Performance::milliseconds(
                             scene_submit, forge::ui::Performance::Clock::now());
                         ImGui::GetWindowDrawList()->AddImage(

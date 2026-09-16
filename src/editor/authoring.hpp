@@ -42,47 +42,6 @@ inline std::optional<std::array<float, 2>> project_point(const EditorCamera& cam
     return std::array<float, 2>{width / 2 + dot(delta, camera.right()) * scale,
                                 height / 2 - dot(delta, camera.up()) * scale};
 }
-// Clip an infinite axis through WORLD zero to the camera frustum. Its endpoints
-// must not follow the finite reference grid patch or the camera's orbit target.
-inline std::optional<std::array<std::array<float, 2>, 2>>
-project_world_axis(const EditorCamera& camera, unsigned axis, float width, float height) {
-    if (axis > 2 || width <= 0 || height <= 0)
-        return {};
-    const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
-               forward = camera.forward();
-    const double x = -dot(eye, right), y = -dot(eye, up), z = -dot(eye, forward);
-    const double dx = right[axis], dy = up[axis], dz = forward[axis];
-    const double hx = width / (height * double(EditorCamera::focal));
-    const double hy = 1.0 / EditorCamera::focal;
-    double low = -std::numeric_limits<double>::infinity();
-    double high = std::numeric_limits<double>::infinity();
-    auto clip = [&](double value, double slope) {
-        if (std::abs(slope) < 1e-12)
-            return value >= 0;
-        const double t = -value / slope;
-        if (slope > 0)
-            low = std::max(low, t);
-        else
-            high = std::min(high, t);
-        return low <= high;
-    };
-    if (!clip(z - EditorCamera::near_plane, dz) || !clip(EditorCamera::far_plane - z, -dz) ||
-        !clip(hx * z + x, hx * dz + dx) || !clip(hx * z - x, hx * dz - dx) ||
-        !clip(hy * z + y, hy * dz + dy) || !clip(hy * z - y, hy * dz - dy) || !std::isfinite(low) ||
-        !std::isfinite(high))
-        return {};
-    std::array<std::array<float, 2>, 2> result;
-    unsigned index = 0;
-    for (double t : {low, high}) {
-        const double depth = z + t * dz;
-        if (depth <= 0)
-            return {};
-        const double scale = EditorCamera::focal * height / (2 * depth);
-        result[index++] = {float(width / 2 + (x + t * dx) * scale),
-                           float(height / 2 - (y + t * dy) * scale)};
-    }
-    return result;
-}
 inline Vec3 view_ray(const EditorCamera& camera, float x, float y, float width, float height) {
     const auto f = camera.forward(), r = camera.right(), u = camera.up();
     const float sx = (2 * x - width) / (EditorCamera::focal * height);

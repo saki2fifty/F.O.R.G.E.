@@ -12,9 +12,17 @@ struct SceneTools {
     EditorCamera drag_camera;
     float units_per_pixel = 1;
     bool controls() {
-        bool changed = ImGui::Checkbox("Move handles", &move_tool);
-        help("Show world-axis translation handles. Drag an axis or the center square. Escape "
-             "cancels.");
+        int tool = move_tool ? 1 : 0;
+        const int previous = tool;
+        ImGui::RadioButton("Select", &tool, 0);
+        help("Select objects without move handles. Q while hovering the Scene. R and S still "
+             "rotate/scale.");
+        ImGui::SameLine();
+        ImGui::RadioButton("Move", &tool, 1);
+        help("Show X/Y/Z move handles on the selected object. W while hovering the Scene. Drag an "
+             "axis or center; Escape cancels.");
+        move_tool = tool == 1;
+        bool changed = tool != previous;
         ImGui::SameLine();
         changed |= ImGui::Checkbox("Snap", &snap);
         help("Snap moved positions to world-grid multiples. Hold Ctrl temporarily. Spacing is "
@@ -54,6 +62,14 @@ struct SceneTools {
         }
         if (!can_edit)
             return;
+        if (input.hovered && !io.WantTextInput && !ImGui::IsAnyItemActive() && !io.KeyCtrl &&
+            !io.KeyAlt && !ImGui::IsMouseDown(ImGuiMouseButton_Right) &&
+            !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+            if (ImGui::IsKeyPressed(ImGuiKey_W, false))
+                move_tool = true;
+            if (ImGui::IsKeyPressed(ImGuiKey_Q, false))
+                move_tool = false;
+        }
         if (input.activated && ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Right) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
@@ -158,22 +174,6 @@ struct SceneTools {
                 draw->AddLine({origin.x + (*p)[0], origin.y + (*p)[1]},
                               {origin.x + (*q)[0], origin.y + (*q)[1]}, color, thickness);
         };
-        if (grid) {
-            const float cx = std::round(camera.target[0] / grid_step) * grid_step;
-            const float cz = std::round(camera.target[2] / grid_step) * grid_step;
-            const float range = 20 * grid_step;
-            for (int i = -20; i <= 20; ++i) {
-                const float x = cx + i * grid_step, z = cz + i * grid_step;
-                line({x, 0, cz - range}, {x, 0, cz + range}, IM_COL32(110, 135, 160, 75));
-                line({cx - range, 0, z}, {cx + range, 0, z}, IM_COL32(110, 135, 160, 75));
-            }
-            for (unsigned axis : {0u, 2u})
-                if (const auto points = project_world_axis(camera, axis, size.x, size.y))
-                    draw->AddLine({origin.x + (*points)[0][0], origin.y + (*points)[0][1]},
-                                  {origin.x + (*points)[1][0], origin.y + (*points)[1][1]},
-                                  axis == 0 ? IM_COL32(240, 90, 90, 150)
-                                            : IM_COL32(90, 150, 255, 150));
-        }
         if (const auto center = entity_position(doc, selected)) {
             const Json* entity = nullptr;
             for (const auto& candidate : doc.at("entities"))
@@ -218,12 +218,14 @@ struct SceneTools {
                 }
             }
         }
-        draw->AddText({origin.x + 10, origin.y + size.y - ImGui::GetTextLineHeight() - 10},
-                      IM_COL32(190, 205, 220, 220),
-                      move.active()
-                          ? "Moving | release to apply | Esc cancels"
-                          : (can_edit ? "LMB select | drag handles: move | R: rotate | S: scale"
-                                      : "Navigation only | move tools inactive"));
+        draw->AddText(
+            {origin.x + 10, origin.y + size.y - ImGui::GetTextLineHeight() - 10},
+            IM_COL32(190, 205, 220, 220),
+            move.active()
+                ? "Moving | release to apply | Esc cancels"
+                : (can_edit ? (move_tool ? "Move | drag axes | Q: select | R: rotate | S: scale"
+                                         : "Select | W: show move handles | R: rotate | S: scale")
+                            : "Navigation only | object tools inactive"));
         draw->PopClipRect();
     }
 };

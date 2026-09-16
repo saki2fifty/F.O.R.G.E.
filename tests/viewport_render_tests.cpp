@@ -1,0 +1,204 @@
+// Exercise the production Diligent renderer using Windows' D3D12 software device.
+#include <windows.h>
+
+// Native declarations must precede Diligent's native command queue interface.
+#include <d3d12.h>
+#include <dxgi1_4.h>
+#include <wrl/client.h>
+
+// Renderer interfaces.
+#include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
+#include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
+#include "authoring.hpp"
+#include "viewport.hpp"
+#include <cstring>
+#include <fstream>
+#include <iostream>
+using namespace Diligent;
+using Microsoft::WRL::ComPtr;
+namespace {
+void require(bool value, const char* text) {
+    if (!value)
+        throw std::runtime_error(text);
+}
+void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
+using Pixels = std::vector<std::array<unsigned char, 4>>;
+Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* view) {
+    auto* texture = view->GetTexture();
+    auto desc = texture->GetDesc();
+    desc.Name = "FORGE test readback";
+    desc.Usage = USAGE_STAGING;
+    desc.BindFlags = BIND_NONE;
+    desc.CPUAccessFlags = CPU_ACCESS_READ;
+    RefCntAutoPtr<ITexture> staging;
+    device->CreateTexture(desc, nullptr, &staging);
+    require(bool(staging), "Readback texture allocation failed");
+    context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
+    CopyTextureAttribs copy;
+    copy.pSrcTexture = texture;
+    copy.pDstTexture = staging;
+    copy.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    copy.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    context->CopyTexture(copy);
+    context->WaitForIdle();
+    MappedTextureSubresource data;
+    context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, data);
+    require(data.pData != nullptr, "Readback map failed");
+    Pixels result(desc.Width * desc.Height);
+    for (unsigned y = 0; y < desc.Height; ++y)
+        std::memcpy(result.data() + y * desc.Width,
+                    static_cast<const unsigned char*>(data.pData) + y * data.Stride,
+                    desc.Width * 4);
+    context->UnmapTextureSubresource(staging, 0, 0);
+    context->FinishFrame();
+    return result;
+}
+void save(const Pixels& pixels, unsigned width, unsigned height,
+          const std::filesystem::path& path) {
+    std::ofstream output(path, std::ios::binary);
+    output << "P6\n" << width << ' ' << height << "\n255\n";
+    for (auto p : pixels)
+        output.write(reinterpret_cast<const char*>(p.data()), 3);
+}
+void check_axes(const Pixels& pixels, unsigned width, unsigned height,
+                const forge::EditorCamera& camera) {
+    unsigned checked = 0;
+    for (unsigned axis : {0u, 2u}) {
+        for (float offset : {-3.0f, 3.0f}) {
+            forge::Vec3 point{};
+            point[axis] = offset;
+            const auto projected = forge::project_point(camera, point, float(width), float(height));
+            if (!projected || (*projected)[0] < 4 || (*projected)[1] < 4 ||
+                (*projected)[0] >= width - 4 || (*projected)[1] >= height - 4)
+                continue;
+            bool found = false;
+            const int x = int((*projected)[0]), y = int((*projected)[1]);
+            for (int dy = -3; dy <= 3; ++dy)
+                for (int dx = -3; dx <= 3; ++dx) {
+                    const auto p = pixels[(y + dy) * width + x + dx];
+                    found |= axis == 0 ? p[0] > p[2] + 50 : p[2] > p[0] + 50;
+                }
+            require(found, "Rendered world axis drifted away from projected world coordinates");
+            ++checked;
+        }
+    }
+    require(checked >= 2, "Axis fixture does not cover visible world coordinates");
+}
+} // namespace
+int main(int argc, char** argv) {
+    try {
+        require(argc == 2, "Expected image output directory");
+        const std::filesystem::path images(argv[1]);
+        std::filesystem::create_directories(images);
+        ComPtr<IDXGIFactory4> dxgi;
+        check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)), "DXGI factory failed");
+        ComPtr<IDXGIAdapter> warp;
+        check(dxgi->EnumWarpAdapter(IID_PPV_ARGS(&warp)), "WARP adapter unavailable");
+        ComPtr<ID3D12Device> native;
+        check(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&native)),
+              "WARP D3D12 device failed");
+        ComPtr<ID3D12CommandQueue> native_queue;
+        D3D12_COMMAND_QUEUE_DESC queue_desc{};
+        check(native->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&native_queue)),
+              "WARP queue failed");
+        auto* factory = LoadAndGetEngineFactoryD3D12();
+        require(factory != nullptr, "Diligent backend unavailable");
+        RefCntAutoPtr<ICommandQueueD3D12> queue;
+        factory->CreateCommandQueueD3D12(native.Get(), native_queue.Get(), nullptr, &queue);
+        require(bool(queue), "Diligent queue attachment failed");
+        ICommandQueueD3D12* queues[] = {queue};
+        EngineD3D12CreateInfo engine;
+        RefCntAutoPtr<IRenderDevice> device;
+        RefCntAutoPtr<IDeviceContext> context;
+        factory->AttachToD3D12Device(native.Get(), 1, queues, engine, &device, &context);
+        require(device && context, "Diligent device attachment failed");
+        forge::Viewport viewport(device);
+        forge::Json scene{{"version", 1}, {"entities", forge::Json::array()}};
+        forge::EditorCamera camera;
+        camera.target = {0, 0, 0};
+        camera.pitch = -.55f;
+        camera.distance = 12;
+        constexpr unsigned width = 640, height = 400;
+        std::uint64_t generation = 1;
+        auto render = [&](const char* name, forge::GridSettings grid = {}, unsigned w = 640,
+                          unsigned h = 400) {
+            auto pixels =
+                readback(device, context,
+                         viewport.render(context, scene, w, h, camera, generation, false, grid));
+            save(pixels, w, h, images / (std::string(name) + ".ppm"));
+            return pixels;
+        };
+        auto original = render("grid");
+        check_axes(original, width, height, camera);
+        auto unchanged = render("retained");
+        require(unchanged == original && viewport.retained == 1, "Retained grid frame changed");
+        camera.look(45, 12);
+        check_axes(render("look"), width, height, camera);
+        camera.pan(75, -40, height);
+        check_axes(render("pan"), width, height, camera);
+        camera.orbit(-50, -35);
+        check_axes(render("orbit"), width, height, camera);
+        camera.fly(.3f, .5f, .1f, .2f);
+        check_axes(render("fly"), width, height, camera);
+        camera.zoom(1);
+        check_axes(render("zoom"), width, height, camera);
+        camera.target = {0, 0, 0};
+        camera.distance = 12;
+        camera.align(1, 1);
+        auto top = render("top");
+        check_axes(top, width, height, camera);
+        check_axes(render("resized", {}, 480, 320), 480, 320, camera);
+        auto no_grid = render("hidden", {false, 1});
+        require(
+            std::all_of(no_grid.begin(), no_grid.end(), [&](auto p) { return p == no_grid[0]; }),
+            "Hidden grid still drew geometry");
+        auto spacing = render("spacing", {true, 2});
+        require(spacing != top, "Spacing change retained stale grid");
+        // A wide top view must show gray grid lines beyond the old +/-20-unit patch.
+        camera.distance = 100;
+        auto wide = render("wide");
+        auto far_line = forge::project_point(camera, {30, 0, 25}, width, height);
+        require(bool(far_line), "Wide grid fixture invalid");
+        bool distant_grid = false;
+        for (int dy = -3; dy <= 3; ++dy)
+            for (int dx = -3; dx <= 3; ++dx) {
+                auto p = wide[(int((*far_line)[1]) + dy) * width + int((*far_line)[0]) + dx];
+                distant_grid |=
+                    p[0] > 20 && p[1] > 20 && p[2] > 20 && std::abs(int(p[0]) - int(p[2])) < 35;
+            }
+        require(distant_grid, "Grid still has a finite patch edge");
+        camera.distance = 12;
+        scene["entities"].push_back(
+            {{"id", "cube"},
+             {"name", "Cube"},
+             {"components", {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}}}}}});
+        ++generation;
+        auto cube_off = render("cube-no-grid", {false, 1});
+        auto cube_on = render("cube-grid");
+        require(cube_on[(height / 2) * width + width / 2] ==
+                    cube_off[(height / 2) * width + width / 2],
+                "Grid drew through cube at origin");
+        camera.target = {0, 0, 0};
+        camera.pitch = 0;
+        camera.distance = 12;
+        auto edge = render("edge-on");
+        require(std::all_of(edge.begin(), edge.end(), [&](auto p) { return p == edge[0]; }) ==
+                    false,
+                "Edge-on cube disappeared");
+        scene["entities"].clear();
+        ++generation;
+        camera.target = {0, 10, 0};
+        camera.pitch = forge::EditorCamera::pole;
+        camera.distance = 6;
+        auto sky = render("looking-away");
+        require(std::all_of(sky.begin(), sky.end(), [&](auto p) { return p == sky[0]; }),
+                "Grid drew behind an upward-looking camera");
+        context->WaitForIdle();
+        std::cout << "D3D12 WARP: grid axis alignment, look/pan/orbit/fly/zoom, resize, "
+                     "visibility, spacing, extent and occlusion passed\n";
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return 1;
+    }
+}

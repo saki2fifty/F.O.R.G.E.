@@ -24,7 +24,9 @@ Left-click a visible block to select the nearest block under the pointer. Clicki
 
 ## Move a selected block
 
-Enable **Move handles** in Scene. The selected block shows red X, green Y, and blue Z handles plus a center square.
+Choose **Move** in the Scene toolbar, or hover the Scene image and press **W**. The selected block shows red X, green Y, and blue Z handles plus a center square. **Select** (Q) hides the handles and only selects objects. The active tool is visible in the toolbar and the bottom-of-view hint.
+
+If object axes are missing, check that **Move** is selected and Play is stopped. On the first launch after the old Move handles checkbox is replaced, the tool defaults to Move. Subsequent launches remember your explicit Select/Move choice. RMB+W still flies forward and does not switch tools.
 
 1. Drag an axis handle to move only along that world axis.
 2. Drag the center square to move in the camera's viewing plane.
@@ -37,9 +39,13 @@ Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multip
 
 ## Reference grid and flight speed
 
-**Grid** shows an XZ reference grid at world Y=0, centered near the camera target. Red marks the world X axis at Z=0 and blue marks world Z at X=0; both pass through world zero. The colored axes extend to the edges of the visible view and stay anchored in the world when the gray grid patch shifts. Their screen positions still change with camera perspective. This is an editor overlay and can show through blocks; it is not collision geometry or a rendered game surface.
+**View → Grid** shows a world-anchored XZ reference plane at Y=0. It appears infinite: there is no rectangular patch edge, and fine lines fade into coarser divisions as they recede toward the horizon. It is visible from above and below, with opaque scene objects covering the grid where appropriate.
 
-Open **View** to change **Grid spacing** and **Fly speed**. Flight speed applies to RMB+WASD, Space, and Shift. Move-handle visibility, grid visibility/spacing, snapping/step, and flight speed persist between editor launches.
+Red marks world X at Z=0; blue marks world Z at X=0. Both cross at world `(0,0,0)`. The colored axes and gray lines are part of the same ground rendering, so look, pan, orbit and flight do not move them relative to objects or world coordinates. Their screen positions naturally change with the camera view. Looking exactly along the plane makes it edge-on; looking away from it hides it.
+
+Open **View** to change **Grid spacing** and **Fly speed**. Grid spacing is the smallest displayed division; farther divisions are multiples of ten. This display adjustment does not change snap spacing. The grid is an editor reference, not a floor entity, collision surface or game asset.
+
+Flight speed applies to RMB+WASD, Space and Shift. Tool choice, grid visibility/base spacing, snapping/step and flight speed persist between editor launches. Selection outlines and move handles remain editor overlays, so they can remain visible through other objects.
 
 ## Save a camera bookmark
 

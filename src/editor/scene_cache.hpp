@@ -1,5 +1,5 @@
 #pragma once
-#include "camera.hpp"
+#include "grid.hpp"
 #include <optional>
 namespace forge {
 // Editor-owned authoring reads only. Runtime Flecs systems can change values without
@@ -58,10 +58,13 @@ struct ViewportFrameKey {
     unsigned width, height;
     EditorCamera::Vec target;
     float yaw, pitch, distance;
+    GridSettings grid;
     bool operator==(const ViewportFrameKey&) const = default;
 };
 inline ViewportFrameKey viewport_frame_key(std::uint64_t generation, unsigned width,
-                                           unsigned height, const EditorCamera& camera) {
-    return {generation, width, height, camera.target, camera.yaw, camera.pitch, camera.distance};
+                                           unsigned height, const EditorCamera& camera,
+                                           GridSettings grid = {}) {
+    return {generation, width,        height,          camera.target,
+            camera.yaw, camera.pitch, camera.distance, grid};
 }
 } // namespace forge
