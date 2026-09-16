@@ -22,6 +22,14 @@ int main(int argc, char** argv) {
                                     {"missing.plugin", {{"value", 42}}}}}}})}};
         scene.replace(doc);
         check(scene.document() == doc, "round trip with unknown component");
+        for (const char* axis : {"x", "y", "z"}) {
+            const auto member = scene.world().component<forge::Position>().lookup(axis);
+            check(member.is_alive(), "documented reflection member must exist");
+            const auto* brief = ecs_doc_get_brief(scene.world().c_ptr(), member.id());
+            check(brief && std::string(brief) ==
+                               std::string("Position along the ") + axis + " axis in world units.",
+                  "reflection member documentation survives dependency upgrade");
+        }
         const auto schema = scene.schema();
         check(schema["components"][0]["fields"].size() == 3, "Flecs reflected position fields");
         check(!schema["components"][0]["fields"][0]["description"].get<std::string>().empty(),

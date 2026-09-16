@@ -132,10 +132,15 @@ Scene::Scene() { replace(Json{{"version", 1}, {"entities", Json::array()}}); }
 void Scene::replace(const Json& doc) {
     validate(doc);
     auto next = std::make_unique<flecs::world>();
-    next->component<Position>("forge.position")
-        .member<float>("x")
-        .member<float>("y")
-        .member<float>("z");
+    // Flecs 4.1.5+ makes member entities opt-in. Position uses them for documentation.
+    ecs_struct_desc_t position_meta{};
+    position_meta.entity = next->component<Position>("forge.position");
+    position_meta.members[0] = {"x", next->id<float>()};
+    position_meta.members[1] = {"y", next->id<float>()};
+    position_meta.members[2] = {"z", next->id<float>()};
+    position_meta.create_member_entities = true;
+    if (!ecs_struct_init(next->c_ptr(), &position_meta))
+        throw std::runtime_error("Position reflection registration failed");
     for (const char* axis : {"x", "y", "z"}) {
         std::string description =
             std::string("Position along the ") + axis + " axis in world units.";

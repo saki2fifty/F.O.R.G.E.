@@ -94,3 +94,9 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 - Delivered **Build 260916-000017**, source `80f5e5e0080c61cd91b3f9a55da734497d64ff6e`, [run 35132589498](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35132589498). All jobs passed; the compatible Windows cache restored successfully.
 - Actual D3D12 WARP image tests passed (0.71s), including narrow line coverage at 640×400 and 1280×800, zoom, gradual horizon contrast, both grid-level transitions, navigation alignment and occlusion. Windows native/editor/API/live/CLI tests passed (7.41/7.22/0.19/1.33/0.25s), as did all four shader compilations and three executable identities.
 - Visually reviewed actual grid, horizon and panned images before delivery. ZIP CRC, manifest hashes, reserved source/build, x64 executables and 23 matching manual sources/offline HTML identities verified. SHA-256: `727a4d2063f8dad2b899cbd5c5614f587f5a80053e7cb9b5db5d23f025b68006`. User desktop appearance acceptance remains pending; no performance claim is made.
+
+### Dependency modernization — Flecs
+
+- Upgraded Flecs 4.1.0 to stable 4.1.6, pinned `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`. New hierarchy/reflection/callback capabilities are available upstream, not adopted as new FORGE features.
+- Compatibility fix: explicitly request Position reflection-member entities, which Flecs no longer creates by default. Preserve their documentation; added a regression check. Scene formats, hierarchy, transforms, prefab interpretation and module ABI are unchanged.
+- Fresh GCC Debug configure/build and all seven core/authoring/runtime/native/plugin suites passed. Initial tests detected the member-entity startup failure; the explicit registration fixes it. Windows validation follows in the combined upgrade build.
