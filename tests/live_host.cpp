@@ -14,7 +14,8 @@ int main(int argc, char** argv) {
         }
         if (argc != 2)
             return 2;
-        forge::Scene scene;
+        forge::EngineContext scene_engine;
+        forge::Scene scene(scene_engine.world());
         forge::LiveAuthoring live;
         live.start(scene, std::string(argv[1]) != "read");
         std::cout << live.connection().dump() << std::endl;

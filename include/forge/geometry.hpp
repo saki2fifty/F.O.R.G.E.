@@ -173,21 +173,4 @@ inline std::optional<float> object_hit(const Json& entity, Float3 eye, Float3 ra
 }
 // Materialize only supported inherited render components into a temporary preview.
 // Authored documents retain their explicit overrides and unknown fields.
-inline Json render_document(const Json& document) {
-    auto result = document;
-    std::map<std::string, const Json*> source;
-    for (const auto& e : document.at("entities"))
-        source[e.at("id").get<std::string>()] = &e;
-    for (auto& e : result["entities"]) {
-        const Json* current = source.at(e.at("id").get<std::string>());
-        for (std::size_t depth = 0; depth < source.size() && current->contains("base"); ++depth) {
-            current = source.at(current->at("base").get<std::string>());
-            for (const char* name : {"forge.position", "forge.rotation", "forge.scale",
-                                     "forge.tint", "forge.primitive"})
-                if (!e["components"].contains(name) && current->at("components").contains(name))
-                    e["components"][name] = current->at("components").at(name);
-        }
-    }
-    return result;
-}
 } // namespace forge

@@ -3,7 +3,8 @@
 #include "camera.hpp"
 void require(bool condition, const char* message);
 inline void test_blockout() {
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     std::vector<std::string> ids;
     for (unsigned kind = 0; kind < 4; ++kind)
         ids.push_back(forge::create_primitive(scene, kind, {float(kind) * 3, 1, 0}));
@@ -14,7 +15,7 @@ inline void test_blockout() {
     first["components"]["forge.scale"] = {{"x", 2}, {"y", 3}, {"z", 4}};
     scene.edit(doc);
     forge::BlockoutProperties properties;
-    properties.copy_transform(scene.document(), ids[0]);
+    properties.copy_transform(scene, ids[0]);
     const auto before = scene.document();
     properties.paste_transform(scene, ids[1]);
     const auto pasted = scene.document();
@@ -52,7 +53,8 @@ inline void test_property_drag(float scale, const char* component = "forge.rotat
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     const auto id = forge::create_primitive(scene, 0, {0, 1, 0});
     scene.reset(scene.document());
     const auto before = scene.document();

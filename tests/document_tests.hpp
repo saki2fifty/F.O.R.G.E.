@@ -30,7 +30,8 @@ inline void test_documents() {
                 std::filesystem::is_directory(project / "Native"),
             "Project scaffold incomplete");
     expect_failure([&] { forge::SceneDocument::create_project(project, "Replace"); });
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     auto doc = std::make_unique<forge::SceneDocument>(scene);
     doc->open_project(project);
     require(!doc->dirty() && doc->name() == "My Game", "Project opens dirty or with wrong name");
@@ -53,7 +54,8 @@ inline void test_documents() {
     expect_failure([&] { forge::ProjectLease competitor(project); });
     doc.reset();
     {
-        forge::Scene restarted;
+        forge::EngineContext restarted_engine;
+        forge::Scene restarted(restarted_engine.world());
         forge::SceneDocument resumed(restarted);
         resumed.open_project(project);
         require(resumed.has_recovery(), "Restart cannot find recovery");
@@ -91,7 +93,8 @@ inline void test_documents() {
     require(doc->autosave(), "Untitled autosave failed");
     doc.reset();
     {
-        forge::Scene restarted;
+        forge::EngineContext restarted_engine;
+        forge::Scene restarted(restarted_engine.world());
         forge::SceneDocument resumed(restarted);
         resumed.open_project(project);
         require(resumed.has_untitled_recovery(), "Untitled recovery missing after restart");

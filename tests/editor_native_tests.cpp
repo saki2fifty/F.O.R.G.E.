@@ -24,7 +24,8 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(root);
     int result = 0;
     try {
-        forge::Scene authored;
+        forge::EngineContext authored_engine;
+        forge::Scene authored(authored_engine.world());
         auto scene = authored.document();
         scene["entities"].push_back(
             {{"id", "test"},

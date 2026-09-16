@@ -2,7 +2,8 @@
 #include "authoring_tests.hpp"
 #include "scene_cache.hpp"
 inline void test_scene_cache() {
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     scene.reset(authoring_fixture());
     forge::AuthoringSnapshot snapshot;
     const auto first = snapshot.document(scene);
@@ -29,7 +30,13 @@ inline void test_scene_cache() {
     scene.edit(changed);
     require(snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["x"] == 7,
             "Prefab edit did not invalidate effective snapshot");
-    forge::Scene another;
+    const auto cached_revision = scene.revision();
+    scene.entity("front").set<forge::Position>({11, 12, 13});
+    require(scene.revision() != cached_revision &&
+                snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["x"] == 11,
+            "Direct Flecs write left cached inherited view stale");
+    forge::EngineContext another_engine;
+    forge::Scene another(another_engine.world());
     another.reset(authoring_fixture());
     require(snapshot.document(another) == another.document(), "Cache reused another scene");
     scene.reset({{"version", 1}, {"entities", forge::Json::array()}});

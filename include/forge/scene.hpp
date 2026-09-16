@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
-#include <flecs.h>
+#include <forge/world.hpp>
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -9,32 +9,22 @@
 #include <vector>
 namespace forge {
 using Json = nlohmann::json;
-struct Position {
-    float x{}, y{}, z{};
-};
-struct Rotation {
-    float x{}, y{}, z{};
-}; // Degrees, local X then Y then Z.
-struct Scale {
-    float x = 1, y = 1, z = 1;
-};
-struct Tint {
-    float r = 0.2f, g = 0.6f, b = 0.7f;
-};
-struct Primitive {
-    std::uint32_t kind = 0;
-}; // Cube, sphere, cylinder, plane.
-struct StableId {
-    std::string value;
-};
 class Scene {
   public:
-    Scene();
-    flecs::world& world() { return *world_; }
+    explicit Scene(WorldContext& context);
+    ~Scene();
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
+    flecs::world& world() const { return context_.world(); }
+    flecs::entity entity(const std::string& id) const;
+    Json effective_document() const;
+    // Detached command/gesture projection; never a mutable live representation.
+    Json preview_document(const Json& intended) const;
+    static void validate_document(const Json& document);
     Json document() const;
-    std::uint64_t revision() const { return revision_; }
+    std::uint64_t revision() const;
     void reset(const Json& document);
-    std::size_t entity_count() const { return entities_.size(); }
+    std::size_t entity_count() const;
     Json schema() const;
     void replace(const Json& document);
     void save(const std::filesystem::path& path) const;
@@ -51,10 +41,13 @@ class Scene {
     void translate(float x, float y, float z);
 
   private:
-    std::uint64_t revision_ = 0;
-    std::unique_ptr<flecs::world> world_;
-    Json source_;
-    std::map<std::string, flecs::entity_t> entities_;
+    WorldContext& context_;
+    flecs::entity_t membership_;
+    std::map<std::string, flecs::entity_t>& entities_;
+    mutable std::uint64_t revision_ = 0, observed_serial_ = 0;
+    Json opaque_;
+    Json serialize(bool effective) const;
+    void committed();
     std::vector<Json> undo_, redo_;
 };
 void atomic_write(const std::filesystem::path& path, const std::string& contents);

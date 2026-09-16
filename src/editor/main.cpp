@@ -145,7 +145,8 @@ int main(int argc, char** argv) {
                                       {"last_project", last_project}}
                               .dump(2));
         };
-        forge::Scene scene;
+        forge::EngineContext scene_engine;
+        forge::Scene scene(scene_engine.world());
         forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
         const char* base = SDL_GetBasePath();
@@ -684,7 +685,8 @@ int main(int argc, char** argv) {
                             play.active(),
                             blockout.active() || scene_tools.move.active() || modal.active(), [&] {
                                 if (play.active())
-                                    return forge::render_document(play.snapshot());
+                                    return play.ready() ? play.effective_snapshot()
+                                                        : scene.effective_document();
                                 auto source = authoring_snapshot.document(scene);
                                 if (blockout.active())
                                     source = blockout.preview(source);
@@ -692,7 +694,10 @@ int main(int argc, char** argv) {
                                     source = scene_tools.move.preview(source);
                                 if (modal.active())
                                     source = modal.preview(source);
-                                return forge::render_document(source);
+                                return (blockout.active() || scene_tools.move.active() ||
+                                        modal.active())
+                                           ? scene.preview_document(source)
+                                           : authoring_snapshot.effective(scene);
                             });
                     };
                     const auto& preview = read_preview();

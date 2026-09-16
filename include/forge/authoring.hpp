@@ -3,7 +3,7 @@
 #include <thread>
 namespace forge {
 // Scene commands are shared by UI gestures, palette and isolated automation sessions.
-// All commands validate on a candidate; one successful batch is one authored undo step.
+// Commands validate detached intent without a world; a successful batch is one undo step.
 Json authoring_commands();
 Json apply_authoring(Scene& scene, const Json& commands, std::uint64_t expected_revision);
 Json authoring_command(Scene& scene, const std::string& operation,

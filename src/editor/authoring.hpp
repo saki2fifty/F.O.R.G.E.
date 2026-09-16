@@ -100,7 +100,7 @@ class MoveGesture {
     const Vec3& origin() const { return start_; }
     int axis() const { return axis_; }
     bool begin(const Scene& scene, const std::string& id, int axis) {
-        const auto p = entity_position(render_document(scene.document()), id);
+        const auto p = entity_position(scene.effective_document(), id);
         if (!p || axis < -1 || axis > 2)
             return false;
         id_ = id;

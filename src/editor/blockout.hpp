@@ -64,8 +64,8 @@ class BlockoutProperties {
         apply_authoring(scene, commands, revision);
         return true;
     }
-    void copy_transform(const Json& doc, const std::string& id) {
-        auto view = render_document(doc);
+    void copy_transform(const Scene& scene, const std::string& id) {
+        auto view = scene.effective_document();
         const auto& c = blockout_entity(view, id).at("components");
         clipboard_ = Json::object();
         for (const char* name : {"forge.position", "forge.rotation", "forge.scale"}) {
@@ -147,7 +147,7 @@ class BlockoutProperties {
             ImGui::BeginDisabled(active());
             if (ui::button("Copy transform", "Copy effective position, rotation, and scale into "
                                              "the editor's internal clipboard.")) {
-                copy_transform(scene.document(), id);
+                copy_transform(scene, id);
                 status = "Transform copied";
             }
             ImGui::SameLine();
@@ -216,7 +216,7 @@ class BlockoutProperties {
             pending_ = id;
             component_ = component;
             revision_ = scene.revision();
-            auto effective = render_document(scene.document());
+            auto effective = scene.effective_document();
             values_ = blockout_entity(effective, id)["components"].value(component, Json::object());
         }
         for (unsigned i = 0; i < 3; ++i)

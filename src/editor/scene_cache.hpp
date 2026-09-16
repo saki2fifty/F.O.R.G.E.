@@ -2,8 +2,8 @@
 #include "grid.hpp"
 #include <optional>
 namespace forge {
-// Editor-owned authoring reads only. Runtime Flecs systems can change values without
-// an authoring revision, so runtime snapshots must never use this cache.
+// Editor-owned reads; Scene revisions include native set/remove/modified events.
+// Play uses worker snapshot versions, not this authoring cache.
 class AuthoringSnapshot {
   public:
     const Json& document(const Scene& scene) {
@@ -19,7 +19,7 @@ class AuthoringSnapshot {
     const Json& effective(const Scene& scene) {
         document(scene);
         if (!effective_)
-            effective_ = render_document(document_);
+            effective_ = scene.effective_document();
         return *effective_;
     }
 

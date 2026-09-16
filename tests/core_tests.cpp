@@ -11,7 +11,8 @@ int main(int argc, char** argv) {
     try {
         test_geometry();
         check(argc == 2, "module argument");
-        forge::Scene scene;
+        forge::EngineContext scene_engine;
+        forge::Scene scene(scene_engine.world());
         forge::Json doc = {
             {"version", 1},
             {"entities",
@@ -35,7 +36,8 @@ int main(int argc, char** argv) {
         check(!schema["components"][0]["fields"][0]["description"].get<std::string>().empty(),
               "property tooltips come from reflection");
         {
-            forge::Scene prefabs;
+            forge::EngineContext prefabs_engine;
+            forge::Scene prefabs(prefabs_engine.world());
             auto prefab = doc["entities"][0];
             prefab["id"] = "base";
             prefab["prefab"] = true;
@@ -52,7 +54,8 @@ int main(int argc, char** argv) {
                   "instance materializes position override");
         }
         {
-            forge::Scene authored;
+            forge::EngineContext authored_engine;
+            forge::Scene authored(authored_engine.world());
             auto hierarchy = doc;
             auto child = doc["entities"][0];
             child["id"] = "child";
@@ -121,7 +124,8 @@ int main(int argc, char** argv) {
             check(second_copy != prefab_copy, "repeated duplicates have distinct IDs");
             const auto disk = std::filesystem::current_path() / "hierarchy.scene.json";
             authored.save(disk);
-            forge::Scene loaded;
+            forge::EngineContext loaded_engine;
+            forge::Scene loaded(loaded_engine.world());
             loaded.load(disk);
             check(loaded.document() == authored.document(), "hierarchy disk round trip");
             std::filesystem::remove(disk);
@@ -151,7 +155,8 @@ int main(int argc, char** argv) {
         const auto path = std::filesystem::current_path() / "test.scene.json";
         scene.save(path);
         scene.save(path);
-        forge::Scene restored;
+        forge::EngineContext restored_engine;
+        forge::Scene restored(restored_engine.world());
         restored.load(path);
         check(restored.document() == moved, "disk round trip");
         std::filesystem::remove(path);

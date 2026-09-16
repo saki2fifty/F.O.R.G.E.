@@ -10,7 +10,7 @@ Property schema augments Flecs-reflected members with immutable built-in `proper
 
 ## Transport
 
-Run `forge_tools --stdio`. Each UTF-8 JSON line yields one JSON response; EOF ends the process. Standard output contains only responses. Parse errors return a structured error and processing continues. Requests are limited to 1 MiB and 64 nesting levels. Authoring batches contain 1–128 sequential commands, each validated on a private candidate world. Candidate documents are limited to 10,000 entities and 8 MiB serialized data. These are defensive bounds, not a performance guarantee.
+Run `forge_tools --stdio`. Each UTF-8 JSON line yields one JSON response; EOF ends the process. Standard output contains only responses. Parse errors return a structured error and processing continues. Requests are limited to 1 MiB and 64 nesting levels. Authoring batches contain 1–128 sequential commands, each validated on a private detached document draft. Candidate documents are limited to 10,000 entities and 8 MiB serialized data. These are defensive bounds, not a performance guarantee.
 
 The process starts with the default scene. Replace it with supplied data when needed. It does not open or save project files; live project access instead uses the owning editor connection. Client software can consume the returned snapshot under its own file workflow.
 
@@ -31,10 +31,14 @@ Successful responses contain `api`, `ok`, `revision`, and `result`. Failures con
 
 Commands execute sequentially on a candidate using existing Scene validation and hierarchy operations. A later invalid command discards earlier candidate changes. Only the final valid document commits to the authored scene, creating one undo entry and changing its revision. Every intermediate command must produce a valid scene. A semantic no-op consumes no history entry. UI gesture previews remain outside Scene until release; Escape discards them. Unknown numeric properties are not modified by a vector edit.
 
-Current snapshot/world reconstruction has substantial cost as scene and batch sizes grow; it is a correctness baseline. No external resource side effects occur during these transactions. Resource-bearing components and general native hooks require lifecycle/retirement work before inclusion. File/project changes continue through the existing document controller, not through this in-memory API.
+Draft preparation/history still copy whole documents, so cost grows with scene and batch size; no large-scene performance claim is made. Commits patch typed content inside a persistent world. No external resource side effects occur during these transactions. Resource-bearing components and general native hooks require lifecycle/retirement work before inclusion. File/project changes continue through the existing document controller, not through this in-memory API.
 
 ## Validation
 
 Core contract tests cover batch rollback, one-step undo/redo, stale/foreign session requests, owning-thread dispatch, inheritance overrides/revert, property constraints, semantic no-ops and query bounds. CLI tests cover framing, malformed/oversized/deep input, continued processing and memory-only capabilities. Editor tests exercise palette keyboard actions and existing property/move gestures at 65%, 100%, and 200% scale.
 
 `FORGE_ENABLE_SANITIZERS=ON` instruments FORGE core and its dependent authoring/test targets with AddressSanitizer and UndefinedBehaviorSanitizer on supported GNU/Clang builds. It is an opt-in development configuration; dependency libraries are not comprehensively instrumented. Use a separate build directory and set `UBSAN_OPTIONS=halt_on_error=1` when running checks that must fail immediately on undefined behavior.
+
+## Persistent world implementation
+
+Commands now prepare detached document intent without creating validation worlds. A successful batch commits typed changes once into its existing WorldContext; undo/redo changes content without replacing registrations or unaffected entity handles. Known live reads come from Flecs, with unknown fragments merged only at document/view boundaries. See [World ownership](world-lifetime.md) for lifetime, failure limits and compatibility details. Request formats and scene-v1 meanings are unchanged.

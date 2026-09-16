@@ -33,6 +33,7 @@ class PlaySession {
         reload_result_ = Reload::Pending;
     }
     const Json& snapshot() const { return snapshot_; }
+    const Json& effective_snapshot() const { return effective_; }
     std::uint64_t snapshot_version() const { return snapshot_version_; }
     const std::string& status() const { return status_; }
     const std::string& log() const { return log_; }
@@ -70,6 +71,7 @@ class PlaySession {
     void launch(const Json& scene) {
         stop();
         snapshot_ = scene;
+        effective_ = scene;
         ++snapshot_version_;
         stage_ = Stage::Replace;
         const auto& executable = executable_;
@@ -158,6 +160,7 @@ class PlaySession {
                     throw std::runtime_error(error);
                 }
                 snapshot_ = response.at("scene");
+                effective_ = response.at("effective_scene");
                 ++snapshot_version_;
                 waiting_ = false;
                 if (stage_ == Stage::Replace) {
@@ -241,6 +244,7 @@ class PlaySession {
     std::string executable_, module_, loading_, requested_, previous_, notice_;
     Json checkpoint_;
     bool transaction_ = false, restoring_ = false, probe_ = false, recoverable_ = false;
+    Json effective_;
     Json snapshot_;
     std::uint64_t snapshot_version_ = 0;
     std::string outgoing_, incoming_, log_;

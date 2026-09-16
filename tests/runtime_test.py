@@ -14,6 +14,7 @@ try:
     example=json.loads((Path(__file__).resolve().parents[1]/'samples/projects/Blockout/main.scene.json').read_text())
     loaded=request('replace', scene=example)
     assert loaded['ok']
+    assert 'effective_scene' in loaded
     # Reflected numbers use float32 storage; compare authored numeric values with tolerance.
     import math
     def equivalent(a, b):
@@ -27,7 +28,8 @@ try:
     assert equivalent(example, loaded['scene'])
     assert request('snapshot')['scene']==loaded['scene']
     assert request('load_module', path=module)['ok']
-    assert request('step', seconds=0.1)['ok']
+    stepped = request('step', seconds=0.1)
+    assert stepped['ok'] and stepped['effective_scene']['version'] == 1
     assert not request('step', seconds=-1)['ok']
     assert request('ping')['ok']
     assert request('quit')['ok']

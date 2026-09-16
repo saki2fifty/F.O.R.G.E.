@@ -16,8 +16,9 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
-    forge::Scene scene;
-    forge::Module module;
+    forge::Module module; // Code outlives scene content and the world.
+    forge::EngineContext scene_engine(forge::WorldRole::Runtime);
+    forge::Scene scene(scene_engine.world());
     ForgeHostV1 host{sizeof(ForgeHostV1), FORGE_MODULE_API_VERSION, &scene,
                      [](void* p, float x, float y, float z) {
                          static_cast<forge::Scene*>(p)->translate(x, y, z);
@@ -51,6 +52,7 @@ int main(int argc, char** argv) {
                         {"ok", true},
                         {"module", module.id()},
                         {"scene", scene.document()},
+                        {"effective_scene", scene.effective_document()},
                         {"schema", scene.schema()}};
         } catch (const std::exception& e) {
             response = {{"protocol", 1}, {"ok", false}, {"error", e.what()}};

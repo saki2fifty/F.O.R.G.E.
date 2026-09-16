@@ -323,7 +323,8 @@ int main(int argc, char** argv) {
         test_camera_input();
         test_telemetry_and_status();
         test_tooltip_placement();
-        forge::Scene authored;
+        forge::EngineContext authored_engine;
+        forge::Scene authored(authored_engine.world());
         auto original = authored.document();
         original["entities"].push_back(
             {{"id", "test"},

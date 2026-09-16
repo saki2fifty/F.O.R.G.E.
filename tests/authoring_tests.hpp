@@ -45,7 +45,8 @@ inline void test_authoring() {
             "Oblique axis drag is not perspective-correct");
     require(!forge::project_point(forge::EditorCamera{}, {0, 1, -10}, 800, 600),
             "Point behind eye projected");
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     scene.reset(original);
     forge::MoveGesture move;
     require(move.begin(scene, "front", 0), "Move did not start");
@@ -127,7 +128,8 @@ inline void test_authoring_input(float scale) {
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     scene.reset(authoring_fixture());
     forge::EditorCamera camera;
     forge::ui::SceneTools tools;

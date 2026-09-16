@@ -1,3 +1,4 @@
+#include "scene_draft.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -62,8 +63,8 @@ Json& entity(Json& doc, const std::string& id) {
             return e;
     throw CommandError("not_found", "Entity not found: " + id);
 }
-Json effective(const Scene& scene, const std::string& id) {
-    auto doc = render_document(scene.document());
+template <class View> Json effective(const View& scene, const std::string& id) {
+    auto doc = scene.effective_document();
     return entity(doc, id);
 }
 std::string free_id(const Json& doc) {
@@ -75,7 +76,8 @@ std::string free_id(const Json& doc) {
         ++n;
     return "entity-" + std::to_string(n);
 }
-Json property_schema(const Scene& scene, const std::string& component, const std::string& field) {
+Json property_schema(const detail::SceneDraft& scene, const std::string& component,
+                     const std::string& field) {
     const auto reflected = scene.schema();
     for (const auto& c : reflected.at("components")) {
         if (c.at("id") != component)
@@ -87,7 +89,7 @@ Json property_schema(const Scene& scene, const std::string& component, const std
     throw CommandError("unsupported_property",
                        "Unsupported reflected property: " + component + "." + field);
 }
-void set_fields(Scene& scene, const std::string& id, const std::string& component,
+void set_fields(detail::SceneDraft& scene, const std::string& id, const std::string& component,
                 const Json& values) {
     auto doc = scene.document();
     auto& c = entity(doc, id)["components"];
@@ -118,7 +120,7 @@ void set_fields(Scene& scene, const std::string& id, const std::string& componen
     }
     scene.edit(doc);
 }
-Json execute(Scene& scene, const std::string& op, const Json& a) {
+Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     const auto id = a.value("entity", std::string{});
     if (!id.empty()) {
         auto doc = scene.document();
@@ -282,8 +284,7 @@ Json apply_authoring(Scene& scene, const Json& commands, std::uint64_t revision)
         throw CommandError("stale_revision", "Scene changed; read current state before retrying");
     if (!commands.is_array() || commands.empty() || commands.size() > 128)
         throw CommandError("invalid_arguments", "Expected 1 to 128 commands");
-    Scene candidate;
-    candidate.reset(scene.document());
+    detail::SceneDraft candidate(scene);
     const auto catalog = authoring_commands();
     Json results = Json::array();
     for (const auto& command : commands) {
@@ -330,7 +331,7 @@ Json authoring_command(Scene& scene, const std::string& operation, const Json& a
 }
 Json scene_diagnostics(const Scene& scene) {
     const auto doc = scene.document();
-    const auto view = render_document(doc);
+    const auto view = scene.effective_document();
     Json items = Json::array();
     std::map<std::string, unsigned> names;
     std::set<std::string> supported;
@@ -416,7 +417,7 @@ Json AuthoringSession::handle(const Json& request) {
                                        "Query limit must be 1..256 and offset nonnegative");
                 const auto filter = request.value("text", std::string{});
                 const auto component = request.value("component", std::string{});
-                const auto doc = render_document(scene_.document());
+                const auto doc = scene_.effective_document();
                 Json hits = Json::array();
                 std::size_t matched = 0;
                 for (const auto& e : doc.at("entities"))

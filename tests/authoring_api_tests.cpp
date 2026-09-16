@@ -10,7 +10,8 @@ void check(bool value, const char* why) {
 }
 int main() {
     try {
-        forge::Scene scene;
+        forge::EngineContext scene_engine;
+        forge::Scene scene(scene_engine.world());
         scene.reset({{"version", 1}, {"entities", Json::array()}});
         forge::AuthoringSession api(scene);
         auto invoke = [&](const char* method, Json fields = Json::object()) {
@@ -86,7 +87,8 @@ int main() {
         std::thread worker([&] { threaded = api.handle({{"api", 1}, {"method", "discover"}}); });
         worker.join();
         check(threaded["error"]["code"] == "wrong_thread", "Wrong-thread session access accepted");
-        forge::Scene inherited;
+        forge::EngineContext inherited_engine;
+        forge::Scene inherited(inherited_engine.world());
         auto d = scene.document();
         d["entities"][0]["prefab"] = true;
         d["entities"][1]["base"] = "entity-1";
@@ -101,8 +103,7 @@ int main() {
                                  {{"entity", "entity-2"}, {"component", "forge.scale"}});
         check(!inherited.document()["entities"][1]["components"].contains("forge.scale"),
               "Revert failed");
-        check(forge::render_document(
-                  inherited.document())["entities"][1]["components"]["forge.scale"]["x"] == 2,
+        check(inherited.effective_document()["entities"][1]["components"]["forge.scale"]["x"] == 2,
               "Revert did not restore inherited value");
         auto rejected =
             invoke("scene.replace", {{"document", {{"version", 99}, {"entities", Json::array()}}}});

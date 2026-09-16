@@ -16,7 +16,8 @@ inline void test_automation_workspace(float scale) {
     } cleanup{root};
     forge::SceneDocument::create_project(root / "Game", "Game");
     forge::SceneDocument::create_project(root / "Other", "Other");
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     forge::SceneDocument document(scene);
     document.open_project(root / "Game");
     forge::ui::AutomationWorkspace workspace;

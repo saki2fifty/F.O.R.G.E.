@@ -4,7 +4,8 @@
 #include "workspace.hpp"
 void require(bool condition, const char* message);
 inline void test_transforms() {
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     const auto id = forge::create_primitive(scene, 0, {1, 2, 3});
     forge::authoring_command(scene, "transform.rotation",
                              {{"entity", id}, {"value", {{"x", 23}, {"y", 41}, {"z", 17}}}});
@@ -96,7 +97,8 @@ inline void test_interaction_input(float scale) {
     unsigned char* pixels;
     int w, h;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     const auto id = forge::create_primitive(scene, 0, {0, 1, 0});
     const auto original = scene.document();
     forge::ui::ModalTransform modal;

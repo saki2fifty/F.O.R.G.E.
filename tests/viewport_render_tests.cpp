@@ -170,6 +170,8 @@ int main(int argc, char** argv) {
         require(device && context, "Diligent device attachment failed");
         check_imgui(device, context, images);
         forge::Viewport viewport(device);
+        forge::EngineContext engine;
+        forge::Scene live_scene(engine.world());
         forge::Json scene{{"version", 1}, {"entities", forge::Json::array()}};
         forge::EditorCamera camera;
         camera.target = {0, 0, 0};
@@ -179,9 +181,11 @@ int main(int argc, char** argv) {
         std::uint64_t generation = 1;
         auto render = [&](const char* name, forge::GridSettings grid = {}, unsigned w = 640,
                           unsigned h = 400) {
-            auto pixels =
-                readback(device, context,
-                         viewport.render(context, scene, w, h, camera, generation, false, grid));
+            live_scene.replace(scene);
+            const auto effective = live_scene.effective_document();
+            auto pixels = readback(
+                device, context,
+                viewport.render(context, effective, w, h, camera, generation, false, grid));
             save(pixels, w, h, images / (std::string(name) + ".ppm"));
             return pixels;
         };

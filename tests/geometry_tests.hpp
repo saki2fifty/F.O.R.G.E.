@@ -48,7 +48,8 @@ inline void test_geometry() {
             require(p[i] >= bounds.first[i] && p[i] <= bounds.second[i],
                     "Bounds omit transformed vertex");
     }
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     forge::Json doc = {{"version", 1}, {"entities", forge::Json::array({entity})}};
     scene.replace(doc);
     require(scene.document() == doc, "New components/unknown data round trip");
@@ -86,7 +87,7 @@ inline void test_geometry() {
                                            {"base", "mesh"},
                                            {"components", forge::Json::object()}}});
     scene.replace(doc);
-    const auto rendered = forge::render_document(scene.document());
+    const auto rendered = scene.effective_document();
     require(rendered["entities"][1]["components"]["forge.scale"]["x"] == 2 &&
                 scene.document()["entities"][1]["components"].empty(),
             "Preview materialized authored inheritance");

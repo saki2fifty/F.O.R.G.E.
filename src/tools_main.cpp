@@ -13,7 +13,8 @@ int main(int argc, char** argv) {
                      "project writes or native execution.\n";
         return argc == 1 ? 0 : 2;
     }
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     forge::AuthoringSession session(scene);
     constexpr std::size_t limit = 1024 * 1024;
     while (std::cin) {

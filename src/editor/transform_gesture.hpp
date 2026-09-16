@@ -18,7 +18,7 @@ class TransformGesture {
     Float3 value() const { return value_; }
     bool begin(const Scene& scene, const std::string& id, Mode mode, Float3 view_axis) {
         cancel();
-        auto doc = render_document(scene.document());
+        auto doc = scene.effective_document();
         for (const auto& e : doc.at("entities")) {
             if (e.at("id") != id || e.value("prefab", false) ||
                 !e.at("components").contains("forge.position"))

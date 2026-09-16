@@ -18,7 +18,7 @@ Each successful build is copied to a unique DLL/shared-library path. A disposabl
 The initial host service translates Position components in Flecs. This deliberately does not expose raw world pointers. General native component/system registration and migration require a later ABI with registration ownership and lifecycle tests. Do not use v1 for module-owned objects, retained callbacks or background jobs.
 
 ## Runtime protocol v1
-One JSON request and one JSON response per line on stdin/stdout. Each request has `protocol: 1` and `command`. Errors return `ok: false` and `error`; successful responses include `scene`, `schema` and active module identity.
+One JSON request and one JSON response per line on stdin/stdout. Each request has `protocol: 1` and `command`. Errors return `ok: false` and `error`; successful responses include `scene`, `schema` and active module identity. They also include `effective_scene`, a Flecs-derived presentation snapshot. `scene` remains the owned/authored checkpoint used for save/reload/recovery; presentation values must not be saved back as overrides. The caller-stepped protocol and ABI version remain unchanged.
 
 Commands: `ping`, `snapshot`, `schema`, `replace` (`scene`), `step` (`seconds`, 0–1), `load_module` (absolute `path`), `save` (`path`), `quit`.
 

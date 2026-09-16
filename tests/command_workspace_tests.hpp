@@ -12,7 +12,8 @@ inline void test_command_workspace(float scale) {
     unsigned char* pixels;
     int w, h;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
-    forge::Scene scene;
+    forge::EngineContext scene_engine;
+    forge::Scene scene(scene_engine.world());
     scene.reset({{"version", 1}, {"entities", forge::Json::array()}});
     forge::ui::CommandWorkspace workspace;
     std::string selected, message;

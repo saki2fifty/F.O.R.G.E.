@@ -1,3 +1,5 @@
+#include "builtins.hpp"
+#include "scene_draft.hpp"
 #include <array>
 #include <cmath>
 #include <forge/scene.hpp>
@@ -26,38 +28,7 @@ void validate(const Json& doc) {
             throw std::runtime_error("Invalid entity name/components");
         if (e.contains("prefab") && !e.at("prefab").is_boolean())
             throw std::runtime_error("Invalid prefab flag");
-        if (e.at("components").contains("forge.position")) {
-            const auto& p = e.at("components").at("forge.position");
-            for (const char* axis : {"x", "y", "z"}) {
-                const auto value = p.at(axis).get<float>();
-                if (!std::isfinite(value))
-                    throw std::runtime_error("Position must be finite");
-            }
-        }
-        for (const char* component : {"forge.rotation", "forge.scale", "forge.tint"}) {
-            if (!e.at("components").contains(component))
-                continue;
-            const auto& fields = e.at("components").at(component);
-            const bool tint = std::string(component) == "forge.tint";
-            const std::array<const char*, 3> axes = tint
-                                                        ? std::array<const char*, 3>{"r", "g", "b"}
-                                                        : std::array<const char*, 3>{"x", "y", "z"};
-            for (const char* field : axes) {
-                if (!fields.at(field).is_number())
-                    throw std::runtime_error("Transform/color fields must be numbers");
-                const float value = fields.at(field).get<float>();
-                if (!std::isfinite(value) || (tint && (value < 0 || value > 1)) ||
-                    (std::string(component) == "forge.scale" &&
-                     (value < 0.001f || value > 10000)) ||
-                    (std::string(component) == "forge.rotation" && std::abs(value) > 360000))
-                    throw std::runtime_error("Invalid rotation, scale, or color range");
-            }
-        }
-        if (e.at("components").contains("forge.primitive")) {
-            const auto& kind = e.at("components").at("forge.primitive").at("kind");
-            if (!kind.is_number_integer() || kind.get<double>() < 0 || kind.get<double>() > 3)
-                throw std::runtime_error("Unknown primitive kind");
-        }
+        detail::validate_components(e.at("components"));
     }
     for (const char* relation : {"parent", "base"}) {
         std::set<std::string> visiting, done;
@@ -128,196 +99,301 @@ std::set<std::string> subtree(Json& doc, const std::string& id) {
     return ids;
 }
 } // namespace
-Scene::Scene() { replace(Json{{"version", 1}, {"entities", Json::array()}}); }
+Scene::Scene(WorldContext& context)
+    : context_(context), membership_(context.attach()),
+      entities_(context.content_.at(membership_).entities),
+      opaque_({{"version", 1}, {"entities", Json::array()}}) {
+    committed();
+}
+Scene::~Scene() { context_.detach(membership_); }
+void Scene::validate_document(const Json& doc) { validate(doc); }
+std::uint64_t Scene::revision() const {
+    const auto serial = context_.content_.at(membership_).serial;
+    if (serial != observed_serial_) {
+        observed_serial_ = serial;
+        ++revision_;
+    }
+    return revision_;
+}
+void Scene::committed() {
+    observed_serial_ = context_.content_.at(membership_).serial;
+    ++revision_;
+}
+flecs::entity Scene::entity(const std::string& id) const {
+    const auto it = entities_.find(id);
+    return world().entity(it == entities_.end() || !world().is_alive(it->second) ? 0 : it->second);
+}
+std::size_t Scene::entity_count() const {
+    std::size_t count = 0;
+    for (const auto& [id, handle] : entities_) {
+        (void)id;
+        count += world().is_alive(handle);
+    }
+    return count;
+}
 void Scene::replace(const Json& doc) {
     validate(doc);
-    auto next = std::make_unique<flecs::world>();
-    // Flecs 4.1.5+ makes member entities opt-in. Position uses them for documentation.
-    ecs_struct_desc_t position_meta{};
-    position_meta.entity = next->component<Position>("forge.position");
-    position_meta.members[0] = {"x", next->id<float>()};
-    position_meta.members[1] = {"y", next->id<float>()};
-    position_meta.members[2] = {"z", next->id<float>()};
-    position_meta.create_member_entities = true;
-    if (!ecs_struct_init(next->c_ptr(), &position_meta))
-        throw std::runtime_error("Position reflection registration failed");
-    for (const char* axis : {"x", "y", "z"}) {
-        std::string description =
-            std::string("Position along the ") + axis + " axis in world units.";
-        next->component<Position>().lookup(axis).set_doc_brief(description.c_str());
-    }
-    next->component<Position>().add(flecs::OnInstantiate, flecs::Inherit);
-    next->component<Rotation>("forge.rotation")
-        .member<float>("x")
-        .member<float>("y")
-        .member<float>("z")
-        .add(flecs::OnInstantiate, flecs::Inherit);
-    next->component<Scale>("forge.scale")
-        .member<float>("x")
-        .member<float>("y")
-        .member<float>("z")
-        .add(flecs::OnInstantiate, flecs::Inherit);
-    next->component<Tint>("forge.tint")
-        .member<float>("r")
-        .member<float>("g")
-        .member<float>("b")
-        .add(flecs::OnInstantiate, flecs::Inherit);
-    next->component<Primitive>("forge.primitive")
-        .member<std::uint32_t>("kind")
-        .add(flecs::OnInstantiate, flecs::Inherit);
-    next->component<StableId>("forge.stable_id");
-    std::map<std::string, flecs::entity> entities;
-    for (const auto& item : doc.at("entities")) {
-        const auto id = item.at("id").get<std::string>();
-        auto e = next->entity().set<StableId>({id});
+    struct Intended {
+        std::string id, name, parent, base;
+        bool prefab;
+        std::array<std::optional<detail::Value>, 5> values;
+    };
+    // All parsing/type conversion/opaque copies happen before the first world write.
+    auto opaque = doc;
+    std::vector<Intended> intended;
+    std::set<std::string> retained;
+    for (auto& item : opaque["entities"]) {
+        Intended next{item.at("id"),
+                      item.at("name"),
+                      item.value("parent", std::string{}),
+                      item.value("base", std::string{}),
+                      item.value("prefab", false),
+                      {}};
+        retained.insert(next.id);
+        auto& components = item["components"];
+        for (std::size_t i = 0; i < detail::builtins().size(); ++i) {
+            const auto& type = detail::builtins()[i];
+            if (!components.contains(type.name))
+                continue;
+            next.values[i] = type.decode(components.at(type.name));
+            for (const auto& [field, value] : type.defaults.items()) {
+                (void)value;
+                components[type.name].erase(field);
+            }
+            if (components[type.name].empty())
+                components.erase(type.name);
+        }
+        item.erase("name");
+        item.erase("parent");
+        item.erase("base");
+        // Keep explicit false presence, never its live truth.
         if (item.value("prefab", false))
-            e.add(flecs::Prefab);
-        const auto& c = item.at("components");
-        if (c.contains("forge.position")) {
-            const auto& p = c.at("forge.position");
-            e.set<Position>(
-                {p.at("x").get<float>(), p.at("y").get<float>(), p.at("z").get<float>()});
-        }
-        if (c.contains("forge.rotation")) {
-            const auto& p = c.at("forge.rotation");
-            e.set<Rotation>({p.at("x"), p.at("y"), p.at("z")});
-        }
-        if (c.contains("forge.scale")) {
-            const auto& p = c.at("forge.scale");
-            e.set<Scale>({p.at("x"), p.at("y"), p.at("z")});
-        }
-        if (c.contains("forge.tint")) {
-            const auto& p = c.at("forge.tint");
-            e.set<Tint>({p.at("r"), p.at("g"), p.at("b")});
-        }
-        if (c.contains("forge.primitive"))
-            e.set<Primitive>({c.at("forge.primitive").at("kind").get<unsigned>()});
-        entities.emplace(id, e);
+            item.erase("prefab");
+        intended.push_back(std::move(next));
     }
-    for (const auto& item : doc.at("entities")) {
-        auto e = entities.at(item.at("id").get<std::string>());
-        if (item.contains("parent"))
-            e.child_of(entities.at(item.at("parent").get<std::string>()));
-        if (item.contains("base"))
-            e.is_a(entities.at(item.at("base").get<std::string>()));
+    // Existing v1 ChildOf prefab children are copied by Flecs at instantiation.
+    // Reconcile affected generated interiors when their source changes; preserve
+    // every surviving authored handle. This is not a new prefab asset workflow.
+    const auto previous = document();
+    std::map<std::string, const Json*> old_items, new_items;
+    for (const auto& item : previous.at("entities"))
+        old_items[item.at("id")] = &item;
+    for (const auto& item : doc.at("entities"))
+        new_items[item.at("id")] = &item;
+    std::set<std::string> dirty_templates;
+    auto dirty_ancestors = [&](const auto& items, std::string id) {
+        while (!id.empty()) {
+            auto it = items.find(id);
+            if (it == items.end())
+                break;
+            if (it->second->value("prefab", false))
+                dirty_templates.insert(id);
+            id = it->second->value("parent", std::string{});
+        }
+    };
+    for (const auto& [id, item] : old_items)
+        if (!new_items.contains(id) || *item != *new_items.at(id)) {
+            dirty_ancestors(old_items, id);
+            dirty_ancestors(new_items, id);
+        }
+    for (const auto& [id, item] : new_items)
+        if (!old_items.contains(id)) {
+            (void)item;
+            dirty_ancestors(new_items, id);
+        }
+    std::set<std::string> refresh;
+    for (const auto& next : intended) {
+        auto base = next.base;
+        while (!base.empty()) {
+            if (dirty_templates.contains(base)) {
+                refresh.insert(next.id);
+                break;
+            }
+            base = new_items.at(base)->value("base", std::string{});
+        }
     }
-    // Commit only after complete validation and construction. Unknown data remains authored.
-    entities_.clear();
-    for (const auto& [id, e] : entities)
-        entities_[id] = e.id();
-    world_ = std::move(next);
-    source_ = doc;
-    ++revision_;
+    // Detach surviving entities before deleting former parents. Also remove obsolete
+    // IsA references before a removed base can trigger Flecs target cleanup.
+    for (const auto& next : intended) {
+        auto e = entity(next.id);
+        if (!e || !e.is_alive())
+            continue;
+        const auto parent = e.target(flecs::ChildOf);
+        if (parent && parent != entity(next.parent))
+            e.remove(flecs::ChildOf, parent);
+        const auto base = e.target(flecs::IsA);
+        if (base && (base != entity(next.base) || refresh.contains(next.id))) {
+            std::vector<flecs::entity> generated;
+            e.children([&](flecs::entity child) {
+                if (!child.target<SceneMember>())
+                    generated.push_back(child);
+            });
+            for (auto child : generated)
+                child.destruct();
+            e.remove(flecs::IsA, base);
+        }
+    }
+    for (auto it = entities_.begin(); it != entities_.end();) {
+        if (!retained.contains(it->first)) {
+            auto e = world().entity(it->second);
+            if (e.is_alive())
+                e.destruct();
+            it = entities_.erase(it);
+        } else
+            ++it;
+    }
+    for (const auto& next : intended) {
+        auto e = entity(next.id);
+        if (!e || !e.is_alive()) {
+            e = world().entity().add<SceneMember>(membership_).set<StableId>({next.id});
+            entities_[next.id] = e.id();
+        }
+        if (!e.owns<AuthoredName>() || e.get<AuthoredName>().value != next.name)
+            e.set<AuthoredName>({next.name});
+        if (next.prefab != e.has<AuthoredPrefab>()) {
+            if (next.prefab)
+                e.add<AuthoredPrefab>();
+            else
+                e.remove<AuthoredPrefab>();
+        }
+        bool prefab = next.prefab;
+        auto parent = next.parent;
+        while (!parent.empty()) {
+            const auto& ancestor = *new_items.at(parent);
+            prefab |= ancestor.value("prefab", false);
+            parent = ancestor.value("parent", std::string{});
+        }
+        if (prefab != e.has(flecs::Prefab)) {
+            if (prefab)
+                e.add(flecs::Prefab);
+            else
+                e.remove(flecs::Prefab);
+        }
+        for (std::size_t i = 0; i < detail::builtins().size(); ++i)
+            detail::builtins()[i].apply(e, next.values[i]);
+    }
+    for (const auto& next : intended) {
+        auto e = entity(next.id);
+        if (!next.parent.empty() && e.target(flecs::ChildOf) != entity(next.parent))
+            e.child_of(entity(next.parent));
+    }
+    // Build source child/base dependencies first, independent of file row order.
+    std::set<std::string> linked;
+    std::function<void(const std::string&)> link_base = [&](const std::string& id) {
+        if (!linked.insert(id).second)
+            return;
+        for (const auto& next : intended)
+            if (next.parent == id)
+                link_base(next.id);
+        const auto base = new_items.at(id)->value("base", std::string{});
+        if (!base.empty()) {
+            link_base(base);
+            auto e = entity(id);
+            if (e.target(flecs::IsA) != entity(base))
+                e.is_a(entity(base));
+        }
+    };
+    for (const auto& next : intended)
+        link_base(next.id);
+    opaque_ = std::move(opaque);
+    committed();
 }
 void Scene::reset(const Json& doc) {
     replace(doc);
     undo_.clear();
     redo_.clear();
 }
-Json Scene::document() const {
-    auto doc = source_;
-    std::map<std::string, Position> positions;
-    for (const auto& [id, handle] : entities_) {
-        auto e = world_->entity(handle);
-        if (e.owns<Position>())
-            positions.emplace(id, e.get<Position>());
+Json Scene::serialize(bool effective) const {
+    auto doc = opaque_;
+    auto output = Json::array();
+    std::map<std::string, const Json*> fragments;
+    for (const auto& item : opaque_.at("entities"))
+        fragments[item.at("id")] = &item;
+    for (auto item : doc.at("entities")) {
+        auto e = entity(item.at("id"));
+        if (!e || !e.is_alive())
+            continue;
+        item["name"] = e.get<AuthoredName>().value;
+        bool implicit_prefab = false;
+        for (auto parent = e.target(flecs::ChildOf); parent; parent = parent.target(flecs::ChildOf))
+            implicit_prefab |= parent.has(flecs::Prefab);
+        if (e.has(flecs::Prefab) && (e.has<AuthoredPrefab>() || !implicit_prefab))
+            item["prefab"] = true;
+        for (const auto relation : {flecs::ChildOf, flecs::IsA}) {
+            auto target = e.target(relation);
+            if (target && target.owns<StableId>())
+                item[relation == flecs::ChildOf ? "parent" : "base"] = target.get<StableId>().value;
+        }
+        for (const auto& type : detail::builtins()) {
+            const auto value = type.read(e, effective);
+            if (value.is_null()) {
+                item["components"].erase(type.name);
+                continue;
+            }
+            if (effective) {
+                auto owner = type.owner(e);
+                if (owner && owner != e && owner.owns<StableId>()) {
+                    auto fragment = fragments.find(owner.get<StableId>().value);
+                    if (fragment != fragments.end() &&
+                        fragment->second->at("components").contains(type.name))
+                        item["components"][type.name] =
+                            fragment->second->at("components").at(type.name);
+                }
+            }
+            auto& data = item["components"][type.name];
+            if (!data.is_object())
+                data = Json::object();
+            data.update(value);
+        }
+        output.push_back(std::move(item));
     }
-    for (auto& e : doc["entities"]) {
-        auto it = positions.find(e.at("id").get<std::string>());
-        if (it != positions.end()) {
-            const auto& p = it->second;
-            auto& data = e["components"]["forge.position"];
-            data["x"] = p.x;
-            data["y"] = p.y;
-            data["z"] = p.z;
-        }
-    }
-    for (auto& item : doc["entities"]) {
-        const auto e = world_->entity(entities_.at(item.at("id").get<std::string>()));
-        auto& c = item["components"];
-        if (e.owns<Rotation>()) {
-            const auto& p = e.get<Rotation>();
-            c["forge.rotation"]["x"] = p.x;
-            c["forge.rotation"]["y"] = p.y;
-            c["forge.rotation"]["z"] = p.z;
-        }
-        if (e.owns<Scale>()) {
-            const auto& p = e.get<Scale>();
-            c["forge.scale"]["x"] = p.x;
-            c["forge.scale"]["y"] = p.y;
-            c["forge.scale"]["z"] = p.z;
-        }
-        if (e.owns<Tint>()) {
-            const auto& p = e.get<Tint>();
-            c["forge.tint"]["r"] = p.r;
-            c["forge.tint"]["g"] = p.g;
-            c["forge.tint"]["b"] = p.b;
-        }
-        if (e.owns<Primitive>())
-            c["forge.primitive"]["kind"] = e.get<Primitive>().kind;
-    }
+    doc["entities"] = std::move(output);
     return doc;
 }
-Json Scene::schema() const {
-    Json components = Json::array();
-    const char* identifiers[] = {"forge.position", "forge.rotation", "forge.scale", "forge.tint",
-                                 "forge.primitive"};
-    unsigned index = 0;
-    for (const auto& item : std::initializer_list<std::pair<flecs::entity, const char*>>{
-             {world_->component<Position>(), "Position in world units"},
-             {world_->component<Rotation>(), "Euler rotation in degrees, X then Y then Z"},
-             {world_->component<Scale>(), "Positive local-axis scale, from 0.001 to 10000"},
-             {world_->component<Tint>(), "Opaque blockout color, channels from 0 to 1"},
-             {world_->component<Primitive>(),
-              "Primitive kind: 0 cube, 1 sphere, 2 cylinder, 3 plane"}}) {
-        const auto* structure = ecs_get(world_->c_ptr(), item.first.id(), EcsStruct);
-        if (!structure)
-            throw std::runtime_error("Reflection metadata is missing");
-        Json fields = Json::array();
-        const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
-        for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
-            const auto& member = members[i];
-            const auto component = std::string(identifiers[index]);
-            const bool primitive = component == "forge.primitive";
-            const double default_value = component == "forge.scale"  ? 1.0
-                                         : component == "forge.tint" ? (i == 0   ? double(0.2f)
-                                                                        : i == 1 ? double(0.6f)
-                                                                                 : double(0.7f))
-                                                                     : 0.0;
-            Json field = {{"id", member.name},
-                          {"property_id", component + "." + member.name},
-                          {"type", primitive ? "uint32" : "float32"},
-                          {"description", item.second},
-                          {"default", primitive ? Json(0u) : Json(default_value)},
-                          {"serialized", true},
-                          {"read_only", false},
-                          {"animatable", !primitive},
-                          {"unit", component == "forge.rotation"   ? "degrees"
-                                   : component == "forge.position" ? "world_units"
-                                                                   : "unitless"}};
-            if (component == "forge.rotation") {
-                field["minimum"] = -360000;
-                field["maximum"] = 360000;
-            }
-            if (component == "forge.scale") {
-                field["minimum"] = 0.001;
-                field["maximum"] = 10000;
-            }
-            if (component == "forge.tint") {
-                field["minimum"] = 0;
-                field["maximum"] = 1;
-            }
-            if (primitive) {
-                field["minimum"] = 0;
-                field["maximum"] = 3;
-                field["enum"] = {"Cube", "Sphere", "Cylinder", "Plane"};
-            }
-            fields.push_back(std::move(field));
+Json Scene::document() const { return serialize(false); }
+Json Scene::effective_document() const { return serialize(true); }
+Json Scene::schema() const { return context_.schema(); }
+detail::SceneDraft::SceneDraft(const Scene& source)
+    : document_(source.document()), schema_(source.schema()) {}
+void detail::SceneDraft::edit(const Json& document) {
+    Scene::validate_document(document);
+    auto normalized = document;
+    for (auto& item : normalized["entities"])
+        for (const auto& type : builtins()) {
+            if (!item["components"].contains(type.name))
+                continue;
+            auto& data = item["components"][type.name];
+            for (const auto& [field, initial] : type.defaults.items())
+                if (initial.is_number_unsigned())
+                    data[field] = data.at(field).get<std::uint32_t>();
+                else
+                    data[field] = data.at(field).get<float>();
         }
-        components.push_back(
-            {{"id", identifiers[index++]}, {"schema_version", 1}, {"fields", fields}});
+    document_ = std::move(normalized);
+}
+Json detail::SceneDraft::effective_document() const {
+    // Only detached transaction/gesture intent is evaluated here. Live views use
+    // Scene::effective_document and Flecs get/has. No world or callbacks are created.
+    auto result = document_;
+    std::map<std::string, const Json*> source;
+    for (const auto& e : document_.at("entities"))
+        source[e.at("id")] = &e;
+    for (auto& e : result["entities"]) {
+        const Json* current = source.at(e.at("id"));
+        for (std::size_t depth = 0; depth < source.size() && current->contains("base"); ++depth) {
+            current = source.at(current->at("base"));
+            for (const auto& type : builtins())
+                if (!e["components"].contains(type.name) &&
+                    current->at("components").contains(type.name))
+                    e["components"][type.name] = current->at("components").at(type.name);
+        }
     }
-    return Json{{"version", 1}, {"components", components}};
+    return result;
+}
+Json Scene::preview_document(const Json& intended) const {
+    detail::SceneDraft draft(*this);
+    draft.edit(intended);
+    return draft.effective_document();
 }
 
 void atomic_write(const std::filesystem::path& path, const std::string& contents) {
@@ -372,14 +448,14 @@ void Scene::edit(const Json& doc) {
     if (undo_.size() > 100)
         undo_.erase(undo_.begin());
 }
-void Scene::rename_entity(const std::string& id, const std::string& name) {
+void detail::SceneDraft::rename_entity(const std::string& id, const std::string& name) {
     if (name.empty() || name.find_first_not_of(" \t\r\n") == std::string::npos)
         throw std::runtime_error("Entity name must not be blank");
     auto doc = document();
     find_entity(doc, id)["name"] = name;
     edit(doc);
 }
-void Scene::reparent_entity(const std::string& id, const std::string& parent) {
+void detail::SceneDraft::reparent_entity(const std::string& id, const std::string& parent) {
     auto doc = document();
     auto& e = find_entity(doc, id);
     if (parent.empty())
@@ -388,7 +464,7 @@ void Scene::reparent_entity(const std::string& id, const std::string& parent) {
         e["parent"] = parent;
     edit(doc); // Existing relationship validation rejects missing parents and cycles.
 }
-std::string Scene::duplicate_subtree(const std::string& id) {
+std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
     auto doc = document();
     const auto ids = subtree(doc, id);
     std::set<std::string> occupied;
@@ -421,7 +497,7 @@ std::string Scene::duplicate_subtree(const std::string& id) {
     edit(doc);
     return remap.at(id);
 }
-void Scene::delete_subtree(const std::string& id) {
+void detail::SceneDraft::delete_subtree(const std::string& id) {
     auto doc = document();
     const auto ids = subtree(doc, id);
     auto remaining = Json::array();
@@ -434,6 +510,27 @@ void Scene::delete_subtree(const std::string& id) {
     }
     doc["entities"] = std::move(remaining);
     edit(doc);
+}
+void Scene::rename_entity(const std::string& id, const std::string& name) {
+    detail::SceneDraft draft(*this);
+    draft.rename_entity(id, name);
+    edit(draft.document());
+}
+void Scene::reparent_entity(const std::string& id, const std::string& parent) {
+    detail::SceneDraft draft(*this);
+    draft.reparent_entity(id, parent);
+    edit(draft.document());
+}
+std::string Scene::duplicate_subtree(const std::string& id) {
+    detail::SceneDraft draft(*this);
+    auto result = draft.duplicate_subtree(id);
+    edit(draft.document());
+    return result;
+}
+void Scene::delete_subtree(const std::string& id) {
+    detail::SceneDraft draft(*this);
+    draft.delete_subtree(id);
+    edit(draft.document());
 }
 bool Scene::undo() {
     if (undo_.empty())
@@ -454,10 +551,12 @@ bool Scene::redo() {
     return true;
 }
 void Scene::translate(float x, float y, float z) {
-    world_->defer_begin();
-    world_->each(
-        [&](flecs::entity e, const Position& p) { e.set<Position>({p.x + x, p.y + y, p.z + z}); });
-    world_->defer_end();
-    ++revision_;
+    world().defer_begin();
+    world().each([&](flecs::entity e, const Position& p) {
+        if (context_.owner_of(e) == membership_)
+            e.set<Position>({p.x + x, p.y + y, p.z + z});
+    });
+    world().defer_end();
+    committed();
 }
 } // namespace forge

@@ -73,7 +73,7 @@ struct SceneTools {
         if (input.activated && ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Right) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-            const auto doc = render_document(scene.document());
+            const auto doc = scene.effective_document();
             int hit = -2;
             if (const auto p = entity_position(doc, selected); move_tool && p) {
                 const auto points = handles(camera, *p, size);
