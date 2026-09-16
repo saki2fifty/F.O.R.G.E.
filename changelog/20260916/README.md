@@ -73,3 +73,11 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 - Updated the viewport/shortcut manual. Performance investigation remains paused at the user’s request. Windows render-test and package results will be appended after validation.
 
 - Grid review refinement: interpolate both fine/major grid pairs across distance levels so an existing line does not jump in brightness when it changes classification. This affects grid appearance only.
+
+### Follow-up validation and delivery
+
+- Delivered **Build 260916-000016**, source `4d709a8640830818bac26d014aca087c3d57755e`, from [Windows run 35124840824](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35124840824). All four jobs passed. The editor runner missed its dependency/build cache and completed a fresh build.
+- Windows production-renderer checks passed using D3D12 WARP (0.57s), including navigation alignment, grid extent/fading, occlusion and grid-level brightness continuity. Native iteration (6.94s), editor/process/scaled UI (6.96s), authoring API (0.16s), live automation (0.78s) and CLI (0.19s) passed. Four embedded shaders and all three executable build identities passed.
+- Visually inspected final rendered grid/pan/top/cube and adjacent grid-level images. Build 260916-000015 passed the initial renderer baseline but was superseded before delivery by the smooth grid-level refinement.
+- Verified ZIP CRC, manifest hashes, source/build identity, three x64 executables, 23 matching manual sources and 23 offline HTML build IDs. ZIP SHA-256: `50986bca77b5c7e9ac17baa611651ca6d805a5531ad6af99295acf6d8e772b99`. Test executables and render-check images are excluded from the user package.
+- Real desktop interaction on the user's GPU remains an acceptance check: look/pan/orbit around fixed objects, inspect grid alignment, then select a cube and switch Move (W)/Select (Q). Performance investigation remains paused.
