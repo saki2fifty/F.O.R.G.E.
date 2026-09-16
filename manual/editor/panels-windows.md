@@ -22,3 +22,7 @@ Tooltips explain controls when you pause the pointer over them. See [Settings an
 ## Inspection tools
 
 The Tools menu opens the [Command palette](commands.md), [Scene diagnostics and Component schema](diagnostics.md). Diagnostics lists informational scene findings; Component schema describes the supported built-in data.
+
+## Local automation
+
+Open **Automation → Local connection...** to start a read-only or editable connection, copy connection details, inspect its status, or stop it. See [Live automation](live-automation.md) for the included Python example.

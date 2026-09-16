@@ -37,3 +37,7 @@ The session edits an isolated copy in memory. It does not connect to the open ed
 End the input stream to close the process. Unsaved in-memory work ends with the session. A script must consume a scene snapshot if it needs the result afterward.
 
 Technical request examples and exact contracts are maintained separately in the developer documentation. Normal editor users can use [Command palette](commands.md) and [Scene diagnostics](diagnostics.md) without writing scripts.
+
+## Work with the open editor
+
+To inspect or edit a scene already open in FORGE, use [Live automation](live-automation.md). The headless process described above continues to own only its isolated in-memory scene.

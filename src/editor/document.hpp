@@ -1,4 +1,7 @@
 #pragma once
+#include <algorithm>
+#include <cctype>
+#include <forge/project_lease.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <optional>
@@ -20,11 +23,28 @@ inline std::filesystem::path project_file(const std::filesystem::path& root,
     const auto resolved =
         std::filesystem::weakly_canonical(path.is_absolute() ? path : root / path);
     const auto relative = resolved.lexically_relative(std::filesystem::weakly_canonical(root));
+    auto first_part = relative.empty() ? std::string{} : path_text(*relative.begin());
+    auto relative_text = path_text(relative);
+#ifdef _WIN32
+    std::transform(first_part.begin(), first_part.end(), first_part.begin(),
+                   [](unsigned char c) { return char(std::tolower(c)); });
+    std::transform(relative_text.begin(), relative_text.end(), relative_text.begin(),
+                   [](unsigned char c) { return char(std::tolower(c)); });
+    if (relative_text.find(':') != std::string::npos)
+        throw std::runtime_error("Scene paths cannot contain alternate data streams");
+#endif
     if (relative.empty() || relative.is_absolute() || *relative.begin() == ".." ||
-        *relative.begin() == ".forge" || relative == "forge.project.json" ||
+        first_part == ".forge" || relative_text == "forge.project.json" ||
         resolved.extension() != ".json")
         throw std::runtime_error("Choose a JSON scene file inside the current project");
     return resolved;
+}
+inline std::filesystem::path project_control_file(const std::filesystem::path& root,
+                                                  const std::filesystem::path& relative) {
+    const auto path = root / ".forge" / relative;
+    if (std::filesystem::weakly_canonical(path) != path)
+        throw std::runtime_error("Project control file must not redirect to another location");
+    return path;
 }
 class SceneDocument {
   public:
@@ -32,6 +52,16 @@ class SceneDocument {
     const std::filesystem::path& project() const { return root_; }
     const std::filesystem::path& path() const { return path_; }
     const std::string& name() const { return name_; }
+    std::uint64_t generation() const { return generation_; }
+    void check_ownership() const {
+        if (!lease_)
+            throw std::runtime_error("No project writer ownership");
+        lease_->check();
+    }
+    std::shared_ptr<const ProjectLease> writer_guard() const {
+        check_ownership();
+        return lease_;
+    }
     bool on_disk() const { return persisted_; }
     bool dirty() {
         if (seen_ != scene_.revision()) {
@@ -44,8 +74,13 @@ class SceneDocument {
         const auto next_root = std::filesystem::weakly_canonical(root);
         if (!std::filesystem::is_directory(next_root))
             throw std::runtime_error("Project folder does not exist");
+        std::shared_ptr<ProjectLease> candidate;
+        if (next_root != root_ || !lease_)
+            candidate = std::make_shared<ProjectLease>(next_root);
+        else
+            check_ownership();
         auto name = path_text(next_root.filename());
-        auto first = next_root / "main.scene.json";
+        auto first = project_file(next_root, "main.scene.json");
         const auto manifest = next_root / "forge.project.json";
         if (std::filesystem::exists(manifest)) {
             const auto data = read_json(manifest);
@@ -61,6 +96,9 @@ class SceneDocument {
         else if (!allow_empty || std::filesystem::exists(manifest))
             throw std::runtime_error("Project has no startup scene");
         scene_.reset(doc.value_or(Json{{"version", 1}, {"entities", Json::array()}}));
+        if (candidate)
+            lease_ = std::move(candidate);
+        ++generation_;
         root_ = next_root;
         name_ = name;
         path_ = first;
@@ -100,9 +138,11 @@ class SceneDocument {
         }
     }
     void open_scene(const std::filesystem::path& path) {
+        check_ownership();
         const auto next_path = project_file(root_, path);
         const auto doc = read_json(next_path);
         scene_.reset(doc);
+        ++generation_;
         path_ = next_path;
         saved_ = scene_.document();
         persisted_ = true;
@@ -111,6 +151,8 @@ class SceneDocument {
         autosaved_revision_ = 0;
     }
     void new_scene() {
+        check_ownership();
+        ++generation_;
         scene_.reset(Json{{"version", 1}, {"entities", Json::array()}});
         path_.clear();
         saved_.reset();
@@ -120,6 +162,7 @@ class SceneDocument {
         autosaved_revision_ = 0;
     }
     void save_as(const std::filesystem::path& path) {
+        check_ownership();
         const auto next_path = project_file(root_, path);
         if (next_path == path_ && saved_) {
             const bool exists = std::filesystem::exists(path_);
@@ -129,6 +172,8 @@ class SceneDocument {
         }
         const auto old_recovery = recovery_path();
         scene_.save(next_path);
+        if (path_ != next_path)
+            ++generation_;
         path_ = next_path;
         saved_ = scene_.document();
         persisted_ = true;
@@ -151,10 +196,12 @@ class SceneDocument {
             hash ^= byte;
             hash *= 1099511628211ULL;
         }
-        return root_ / ".forge/recovery" / (std::to_string(hash) + ".json");
+        return project_control_file(root_, std::filesystem::path("recovery") /
+                                               (std::to_string(hash) + ".json"));
     }
     bool has_recovery() const { return std::filesystem::exists(recovery_path()); }
     bool autosave() {
+        check_ownership();
         if (!dirty() || autosaved_revision_ == scene_.revision())
             return false;
         atomic_write(
@@ -168,6 +215,7 @@ class SceneDocument {
         return true;
     }
     void recover() {
+        check_ownership();
         const auto data = read_json(recovery_path());
         const auto expected = path_.empty() ? "" : path_text(path_.lexically_relative(root_));
         if (data.at("version") != 1 || data.at("scene") != expected ||
@@ -178,10 +226,12 @@ class SceneDocument {
         seen_ = 0;
     }
     void recover_untitled() {
+        check_ownership();
         const auto data = read_json(recovery_path(true));
         if (data.at("version") != 1 || data.at("scene") != "" || !data.at("base").is_null())
             throw std::runtime_error("Invalid untitled recovery record");
         scene_.reset(data.at("document"));
+        ++generation_;
         path_.clear();
         saved_.reset();
         persisted_ = false;
@@ -191,11 +241,14 @@ class SceneDocument {
     }
     bool has_untitled_recovery() const { return std::filesystem::exists(recovery_path(true)); }
     void discard_recovery(bool untitled = false) {
+        check_ownership();
         std::filesystem::remove(recovery_path(untitled));
     }
 
   private:
     Scene& scene_;
+    std::shared_ptr<ProjectLease> lease_;
+    std::uint64_t generation_ = 0;
     std::filesystem::path root_, path_;
     std::string name_;
     std::optional<Json> saved_;

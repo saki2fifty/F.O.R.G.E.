@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "automation.hpp"
 #include "blockout.hpp"
 #include "camera_controls.hpp"
 #include "command_workspace.hpp"
@@ -128,6 +129,7 @@ int main(int argc, char** argv) {
                                     .dump(2));
         };
         forge::Scene scene;
+        forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
         const char* base = SDL_GetBasePath();
         if (!base)
@@ -237,6 +239,16 @@ int main(int argc, char** argv) {
             if (swap->GetDesc().Width != unsigned(width) ||
                 swap->GetDesc().Height != unsigned(height))
                 swap->Resize(width, height);
+            const std::string automation_busy =
+                play.active()                     ? "Stop play before editing"
+                : native->busy()                  ? "Wait for the native build"
+                : (files.busy() || files.changed) ? "Finish the file operation"
+                : (scene_tools.move.active() || blockout.active() || ImGui::IsAnyItemActive() ||
+                   ImGui::IsPopupOpen(nullptr,
+                                      ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+                    ? "Finish the active UI interaction"
+                    : "";
+            automation.pump(files.document, automation_busy);
             gui->NewFrame(width, height, swap->GetDesc().PreTransform);
             telemetry.frame();
             forge::ui::status_bar(telemetry, play.active(), scene.entity_count());
@@ -248,6 +260,7 @@ int main(int argc, char** argv) {
             if (forge::ui::begin_toolbar()) {
                 files.menu();
                 commands.menu();
+                automation.menu();
                 forge::ui::help_menu(std::filesystem::path(base), message);
                 try {
                     if (forge::ui::button(
@@ -339,6 +352,7 @@ int main(int argc, char** argv) {
                           files.busy() || scene_tools.move.active() || blockout.active() ||
                               play.active());
             files.draw_dialogs();
+            automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +
                                files.document.name() + " / " +
                                (files.document.path().empty()
@@ -728,6 +742,8 @@ int main(int argc, char** argv) {
         context->WaitForIdle();
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "FORGE could not continue", e.what(),
+                                 window.get());
         result = 1;
     }
     window.reset();

@@ -8,7 +8,8 @@ inline std::string view_key(const SceneDocument& document) {
                : path_text(document.path().lexically_relative(document.project()));
 }
 inline void save_view(const SceneDocument& document, const EditorCamera& camera) {
-    const auto path = document.project() / ".forge/editor-views.json";
+    document.check_ownership();
+    const auto path = project_control_file(document.project(), "editor-views.json");
     auto data = std::filesystem::exists(path) ? read_json(path)
                                               : Json{{"version", 1}, {"views", Json::object()}};
     if (data.at("version") != 1 || !data.at("views").is_object())
@@ -20,7 +21,7 @@ inline void save_view(const SceneDocument& document, const EditorCamera& camera)
     atomic_write(path, data.dump(2));
 }
 inline bool restore_view(const SceneDocument& document, EditorCamera& camera) {
-    const auto path = document.project() / ".forge/editor-views.json";
+    const auto path = project_control_file(document.project(), "editor-views.json");
     if (!std::filesystem::exists(path))
         return false;
     const auto data = read_json(path);

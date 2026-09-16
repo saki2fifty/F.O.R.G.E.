@@ -63,6 +63,7 @@ class EditorFiles {
         } else if (choice == Resolution::Save) {
             save();
         } else {
+            const auto ownership = document.writer_guard();
             const auto old_recovery = document.recovery_path();
             if (execute()) {
                 std::error_code ignored;

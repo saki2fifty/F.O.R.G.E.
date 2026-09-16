@@ -12,7 +12,7 @@ End-user instructions live in the separate [Projects](../manual/editor/projects.
 
 The startup path must resolve to a `.json` file inside the canonical project root. Scene destinations cannot be the root manifest or files beneath `.forge`. A missing manifest selects the legacy `main.scene.json` path. Initial startup can allow an empty legacy folder; opening a project through the normal project command requires its startup scene.
 
-Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the manifest in a sibling directory before renaming it into place. Existing destinations are rejected. This is not a cross-process project locking protocol.
+Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the manifest in a sibling directory before renaming it into place. Existing destinations are rejected. Opening the result subsequently acquires project writer ownership.
 
 ## Authoring document state
 
@@ -37,3 +37,11 @@ Autosave writes changed dirty revisions at approximately 30-second intervals. Su
 `EditorFiles` coordinates asynchronous SDL dialogs and Save/Discard/Cancel transitions on the main thread. Dialog callbacks copy path/error data into synchronized shared state; callbacks do not mutate scene or UI state. Project switches stop play and recreate the native controller. Scene/project changes are blocked during native builds.
 
 `tests/document_tests.hpp` exercises project creation, dirty state, undo-to-baseline, failed opens, destination constraints, external conflicts, recovery, and guarded transitions. Native file-dialog interaction remains a desktop acceptance check. Layout/preferences are global; last active scene persistence is not implemented. Explicit per-scene camera bookmarks are stored in `.forge/editor-views.json` (version 1), keyed by relative scene path or an untitled slot. Invalid bookmarks leave the camera unchanged.
+
+## Exclusive writer ownership
+
+`ProjectLease` in the UI-free authoring library holds `.forge/writer.lock` open for the lifetime of the active project. Windows uses `CreateFileW` with sharing disabled and a non-inheritable handle; Linux uses nonblocking exclusive `flock` on a close-on-exec descriptor. The OS releases ownership on process death. The marker is deliberately never unlinked on normal shutdown, avoiding a second-lock inode race. This is cooperative coordination for compatible FORGE instances on local filesystems, not access control against arbitrary other programs or a distributed lock.
+
+A candidate project lease is acquired before scene replacement. Failed acquisition, parsing or validation leaves the old lease and document active. Save, recovery and view bookmark writes validate current ownership. Discard-and-switch retains the old lease until successful old-recovery cleanup completes. Linux additionally checks that the lock path still identifies the held inode. Control-folder redirects are rejected; Windows scene paths also reject alternate data streams and case variants of reserved control paths.
+
+Document generation changes on successful open/reload/new/untitled recovery and filename changes. It does not replace Scene revision: it invalidates external sessions after file lifecycle transitions even if scene bytes are identical. Live automation stops on the next frame before handling another request when generation changes. Regular saves retain the generation. Persisted scene/project schemas stay at version 1.

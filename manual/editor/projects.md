@@ -22,3 +22,13 @@ Each project opens its configured startup scene. The last scene edited is not au
 Save the desired scene inside the project, then close the editor and edit `forge.project.json`. Set `startup_scene` to its relative path, for example `Scenes/LevelTwo.scene.json`. Keep the manifest's version at 1. There is no startup-scene picker in the editor yet.
 
 Switching projects stops play and selects the new project's native source/build directory. Wait for an active native compilation to finish before switching. See [Scenes](scenes.md) and [Native gameplay](native-gameplay.md).
+
+## One editor per project
+
+FORGE holds exclusive project writer ownership while a project is open. Opening the same project in another FORGE editor fails with a diagnostic. The current project stays open if a requested project switch fails. Close or switch the first editor before trying again.
+
+If an editor process crashes, the operating system releases its ownership. Open the project again and use the normal recovery prompt to restore unsaved work. The empty **.forge/writer.lock** marker can remain after shutdown; its presence alone does not mean the project is locked. Do not delete it to force another editor into a running project.
+
+Keep active projects on a local writable filesystem. Network-share locking and simultaneous editing with older FORGE builds are not supported by this ownership contract. External text editors can still change scene files; FORGE's Save protection detects changes against its last saved version.
+
+A trusted script can work through the owning editor using [Live automation](live-automation.md).

@@ -1,4 +1,5 @@
 #include "authoring_tests.hpp"
+#include "automation_tests.hpp"
 #include "blockout_tests.hpp"
 #include "camera.hpp"
 #include "camera_controls.hpp"
@@ -297,6 +298,8 @@ int main(int argc, char** argv) {
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
         test_documents();
+        for (float scale : {0.65f, 1.0f, 2.0f})
+            test_automation_workspace(scale);
         test_authoring();
         test_blockout();
         for (float scale : {0.65f, 1.0f, 2.0f})

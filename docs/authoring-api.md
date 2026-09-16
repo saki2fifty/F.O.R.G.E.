@@ -1,6 +1,6 @@
 # Authoring API 1
 
-`forge_authoring` is a UI-independent library over `forge_core`. The editor and `forge_tools` link it; `forge_runtime` does not. The native gameplay ABI and runtime process protocol remain separate contracts. This API currently edits scenes in an isolated memory session; no live editor transport, MCP server, asset editor, filesystem mutation or native execution is exposed.
+`forge_authoring` is a UI-independent library over `forge_core`. The editor and `forge_tools` link it; `forge_runtime` does not. The native gameplay ABI and runtime process protocol remain separate contracts. This API edits scenes through the isolated CLI or an opt-in [live editor transport](live-authoring.md). No MCP server, asset editor, filesystem mutation or native execution is exposed.
 
 ## Identity and compatibility
 
@@ -12,7 +12,7 @@ Property schema augments Flecs-reflected members with immutable built-in `proper
 
 Run `forge_tools --stdio`. Each UTF-8 JSON line yields one JSON response; EOF ends the process. Standard output contains only responses. Parse errors return a structured error and processing continues. Requests are limited to 1 MiB and 64 nesting levels. Authoring batches contain 1–128 sequential commands, each validated on a private candidate world. Candidate documents are limited to 10,000 entities and 8 MiB serialized data. These are defensive bounds, not a performance guarantee.
 
-The process starts with the default scene. Replace it with supplied data when needed. It does not open or save project files; this intentionally avoids a second writer while project ownership and live-editor transport remain pending. Client software can consume the returned snapshot under its own file workflow.
+The process starts with the default scene. Replace it with supplied data when needed. It does not open or save project files; live project access instead uses the owning editor connection. Client software can consume the returned snapshot under its own file workflow.
 
 ## Requests and results
 
@@ -25,7 +25,7 @@ Begin with `{"api":1,"method":"discover"}`. It returns the target, current revis
 - `scene.apply`: `commands` array; each entry contains `operation` and `arguments` matching discovery.
 - `history.undo` / `history.redo`: one history step; response says whether anything changed.
 
-Successful responses contain `api`, `ok`, `revision`, and `result`. Failures contain `api`, `ok:false`, and `error.code/message`. Codes include `unsupported_version`, `wrong_target`, `wrong_thread`, `stale_revision`, `invalid_arguments`, `not_found`, `unsupported_property`, `unknown_operation`, `limit_exceeded`, `unavailable` and `invalid_request`. This is a synchronous local protocol: no subscriptions, request replay cache, cross-document transactions or automatic retry. Reread state after a stale response and decide explicitly whether to submit again.
+Successful responses contain `api`, `ok`, `revision`, and `result`. Failures contain `api`, `ok:false`, and `error.code/message`. Codes include `unsupported_version`, `wrong_target`, `wrong_thread`, `stale_revision`, `invalid_arguments`, `not_found`, `unsupported_property`, `unknown_operation`, `limit_exceeded`, `unavailable` and `invalid_request`. The stdio adapter is synchronous and has no subscriptions, request replay cache, cross-document transactions or automatic retry. The live adapter adds separate numbered replay receipts. Reread state after a stale response and decide explicitly whether to submit again.
 
 ## Transaction behavior
 

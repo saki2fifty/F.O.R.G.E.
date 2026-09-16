@@ -38,3 +38,5 @@ The viewport draws transformed built-in blockout meshes. Production materials, i
 - [Command palette](editor/commands.md)
 - [Scene diagnostics and component schema](editor/diagnostics.md)
 - [Headless authoring tools](editor/automation.md)
+
+- [Live automation](editor/live-automation.md): let a trusted local script inspect or edit the open scene.

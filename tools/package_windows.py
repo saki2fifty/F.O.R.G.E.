@@ -65,8 +65,9 @@ def package(build, dependencies, output):
     example_files = sorted(example_root.rglob('*.json'))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
-    automation_source = source/'samples/automation/create_blockout.py'
-    manifest['files']['Examples/Automation/create_blockout.py'] = hashlib.sha256(automation_source.read_bytes()).hexdigest()
+    automation_sources = sorted((source/'samples/automation').glob('*.py'))
+    for automation_source in automation_sources:
+        manifest['files']['Examples/Automation/'+automation_source.name] = hashlib.sha256(automation_source.read_bytes()).hexdigest()
     sdk_files = ('include/forge/module_api.h', 'samples/native/movement.c', 'samples/native/CMakeLists.txt')
     for relative in sdk_files:
         manifest['files']['sdk/'+relative] = hashlib.sha256((source/relative).read_bytes()).hexdigest()
@@ -85,7 +86,8 @@ def package(build, dependencies, output):
                 archive.write(source/relative, 'sdk/'+relative)
             for example in example_files:
                 archive.write(example, 'Examples/'+example.relative_to(example_root).as_posix())
-            archive.write(automation_source, 'Examples/Automation/create_blockout.py')
+            for automation_source in automation_sources:
+                archive.write(automation_source, 'Examples/Automation/'+automation_source.name)
             archive.writestr('Run-Forge-Dev.cmd', launcher)
             archive.write(build/'build.json', 'build.json')
             for page in manual_files:
