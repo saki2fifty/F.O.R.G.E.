@@ -115,3 +115,10 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 
 - Retained current JSON3.12.0, CMake4.4.3 and Ninja1.13.2. Retained Diligent's coordinated snapshot/API256020: current upstream Core/Tools revisions are identical; only disabled FX/Samples differ. Documented all four superproject gitlinks.
 - Explicitly select the existing VS2022 MSVC14.44.35207 and Windows SDK10.0.26100.0 in both Windows CI jobs. Recorded newer official VS/MSVC/SDK availability and reasons to retain this supported baseline; C++20/C17, static editor CRT and runtime OS targeting remain unchanged. Clean Windows validation follows.
+
+### Modernized stack delivery
+
+- Delivered **Build 260916-000019**, source `c80f0a4cd9abbc5bc4434ac138bec75733b1b894`, [clean run35152168546](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35152168546). All jobs passed. Toolset14.44.35207 selected compiler19.44.35228.0 with SDK10.0.26100.0. Number18 was cancelled after a source-reservation typo and remains consumed.
+- Windows D3D12 WARP (0.66s), native iteration (6.60s), editor/process/input/layout (6.93s), API (0.14s), live (1.40s) and CLI (0.22s) passed; Windows/Linux core jobs and four FXC shaders also passed. New SDL event and font/external-texture rendering checks ran on Windows.
+- All24 existing grid/scene PPM fixtures are byte-identical to accepted Build17. Visually checked new font/texture output. Interactive desktop startup, physical input, dialogs and mixed-DPI/docking acceptance remain user checks; no performance claim.
+- ZIP CRC, all manifest hashes, reserved source/build, three x64 PE executables and23 manual source pages/matching offline edition verified. SHA-256: `8a7a689d38581ee9c71f2b4c9a6267f48cb7f7eec5fd1dc367e6cf850dbb1269`. Previous package archived; download folder contains only the current numbered ZIP and current extraction.
