@@ -2,6 +2,7 @@
 #include "ImGuiImplSDL3.hpp"
 #include "blockout.hpp"
 #include "camera_controls.hpp"
+#include "command_workspace.hpp"
 #include "content.hpp"
 #include "files.hpp"
 #include "help.hpp"
@@ -80,6 +81,7 @@ int main(int argc, char** argv) {
         forge::ui::SceneTools scene_tools;
         forge::ContentBrowser content;
         forge::BlockoutProperties blockout;
+        forge::ui::CommandWorkspace commands;
         char hierarchy_filter[256]{};
         std::vector<std::string> recent_projects;
         std::string last_project;
@@ -245,6 +247,7 @@ int main(int argc, char** argv) {
             }
             if (forge::ui::begin_toolbar()) {
                 files.menu();
+                commands.menu();
                 forge::ui::help_menu(std::filesystem::path(base), message);
                 try {
                     if (forge::ui::button(
@@ -252,9 +255,9 @@ int main(int argc, char** argv) {
                             "Save the active scene. Ctrl+S. Untitled scenes ask for a location."))
                         files.save();
                     if (forge::ui::button("Undo", "Restore the previous authored scene edit."))
-                        scene.undo();
+                        forge::authoring_history(scene, false);
                     if (forge::ui::button("Redo", "Reapply the last undone edit."))
-                        scene.redo();
+                        forge::authoring_history(scene, true);
                     if (forge::ui::button(
                             "Add entity",
                             "Create an entity with a stable ID and an editable position.")) {
@@ -316,18 +319,25 @@ int main(int argc, char** argv) {
                 try {
                     if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
                         if (ImGui::GetIO().KeyShift)
-                            scene.redo();
+                            forge::authoring_history(scene, true);
                         else
-                            scene.undo();
+                            forge::authoring_history(scene, false);
                     }
                     if (ImGui::IsKeyPressed(ImGuiKey_Y, false))
-                        scene.redo();
+                        forge::authoring_history(scene, true);
                     if (!selected.empty() && ImGui::IsKeyPressed(ImGuiKey_D, false))
-                        selected = scene.duplicate_subtree(selected);
+                        selected = forge::authoring_command(scene, "entity.duplicate",
+                                                            {{"entity", selected}})
+                                       .at("selected")
+                                       .get<std::string>();
                 } catch (const std::exception& e) {
                     message = e.what();
                 }
             }
+            commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
+                          blockout.at_view_target,
+                          files.busy() || scene_tools.move.active() || blockout.active() ||
+                              play.active());
             files.draw_dialogs();
             const auto title = std::string(files.document.dirty() ? "* " : "") +
                                files.document.name() + " / " +
@@ -374,7 +384,7 @@ int main(int argc, char** argv) {
                     !ImGui::IsAnyItemActive() && !selected.empty() &&
                     ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
                     try {
-                        scene.delete_subtree(selected);
+                        forge::authoring_command(scene, "entity.delete", {{"entity", selected}});
                         selected.clear();
                     } catch (const std::exception& e) {
                         message = e.what();
@@ -397,7 +407,9 @@ int main(int argc, char** argv) {
                         try {
                             if (ImGui::InputText("Name", entity_name, sizeof(entity_name),
                                                  ImGuiInputTextFlags_EnterReturnsTrue)) {
-                                scene.rename_entity(selected, entity_name);
+                                forge::authoring_command(
+                                    scene, "entity.rename",
+                                    {{"entity", selected}, {"name", entity_name}});
                                 e["name"] = entity_name;
                             }
                             forge::ui::help(
@@ -432,7 +444,9 @@ int main(int argc, char** argv) {
                                 ImGui::EndCombo();
                             }
                             if (new_parent != parent) {
-                                scene.reparent_entity(selected, new_parent);
+                                forge::authoring_command(
+                                    scene, "entity.reparent",
+                                    {{"entity", selected}, {"parent", new_parent}});
                                 if (new_parent.empty())
                                     e.erase("parent");
                                 else
@@ -442,14 +456,18 @@ int main(int argc, char** argv) {
                                     "Duplicate subtree",
                                     "Copy this entity and its descendants with new stable IDs. "
                                     "Undo restores the previous scene.")) {
-                                selected = scene.duplicate_subtree(selected);
+                                selected = forge::authoring_command(scene, "entity.duplicate",
+                                                                    {{"entity", selected}})
+                                               .at("selected")
+                                               .get<std::string>();
                                 break;
                             }
                             if (forge::ui::button(
                                     "Delete subtree",
                                     "Delete this entity and all descendants. Undo restores them. "
                                     "Prefabs used outside the subtree cannot be deleted.")) {
-                                scene.delete_subtree(selected);
+                                forge::authoring_command(scene, "entity.delete",
+                                                         {{"entity", selected}});
                                 selected.clear();
                                 break;
                             }
@@ -461,34 +479,36 @@ int main(int argc, char** argv) {
                                 auto position = forge::entity_position(doc, selected);
                                 if (position) {
                                     bool apply = false;
-                                    if (forge::ui::button("Reset position",
-                                                          "Set this entity's world position to 0, "
-                                                          "0, 0 as one undoable edit.")) {
-                                        *position = {0, 0, 0};
+                                    if (forge::ui::button(
+                                            "Reset position",
+                                            "Set world position to zero as one undoable edit.")) {
+                                        forge::authoring_command(
+                                            scene, "transform.position",
+                                            {{"entity", selected},
+                                             {"value", {{"x", 0}, {"y", 0}, {"z", 0}}}});
                                         apply = true;
                                     }
-                                    if (forge::ui::button("Place on ground",
-                                                          "Place the transformed mesh bounds on "
-                                                          "world Y=0, keeping X and Z. This is not "
-                                                          "collision or terrain placement.")) {
-                                        const auto effective = forge::render_document(doc);
-                                        for (const auto& target : effective.at("entities"))
-                                            if (target.at("id") == selected)
-                                                (*position)[1] -=
-                                                    forge::object_bounds(target).first[1];
+                                    if (forge::ui::button(
+                                            "Place on ground",
+                                            "Place the transformed mesh bottom at world Y=0. This "
+                                            "is not collision or terrain placement.")) {
+                                        forge::authoring_command(scene, "transform.ground",
+                                                                 {{"entity", selected}});
                                         apply = true;
                                     }
-                                    if (forge::ui::button("Snap position",
-                                                          "Round all three coordinates to "
-                                                          "multiples of the Scene snap Step.")) {
-                                        for (auto& value : *position)
-                                            value = std::round(value / scene_tools.snap_step) *
-                                                    scene_tools.snap_step;
+                                    if (forge::ui::button(
+                                            "Snap position",
+                                            "Round world coordinates to the Scene snap Step.")) {
+                                        forge::authoring_command(scene, "transform.snap",
+                                                                 {{"entity", selected},
+                                                                  {"step", scene_tools.snap_step}});
                                         apply = true;
                                     }
                                     if (apply) {
-                                        forge::set_position(doc, selected, *position);
-                                        scene.edit(doc);
+                                        const auto updated =
+                                            forge::entity_position(scene.document(), selected);
+                                        if (updated)
+                                            forge::set_position(doc, selected, *updated);
                                     }
                                 }
                             } catch (const std::exception& ex) {
@@ -503,7 +523,11 @@ int main(int argc, char** argv) {
                                 if (forge::ui::scalar(axis, &value, help.c_str())) {
                                     p[axis] = value;
                                     try {
-                                        scene.edit(doc);
+                                        forge::authoring_command(scene, "property.set",
+                                                                 {{"entity", selected},
+                                                                  {"component", "forge.position"},
+                                                                  {"field", field_name},
+                                                                  {"value", value}});
                                     } catch (const std::exception& ex) {
                                         message = ex.what();
                                     }

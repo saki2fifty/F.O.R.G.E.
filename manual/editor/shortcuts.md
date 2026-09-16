@@ -44,3 +44,7 @@ Viewport authoring is disabled during Play. A completed move is one Undo operati
 - F with the image hovered: frame the selected visible block.
 
 See [Viewport](viewport.md) for directions and [Scenes](scenes.md) for file behavior.
+
+## Command search
+
+Press **Ctrl+Shift+P** after finishing a drag or text edit to open the [Command palette](commands.md). Search, choose with Up/Down, and press Enter. Escape closes it.

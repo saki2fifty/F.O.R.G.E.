@@ -32,3 +32,9 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 ## Current boundaries
 
 The viewport draws transformed built-in blockout meshes. Production materials, imported meshes, physics, audio, animation, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
+
+## Commands and inspection
+
+- [Command palette](editor/commands.md)
+- [Scene diagnostics and component schema](editor/diagnostics.md)
+- [Headless authoring tools](editor/automation.md)

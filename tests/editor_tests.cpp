@@ -2,6 +2,7 @@
 #include "blockout_tests.hpp"
 #include "camera.hpp"
 #include "camera_controls.hpp"
+#include "command_workspace_tests.hpp"
 #include "document_tests.hpp"
 #include "help.hpp"
 #include "play.hpp"
@@ -298,6 +299,8 @@ int main(int argc, char** argv) {
         test_documents();
         test_authoring();
         test_blockout();
+        for (float scale : {0.65f, 1.0f, 2.0f})
+            test_command_workspace(scale);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_property_drag(scale);
         for (float scale : {0.65f, 1.0f, 2.0f})

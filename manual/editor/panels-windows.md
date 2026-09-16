@@ -18,3 +18,7 @@ The top toolbar holds file, help, edit, play, and tooltip controls. The bottom p
 Your panel arrangement is saved between editor sessions. The current layout is global to the editor, rather than separately stored for each project. Ctrl+Minus makes controls smaller if a crowded panel needs more space; Ctrl+Plus increases readability.
 
 Tooltips explain controls when you pause the pointer over them. See [Settings and appearance](settings.md) and [Performance and diagnostics](performance.md).
+
+## Inspection tools
+
+The Tools menu opens the [Command palette](commands.md), [Scene diagnostics and Component schema](diagnostics.md). Diagnostics lists informational scene findings; Component schema describes the supported built-in data.

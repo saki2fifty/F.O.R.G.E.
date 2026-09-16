@@ -44,6 +44,8 @@ class Scene {
     void reparent_entity(const std::string& id, const std::string& parent);
     std::string duplicate_subtree(const std::string& id);
     void delete_subtree(const std::string& id);
+    bool can_undo() const { return !undo_.empty(); }
+    bool can_redo() const { return !redo_.empty(); }
     bool undo();
     bool redo();
     void translate(float x, float y, float z);

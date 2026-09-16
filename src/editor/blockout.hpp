@@ -1,5 +1,6 @@
 #pragma once
 #include "widgets.hpp"
+#include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
 #include <optional>
 #include <set>
@@ -11,27 +12,12 @@ inline Json& blockout_entity(Json& doc, const std::string& id) {
     throw std::runtime_error("Entity no longer exists");
 }
 inline std::string create_primitive(Scene& scene, unsigned kind, Float3 position) {
-    if (kind > 3)
-        throw std::runtime_error("Unknown primitive");
-    auto doc = scene.document();
-    std::set<std::string> occupied;
-    for (const auto& e : doc["entities"])
-        occupied.insert(e.at("id").get<std::string>());
-    unsigned serial = 1;
-    while (occupied.contains("entity-" + std::to_string(serial)))
-        ++serial;
-    const auto id = "entity-" + std::to_string(serial);
-    doc["entities"].push_back(
-        {{"id", id},
-         {"name", std::string(primitive_names[kind]) + " " + std::to_string(serial)},
-         {"components",
-          {{"forge.position", {{"x", position[0]}, {"y", position[1]}, {"z", position[2]}}},
-           {"forge.rotation", {{"x", 0}, {"y", 0}, {"z", 0}}},
-           {"forge.scale", {{"x", kind == 3 ? 4 : 1}, {"y", 1}, {"z", kind == 3 ? 4 : 1}}},
-           {"forge.primitive", {{"kind", kind}}},
-           {"forge.tint", {{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}}}}}});
-    scene.edit(doc);
-    return id;
+    return authoring_command(
+               scene, "entity.create",
+               {{"kind", kind},
+                {"position", {{"x", position[0]}, {"y", position[1]}, {"z", position[2]}}}})
+        .at("selected")
+        .get<std::string>();
 }
 class BlockoutProperties {
   public:
@@ -62,9 +48,19 @@ class BlockoutProperties {
             cancel();
             throw std::runtime_error("Property edit cancelled because the scene changed");
         }
-        auto doc = preview(scene.document());
+        Json commands = Json::array();
+        for (const auto& [field, value] : values_.items())
+            if (component_ == "forge.tint" ? (field == "r" || field == "g" || field == "b")
+                                           : (field == "x" || field == "y" || field == "z"))
+                commands.push_back({{"operation", "property.set"},
+                                    {"arguments",
+                                     {{"entity", pending_},
+                                      {"component", component_},
+                                      {"field", field},
+                                      {"value", value}}}});
+        const auto revision = revision_;
         cancel();
-        scene.edit(doc);
+        apply_authoring(scene, commands, revision);
         return true;
     }
     void copy_transform(const Json& doc, const std::string& id) {
@@ -80,12 +76,14 @@ class BlockoutProperties {
     void paste_transform(Scene& scene, const std::string& id) {
         if (!clipboard_)
             throw std::runtime_error("Copy a transform first");
-        auto doc = scene.document();
-        auto& c = blockout_entity(doc, id)["components"];
+        Json commands = Json::array();
         for (const auto& [name, value] : clipboard_->items())
             for (const auto& [axis, number] : value.items())
-                c[name][axis] = number;
-        scene.edit(doc);
+                commands.push_back(
+                    {{"operation", "property.set"},
+                     {"arguments",
+                      {{"entity", id}, {"component", name}, {"field", axis}, {"value", number}}}});
+        apply_authoring(scene, commands, scene.revision());
     }
     void vector_control(Scene& scene, const std::string& id, const std::string& name) {
         if (active() && ImGui::IsKeyPressed(ImGuiKey_Escape, false))
@@ -133,9 +131,7 @@ class BlockoutProperties {
             int kind = int(primitive_kind(entity));
             ImGui::BeginDisabled(active());
             if (ImGui::Combo("Shape", &kind, primitive_names, 4)) {
-                auto next = scene.document();
-                blockout_entity(next, id)["components"]["forge.primitive"]["kind"] = kind;
-                scene.edit(next);
+                authoring_command(scene, "appearance.shape", {{"entity", id}, {"kind", kind}});
             }
             ui::help("Switch between Cube, Sphere, Cylinder, and Plane, retaining transform and "
                      "color. Plane is two-sided and lies in local XZ.");
@@ -168,12 +164,7 @@ class BlockoutProperties {
             if (ui::button(
                     "Reset transform",
                     "Set position and rotation to zero and scale to one as one undoable edit.")) {
-                auto next = scene.document();
-                auto& c = blockout_entity(next, id)["components"];
-                for (const char* name : {"forge.position", "forge.rotation", "forge.scale"})
-                    for (const char* axis : {"x", "y", "z"})
-                        c[name][axis] = std::string(name) == "forge.scale" ? 1 : 0;
-                scene.edit(next);
+                authoring_command(scene, "transform.reset", {{"entity", id}});
             }
             ImGui::EndDisabled();
         } catch (const std::exception& e) {

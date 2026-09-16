@@ -271,12 +271,45 @@ Json Scene::schema() const {
         const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
         for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
             const auto& member = members[i];
-            fields.push_back(
-                {{"id", member.name},
-                 {"type", item.first == world_->component<Primitive>() ? "uint32" : "float32"},
-                 {"description", item.second}});
+            const auto component = std::string(identifiers[index]);
+            const bool primitive = component == "forge.primitive";
+            const double default_value = component == "forge.scale"  ? 1.0
+                                         : component == "forge.tint" ? (i == 0   ? double(0.2f)
+                                                                        : i == 1 ? double(0.6f)
+                                                                                 : double(0.7f))
+                                                                     : 0.0;
+            Json field = {{"id", member.name},
+                          {"property_id", component + "." + member.name},
+                          {"type", primitive ? "uint32" : "float32"},
+                          {"description", item.second},
+                          {"default", primitive ? Json(0u) : Json(default_value)},
+                          {"serialized", true},
+                          {"read_only", false},
+                          {"animatable", !primitive},
+                          {"unit", component == "forge.rotation"   ? "degrees"
+                                   : component == "forge.position" ? "world_units"
+                                                                   : "unitless"}};
+            if (component == "forge.rotation") {
+                field["minimum"] = -360000;
+                field["maximum"] = 360000;
+            }
+            if (component == "forge.scale") {
+                field["minimum"] = 0.001;
+                field["maximum"] = 10000;
+            }
+            if (component == "forge.tint") {
+                field["minimum"] = 0;
+                field["maximum"] = 1;
+            }
+            if (primitive) {
+                field["minimum"] = 0;
+                field["maximum"] = 3;
+                field["enum"] = {"Cube", "Sphere", "Cylinder", "Plane"};
+            }
+            fields.push_back(std::move(field));
         }
-        components.push_back({{"id", identifiers[index++]}, {"fields", fields}});
+        components.push_back(
+            {{"id", identifiers[index++]}, {"schema_version", 1}, {"fields", fields}});
     }
     return Json{{"version", 1}, {"components", components}};
 }

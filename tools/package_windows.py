@@ -31,7 +31,7 @@ def package(build, dependencies, output):
     cache = (build/'CMakeCache.txt').read_text()
     if 'CMAKE_BUILD_TYPE:STRING=Release' not in cache:
         raise ValueError('A Release build is required; Debug CRT binaries are not distributable')
-    images = [build/'forge_editor.exe', build/'forge_runtime.exe']
+    images = [build/'forge_editor.exe', build/'forge_runtime.exe', build/'forge_tools.exe']
     dlls = sorted(build.glob('*.dll'))
     if not any('graphicsengined3d12' in p.name.lower() for p in dlls):
         raise ValueError('The Diligent D3D12 runtime DLL is missing from the build output')
@@ -65,6 +65,8 @@ def package(build, dependencies, output):
     example_files = sorted(example_root.rglob('*.json'))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
+    automation_source = source/'samples/automation/create_blockout.py'
+    manifest['files']['Examples/Automation/create_blockout.py'] = hashlib.sha256(automation_source.read_bytes()).hexdigest()
     sdk_files = ('include/forge/module_api.h', 'samples/native/movement.c', 'samples/native/CMakeLists.txt')
     for relative in sdk_files:
         manifest['files']['sdk/'+relative] = hashlib.sha256((source/relative).read_bytes()).hexdigest()
@@ -83,6 +85,7 @@ def package(build, dependencies, output):
                 archive.write(source/relative, 'sdk/'+relative)
             for example in example_files:
                 archive.write(example, 'Examples/'+example.relative_to(example_root).as_posix())
+            archive.write(automation_source, 'Examples/Automation/create_blockout.py')
             archive.writestr('Run-Forge-Dev.cmd', launcher)
             archive.write(build/'build.json', 'build.json')
             for page in manual_files:

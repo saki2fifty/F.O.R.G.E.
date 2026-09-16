@@ -1,5 +1,6 @@
 #pragma once
 #include "camera.hpp"
+#include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
 #include <optional>
 namespace forge {
@@ -137,9 +138,10 @@ class MoveGesture {
             throw std::runtime_error("Move cancelled because the scene changed during the drag");
         if (preview_ == start_)
             return false;
-        auto doc = scene.document();
-        set_position(doc, id, preview_);
-        scene.edit(doc);
+        authoring_command(
+            scene, "transform.position",
+            {{"entity", id},
+             {"value", {{"x", preview_[0]}, {"y", preview_[1]}, {"z", preview_[2]}}}});
         return true;
     }
     void cancel() { id_.clear(); }
