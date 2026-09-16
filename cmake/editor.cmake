@@ -1,4 +1,4 @@
-FetchContent_Declare(sdl GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6)
+FetchContent_Declare(sdl GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG fa2c02bb6e21974a89ea9824bc53c9932abe5f9c) # release-3.4.16
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(sdl)

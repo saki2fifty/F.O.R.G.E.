@@ -100,3 +100,8 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 - Upgraded Flecs 4.1.0 to stable 4.1.6, pinned `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`. New hierarchy/reflection/callback capabilities are available upstream, not adopted as new FORGE features.
 - Compatibility fix: explicitly request Position reflection-member entities, which Flecs no longer creates by default. Preserve their documentation; added a regression check. Scene formats, hierarchy, transforms, prefab interpretation and module ABI are unchanged.
 - Fresh GCC Debug configure/build and all seven core/authoring/runtime/native/plugin suites passed. Initial tests detected the member-entity startup failure; the explicit registration fixes it. Windows validation follows in the combined upgrade build.
+
+### Dependency modernization — SDL
+
+- Upgraded SDL 3.2.20 to stable 3.4.16, pinned `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c`. Includes upstream Windows input/device startup and file-dialog fixes. No FORGE API migration or input-contract changes.
+- Built the new SDL in a separate Linux headless harness with the previously pinned ImGui; editor process/scaling/input/layout and native iteration tests passed. The local harness disables unavailable Linux desktop backends; Windows native event delivery, dialogs and mixed-monitor DPI still require platform/desktop validation.
