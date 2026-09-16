@@ -55,3 +55,11 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 - Linux Release: core/runtime/API/live/native/plugin suite **7/7**, editor/process/UI/native suite **2/2**. Includes cache source/preview/mode/cancellation/retry, prefab inheritance and world-axis frustum regressions, plus existing scaled interactions.
 - Windows-target syntax checked for editor entry point, renderer and editor tests. Formatting, manual navigation/build and CI-cache configuration checks passed.
 - Measured unchanged scene-read + Inspector workload in Release: one selected entity **58→22 µs/frame**; two **93→20 µs/frame**. The test excludes hierarchy, grid, GPU rendering and presentation; it is not a prediction of Windows FPS. Windows/GPU acceptance remains a separate check.
+
+### Windows delivery — Build 260916-000014
+
+- Source `8acad03b639adc20f8d4e28446ed23b601b0a44b` passed all jobs in [Windows build and validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35120058853). Warm build cache restored successfully.
+- Windows Release: native iteration **7.68s**, editor/process/UI **7.17s**, authoring API **0.19s**, live automation **1.21s**, CLI **0.25s**; all five tests passed. Linux/Windows core jobs and formatting passed. Embedded vertex/pixel shaders compiled and all three executables reported the reserved build ID.
+- Downloaded ZIP passed CRC, manifest file hashes, source/build identity, x64 executable checks and matching **23-page offline manual** verification. Prior numbered packages remain available.
+- ZIP: `260916-000014-FORGE-Windows-x64.zip`; SHA-256: `d6c85ff7b7dae706caf0bf4b0bcf9acad5d9cf8ee635af3f6957b2d6249e0a3b`.
+- Desktop/GPU validation of this bundle remains pending. Compare empty/one/two-cube scenes at the same layout and selection, both idle and orbiting; inspect Tools → Performance and its continuous-redraw switch. No specific Windows FPS improvement is claimed from Linux CPU measurements.
