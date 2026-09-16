@@ -170,8 +170,8 @@ int main(int argc, char** argv) {
         require(device && context, "Diligent device attachment failed");
         check_imgui(device, context, images);
         forge::Viewport viewport(device);
-        forge::EngineContext engine;
-        forge::Scene live_scene(engine.world());
+        forge::EngineContext scene_engine;
+        forge::Scene live_scene(scene_engine.world());
         forge::Json scene{{"version", 1}, {"entities", forge::Json::array()}};
         forge::EditorCamera camera;
         camera.target = {0, 0, 0};
