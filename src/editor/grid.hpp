@@ -55,9 +55,13 @@ GridOutput main(float4 pixel : SV_POSITION) {
     // distance; lines never translate with the camera or orbit target.
     float lod = max(0, log10(max(footprint.x, footprint.y) * 12 / eyeSpacing.w));
     float spacing = eyeSpacing.w * pow(10, floor(lod));
-    float minor = lines(world.xz, spacing, footprint) * (1 - frac(lod));
+    float minor = lines(world.xz, spacing, footprint);
     float major = lines(world.xz, spacing * 10, footprint);
-    float alpha = max(minor * 0.32, major * 0.52);
+    float coarse = lines(world.xz, spacing * 100, footprint);
+    // Adjacent LOD intervals have identical endpoint weights: a division change
+    // must not produce a brightness jump in existing world lines.
+    float alpha = lerp(max(minor * 0.32, major * 0.52),
+                       max(major * 0.32, coarse * 0.52), frac(lod));
     float3 color = float3(0.38, 0.44, 0.50);
     float2 axes = 1 - smoothstep(footprint * 0.6, footprint * 1.8, abs(world.xz));
     float axis = max(axes.x, axes.y);

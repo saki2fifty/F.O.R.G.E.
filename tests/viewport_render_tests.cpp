@@ -154,6 +154,23 @@ int main(int argc, char** argv) {
             "Hidden grid still drew geometry");
         auto spacing = render("spacing", {true, 2});
         require(spacing != top, "Spacing change retained stale grid");
+        // Existing world lines retain brightness when fine/major classifications swap.
+        const float transition = 10 * forge::EditorCamera::focal * height / 24;
+        auto line_brightness = [&](const Pixels& image) {
+            const auto at = forge::project_point(camera, {30, 0, 25}, width, height);
+            require(bool(at), "LOD fixture outside view");
+            double sum = 0;
+            for (int dy = -3; dy <= 3; ++dy)
+                for (int dx = -3; dx <= 3; ++dx)
+                    sum += image[(int((*at)[1]) + dy) * width + int((*at)[0]) + dx][0];
+            return sum / 49;
+        };
+        camera.distance = transition * .9999f;
+        const auto before_lod = line_brightness(render("lod-before"));
+        camera.distance = transition * 1.0001f;
+        const auto after_lod = line_brightness(render("lod-after"));
+        require(std::abs(after_lod - before_lod) < 2,
+                "Grid division transition pops in brightness");
         // A wide top view must show gray grid lines beyond the old +/-20-unit patch.
         camera.distance = 100;
         auto wide = render("wide");
