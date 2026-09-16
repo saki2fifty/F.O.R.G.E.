@@ -34,3 +34,7 @@ Use **Window** to show or hide a panel. You can also close a panel with its tab'
 Existing custom layouts are retained when World becomes Hierarchy and Native becomes Gameplay Code. The previous layout file is backed up during that migration. Use Reset layout if you want the new default arrangement. Panel visibility is saved with your personal settings.
 
 Scene controls now fit in a compact toolbar. Its **View** menu holds framing, camera bookmarks, grid settings, flight speed and orientation visibility. Scene name, unsaved-change marker and Edit/Play state appear above it. Content shows the active project; hover that name for its folder.
+
+## If a saved layout cannot be updated
+
+Layout migration closes its file reader before replacing `workspace.ini` and keeps the original backup. If a lock or permissions problem prevents the update, FORGE continues with the layout it could read, reports the affected path in Console and the launch log, and disables layout saving for that session so the original file is preserved. If it cannot read the layout, it uses the default arrangement for that session. Restart after resolving the reported file problem to retry. Project and scene files are separate from this workspace setting.

@@ -77,16 +77,10 @@ int main(int argc, char** argv) {
         const std::filesystem::path config = preferences;
         SDL_free(preferences);
         ini = (config / "workspace.ini").string();
-        ImGui::GetIO().IniFilename = ini.c_str();
-        if (std::filesystem::exists(ini)) {
-            std::ifstream previous(ini);
-            const std::string text((std::istreambuf_iterator<char>(previous)), {});
-            const auto migrated = forge::ui::migrate_layout(text);
-            if (migrated != text) {
-                forge::atomic_write(config / "workspace-before-layout-update.ini", text);
-                forge::atomic_write(ini, migrated);
-            }
-        }
+        const auto startup_layout = forge::ui::prepare_layout(config / "workspace.ini");
+        forge::ui::load_startup_layout(startup_layout, ini.c_str());
+        if (!startup_layout.warning.empty())
+            std::clog << startup_layout.warning << '\n';
         const auto settings = config / "settings.json";
         char cmake_path[1024] = "cmake";
         char ninja_path[1024] = "ninja";
@@ -188,13 +182,15 @@ int main(int argc, char** argv) {
             message = std::string(e.what()) + ". Opening the Scratch project.";
             open_scratch();
         }
+        if (!startup_layout.warning.empty())
+            message = startup_layout.warning;
         auto native = std::make_unique<forge::NativeBuild>(
             files.document.project(), std::filesystem::path(base) / "sdk", runtime_path);
         native->cmake = cmake_path;
         native->ninja = ninja_path;
         native->auto_build = auto_build;
         auto active_project = files.document.project();
-        bool initialize_layout = !std::filesystem::exists(ini);
+        bool initialize_layout = startup_layout.text.empty();
         forge::Viewport viewport(device);
         forge::EditorCamera camera;
         try {
@@ -872,7 +868,8 @@ int main(int argc, char** argv) {
             gui->Render(context);
             swap->Present(0);
         }
-        ImGui::SaveIniSettingsToDisk(ini.c_str());
+        if (startup_layout.save_enabled)
+            ImGui::SaveIniSettingsToDisk(ini.c_str());
         context->Flush();
         context->WaitForIdle();
     } catch (const std::exception& e) {

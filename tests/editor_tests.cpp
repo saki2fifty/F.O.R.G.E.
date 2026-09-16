@@ -10,6 +10,7 @@
 #include "play.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
+#include "workspace_tests.hpp"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -310,6 +311,7 @@ int main(int argc, char** argv) {
                 test_property_drag(scale, component);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_authoring_input(scale);
+        test_workspace_startup();
         test_transforms();
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_interaction_input(scale);

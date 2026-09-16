@@ -133,3 +133,7 @@ Viewport R/S modal tools support X/Y/Z constraints, numeric entry, transient pre
 Local and Windows validation for this bundle is recorded at delivery. Desktop/GPU acceptance remains a separate user check.
 
 Bundle verification: Windows Release [run35063310841](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35063310841), source `2030a567c66ef231c152c82e404d6a82ce5f989d`, Build **260916-000012**, passed editor/native/API/live/CLI tests, embedded shader compilation and all three executable build-identity checks. Linux and Windows core jobs and formatting passed. The downloaded ZIP passed CRC and manifest/source/build checks and contains the matching 23-page offline manual. New desktop interactions still require user acceptance on a real GPU.
+
+## Build 12 startup regression
+
+Desktop testing found that the workspace migration held its input stream open while replacing `workspace.ini`. Windows rejected the replacement and startup exited; prior tests covered the string migration but missed the real file lifecycle. The fix extracts startup preparation, closes the reader before replacement, retains an existing backup, and loads the converted layout in memory with automatic/exit layout saves disabled if preparation fails. Windows replacement errors now include source/destination paths and the OS error. Regression coverage includes real disk migration/restart, Build 12 backup reuse, backup failure, in-memory settings loading and a Windows-only open-reader reproduction/retry. Windows package validation is recorded below when completed.

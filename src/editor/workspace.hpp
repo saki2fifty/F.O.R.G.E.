@@ -2,6 +2,7 @@
 #include "widgets.hpp"
 #include <cstdio>
 #include <forge/scene.hpp>
+#include <fstream>
 namespace forge::ui {
 // Migrate window sections and docking references together; preserve custom geometry.
 inline std::string migrate_layout(std::string text) {
@@ -22,6 +23,50 @@ inline std::string migrate_layout(std::string text) {
         replace(old_id, new_id);
     }
     return text;
+}
+struct StartupLayout {
+    std::string text, warning;
+    bool save_enabled = true;
+};
+inline StartupLayout prepare_layout(const std::filesystem::path& path) {
+    StartupLayout result;
+    try {
+        if (!std::filesystem::exists(path))
+            return result;
+        std::string original;
+        {
+            // Close the reader before atomic replacement: Windows readers may deny deletion.
+            std::ifstream input(path, std::ios::binary);
+            if (!input)
+                throw std::runtime_error("Cannot read workspace layout");
+            original.assign(std::istreambuf_iterator<char>(input), {});
+            if (input.bad())
+                throw std::runtime_error("Cannot finish reading workspace layout");
+        }
+        result.text = migrate_layout(original);
+        if (result.text != original) {
+            const auto backup = path.parent_path() / "workspace-before-layout-update.ini";
+            if (!std::filesystem::exists(backup))
+                atomic_write(backup, original);
+            else if (!std::filesystem::is_regular_file(backup))
+                throw std::runtime_error("Workspace backup path is not a file");
+            // An existing backup (including one left by Build 12) is retained.
+            atomic_write(path, result.text);
+        }
+    } catch (const std::exception& error) {
+        result.save_enabled = false;
+        const auto name = path.u8string();
+        result.warning =
+            "Workspace layout could not be prepared: " + std::string(name.begin(), name.end()) +
+            ". " + error.what() +
+            ". Layout changes will not be saved this session; the original file is preserved.";
+    }
+    return result;
+}
+inline void load_startup_layout(const StartupLayout& layout, const char* path) {
+    ImGui::GetIO().IniFilename = layout.save_enabled ? path : nullptr;
+    if (!layout.text.empty())
+        ImGui::LoadIniSettingsFromMemory(layout.text.data(), layout.text.size());
 }
 struct Workspace {
     bool hierarchy = true, inspector = true, scene = true, content = true, console = true,

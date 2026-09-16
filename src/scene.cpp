@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 #include <stdexcept>
+#include <system_error>
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -331,7 +332,9 @@ void atomic_write(const std::filesystem::path& path, const std::string& contents
 #ifdef _WIN32
         if (!MoveFileExW(temp.c_str(), path.c_str(),
                          MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-            throw std::runtime_error("Atomic save replacement failed");
+            throw std::filesystem::filesystem_error(
+                "Atomic save replacement failed", temp, path,
+                std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 #else
         std::filesystem::rename(temp, path);
 #endif
