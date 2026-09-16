@@ -88,3 +88,9 @@ Entries are grouped by function. Earlier changes today were reconstructed from t
 - Replaced broad line coverage with a thin pixel filter; muted the gray and axis palette, with subtle major divisions. Replaced the largest-ground-derivative density rule with projected horizontal pixel scale and smoothly disappearing detail levels.
 - Added progressive angle-based fading across the ground and colored axes. Removed the camera-height-driven fade boundary; final distance fading now follows the camera clip range. World-zero alignment, infinite extent and opaque-object occlusion remain.
 - Added rendered-image regressions for line width at two viewport sizes and zoom distances, progressive horizon contrast, and both grid-level transitions. Updated the viewport manual. Windows validation and desktop appearance review remain pending.
+
+### Grid appearance delivery
+
+- Delivered **Build 260916-000017**, source `80f5e5e0080c61cd91b3f9a55da734497d64ff6e`, [run 35132589498](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35132589498). All jobs passed; the compatible Windows cache restored successfully.
+- Actual D3D12 WARP image tests passed (0.71s), including narrow line coverage at 640×400 and 1280×800, zoom, gradual horizon contrast, both grid-level transitions, navigation alignment and occlusion. Windows native/editor/API/live/CLI tests passed (7.41/7.22/0.19/1.33/0.25s), as did all four shader compilations and three executable identities.
+- Visually reviewed actual grid, horizon and panned images before delivery. ZIP CRC, manifest hashes, reserved source/build, x64 executables and 23 matching manual sources/offline HTML identities verified. SHA-256: `727a4d2063f8dad2b899cbd5c5614f587f5a80053e7cb9b5db5d23f025b68006`. User desktop appearance acceptance remains pending; no performance claim is made.
