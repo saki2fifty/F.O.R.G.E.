@@ -48,10 +48,10 @@ Move handles request world translation but write only LocalTranslation. R gestur
 
 Deleting a structural subtree removes its owned descendants. A structurally surviving explicit dependent detaches to World while preserving its affine placement if representable. Otherwise deletion is rejected before mutation. Duplication remaps known internal spatial EntityRefs; external refs and opaque plugin payloads remain unchanged. Undo/redo restores authored channels/bindings and reevaluates derived state in the same world.
 
-The existing native ABI world-displacement callback is adapted through parent-aware local translation. It prepares local translation writes from live membership-scoped Flecs entities, including generated prefab children without authored rows. All results validate before writes. Simultaneously moving parent and child moves the child once; generated handles survive. It does not expose arbitrary transform registration or change caller-stepped runtime timing.
+The existing native ABI world-displacement callback is adapted through parent-aware local translation. It prepares local translation writes from live membership-scoped Flecs entities, including generated prefab children without authored rows. All results validate before writes. Simultaneously moving parent and child moves the child once; generated handles survive. It does not expose arbitrary transform registration or change channel ownership. The callback now runs on the runtime fixed tick.
 
 ## Future ownership
 
-Future physics and animation must provide ordered local pose/input updates through an explicit ownership phase. They must not compete with the transform evaluator by writing WorldTransform. Fixed ticks, pose interpolation, physics/animation integration, Parent-based prefab storage and origin rebasing remain deferred.
+Future physics and animation must provide ordered local pose/input updates through an explicit ownership phase. They must not compete with the transform evaluator by writing WorldTransform. Fixed ticks and derived local-pose interpolation are described in [runtime timing](runtime-timing.md). Physics/animation integration, Parent-based prefab storage and origin rebasing remain deferred.
 
 See [scene-v3](scene-format.md), [authoring API](authoring-api.md), and the [user guide](../manual/editor/transforms.md). Flecs policies were checked against the pinned [ComponentTraits source](https://github.com/SanderMertens/flecs/blob/fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8/docs/ComponentTraits.md).

@@ -19,21 +19,34 @@ class Runtime:
     def __init__(self, executable: Path):
         self.process = subprocess.Popen([str(executable)], stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE, text=True, bufsize=1)
-        self.lines: queue.Queue[str | None] = queue.Queue()
+        self.lines: queue.Queue[str | None] = queue.Queue(maxsize=2)
+        self.session = ""
+        self.request_id = 0
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
+        self.request("hello")
 
     def _read(self):
         try:
-            for line in self.process.stdout:
-                self.lines.put(line)
+            while True:
+                line = self.process.stdout.readline(16 * 1024 * 1024 + 1)
+                if not line:
+                    break
+                if len(line) > 16 * 1024 * 1024:
+                    break
+                self.lines.put_nowait(line)
         finally:
-            self.lines.put(None)
+            try:
+                self.lines.put_nowait(None)
+            except queue.Full:
+                pass
 
     def request(self, command: str, **data):
         if self.process.poll() is not None:
             raise RuntimeError('Runtime process has exited')
-        self.process.stdin.write(json.dumps(dict(protocol=1, command=command, **data))+'\n')
+        self.request_id += 1
+        request = dict(protocol=2, id=self.request_id, session=self.session, command=command, **data)
+        self.process.stdin.write(json.dumps(request)+'\n')
         self.process.stdin.flush()
         try:
             line = self.lines.get(timeout=5)
@@ -43,6 +56,12 @@ class Runtime:
         if line is None:
             raise RuntimeError('Runtime exited during request')
         response = json.loads(line)
+        if response.get('protocol') != 2 or response.get('id') != self.request_id:
+            raise RuntimeError('Invalid/stale runtime response')
+        if command == 'hello':
+            self.session = response.get('session', '')
+        if not self.session or response.get('session') != self.session:
+            raise RuntimeError('Stale runtime session')
         if not response.get('ok'):
             raise RuntimeError(response.get('error', 'Runtime rejected request'))
         return response
@@ -92,6 +111,11 @@ class Session:
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.checkpoint = json.loads((self.project/'main.scene.json').read_text())
         self.active: Path | None = None
+        self.pending: Path | None = None
+        self.paused = True
+        self.prior_paused = True
+        self.activation_generation = 0
+        self.state = 'Idle'
         self.runtime = Runtime(self.runtime_path)
         self.runtime.request('replace', scene=self.checkpoint)
 
@@ -113,48 +137,103 @@ class Session:
             return False, f'Compiler produced no module at {source}'
         target = self.artifacts/('gameplay-'+uuid.uuid4().hex+extension)
         shutil.copy2(source, target)
-        # Candidate runs in an isolated probe before touching the active runtime.
+        # Use representative current state; probe cannot mutate the live runtime.
+        try:
+            representative = self.poll()['scene']
+        except RuntimeError as error:
+            return False, str(error)
         probe = Runtime(self.runtime_path)
         try:
-            probe.request('replace', scene=self.checkpoint)
+            probe.request('replace', scene=representative)
             probe.request('load_module', path=str(target))
-            probe.request('step', seconds=0)
+            probe.request('step')
         except Exception as error:
             return False, f'Candidate validation failed; previous module retained: {error}'
         finally:
             probe.close()
+        return self.activate(target, output)
+
+    def activate(self, target: Path, output=''):
+        """Install an already probed artifact; first LIVE tick commits it."""
         try:
-            self.checkpoint = self.runtime.request('snapshot')['scene']
-            self.runtime.request('load_module', path=str(target))
-        except (RuntimeError, BrokenPipeError, OSError) as error:
-            # Incompatible schema is an explicit restart, not an in-place migration.
-            if 'Play restart required:' in str(error):
+            self.poll()
+            if self.pending:
+                self._rollback(resume=False)  # Supersede, never stack transactions.
+            else:
+                self.prior_paused = self.paused
+            boundary = self.runtime.request('pause')
+            self.paused = True
+            self.checkpoint = boundary['scene']
+            self.pending = target
+            try:
+                loaded = self.runtime.request('load_module', path=str(target))
+            except RuntimeError as error:
+                if 'Play restart required:' not in str(error):
+                    raise
                 self.runtime.close()
                 self.runtime = Runtime(self.runtime_path)
                 self.runtime.request('replace', scene=self.checkpoint)
-                self.runtime.request('load_module', path=str(target))
-                self.active = target
-                return True, f'{error}; restarted play with host-owned scene values'
-            self.recover()
+                loaded = self.runtime.request('load_module', path=str(target))
+                output += '\nSchema changed; restarted play with host-owned scene values'
+            self.activation_generation = loaded['activation']['generation']
+            self.state = 'LoadedPendingFirstTick'
+            if not self.prior_paused:
+                self.runtime.request('resume')
+                self.paused = False
+            return True, output or 'Reload pending first live fixed tick'
+        except (RuntimeError, BrokenPipeError, OSError) as error:
+            self._rollback()
             return False, f'Reload failed; recovered previous checkpoint: {error}'
-        self.active = target
-        return True, output or 'Native module loaded'
 
-    def recover(self):
+    def _observe(self, result):
+        self.paused = result['timing']['paused']
+        activation = result['activation']
+        if self.pending and activation['generation'] == self.activation_generation and activation['state'] == 'active':
+            self.active = self.pending
+            self.pending = None
+            self.state = 'Active'
+        if not self.pending:
+            self.checkpoint = result['scene']
+        return result
+
+    def _rollback(self, resume=True):
         self.runtime.close()
         self.runtime = Runtime(self.runtime_path)
         self.runtime.request('replace', scene=self.checkpoint)
         if self.active:
             self.runtime.request('load_module', path=str(self.active))
+        self.pending = None
+        self.paused = True
+        self.state = 'Failed/Reverted'
+        if resume and not self.prior_paused:
+            self.runtime.request('resume')
+            self.paused = False
 
-    def step(self, seconds=1/60):
+    def recover(self):
+        if not self.pending:
+            self.prior_paused = self.paused
+        self._rollback()
+
+    def _control(self, command):
         try:
-            result = self.runtime.request('step', seconds=seconds)
-            self.checkpoint = result['scene']
-            return result
+            return self._observe(self.runtime.request(command))
         except (RuntimeError, BrokenPipeError, OSError):
             self.recover()
             raise RuntimeError('Play failed; previous module and latest checkpoint restored')
+
+    def poll(self):
+        return self._control('snapshot')
+
+    def pause(self):
+        return self._control('pause')
+
+    def resume(self):
+        return self._control('resume')
+
+    def step(self):
+        if not self.paused:
+            raise RuntimeError('Single Step requires Pause')
+        return self._control('step')
 
     def digest(self):
         digest = hashlib.sha256()
@@ -165,6 +244,8 @@ class Session:
         return digest.hexdigest()
 
     def close(self):
+        self.pending = None
+        self.state = 'Stopped'
         self.runtime.close()
 
 
@@ -195,7 +276,9 @@ def main():
                 print(('BUILD OK: ' if ok else 'BUILD FAILED: ')+log, flush=True)
                 digest = current
             try:
-                session.step()
+                if session.paused:
+                    session.resume()
+                session.poll()
             except RuntimeError as error:
                 print(error,flush=True)
             time.sleep(1/60)

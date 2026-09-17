@@ -79,7 +79,9 @@ class NativeBuild {
         : source_(std::move(project) / "Native"),
           work_(source_.parent_path() / ".forge" / "native"), sdk_(std::move(sdk)),
           runtime_(std::move(runtime)) {}
-    bool busy() const { return phase_ != Phase::Idle; }
+    bool busy() const {
+        return phase_ != Phase::Idle && !(phase_ == Phase::Reload && pending_wait_);
+    }
     bool has_source() const { return std::filesystem::exists(source_ / "CMakeLists.txt"); }
     const std::string& artifact() const { return active_; }
     const std::string& status() const { return status_; }
@@ -114,6 +116,7 @@ class NativeBuild {
         if (busy())
             return;
         try {
+            pending_wait_ = false;
             if (!has_source())
                 throw std::runtime_error("Create gameplay source first");
             std::filesystem::create_directories(work_);
@@ -135,6 +138,9 @@ class NativeBuild {
     }
     void pump(PlaySession& play, const Json& authored) {
         try {
+            pending_wait_ = phase_ == Phase::Reload && play.awaiting_activation_input();
+            if (play.reload_result() == PlaySession::Reload::Succeeded && !play.module().empty())
+                active_ = play.module();
             watch();
             if (phase_ == Phase::Configure || phase_ == Phase::Compile) {
                 std::string output;
@@ -193,9 +199,13 @@ class NativeBuild {
                     status_ = "Switching gameplay at a runtime command boundary.";
                 }
             } else if (phase_ == Phase::Reload) {
+                if (pending_wait_)
+                    status_ =
+                        "Reload pending first tick. Step or Resume to activate; Stop cancels.";
                 if (play.reload_result() == PlaySession::Reload::Succeeded)
                     commit();
-                else if (!play.active() || play.reload_result() == PlaySession::Reload::Failed)
+                else if (!play.active() || play.reload_result() == PlaySession::Reload::Failed ||
+                         play.reload_result() == PlaySession::Reload::Cancelled)
                     throw std::runtime_error("Reload failed; previous artifact retained. " +
                                              play.status());
             }
@@ -269,6 +279,6 @@ class NativeBuild {
     PlaySession probe_;
     Stamp observed_;
     Uint64 scanned_ = 0, changed_ = 0;
-    bool dirty_ = false;
+    bool dirty_ = false, pending_wait_ = false;
 };
 } // namespace forge

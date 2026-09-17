@@ -37,6 +37,10 @@ For perspective, 2500 FPS is 0.40 ms per frame, 2000 FPS is 0.50 ms and 900 FPS 
 
 Open Console and read the latest file/editor message, or runtime status. Compiler output is in Gameplay Code. Native compilation also writes its current complete log to `.forge/native/build.log`. The launchers retain console output on an editor failure.
 
+## Runtime timing
+
+While playing, Console shows **Tick** and **Fixed** (the simulation rate, normally 60 Hz). Tick counts completed gameplay updates, independently of editor FPS. **Dropped** counts whole ticks discarded during overload; **Clamped** shows elapsed seconds excluded after long stalls. These counters can explain lost simulation time without confusing it with render FPS. A fixed timestep alone does not guarantee deterministic gameplay.
+
 ## Report a problem
 
 1. Open **Help → Copy build information** and paste it into your report.

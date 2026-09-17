@@ -412,7 +412,7 @@ int main(int argc, char** argv) {
         require(!play.active(), "Stop failed");
         play.start("/missing-forge-runtime", original);
         require(!play.active(), "Missing runtime accepted");
-        for (const char* mode : {"crash", "malformed", "hang"}) {
+        for (const char* mode : {"crash", "malformed", "hang", "stale_session", "stale_id"}) {
             auto request = original;
             request["test_failure"] = mode;
             play.start(argv[2], request);

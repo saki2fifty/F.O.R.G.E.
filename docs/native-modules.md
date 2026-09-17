@@ -18,28 +18,28 @@ Each successful build is copied to a unique DLL/shared-library path. A disposabl
 The initial host service requests world displacement of host-owned Flecs transforms; the host updates LocalTranslation with parent compensation. This deliberately does not expose raw world pointers. General native component/system registration and migration require a later ABI with registration ownership and lifecycle tests. Do not use v1 for module-owned objects, retained callbacks or background jobs.
 
 ## Runtime protocol v1
-One JSON request and one JSON response per line on stdin/stdout. Each request has `protocol: 1` and `command`. Errors return `ok: false` and `error`; successful responses include `scene`, `schema` and active module identity. They also include `effective_scene`, a Flecs-derived presentation snapshot. `scene` remains the owned/authored checkpoint used for save/reload/recovery; presentation values must not be saved back as overrides. The caller-stepped protocol and ABI version remain unchanged.
-
-Commands: `ping`, `snapshot`, `schema`, `replace` (`scene`), `step` (`seconds`, 0–1), `load_module` (absolute `path`), `save` (`path`), `quit`.
-
-This is a local development protocol. It does not expose a network listener. The native controller bounds request waits to five seconds and discards an unresponsive worker.
+Runtime protocol **2** uses correlated JSON-line requests over process pipes. The runtime owns a fixed 60 Hz clock; `step` means exactly one paused fixed tick, never caller-supplied seconds. `hello` establishes a transient session and each request has an increasing ID. Successful responses separate uninterpolated recovery `scene` from derived `effective_scene`, and report timing and candidate activation state. See [runtime timing and transport](runtime-timing.md) for commands, limits, configuration and backpressure.
 
 ## Editor plugins
 `tools/forge_plugins.py` supplies package staging and startup validation, not a DLL loader. Manifest fields: `id`, `version`, `api_version`, `kind`, `library`, `sha256`; C++ packages also declare `sdk` and `toolchain`. `capabilities` is a list and `dependencies` maps IDs to exact versions.
 
 `stage()` retains the active package; `startup()` validates the prospective dependency graph; the eventual native loader must initialize successfully before `commit_startup()`. `startup(safe_mode=True)` returns no plugins. `disable()` stages a restart change. Do not invoke activation while editor plugins are loaded.
 
-## Native panel
+## Gameplay Code panel
 
 The Windows package includes a minimal SDK and `Run-Forge-Dev.cmd`. With Visual Studio 2022's **Desktop development with C++** workload and **C++ CMake tools** installed, this launcher discovers the compiler using Microsoft's [vswhere workflow](https://github.com/microsoft/vswhere/wiki/Find-VC) and initializes its [x64 developer environment](https://learn.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022). It changes only the launched process environment and does not install tools. CMake 3.24+ and Ninja must be available; the Native panel accepts explicit executable paths.
 
-1. Open **Native** and click **Create source**. This creates `Project/Native/gameplay.cpp` and its CMake project without overwriting existing source or changing your scene.
+1. Open **Gameplay Code** and click **Create source**. This creates `Project/Native/gameplay.cpp` and its CMake project without overwriting existing source or changing your scene.
 2. Click **Build & Reload**. Configure/build run asynchronously; output appears in Console and `Project/.forge/native/build.log`.
 3. Add an entity if needed, then press **Play**. The sample moves positioned entities along X.
 4. Edit `gameplay.cpp` in your code editor. Enable **Build on save**, or click **Build & Reload** again.
 5. A successful compatible change preserves the running scene. A syntax error or invalid candidate retains the previous module.
 
-Every build creates a unique artifact under `Project/.forge/native/modules`. An isolated probe loads the candidate and performs a zero-time tick. Activation then runs at a command boundary in the play process, followed by another zero-time validation tick. Activation failure restores the previous module and the checkpoint taken immediately before replacement. An incompatible identity/schema creates a fresh runtime with the supported host-owned scene transform values. This is constrained ABI v1 reload, not arbitrary C++ object migration. Native callbacks must not retain host pointers or register unmanaged objects, threads, or hooks.
+Every build creates a unique artifact under `Project/.forge/native/modules`. A disposable probe loads it and executes one real fixed tick against representative current state. Probe success does not guarantee all future native behavior. Live replacement first pauses at a tick boundary and acknowledges an authoritative uninterpolated checkpoint. Loading changes activation to **LoadedPendingFirstTick**. Only the first completed live fixed tick commits the candidate as **Active**.
+
+Running sessions resume automatically. Paused sessions display **Reload pending first tick** and wait for Step or Resume; Step still advances exactly one tick and stays paused. Stop cancels pending activation. A newer pending candidate supersedes the prior transaction from the original known-good checkpoint, without stacking transactions. Failure during load or first live tick restarts the previous artifact/checkpoint and restores the prior run/pause policy. The old DLL may already be unloaded; retaining it means preserving the artifact for process recovery. Restart resets the clock accumulator, session and interpolation samples. Python tooling uses the same pending/activation boundary.
+
+An incompatible identity/schema explicitly starts a fresh process with supported host-owned transform values. This is constrained ABI v1 reload, not arbitrary C++ object migration. Native callbacks must not retain host pointers or register unmanaged objects, threads or hooks. The ABI `tick(float seconds)` layout is unchanged; every gameplay invocation now receives the runtime's fixed dt. There is no zero-delta validation path.
 
 A later runtime crash exposes **Recover**, which starts the last completed checkpoint with its module. Recovery is user-triggered to avoid repeatedly running crashing code. **Play/Restart** instead use the authored scene. Neither path modifies authored edits. Editor code and trusted native editor plugins can still crash the editor.
 

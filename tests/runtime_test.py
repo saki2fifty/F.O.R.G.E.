@@ -4,11 +4,20 @@ import sys
 from pathlib import Path
 runtime, module = map(str, map(Path, sys.argv[1:]))
 p = subprocess.Popen([runtime], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+session=''
+sequence=0
 def request(command, **fields):
-    p.stdin.write(json.dumps(dict(protocol=1, command=command, **fields))+'\n')
+    global session,sequence
+    sequence+=1
+    data=dict(protocol=2,id=sequence,session=session,command=command)
+    data.update(fields)
+    p.stdin.write(json.dumps(data)+'\n')
     p.stdin.flush()
-    return json.loads(p.stdout.readline())
+    result=json.loads(p.stdout.readline())
+    if command=='hello': session=result['session']
+    return result
 try:
+    assert request('hello')['ok']
     assert request('ping')['ok']
     assert not request('unknown')['ok']
     example=json.loads((Path(__file__).resolve().parents[1]/'samples/projects/Blockout/main.scene.json').read_text())
@@ -44,9 +53,38 @@ try:
     assert equivalent(expected, migrated)
     assert request('snapshot')['scene']==loaded['scene']
     assert request('load_module', path=module)['ok']
-    stepped = request('step', seconds=0.1)
+    stepped = request('step')
     assert stepped['ok'] and stepped['effective_scene']['version'] == 3
-    assert not request('step', seconds=-1)['ok']
+    assert stepped['timing']['tick']==1 and stepped['timing']['paused']
+    assert stepped['activation']['state']=='active'
+    assert not request('step', seconds=0)['ok']
+    assert not request('step', protocol=1, seconds=.1)['ok']
+    assert not request('resume', session='old-session')['ok']
+    assert not request('resume', id=1)['ok']
+    paused=request('snapshot')
+    import time
+    time.sleep(.08)
+    assert request('snapshot')['timing']['tick']==paused['timing']['tick']
+    assert request('resume')['ok']
+    time.sleep(.15) # No periodic commands: runtime must progress by itself.
+    running=request('snapshot')
+    assert running['timing']['tick']>=paused['timing']['tick']+3
+    assert not request('step')['ok']
+    boundary=request('pause')
+    for i in range(3):
+        r=request('step'); assert r['timing']['paused'] and r['timing']['tick']==boundary['timing']['tick']+i+1
+    # Force response larger than OS pipe capacity; stop reading temporarily.
+    large=r['scene'];large['opaque_padding']='x'*(512*1024)
+    assert request('replace',scene=large)['ok']
+    assert request('resume')['ok']
+    sequence+=1
+    p.stdin.write(json.dumps(dict(protocol=2,id=sequence,session=session,command='snapshot'))+'\n');p.stdin.flush()
+    time.sleep(.25)
+    blocked=json.loads(p.stdout.readline())
+    later=request('pause')
+    assert later['timing']['tick']>=blocked['timing']['tick']+4, (blocked['timing'],later['timing'])
+    assert later['timing']['alpha']==1
+    assert request('snapshot')['scene']==later['scene']
     assert request('ping')['ok']
     assert request('quit')['ok']
     assert p.wait(timeout=5)==0
@@ -54,6 +92,18 @@ finally:
     if p.poll() is None:
         p.kill()
         p.wait()
-# A terminated runtime is recoverable by launching a fresh process.
-result=subprocess.run([runtime],input='{"protocol":1,"command":"quit"}\n',text=True,capture_output=True,timeout=5)
-assert result.returncode==0 and json.loads(result.stdout)['ok']
+# New process has its own transient session; old messages are rejected.
+p = subprocess.Popen([runtime], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+old_session=session
+sequence=0
+try:
+    assert request('hello')['ok'] and session!=old_session
+    assert not request('resume',session=old_session)['ok']
+    assert request('quit')['ok']
+    assert p.wait(timeout=5)==0
+finally:
+    if p.poll() is None: p.kill();p.wait()
+for hz in ('0','-1','241','nan'):
+    result=subprocess.run([runtime,'--simulation-hz',hz],capture_output=True,text=True,timeout=5)
+    assert result.returncode!=0
+print('Protocol v2, autonomous timing, pause/step, blocked output, stale session tests passed')

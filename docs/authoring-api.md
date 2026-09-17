@@ -49,7 +49,7 @@ API 1 and its owning-thread/session/revision checks remain. Discovery's scene ta
 
 ## Phase 3 transform operations
 
-Discovery now includes 20 commands. `transform.position`, `transform.rotation` and `transform.scale` author one **local** channel; rotation remains an Euler-degree input adapter. Legacy property names `forge.position`, `forge.rotation`, `forge.scale` are accepted as input adapters, but discovery uses new canonical `forge.local_translation`, `forge.local_rotation` (XYZW), and `forge.local_scale` property IDs. Old IDs are not reassigned to quaternion semantics. Clients must rediscover schema after changing builds. API envelope 1, runtime protocol 1 and scene format 3 are separate versions.
+Discovery now includes 20 commands. `transform.position`, `transform.rotation` and `transform.scale` author one **local** channel; rotation remains an Euler-degree input adapter. Legacy property names `forge.position`, `forge.rotation`, `forge.scale` are accepted as input adapters, but discovery uses new canonical `forge.local_translation`, `forge.local_rotation` (XYZW), and `forge.local_scale` property IDs. Old IDs are not reassigned to quaternion semantics. Clients must rediscover schema after changing builds. API envelope 1, runtime protocol 2 and scene format 3 are separate versions.
 
 - `transform.local`: `entity` plus one or more of `translation` (XYZ), `rotation` (XYZW), `scale` (XYZ). Only supplied channels become owned. Quaternion input is normalized; zero/nonfinite values reject.
 - `transform.world_translation`: `entity`, world `value` XYZ. Owns translation only.

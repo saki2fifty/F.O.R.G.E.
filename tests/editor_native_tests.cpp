@@ -140,7 +140,8 @@ int main(int argc, char** argv) {
         auto crash_once = "#include <fstream>\n#include <cstdlib>\n" + original;
         crash_once =
             replace(crash_once, "static void tick(const ForgeHostV1* host, float seconds) {",
-                    "static void tick(const ForgeHostV1* host, float seconds) { if (seconds > 0 && "
+                    "static void tick(const ForgeHostV1* host, float seconds) { static int "
+                    "calls=0; if (++calls == 4 && "
                     "!std::ifstream(" +
                         tick_marker + ").good()) { { std::ofstream marker(" + tick_marker +
                         "); marker << 1; } std::abort(); }");
@@ -162,7 +163,98 @@ int main(int argc, char** argv) {
         before = x();
         step_for(100);
         require(x() > before, "Recovered gameplay is not executing");
+        auto wait_until = [&](auto condition, const char* message) {
+            const auto limit = SDL_GetTicks() + 6000;
+            do {
+                pump();
+            } while (!condition() && SDL_GetTicks() < limit);
+            require(condition(),
+                    std::string(message) + ": " + play.status() + " | " + native.status());
+        };
+        play.pause();
+        wait_until([&] { return play.ready() && play.paused(); }, "Pause failed");
+        const auto paused_tick = play.timing().at("tick").get<std::uint64_t>();
+        const auto paused_x = x();
+        step_for(80);
+        require(play.timing().at("tick") == paused_tick && x() == paused_x,
+                "Paused simulation drifted");
+        const auto known_good = native.artifact();
+        forge::atomic_write(source, original);
+        native.build();
+        settle();
+        require(play.pending_activation() && native.artifact() == known_good &&
+                    play.module() == known_good,
+                "Paused load reported active before first tick");
+        require(play.timing().at("tick") == paused_tick && x() == paused_x,
+                "Paused reload advanced state");
+        play.step();
+        wait_until([&] { return !play.pending_activation() && native.artifact() != known_good; },
+                   "Step activation failed");
+        require(play.paused() && play.timing().at("tick") == paused_tick + 1,
+                "Step activation was not exactly one tick");
+        const auto stepped = native.artifact();
+        forge::atomic_write(source, replace(original, "seconds, 0.0f", "2 * seconds, 0.0f"));
+        native.build();
+        settle();
+        require(play.pending_activation(), "Expected pending candidate");
+        // A newer candidate supersedes the unvalidated one from the original checkpoint.
+        const auto superseded_session = play.session();
+        forge::atomic_write(source, replace(original, "seconds, 0.0f", "3 * seconds, 0.0f"));
+        native.build();
+        settle();
+        require(play.pending_activation() && native.artifact() == stepped &&
+                    play.session() != superseded_session,
+                "Pending activation was stacked rather than superseded");
+        play.resume();
+        wait_until(
+            [&] {
+                return !play.pending_activation() && !play.paused() && native.artifact() != stepped;
+            },
+            "Resume activation failed");
+        play.pause();
+        wait_until([&] { return play.paused(); }, "Pause after resume failed");
+        const auto fallback = native.artifact();
+        const auto fallback_x = x();
+        const auto fallback_session = play.session();
+        // Probe tick passes; the first LIVE callback fails, using explicit process state.
+        const auto live_marker = forge::Json((root / "first-live-marker").string()).dump();
+        auto first_live =
+            "#include <fstream>\n#include <cstdlib>\nstatic bool live_process=false;\n" + original;
+        first_live =
+            replace(first_live, "FORGE_EXPORT const ForgeModuleV1* forge_module_v1(void) {",
+                    "FORGE_EXPORT const ForgeModuleV1* forge_module_v1(void) { "
+                    "live_process=std::ifstream(" +
+                        live_marker + ").good(); std::ofstream(" + live_marker + ") << 1;");
+        first_live =
+            replace(first_live, "static void tick(const ForgeHostV1* host, float seconds) {",
+                    "static void tick(const ForgeHostV1* host, float seconds) { if(live_process) "
+                    "std::abort();");
+        forge::atomic_write(source, first_live);
+        native.build();
+        settle();
+        require(play.pending_activation(), "Probe unexpectedly rejected live-only failure");
+        play.step();
+        wait_until(
+            [&] {
+                return play.ready() && play.reload_result() == forge::PlaySession::Reload::Failed &&
+                       !native.busy();
+            },
+            "First live tick did not recover");
+        require(play.paused() && native.artifact() == fallback && play.module() == fallback &&
+                    x() == fallback_x,
+                "First-tick rollback lost previous artifact/checkpoint or paused policy");
+        require(play.session() != fallback_session && play.timing().at("tick") == 0 &&
+                    play.timing().at("alpha") == 1,
+                "Recovery did not reset timing/generation");
+        // Stop cancels a loaded pending candidate without ever invoking gameplay.
+        forge::atomic_write(source, original);
+        native.build();
+        settle();
+        require(play.pending_activation(), "Stop test requires pending candidate");
         play.stop();
+        pump();
+        require(!play.active() && native.artifact() == fallback && !native.busy(),
+                "Stop did not cancel pending activation");
         require(authored.document() == scene, "Gameplay changed authored scene");
         require(std::filesystem::is_regular_file(first), "Previous build artifact was removed");
         std::cout << "Editor native build, reload, rollback, watch and source isolation passed\n";

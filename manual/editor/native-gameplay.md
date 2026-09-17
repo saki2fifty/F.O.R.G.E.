@@ -18,7 +18,9 @@ Edit `Native/gameplay.cpp` in your code editor. Enable **Build on save** to watc
 
 ## Understand reload results
 
-A failed compilation keeps the previous validated module available. Candidates are built as separate artifacts and checked in a worker before activation. Compatible supported changes can preserve the play session; incompatible schema changes restart the play world.
+A failed compilation keeps the previous validated module available. Candidates are built as separate artifacts and checked in a worker with one real fixed tick before live activation. Compatible supported changes can preserve the play session; incompatible schema changes restart the play world.
+
+While paused, a successful load displays **Reload pending first tick**. **Step** validates it with exactly one tick and stays paused; **Resume** validates it through normal running. The previous module remains the known-good artifact until that tick succeeds. A failed first live tick restores the checkpoint and module from before reload, including whether you were paused. **Stop** cancels pending activation; another successful build explicitly supersedes it.
 
 The current interface supports stateless movement callbacks over host-owned transforms, applied through local translation. It does not migrate arbitrary C++ state. Do not retain host pointers or create unmanaged background work in a module.
 

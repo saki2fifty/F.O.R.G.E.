@@ -12,7 +12,7 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 
 ## Current implementation
 - Flecs scene state, stable authored IDs, parent/prefab relationships, reflected position metadata, atomic scene replacement and saves, undo/redo, unknown-component preservation.
-- Headless runtime with a versioned process protocol and a minimal C17-compatible gameplay module ABI.
+- Headless runtime with its own fixed clock, Pause/Step/Resume, derived hierarchical pose interpolation, protocol 2 and a minimal C17-compatible gameplay module ABI.
 - Native C/C++ project generation, incremental CMake builds, source watching, unique module artifacts, isolated candidate probing, constrained reload and runtime checkpoint recovery through a CLI.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
 - Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and a Diligent primitive preview. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.

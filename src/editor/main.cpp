@@ -382,6 +382,22 @@ int main(int argc, char** argv) {
                             "Resume the last completed play checkpoint with its previous module."))
                         perform([&] { play.recover(); });
                     ImGui::EndDisabled();
+                    ImGui::BeginDisabled(!play.control_ready());
+                    if (forge::ui::button(play.paused() ? "Resume" : "Pause",
+                                          "Pause fixed simulation ticks, or resume the runtime "
+                                          "clock. Reload does not accumulate time debt.")) {
+                        if (play.paused())
+                            play.resume();
+                        else
+                            play.pause();
+                    }
+                    ImGui::BeginDisabled(!play.paused());
+                    if (forge::ui::button("Step",
+                                          "While paused, run exactly one fixed simulation tick and "
+                                          "remain paused. Also validates a pending reload."))
+                        play.step();
+                    ImGui::EndDisabled();
+                    ImGui::EndDisabled();
                     ImGui::BeginDisabled(!play.active());
                     if (forge::ui::button("Stop",
                                           "Stop gameplay and return to your authored scene."))
@@ -886,6 +902,20 @@ int main(int argc, char** argv) {
                             "Recent runtime error output, limited to 64 KiB per play session.");
                     }
                     ImGui::TextWrapped("%s", play.status().c_str());
+                    if (play.active()) {
+                        const auto& timing = play.timing();
+                        ImGui::Text(
+                            "Tick: %llu | Fixed: %.0f Hz | Dropped: %llu | Clamped: %.3f s",
+                            static_cast<unsigned long long>(timing.value("tick", std::uint64_t{})),
+                            timing.value("simulation_hz", 60.0),
+                            static_cast<unsigned long long>(
+                                timing.value("dropped_ticks", std::uint64_t{})),
+                            timing.value("clamped_seconds", 0.0));
+                        forge::ui::help(
+                            "Authoritative runtime tick count. Step adds exactly one. Overload "
+                            "drops whole-tick debt; clamped seconds report long stalls. Fixed "
+                            "timing alone does not guarantee deterministic gameplay.");
+                    }
                     forge::ui::help("Play process status. A runtime failure leaves the editor and "
                                     "authored scene available.");
                 }

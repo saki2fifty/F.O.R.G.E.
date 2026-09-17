@@ -92,3 +92,15 @@ Clean Build29 compiled the Windows editor/runtime/tools and all four shaders; Wi
 Clean [Windows run 35173713866](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35173713866), packaged source `e2841c61006891b98b830c857ff7407022144ba3`, passed every job: Windows core10/10, editor/native/process/transform/identity/world/API/live/CLI/WARP9/9, Linux core and formatting. All four shaders compiled and all three Windows executables reported the reserved build ID. The new affine/shear WARP fixture passed projected-face picking and inverse-transpose lighting checks. All27 accepted Build25 render fixtures are byte-identical; the new hierarchy image was visually inspected.
 
 ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executables and23 matching manual source/HTML pages were verified. Package promotion archived Build25 and left only the current ZIP and executable folder; cleanup dry run is a no-op. Interactive desktop acceptance remains the user's check. Phase3 stops here; fixed timestep, structured prefabs and physics/animation remain deferred.
+
+
+## Phase 4 — runtime clock, presentation and native activation
+
+- Runtime owns monotonic time: 60 Hz default, centralized 1..240 Hz runtime option, 250 ms elapsed clamp, eight-tick catch-up cap, counted dropped whole-tick debt and preserved fractional remainder.
+- Explicit Flecs fixed simulation pipeline orders native gameplay and final transforms; presentation interpolates live local translation/quaternion/scale through the shared hierarchy without authoring or simulation writes.
+- Protocol2 adds session/request correlation, removes caller dt, and bounds nonblocking inherited-pipe traffic. Play progresses without editor step requests or continuous output consumption.
+- Toolbar Pause/Resume and single-tick Step; Console tick/rate/debt diagnostics and contextual help. Authored scene and editor camera/UI behavior remain separate.
+- Native ABI1 layout unchanged. Disposable probes run a real fixed tick; live loads remain pending until their first completed fixed tick. Paused reload never advances automatically. First-tick failure restores the previous artifact and boundary checkpoint; Stop cancels, newer candidates supersede, restarted timing/presentation reset.
+- Editor and Python native tooling share pending/active semantics. Tests cover clock math, hierarchy interpolation, independent pipeline dt, paused steps, autonomous progression, blocked output, stale sessions, probe/load/first-tick failure, rollback, supersession and pending Stop. Existing identity, migration, prefab channel ownership, history and UI tests retained.
+- Updated function-based manual and technical runtime/protocol documentation. No scene migration, dependency change, gameplay input mapping, structured prefabs, physics, animation or general SDK added.
+- Local Linux core 11/11 and SDL/ImGui/editor native 2/2 passed during integration; ASan/UBSan/LSan 6/6, Windows-target syntax, manual 3/3, formatting and workflow lint also pass. Actual Windows/render checks and build identity to be recorded after execution. These are automated checks, not Windows desktop acceptance.

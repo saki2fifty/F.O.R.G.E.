@@ -49,7 +49,7 @@ Normal Inspector, API, diagnostics and render reads use `Scene::effective_docume
 
 Existing ChildOf prefab interiors still use Flecs instantiation. When a source prefab or its subtree changes, affected generated interiors are reconciled through Flecs while authored handles survive. Existing Prefab/IsA override semantics remain; v1 input migrates identity and transforms into scene-v3. Parent storage, TreeSpawner assets, stable member IDs and new prefab workflows are not introduced.
 
-Runtime protocol 1 remains caller-stepped. Successful responses retain `scene` as the authored/owned checkpoint and add `effective_scene` as a Flecs-derived presentation snapshot. The editor renders the latter; recovery/reload still uses the former. Commands, step timing, native ABI v1 and process isolation are unchanged. The runtime declares Module before EngineContext, ensuring the world is destroyed before the final DLL unload. The existing bounded stateless v1 replacement rules remain unchanged; this is not general callback-bearing DLL reload.
+Runtime protocol 2 owns a fixed clock and separates uninterpolated `scene` checkpoints from derived/interpolated `effective_scene` presentation. See [runtime timing](runtime-timing.md). Native ABI v1 remains stateless; pending live reload validates on its first real tick. Module outlives EngineContext, while RuntimeSimulation unregisters its systems before scene/world destruction. This is not general callback-bearing DLL reload.
 
 ## Verification
 

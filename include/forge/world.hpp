@@ -48,6 +48,8 @@ class WorldContext {
     std::optional<EntityRef> reference(flecs::entity_t entity) const;
     LocalTransform get_local_transform(flecs::entity entity) const;
     void evaluate_world_transforms();
+    // Effective local poses and spatial graph for derived runtime presentation.
+    std::map<std::uint64_t, TransformNode> transform_nodes() const { return collect_transforms(); }
 
   private:
     friend class Scene;
