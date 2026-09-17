@@ -85,7 +85,7 @@ inline void test_documents() {
     expect_failure([&] { doc->save(); });
     forge::atomic_write(old_path, external.dump());
     doc->save_as(project / "Scenes/copy.scene.json");
-    require(!doc->dirty() && scene.asset_id().str() != edited.at("asset_id") &&
+    require(!doc->dirty() && scene.asset_id().str() != edited.at("asset_id").get<std::string>() &&
                 scene.document()["entities"][0]["components"] ==
                     edited["entities"][0]["components"],
             "Save As did not preserve content with fresh identity");
