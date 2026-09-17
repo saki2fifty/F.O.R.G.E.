@@ -327,16 +327,18 @@ int main(int argc, char** argv) {
         forge::Scene authored(authored_engine.world());
         auto original = authored.document();
         original["entities"].push_back(
-            {{"id", "test"},
+            {{"id", "66666666-6666-4666-8666-666666666666"},
              {"name", "Test"},
              {"components", {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}}}}}});
         authored.replace(original);
         {
             forge::EditorCamera camera;
             const auto before = original;
-            require(camera.frame(original, "test", 0.4f), "Frame selected failed");
+            require(camera.frame(original, "66666666-6666-4666-8666-666666666666", 0.4f),
+                    "Frame selected failed");
             const auto portrait_distance = camera.distance;
-            require(camera.frame(original, "test", 2.0f), "Landscape frame failed");
+            require(camera.frame(original, "66666666-6666-4666-8666-666666666666", 2.0f),
+                    "Landscape frame failed");
             require(portrait_distance > camera.distance, "Framing ignored narrow aspect");
             camera.orbit(130, 70);
             require(camera.frame(original, "", 0.4f), "Fit scene failed");

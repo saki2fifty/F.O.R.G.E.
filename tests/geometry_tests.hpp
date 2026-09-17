@@ -52,7 +52,9 @@ inline void test_geometry() {
     forge::Scene scene(scene_engine.world());
     forge::Json doc = {{"version", 1}, {"entities", forge::Json::array({entity})}};
     scene.replace(doc);
-    require(scene.document() == doc, "New components/unknown data round trip");
+    const auto unchanged_identity = scene.document();
+    require(scene.document() == forge::migrate_scene(doc, &unchanged_identity),
+            "New components/unknown data round trip");
     require(scene.schema()["components"].size() == 5 &&
                 scene.schema()["components"][1]["id"] == "forge.rotation",
             "Reflected transform schema");
@@ -94,7 +96,7 @@ inline void test_geometry() {
     auto handles = scene.world().query<forge::StableId>();
     bool inherited = false;
     handles.each([&](flecs::entity e, const forge::StableId& id) {
-        if (id.value == "instance")
+        if (id.value == scene.canonical_id("instance"))
             inherited = e.has<forge::Rotation>() && !e.owns<forge::Rotation>() &&
                         e.get<forge::Scale>().z == 4;
     });

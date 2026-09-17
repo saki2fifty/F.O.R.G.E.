@@ -6,36 +6,40 @@
 #include "view_state.hpp"
 void require(bool condition, const char* message);
 inline forge::Json authoring_fixture() {
-    return {{"version", 1},
+    return {{"version", 2},
+            {"asset_id", "44444444-4444-4444-8444-444444444444"},
             {"entities",
              forge::Json::array(
-                 {{{"id", "front"},
+                 {{{"id", "11111111-1111-4111-8111-111111111111"},
                    {"name", "Front"},
                    {"components",
                     {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}, {"extra", "keep"}}}}}},
-                  {{"id", "back"},
+                  {{"id", "22222222-2222-4222-8222-222222222222"},
                    {"name", "Child"},
-                   {"parent", "front"},
+                   {"parent", "11111111-1111-4111-8111-111111111111"},
                    {"components", {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 3}}}}}},
-                  {{"id", "side"},
+                  {{"id", "33333333-3333-4333-8333-333333333333"},
                    {"name", "Other"},
                    {"components", {{"forge.position", {{"x", 4}, {"y", 1}, {"z", 0}}}}}}})}};
 }
 inline void test_authoring() {
     forge::EditorCamera camera;
     const auto original = authoring_fixture();
-    require(forge::pick_block(original, camera, 400, 300, 800, 600) == "front",
+    require(forge::pick_block(original, camera, 400, 300, 800, 600) ==
+                "11111111-1111-4111-8111-111111111111",
             "Pick did not choose nearest block");
     require(forge::pick_block(original, camera, 0, 0, 800, 600).empty(),
             "Background pick did not clear");
     require(forge::pick_block(original, camera, -1, 300, 800, 600).empty(), "Picked outside image");
     auto hidden = original;
     hidden["entities"][0]["prefab"] = true;
-    require(forge::pick_block(hidden, camera, 400, 300, 800, 600) == "back", "Prefab was picked");
+    require(forge::pick_block(hidden, camera, 400, 300, 800, 600) ==
+                "22222222-2222-4222-8222-222222222222",
+            "Prefab was picked");
     camera.orbit(100, -40);
     const auto center = forge::project_point(camera, {4, 1, 0}, 900, 700);
-    require(center &&
-                forge::pick_block(original, camera, (*center)[0], (*center)[1], 900, 700) == "side",
+    require(center && forge::pick_block(original, camera, (*center)[0], (*center)[1], 900, 700) ==
+                          "33333333-3333-4333-8333-333333333333",
             "Rotated projection/picking disagree");
     const auto begin = forge::project_point(camera, {0, 1, 0}, 900, 700);
     const auto end = forge::project_point(camera, {0, 1, 2}, 900, 700);
@@ -49,7 +53,7 @@ inline void test_authoring() {
     forge::Scene scene(scene_engine.world());
     scene.reset(original);
     forge::MoveGesture move;
-    require(move.begin(scene, "front", 0), "Move did not start");
+    require(move.begin(scene, "11111111-1111-4111-8111-111111111111", 0), "Move did not start");
     move.update({1.3f, 9, 9}, true, 0.5f);
     require(move.position() == forge::Vec3{1.5f, 1, 0} && scene.document() == original,
             "Move preview changed authoring or failed axis snap");
@@ -61,12 +65,12 @@ inline void test_authoring() {
             "Move was not exactly one undo command");
     scene.redo();
     const auto before_cancel = scene.document();
-    move.begin(scene, "front", -1);
+    move.begin(scene, "11111111-1111-4111-8111-111111111111", -1);
     move.update({-2, 3, 1}, false, 1);
     move.cancel();
     require(scene.document() == before_cancel, "Cancel changed authored state");
-    move.begin(scene, "front", 1);
-    scene.rename_entity("front", "Changed");
+    move.begin(scene, "11111111-1111-4111-8111-111111111111", 1);
+    scene.rename_entity("11111111-1111-4111-8111-111111111111", "Changed");
     bool rejected = false;
     try {
         move.commit(scene);
@@ -75,7 +79,9 @@ inline void test_authoring() {
     }
     require(rejected && !move.active(), "Stale move overwrote scene edits");
     const auto matches = forge::ui::hierarchy_matches(original, "CHILD");
-    require(matches.contains("front") && matches.contains("back") && !matches.contains("side"),
+    require(matches.contains("11111111-1111-4111-8111-111111111111") &&
+                matches.contains("22222222-2222-4222-8222-222222222222") &&
+                !matches.contains("33333333-3333-4333-8333-333333333333"),
             "Hierarchy filter lost ancestors or case matching");
     camera = {};
     camera.fly_speed = 10;
@@ -155,7 +161,7 @@ inline void test_authoring_input(float scale) {
     frame();
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
     frame();
-    require(selected == "front", "LMB did not pick nearest entity");
+    require(selected == "11111111-1111-4111-8111-111111111111", "LMB did not pick nearest entity");
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
     frame();
     io.AddKeyEvent(ImGuiKey_Q, true);
@@ -165,7 +171,7 @@ inline void test_authoring_input(float scale) {
     frame();
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
     frame();
-    require(!tools.move.active() && selected == "front",
+    require(!tools.move.active() && selected == "11111111-1111-4111-8111-111111111111",
             "Select tool acquired a hidden move handle");
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
     frame();
@@ -191,7 +197,9 @@ inline void test_authoring_input(float scale) {
     require(scene.document() == authoring_fixture(), "Mouse drag leaked uncommitted scene edits");
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
     frame();
-    require(!tools.move.active() && (*forge::entity_position(scene.document(), "front"))[0] > 0,
+    require(!tools.move.active() &&
+                (*forge::entity_position(scene.document(),
+                                         "11111111-1111-4111-8111-111111111111"))[0] > 0,
             "Mouse release did not apply move");
     require(scene.undo() && scene.document() == authoring_fixture(), "Mouse drag undo failed");
     io.AddMousePosEvent(origin.x + 400, origin.y + 250);

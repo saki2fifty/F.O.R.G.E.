@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <map>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 namespace forge {

@@ -42,3 +42,7 @@ Core contract tests cover batch rollback, one-step undo/redo, stale/foreign sess
 ## Persistent world implementation
 
 Commands now prepare detached document intent without creating validation worlds. A successful batch commits typed changes once into its existing WorldContext; undo/redo changes content without replacing registrations or unaffected entity handles. Known live reads come from Flecs, with unknown fragments merged only at document/view boundaries. See [World ownership](world-lifetime.md) for lifetime, failure limits and compatibility details. Request formats and scene-v1 meanings are unchanged.
+
+## Persistent scene identity
+
+API 1 and its owning-thread/session/revision checks remain. Discovery's scene target `id` now reports the actual scene AssetId; `session` still guards the active connection, independently of durable identity. Clients should use discovery and the returned `selected` IDs, not assume names such as entity-1. Reads return scene-v2 documents. Legacy v1 `scene.replace` is accepted and normalized into the current scene identity with an explicit legacy alias table; retain the v2 result for future use. File migration remains outside the memory-only automation adapter. See [identity and assets](identity-assets.md).

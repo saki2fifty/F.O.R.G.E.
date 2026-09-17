@@ -95,14 +95,15 @@ class SceneDocument {
             doc = read_json(first);
         else if (!allow_empty || std::filesystem::exists(manifest))
             throw std::runtime_error("Project has no startup scene");
-        scene_.reset(doc.value_or(Json{{"version", 1}, {"entities", Json::array()}}));
+        scene_.reset(doc ? read_scene_file(first) : empty_scene());
         if (candidate)
             lease_ = std::move(candidate);
         ++generation_;
         root_ = next_root;
         name_ = name;
         path_ = first;
-        saved_ = doc.value_or(scene_.document());
+        saved_ = scene_.document();
+        disk_ = doc;
         persisted_ = doc.has_value();
         dirty_ = false;
         seen_ = scene_.revision();
@@ -122,8 +123,7 @@ class SceneDocument {
             std::filesystem::create_directory(stage / "Scenes");
             std::filesystem::create_directory(stage / "Assets");
             std::filesystem::create_directory(stage / "Native");
-            atomic_write(stage / "Scenes/main.scene.json",
-                         Json{{"version", 1}, {"entities", Json::array()}}.dump(2));
+            atomic_write(stage / "Scenes/main.scene.json", empty_scene().dump(2));
             atomic_write(
                 stage / "forge.project.json",
                 Json{{"version", 1}, {"name", name}, {"startup_scene", "Scenes/main.scene.json"}}
@@ -141,10 +141,11 @@ class SceneDocument {
         check_ownership();
         const auto next_path = project_file(root_, path);
         const auto doc = read_json(next_path);
-        scene_.reset(doc);
+        scene_.reset(read_scene_file(next_path));
         ++generation_;
         path_ = next_path;
         saved_ = scene_.document();
+        disk_ = doc;
         persisted_ = true;
         dirty_ = false;
         seen_ = scene_.revision();
@@ -153,9 +154,10 @@ class SceneDocument {
     void new_scene() {
         check_ownership();
         ++generation_;
-        scene_.reset(Json{{"version", 1}, {"entities", Json::array()}});
+        scene_.reset(empty_scene());
         path_.clear();
         saved_.reset();
+        disk_.reset();
         persisted_ = false;
         dirty_ = true;
         seen_ = scene_.revision();
@@ -166,16 +168,24 @@ class SceneDocument {
         const auto next_path = project_file(root_, path);
         if (next_path == path_ && saved_) {
             const bool exists = std::filesystem::exists(path_);
-            if ((persisted_ && !exists) || (exists && read_json(path_) != *saved_))
+            if ((persisted_ && !exists) || (exists && (!disk_ || read_json(path_) != *disk_)))
                 throw std::runtime_error(
                     "Scene changed on disk. Use Save As to preserve both versions");
         }
+        if (next_path != path_ && std::filesystem::exists(next_path))
+            throw std::runtime_error(
+                "Save As needs a new filename; an existing scene has its own identity");
         const auto old_recovery = recovery_path();
-        scene_.save(next_path);
+        const bool copy = persisted_ && next_path != path_;
+        const auto output = copy ? duplicate_scene_asset(scene_.document()) : scene_.document();
+        write_scene_file(next_path, output);
+        if (copy)
+            scene_.reset(output); // New logical asset/history after successful disk commit.
         if (path_ != next_path)
             ++generation_;
         path_ = next_path;
         saved_ = scene_.document();
+        disk_ = saved_;
         persisted_ = true;
         dirty_ = false;
         seen_ = scene_.revision();
@@ -219,7 +229,8 @@ class SceneDocument {
         const auto data = read_json(recovery_path());
         const auto expected = path_.empty() ? "" : path_text(path_.lexically_relative(root_));
         if (data.at("version") != 1 || data.at("scene") != expected ||
-            data.at("base") != (saved_ ? *saved_ : Json{}))
+            (data.at("base") != (saved_ ? *saved_ : Json{}) &&
+             data.at("base") != (disk_ ? *disk_ : Json{})))
             throw std::runtime_error(
                 "Recovery does not match the current disk scene; recovery file preserved");
         scene_.edit(data.at("document"));
@@ -234,6 +245,7 @@ class SceneDocument {
         ++generation_;
         path_.clear();
         saved_.reset();
+        disk_.reset();
         persisted_ = false;
         dirty_ = true;
         seen_ = scene_.revision();
@@ -251,7 +263,7 @@ class SceneDocument {
     std::uint64_t generation_ = 0;
     std::filesystem::path root_, path_;
     std::string name_;
-    std::optional<Json> saved_;
+    std::optional<Json> saved_, disk_;
     std::uint64_t seen_ = 0, autosaved_revision_ = 0;
     bool dirty_ = false, persisted_ = false;
 };

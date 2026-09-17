@@ -25,11 +25,18 @@ try:
         if isinstance(a, (int,float)):
             return math.isclose(a,b,rel_tol=1e-6,abs_tol=1e-6)
         return a==b
-    assert equivalent(example, loaded['scene'])
+    migrated = loaded['scene']
+    assert migrated['version'] == 2 and migrated['asset_id']
+    expected = dict(example, version=2, asset_id=migrated['asset_id'], legacy_ids=migrated['legacy_ids'])
+    for e in expected['entities']:
+        e['id'] = migrated['legacy_ids'][e['id']]
+        for relation in ('parent', 'base'):
+            if relation in e: e[relation] = migrated['legacy_ids'][e[relation]]
+    assert equivalent(expected, migrated)
     assert request('snapshot')['scene']==loaded['scene']
     assert request('load_module', path=module)['ok']
     stepped = request('step', seconds=0.1)
-    assert stepped['ok'] and stepped['effective_scene']['version'] == 1
+    assert stepped['ok'] and stepped['effective_scene']['version'] == 2
     assert not request('step', seconds=-1)['ok']
     assert request('ping')['ok']
     assert request('quit')['ok']

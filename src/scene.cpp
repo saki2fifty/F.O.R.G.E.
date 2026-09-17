@@ -16,12 +16,27 @@
 namespace forge {
 namespace {
 void validate(const Json& doc) {
-    if (!doc.is_object() || doc.value("version", 0) != 1 || !doc.contains("entities") ||
-        !doc.at("entities").is_array())
-        throw std::runtime_error("Expected scene version 1 and an entities array");
+    if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
+        (doc.value("version", 0) != 1 && doc.value("version", 0) != 2) ||
+        !doc.contains("entities") || !doc.at("entities").is_array())
+        throw std::runtime_error("Expected scene version 1 or 2 and an entities array");
+    if (doc.at("version") == 2) {
+        (void)doc.at("asset_id").get<AssetId>();
+        if (doc.contains("legacy_ids")) {
+            if (!doc.at("legacy_ids").is_object())
+                throw std::runtime_error("Invalid legacy alias map");
+            for (const auto& [alias, target] : doc.at("legacy_ids").items()) {
+                if (alias.empty())
+                    throw std::runtime_error("Empty legacy alias");
+                (void)target.get<EntityId>();
+            }
+        }
+    }
     std::map<std::string, const Json*> entities;
     for (const auto& e : doc.at("entities")) {
         const auto id = e.at("id").get<std::string>();
+        if (doc.at("version") == 2)
+            (void)EntityId::parse(id);
         if (id.empty() || !entities.emplace(id, &e).second)
             throw std::runtime_error("Empty or duplicate entity ID");
         if (!e.at("name").is_string() || !e.at("components").is_object())
@@ -30,6 +45,10 @@ void validate(const Json& doc) {
             throw std::runtime_error("Invalid prefab flag");
         detail::validate_components(e.at("components"));
     }
+    if (doc.at("version") == 2 && doc.contains("legacy_ids"))
+        for (const auto& [alias, target] : doc.at("legacy_ids").items())
+            if (entities.contains(alias) && target != alias)
+                throw std::runtime_error("Legacy alias shadows a persistent entity ID");
     for (const char* relation : {"parent", "base"}) {
         std::set<std::string> visiting, done;
         std::function<void(const std::string&)> visit = [&](const std::string& id) {
@@ -84,7 +103,7 @@ Json& find_entity(Json& doc, const std::string& id) {
     for (auto& entity : doc["entities"])
         if (entity.at("id") == id)
             return entity;
-    throw std::runtime_error("Entity no longer exists");
+    throw std::runtime_error("Entity no longer exists: " + id);
 }
 std::set<std::string> subtree(Json& doc, const std::string& id) {
     find_entity(doc, id);
@@ -101,8 +120,8 @@ std::set<std::string> subtree(Json& doc, const std::string& id) {
 } // namespace
 Scene::Scene(WorldContext& context)
     : context_(context), membership_(context.attach()),
-      entities_(context.content_.at(membership_).entities),
-      opaque_({{"version", 1}, {"entities", Json::array()}}) {
+      entities_(context.content_.at(membership_).entities), opaque_(empty_scene()) {
+    context_.content_.at(membership_).asset = opaque_.at("asset_id").get<AssetId>();
     committed();
 }
 Scene::~Scene() { context_.detach(membership_); }
@@ -120,8 +139,14 @@ void Scene::committed() {
     ++revision_;
 }
 flecs::entity Scene::entity(const std::string& id) const {
-    const auto it = entities_.find(id);
+    const auto it = entities_.find(canonical_id(id));
     return world().entity(it == entities_.end() || !world().is_alive(it->second) ? 0 : it->second);
+}
+EntityRef Scene::reference(const std::string& id) const {
+    const auto target = entity(id);
+    if (!target)
+        throw std::runtime_error("Entity no longer exists: " + id);
+    return {asset_id(), target.get<PersistentEntityId>().value};
 }
 std::size_t Scene::entity_count() const {
     std::size_t count = 0;
@@ -131,8 +156,9 @@ std::size_t Scene::entity_count() const {
     }
     return count;
 }
-void Scene::replace(const Json& doc) {
-    validate(doc);
+void Scene::replace(const Json& source) {
+    validate(source);
+    const auto doc = source.at("version") == 1 ? migrate_scene(source, &opaque_) : source;
     struct Intended {
         std::string id, name, parent, base;
         bool prefab;
@@ -295,6 +321,16 @@ void Scene::replace(const Json& doc) {
     };
     for (const auto& next : intended)
         link_base(next.id);
+    auto& content = context_.content_.at(membership_);
+    content.asset = doc.at("asset_id").get<AssetId>();
+    content.persistent.clear();
+    for (const auto& [id, handle] : entities_) {
+        const auto persistent = EntityId::parse(id);
+        auto e = world().entity(handle);
+        if (!e.owns<PersistentEntityId>() || e.get<PersistentEntityId>().value != persistent)
+            e.set<PersistentEntityId>({persistent});
+        content.persistent.emplace(persistent, handle);
+    }
     opaque_ = std::move(opaque);
     committed();
 }
@@ -425,22 +461,15 @@ void atomic_write(const std::filesystem::path& path, const std::string& contents
         throw;
     }
 }
-void Scene::save(const std::filesystem::path& path) const {
-    atomic_write(path, document().dump(2));
-}
+void Scene::save(const std::filesystem::path& path) const { write_scene_file(path, document()); }
 void Scene::load(const std::filesystem::path& path) {
-    std::ifstream input(path);
-    if (!input)
-        throw std::runtime_error("Cannot open scene");
-    Json doc;
-    input >> doc;
-    replace(doc);
+    replace(read_scene_file(path));
     undo_.clear();
     redo_.clear();
 }
 void Scene::edit(const Json& doc) {
     auto before = document();
-    if (before == doc)
+    if (before == (doc.at("version") == 1 ? migrate_scene(doc, &before) : doc))
         return;
     replace(doc);
     undo_.push_back(std::move(before));
@@ -452,30 +481,30 @@ void detail::SceneDraft::rename_entity(const std::string& id, const std::string&
     if (name.empty() || name.find_first_not_of(" \t\r\n") == std::string::npos)
         throw std::runtime_error("Entity name must not be blank");
     auto doc = document();
-    find_entity(doc, id)["name"] = name;
+    find_entity(doc, resolve_legacy_id(doc, id))["name"] = name;
     edit(doc);
 }
 void detail::SceneDraft::reparent_entity(const std::string& id, const std::string& parent) {
     auto doc = document();
-    auto& e = find_entity(doc, id);
+    auto& e = find_entity(doc, resolve_legacy_id(doc, id));
     if (parent.empty())
         e.erase("parent");
     else
-        e["parent"] = parent;
+        e["parent"] = resolve_legacy_id(doc, parent);
     edit(doc); // Existing relationship validation rejects missing parents and cycles.
 }
 std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
     auto doc = document();
-    const auto ids = subtree(doc, id);
+    const auto canonical = resolve_legacy_id(doc, id);
+    const auto ids = subtree(doc, canonical);
     std::set<std::string> occupied;
     for (const auto& e : doc["entities"])
         occupied.insert(e.at("id").get<std::string>());
     std::map<std::string, std::string> remap;
     for (const auto& original : ids) {
-        unsigned suffix = 1;
         std::string copy;
         do {
-            copy = original + "-copy-" + std::to_string(suffix++);
+            copy = EntityId::generate().str();
         } while (!occupied.insert(copy).second);
         remap[original] = copy;
     }
@@ -485,7 +514,7 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
         if (!ids.contains(original))
             continue;
         e["id"] = remap.at(original);
-        if (original == id)
+        if (original == canonical)
             e["name"] = e.at("name").get<std::string>() + " Copy";
         for (const char* relation : {"parent", "base"})
             if (e.contains(relation) && remap.contains(e.at(relation).get<std::string>()))
@@ -495,11 +524,12 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
     for (auto& e : copies)
         doc["entities"].push_back(std::move(e));
     edit(doc);
-    return remap.at(id);
+    return remap.at(canonical);
 }
 void detail::SceneDraft::delete_subtree(const std::string& id) {
     auto doc = document();
-    const auto ids = subtree(doc, id);
+    const auto canonical = resolve_legacy_id(doc, id);
+    const auto ids = subtree(doc, canonical);
     auto remaining = Json::array();
     for (const auto& e : doc["entities"]) {
         if (ids.contains(e.at("id").get<std::string>()))

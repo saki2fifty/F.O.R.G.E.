@@ -59,7 +59,7 @@ void validate_value(const Json& value, const Json& schema, const std::string& pa
 }
 Json& entity(Json& doc, const std::string& id) {
     for (auto& e : doc["entities"])
-        if (e.at("id") == id)
+        if (e.at("id") == resolve_legacy_id(doc, id))
             return e;
     throw CommandError("not_found", "Entity not found: " + id);
 }
@@ -71,10 +71,11 @@ std::string free_id(const Json& doc) {
     std::set<std::string> occupied;
     for (const auto& e : doc.at("entities"))
         occupied.insert(e.at("id").get<std::string>());
-    unsigned n = 1;
-    while (occupied.contains("entity-" + std::to_string(n)))
-        ++n;
-    return "entity-" + std::to_string(n);
+    std::string id;
+    do {
+        id = EntityId::generate().str();
+    } while (occupied.contains(id));
+    return id;
 }
 Json property_schema(const detail::SceneDraft& scene, const std::string& component,
                      const std::string& field) {
@@ -121,7 +122,7 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
     scene.edit(doc);
 }
 Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
-    const auto id = a.value("entity", std::string{});
+    const auto id = resolve_legacy_id(scene.document(), a.value("entity", std::string{}));
     if (!id.empty()) {
         auto doc = scene.document();
         (void)entity(doc, id);
@@ -134,8 +135,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         const auto p = a.value("position", Json{{"x", 0}, {"y", kind == 3 ? 0 : 1}, {"z", 0}});
         doc["entities"].push_back(
             {{"id", created},
-             {"name",
-              a.value("name", std::string(primitive_names[kind]) + " " + created.substr(7))},
+             {"name", a.value("name", std::string(primitive_names[kind]) + " " +
+                                          std::to_string(doc["entities"].size() + 1))},
              {"components",
               {{"forge.position", p},
                {"forge.rotation", {{"x", 0}, {"y", 0}, {"z", 0}}},
@@ -379,7 +380,7 @@ AuthoringSession::AuthoringSession(Scene& scene)
                std::to_string(++next);
 }
 Json AuthoringSession::target() const {
-    return {{"kind", "scene"}, {"id", "session-scene"}, {"session", session_}};
+    return {{"kind", "scene"}, {"id", scene_.asset_id().str()}, {"session", session_}};
 }
 Json AuthoringSession::handle(const Json& request) {
     Json response = {{"api", 1}, {"ok", false}};

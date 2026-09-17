@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
         forge::Scene authored(authored_engine.world());
         auto scene = authored.document();
         scene["entities"].push_back(
-            {{"id", "test"},
+            {{"id", forge::EntityId::generate().str()},
              {"name", "Test"},
              {"components", {{"forge.position", {{"x", 5}, {"y", 123}, {"z", 0}}}}}});
         authored.replace(scene);

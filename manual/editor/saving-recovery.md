@@ -35,3 +35,11 @@ An untitled scene uses one recovery slot per project. **File → Recover untitle
 Save rejects an active scene file changed or deleted outside FORGE. Use Save As with a different filename to preserve your edits, or Reload from disk after deciding what to discard. There is no automatic merge.
 
 Recovery also checks the saved baseline. If it no longer matches, FORGE keeps the snapshot and reports a diagnostic rather than replacing the scene. There is no recovery browser or merge tool yet. Snapshots for other named scenes are discovered when those scenes are opened.
+
+## Older scenes and identity records
+
+Opening an older scene prepares its permanent identifiers without replacing its source file. Keep the neighboring `.forge-identity.json` record until migration is saved; it makes reopen and failed-save retries retain the same identifiers. Save keeps a `.v1.backup` of the original before replacing the scene atomically with format 2.
+
+If an older scene changes externally after its identity record was created, opening it reports a conflict and preserves both files. Do not delete the identity record to force a retry: doing so would lose the assigned identifiers. Restore the matching source and record from your backup/source control, or retain both versions for deliberate reconciliation. Automatic cross-file/plugin reference reconciliation is not implemented.
+
+If saving fails because another program holds the file open, close that program and retry. The editor keeps the current scene, the original disk file, and the identity record. Opening and editing do not change the meaning of existing world-space transforms.

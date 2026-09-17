@@ -38,7 +38,7 @@ Json fixture() {
 }
 const Json& by_id(const Json& doc, const std::string& id) {
     for (const auto& e : doc.at("entities"))
-        if (e.at("id") == id)
+        if (e.at("id") == forge::resolve_legacy_id(doc, id))
             return e;
     throw std::runtime_error("Missing fixture entity");
 }
@@ -95,7 +95,8 @@ void lifetime_and_failure() {
     const auto old_b = scene.entity("b").id();
     scene.delete_subtree("b");
     stable();
-    require(scene.undo() && scene.entity("b").get<forge::StableId>().value == "b",
+    require(scene.undo() &&
+                scene.entity("b").get<forge::StableId>().value == scene.canonical_id("b"),
             "Undo lost v1 identity");
     require(scene.entity("b").id() != old_b, "Deleted handle generation was reused");
     stable();
@@ -170,7 +171,7 @@ void lifetime_and_failure() {
             "Native writes do not invalidate authoring reads");
     const auto doc = scene.document();
     const auto& a = by_id(doc, "a");
-    require(a.at("name") == "Native name" && a.at("parent") == "b" &&
+    require(a.at("name") == "Native name" && a.at("parent") == scene.canonical_id("b") &&
                 a["components"]["forge.position"]["x"] == 20 &&
                 a["components"]["forge.rotation"]["y"] == 31 &&
                 a["components"]["forge.scale"]["z"] == 6 &&
@@ -186,7 +187,8 @@ void lifetime_and_failure() {
     const auto view =
         api.handle({{"api", 1}, {"method", "entity.query"}, {"target", api.target()}});
     require(view.at("ok") &&
-                by_id(view.at("result"), "a")["components"]["forge.position"]["x"] == 20,
+                by_id(view.at("result"),
+                      scene.canonical_id("a"))["components"]["forge.position"]["x"] == 20,
             "API read ignored native state");
     const auto unknown = by_id(scene.document(), "a");
     const auto duplicated = scene.duplicate_subtree("a");
@@ -245,8 +247,10 @@ void prefabs() {
     require(scene.entity("b").id() == instance.id(), "Prefab override replaced instance");
     // Existing ChildOf prefab children remain Flecs-generated runtime content.
     doc = scene.document();
-    auto child = item("child");
-    child["parent"] = "a";
+    const auto child_id = forge::EntityId::generate().str();
+    auto child = item(child_id.c_str());
+    doc["legacy_ids"]["child"] = child_id;
+    child["parent"] = scene.canonical_id("a");
     child["prefab"] = true;
     doc["entities"].push_back(child);
     scene.reset(doc);

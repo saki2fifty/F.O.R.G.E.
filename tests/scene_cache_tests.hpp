@@ -11,7 +11,7 @@ inline void test_scene_cache() {
     for (int i = 0; i < 20; ++i)
         require(&snapshot.effective(scene).at("entities").at(0) == storage,
                 "Unchanged authoring snapshot rebuilt");
-    scene.rename_entity("front", "Renamed");
+    scene.rename_entity("11111111-1111-4111-8111-111111111111", "Renamed");
     require(snapshot.document(scene)["entities"][0]["name"] == "Renamed", "Stale cached name");
     require(scene.undo() && snapshot.document(scene) == first, "Cache missed undo");
     require(scene.redo() && snapshot.document(scene)["entities"][0]["name"] == "Renamed",
@@ -19,7 +19,7 @@ inline void test_scene_cache() {
     auto inherited = authoring_fixture();
     inherited["entities"][0]["prefab"] = true;
     inherited["entities"][1].erase("parent");
-    inherited["entities"][1]["base"] = "front";
+    inherited["entities"][1]["base"] = "11111111-1111-4111-8111-111111111111";
     inherited["entities"][1]["components"] = forge::Json::object();
     scene.reset(inherited);
     require(snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["extra"] ==
@@ -31,7 +31,7 @@ inline void test_scene_cache() {
     require(snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["x"] == 7,
             "Prefab edit did not invalidate effective snapshot");
     const auto cached_revision = scene.revision();
-    scene.entity("front").set<forge::Position>({11, 12, 13});
+    scene.entity("11111111-1111-4111-8111-111111111111").set<forge::Position>({11, 12, 13});
     require(scene.revision() != cached_revision &&
                 snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["x"] == 11,
             "Direct Flecs write left cached inherited view stale");

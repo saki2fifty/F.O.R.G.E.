@@ -38,16 +38,18 @@ int main() {
               "Batch was not one history entry");
         check(scene.redo() && scene.entity_count() == 4, "Batch redo failed");
         auto doc = scene.document();
+        const auto first_id = doc["entities"][0]["id"];
+        const auto second_id = doc["entities"][1]["id"];
         doc["entities"][0]["components"]["missing.extension"] = {{"payload", 42}};
         scene.reset(doc);
         const auto before = scene.document();
         const auto rev = scene.revision();
         const Json rename = {{"operation", "entity.rename"},
-                             {"arguments", {{"entity", "entity-1"}, {"name", "Changed"}}}};
+                             {"arguments", {{"entity", first_id}, {"name", "Changed"}}}};
         const Json bad = {
             {"operation", "property.set"},
             {"arguments",
-             {{"entity", "entity-1"}, {"component", "forge.scale"}, {"field", "x"}, {"value", 0}}}};
+             {{"entity", first_id}, {"component", "forge.scale"}, {"field", "x"}, {"value", 0}}}};
         r = invoke("scene.apply", {{"commands", Json::array({rename, bad})}});
         check(!r.at("ok") && scene.document() == before && scene.revision() == rev && !scene.undo(),
               "Failed batch mutated scene/history");
@@ -63,17 +65,16 @@ int main() {
         check(r.at("ok"), "Rename failed");
         check(scene.document()["entities"][0]["components"]["missing.extension"]["payload"] == 42,
               "Unknown data lost");
-        forge::authoring_command(
-            scene, "transform.scale",
-            {{"entity", "entity-1"}, {"value", {{"x", 2}, {"y", 3}, {"z", 4}}}});
+        forge::authoring_command(scene, "transform.scale",
+                                 {{"entity", first_id}, {"value", {{"x", 2}, {"y", 3}, {"z", 4}}}});
         forge::authoring_command(
             scene, "transform.rotation",
-            {{"entity", "entity-1"}, {"value", {{"x", 25}, {"y", 30}, {"z", 10}}}});
-        forge::authoring_command(scene, "transform.ground", {{"entity", "entity-1"}});
+            {{"entity", first_id}, {"value", {{"x", 25}, {"y", 30}, {"z", 10}}}});
+        forge::authoring_command(scene, "transform.ground", {{"entity", first_id}});
         check(std::abs(forge::object_bounds(scene.document()["entities"][0]).first[1]) < 1e-5,
               "Ground command ignored transform");
         forge::authoring_command(scene, "transform.copy_from",
-                                 {{"entity", "entity-2"}, {"source", "entity-1"}});
+                                 {{"entity", second_id}, {"source", first_id}});
         check(scene.document()["entities"][1]["components"]["forge.scale"]["y"] == 3,
               "Copy from failed");
         const auto query =
@@ -91,16 +92,16 @@ int main() {
         forge::Scene inherited(inherited_engine.world());
         auto d = scene.document();
         d["entities"][0]["prefab"] = true;
-        d["entities"][1]["base"] = "entity-1";
+        d["entities"][1]["base"] = first_id;
         d["entities"][1]["components"].erase("forge.scale");
         inherited.reset(d);
         forge::authoring_command(
             inherited, "property.set",
-            {{"entity", "entity-2"}, {"component", "forge.scale"}, {"field", "x"}, {"value", 7}});
+            {{"entity", second_id}, {"component", "forge.scale"}, {"field", "x"}, {"value", 7}});
         check(inherited.document()["entities"][1]["components"]["forge.scale"]["y"] == 3,
               "Partial override lost inherited siblings");
         forge::authoring_command(inherited, "component.revert",
-                                 {{"entity", "entity-2"}, {"component", "forge.scale"}});
+                                 {{"entity", second_id}, {"component", "forge.scale"}});
         check(!inherited.document()["entities"][1]["components"].contains("forge.scale"),
               "Revert failed");
         check(inherited.effective_document()["entities"][1]["components"]["forge.scale"]["x"] == 2,
@@ -115,13 +116,13 @@ int main() {
                      {{"commands",
                        Json::array(
                            {{{"operation", "entity.rename"},
-                             {"arguments", {{"entity", "entity-2"}, {"name", unicode_name}}}}})}})
+                             {"arguments", {{"entity", second_id}, {"name", unicode_name}}}}})}})
                   .at("ok"),
               "UTF-8 length counted bytes instead of code points");
         // A semantic no-op does not consume a revision/history entry.
         const auto no_op = scene.revision();
         forge::authoring_command(scene, "entity.rename",
-                                 {{"entity", "entity-1"}, {"name", "Changed"}});
+                                 {{"entity", first_id}, {"name", "Changed"}});
         check(scene.revision() == no_op, "No-op consumed revision");
         std::cout << "authoring API transactions, reflection, diagnostics, ownership and "
                      "inheritance passed\n";

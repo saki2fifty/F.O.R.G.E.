@@ -38,7 +38,7 @@ inline void test_documents() {
     const auto original = scene.document();
     auto edited = original;
     edited["entities"].push_back(
-        {{"id", "test"},
+        {{"id", "55555555-5555-4555-8555-555555555555"},
          {"name", "Test"},
          {"components",
           {{"forge.position", {{"x", 1}, {"y", 2}, {"z", 3}}}, {"unknown", {{"keep", true}}}}}});
@@ -85,7 +85,11 @@ inline void test_documents() {
     expect_failure([&] { doc->save(); });
     forge::atomic_write(old_path, external.dump());
     doc->save_as(project / "Scenes/copy.scene.json");
-    require(!doc->dirty() && scene.document() == edited, "Save As lost authored state");
+    require(!doc->dirty() && scene.asset_id().str() != edited.at("asset_id") &&
+                scene.document()["entities"][0]["components"] ==
+                    edited["entities"][0]["components"],
+            "Save As did not preserve content with fresh identity");
+    const auto copy_id = scene.document()["entities"][0]["id"].get<std::string>();
     doc->new_scene();
     require(doc->path().empty() && doc->dirty() && !scene.undo(),
             "New scene carried history or a filename");
@@ -107,7 +111,7 @@ inline void test_documents() {
     doc = std::make_unique<forge::SceneDocument>(scene);
     doc->open_project(project);
     doc->open_scene(project / "Scenes/copy.scene.json");
-    scene.rename_entity("test", "Dirty");
+    scene.rename_entity(copy_id, "Dirty");
     doc->autosave();
     forge::atomic_write(doc->recovery_path(), "invalid");
     const auto before_bad_recovery = scene.document();
@@ -119,7 +123,7 @@ inline void test_documents() {
     std::vector<std::string> recent;
     forge::EditorFiles files(scene, nullptr, recent);
     files.start(project);
-    scene.rename_entity("test", "Pending");
+    scene.rename_entity("55555555-5555-4555-8555-555555555555", "Pending");
     files.request({forge::EditorFiles::Command::Quit, {}, {}});
     require(!files.quit && files.busy(), "Dirty quit bypassed save guard");
     files.resolve_pending(forge::EditorFiles::Resolution::Cancel);
@@ -130,7 +134,7 @@ inline void test_documents() {
                 forge::read_json(project / "Scenes/main.scene.json")["entities"][0]["name"] ==
                     "Pending",
             "Save-and-continue did not save before switching");
-    scene.rename_entity("test", "Keep on failed open");
+    scene.rename_entity(copy_id, "Keep on failed open");
     files.document.autosave();
     files.request({forge::EditorFiles::Command::OpenScene, project / "broken.json", {}});
     files.resolve_pending(forge::EditorFiles::Resolution::Discard);
@@ -148,4 +152,59 @@ inline void test_documents() {
     expect_failure([&] { files.document.open_scene(project / ".forge/recovery-invalid.json"); });
     require(recent.size() == 1 && recent[0] == forge::path_text(files.document.project()),
             "Recent projects not recorded");
+    // Real editor lifecycle for legacy migration, recovery and Save As publication failure.
+    const auto legacy_project = root / "Legacy";
+    forge::SceneDocument::create_project(legacy_project, "Legacy");
+    const auto legacy_path = legacy_project / "Scenes/main.scene.json";
+    const auto legacy_id = std::string("old-object");
+    const forge::Json v1 = {
+        {"version", 1},
+        {"entities",
+         forge::Json::array({{{"id", legacy_id},
+                              {"name", "Before"},
+                              {"components", {{"plugin.missing", {{"entity", legacy_id}}}}}}})}};
+    forge::atomic_write(legacy_path, v1.dump());
+    forge::Json assigned;
+    {
+        forge::EngineContext legacy_engine;
+        forge::Scene legacy_scene(legacy_engine.world());
+        forge::SceneDocument legacy_document(legacy_scene);
+        legacy_document.open_project(legacy_project);
+        assigned = legacy_scene.document();
+        require(!legacy_document.dirty() && forge::read_json(legacy_path) == v1,
+                "Opening legacy file dirtied or replaced source");
+        auto recovery = v1;
+        recovery["entities"][0]["name"] = "Recovered";
+        forge::atomic_write(
+            legacy_document.recovery_path(),
+            forge::Json{{"version", 1},
+                        {"scene", forge::path_text(legacy_path.lexically_relative(legacy_project))},
+                        {"base", v1},
+                        {"document", recovery}}
+                .dump());
+        legacy_document.recover();
+        require(legacy_scene.document()["entities"][0]["id"] == assigned["entities"][0]["id"] &&
+                    legacy_scene.document()["entities"][0]["name"] == "Recovered",
+                "Legacy recovery changed assigned identity or lost content");
+        require(legacy_scene.undo() && !legacy_document.dirty(), "Legacy recovery undo failed");
+        legacy_document.discard_recovery();
+        const auto destination = legacy_project / "Scenes/failed-copy.scene.json";
+        std::filesystem::create_directory(destination.string() + ".pending");
+        expect_failure([&] { legacy_document.save_as(destination); });
+        require(legacy_document.path() == legacy_path && legacy_scene.document() == assigned &&
+                    !std::filesystem::exists(destination),
+                "Failed Save As changed live identity/path");
+    }
+    {
+        forge::EngineContext legacy_engine;
+        forge::Scene legacy_scene(legacy_engine.world());
+        forge::SceneDocument legacy_document(legacy_scene);
+        legacy_document.open_project(legacy_project);
+        require(legacy_scene.document() == assigned, "Project reopen regenerated legacy UUIDs");
+        legacy_document.save();
+        require(forge::read_json(legacy_path) == assigned && !legacy_document.dirty(),
+                "Save did not persist retained migration");
+        require(forge::read_json(legacy_path.string() + ".v1.backup") == v1,
+                "Original backup lost");
+    }
 }

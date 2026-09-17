@@ -1,0 +1,150 @@
+#include <forge/scene.hpp>
+#include <forge/scene_identity.hpp>
+#include <fstream>
+#include <set>
+namespace forge {
+namespace {
+Json read(const std::filesystem::path& path) {
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream)
+        throw std::runtime_error("Cannot read scene identity/source: " + path.string());
+    return Json::parse(stream);
+}
+std::filesystem::path sibling(const std::filesystem::path& path, const char* suffix) {
+    auto result = path;
+    result += suffix;
+    return result;
+}
+} // namespace
+Json empty_scene() {
+    return {{"version", 2}, {"asset_id", AssetId::generate()}, {"entities", Json::array()}};
+}
+std::string resolve_legacy_id(const Json& document, const std::string& id) {
+    if (document.contains("legacy_ids") && document.at("legacy_ids").contains(id))
+        return document.at("legacy_ids").at(id).get<std::string>();
+    return id;
+}
+Json migrate_scene(const Json& source, const Json* existing) {
+    Scene::validate_document(source);
+    if (source.at("version") == 2)
+        return source;
+    if (source.contains("asset_id") || source.contains("legacy_ids"))
+        throw std::runtime_error(
+            "Legacy scene uses reserved v2 identity fields; original preserved");
+    auto result = source;
+    result["version"] = 2;
+    result["asset_id"] = existing ? existing->at("asset_id") : Json(AssetId::generate());
+    auto aliases = existing ? existing->value("legacy_ids", Json::object()) : Json::object();
+    std::set<std::string> occupied;
+    for (const auto& value : aliases)
+        occupied.insert(value.get<std::string>());
+    for (const auto& entity : source.at("entities")) {
+        const auto old = entity.at("id").get<std::string>();
+        if (!aliases.contains(old)) {
+            std::string id;
+            do {
+                id = EntityId::generate().str();
+            } while (!occupied.insert(id).second);
+            aliases[old] = id;
+        }
+    }
+    for (auto& entity : result["entities"]) {
+        entity["id"] = aliases.at(entity.at("id").get<std::string>());
+        for (const char* relation : {"parent", "base"})
+            if (entity.contains(relation))
+                entity[relation] = aliases.at(entity.at(relation).get<std::string>());
+    }
+    result["legacy_ids"] = std::move(aliases);
+    Scene::validate_document(result);
+    return result;
+}
+Json duplicate_scene_asset(const Json& source) {
+    Scene::validate_document(source);
+    if (source.at("version") != 2)
+        throw std::runtime_error("Migrate the scene before duplicating its asset");
+    auto result = source;
+    result["asset_id"] = AssetId::generate();
+    std::map<std::string, std::string> remap;
+    std::set<std::string> allocated;
+    for (const auto& entity : source.at("entities"))
+        allocated.insert(entity.at("id"));
+    // Retain missing legacy targets as missing, without aliasing the source's entities.
+    const auto source_aliases = source.value("legacy_ids", Json::object());
+    for (const auto& [alias, id] : source_aliases.items()) {
+        (void)alias;
+        allocated.insert(id.get<std::string>());
+    }
+    auto fresh = [&](const std::string& old) {
+        if (!remap.contains(old)) {
+            std::string id;
+            do {
+                id = EntityId::generate().str();
+            } while (!allocated.insert(id).second);
+            remap[old] = id;
+        }
+        return remap.at(old);
+    };
+    for (auto& entity : result["entities"])
+        entity["id"] = fresh(entity.at("id"));
+    std::map<EntityId, EntityId> typed_remap;
+    for (const auto& [old, id] : remap)
+        typed_remap.emplace(EntityId::parse(old), EntityId::parse(id));
+    for (auto& entity : result["entities"])
+        for (const char* relation : {"parent", "base"})
+            if (entity.contains(relation))
+                entity[relation] =
+                    remap_entity_ref(
+                        {source.at("asset_id").get<AssetId>(), entity.at(relation).get<EntityId>()},
+                        source.at("asset_id").get<AssetId>(), result.at("asset_id").get<AssetId>(),
+                        typed_remap)
+                        .entity;
+    if (result.contains("legacy_ids"))
+        for (auto& id : result["legacy_ids"])
+            id = fresh(id.get<std::string>());
+    Scene::validate_document(result);
+    return result;
+}
+Json read_scene_file(const std::filesystem::path& path) {
+    auto source = read(path);
+    Scene::validate_document(source);
+    if (source.at("version") == 2)
+        return source;
+    const auto journal_path = sibling(path, ".forge-identity.json");
+    if (std::filesystem::exists(journal_path)) {
+        const auto journal = read(journal_path);
+        if (journal.at("version") != 1 || journal.at("source") != source)
+            throw std::runtime_error(
+                "Legacy scene differs from its identity record: " + path.string() +
+                ". Preserve both files and resolve the conflict before migration.");
+        const auto result = journal.at("document");
+        Scene::validate_document(result);
+        if (migrate_scene(source, &result) != result)
+            throw std::runtime_error("Invalid scene identity record: " + journal_path.string());
+        return result;
+    }
+    const auto result = migrate_scene(source);
+    atomic_write(journal_path,
+                 Json{{"version", 1}, {"source", source}, {"document", result}}.dump(2));
+    return result;
+}
+void write_scene_file(const std::filesystem::path& path, const Json& document) {
+    Scene::validate_document(document);
+    if (document.at("version") != 2)
+        throw std::runtime_error("Save requires a migrated scene");
+    if (std::filesystem::exists(path)) {
+        const auto source = read(path);
+        if (source.value("version", 0) == 1) {
+            const auto backup = sibling(path, ".v1.backup");
+            if (std::filesystem::exists(backup)) {
+                if (read(backup) != source)
+                    throw std::runtime_error("Legacy backup differs; save aborted: " +
+                                             backup.string());
+            } else {
+                // Preserve the original bytes, including unknown fields and formatting.
+                std::filesystem::copy_file(path, backup);
+            }
+        }
+    }
+    atomic_write(path, document.dump(2));
+}
+} // namespace forge

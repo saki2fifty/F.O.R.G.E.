@@ -22,7 +22,9 @@ int main(int argc, char** argv) {
                                    {{"forge.position", {{"x", 0.0}, {"y", 1.0}, {"z", 2.0}}},
                                     {"missing.plugin", {{"value", 42}}}}}}})}};
         scene.replace(doc);
-        check(scene.document() == doc, "round trip with unknown component");
+        const auto snapshot = scene.document();
+        check(scene.document() == forge::migrate_scene(doc, &snapshot),
+              "round trip with unknown component");
         for (const char* axis : {"x", "y", "z"}) {
             const auto member = scene.world().component<forge::Position>().lookup(axis);
             check(member.is_alive(), "documented reflection member must exist");
@@ -62,9 +64,11 @@ int main(int argc, char** argv) {
             child["parent"] = "player";
             hierarchy["entities"].push_back(child);
             authored.replace(hierarchy);
+            const auto expected_hierarchy = authored.document();
             authored.rename_entity("player", "Hero");
-            check(authored.document()["entities"][0]["id"] == "player", "rename preserves ID");
-            check(authored.undo() && authored.document() == hierarchy, "rename undo");
+            check(authored.document()["entities"][0]["id"] == authored.canonical_id("player"),
+                  "rename preserves ID");
+            check(authored.undo() && authored.document() == expected_hierarchy, "rename undo");
             check(authored.redo(), "rename redo");
             const auto before = authored.document();
             for (const auto& parent : {"child", "missing", "player"}) {
@@ -98,12 +102,13 @@ int main(int argc, char** argv) {
             prefab_doc["entities"][1].erase("parent");
             prefab_doc["entities"][1]["base"] = "player";
             authored.replace(prefab_doc);
+            const auto expected_prefab = authored.document();
             try {
                 authored.delete_subtree("player");
                 throw std::logic_error("deleted referenced prefab");
             } catch (const std::runtime_error&) {
             }
-            check(authored.document() == prefab_doc,
+            check(authored.document() == expected_prefab,
                   "referenced prefab deletion leaves scene intact");
             prefab_doc["entities"][1]["parent"] = "player";
             try {
@@ -133,10 +138,11 @@ int main(int argc, char** argv) {
         auto moved = doc;
         moved["entities"][0]["components"]["forge.position"]["x"] = 5;
         scene.edit(moved);
+        const auto expected_moved = scene.document();
         check(scene.undo(), "undo exists");
-        check(scene.document() == doc, "undo state");
+        check(scene.document() == snapshot, "undo state");
         check(scene.redo(), "redo exists");
-        check(scene.document() == moved, "redo state");
+        check(scene.document() == expected_moved, "redo state");
         auto invalid = moved;
         invalid["entities"].push_back(invalid["entities"][0]);
         try {
@@ -144,7 +150,7 @@ int main(int argc, char** argv) {
             throw std::logic_error("accepted duplicate");
         } catch (const std::runtime_error&) {
         }
-        check(scene.document() == moved, "invalid edit leaves scene intact");
+        check(scene.document() == expected_moved, "invalid edit leaves scene intact");
         invalid = moved;
         invalid["entities"][0]["parent"] = "player";
         try {
@@ -158,7 +164,7 @@ int main(int argc, char** argv) {
         forge::EngineContext restored_engine;
         forge::Scene restored(restored_engine.world());
         restored.load(path);
-        check(restored.document() == moved, "disk round trip");
+        check(restored.document() == expected_moved, "disk round trip");
         std::filesystem::remove(path);
         forge::Module module;
         module.load(std::filesystem::absolute(argv[1]));

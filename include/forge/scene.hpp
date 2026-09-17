@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
+#include <forge/scene_identity.hpp>
 #include <forge/world.hpp>
 #include <map>
 #include <memory>
@@ -17,6 +18,10 @@ class Scene {
     Scene& operator=(const Scene&) = delete;
     flecs::world& world() const { return context_.world(); }
     flecs::entity entity(const std::string& id) const;
+    AssetId asset_id() const { return context_.content_.at(membership_).asset; }
+    flecs::entity_t membership() const { return membership_; }
+    std::string canonical_id(const std::string& id) const { return resolve_legacy_id(opaque_, id); }
+    EntityRef reference(const std::string& id) const;
     Json effective_document() const;
     // Detached command/gesture projection; never a mutable live representation.
     Json preview_document(const Json& intended) const;
