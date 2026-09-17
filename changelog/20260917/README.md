@@ -236,3 +236,13 @@ Phase6A implementation and automated validation are complete. Ordinary authoring
 Corrected-source local validation passed: static **18/18**, shared SDK **22/22**, SDL/editor/process **2/2**, instrumented Jolt/Flecs/FORGE sanitizer **15/15**, shared SDK/physics/recovery sanitizer **5/5**, manual **3/3**, C17 headers, formatting and workflow checks. Windows clean-build validation follows; Build41 stays withheld.
 
 Final boundary review also adds checkpoint rejection for unsynchronized world-pose changes after adoption, including movement inherited through a nonphysics parent. The regression verifies that capture succeeds again after a supported fixed-tick synchronization. This prevents mixing new scene transforms with old solver placement without changing the recovery format.
+
+### Phase 6B verified delivery — Build 260917-000043
+
+Source `92e13a4`, final [run35249791138](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35249791138), passed every job. Windows/Linux static **18/18** and shared SDK **22/22** passed; Windows editor/process **2/2**, remaining physics/runtime/viewport **16/16**, shaders and all three executable build IDs passed. The editor cache had no compatible entry, so this final build compiled from scratch. All **29** viewport images are byte-identical to delivered Build40.
+
+Final-source local tests passed: static **18**, shared SDK **22**, SDL/editor/process **2**, instrumented Jolt/Flecs/FORGE sanitizer **15**, shared SDK/physics/recovery sanitizer **5**, manual **3**, plus C17 boundary headers, formatting and workflow checks. The new regression set rejects the original divergence case before simulation and covers supported hierarchy alternatives, prefab updates, recovery reconstruction, structured replacement diagnostics, target ordering, scale ownership and completed-boundary capture.
+
+Verified ZIP CRC and every manifest hash, three x64 executables, **27** matching manual pages, exact source/build identity and Jolt license. Windows/Linux experimental SDK archives contain the expected shared Flecs runtime, physics headers and license, with executable/symlink/CRT packaging checks. ZIP SHA256: `422357847a634ba0a2e72af70cfcd82916a381a1c3acc934d309611e00062d13`.
+
+Build41 remains withheld. Build42 passed core/SDK CI but its unfinished editor build was canceled after the capture guard required a new source identity. Build43 is the delivered package. Build40 is archived; package cleanup leaves only the current numbered ZIP and extracted editor. Interactive desktop acceptance remains for the user. **Phase 6B complete; stop before Phase 6C.**

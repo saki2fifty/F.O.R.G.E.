@@ -1,8 +1,18 @@
 # Implementation status
 
-**Phase 6B corrections are under final validation.** The approved initial physics-ancestry restriction and target synchronization/scale checks are implemented with regression coverage. Build41 remains withheld; Build40 remains the delivered package until the corrected source passes full validation and packaging. See [Physics](physics.md). No Phase6C work is included.
+**Current delivery: Build 260917-000043 — Phase 6B Jolt physics foundation.** Physics authoring, runtime simulation, exact-SDK access and private physics-aware recovery are implemented and automatically validated. See [Physics](physics.md), the [user guide](../manual/editor/physics.md), and the [daily changelog](../changelog/20260917/README.md#phase-6b-verified-delivery--build-260917-000043). Earlier sections retain historical evidence.
 
-**Current delivery: Build 260917-000040 — Phase 6A module / gameplay SDK foundation.** See [engine modules](engine-modules.md) and [verified delivery evidence](../changelog/20260917/README.md#phase6a-verified-delivery--build-260917-000040). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
+## Phase 6B — verified foundation
+
+Jolt5.6.0 is pinned exactly and isolated behind engine-owned components and a runtime-only module/service. Static/Kinematic/Dynamic bodies, Box/Sphere/Capsule colliders, fixed-step synchronization, raycasts, movement targets, reflected Inspector/prefab operations and project gravity are available. Recovery reconstructs and validates configuration/body mapping before restoring bounded Jolt state into an unpublished candidate. ABI1 and authored scene/identity formats remain unchanged.
+
+The approved initial ancestry rule rejects separate Static/Kinematic bodies whose effective spatial chain reaches a Dynamic body. It follows Explicit/transitive links and World boundaries, preserves hierarchy/local channels, and keeps visual children and supported non-Dynamic ancestry. Queued targets are validated before mutation and cannot silently override LocalScale. Checkpoint capture rejects unsynchronized configuration or pose changes.
+
+Final [run35249791138](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35249791138), source `92e13a4`, passed Windows/Linux static **18/18** and shared SDK **22/22**, Windows process/editor **2/2**, remaining physics/runtime/viewport suites **16/16**, shaders and three executable build identifiers. No compatible editor cache existed, so the final editor build compiled from scratch. All **29** viewport fixtures match Build40 byte-for-byte. Local core/SDK/editor, sanitizer **15+5**, manual **3/3**, C17 headers, format and workflow checks passed.
+
+ZIP checksums/manifest, three x64 executables, **27** matching manual source/HTML pages, dependency licenses and separate Windows/Linux SDK archives are verified. Build40 is archived; only the current ZIP and executable folder remain in packages. Build41 was withheld for the ancestry issue; Build42 was superseded by the final completed-boundary capture guard. Interactive Windows acceptance remains the user's check.
+
+**Phase 6B is complete. Stop before Phase 6C.** Advanced physics, compound attachments/joints, save games, audio, animation, navigation and runtime UI remain deferred.
 
 ## Phase 6A — verified foundation
 
