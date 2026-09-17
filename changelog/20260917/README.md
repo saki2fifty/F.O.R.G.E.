@@ -85,3 +85,10 @@ Synchronized the Scenes, first-scene tutorial, Viewport, Diagnostics and native 
 ### Windows fixture validation
 
 Clean Build29 compiled the Windows editor/runtime/tools and all four shaders; Windows core10/10 and editor/native/input/transform/identity/world/API suites passed. The new WARP fixture failed before drawing its new hierarchy because its `entity.create` setup passed JSON null instead of an empty object. Corrected to explicit `Json::object()` and executed the complete fixture setup, picking and two-normal coverage locally. The existing27 render images were produced; the new GPU lighting assertion still requires the replacement Windows run. Build30 was cancelled before packaging because it contained the same test setup. No failed ZIP was delivered.
+
+
+### Phase 3 verified delivery — Build 260917-000031
+
+Clean [Windows run 35173713866](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35173713866), packaged source `e2841c61006891b98b830c857ff7407022144ba3`, passed every job: Windows core10/10, editor/native/process/transform/identity/world/API/live/CLI/WARP9/9, Linux core and formatting. All four shaders compiled and all three Windows executables reported the reserved build ID. The new affine/shear WARP fixture passed projected-face picking and inverse-transpose lighting checks. All27 accepted Build25 render fixtures are byte-identical; the new hierarchy image was visually inspected.
+
+ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executables and23 matching manual source/HTML pages were verified. Package promotion archived Build25 and left only the current ZIP and executable folder; cleanup dry run is a no-op. Interactive desktop acceptance remains the user's check. Phase3 stops here; fixed timestep, structured prefabs and physics/animation remain deferred.

@@ -185,3 +185,10 @@ Build 22 was superseded before dispatch, Build 23 before delivery for exact scen
 Current source uses independent authored LocalTranslation/LocalRotation/LocalScale and transient instance-owned WorldTransform. Spatial binding separates FollowStructure, World and Explicit from structural ChildOf. Scene-v3 migration preserves IDs, independent prefab channel ownership and old world-space parent behavior. New parenting preserves placement and follows the parent. Shared authoring conversion handles gestures, compensation, cycles, deletion and shear rejection; renderer/picker consume full affine transforms. See [technical contracts](transforms.md) and [user guide](../manual/editor/transforms.md). Earlier sections record historical behavior.
 
 Local validation and final Windows delivery evidence are recorded in the daily changelog. Phase 4 timing, structured prefab work, physics/animation and dependency changes remain outside this phase.
+
+
+### Phase 3 verified delivery — Build 260917-000031
+
+Clean [Windows run 35173713866](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35173713866), packaged source `e2841c61006891b98b830c857ff7407022144ba3`, passed every job: Windows core10/10, editor/native/process/transform/identity/world/API/live/CLI/WARP9/9, Linux core and formatting. All four shaders compiled and all three Windows executables reported the reserved build ID. The new affine/shear WARP fixture passed projected-face picking and inverse-transpose lighting checks. All27 accepted Build25 render fixtures are byte-identical; the new hierarchy image was visually inspected.
+
+ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executables and23 matching manual source/HTML pages were verified. Package promotion archived Build25 and left only the current ZIP and executable folder; cleanup dry run is a no-op. Interactive desktop acceptance remains the user's check. Phase3 stops here; fixed timestep, structured prefabs and physics/animation remain deferred.
