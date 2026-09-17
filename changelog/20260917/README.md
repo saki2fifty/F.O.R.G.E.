@@ -34,8 +34,14 @@
 ## Windows test portability
 
 - Corrected a Save As regression assertion to compare explicit strings on MSVC, avoiding a mixed string/JSON C++20 overload-resolution error. Product behavior is unchanged.
-- Build260917-000024 passed Linux/Windows core9/9 and formatting, and compiled the editor product, but the editor test target failed on that assertion. No package24 was delivered.
+- Build260917-000024 passed Linux/Windows core9/9 and formatting, and compiled editor source files, but the editor test target failed on that assertion. No package24 was delivered.
 
 ## Validation
 
-Local Linux core/API/runtime/native/plugin suites: 9/9 passed. Targeted ASan/UBSan/LeakSanitizer identity/lifetime/API/core suites: 4/4 passed. Manual tests: 3/3 passed; format/whitespace and workflow checks passed. Windows-target syntax checks passed; this is not Windows execution. Local editor/process/input/migration/native iteration suites: 2/2 passed. Full Windows/WARP validation remains pending before delivery.
+Local Linux core/API/runtime/native/plugin suites: 9/9 passed. Targeted ASan/UBSan/LeakSanitizer identity/lifetime/API/core suites: 4/4 passed. Manual tests: 3/3 passed; format/whitespace and workflow checks passed. Windows-target syntax checks passed; this is not Windows execution. Local editor/process/input/migration/native iteration suites: 2/2 passed. Clean Windows **Build 260917-000025**, source `d98c0a5387506caa5983ad76afb12a52da3b4c9e`, passed all jobs in [run 35167379024](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35167379024): core **9/9** (5.18 seconds), editor/native/process/identity/API/WARP **8/8** (15.73 seconds). Linux CI and formatting also passed. All **27** rendered PPM fixtures match Phase 1 Build 21 byte-for-byte. Shader compilation and all three executable build identifiers passed.
+
+Verified ZIP CRC, manifest/source/build identity, three x64 PE executables and all 23 packaged manual sources/HTML build identifiers. ZIP SHA-256: `3cad6664a82b18e75a8f5f814a02cee62ccdce1429434a698cb28e9b22c89d06`. Build 25 is the delivered package; Build 21 was archived and redundant staging/extractions removed. Interactive acceptance on the user's GPU remains separate.
+
+## Documentation consistency
+
+Updated authoring API discovery, world ownership/resolution and project save/recovery documentation to match scene-v2 and the AssetId-only document model. This delivery-evidence update changes documentation only; packaged product source remains `d98c0a5`. Phase 2 is complete. Phase 3 is not started.

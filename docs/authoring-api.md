@@ -4,7 +4,7 @@
 
 ## Identity and compatibility
 
-Each `AuthoringSession` owns a reference to one Scene and is dispatched on its creation thread. `discover` returns a target with `kind: scene`, `id: session-scene`, and a session token. Echo the complete target on every document request. This token is a routing identity, not an authentication secret or a persistent scene UUID. Persisted entity IDs remain those in scene v1. Future asset document kinds require their own capabilities; they must not be shoehorned into scene entities.
+Each `AuthoringSession` owns a reference to one Scene and is dispatched on its creation thread. `discover` returns a target with `kind: scene`, `id: <scene AssetId>`, and a session token. Echo the complete target on every document request. This token is a routing identity, not an authentication secret or a persistent scene UUID. Persisted entity IDs are canonical UUIDv4 EntityIds in scene-v2; migrated legacy aliases remain explicit compatibility metadata. Future asset document kinds require their own capabilities; they must not be shoehorned into scene entities.
 
 Property schema augments Flecs-reflected members with immutable built-in `property_id` values such as `forge.position.x`, defaults, units, constraints, schema version and serialization/binding metadata. The existing member IDs are now reserved compatibility identifiers; renaming their display labels must not rename their stored identity. Animation metadata describes eligible numeric binding targets; animation evaluation is not implemented. Unknown components/extra fields still round-trip, and commands only edit supported built-in fields.
 

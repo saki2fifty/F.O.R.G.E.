@@ -16,9 +16,9 @@ Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the ma
 
 ## Authoring document state
 
-`SceneDocument` owns the active project/path, saved JSON baseline, persisted-file flag, and cached dirty state. `Scene` owns Flecs state and bounded undo/redo history. A successful validated replacement advances the scene revision; a document reset also clears history. Dirty comparison only recomputes after revision changes.
+`SceneDocument` owns the active project/path, separate disk and normalized authored baselines, persisted-file flag, and cached dirty state. `Scene` manages world-owned Flecs content and bounded undo/redo history. A successful validated replacement advances the scene revision; a document reset also clears history. Dirty comparison only recomputes after revision changes.
 
-Open validates before replacing active state. Save checks the active file against the saved baseline and rejects external changes or deletion before writing atomically. Save As commits the new filename/baseline only after a successful write. These checks detect conflicts but do not provide cross-process compare-and-swap or merging.
+Open validates before replacing active state. Save checks the active file against the saved baseline and rejects external changes or deletion before writing atomically. Save As to a new filename for a saved scene creates fresh scene/entity identities and resets history only after a successful write. Ordinary Save and the first save of an untitled scene retain identity. These checks detect conflicts but do not provide cross-process compare-and-swap or merging.
 
 ## Recovery envelope
 
@@ -28,7 +28,7 @@ Recovery files reside in `.forge/recovery`. A deterministic 64-bit FNV-1a hash o
 {"version": 1, "scene": "Scenes/main.scene.json", "base": {}, "document": {}}
 ```
 
-`base` contains the saved JSON baseline and `document` the unsaved scene. Untitled records use an empty scene path and null base. A named recovery must match the current path and baseline before it becomes one undoable edit. Untitled recovery resets into an unsaved document. Malformed or mismatched records are retained for inspection.
+`base` contains the saved JSON baseline and `document` the unsaved scene. Untitled records use an empty scene path and null base. A named recovery must match the current path and either the normalized authored baseline or original disk baseline before it becomes one undoable edit; the latter supports recovery saved by a v1 editor. Untitled recovery resets into an unsaved document. Malformed or mismatched records are retained for inspection.
 
 Autosave writes changed dirty revisions at approximately 30-second intervals. Successful saves remove matching recovery files. An explicit discard removes the old snapshot only after the requested transition succeeds.
 
