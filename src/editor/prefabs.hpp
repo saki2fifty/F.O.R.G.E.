@@ -219,7 +219,7 @@ class PrefabEditor {
                         m["name"] = name;
                     ui::help("Rename this member in every instance. Its durable member identity is "
                              "unchanged.");
-                    if (member_ != draft_.at("root")) {
+                    if (member_ != draft_.at("root").get_ref<const std::string&>()) {
                         if (ImGui::BeginCombo(
                                 "Parent member",
                                 prefab_member_label(draft_, m.at("parent")).c_str())) {
@@ -240,7 +240,7 @@ class PrefabEditor {
                         ui::help("Source hierarchy uses validated structured parenting. Instances "
                                  "cannot rearrange its interiors.");
                     }
-                    if (member_ != draft_.at("root")) {
+                    if (member_ != draft_.at("root").get_ref<const std::string&>()) {
                         auto binding = m.value("spatial", Json{{"mode", "follow_structure"}});
                         if (ImGui::BeginCombo(
                                 "Member space",
@@ -349,7 +349,7 @@ class PrefabEditor {
                 member_ = id;
             }
             ImGui::SameLine();
-            ImGui::BeginDisabled(member_ == draft_.at("root"));
+            ImGui::BeginDisabled(member_ == draft_.at("root").get_ref<const std::string&>());
             if (ui::button("Remove member subtree",
                            "Remove this source subtree. Published instances retain removed "
                            "members' IDs and override data as diagnostics.")) {

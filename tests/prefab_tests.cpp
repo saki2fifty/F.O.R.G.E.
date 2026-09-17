@@ -180,6 +180,18 @@ void files_and_publication(const std::filesystem::path& base) {
     check(scene.entity(added_id), "unrelated member removed");
     doc = scene.document();
     check(row(doc, ac).value("missing_member", false), "removed intent missing");
+    expected = library.source(asset);
+    next = expected;
+    for (const auto& m : source_before.at("members"))
+        if (m.at("id") == member)
+            next["members"].push_back(m);
+    library.publish(scene, expected, next);
+    world.evaluate_world_transforms();
+    check(world.resolve(ref, scene.membership()).state == WorldContext::ResolveState::Available &&
+              scene.entity(dynamic).id() == dynamic_handle &&
+              scene.entity(dynamic).parent() == scene.entity(ac) &&
+              scene.entity(dynamic).get<WorldTransform>().resolved,
+          "Restoring the same member identity did not reconnect references/dynamic attachments");
     auto duplicated = library.duplicate(scene, asset, "Copy.prefab.json");
     check(duplicated != asset, "duplicate asset reused identity");
     const auto copy_source = library.source(duplicated);
@@ -258,8 +270,30 @@ void many_and_transforms() {
     auto changed = source;
     changed["revision"] = 2u;
     changed["members"][1]["components"]["forge.local_scale"]["y"] = 2;
+    const auto rotation = rotation_from_euler({10, 20, 30});
+    changed["members"][1]["components"]["forge.local_rotation"] = {
+        {"x", rotation.x}, {"y", rotation.y}, {"z", rotation.z}, {"w", rotation.w}};
     scene.set_prefab_sources({{p.asset(), changed}});
     check(scene.entity(child).get<LocalScale>().y == 1, "equal scale override lost");
+    check(scene.entity(child).get<LocalRotation>() == LocalRotation{},
+          "equal rotation override lost");
+    doc = scene.document();
+    const std::string following = row(doc, instances[1])["prefab_instance"]["members"][member];
+    check(scene.entity(following).get<LocalRotation>() == rotation &&
+              scene.entity(following).get<LocalScale>().y == 2 &&
+              !scene.entity(following).owns<LocalRotation>() &&
+              !scene.entity(following).owns<LocalScale>(),
+          "Published rotation/scale failed to propagate through inheritance");
+    scene.rename_entity(instances[0], "Named instance");
+    authoring_command(scene, "prefab.revert_name", {{"entity", instances[0]}});
+    doc = scene.document();
+    check(row(doc, instances[0])["name"] == "Root", "name Revert failed");
+    check(scene.undo(), "name Revert undo absent");
+    doc = scene.document();
+    check(row(doc, instances[0])["name"] == "Named instance" &&
+              row(doc, instances[0]).value("name_override", false),
+          "name Revert undo lost intent");
+    check(scene.redo(), "name Revert redo absent");
     const auto milliseconds =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     std::cout << "40 instances; equivalent member tables=" << tables.size()
@@ -329,6 +363,12 @@ void spatial_and_validation() {
     auto bad_source = source;
     bad_source["revision"] = 4u;
     bad_source["members"][0]["spatial"] = {{"mode", "explicit"}, {"member", grand}};
+    rejected([&] { scene.set_prefab_sources({{asset, bad_source}}); });
+    bad_source = source;
+    bad_source["revision"] = 4u;
+    bad_source["dependencies"] = Json::array({asset});
+    rejected([&] { scene.set_prefab_sources({{asset, bad_source}}); });
+    bad_source["dependencies"] = Json::array({AssetId::generate()});
     rejected([&] { scene.set_prefab_sources({{asset, bad_source}}); });
     bad_source = source;
     bad_source["members"][0]["name"] = "revision reused";
