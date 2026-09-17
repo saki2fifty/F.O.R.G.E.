@@ -81,3 +81,7 @@ The new affine WARP test camera was preflighted using the production transform m
 ### Guide consistency
 
 Synchronized the Scenes, first-scene tutorial, Viewport, Diagnostics and native gameplay pages with format3, local coordinates, inherited parent motion, quaternion schema and unresolved attachments. Technical project/native/dependency pages now describe the same active contracts. Manual generation/link/build-identity tests pass3/3. This follow-up changes documentation only; clean candidate29 continues verifying the identical product implementation before the final matching-manual package.
+
+### Windows fixture validation
+
+Clean Build29 compiled the Windows editor/runtime/tools and all four shaders; Windows core10/10 and editor/native/input/transform/identity/world/API suites passed. The new WARP fixture failed before drawing its new hierarchy because its `entity.create` setup passed JSON null instead of an empty object. Corrected to explicit `Json::object()` and executed the complete fixture setup, picking and two-normal coverage locally. The existing27 render images were produced; the new GPU lighting assertion still requires the replacement Windows run. Build30 was cancelled before packaging because it contained the same test setup. No failed ZIP was delivered.

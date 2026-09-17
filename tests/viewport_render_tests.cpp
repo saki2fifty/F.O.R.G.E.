@@ -324,10 +324,10 @@ int main(int argc, char** argv) {
         // Hierarchical nonuniform scale + child rotation must retain shear in the
         // production renderer, picker and inverse-transpose lighting.
         live_scene.reset(forge::empty_scene());
-        auto parent = forge::authoring_command(live_scene, "entity.create", {})
+        auto parent = forge::authoring_command(live_scene, "entity.create", forge::Json::object())
                           .at("selected")
                           .get<std::string>();
-        auto child = forge::authoring_command(live_scene, "entity.create", {})
+        auto child = forge::authoring_command(live_scene, "entity.create", forge::Json::object())
                          .at("selected")
                          .get<std::string>();
         live_scene.entity(parent).set<forge::LocalTranslation>({20, 0, 0});
