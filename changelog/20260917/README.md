@@ -286,3 +286,13 @@ Build260917-000045 was withheld after MSVC rejected C++20 reversed string/JSON c
 Delivery documentation reconciles the top-level dependency table and historical modernization notes with the now-integrated Ozz0.17 runtime/converter; navigation and runtime UI remain deferred.
 
 Build260917-000046 passed Windows/Linux core24/SDK30, Windows editor2+remaining22, shaders and executable build IDs. Its final package relocation harness failed on Windows environment-variable casing (`SystemRoot` after copying `os.environ` to a case-sensitive dict). Resolve the system directory through Windows’ case-insensitive environment mapping; no runtime/converter change. Build46 remains withheld pending a fresh numbered package with the corrected harness.
+
+### Phase6D verified delivery — Build 260917-000047
+
+Source `f4127bc`, clean [run35284333629](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35284333629), passed every job. Windows/Linux core **24/24** and shared SDK **30/30**, Windows editor/process **2/2** and remaining animation/runtime/viewport **22/22**, four shaders, three program build IDs and packaged converter relocation with no developer PATH passed. All **29** viewport fixtures match accepted Build44 byte-for-byte.
+
+Local core24/SDK30/editor2, static ASan/UBSan/LeakSanitizer24/shared sanitizer11, manual3, C17, format/workflow/cache checks passed. The final C++ digest portability correction passed focused normal/sanitizer admission/publication/recovery checks. Defensive coverage includes minimal audit regressions, truncations/invalid fields and4000 bounded mutations; accepted variants load/sample under sanitizers.
+
+Verified ZIP CRC, manifest hashes, source/build identity, four x64 programs (including converter), **29** matching manual source/HTML pages, glTF fixture, Ozz/converter notices, and both exact SDK archives with private Ozz headers excluded. ZIP SHA256: `fd22ede4c11045310c59be39de532261f023181bc5a00d72dfe61a45336ec8ec`. Build44 is archived; packages is cleaned to the current ZIP and extracted editor. Builds45/46 remain withheld.
+
+User acceptance: follow [Animation](../../manual/editor/animation.md) to convert the included two-joint glTF, assign Skeleton/Lift in Animator, test Play/Pause/Step/Resume/Loop/Speed, save/reopen and prefab Revert. No character mesh is rendered yet. **Phase6D complete; STOP before Phase6E.**

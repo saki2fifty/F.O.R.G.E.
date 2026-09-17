@@ -1,16 +1,20 @@
 # Implementation status
 
-## Phase6D — implementation under validation
+## Phase6D — verified animation foundation
 
-Single-clip Animator, pinned Ozz0.17 admission/conversion, catalog provenance, fixed-clock sampling, prefab intent, recovery and debug bones are implemented in the working source. See [Animation](animation.md) and the [user guide](../manual/editor/animation.md). Local and platform validation is in progress; Build44 below remains the last delivered package until a numbered Phase6D build passes. No Phase6E work is included.
+**Current delivery: Build 260917-000047.** Single-clip Animator, pinned Ozz0.17 structural admission, bounded official glTF conversion, catalog provenance, fixed-clock sampling, prefab intent, recovery and debug bones are implemented. See [Animation](animation.md) and the [user guide](../manual/editor/animation.md).
 
-**Current delivery: Build 260917-000044 — Phase 6C audio foundation.** WAV asset registration, AudioSource/AudioListener authoring, runtime playback, spatial updates, pause/step policy, prefab inheritance and exact-SDK Play/Stop are implemented. See [Audio](audio.md), its [user guide](../manual/editor/audio.md), and the [daily changelog](../changelog/20260917/README.md#phase-6c-verified-delivery--build-260917-000044).
+Clean [run35284333629](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35284333629), source `f4127bc`, passed Windows/Linux static **24/24** and shared SDK **30/30**, Windows editor/process **2/2** and remaining runtime/animation/viewport **22/22**, four shaders, executable IDs and packaged converter relocation without developer PATH. All **29** viewport fixtures match delivered Build44 byte-for-byte. Local core24/SDK30/editor2, ASan/UBSan/LSan24+11, manual3, C17 headers, formatting and workflow checks passed; the MSVC digest correction also passed focused normal/sanitizer tests.
+
+ZIP CRC, every manifest hash, exact build/source identity, four x64 programs including gltf2ozz, **29** manual pages, animation fixture, dependency notices and both SDK archives are verified. Build44 is archived; only the new numbered ZIP and current extracted editor remain in packages. Builds45/46 were withheld for a compiler portability issue and a package-test environment lookup respectively. Interactive animation acceptance remains for the user.
+
+This is single-clip playback with debug bones. Skinning, graphs, IK, root motion, navigation and runtime UI remain deferred. **Phase6D complete; stop before Phase6E.**
 
 ## Phase 6C — verified foundation
 
 Clean run 35261569939 passed Windows/Linux static (20 tests) and shared SDK (25 tests), Windows editor/process (2 suites), and the remaining audio/physics/runtime/WARP checks (18 suites). Shaders compiled and executable build IDs matched. All 29 viewport fixtures match Build 43. Local sanitizer suites (17 + 8), editor suites (2), manual tests (3), formatting, workflow lint and C17 checks passed. ZIP integrity, source/build identity, 28 manual pages, test tone, licenses and both exact SDK archives are verified. Build 43 is archived; package cleanup is complete.
 
-miniaudio 0.11.25 remains private to forge.audio. Authoring/headless schema worlds need no device; optional output failure reports diagnostics and continues silently. Device mixing is independent of the fixed clock; gameplay group Pause freezes playback and Step stays silent. Recovery restarts autoplay from frame0 and leaves manual voices stopped, preserving pause. AssetHandle, streaming/cooking/buses, advanced audio tooling and sample-accurate recovery remain deferred. Physical speaker/headphone acceptance is a separate user test. **Phase 6C complete; stop before Phase 6D.**
+miniaudio 0.11.25 remains private to forge.audio. Authoring/headless schema worlds need no device; optional output failure reports diagnostics and continues silently. Device mixing is independent of the fixed clock; gameplay group Pause freezes playback and Step stays silent. Recovery restarts autoplay from frame0 and leaves manual voices stopped, preserving pause. AssetHandle, streaming/cooking/buses, advanced audio tooling and sample-accurate recovery remain deferred. The user confirmed Phase6C audio testing succeeded. Phase6D subsequently added the animation foundation described above.
 
 ## Phase 6B — verified foundation
 
