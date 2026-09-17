@@ -399,7 +399,8 @@ int main(int argc, char** argv) {
             SDL_Delay(1);
         }
         require(play.active(), "Runtime unexpectedly stopped");
-        require(play.status().find("Playing") != std::string::npos, "Play handshake failed");
+        require(play.status().find("Playing") != std::string::npos,
+                "Play handshake failed: " + play.status() + " | " + play.log());
         require(play.snapshot() == original, "Play snapshot round trip failed");
         require(authored.document() == original, "Play changed authoring");
         auto edited = original;

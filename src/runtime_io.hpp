@@ -91,8 +91,10 @@ class RuntimeIo {
         offset_ = 0;
     }
     void flush() {
+        // Both peers may poll. Keep writes below the default anonymous-pipe quota;
+        // a larger nonblocking write can make no progress without a pending reader.
         for (unsigned i = 0; pending() && i < 32; ++i) {
-            const auto size = std::min<std::size_t>(8192, outgoing_.size() - offset_);
+            const auto size = std::min<std::size_t>(1024, outgoing_.size() - offset_);
             std::size_t count = 0;
 #ifdef _WIN32
             DWORD written = 0;

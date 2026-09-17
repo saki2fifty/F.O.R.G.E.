@@ -106,3 +106,7 @@ ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executabl
 - Local Linux core 11/11 and SDL/ImGui/editor native 2/2 passed during integration; ASan/UBSan/LSan 6/6, Windows-target syntax, manual 3/3, formatting and workflow lint also pass. Actual Windows/render checks and build identity to be recorded after execution. These are automated checks, not Windows desktop acceptance.
 
 - Windows CI follow-up: include the new runtime clock test executable and sample module in the editor job's explicit build target list before selecting runtime tests. Build260917-000032 core Windows11/11 and Linux11/11 passed; its editor run was superseded before packaging to fix that missing-target configuration. No Build32 package delivered.
+
+- Windows polling follow-up: Build33 passed core11/11, shader compilation and WARP rendering, but SDL editor handshake/native probe tests timed out. Bound both controller/runtime writes to 1KiB fragments and retain bounded multi-fragment pumps; add an explicitly nonblocking parent/runtime framing test with a payload larger than pipe capacity and clearer timeout diagnostics. Build33 was not packaged or delivered.
+
+- Run Windows process-controller tests before compiling the renderer so handshake/reload failures are found earlier; avoid rerunning those suites in the later render/core selection.

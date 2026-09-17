@@ -107,3 +107,32 @@ for hz in ('0','-1','241','nan'):
     result=subprocess.run([runtime,'--simulation-hz',hz],capture_output=True,text=True,timeout=5)
     assert result.returncode!=0
 print('Protocol v2, autonomous timing, pause/step, blocked output, stale session tests passed')
+
+# Both ends must be nonblocking, like SDL (a blocking Python reader can hide
+# writes larger than the default Windows anonymous-pipe quota).
+import os
+p=subprocess.Popen([runtime],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+try:
+    os.set_blocking(p.stdin.fileno(),False)
+    os.set_blocking(p.stdout.fileno(),False)
+    generation=''
+    for identifier,command in enumerate(('hello','replace','step','quit'),1):
+        fields=dict(protocol=2,id=identifier,command=command,session=generation)
+        if command=='replace':fields['scene']=dict(migrated,nonblocking_padding='y'*20000)
+        outgoing=(json.dumps(fields)+'\n').encode();incoming=b'';deadline=time.monotonic()+5
+        while b'\n' not in incoming and time.monotonic()<deadline:
+            if outgoing:
+                try:
+                    count=os.write(p.stdin.fileno(),outgoing[:1024]);outgoing=outgoing[count:]
+                except BlockingIOError:pass
+            try:
+                incoming+=os.read(p.stdout.fileno(),8192)
+            except BlockingIOError:pass
+            time.sleep(.001)
+        assert b'\n' in incoming,(command,len(outgoing),len(incoming))
+        reply=json.loads(incoming);assert reply['ok'],reply
+        generation=reply['session']
+    assert p.wait(timeout=5)==0
+finally:
+    if p.poll() is None:p.kill();p.wait()
+print('Nonblocking parent/runtime pipe framing and large-message progress passed')

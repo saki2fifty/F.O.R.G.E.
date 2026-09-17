@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <forge/scene.hpp>
 #include <string>
 namespace forge {
@@ -99,12 +100,15 @@ class PlaySession {
         if (!process_)
             return;
         try {
-            if (!outgoing_.empty()) {
+            for (unsigned chunk = 0; !outgoing_.empty() && chunk < 32; ++chunk) {
                 auto* input = SDL_GetProcessInput(process_);
-                const auto count = SDL_WriteIO(input, outgoing_.data(), outgoing_.size());
+                const auto count = SDL_WriteIO(input, outgoing_.data(),
+                                               std::min<std::size_t>(1024, outgoing_.size()));
                 outgoing_.erase(0, count);
                 if (!count && SDL_GetIOStatus(input) != SDL_IO_STATUS_NOT_READY)
                     throw std::runtime_error("Runtime input closed");
+                if (!count)
+                    break;
             }
             char buffer[8192];
             auto* output = SDL_GetProcessOutput(process_);
@@ -200,7 +204,10 @@ class PlaySession {
             if (SDL_WaitProcess(process_, false, &exit_code))
                 throw std::runtime_error("Runtime exited (code " + std::to_string(exit_code) + ")");
             if (waiting_ && SDL_GetTicks() - sent_at_ > 5000)
-                throw std::runtime_error("Runtime timed out");
+                throw std::runtime_error(
+                    "Runtime timed out during " + sent_command_ + " (request " +
+                    std::to_string(request_id_) + ", outgoing " + std::to_string(outgoing_.size()) +
+                    ", incoming " + std::to_string(incoming_.size()) + " bytes)");
             if (!waiting_ && stage_ == Stage::Running) {
                 if (!requested_.empty()) {
                     prior_paused_ = paused();
