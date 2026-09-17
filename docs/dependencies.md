@@ -24,7 +24,7 @@ ImGui 1.92.9b compatibility: the editor explicitly keeps the legacy bitmap face 
 
 ## Toolchain baseline and update review (2026-09-16)
 
-CI uses CMake **4.4.3**, Ninja **1.13.2**, Ninja generator, Windows Server 2022 runners and explicitly selects Visual Studio 2022 MSVC **14.44.35207** / Windows SDK **10.0.26100.0**. The editor uses the static MSVC runtime (`MultiThreaded`). CMake 3.24 is the project minimum, not the CI version. C++20 and C17 remain required. Hosted images and compiler servicing are not immutable; `ci_cache_key.py` fingerprints actual tools/SDK/image and invalidates incompatible caches. An unavailable selected toolset should fail instead of silently changing compiler families.
+CI uses CMake **4.4.3**, Ninja **1.13.2**, Ninja generator, Windows Server 2022 runners and explicitly selects Visual Studio 2022 MSVC **14.44.35207** / Windows SDK **10.0.26100.0**. The editor uses the static MSVC runtime (`MultiThreaded`). CMake 3.30 is the project minimum, not the CI version. C++20 and C17 remain required. Hosted images and compiler servicing are not immutable; `ci_cache_key.py` fingerprints actual tools/SDK/image and invalidates incompatible caches. An unavailable selected toolset should fail instead of silently changing compiler families.
 
 Official release review found Flecs 4.1.6, SDL 3.4.16, ImGui 1.92.9b, JSON 3.12.0, CMake 4.4.3 and Ninja 1.13.2 current stable. ImGui uses the corresponding exact docking tag, following the [upstream docking guidance](https://github.com/ocornut/imgui/wiki/Docking). Newer maintenance releases on older CMake branches do not supersede 4.4.3. At that modernization checkpoint, the planned subsystem libraries were unintegrated. Jolt and miniaudio were subsequently added in Phase6B/6C below; animation/navigation/game UI remain deferred.
 
@@ -56,3 +56,18 @@ Jolt is now pinned and integrated. See [Physics build/lifetime contract](physics
 ## Phase 6C audio selection
 
 miniaudio0.11.25 is the pinned audio implementation. See [Audio](audio.md) for enabled backends, tested PCM WAV formats, compile switches, threading/lifetime, bounds, paused playback and deferred capabilities. AudioClip identity uses the existing asset catalog; the generic AssetHandle remains deferred. Automated offline/null testing is distinct from physical speaker/headphone acceptance.
+
+## Phase6D animation dependency
+
+Ozz Animation **0.17.0**, exact commit `744eb9d99f606eda849acb0b1204f7a3dc20bca1`.
+MIT licensed; official gltf2ozz also carries its bundled third-party notices. Runtime
+and converter share the pin. CMake3.30 is required. Enable private runtime and glTF
+tools; disable FBX SDK, upstream samples/howtos/tests/data generation. No Ozz headers
+are installed in the gameplay SDK. SIMD follows the upstream portable baseline.
+
+Adopted: runtime Skeleton/Animation, SamplingJob reusable contexts, LocalToModelJob,
+official glTF conversion. FORGE owns safe archive admission and provenance. Optional
+seek iframes are disabled; no arbitrary .ozz imports. Graphs/controllers/renderer/mesh
+import are not provided by this integration. Root-motion extraction, blending/IK,
+FBX and sample skinning remain deferred. See [Animation contract](animation.md) for
+format limits, ownership, conversion settings, compatibility and upgrade gates.

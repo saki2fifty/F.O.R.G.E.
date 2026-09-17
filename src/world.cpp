@@ -65,6 +65,14 @@ struct AudioRegistration {
         schema = detail::register_builtins(world, 2);
     }
 };
+struct AnimationRegistration {
+    Json schema;
+    explicit AnimationRegistration(flecs::world& world) {
+        world.module<AnimationRegistration>();
+        RegistrationScope scope(world);
+        schema = detail::register_builtins(world, 3);
+    }
+};
 struct InputRegistration {
     explicit InputRegistration(flecs::world& world) {
         world.module<InputRegistration>();
@@ -105,6 +113,13 @@ EngineModule audio_schema_module() {
     result.schemas = [](ModuleContext& c) { c.world.import<AudioRegistration>(); };
     return result;
 }
+EngineModule animation_schema_module() {
+    EngineModule result;
+    result.id = "forge.animation";
+    result.dependencies = {"forge.core", "forge.transforms"};
+    result.schemas = [](ModuleContext& c) { c.world.import<AnimationRegistration>(); };
+    return result;
+}
 WorldContext::WorldContext(WorldRole role, ServiceAccess services,
                            std::vector<EngineModule> modules)
     : services_(services.world_scope()), role_(role) {
@@ -115,6 +130,9 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.audio"; }))
         composition.push_back(audio_schema_module());
+    if (std::none_of(modules.begin(), modules.end(),
+                     [](const auto& m) { return m.id == "forge.animation"; }))
+        composition.push_back(animation_schema_module());
     for (auto& module : modules)
         composition.push_back(std::move(module));
     modules_.bootstrap(world_, role_, services_, std::move(composition), this);
@@ -126,6 +144,10 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
             schema_["components"].push_back(c);
         for (const auto& c :
              world_.import<AudioRegistration>().get<AudioRegistration>().schema.at("components"))
+            schema_["components"].push_back(c);
+        for (const auto& c :
+             world_.import<AnimationRegistration>().get<AnimationRegistration>().schema.at(
+                 "components"))
             schema_["components"].push_back(c);
         // Revision invalidation includes direct native writes, removal and relation edits.
         // Internal observation only: application notifications remain post-commit.

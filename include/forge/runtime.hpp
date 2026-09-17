@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <forge/animation.hpp>
 #include <forge/audio.hpp>
 #include <forge/input.hpp>
 #include <forge/module.hpp>
@@ -89,6 +90,7 @@ class RuntimeSimulation {
     flecs::entity pre_phase_, physics_phase_, adoption_phase_, post_phase_;
     std::shared_ptr<PhysicsRuntime> physics_;
     std::shared_ptr<AudioRuntime> audio_;
+    std::shared_ptr<AnimationRuntime> animation_;
     std::exception_ptr stage_error_;
     template <class F> void stage(F&& f) noexcept {
         if (stage_error_)

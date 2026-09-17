@@ -38,7 +38,9 @@ def package(build, dependencies, output):
     images += dlls
     for image in images:
         check_pe64(image)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src')
+    converter = build/'tools/gltf2ozz.exe'
+    check_pe64(converter)
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src', 'ozz-src')
     notices = []
     for name in source_names:
         source = dependencies/name
@@ -51,7 +53,9 @@ def package(build, dependencies, output):
         notices.extend((p, 'licenses/'+name+'/'+p.relative_to(source).as_posix()) for p in matches)
     manifest = {'build_id': build_id, 'source_commit': metadata['source_commit'], 'architecture': 'windows-x64', 'configuration': 'Release', 'files': {
         p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}}
+    manifest['files']['tools/gltf2ozz.exe'] = hashlib.sha256(converter.read_bytes()).hexdigest()
     source = Path(__file__).resolve().parents[1]
+    notices.append((source/'docs/licenses/ozz-converter.txt', 'licenses/ozz-converter.txt'))
     manual_output = build/'manual'
     # Render from current sources; stale removed pages cannot leak from a cached build.
     import shutil
@@ -65,6 +69,8 @@ def package(build, dependencies, output):
     example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav'))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
+    animation_source = source/'samples/animation/two-joints.gltf'
+    manifest['files']['Examples/Animation/two-joints.gltf'] = hashlib.sha256(animation_source.read_bytes()).hexdigest()
     automation_sources = sorted((source/'samples/automation').glob('*.py'))
     for automation_source in automation_sources:
         manifest['files']['Examples/Automation/'+automation_source.name] = hashlib.sha256(automation_source.read_bytes()).hexdigest()
@@ -78,6 +84,8 @@ def package(build, dependencies, output):
     os.close(fd)
     try:
         with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(converter, 'tools/gltf2ozz.exe')
+            archive.write(animation_source, 'Examples/Animation/two-joints.gltf')
             for image in images:
                 archive.write(image, image.name)
             for notice, name in notices:
@@ -94,7 +102,7 @@ def package(build, dependencies, output):
                 archive.write(page, 'manual/'+page.relative_to(manual_output).as_posix())
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
             archive.writestr('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\nforge_editor.exe "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            archive.writestr('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.24+ and Ninja installed. In Gameplay Code: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            archive.writestr('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.30+ and Ninja installed. In Gameplay Code: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
         os.replace(temporary, output)
     finally:
         Path(temporary).unlink(missing_ok=True)

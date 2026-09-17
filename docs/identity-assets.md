@@ -28,3 +28,12 @@ The service is currently library/API infrastructure. The Content panel remains t
 - [Microsoft BCryptGenRandom](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom): system-preferred randomness on Windows.
 - [Linux getrandom](https://man7.org/linux/man-pages/man2/getrandom.2.html): checked interruption/partial-read handling.
 - [Pinned Flecs 4.1.6 component traits](https://github.com/SanderMertens/flecs/blob/fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8/docs/ComponentTraits.md#dontinherit): identity excluded from copying/inheritance. No dependency upgrades.
+
+## Phase6D animation extension
+
+Records now optionally preserve a bounded `metadata` object. Animation source,
+SkeletonAsset and AnimationClipAsset use the same AssetCatalog and persistent IDs.
+A versioned animation provenance object identifies the source, exact converter/settings,
+content digests and exact clip-to-skeleton binding. Catalog publication selects the whole
+validated candidate set last. This subsystem-specific bridge does not introduce a
+second database, generic AssetHandle or full importer/cooker. See [Animation](animation.md).

@@ -269,3 +269,14 @@ Verified ZIP CRC, every manifest hash, exact source/build identity, three x64 ex
 Phase6C implementation and automated validation are complete. User physical-audio acceptance remains pending: follow [Audio](../../manual/editor/audio.md) to register the included WAV, add source/listener, test Play/Pause/Step/Resume, positioning, persistence and prefab Revert. **Stop before Phase6D.** No animation/navigation/runtime-UI integration, public SDK, AssetHandle or Apply to Prefab.
 
 Delivery documentation now identifies Build44 as current and distinguishes the historical dependency-modernization checkpoint from the later Jolt/miniaudio integrations.
+
+### Phase6D — skeletal animation foundation (validation in progress)
+
+- Pin unmodified Ozz0.17.0 at744eb9d99f606eda849acb0b1204f7a3dc20bca1; raise engine CMake minimum to3.30. Build the matching official gltf2ozz tool with FBX/samples/howtos/data disabled.
+- Add a version-coupled bounded archive validator and same-buffer Ozz loader. Validate names, parent forests, counts, times, compressed-key chains and numeric bounds; reject unsupported seek data and trailing structures before deserialization.
+- Add source/asset/settings/digest/skeleton-binding metadata to the existing catalog, preserving optional metadata on roundtrip. Conversion uses a cancellable resource-limited worker and immutable staged candidates; select the full catalog only after validation. Failed/stale candidates keep prior assets selected.
+- Add optional Animator schema, private runtime assets and per-player contexts, fixed-tick playback, time-sampled presentation, and reconstructible private recovery. No bone ECS entities, authored poses, root-motion application or broad animation SDK.
+- Add Content conversion, Inspector/prefab fields, debug bone overlay, owned glTF fixture, matching manual and technical admission/provenance documentation. Package the pinned converter and notices; no skinning/importer parity claim.
+- Admission truncation/targeted-rejection/4000-mutation tests and core animation integration tests have passed locally. Full platform, sanitizer, process, SDK, overlay and package checks remain in progress; no new Windows build has been delivered yet.
+
+Final local Phase6D validation passed: static **24/24**, shared SDK **30/30**, editor/process **2/2**, static ASan/UBSan/LeakSanitizer **24/24**, shared SDK sanitizer **11/11**, manual **3/3**, C17 boundary headers, formatting, workflow lint and cache checks. The final source-channel guard rejects morph-weight channels; its focused normal/sanitizer regressions also passed. Official-converter fixtures verify numeric poses, bounded worker failure/cancellation/timeout, asset publication, playback/recovery and SDK access. Clean Windows/Linux milestone validation follows.

@@ -1,5 +1,9 @@
 # Implementation status
 
+## Phase6D — implementation under validation
+
+Single-clip Animator, pinned Ozz0.17 admission/conversion, catalog provenance, fixed-clock sampling, prefab intent, recovery and debug bones are implemented in the working source. See [Animation](animation.md) and the [user guide](../manual/editor/animation.md). Local and platform validation is in progress; Build44 below remains the last delivered package until a numbered Phase6D build passes. No Phase6E work is included.
+
 **Current delivery: Build 260917-000044 — Phase 6C audio foundation.** WAV asset registration, AudioSource/AudioListener authoring, runtime playback, spatial updates, pause/step policy, prefab inheritance and exact-SDK Play/Stop are implemented. See [Audio](audio.md), its [user guide](../manual/editor/audio.md), and the [daily changelog](../changelog/20260917/README.md#phase-6c-verified-delivery--build-260917-000044).
 
 ## Phase 6C — verified foundation

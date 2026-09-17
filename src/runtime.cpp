@@ -122,6 +122,7 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
           [](void* p, float x, float y, float z) { static_cast<Scene*>(p)->translate(x, y, z); }} {
     if (context.role() != WorldRole::Runtime)
         throw std::runtime_error("Simulation requires a runtime WorldContext");
+    animation_ = animation_runtime(context);
     auto& world = context.world();
     previous_pipeline_ = world.get_pipeline();
     input_phase_ = world.entity("forge.runtime.Input").add(flecs::Phase);
@@ -224,6 +225,8 @@ void RuntimeSimulation::tick(float dt) {
     context_.modules().end_tick();
     if (stage_error_)
         std::rethrow_exception(stage_error_);
+    if (animation_)
+        animation_->tick(dt);
     poses_.capture(context_.transform_nodes());
     sync_audio();
     if (physics_)
@@ -241,13 +244,21 @@ void RuntimeSimulation::sync_audio() {
 void RuntimeSimulation::reset_presentation() {
     context_.evaluate_world_transforms();
     poses_.reset(context_.transform_nodes());
+    if (animation_)
+        animation_->reset_presentation();
 }
 Json RuntimeSimulation::presentation(double alpha) const {
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);
     auto result = scene_.effective_document();
     const auto values = poses_.evaluate(alpha);
     for (auto& item : result.at("entities")) {
-        const auto found = values.find(scene_.entity(item.at("id")).id());
+        const auto entity = scene_.entity(item.at("id")).id();
+        if (animation_) {
+            auto pose = animation_->presentation(entity, alpha);
+            if (!pose.is_null())
+                item["animation_pose"] = std::move(pose);
+        }
+        const auto found = values.find(entity);
         if (found != values.end()) {
             item["world_affine"] = found->second.affine.m;
             item["spatial_resolved"] = found->second.resolved;

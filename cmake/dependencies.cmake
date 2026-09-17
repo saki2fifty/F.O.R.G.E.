@@ -53,3 +53,27 @@ target_link_libraries(forge_miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 if(UNIX)
  target_link_libraries(forge_miniaudio PRIVATE m)
 endif()
+
+# Exact, private Ozz runtime and official converter. The admission parser is coupled
+# to this revision: re-audit serialization/sampling before changing it.
+set(ozz_build_tools ON CACHE BOOL "" FORCE)
+set(ozz_build_gltf ON CACHE BOOL "" FORCE)
+foreach(option ozz_build_fbx ozz_build_data ozz_build_samples ozz_build_howtos ozz_build_tests ozz_build_postfix)
+ set(${option} OFF CACHE BOOL "" FORCE)
+endforeach()
+if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY OR CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "DLL")
+ set(ozz_build_msvc_rt_dll ON CACHE BOOL "" FORCE)
+else()
+ set(ozz_build_msvc_rt_dll OFF CACHE BOOL "" FORCE)
+endif()
+set(_forge_shared_before_ozz "${BUILD_SHARED_LIBS}")
+set(BUILD_SHARED_LIBS OFF)
+FetchContent_Declare(ozz GIT_REPOSITORY https://github.com/guillaumeblanc/ozz-animation.git
+ GIT_TAG 744eb9d99f606eda849acb0b1204f7a3dc20bca1) # 0.17.0
+FetchContent_MakeAvailable(ozz)
+set(BUILD_SHARED_LIBS "${_forge_shared_before_ozz}")
+set_target_properties(gltf2ozz PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
+
+foreach(config DEBUG RELEASE MINSIZEREL RELWITHDEBINFO)
+ set_target_properties(gltf2ozz PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${config} "${CMAKE_BINARY_DIR}/tools")
+endforeach()

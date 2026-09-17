@@ -1,6 +1,6 @@
 # Engine modules and the internal native SDK
 
-Phase6A adds registration and lifetime policy; Phase6B physics and Phase6C audio exercise it with concrete providers. Animation/navigation/runtime UI and a public SDK remain separate work. Apply to Prefab and AssetHandle remain deferred.
+Phase6A adds registration and lifetime policy; Phase6B physics, Phase6C audio and Phase6D animation exercise it with concrete providers. Navigation/runtime UI and a public SDK remain separate work. Apply to Prefab and AssetHandle remain deferred.
 
 ## Three categories
 
@@ -78,3 +78,12 @@ See [core services](core-services.md), [fixed input](input.md), and [runtime tim
 ## Audio provider
 
 `forge.audio` supplies schema-only contexts and explicit device/offline runtime compositions. Its world-scoped Audio capability exposes owner-thread source commands. See [Audio](audio.md) for asset resolution, callback retirement, Pause/Step/Resume, recovery policy and exact-SDK use. Required consumers verify actual provider availability before startup; optional device failure does not fabricate capability.
+
+## Phase6D animation provider
+
+`forge.animation` uses ordinary schema registration in every supported world role;
+only the runtime provider owns admitted Ozz assets and playback state. An internal
+weak bridge connects RuntimeSimulation to that provider without introducing a public
+animation capability/service. The exact SDK installs/fingerprints Animator and typed
+asset refs and proves native fixed-tick writes through the one shared Flecs library.
+Ozz stays private. See [Animation](animation.md).

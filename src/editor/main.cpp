@@ -1,5 +1,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "animation_debug.hpp"
+#include "animation_tools.hpp"
 #include "audio_inspector.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
@@ -161,6 +163,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Cannot locate runtime directory");
         const auto runtime_path = (std::filesystem::path(base) / "forge_runtime.exe").string();
         forge::EditorFiles files(scene, window.get(), recent_projects);
+        forge::AnimationTools animation_tools(std::filesystem::path(base) / "tools/gltf2ozz.exe");
         std::string message =
             "Ready. Block preview is an authoring diagnostic, not the final game renderer.";
         auto perform = [&](auto&& action) {
@@ -474,6 +477,7 @@ int main(int argc, char** argv) {
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
                           blockout.at_view_target, edit_locked);
             files.draw_dialogs();
+            animation_tools.poll(files.document, message);
             automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +
                                files.document.name() + " / " +
@@ -620,6 +624,7 @@ int main(int argc, char** argv) {
                             ImGui::BeginDisabled(blockout.active());
                             forge::physics_inspector(scene, selected, message);
                             forge::audio_inspector(scene, files.document, selected, message);
+                            forge::animation_inspector(scene, files.document, selected, message);
                             if (ImGui::Button("Object actions"))
                                 ImGui::OpenPopup("##object-actions");
                             forge::ui::help("Duplicate or delete this object and its children; "
@@ -828,6 +833,7 @@ int main(int argc, char** argv) {
                             {image_origin.x + size.x, image_origin.y + size.y});
                         scene_tools.draw(rendered, camera, selected, image_origin, size,
                                          can_edit && !modal.active());
+                        forge::draw_animation_debug(rendered, camera, image_origin, size);
                         orientation.draw(camera, image_origin, size);
                         modal.draw(image_origin, size);
                         ImGui::GetWindowDrawList()->AddText(
@@ -853,9 +859,10 @@ int main(int argc, char** argv) {
             if (workspace.content) {
                 ImGui::BeginDisabled(modal.active() || scene_tools.move.active() ||
                                      blockout.active() || play.active());
-                content.draw(files, &workspace.content, [&] {
-                    prefab_editor.content(scene, files.document, selected, edit_locked);
-                });
+                content.draw(
+                    files, &workspace.content,
+                    [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
+                    [&] { animation_tools.content(files.document, edit_locked, message); });
                 prefab_editor.draw(scene, files.document, edit_locked);
                 ImGui::EndDisabled();
             }

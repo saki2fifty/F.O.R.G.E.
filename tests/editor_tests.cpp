@@ -1,3 +1,4 @@
+#include "animation_editor_tests.hpp"
 #include "authoring_tests.hpp"
 #include "automation_tests.hpp"
 #include "blockout_tests.hpp"
@@ -306,6 +307,7 @@ int main(int argc, char** argv) {
         require(forge::ui::local_file_url(std::filesystem::current_path() / "space #%.html")
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
+        test_animation_editor();
         test_documents();
         test_prefab_editor_documents();
         test_project_settings_ui();

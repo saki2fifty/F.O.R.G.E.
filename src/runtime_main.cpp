@@ -78,10 +78,12 @@ int main(int argc, char** argv) {
             forge::Scene scene;
             forge::RuntimeSimulation simulation;
             Runtime(forge::Module& m, std::vector<forge::EngineModule> modules,
-                    forge::PhysicsConfig physics, const std::optional<forge::AudioConfig>& audio)
+                    forge::PhysicsConfig physics, const std::optional<forge::AudioConfig>& audio,
+                    const std::filesystem::path& project)
                 : engine(forge::WorldRole::Runtime, false,
                          [&] {
                              modules.push_back(forge::physics_module(physics));
+                             modules.push_back(forge::animation_module(project));
                              if (audio)
                                  modules.push_back(forge::audio_module(*audio));
                              return std::move(modules);
@@ -91,7 +93,8 @@ int main(int argc, char** argv) {
                 return std::static_pointer_cast<forge::PhysicsRuntime>(engine.services().physics());
             }
         };
-        auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config, audio_config);
+        auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config, audio_config,
+                                                 project_root);
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
         std::random_device random;
@@ -117,6 +120,8 @@ int main(int argc, char** argv) {
                                       {"simulation_hz", clock.status().at("simulation_hz")},
                                       {"scene", runtime->scene.snapshot()},
                                       {"physics", runtime->physics()->checkpoint()}};
+            checkpoint["animation"] =
+                forge::animation_runtime(runtime->engine.world())->checkpoint();
             checkpoint["integrity"] = integrity(checkpoint);
             if (checkpoint.dump().size() > 8 * 1024 * 1024)
                 throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
@@ -195,8 +200,8 @@ int main(int argc, char** argv) {
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
-                        auto candidate = std::make_unique<Runtime>(module, sdk_modules,
-                                                                   physics_config, audio_config);
+                        auto candidate = std::make_unique<Runtime>(
+                            module, sdk_modules, physics_config, audio_config, project_root);
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
                         if (request.contains("recovery") && !request.at("recovery").is_null()) {
@@ -216,6 +221,12 @@ int main(int argc, char** argv) {
                                                          "session or boundary mismatch");
                             candidate->scene.restore_snapshot(recovery.at("scene"));
                             candidate->physics()->restore(recovery.at("physics"));
+                            auto animation = forge::animation_runtime(candidate->engine.world());
+                            if (recovery.contains("animation"))
+                                animation->restore(recovery.at("animation"));
+                            else
+                                animation->restore(
+                                    {{"version", 1}, {"entries", forge::Json::array()}});
                             recovered_tick = recovery.at("tick").get<std::uint64_t>();
                         } else {
                             candidate->scene.restore_snapshot(request.at("scene"));

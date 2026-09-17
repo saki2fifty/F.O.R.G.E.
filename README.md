@@ -19,12 +19,13 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 - Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and a Diligent primitive preview. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
 
 - Structured prefab assets with stable member identities, candidate publication and independent property overrides/Revert.
+- [Skeletal animation](manual/editor/animation.md): validated glTF conversion, Animator playback, fixed-clock recovery and debug bones.
 - Experimental exact-version shared-Flecs gameplay SDK, [Jolt physics](manual/editor/physics.md), and [WAV audio sources/listeners](manual/editor/audio.md).
 
-Production importing/cooking, full game export, animation/navigation/runtime UI, broad public plugin SDK and the first-person sample remain planned. See [implementation status](docs/status.md) for validation and the current delivered build.
+Production importing/cooking, full game export, advanced animation/navigation/runtime UI, broad public plugin SDK and the first-person sample remain planned. See [implementation status](docs/status.md) for validation and the current delivered build.
 
 ## Build and test
-Requires Git, CMake 3.24+, Ninja, Python 3.10+, and a C++20/C17 compiler. Windows requires an MSVC developer shell and Windows SDK.
+Requires Git, CMake 3.30+, Ninja, Python 3.10+, and a C++20/C17 compiler. Windows requires an MSVC developer shell and Windows SDK.
 
 ```sh
 cmake --preset core

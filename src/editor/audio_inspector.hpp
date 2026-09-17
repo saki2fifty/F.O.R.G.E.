@@ -4,50 +4,67 @@
 #include <forge/audio_components.hpp>
 #include <forge/authoring.hpp>
 namespace forge {
-inline bool audio_clip_picker(const std::filesystem::path& project, Json& value) {
+inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
+                             const std::string& type, const char* title) {
     std::optional<AssetCatalog> loaded;
     try {
         loaded.emplace(AssetCatalog::open_project(project));
     } catch (const std::exception& e) {
-        ImGui::TextWrapped("Audio assets unavailable: %s", e.what());
+        ImGui::TextWrapped("Project assets unavailable: %s", e.what());
         ui::help("The project asset index could not be read. Correct forge.assets.json and retry; "
                  "existing references are preserved.");
         return false;
     }
     const auto& catalog = *loaded;
+    auto asset_label = [&](const AssetRecord& record) {
+        auto label = path_utf8(record.source);
+        if (record.metadata.contains("source_asset")) {
+            auto source = catalog.records().find(record.metadata.at("source_asset").get<AssetId>());
+            if (source != catalog.records().end())
+                label = path_utf8(source->second.source);
+            if (record.metadata.contains("clip_name"))
+                label += " / " + record.metadata.at("clip_name").get<std::string>();
+        }
+        return label;
+    };
     std::string label = "None";
     if (!value.is_null()) {
-        const auto result = catalog.resolve(value.get<AssetId>(), AudioClipAsset::type);
-        label = result.record ? path_utf8(result.record->source) : "Missing AudioClip";
+        const auto result = catalog.resolve(value.get<AssetId>(), type);
+        label = result.record ? asset_label(*result.record) : "Missing asset";
     }
     bool changed = false;
-    if (ImGui::BeginCombo("Audio clip", label.c_str())) {
+    if (ImGui::BeginCombo(title, label.c_str())) {
         if (ImGui::Selectable("None", value.is_null())) {
             value = nullptr;
             changed = true;
         }
         ui::help("Leave this source unassigned; Play reports a missing clip until one is chosen.");
         for (const auto& [id, record] : catalog.records()) {
-            if (record.type != AudioClipAsset::type)
+            if (record.type != type)
                 continue;
-            const auto name = path_utf8(record.source);
+            auto name = asset_label(record);
+            name += "###" + id.str();
             if (ImGui::Selectable(name.c_str(), value == Json(id))) {
                 value = id;
                 changed = true;
             }
-            ui::help("Select this registered WAV by its persistent asset identity.");
+            ui::help("Select this asset by its persistent identity.");
         }
         ImGui::EndCombo();
     }
-    ui::help("AudioClip asset. Register a project-relative WAV below; references survive supported "
-             "catalog relocation.");
+    ui::help("Registered asset identity. Missing or incompatible content is diagnosed during Play; "
+             "supported catalog relocation preserves the reference.");
     return changed;
 }
 inline bool audio_field(const std::filesystem::path& root, const Json& field, Json& value) {
     const std::string key = field.at("id");
     if (field.at("type") == "asset_ref")
-        return audio_clip_picker(root, value);
-    const std::map<std::string, const char*> labels = {{"play_on_start", "Play on Start"},
+        return asset_ref_picker(root, value, field.at("asset_type"),
+                                field.at("asset_type") == "skeleton"         ? "Skeleton"
+                                : field.at("asset_type") == "animation_clip" ? "Animation clip"
+                                                                             : "Audio clip");
+    const std::map<std::string, const char*> labels = {{"playback_speed", "Playback speed"},
+                                                       {"play_on_start", "Play on Start"},
                                                        {"loop", "Loop"},
                                                        {"gain", "Gain"},
                                                        {"pitch", "Pitch"},

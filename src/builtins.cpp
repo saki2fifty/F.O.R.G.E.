@@ -4,7 +4,14 @@
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, AudioSource>)
+    if constexpr (std::is_same_v<T, Animator>)
+        return {{"skeleton", p.skeleton.id ? Json(p.skeleton.id) : Json()},
+                {"clip", p.clip.id ? Json(p.clip.id) : Json()},
+                {"enabled", p.enabled},
+                {"play_on_start", p.play_on_start},
+                {"loop", p.loop},
+                {"playback_speed", p.playback_speed}};
+    else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
                 {"loop", p.loop},
@@ -36,7 +43,18 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, AudioSource>) {
+    if constexpr (std::is_same_v<T, Animator>) {
+        Animator v;
+        if (!p.at("skeleton").is_null())
+            v.skeleton.id = p.at("skeleton").get<AssetId>();
+        if (!p.at("clip").is_null())
+            v.clip.id = p.at("clip").get<AssetId>();
+        v.enabled = p.at("enabled");
+        v.play_on_start = p.at("play_on_start");
+        v.loop = p.at("loop");
+        v.playback_speed = p.at("playback_speed");
+        return v;
+    } else if constexpr (std::is_same_v<T, AudioSource>) {
         AudioSource v;
         if (!p.at("clip").is_null())
             v.clip.id = p.at("clip").get<AssetId>();
@@ -88,6 +106,15 @@ template <class T> void apply(flecs::entity e, const std::optional<Value>& value
     if (!e.owns<T>() || e.get<T>() != next)
         e.set<T>(next);
 }
+template <class T> void register_asset_ref(flecs::world& w, const char* name) {
+    w.component<AssetRef<T>>(name)
+        .opaque(flecs::String)
+        .serialize([](const flecs::serializer* serializer, const AssetRef<T>* ref) {
+            const auto text = ref->id ? ref->id.str() : std::string{};
+            const char* str = text.c_str();
+            return serializer->value(flecs::String, &str);
+        });
+}
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
     if constexpr (std::is_same_v<T, LocalTranslation>) {
@@ -104,6 +131,15 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 std::string("LocalTranslation along the ") + axis + " axis in world units.";
             c.lookup(axis).set_doc_brief(text.c_str());
         }
+    } else if constexpr (std::is_same_v<T, Animator>) {
+        register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
+        register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
+        c.template member<AssetRef<SkeletonAsset>>("skeleton")
+            .template member<AssetRef<AnimationClipAsset>>("clip")
+            .template member<bool>("enabled")
+            .template member<bool>("play_on_start")
+            .template member<bool>("loop")
+            .template member<float>("playback_speed");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -202,11 +238,14 @@ const std::array<Builtin, builtin_count>& builtins() {
             "Gameplay sound source; gain is linear, pitch is a speed multiplier", "unitless", {},
             {},
             [](flecs::world& w) { return register_type<AudioSource>(w, "forge.audio_source"); }),
-        descriptor<AudioListener>("forge.audio_listener", "One enabled listener per runtime world",
-                                  "unitless", {}, {}, [](flecs::world& w) {
-                                      return register_type<AudioListener>(w,
-                                                                          "forge.audio_listener");
-                                  })};
+        descriptor<AudioListener>(
+            "forge.audio_listener", "One enabled listener per runtime world", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<AudioListener>(w, "forge.audio_listener");
+            }),
+        descriptor<Animator>(
+            "forge.animator", "Single-clip skeletal animation; derived poses only", "unitless", {},
+            {}, [](flecs::world& w) { return register_type<Animator>(w, "forge.animator"); })};
     return types;
 }
 Json field_options(const Builtin& type, const std::string& field) {
@@ -269,6 +308,26 @@ Json field_options(const Builtin& type, const std::string& field) {
             value["unit"] = "meters";
         }
     }
+    if (name == "forge.animator") {
+        if (field == "skeleton" || field == "clip") {
+            value["asset_type"] =
+                field == "skeleton" ? SkeletonAsset::type : AnimationClipAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                field == "skeleton"
+                    ? "Registered skeleton identity; clip must bind to this exact skeleton revision"
+                    : "Registered clip identity produced for the chosen skeleton";
+        } else if (field == "playback_speed") {
+            value["minimum"] = 0;
+            value["maximum"] = 4;
+            value["description"] =
+                "Fixed-tick playback speed multiplier; zero holds the pose, one is normal";
+        } else
+            value["description"] = field == "enabled" ? "Evaluate this Animator during Play"
+                                   : field == "loop"
+                                       ? "Repeat the clip at its duration"
+                                       : "Begin playback when this Animator is realized";
+    }
     return value;
 }
 void validate_components(const Json& components) {
@@ -318,7 +377,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
-        const unsigned category = name.starts_with("forge.audio_") ? 2u
+        const unsigned category = name == "forge.animator"           ? 3u
+                                  : name.starts_with("forge.audio_") ? 2u
                                   : (name == "forge.physics_body" || name.ends_with("_collider"))
                                       ? 1u
                                       : 0u;

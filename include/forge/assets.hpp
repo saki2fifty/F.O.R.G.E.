@@ -25,6 +25,7 @@ struct AssetRecord {
     std::filesystem::path source;
     unsigned schema_version = 1;
     std::vector<AssetId> dependencies;
+    nlohmann::json metadata = nlohmann::json::object();
 };
 enum class AssetState { Available, Missing, Unresolved, Incompatible };
 struct AssetResolution {
@@ -37,6 +38,7 @@ class AssetCatalog {
   public:
     explicit AssetCatalog(std::filesystem::path project);
     void add(AssetRecord record);
+    void replace(AssetRecord record);
     const std::map<AssetId, AssetRecord>& records() const { return records_; }
     static AssetCatalog open_project(const std::filesystem::path& root);
     static std::filesystem::path project_index(const std::filesystem::path& root);

@@ -64,7 +64,8 @@ std::filesystem::path AssetCatalog::locate(const std::filesystem::path& source) 
     return ProjectPaths(project_).resolve(source);
 }
 void AssetCatalog::add(AssetRecord record) {
-    if (!record.id || record.type.empty() || !record.schema_version)
+    if (!record.id || record.type.empty() || !record.schema_version ||
+        !record.metadata.is_object() || record.metadata.dump().size() > 65536)
         throw std::runtime_error("Invalid asset metadata");
     for (auto dependency : record.dependencies)
         if (!dependency)
@@ -79,6 +80,15 @@ void AssetCatalog::add(AssetRecord record) {
             throw std::runtime_error("Asset source already has a different identity");
     }
     records_.emplace(record.id, std::move(record));
+}
+void AssetCatalog::replace(AssetRecord record) {
+    auto candidate = *this;
+    auto it = candidate.records_.find(record.id);
+    if (it == candidate.records_.end() || it->second.type != record.type)
+        throw std::runtime_error("Asset replacement must preserve identity and type");
+    candidate.records_.erase(it);
+    candidate.add(std::move(record));
+    records_.swap(candidate.records_);
 }
 AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
     std::ifstream stream(locate(source));
@@ -150,9 +160,13 @@ void AssetCatalog::save(const std::filesystem::path& index) const {
                            {"type", record.type},
                            {"source", std::string(text.begin(), text.end())},
                            {"schema_version", record.schema_version},
-                           {"dependencies", record.dependencies}});
+                           {"dependencies", record.dependencies},
+                           {"metadata", record.metadata}});
     }
-    atomic_write(index, Json{{"version", 1}, {"assets", records}}.dump(2));
+    const auto document = Json{{"version", 1}, {"assets", records}}.dump(2);
+    if (document.size() > 4 * 1024 * 1024)
+        throw std::runtime_error("Asset index exceeds 4 MiB");
+    atomic_write(index, document);
 }
 void AssetCatalog::load(const std::filesystem::path& index) {
     std::ifstream stream(index);
@@ -166,7 +180,8 @@ void AssetCatalog::load(const std::filesystem::path& index) {
         candidate.add({record.at("id").get<AssetId>(), record.at("type").get<std::string>(),
                        std::filesystem::u8path(record.at("source").get<std::string>()),
                        record.at("schema_version").get<unsigned>(),
-                       record.at("dependencies").get<std::vector<AssetId>>()});
+                       record.at("dependencies").get<std::vector<AssetId>>(),
+                       record.value("metadata", Json::object())});
     }
     records_.swap(candidate.records_);
 }

@@ -6,6 +6,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Projects and authored content
 
+- [Animation](editor/animation.md): convert glTF skeletons/clips and test Animator playback.
 - [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
 
 - [Projects](editor/projects.md): create, open, and return to projects.
@@ -37,7 +38,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Current boundaries
 
-The viewport draws transformed built-in blockout meshes. Production materials, imported meshes, audio, animation, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
+The viewport draws transformed built-in blockout meshes. WAV audio and single-clip skeletal animation with debug bones are available. Production materials, imported/skinned meshes, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
 
 ## Commands and inspection
 

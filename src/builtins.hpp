@@ -1,15 +1,16 @@
 #pragma once
 #include <array>
+#include <forge/animation_components.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 11;
-using Value =
-    std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
-                 BoxCollider, SphereCollider, CapsuleCollider, AudioSource, AudioListener>;
+inline constexpr std::size_t builtin_count = 12;
+using Value = std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive,
+                           PhysicsBody, BoxCollider, SphereCollider, CapsuleCollider, AudioSource,
+                           AudioListener, Animator>;
 struct Builtin {
     const char* name;
     const char* description;

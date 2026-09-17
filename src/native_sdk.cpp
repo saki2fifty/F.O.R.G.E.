@@ -16,8 +16,9 @@
 #endif
 namespace forge {
 namespace {
-const std::set<std::string> builtins{"forge.core",  "forge.transforms", "forge.prefabs",
-                                     "forge.input", "forge.physics",    "forge.audio"};
+const std::set<std::string> builtins{"forge.core",     "forge.transforms", "forge.prefabs",
+                                     "forge.input",    "forge.physics",    "forge.audio",
+                                     "forge.animation"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
