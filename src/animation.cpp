@@ -72,14 +72,15 @@ struct AnimationRuntime::Impl {
         auto admit = [&](const AssetRecord& record) {
             auto data = read_bytes(paths.resolve(record.source), max_archive_bytes);
             auto digest = content_digest(data);
-            if (digest != record.metadata.at("artifact_sha256"))
+            if (digest != record.metadata.at("artifact_sha256").get<std::string>())
                 throw ArchiveError("Animation artifact digest mismatch");
             if (data.size() > 64 * 1024 * 1024 - cache_bytes || revisions.size() >= 64)
                 throw ArchiveError("Animation world cache exceeds 64 MiB / 64 assets");
             return data;
         };
         auto check_revision = [&](AssetId id, const Json& metadata) {
-            if (revisions.contains(id) && revisions.at(id) != metadata.at("artifact_sha256"))
+            if (revisions.contains(id) &&
+                revisions.at(id) != metadata.at("artifact_sha256").get<std::string>())
                 throw ArchiveError(
                     "Animation asset changed during Play; restart Play to use the new revision");
         };

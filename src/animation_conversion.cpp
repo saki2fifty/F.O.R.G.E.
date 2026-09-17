@@ -249,7 +249,7 @@ std::vector<AssetRecord> AnimationCandidate::publish() {
                          [&](const auto& r) { return paths.resolve(r.source) == target; });
         auto data = read_bytes(staged, max_archive_bytes);
         if (expected == impl_->records.end() ||
-            content_digest(data) != expected->metadata.at("artifact_sha256"))
+            content_digest(data) != expected->metadata.at("artifact_sha256").get<std::string>())
             throw std::runtime_error(
                 "Staged animation candidate changed; previous assets retained");
         std::filesystem::create_directories(target.parent_path());
