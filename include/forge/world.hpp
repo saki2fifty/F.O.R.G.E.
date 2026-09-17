@@ -1,8 +1,10 @@
 #pragma once
 #include <cstdint>
 #include <flecs.h>
+#include <forge/identity.hpp>
 #include <map>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 namespace forge {
 using Json = nlohmann::json;
@@ -48,11 +50,20 @@ class WorldContext {
     flecs::world& world() { return world_; }
     WorldRole role() const { return role_; }
     const Json& schema() const { return schema_; }
+    enum class ResolveState { Available, Missing, Unresolved, Ambiguous };
+    struct Resolution {
+        ResolveState state;
+        flecs::entity_t entity = 0;
+    };
+    Resolution resolve(EntityRef ref, flecs::entity_t membership = 0) const;
+    std::optional<EntityRef> reference(flecs::entity_t entity) const;
 
   private:
     friend class Scene;
     struct Content {
         std::map<std::string, flecs::entity_t> entities;
+        std::map<EntityId, flecs::entity_t> persistent;
+        AssetId asset;
         std::uint64_t serial = 0;
     };
     flecs::entity_t owner_of(flecs::entity entity) const;

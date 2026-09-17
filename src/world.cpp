@@ -3,6 +3,8 @@
 namespace forge {
 WorldContext::WorldContext(WorldRole role) : role_(role) {
     schema_ = detail::register_builtins(world_);
+    world_.component<PersistentEntityId>("forge.entity_id")
+        .add(flecs::OnInstantiate, flecs::DontInherit);
     world_.component<StableId>("forge.stable_id").add(flecs::OnInstantiate, flecs::DontInherit);
     world_.component<AuthoredName>("forge.authored_name")
         .add(flecs::OnInstantiate, flecs::DontInherit);
@@ -27,6 +29,37 @@ WorldContext::WorldContext(WorldRole role) : role_(role) {
         });
 }
 WorldContext::~WorldContext() = default;
+WorldContext::Resolution WorldContext::resolve(EntityRef ref, flecs::entity_t membership) const {
+    Resolution result{ResolveState::Unresolved};
+    unsigned matches = 0;
+    for (const auto& [root, content] : content_) {
+        if (membership && root != membership)
+            continue;
+        if (content.asset != ref.scene)
+            continue;
+        if (++matches > 1)
+            return {ResolveState::Ambiguous};
+        result = {ResolveState::Missing};
+        const auto it = content.persistent.find(ref.entity);
+        if (it != content.persistent.end() && world_.is_alive(it->second)) {
+            auto e = world_.entity(it->second);
+            if (e.owns<PersistentEntityId>() && e.get<PersistentEntityId>().value == ref.entity)
+                result = {ResolveState::Available, it->second};
+        }
+    }
+    return result;
+}
+std::optional<EntityRef> WorldContext::reference(flecs::entity_t handle) const {
+    if (!world_.is_alive(handle))
+        return {};
+    auto e = world_.entity(handle);
+    if (!e.owns<PersistentEntityId>())
+        return {};
+    auto it = content_.find(owner_of(e));
+    if (it == content_.end() || !it->second.asset)
+        return {};
+    return EntityRef{it->second.asset, e.get<PersistentEntityId>().value};
+}
 flecs::entity_t WorldContext::owner_of(flecs::entity entity) const {
     for (auto current = entity; current; current = current.target(flecs::ChildOf)) {
         auto owner = current.target<SceneMember>();
