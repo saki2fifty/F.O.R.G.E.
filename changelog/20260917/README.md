@@ -112,3 +112,12 @@ ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executabl
 - Run Windows process-controller tests before compiling the renderer so handshake/reload failures are found earlier; avoid rerunning those suites in the later render/core selection.
 
 - Build34 core11/11 passed the new nonblocking pipe regression; editor-test compilation rejected the expanded diagnostic's string argument. Pass the diagnostic through the existing C-string assertion helper. The preceding local editor rerun used an older executable after its rebuild failed, so it is not evidence for that revision; rebuild successfully before rerunning and recording final editor results. No Build34 package delivered.
+
+
+### Phase 4 verified delivery — Build 260917-000035
+
+Clean [Windows run 35182526241](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35182526241), packaged source `1e76cb8190602c957ba7c488e3124e63b3d6c792`, passed every job: Windows core **11/11** (18.77s), early SDL/editor/native **2/2** (15.44s), and remaining renderer/runtime/transform/identity/world/API suites **9/9** (5.88s). Linux core and formatting also passed. The actual Windows controller tests confirm the nonblocking pipe correction; all requested pending/first-tick reload and recovery scenarios pass. Four preview/grid shaders compile; all three executable build IDs match.
+
+All **28** accepted Build31 viewport images are byte-identical. Final local editor rebuild succeeded before **2/2** tests passed (14.44s); updated Windows-target syntax, Linux core11/11, sanitizer6/6 plus pipe1/1, manual3/3, formatting and workflow lint passed. ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executables and23 matching manual source/HTML pages were verified. ZIP SHA256: `34cfbf8898186b052b7ece22d2de2e16b636b1592123c9da2c893be597c51c27`.
+
+Build31 was archived. Package cleanup leaves only the current numbered ZIP and executable folder; cleanup dry run is empty. Builds32–34 were superseded/failed and never delivered. Phase4 implementation and automated validation are complete. Interactive Windows desktop acceptance remains for the user. No Phase5, structured prefabs, physics, animation or dependency changes are included.
