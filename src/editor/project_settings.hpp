@@ -41,6 +41,19 @@ class ProjectSettingsEditor {
                         {"source",
                          path_utf8(document.path().lexically_relative(document.project()))}};
             }
+            ui::heading("Physics",
+                        "Shared project gravity. Applies when starting the next Play runtime.");
+            auto gravity = draft_.value("physics", Json{{"version", 1}, {"gravity", {0, -9.81, 0}}})
+                               .at("gravity")
+                               .get<Double3>();
+            if (ImGui::InputScalarN("Gravity XYZ", ImGuiDataType_Double, gravity.data(), 3, nullptr,
+                                    nullptr, "%.3f")) {
+                if (!draft_.contains("physics"))
+                    draft_["physics"] = {{"version", 1}};
+                draft_["physics"]["gravity"] = gravity;
+            }
+            ui::help("Acceleration in meters per second squared. +Y is up; default Y is -9.81. "
+                     "Scene Undo does not change project settings.");
             ui::heading("Input actions",
                         "Project-owned stable action identities. Rename labels without changing "
                         "the identity used by runtime consumers.");

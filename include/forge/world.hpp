@@ -36,6 +36,7 @@ struct SceneMember {};
 struct AuthoredPrefab {};
 // Derived availability marker, never authored or inherited.
 struct MissingStructuralParent {};
+EngineModule physics_schema_module();
 class Scene;
 class WorldContext {
   public:
@@ -92,7 +93,7 @@ class EngineContext {
     explicit EngineContext(WorldRole role = WorldRole::Authoring, bool profiling = false,
                            std::vector<EngineModule> modules = {})
         : services_(profiling), world_(role, services_.access(), std::move(modules)) {}
-    ServiceAccess services() const { return services_.access(); }
+    ServiceAccess services() const { return world_.services(); }
     WorldContext& world() { return world_; }
 
   private:

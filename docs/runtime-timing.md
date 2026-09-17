@@ -67,3 +67,7 @@ There is no gameplay input transport/action consumer yet. SDL events currently d
 Pinned Flecs custom_pipeline/custom_phases examples, pipeline builder and `ecs_progress` implementation were reviewed; pinned SDL Windows process backend demonstrates inherited-pipe/nonblocking parent handling. Microsoft documents [anonymous-pipe handle mode changes](https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-setnamedpipehandlestate) and [partial byte writes in nonblocking mode](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-type-read-and-wait-modes). Dependency revisions are unchanged.
 
 Project simulation_hz and input map are provided at protocol2 Hello. Omitting these retains60Hz/empty-map behavior; an explicit runtime CLI frequency takes precedence. See [Input](input.md).
+
+## Physics and recovery
+
+The fixed pipeline now includes pre-physics synchronization, Jolt Update, adoption and PostPhysics before final transforms. Private physics-aware recovery restores a completed tick and resets interpolation/elapsed debt. See [Physics](physics.md).

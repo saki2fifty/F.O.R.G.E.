@@ -216,6 +216,7 @@ int main(int argc, char** argv) {
         const auto fallback = native.artifact();
         const auto fallback_x = x();
         const auto fallback_session = play.session();
+        const auto fallback_tick = play.timing().at("tick");
         // Probe tick passes; the first LIVE callback fails, using explicit process state.
         const auto live_marker = forge::Json((root / "first-live-marker").string()).dump();
         auto first_live =
@@ -243,7 +244,7 @@ int main(int argc, char** argv) {
         require(play.paused() && native.artifact() == fallback && play.module() == fallback &&
                     x() == fallback_x,
                 "First-tick rollback lost previous artifact/checkpoint or paused policy");
-        require(play.session() != fallback_session && play.timing().at("tick") == 0 &&
+        require(play.session() != fallback_session && play.timing().at("tick") == fallback_tick &&
                     play.timing().at("alpha") == 1,
                 "Recovery did not reset timing/generation");
         // Stop cancels a loaded pending candidate without ever invoking gameplay.

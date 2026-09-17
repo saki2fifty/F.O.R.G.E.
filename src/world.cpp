@@ -49,6 +49,14 @@ struct PrefabsRegistration {
             .add(flecs::OnInstantiate, flecs::DontInherit);
     }
 };
+struct PhysicsRegistration {
+    Json schema;
+    explicit PhysicsRegistration(flecs::world& world) {
+        world.module<PhysicsRegistration>();
+        RegistrationScope scope(world);
+        schema = detail::register_builtins(world, true);
+    }
+};
 struct InputRegistration {
     explicit InputRegistration(flecs::world& world) {
         world.module<InputRegistration>();
@@ -75,15 +83,29 @@ std::vector<EngineModule> built_in_modules() {
     return result;
 }
 } // namespace
+EngineModule physics_schema_module() {
+    EngineModule result;
+    result.id = "forge.physics";
+    result.dependencies = {"forge.core", "forge.transforms"};
+    result.schemas = [](ModuleContext& c) { c.world.import<PhysicsRegistration>(); };
+    return result;
+}
 WorldContext::WorldContext(WorldRole role, ServiceAccess services,
                            std::vector<EngineModule> modules)
-    : services_(services), role_(role) {
+    : services_(services.world_scope()), role_(role) {
     auto composition = built_in_modules();
+    if (std::none_of(modules.begin(), modules.end(),
+                     [](const auto& m) { return m.id == "forge.physics"; }))
+        composition.push_back(physics_schema_module());
     for (auto& module : modules)
         composition.push_back(std::move(module));
-    modules_.bootstrap(world_, role_, services_, std::move(composition));
+    modules_.bootstrap(world_, role_, services_, std::move(composition), this);
     try {
         schema_ = world_.import<CoreRegistration>().get<CoreRegistration>().schema;
+        for (const auto& c :
+             world_.import<PhysicsRegistration>().get<PhysicsRegistration>().schema.at(
+                 "components"))
+            schema_["components"].push_back(c);
         // Revision invalidation includes direct native writes, removal and relation edits.
         // Internal observation only: application notifications remain post-commit.
         world_.observer()

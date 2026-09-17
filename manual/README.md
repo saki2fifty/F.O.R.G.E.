@@ -28,13 +28,14 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Testing gameplay
 
+- [Physics](editor/physics.md): make bodies fall and collide, with Pause/Step and prefab support.
 - [Play mode](editor/play-mode.md): run an isolated copy of your scene.
 - [Gameplay input](editor/input.md): bind actions and inspect fixed-tick input without writing code.
 - [Native gameplay](editor/native-gameplay.md): compile and reload the supported C++ sample.
 
 ## Current boundaries
 
-The viewport draws transformed built-in blockout meshes. Production materials, imported meshes, physics, audio, animation, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
+The viewport draws transformed built-in blockout meshes. Production materials, imported meshes, audio, animation, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
 
 ## Commands and inspection
 

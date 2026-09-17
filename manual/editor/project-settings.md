@@ -29,3 +29,7 @@ The **Input actions** section defines project actions and their bindings. See [G
 Older version-1 manifests are read without replacing them. The first settings save writes version 2 and retains `forge.project.json.v1.backup`. Unknown fields are preserved. Unsupported future versions are rejected.
 
 See also [Projects](projects.md), [Play mode](play-mode.md), and [Settings and appearance](settings.md).
+
+## Gravity
+
+**Physics → Gravity XYZ** controls acceleration for the next Play runtime. The default is (0, -9.81, 0) m/s². Unknown project settings remain preserved. See [Physics](physics.md).

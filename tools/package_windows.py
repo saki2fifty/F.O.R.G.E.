@@ -38,7 +38,7 @@ def package(build, dependencies, output):
     images += dlls
     for image in images:
         check_pe64(image)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src')
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src')
     notices = []
     for name in source_names:
         source = dependencies/name

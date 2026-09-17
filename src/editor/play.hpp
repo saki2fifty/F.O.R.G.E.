@@ -27,11 +27,12 @@ class PlaySession {
     }
     const Json& timing() const { return timing_; }
     const Json& input_status() const { return input_status_; }
-    void configure(double hz, InputMap map) {
+    void configure(double hz, InputMap map, Double3 gravity = {0, -9.81, 0}) {
         if (active())
             throw std::runtime_error("Stop Play before configuring input/settings");
         if (!std::isfinite(hz) || hz < 1 || hz > 240)
             throw std::runtime_error("Invalid simulation frequency");
+        gravity_ = gravity;
         simulation_hz_ = hz;
         input_map_ = map.source();
     }
@@ -69,7 +70,7 @@ class PlaySession {
         transaction_ = false;
         desired_paused_ = paused();
         restoring_ = true;
-        launch(snapshot_);
+        launch(snapshot_, recovery_);
     }
     // Caller has executed this immutable artifact in a separate fixed-tick probe.
     void reload(const std::string& path) {
@@ -80,12 +81,14 @@ class PlaySession {
             // Keep the original known-good artifact/checkpoint and prior run policy.
             loading_ = path;
             notice_ = "Previous pending activation cancelled. ";
-            launch(checkpoint_);
+            launch(checkpoint_, checkpoint_recovery_);
         } else {
             requested_ = path;
         }
         reload_result_ = Reload::Pending;
     }
+    Double3 gravity() const { return gravity_; }
+    const Json& recovery() const { return recovery_; }
     const Json& snapshot() const { return snapshot_; }
     const Json& effective_snapshot() const { return effective_; }
     std::uint64_t snapshot_version() const { return snapshot_version_; }
@@ -101,7 +104,7 @@ class PlaySession {
         status_ = "Stopped. Authored scene preserved.";
     }
     void start(const std::string& executable, const Json& scene, const std::string& module = {},
-               bool probe = false) {
+               bool probe = false, const Json& recovery = Json()) {
         const auto initial = scene;
         stop();
         executable_ = executable;
@@ -109,6 +112,7 @@ class PlaySession {
         module_.clear();
         previous_.clear();
         checkpoint_ = initial;
+        checkpoint_recovery_ = recovery;
         probe_ = probe;
         desired_paused_ = probe;
         prior_paused_ = probe;
@@ -116,7 +120,7 @@ class PlaySession {
         restoring_ = false;
         reload_result_ = Reload::Idle;
         notice_.clear();
-        launch(initial);
+        launch(initial, recovery);
     }
     void pump() {
         if (!process_)
@@ -171,19 +175,26 @@ class PlaySession {
                         error.starts_with("Play restart required:")) {
                         notice_ =
                             "Schema changed; restarted play with compatible host-owned values. ";
-                        launch(checkpoint_);
+                        launch(checkpoint_, checkpoint_recovery_);
                         return;
                     }
                     throw std::runtime_error(error);
                 }
                 snapshot_ = response.at("scene");
+                recovery_ = response.at("recovery");
                 effective_ = response.at("effective_scene");
                 timing_ = response.at("timing");
                 input_status_ = response.value("input", Json::object());
                 ++snapshot_version_;
                 if (stage_ == Stage::Hello) {
                     stage_ = Stage::Replace;
-                    send({{"command", "replace"}, {"scene", initial_}});
+                    Json replacement = {{"command", "replace"}, {"scene", initial_}};
+                    if (!initial_recovery_.is_null()) {
+                        replacement["recovery"] = initial_recovery_;
+                        replacement["recovery_session"] = initial_recovery_.at("session");
+                        replacement["recovery_tick"] = initial_recovery_.at("tick");
+                    }
+                    send(std::move(replacement));
                 } else if (stage_ == Stage::Replace) {
                     if (!loading_.empty()) {
                         stage_ = Stage::Load;
@@ -192,6 +203,7 @@ class PlaySession {
                         begin_running();
                 } else if (stage_ == Stage::Boundary) {
                     checkpoint_ = snapshot_;
+                    checkpoint_recovery_ = recovery_;
                     previous_ = module_;
                     transaction_ = true;
                     loading_ = requested_;
@@ -256,7 +268,7 @@ class PlaySession {
                 restoring_ = true;
                 notice_ =
                     "Reload failed; restored previous module and checkpoint: " + diagnostic + ". ";
-                launch(checkpoint_);
+                launch(checkpoint_, checkpoint_recovery_);
             } else {
                 const bool recover = !probe_ && !restoring_ && stage_ == Stage::Running;
                 close_process();
@@ -295,10 +307,12 @@ class PlaySession {
                                : "Playing in isolated runtime. ";
         status_ += notice_;
     }
-    void launch(const Json& scene) {
+    void launch(const Json& scene, const Json& recovery = Json()) {
+        const auto recovery_copy = recovery;
         const auto initial = scene;
         close_process();
         initial_ = snapshot_ = effective_ = initial;
+        initial_recovery_ = recovery_ = recovery_copy;
         timing_ = {{"paused", true}, {"tick", 0}};
         ++snapshot_version_;
         stage_ = Stage::Hello;
@@ -326,7 +340,10 @@ class PlaySession {
             return;
         }
         status_ = "Starting play...";
-        send({{"command", "hello"}, {"simulation_hz", simulation_hz_}, {"input_map", input_map_}});
+        send({{"command", "hello"},
+              {"simulation_hz", simulation_hz_},
+              {"input_map", input_map_},
+              {"gravity", gravity_}});
     }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
@@ -346,6 +363,8 @@ class PlaySession {
         waiting_ = true;
         sent_at_ = SDL_GetTicks();
     }
+    Double3 gravity_{0, -9.81, 0};
+    Json recovery_, initial_recovery_, checkpoint_recovery_;
     double simulation_hz_ = 60;
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
     std::vector<InputEvent> input_events_;

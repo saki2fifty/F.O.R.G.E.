@@ -79,7 +79,9 @@ with tempfile.TemporaryDirectory(dir=Path.cwd()) as scratch:
         assert session.active!=stable and session.pending is None
         session.pause()
         stable=session.active
-        checkpoint=session.poll()['scene']
+        boundary=session.poll()
+        checkpoint=boundary['scene']
+        checkpoint_tick=boundary['timing']['tick']
         marker=json.dumps(str(root/'live-first-tick'))
         source='#include <fstream>\n#include <cstdlib>\nstatic bool live=false;\n'+original
         source=source.replace('FORGE_EXPORT const ForgeModuleV1* forge_module_v1(void) {',
@@ -95,7 +97,7 @@ with tempfile.TemporaryDirectory(dir=Path.cwd()) as scratch:
             pass
         recovered=session.poll()
         assert session.active==stable and session.pending is None and session.paused
-        assert recovered['scene']==checkpoint and recovered['timing']['tick']==0 and recovered['timing']['alpha']==1
+        assert recovered['scene']==checkpoint and recovered['timing']['tick']==checkpoint_tick and recovered['timing']['alpha']==1
         (project/'gameplay.cpp').write_text(original)
         assert session.build()[0] and session.pending
         session.close()

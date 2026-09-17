@@ -18,6 +18,7 @@ Json ProjectSettings::defaults(const std::string& name) {
     return {{"version", 2},
             {"name", name},
             {"simulation_hz", 60},
+            {"physics", {{"version", 1}, {"gravity", {0, -9.81, 0}}}},
             {"startup_scene", nullptr},
             {"input", InputMap{}.source()}};
 }
@@ -34,6 +35,14 @@ void ProjectSettings::validate(const Json& data) {
         (void)startup.at("asset").get<AssetId>();
         (void)ProjectPaths::normalize(
             std::filesystem::u8path(startup.at("source").get<std::string>()));
+    }
+    if (data.contains("physics")) {
+        const auto& p = data.at("physics");
+        if (!p.is_object() || p.at("version") != 1 || !p.at("gravity").is_array() ||
+            p.at("gravity").size() != 3)
+            throw std::runtime_error("Expected physics settings version 1 and three gravity axes");
+        PhysicsConfig config{p.at("gravity").get<std::array<double, 3>>()};
+        config.validate();
     }
     validate_project_modules(data);
 }

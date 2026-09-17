@@ -131,22 +131,57 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
                         .kind(input_phase_)
                         .immediate()
                         .run([this](flecs::iter&) { input_monitor_.consume(input_.snapshot()); });
+    if (context.services().available(Capability::Physics))
+        physics_ = std::static_pointer_cast<PhysicsRuntime>(context.services().physics());
+    pre_phase_ =
+        world.entity("forge.runtime.PrePhysics").add(flecs::Phase).depends_on(gameplay_phase_);
+    physics_phase_ = world.entity("forge.runtime.Physics").add(flecs::Phase).depends_on(pre_phase_);
+    adoption_phase_ =
+        world.entity("forge.runtime.PhysicsAdoption").add(flecs::Phase).depends_on(physics_phase_);
+    post_phase_ =
+        world.entity("forge.runtime.PostPhysics").add(flecs::Phase).depends_on(adoption_phase_);
     transform_phase_ =
-        world.entity("forge.runtime.Transforms").add(flecs::Phase).depends_on(gameplay_phase_);
+        world.entity("forge.runtime.Transforms").add(flecs::Phase).depends_on(post_phase_);
+    pre_physics_ = world.system("forge.runtime.PhysicsSynchronization")
+                       .kind(pre_phase_)
+                       .immediate()
+                       .run([this](flecs::iter& it) {
+                           if (physics_)
+                               stage([&] { physics_->synchronize(it.delta_time()); });
+                       });
+    physics_step_ = world.system("forge.runtime.PhysicsStep")
+                        .kind(physics_phase_)
+                        .immediate()
+                        .run([this](flecs::iter& it) {
+                            if (physics_)
+                                stage([&] { physics_->step(it.delta_time()); });
+                        });
+    physics_adopt_ = world.system("forge.runtime.PhysicsAdoptionSystem")
+                         .kind(adoption_phase_)
+                         .immediate()
+                         .run([this](flecs::iter&) {
+                             if (physics_)
+                                 stage([&] { physics_->adopt(); });
+                         });
+    pre_physics_.add<FixedSimulation>();
+    physics_step_.add<FixedSimulation>();
+    physics_adopt_.add<FixedSimulation>();
     pipeline_ = world.pipeline()
                     .with(flecs::System)
                     .with<FixedSimulation>()
                     .with(flecs::Phase)
                     .cascade(flecs::DependsOn)
                     .build();
-    gameplay_ = world.system("forge.runtime.NativeGameplay")
-                    .kind(gameplay_phase_)
-                    .immediate()
-                    .run([this](flecs::iter& it) { module_.tick(host_, it.delta_time()); });
-    transforms_ = world.system("forge.runtime.FinalTransforms")
-                      .kind(transform_phase_)
-                      .immediate()
-                      .run([this](flecs::iter&) { context_.evaluate_world_transforms(); });
+    gameplay_ =
+        world.system("forge.runtime.NativeGameplay")
+            .kind(gameplay_phase_)
+            .immediate()
+            .run([this](flecs::iter& it) { stage([&] { module_.tick(host_, it.delta_time()); }); });
+    transforms_ =
+        world.system("forge.runtime.FinalTransforms")
+            .kind(transform_phase_)
+            .immediate()
+            .run([this](flecs::iter&) { stage([&] { context_.evaluate_world_transforms(); }); });
     world.set_pipeline(pipeline_);
     input_system_.add<FixedSimulation>();
     gameplay_.add<FixedSimulation>();
@@ -155,11 +190,18 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
 }
 RuntimeSimulation::~RuntimeSimulation() {
     context_.world().set_pipeline(previous_pipeline_);
+    pre_physics_.destruct();
+    physics_step_.destruct();
+    physics_adopt_.destruct();
     input_system_.destruct();
     gameplay_.destruct();
     transforms_.destruct();
     pipeline_.destruct();
     transform_phase_.destruct();
+    post_phase_.destruct();
+    adoption_phase_.destruct();
+    physics_phase_.destruct();
+    pre_phase_.destruct();
     gameplay_phase_.destruct();
     input_phase_.destruct();
 }
@@ -168,6 +210,7 @@ void RuntimeSimulation::tick(float dt) {
         throw std::runtime_error("Gameplay requires a positive fixed tick delta");
     // progress updates Flecs frame/time metadata from this explicit fixed delta.
     auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
+    stage_error_ = nullptr;
     input_.latch(++input_tick_);
     context_.modules().begin_tick(input_.snapshot());
     try {
@@ -177,7 +220,12 @@ void RuntimeSimulation::tick(float dt) {
         throw;
     }
     context_.modules().end_tick();
+    if (stage_error_)
+        std::rethrow_exception(stage_error_);
     poses_.capture(context_.transform_nodes());
+    if (physics_)
+        for (auto id : physics_->take_discontinuities())
+            poses_.snap(id);
 }
 void RuntimeSimulation::reset_presentation() {
     context_.evaluate_world_transforms();

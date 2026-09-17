@@ -70,3 +70,9 @@ After editing source files outside FORGE, increase the source revision and use *
 The source window edits the current built-in components. Unknown plugin data is preserved without interpreting it. Nested prefabs, per-instance interior hierarchy changes, Unpack and Apply to Prefab are deferred. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
 
 See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and recovery](saving-recovery.md) and [Play mode](play-mode.md).
+
+## Physics defaults
+
+Body and collider components can be inherited from prefab sources. Source changes propagate to fields without overrides; explicit instance edits remain. Revert removes that intent and is part of scene Undo. Solver objects exist only during Play and are never saved in the prefab. See [Physics](physics.md).
+
+A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Child space** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.

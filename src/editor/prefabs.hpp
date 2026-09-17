@@ -16,6 +16,14 @@ inline const char* prefab_component_label(const std::string& key) {
         return "Color";
     if (key == "forge.primitive")
         return "Primitive";
+    if (key == "forge.physics_body")
+        return "Physics Body";
+    if (key == "forge.box_collider")
+        return "Box Collider";
+    if (key == "forge.sphere_collider")
+        return "Sphere Collider";
+    if (key == "forge.capsule_collider")
+        return "Capsule Collider";
     return key.c_str();
 }
 inline std::string prefab_member_label(const Json& document, const std::string& id) {
@@ -283,6 +291,24 @@ class PrefabEditor {
                         }
                     }
                     const auto schema = scene.schema();
+                    if (ImGui::BeginCombo("Add physics component", "Choose component")) {
+                        for (const auto& component : schema.at("components")) {
+                            const std::string key = component.at("id");
+                            if (!component.value("optional", false) ||
+                                m["components"].contains(key))
+                                continue;
+                            if (ImGui::Selectable(key.c_str()))
+                                for (const auto& field : component.at("fields"))
+                                    m["components"][key][field.at("id").get<std::string>()] =
+                                        field.at("default");
+                            ui::help(
+                                "Add optional source defaults. Publish validates this prefab "
+                                "candidate; runtime validates collider realization before Play.");
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ui::help("Body and collider defaults for this prefab member. Dynamic bodies "
+                             "need spatial World binding.");
                     for (const auto& component : schema.at("components")) {
                         const std::string key = component.at("id");
                         if (!m["components"].contains(key))
@@ -318,7 +344,8 @@ class PrefabEditor {
                             double n = m["components"][key].at(f).get<double>();
                             if (ImGui::InputDouble(f.c_str(), &n, 0, 0, "%.4f")) {
                                 if (field.at("type") == "uint32") {
-                                    if (std::isfinite(n) && n >= 0 && n <= 3 && std::floor(n) == n)
+                                    if (std::isfinite(n) && n >= 0 &&
+                                        n <= field.value("maximum", 3.0) && std::floor(n) == n)
                                         m["components"][key][f] = static_cast<unsigned>(n);
                                 } else
                                     m["components"][key][f] = n;
@@ -338,9 +365,10 @@ class PrefabEditor {
                 Json components = Json::object();
                 const auto schema = scene.schema();
                 for (const auto& type : schema.at("components"))
-                    for (const auto& field : type.at("fields"))
-                        components[type.at("id").get<std::string>()]
-                                  [field.at("id").get<std::string>()] = field.at("default");
+                    if (!type.value("optional", false))
+                        for (const auto& field : type.at("fields"))
+                            components[type.at("id").get<std::string>()]
+                                      [field.at("id").get<std::string>()] = field.at("default");
                 components["forge.local_translation"]["y"] = 1;
                 draft_["members"].push_back({{"id", id},
                                              {"name", "Child"},

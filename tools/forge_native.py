@@ -117,7 +117,8 @@ class Session:
         self.activation_generation = 0
         self.state = 'Idle'
         self.runtime = Runtime(self.runtime_path)
-        self.runtime.request('replace', scene=self.checkpoint)
+        initial = self.runtime.request('replace', scene=self.checkpoint)
+        self.checkpoint, self.recovery = initial['scene'], initial['recovery']
 
     def configure(self):
         subprocess.run([self.cmake, '-S', str(self.project), '-B', str(self.build_dir),
@@ -139,12 +140,13 @@ class Session:
         shutil.copy2(source, target)
         # Use representative current state; probe cannot mutate the live runtime.
         try:
-            representative = self.poll()['scene']
+            boundary = self.poll()
+            representative = boundary['scene']
         except RuntimeError as error:
             return False, str(error)
         probe = Runtime(self.runtime_path)
         try:
-            probe.request('replace', scene=representative)
+            probe.request('replace', scene=representative, recovery=boundary['recovery'], recovery_session=boundary['recovery']['session'], recovery_tick=boundary['recovery']['tick'])
             probe.request('load_module', path=str(target))
             probe.request('step')
         except Exception as error:
@@ -164,6 +166,7 @@ class Session:
             boundary = self.runtime.request('pause')
             self.paused = True
             self.checkpoint = boundary['scene']
+            self.recovery = boundary['recovery']
             self.pending = target
             try:
                 loaded = self.runtime.request('load_module', path=str(target))
@@ -172,7 +175,7 @@ class Session:
                     raise
                 self.runtime.close()
                 self.runtime = Runtime(self.runtime_path)
-                self.runtime.request('replace', scene=self.checkpoint)
+                self.runtime.request('replace', scene=self.checkpoint, recovery=self.recovery, recovery_session=self.recovery['session'], recovery_tick=self.recovery['tick'])
                 loaded = self.runtime.request('load_module', path=str(target))
                 output += '\nSchema changed; restarted play with host-owned scene values'
             self.activation_generation = loaded['activation']['generation']
@@ -194,12 +197,19 @@ class Session:
             self.state = 'Active'
         if not self.pending:
             self.checkpoint = result['scene']
+            self.recovery = result['recovery']
         return result
 
     def _rollback(self, resume=True):
         self.runtime.close()
         self.runtime = Runtime(self.runtime_path)
-        self.runtime.request('replace', scene=self.checkpoint)
+        try:
+            self.runtime.request('replace', scene=self.checkpoint, recovery=self.recovery, recovery_session=self.recovery['session'], recovery_tick=self.recovery['tick'])
+        except RuntimeError as error:
+            self.runtime.close()
+            self.pending = None
+            self.state = 'RecoveryFailed'
+            raise RuntimeError(f'Physics-aware recovery failed; start a new session for clean Play: {error}') from error
         if self.active:
             self.runtime.request('load_module', path=str(self.active))
         self.pending = None

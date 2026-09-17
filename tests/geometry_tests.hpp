@@ -55,7 +55,7 @@ inline void test_geometry() {
     const auto unchanged_identity = scene.document();
     require(scene.document() == forge::migrate_scene(doc, &unchanged_identity),
             "New components/unknown data round trip");
-    require(scene.schema()["components"].size() == 5 &&
+    require(scene.schema()["components"].size() == 9 &&
                 scene.schema()["components"][1]["id"] == "forge.local_rotation",
             "Reflected transform schema");
     const auto unchanged = scene.document();

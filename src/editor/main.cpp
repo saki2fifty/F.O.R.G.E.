@@ -12,6 +12,7 @@
 #include "native_build.hpp"
 #include "orientation.hpp"
 #include "performance.hpp"
+#include "physics_inspector.hpp"
 #include "play.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
@@ -291,6 +292,7 @@ int main(int argc, char** argv) {
             }
             play.pump();
             native->simulation_hz = files.document.settings().simulation_hz();
+            native->gravity = files.document.settings().physics().gravity;
             native->pump(play, authoring_snapshot.snapshot(scene));
             files.set_switch_available(!native->busy());
             int width = 0, height = 0;
@@ -399,7 +401,8 @@ int main(int argc, char** argv) {
                                     "supports ABI1.");
                             play.stop();
                             play.configure(files.document.settings().simulation_hz(),
-                                           files.document.settings().input());
+                                           files.document.settings().input(),
+                                           files.document.settings().physics().gravity);
                             play.start(runtime_path, scene.snapshot(), native->artifact());
                         });
                     if (play.can_recover() &&
@@ -613,6 +616,7 @@ int main(int argc, char** argv) {
                             }
                             blockout.draw(scene, selected, message);
                             ImGui::BeginDisabled(blockout.active());
+                            forge::physics_inspector(scene, selected, message);
                             if (ImGui::Button("Object actions"))
                                 ImGui::OpenPopup("##object-actions");
                             forge::ui::help("Duplicate or delete this object and its children; "

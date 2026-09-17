@@ -204,7 +204,7 @@ void Scene::replace(const Json& source) {
         std::string id, name, parent, base;
         bool prefab;
         SpatialBinding spatial;
-        std::array<std::optional<detail::Value>, 5> values;
+        std::array<std::optional<detail::Value>, 9> values;
     };
     // All parsing/type conversion/opaque copies happen before the first world write.
     auto opaque = doc;

@@ -116,6 +116,14 @@ static void project_tests(const std::filesystem::path& root) {
     check(project.startup() == root / "Scenes/main.scene.json",
           "Startup identity resolution failed");
     auto changed = project.document();
+    check(project.physics().gravity == Double3{0, -9.81, 0}, "Legacy project gravity default");
+    changed["physics"] = {{"version", 1}, {"gravity", {0, -3, 0}}, {"plugin", {{"opaque", true}}}};
+    auto invalid_physics = changed;
+    invalid_physics["physics"]["gravity"] = {0, 0};
+    reject([&] { ProjectSettings::validate(invalid_physics); });
+    invalid_physics = changed;
+    invalid_physics["physics"]["gravity"] = {0, 1e9, 0};
+    reject([&] { ProjectSettings::validate(invalid_physics); });
     changed["simulation_hz"] = 120;
     const auto baseline = project.document();
     project.save(changed, &baseline);
@@ -123,6 +131,9 @@ static void project_tests(const std::filesystem::path& root) {
     check(ProjectSettings(root).simulation_hz() == 120 &&
               std::filesystem::exists(root / "forge.project.json.v1.backup"),
           "Settings persistence/backup missing");
+    check(ProjectSettings(root).physics().gravity == Double3{0, -3, 0} &&
+              ProjectSettings(root).document().at("physics").at("plugin").at("opaque") == true,
+          "Gravity/unknown physics settings roundtrip");
     const auto pending = root / "forge.project.json.pending";
     std::filesystem::create_directory(pending);
     reject([&] { project.save(project.document()); });

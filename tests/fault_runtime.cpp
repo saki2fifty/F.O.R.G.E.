@@ -11,6 +11,7 @@ int main() {
                                  {"session", "fault"},
                                  {"id", request.at("id")},
                                  {"ok", true},
+                                 {"recovery", nullptr},
                                  {"scene", {{"version", 3}, {"entities", nlohmann::json::array()}}},
                                  {"effective_scene", nlohmann::json::object()},
                                  {"timing", {{"paused", true}}},

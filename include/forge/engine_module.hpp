@@ -22,27 +22,30 @@ inline const char* world_role_name(WorldRole role) {
     return "invalid";
 }
 struct FixedSimulation {};
+class WorldContext;
 struct ModuleContext {
     flecs::world& world;
     WorldRole role;
     ServiceAccess services;
     std::string id;
     const InputSnapshot* input = nullptr; // Borrowed during a fixed tick only.
-    std::shared_ptr<void> state;          // Host bridge, retained until after Flecs finalization.
+    WorldContext* owner = nullptr;
+    std::shared_ptr<void> state; // Host bridge, retained until after Flecs finalization.
 };
 // Internal/source contract. Flecs owns ECS registrations; FORGE owns policy and lifetime.
 struct EngineModule {
     std::string id, implementation = "1";
     std::vector<std::string> dependencies;
     unsigned schema_roles = all_world_roles, runtime_roles = 0;
-    unsigned required_services = 0, allowed_services = 0;
+    unsigned required_services = 0, allowed_services = 0, provided_services = 0;
     std::shared_ptr<void> code;
     std::function<void(ModuleContext&)> schemas, start, stop;
 };
 class ModuleLifecycle {
   public:
     ~ModuleLifecycle();
-    void bootstrap(flecs::world&, WorldRole, ServiceAccess, std::vector<EngineModule>);
+    void bootstrap(flecs::world&, WorldRole, ServiceAccess, std::vector<EngineModule>,
+                   WorldContext* owner = nullptr);
     void stop() noexcept;
     void begin_tick(const InputSnapshot&);
     void end_tick() noexcept;

@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/input.hpp>
+#include <forge/physics_components.hpp>
 #include <forge/project_paths.hpp>
 #include <optional>
 namespace forge {
@@ -15,6 +16,13 @@ class ProjectSettings {
             if (module.is_object())
                 return true;
         return false;
+    }
+    PhysicsConfig physics() const {
+        PhysicsConfig c;
+        if (data_.contains("physics"))
+            c.gravity = data_.at("physics").at("gravity").get<std::array<double, 3>>();
+        c.validate();
+        return c;
     }
     InputMap input() const { return InputMap(data_.at("input")); }
     std::optional<std::filesystem::path> startup() const;

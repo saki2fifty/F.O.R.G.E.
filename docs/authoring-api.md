@@ -66,3 +66,7 @@ Discovery now includes 20 commands. `transform.position`, `transform.rotation` a
 `prefab.instantiate` takes an `asset` UUID available in the bound scene's validated prefab sources. `property.revert` takes `entity`, `component`, and `field`; color/primitive scalar masks are supported. Transform channels use `component.revert`. All are scene-owned operations with revision checks and Undo/Redo. UI-independent C++ `PrefabLibrary` owns source create/duplicate/publish; remote scene capabilities do not imply filesystem publication authority. No Apply capability is exposed. See [Prefabs](prefabs.md).
 
 `prefab.revert_name` takes an instance-root `entity` and removes its explicit display-name override. It shares scene revision checks and history.
+
+## Optional physics components
+
+`component.add` accepts entity and component IDs for optional reflected engine components. Existing property edit/Revert and scene transactions apply. Physics settings are described in [Physics](physics.md). No Jolt handles are exposed in the authoring API.

@@ -28,3 +28,7 @@ See [Transforms](transforms.md) for Rotation/Scale fields and Copy/Paste/Reset t
 ## Prefab members
 
 Structured instances show their source revision and Revert controls in **Prefab instance**. Transform channels can be overridden independently. Change source-member names and hierarchy through **Open prefab source**. See [Prefabs](prefabs.md).
+
+## Physics properties
+
+Expand **Physics** to add optional bodies and Box/Sphere/Capsule colliders. See [Physics](physics.md) for field meanings and a falling-cube walkthrough.

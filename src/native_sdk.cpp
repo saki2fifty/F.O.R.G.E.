@@ -17,7 +17,7 @@
 namespace forge {
 namespace {
 const std::set<std::string> builtins{"forge.core", "forge.transforms", "forge.prefabs",
-                                     "forge.input"};
+                                     "forge.input", "forge.physics"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
@@ -55,6 +55,53 @@ struct Bridge {
                 host.capabilities |= capability(cap);
         host.fixed_phase = c.world.entity("forge.runtime.Gameplay").add(flecs::Phase).id();
         host.fixed_tag = c.world.id<FixedSimulation>();
+        host.post_physics_phase =
+            c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.raycast = [](void* p, const double* origin, const double* displacement,
+                          ForgeSdkPhysicsHitV1* out) -> int32_t {
+            try {
+                auto& c = static_cast<Bridge*>(p)->context;
+                if (!origin || !displacement || !out || out->size != sizeof(*out) || !c.input)
+                    return -1;
+                auto hit = c.services.physics()->raycast(
+                    {origin[0], origin[1], origin[2]},
+                    {displacement[0], displacement[1], displacement[2]});
+                if (!hit)
+                    return 0;
+                auto scene = hit->entity.scene.str(), entity = hit->entity.entity.str();
+                std::memcpy(out->scene, scene.c_str(), 37);
+                std::memcpy(out->entity, entity.c_str(), 37);
+                for (unsigned i = 0; i < 3; ++i) {
+                    out->position[i] = hit->position[i];
+                    out->normal[i] = hit->normal[i];
+                }
+                out->fraction = hit->fraction;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.physics_move = [](void* p, const char* scene, const char* entity,
+                               const double* position, const float* rotation, uint32_t motion,
+                               uint32_t clear) -> int32_t {
+            try {
+                auto& c = static_cast<Bridge*>(p)->context;
+                if (!position || !rotation || motion > 1 || clear > 1 || !c.input)
+                    return 0;
+                EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                              EntityId::parse(bounded(entity, 36))};
+                LocalTranslation target{position[0], position[1], position[2]};
+                LocalRotation q{rotation[0], rotation[1], rotation[2], rotation[3]};
+                auto service = c.services.physics();
+                if (motion)
+                    service->move_kinematic(ref, target, q);
+                else
+                    service->teleport(ref, target, q, clear != 0);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
                 auto& c = static_cast<Bridge*>(p)->context;
@@ -194,6 +241,9 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             }
         };
         result.start = [api](ModuleContext& c) {
+            if (c.services.available(Capability::Physics))
+                static_cast<Bridge*>(c.state.get())->host.capabilities |=
+                    capability(Capability::Physics);
             char error[1024]{};
             if (api->start &&
                 !api->start(&static_cast<Bridge*>(c.state.get())->host, error, sizeof(error))) {

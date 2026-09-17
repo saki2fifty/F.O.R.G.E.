@@ -21,7 +21,7 @@ ModuleLifecycle::~ModuleLifecycle() {
         entries_.pop_back();
 }
 void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAccess services,
-                                std::vector<EngineModule> modules) {
+                                std::vector<EngineModule> modules, WorldContext* owner) {
     if (bootstrapped_)
         throw std::logic_error("Module bootstrap is once per WorldContext");
     bootstrapped_ = true;
@@ -37,7 +37,8 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
             current = m.id;
             if (!valid_module_id(m.id) || m.implementation.empty() || !m.schema_roles ||
                 (m.schema_roles & ~all_world_roles) || (m.runtime_roles & ~m.schema_roles) ||
-                (m.required_services & ~m.allowed_services) || (m.allowed_services & ~7u))
+                (m.required_services & ~m.allowed_services) || (m.allowed_services & ~15u) ||
+                (m.provided_services & ~8u))
                 throw std::runtime_error("Invalid module descriptor");
             if (selected.contains(m.id))
                 throw std::runtime_error("Duplicate module ID");
@@ -54,13 +55,27 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
                     }
                 requirements.push_back({id, m.dependencies, m.required_services});
             }
+        for (const auto& [id, m] : selected) {
+            if ((m.runtime_roles & role_mask(role)) && m.provided_services) {
+                if (available & m.provided_services)
+                    throw std::runtime_error("Duplicate service provider");
+                available |= m.provided_services;
+                for (const auto& [consumer, n] : selected)
+                    if (consumer != id && (n.schema_roles & role_mask(role)) &&
+                        (n.required_services & m.provided_services) &&
+                        std::find(n.dependencies.begin(), n.dependencies.end(), id) ==
+                            n.dependencies.end())
+                        throw std::runtime_error(
+                            "Required physics capability needs an explicit provider dependency");
+            }
+        }
         order_ = module_order(requirements, available);
         entries_.reserve(order_.size());
         // Retain every participating provider before executing any registration.
         for (const auto& id : order_) {
             auto m = std::move(selected.at(id));
-            auto context = std::make_unique<ModuleContext>(
-                ModuleContext{world, role, services.restricted(m.allowed_services), id});
+            auto context = std::make_unique<ModuleContext>(ModuleContext{
+                world, role, services.restricted(m.allowed_services), id, nullptr, owner});
             entries_.push_back({std::move(m), std::move(context), false});
         }
         for (auto& entry : entries_) {

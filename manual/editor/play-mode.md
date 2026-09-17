@@ -47,3 +47,7 @@ Play receives the current validated prefab definitions and stable member mapping
 
 
 Project [Simulation Hz](project-settings.md) sets the next Play session’s frequency. [Gameplay input](input.md) uses explicit Scene capture; Esc releases, F6 pauses/resumes and F7 steps. Console’s Gameplay input section shows fixed-tick values and edge counts.
+
+## Physics recovery
+
+[Physics](physics.md) runs on the same fixed clock. Recover restores the last complete supported physics checkpoint, including velocity and sleeping state. An incompatible or incomplete checkpoint produces a failure message and a clean Play restart option. This is session recovery, not a save-game feature.

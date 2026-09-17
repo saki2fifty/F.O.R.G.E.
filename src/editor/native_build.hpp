@@ -89,6 +89,7 @@ class NativeBuild {
     std::string source_path() const { return (source_ / "gameplay.cpp").string(); }
     bool auto_build = false;
     double simulation_hz = 60;
+    Double3 gravity{0, -9.81, 0};
     std::string cmake = "cmake", ninja = "ninja";
 
     void create_source() {
@@ -173,9 +174,10 @@ class NativeBuild {
                     } while (!std::filesystem::create_directory(version));
                     candidate_ = std::filesystem::absolute(version / name).string();
                     std::filesystem::copy_file(work_ / "build" / name, candidate_);
-                    probe_.configure(simulation_hz, InputMap{});
+                    probe_.configure(simulation_hz, InputMap{},
+                                     play.active() ? play.gravity() : gravity);
                     probe_.start(runtime_, play.active() ? play.snapshot() : authored, candidate_,
-                                 true);
+                                 true, play.active() ? play.recovery() : Json());
                     phase_ = Phase::Probe;
                     status_ = "Validating replacement in a disposable runtime.";
                 }

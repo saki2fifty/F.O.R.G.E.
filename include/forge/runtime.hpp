@@ -2,6 +2,7 @@
 #include <chrono>
 #include <forge/input.hpp>
 #include <forge/module.hpp>
+#include <forge/physics.hpp>
 #include <forge/scene.hpp>
 #include <functional>
 namespace forge {
@@ -27,6 +28,11 @@ class RuntimeClock {
     double alpha() const { return paused_ ? 1 : accumulator_ / fixed_dt(); }
     std::uint64_t tick() const { return tick_; }
     Json status() const;
+    void restore_tick(std::uint64_t tick, Time now) {
+        tick_ = tick;
+        pause(now);
+        last_ticks_ = 0;
+    }
 
   private:
     RuntimeConfig config_;
@@ -58,6 +64,10 @@ class RuntimeSimulation {
     RuntimeInput& input() { return input_; }
     Json input_status() const { return input_monitor_.status(input_.map()); }
     void reset_presentation();
+    void restore_input_tick(std::uint64_t tick) {
+        input_tick_ = tick;
+        input_.release_all();
+    }
     Json presentation(double alpha) const;
 
   private:
@@ -72,5 +82,18 @@ class RuntimeSimulation {
     flecs::entity previous_pipeline_;
     flecs::entity input_phase_, input_system_;
     flecs::entity pipeline_, gameplay_, transforms_, gameplay_phase_, transform_phase_;
+    flecs::entity pre_physics_, physics_step_, physics_adopt_;
+    flecs::entity pre_phase_, physics_phase_, adoption_phase_, post_phase_;
+    std::shared_ptr<PhysicsRuntime> physics_;
+    std::exception_ptr stage_error_;
+    template <class F> void stage(F&& f) noexcept {
+        if (stage_error_)
+            return;
+        try {
+            f();
+        } catch (...) {
+            stage_error_ = std::current_exception();
+        }
+    }
 };
 } // namespace forge

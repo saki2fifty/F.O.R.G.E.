@@ -42,22 +42,64 @@ int main(int argc, char** argv) {
         } else if (argc != 1)
             throw std::runtime_error(
                 "Usage: forge_runtime [--simulation-hz 1..240 | --sdk-project PROJECT]");
+        forge::PhysicsConfig physics_config =
+            sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
         forge::Module module; // Code outlives all systems, scene content and the world.
-        forge::EngineContext engine(forge::WorldRole::Runtime, false, std::move(sdk_modules));
-        forge::Scene scene(engine.world());
-        forge::RuntimeSimulation simulation(engine.world(), scene, module);
+        struct Runtime {
+            forge::EngineContext engine;
+            forge::Scene scene;
+            forge::RuntimeSimulation simulation;
+            Runtime(forge::Module& m, std::vector<forge::EngineModule> modules,
+                    forge::PhysicsConfig physics)
+                : engine(forge::WorldRole::Runtime, false,
+                         [&] {
+                             modules.push_back(forge::physics_module(physics));
+                             return std::move(modules);
+                         }()),
+                  scene(engine.world()), simulation(engine.world(), scene, m) {}
+            std::shared_ptr<forge::PhysicsRuntime> physics() {
+                return std::static_pointer_cast<forge::PhysicsRuntime>(engine.services().physics());
+            }
+        };
+        auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config);
+        forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
         std::random_device random;
         const std::string session = std::to_string(random()) + "-" + std::to_string(random()) +
                                     "-" + std::to_string(random()) + "-" + std::to_string(random());
         std::uint64_t last_id = 0;
-        bool initialized = false, quit = false;
+        bool initialized = false, quit = false, tick_failed = false;
         std::string activation = "none";
         std::uint64_t activation_generation = 0, activation_tick = 0;
         auto quit_deadline = forge::RuntimeClock::Time::max();
+        auto integrity = [](const forge::Json& value) {
+            std::uint64_t h = 14695981039346656037ull;
+            for (unsigned char c : value.dump()) {
+                h ^= c;
+                h *= 1099511628211ull;
+            }
+            return std::to_string(h);
+        };
+        auto capture = [&] {
+            forge::Json checkpoint = {{"version", 1},
+                                      {"session", session},
+                                      {"tick", clock.tick()},
+                                      {"simulation_hz", clock.status().at("simulation_hz")},
+                                      {"scene", runtime->scene.snapshot()},
+                                      {"physics", runtime->physics()->checkpoint()}};
+            checkpoint["integrity"] = integrity(checkpoint);
+            if (checkpoint.dump().size() > 8 * 1024 * 1024)
+                throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
+            return checkpoint;
+        };
         auto tick = [&](float dt) {
-            simulation.tick(dt);
+            try {
+                runtime->simulation.tick(dt);
+            } catch (...) {
+                tick_failed = true;
+                throw;
+            }
             if (activation == "loaded_pending_first_tick") {
                 activation = "active";
                 activation_tick = clock.tick() + 1;
@@ -94,12 +136,20 @@ int main(int argc, char** argv) {
                         forge::InputMap input(
                             request.value("input_map", sdk_project ? sdk_project->input().source()
                                                                    : forge::InputMap{}.source()));
-                        simulation.input().configure(std::move(input));
+                        input_map = std::move(input);
+                        runtime->simulation.input().configure(input_map);
+                        if (argc == 1 && request.contains("gravity"))
+                            physics_config.gravity = request.at("gravity").get<forge::Double3>();
+                        physics_config.validate();
+                        runtime->physics()->configure(physics_config);
                         clock = forge::RuntimeClock(next_config);
                         initialized = true;
                     } else if (!initialized || request.value("session", "") != session)
                         throw std::runtime_error("Stale or missing runtime session");
                     last_id = id; // Consume valid-session attempts, including rejected controls.
+                    if (tick_failed && command != "replace" && command != "quit")
+                        throw std::runtime_error("Runtime fixed tick failed; restore a valid "
+                                                 "checkpoint or start clean Play");
                     if (request.contains("seconds"))
                         throw std::runtime_error(
                             "Caller delta is unsupported; Step advances one fixed tick");
@@ -110,18 +160,46 @@ int main(int argc, char** argv) {
                             command != "step")
                             throw std::runtime_error(
                                 "Input events require a snapshot or clock control request");
-                        simulation.input().submit(
+                        runtime->simulation.input().submit(
                             request.at("input_events").get<std::vector<forge::InputEvent>>());
                     }
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
-                        scene.restore_snapshot(request.at("scene"));
-                        simulation.input().release_all();
-                        simulation.reset_presentation();
+                        auto candidate =
+                            std::make_unique<Runtime>(module, sdk_modules, physics_config);
+                        candidate->simulation.input().configure(input_map);
+                        std::uint64_t recovered_tick = 0;
+                        if (request.contains("recovery") && !request.at("recovery").is_null()) {
+                            auto recovery = request.at("recovery");
+                            if (recovery.dump().size() > 8 * 1024 * 1024)
+                                throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
+                            auto checksum = recovery.at("integrity").get<std::string>();
+                            recovery.erase("integrity");
+                            if (integrity(recovery) != checksum || recovery.at("version") != 1 ||
+                                recovery.at("simulation_hz") !=
+                                    clock.status().at("simulation_hz") ||
+                                recovery.at("scene") != request.at("scene") ||
+                                recovery.at("session") != request.at("recovery_session") ||
+                                recovery.at("tick") != request.at("recovery_tick") ||
+                                recovery.at("tick") != recovery.at("physics").at("tick"))
+                                throw std::runtime_error("Recovery checkpoint integrity, identity, "
+                                                         "session or boundary mismatch");
+                            candidate->scene.restore_snapshot(recovery.at("scene"));
+                            candidate->physics()->restore(recovery.at("physics"));
+                            recovered_tick = recovery.at("tick").get<std::uint64_t>();
+                        } else {
+                            candidate->scene.restore_snapshot(request.at("scene"));
+                            candidate->physics()->synchronize(0);
+                        }
+                        candidate->simulation.restore_input_tick(recovered_tick);
+                        candidate->simulation.reset_presentation();
+                        runtime.swap(
+                            candidate); // Publish only a complete validated reconstruction.
+                        clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
-                            simulation.reset_presentation();
+                            runtime->simulation.reset_presentation();
                             clock.resume(forge::RuntimeClock::Clock::now());
                         }
                     } else if (command == "pause")
@@ -133,13 +211,13 @@ int main(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Pause and checkpoint before module replacement");
                         module.load(request.at("path").get<std::string>());
-                        simulation.input().release_all();
+                        runtime->simulation.input().release_all();
                         activation = "loaded_pending_first_tick";
                         ++activation_generation;
                         activation_tick = 0;
-                        simulation.reset_presentation();
+                        runtime->simulation.reset_presentation();
                     } else if (command == "save")
-                        scene.save(request.at("path").get<std::string>());
+                        runtime->scene.save(request.at("path").get<std::string>());
                     else if (command == "quit") {
                         clock.pause(forge::RuntimeClock::Clock::now());
                         quit = true;
@@ -149,10 +227,13 @@ int main(int argc, char** argv) {
                         throw std::runtime_error("Unknown command");
                     response["ok"] = true;
                     response["module"] = module.id();
-                    response["scene"] = scene.snapshot(); // Uninterpolated recovery state only.
-                    response["effective_scene"] = simulation.presentation(clock.alpha());
-                    response["schema"] = scene.schema();
-                    response["input"] = simulation.input_status();
+                    response["scene"] = runtime->scene.snapshot();
+                    if (!tick_failed)
+                        response["recovery"] = capture();
+                    response["physics"] = runtime->physics()->status();
+                    response["effective_scene"] = runtime->simulation.presentation(clock.alpha());
+                    response["schema"] = runtime->scene.schema();
+                    response["input"] = runtime->simulation.input_status();
                 } catch (const std::exception& error) {
                     response["ok"] = false;
                     response["error"] = error.what();
@@ -160,8 +241,8 @@ int main(int argc, char** argv) {
                         forge::Severity::Error, "runtime", error.what(), {}};
                     diagnostic.context.tick = clock.tick();
                     diagnostic.context.session = session;
-                    diagnostic.context.asset = scene.asset_id();
-                    engine.services().emit(diagnostic);
+                    diagnostic.context.asset = runtime->scene.asset_id();
+                    runtime->engine.services().emit(diagnostic);
                     response["diagnostic"] = forge::diagnostic_json(diagnostic);
                 }
                 response["timing"] = clock.status();

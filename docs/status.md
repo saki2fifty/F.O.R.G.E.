@@ -1,5 +1,7 @@
 # Implementation status
 
+**Phase 6B source implementation is under validation.** Jolt physics, primitive body/collider authoring, world-scoped service/SDK access and private physics-aware recovery are described in [Physics](physics.md). No Phase6C work is included. The previous verified package below remains the delivered baseline until the new Windows build succeeds.
+
 **Current delivery: Build 260917-000040 — Phase 6A module / gameplay SDK foundation.** See [engine modules](engine-modules.md) and [verified delivery evidence](../changelog/20260917/README.md#phase6a-verified-delivery--build-260917-000040). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 
 ## Phase 6A — verified foundation

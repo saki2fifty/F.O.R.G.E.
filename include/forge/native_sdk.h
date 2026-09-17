@@ -24,6 +24,12 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_PROFILING 2u
 /* Requirement marker only: headless composition does not supply rendering. */
 #define FORGE_SDK_RENDERING 4u
+#define FORGE_SDK_PHYSICS 8u
+typedef struct ForgeSdkPhysicsHitV1 {
+    uint32_t size;
+    char scene[37], entity[37]; /* FORGE UUIDs, never Jolt BodyID */
+    double position[3], normal[3], fraction;
+} ForgeSdkPhysicsHitV1;
 typedef struct ForgeSdkActionV1 {
     uint32_t size;
     uint32_t held, pressed, released;
@@ -40,6 +46,14 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* read_action)(void*, const char* action_uuid, ForgeSdkActionV1*);
     /* severity 0..4; context automatically includes module, role and current tick. */
     int32_t(FORGE_SDK_CALL* diagnostic)(void*, uint32_t severity, const char* text);
+    uint64_t post_physics_phase;
+    /* Owner fixed-tick thread. 1 hit, 0 miss, -1 unavailable/invalid. */
+    int32_t(FORGE_SDK_CALL* raycast)(void*, const double origin[3], const double displacement[3],
+                                     ForgeSdkPhysicsHitV1*);
+    /* Queued for next pre-physics boundary. motion: 0 teleport, 1 kinematic target. */
+    int32_t(FORGE_SDK_CALL* physics_move)(void*, const char* scene_uuid, const char* entity_uuid,
+                                          const double position[3], const float rotation_xyzw[4],
+                                          uint32_t motion, uint32_t clear_velocity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

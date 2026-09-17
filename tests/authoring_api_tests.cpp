@@ -23,7 +23,7 @@ int main() {
         };
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
-        check(discovery["result"]["commands"].size() == 23, "Command catalog incomplete");
+        check(discovery["result"]["commands"].size() == 24, "Command catalog incomplete");
         const auto schema = discovery["result"]["schema"];
         check(schema["components"][0]["fields"][0]["property_id"] == "forge.local_translation.x",
               "Stable property identity missing");

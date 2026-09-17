@@ -191,3 +191,31 @@ All **29** accepted Build38 render fixtures are byte-identical. ZIP CRC, manifes
 Build39's core/SDK tests passed but Linux artifact upload failed on an unresolved parent path. The upload path was corrected; unfinished Build39 editor work was canceled to run Build40. Build39 was not delivered. Local final evidence: static15/shared18, SDL/editor/native2, static sanitizers11/shared SDK sanitizers3, manual3, C17 header, formatting/cache/workflow checks passed.
 
 Phase6A implementation and automated validation are complete. Ordinary authoring/layout and ABI1 Build & Reload remain supported. Optional user smoke check: open an existing project, edit/save/reopen, Play/Pause/Step/Stop, and check existing prefab behavior. Native SDK developers use the separate internal sample/package described in [engine modules](../../docs/engine-modules.md); ordinary editor users do not need it. Interactive desktop acceptance remains separate. **Stop before Phase6B.** No Jolt, miniaudio, Ozz, Recast/Detour, RmlUi, broad public SDK, AssetHandle or Apply to Prefab.
+
+## Phase 6B — Jolt physics and private Play recovery
+
+### Physics and gameplay modules
+
+- Pin Jolt5.6.0 at `e77f175595e64cb44218cc9d9d56fc365ad0e36a`; retain other dependency revisions. Select double positions, SSE2, CPU rigid-body jobs and matching CRT. Linux compiler baseline becomes GCC12. Disable unused compute/render/profiler/applications.
+- Add explicit runtime `forge.physics` provider with per-world service scope, module startup/stop ordering, shared registration lifetime, bounded realization and worker buffers. Authoring worlds register schemas without running a solver.
+- Add reflected optional PhysicsBody, BoxCollider, SphereCollider and CapsuleCollider. Preserve independent transform ownership, generic scene/prefab persistence, equal-value/property overrides and Revert. Dynamic bodies require spatial World; shape realization rejects unsupported shear/scale.
+- Extend the existing fixed pipeline through pre-physics synchronization, Jolt Update, adoption and PostPhysics. Keep WorldTransform derived and presentation interpolation independent. Add raycasts, explicit teleport/kinematic targets, contact-cache notifications and compatible config rebuilds.
+- Extend the experimental exact SDK's fingerprinted callback table with Physics capability, PostPhysics phase, raycasts and movement; distribute FORGE component definitions without Jolt headers. ABI1 layout stays unchanged.
+
+### Recovery and authoring
+
+- Add private bounded checkpoints containing scene/prefab configuration and Jolt StateRecorder data from the same completed tick, compatibility metadata, exact body mapping and pending commands. Restore into a fresh unpublished candidate and publish only after validation. Tick number survives recovery; interpolation and elapsed debt reset. No save-game format or arbitrary native-global recovery claim.
+- Carry physics checkpoints through editor/Python probes, pending activation, schema restart and failed first-live-tick fallback. Keep original pause/resume policy and explicit clean restart on rejected recovery.
+- Add Inspector physics components/fields and shared project gravity, with contextual help, UI-independent undoable operations and source-prefab editing. Document the per-instance World binding needed for dynamic prefab roots.
+- Add a function-based physics manual, technical integration/recovery contract, license packaging and CI physics selections. No renderer/layout redesign or Phase6C integration.
+
+### Validation in progress
+
+- Local static/shared builds compile; new physics/recovery and shared SDK query tests run alongside existing regressions. Expanded prefab validation and full sanitizer/platform checks are still in progress. SDL/editor/ABI1 process tests2/2 passed with restored checkpoint tick semantics.
+- Invalid physics configuration validation now runs outside locked Flecs query iteration, preserving safe teardown after rejection. Native reload tests verify restored tick identity instead of the previous zero-reset behavior.
+- Windows package identity and final observed results will be recorded after the clean delivery build. This entry does not claim Windows acceptance.
+
+- Final local functional bundle: static **18/18**, shared native SDK **22/22**, SDL/editor/native **2/2**, manual **3/3**, format/cache/workflow checks passed. Tests include angular/sleep/contact recovery, explicit reused BodyID reconstruction, physics-prefab override/publication/Revert, gravity persistence and a falling-body first-live-tick ABI1 crash/fallback.
+- Catch host-stage exceptions inside Flecs callbacks and report them after the pipeline releases its state; a failed runtime tick cannot advertise another successful checkpoint. Preserve safe teardown after runtime collider removal.
+- Enable Jolt RTTI for UBSan boundary compatibility and match its CRT to the actual FORGE build, including the default Windows Debug core profile. Windows results remain pending.
+- Instrumented Jolt/Flecs/FORGE ASan+UBSan+LeakSanitizer suite **15/15** passed outside the sandbox; the sandbox prevented LeakSanitizer's process inspection. Both C boundary headers compile as C17. Shared-SDK sanitizer and clean Windows delivery checks follow.

@@ -4,7 +4,18 @@
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, Primitive>)
+    if constexpr (std::is_same_v<T, PhysicsBody>)
+        return {{"motion", p.motion},
+                {"density", p.density},
+                {"mass", p.mass},
+                {"friction", p.friction},
+                {"restitution", p.restitution},
+                {"gravity_factor", p.gravity_factor}};
+    else if constexpr (std::is_same_v<T, SphereCollider>)
+        return {{"radius", p.radius}};
+    else if constexpr (std::is_same_v<T, CapsuleCollider>)
+        return {{"radius", p.radius}, {"height", p.height}};
+    else if constexpr (std::is_same_v<T, Primitive>)
         return {{"kind", p.kind}};
     else if constexpr (std::is_same_v<T, Tint>)
         return {{"r", p.r}, {"g", p.g}, {"b", p.b}};
@@ -14,7 +25,18 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, Primitive>)
+    if constexpr (std::is_same_v<T, PhysicsBody>)
+        return T{p.at("motion").get<std::uint32_t>(),
+                 p.at("density"),
+                 p.at("mass"),
+                 p.at("friction"),
+                 p.at("restitution"),
+                 p.at("gravity_factor")};
+    else if constexpr (std::is_same_v<T, SphereCollider>)
+        return T{p.at("radius")};
+    else if constexpr (std::is_same_v<T, CapsuleCollider>)
+        return T{p.at("radius"), p.at("height")};
+    else if constexpr (std::is_same_v<T, Primitive>)
         return T{p.at("kind").get<std::uint32_t>()};
     else if constexpr (std::is_same_v<T, Tint>)
         return T{p.at("r"), p.at("g"), p.at("b")};
@@ -55,7 +77,18 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 std::string("LocalTranslation along the ") + axis + " axis in world units.";
             c.lookup(axis).set_doc_brief(text.c_str());
         }
-    } else if constexpr (std::is_same_v<T, Primitive>)
+    } else if constexpr (std::is_same_v<T, PhysicsBody>)
+        c.template member<std::uint32_t>("motion")
+            .template member<float>("density")
+            .template member<float>("mass")
+            .template member<float>("friction")
+            .template member<float>("restitution")
+            .template member<float>("gravity_factor");
+    else if constexpr (std::is_same_v<T, SphereCollider>)
+        c.template member<float>("radius");
+    else if constexpr (std::is_same_v<T, CapsuleCollider>)
+        c.template member<float>("radius").template member<float>("height");
+    else if constexpr (std::is_same_v<T, Primitive>)
         c.template member<std::uint32_t>("kind");
     else if constexpr (std::is_same_v<T, Tint>)
         c.template member<float>("r").template member<float>("g").template member<float>("b");
@@ -77,8 +110,8 @@ Builtin descriptor(const char* name, const char* description, const char* unit,
             reg,  decode<T>,   read<T>, owner<T>, apply<T>};
 }
 } // namespace
-const std::array<Builtin, 5>& builtins() {
-    static const std::array<Builtin, 5> types = {
+const std::array<Builtin, 9>& builtins() {
+    static const std::array<Builtin, 9> types = {
         descriptor<LocalTranslation>(
             "forge.local_translation", "Local translation in meters", "meters", {}, {},
             [](flecs::world& w) {
@@ -97,8 +130,56 @@ const std::array<Builtin, 5>& builtins() {
                          1, [](flecs::world& w) { return register_type<Tint>(w, "forge.tint"); }),
         descriptor<Primitive>(
             "forge.primitive", "Primitive kind: 0 cube, 1 sphere, 2 cylinder, 3 plane", "unitless",
-            0, 3, [](flecs::world& w) { return register_type<Primitive>(w, "forge.primitive"); })};
+            0, 3, [](flecs::world& w) { return register_type<Primitive>(w, "forge.primitive"); }),
+        descriptor<PhysicsBody>(
+            "forge.physics_body", "Body motion: Static, Kinematic, Dynamic. Mass 0 uses density.",
+            "unitless", 0, 1000000,
+            [](flecs::world& w) { return register_type<PhysicsBody>(w, "forge.physics_body"); }),
+        descriptor<BoxCollider>(
+            "forge.box_collider", "Centered box full dimensions in meters", "meters", .001, 10000,
+            [](flecs::world& w) { return register_type<BoxCollider>(w, "forge.box_collider"); }),
+        descriptor<SphereCollider>(
+            "forge.sphere_collider", "Centered sphere radius in meters; uniform scale required",
+            "meters", .001, 10000,
+            [](flecs::world& w) {
+                return register_type<SphereCollider>(w, "forge.sphere_collider");
+            }),
+        descriptor<CapsuleCollider>(
+            "forge.capsule_collider",
+            "Y-axis capsule; height is straight cylinder height, excluding caps", "meters", .001,
+            10000, [](flecs::world& w) {
+                return register_type<CapsuleCollider>(w, "forge.capsule_collider");
+            })};
     return types;
+}
+Json field_options(const Builtin& type, const std::string& field) {
+    Json value = {{"description", type.description}, {"unit", type.unit}};
+    if (type.minimum)
+        value["minimum"] = *type.minimum;
+    if (type.maximum)
+        value["maximum"] = *type.maximum;
+    const std::string name = type.name;
+    if (name == "forge.primitive")
+        value["enum"] = {"Cube", "Sphere", "Cylinder", "Plane"};
+    if (name == "forge.physics_body") {
+        if (field == "motion") {
+            value["maximum"] = 2;
+            value["enum"] = {"Static", "Kinematic", "Dynamic"};
+        }
+        if (field == "density") {
+            value["minimum"] = .001;
+            value["unit"] = "kg/m^3";
+        }
+        if (field == "mass")
+            value["unit"] = "kg (0 uses density)";
+        if (field == "friction")
+            value["maximum"] = 10;
+        if (field == "restitution")
+            value["maximum"] = 1;
+        if (field == "gravity_factor")
+            value["maximum"] = 10;
+    }
+    return value;
 }
 void validate_components(const Json& components) {
     for (const auto& type : builtins()) {
@@ -113,13 +194,19 @@ void validate_components(const Json& components) {
                 throw std::runtime_error("Component field has invalid numeric type");
             const double n = value.get<double>();
             // Compare float fields in their actual storage precision, preserving v1 bounds.
-            const double low = type.minimum
-                                   ? (integral ? *type.minimum : double(float(*type.minimum)))
-                                   : -(wide ? std::numeric_limits<double>::max()
-                                            : double(std::numeric_limits<float>::max()));
-            const double high = type.maximum ? *type.maximum
-                                             : (wide ? std::numeric_limits<double>::max()
-                                                     : double(std::numeric_limits<float>::max()));
+            const auto options = field_options(type, field);
+            const std::optional<double> minimum = options.contains("minimum")
+                                                      ? std::optional<double>(options.at("minimum"))
+                                                      : std::nullopt;
+            const std::optional<double> maximum = options.contains("maximum")
+                                                      ? std::optional<double>(options.at("maximum"))
+                                                      : std::nullopt;
+            const double low = minimum ? (integral ? *minimum : double(float(*minimum)))
+                                       : -(wide ? std::numeric_limits<double>::max()
+                                                : double(std::numeric_limits<float>::max()));
+            const double high = maximum ? *maximum
+                                        : (wide ? std::numeric_limits<double>::max()
+                                                : double(std::numeric_limits<float>::max()));
             if (!std::isfinite(n) || ((integral || wide) ? n : double(value.get<float>())) < low ||
                 ((integral || wide) ? n : double(value.get<float>())) > high)
                 throw std::runtime_error("Component field outside supported range");
@@ -127,9 +214,12 @@ void validate_components(const Json& components) {
         (void)type.decode(data);
     }
 }
-Json register_builtins(flecs::world& world) {
+Json register_builtins(flecs::world& world, bool physics) {
     Json components = Json::array();
     for (const auto& type : builtins()) {
+        if ((std::string(type.name) == "forge.physics_body" ||
+             std::string(type.name).ends_with("_collider")) != physics)
+            continue;
         const auto c = type.register_type(world);
         const auto* structure = ecs_get(world.c_ptr(), c.id(), EcsStruct);
         if (!structure)
@@ -149,15 +239,14 @@ Json register_builtins(flecs::world& world) {
                       {"read_only", false},
                       {"animatable", !primitive},
                       {"unit", type.unit}};
-            if (type.minimum)
-                f["minimum"] = *type.minimum;
-            if (type.maximum)
-                f["maximum"] = *type.maximum;
-            if (primitive)
-                f["enum"] = {"Cube", "Sphere", "Cylinder", "Plane"};
+            f.update(field_options(type, m.name));
             fields.push_back(std::move(f));
         }
-        components.push_back({{"id", type.name}, {"schema_version", 1}, {"fields", fields}});
+        components.push_back({{"id", type.name},
+                              {"schema_version", 1},
+                              {"fields", fields},
+                              {"optional", std::string(type.name) == "forge.physics_body" ||
+                                               std::string(type.name).ends_with("_collider")}});
     }
     return {{"version", 1}, {"components", components}};
 }

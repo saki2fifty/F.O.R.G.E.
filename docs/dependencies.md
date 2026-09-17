@@ -4,6 +4,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
 | Flecs | v4.1.6 / `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` | Worlds, C++ components, reflection, prefab inheritance, deferred mutations | [Source/docs](https://github.com/SanderMertens/flecs/tree/v4.1.6/docs) |
 | nlohmann/json | v3.12.0 / `55f93686c01528224f448c19128836e7df245f72` | Scene and IPC JSON | [Official docs](https://json.nlohmann.me/) |
 | Diligent Engine | `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06` and its submodules | D3D12 device, swapchain, textures, shaders, ImGui integration | [Source](https://github.com/DiligentGraphics/DiligentEngine/tree/a279e5fa8593cbc758ec46ea1eba0b435cbc2f06) |
@@ -14,7 +15,7 @@ Flecs, JSON and ImGui use MIT; SDL uses zlib; Diligent uses Apache-2.0 with sepa
 
 Build tooling: CMake presets, Ninja incremental targets, Python 3.10+ subprocess/path tooling, MSVC for Windows and GCC for portable tests. Formatting uses clang-format 23.1.1. GitHub Actions uses pinned checkout/setup actions and an explicit Windows compiler environment. Tool versions and host SDK versions should be recorded with release evidence.
 
-Future selections (not fetched or integrated): GLM, Jolt, miniaudio, ozz-animation, Recast/Detour, RmlUi, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
+Future selections (not fetched or integrated): GLM, miniaudio, ozz-animation, Recast/Detour, RmlUi, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
 
 Flecs 4.1.6 compatibility: LocalTranslation registration explicitly requests member entities for attached documentation. Other reflected fields use `EcsStruct` member data. New `Parent` storage, automatic C++ reflection and callback-update APIs are not yet adopted; existing `ChildOf` and component-granular prefab ownership remain. Phase 3 adds FORGE-owned scene-v3 transform semantics without adopting newer hierarchy storage.
 
@@ -46,3 +47,7 @@ FetchContent initializes the superproject's gitlinks recursively; nested third-p
 [Clean Windows Build 260916-000019](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35152168546) passed with all selected revisions. Windows/Linux core suites, Windows editor/native/authoring suites, four FXC shaders and D3D12 WARP pixel tests passed. The 24 existing grid/scene render fixtures exactly match Build 17; new font/external-texture fixtures pass at multiple UI scales. Actual compiler identity was MSVC19.44.35228.0 under toolset14.44.35207 / SDK10.0.26100.0.
 
 Physical input, native dialogs, mixed-monitor DPI and interactive editor startup/docking on the user's GPU still require desktop acceptance. WARP rendering and injected SDL events do not establish those results. New Flecs hierarchy/registration APIs remain available for review, not automatically adopted FORGE features.
+
+## Phase 6B physics selection
+
+Jolt is now pinned and integrated. See [Physics build/lifetime contract](physics.md). Linux uses GCC12+; Windows retains VS2022. Double positions and SSE2 keep the engine coordinate model and avoid an unannounced AVX2 requirement. Jolt licenses are included in runtime/editor/experimental-SDK packages. Advanced upstream shapes and compute capabilities remain unexposed.

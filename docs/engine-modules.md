@@ -70,3 +70,7 @@ The experimental artifact contains a tar.gz archive so executable permissions an
 The package test builds the sample using only the installed SDK, inspects PE/ELF imports/exports, relocates the installed package, strips developer search-path overrides and executes it there. Runtime checks compare the host/module Flecs API/global addresses and operate on host-created worlds. Tests cover independent WorldContexts and teardown sentinels, including failed bootstrap and a crashing isolated runtime. This establishes the supported build's single implementation; it does not prove arbitrary untrusted DLL internals.
 
 See [core services](core-services.md), [fixed input](input.md), and [runtime timing](runtime-timing.md). The renderer stays explicitly owned by its existing Diligent boundary. No subsystem library is added in6A.
+
+## Physics provider
+
+`forge.physics` is the first simulated subsystem provider. See [Physics](physics.md) for its world-scoped capability, lifecycle, fixed pipeline and exact-SDK extensions.

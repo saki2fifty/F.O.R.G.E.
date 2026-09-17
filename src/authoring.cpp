@@ -104,7 +104,7 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
                             : component == "forge.scale"    ? "forge.local_scale"
                                                             : component;
     const bool property_intent = (e.contains("prefab_instance") || e.contains("prefab_member")) &&
-                                 (canonical == "forge.tint" || canonical == "forge.primitive") &&
+                                 (!canonical.starts_with("forge.local_")) &&
                                  !e["components"].contains(canonical);
     if (legacy) {
         auto merged = view.at("components").value(component, Json::object());
@@ -304,6 +304,25 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
                             detail::read_local(effective(scene, id).at("components")),
                             detail::read_local(source.at("components")), TransformChannel::All);
         scene.edit(doc);
+    } else if (op == "component.add") {
+        auto doc = scene.document();
+        auto& row = entity(doc, id);
+        const std::string key = a.at("component");
+        bool known = false;
+        const auto optional_schema = scene.schema();
+        for (const auto& c : optional_schema.at("components"))
+            if (c.at("id") == key && c.value("optional", false)) {
+                known = true;
+                if (effective(scene, id).at("components").contains(key))
+                    throw CommandError("unavailable",
+                                       "Component already exists; edit or Revert it");
+                for (const auto& f : c.at("fields"))
+                    row["components"][key][f.at("id").get<std::string>()] = f.at("default");
+            }
+        if (!known)
+            throw CommandError("unsupported_property",
+                               "Only optional engine components can be added here");
+        scene.edit(doc);
     } else if (op == "component.revert") {
         auto component = a.at("component").get<std::string>();
         if (component == "forge.position")
@@ -329,7 +348,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         auto doc = scene.document();
         auto& row = entity(doc, id);
         const std::string component = a.at("component"), field = a.at("field");
-        if (component != "forge.tint" && component != "forge.primitive")
+        if (component.starts_with("forge.local_"))
             throw CommandError("unsupported_property",
                                "Revert this complete transform channel instead");
         (void)property_schema(scene, component, field);
@@ -460,6 +479,8 @@ Json authoring_commands() {
         entity_arg, {"entity"});
     auto component = entity_arg;
     component["component"] = text_type();
+    add("component.add", "Add component", "Add an optional reflected component with its defaults.",
+        component, {"entity", "component"});
     add("component.revert", "Remove component override",
         "Remove an owned built-in component; inherited values may become visible.", component,
         {"entity", "component"});

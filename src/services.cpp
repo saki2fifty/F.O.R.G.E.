@@ -63,12 +63,33 @@ EngineServices::~EngineServices() { state_->alive = false; }
 ServiceAccess EngineServices::access(unsigned allowed) const {
     ServiceAccess a;
     a.state_ = state_;
-    a.allowed_ = allowed & 3;
+    a.allowed_ = allowed & 11;
     return a;
+}
+ServiceAccess ServiceAccess::world_scope() const {
+    auto result = *this;
+    result.physics_ = std::make_shared<detail::PhysicsSlot>();
+    return result;
+}
+void ServiceAccess::publish_physics(const std::shared_ptr<PhysicsService>& service) const {
+    auto state = state_.lock();
+    if (!state || !(allowed_ & capability(Capability::Physics)))
+        throw std::runtime_error("Physics publication requires the owner's allowed capability");
+    state->check();
+    if (!physics_)
+        throw std::logic_error("Physics requires a scoped world service slot");
+    if (!physics_->service.expired() && service)
+        throw std::logic_error("Physics provider already installed");
+    physics_->service = service;
+}
+std::shared_ptr<PhysicsService> ServiceAccess::physics() const {
+    require(Capability::Physics);
+    return physics_->service.lock();
 }
 bool ServiceAccess::available(Capability c) const {
     const auto state = state_.lock();
-    return (allowed_ & capability(c)) && state && state->alive;
+    return (allowed_ & capability(c)) && state && state->alive &&
+           (c != Capability::Physics || (physics_ && !physics_->service.expired()));
 }
 void ServiceAccess::require(Capability c) const {
     if (!available(c))
