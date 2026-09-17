@@ -180,3 +180,14 @@ Phase5.5 implementation and automated validation are complete. User acceptance: 
 - Final local verification: static core **15/15**, shared SDK **18/18**, static ASan/UBSan/LSan **11/11**, shared SDK sanitizer **3/3**, rebuilt SDL/editor/ABI1 reload **2/2**, C17 boundary-header compilation, manual **3/3**, formatting and workflow lint passed. The installed-client test verifies relocated execution, shared Flecs linkage and teardown. Experimental SDK archives preserve executable permissions and SONAME symlinks. Windows results remain pending.
 
 - Build39 Linux static15/15 and shared18/18 passed. SDK artifact upload rejected a path containing `..`; resolve the verified archive path before handing it to the upload action. No Build39 delivery is claimed.
+
+
+### Phase6A verified delivery — Build 260917-000040
+
+Clean [run 35232974746](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35232974746), packaged source `e01f992624ed42488ad3b9b3e3af2a05e32aa140`, passed every job. Both Windows and Linux static core **15/15** and shared native SDK **18/18** passed; Windows SDK includes PE imports, installed-client compilation and relocated execution. Windows SDL/editor/native **2/2** (16.90s), remaining module/services/input/prefab/render/runtime suites **13/13** (6.71s), four shaders and three executable build identifiers passed.
+
+All **29** accepted Build38 render fixtures are byte-identical. ZIP CRC, manifest hashes, reserved build/source identity, three x64 PE executables and **26** matching manual source/HTML pages verified. ZIP SHA256: `8fba7e7f8a2d38bdea896b6d7687c76fe0b14f1a38d5ac5101216cb17e691295`. Both separate experimental SDK archives match Build40/source; Windows shared Flecs/CRT/import library/headers and Linux executable permissions/SONAME links survived download. Build38 archived; package cleanup dry run is empty.
+
+Build39's core/SDK tests passed but Linux artifact upload failed on an unresolved parent path. The upload path was corrected; unfinished Build39 editor work was canceled to run Build40. Build39 was not delivered. Local final evidence: static15/shared18, SDL/editor/native2, static sanitizers11/shared SDK sanitizers3, manual3, C17 header, formatting/cache/workflow checks passed.
+
+Phase6A implementation and automated validation are complete. Ordinary authoring/layout and ABI1 Build & Reload remain supported. Optional user smoke check: open an existing project, edit/save/reopen, Play/Pause/Step/Stop, and check existing prefab behavior. Native SDK developers use the separate internal sample/package described in [engine modules](../../docs/engine-modules.md); ordinary editor users do not need it. Interactive desktop acceptance remains separate. **Stop before Phase6B.** No Jolt, miniaudio, Ozz, Recast/Detour, RmlUi, broad public SDK, AssetHandle or Apply to Prefab.

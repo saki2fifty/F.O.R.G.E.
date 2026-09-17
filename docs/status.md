@@ -1,10 +1,14 @@
 # Implementation status
 
-**Current delivery: Build 260917-000038 — Phase 5.5 core services foundation.** See [core services](core-services.md), [input architecture](input.md), the [Project Settings guide](../manual/editor/project-settings.md), [input walkthrough](../manual/editor/input.md), and [verified delivery evidence](../changelog/20260917/README.md#phase-55-verified-delivery--build-260917-000038). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
+**Current delivery: Build 260917-000040 — Phase 6A module / gameplay SDK foundation.** See [engine modules](engine-modules.md) and [verified delivery evidence](../changelog/20260917/README.md#phase6a-verified-delivery--build-260917-000040). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 
-## Phase 6A — implementation under validation
+## Phase 6A — verified foundation
 
-Source module lifecycle and a separate internal shared-Flecs native SDK profile are implemented. See [engine modules](engine-modules.md) for registration, capability, exact-build compatibility, ownership and packaging contracts. Static ABI1/editor gameplay stays supported; rich SDK registrations require a fresh runtime process. Linux regression and lifetime checks pass; actual Windows validation and the next numbered package are pending. No Phase 6B subsystem integration is included.
+Source module lifecycle and a separate internal shared-Flecs native SDK profile are implemented. Flecs imports handle ECS registrations; FORGE validates dependencies, world roles, capabilities and exact native compatibility, then retains code/context leases through world destruction. Static ABI1/editor gameplay stays supported. Rich SDK registration changes require a fresh runtime process; the experimental workflow is headless and separate from ordinary editor Play.
+
+Clean Windows and Linux static suites **15/15** and shared SDK suites **18/18** passed. Windows SDL/editor/native **2/2**, remaining module/services/render/runtime suites **13/13**, shaders and all build identifiers passed. All **29** Build38 viewport fixtures are byte-identical. Local static/shared/sanitizer/editor tests passed. Normal ZIP and both installed SDK archives are verified, including relocated client execution, PE/ELF shared linkage, Windows CRT/import library and Linux executable/SONAME preservation. Interactive Windows acceptance remains for the user.
+
+No dependency upgrade, editor redesign, subsystem integration, AssetHandle or Apply to Prefab. The SDK remains internal/unstable. **STOP before Phase6B; Jolt requires separate authorization.**
 
 ## Phase 5.5 — verified foundation
 
@@ -39,14 +43,14 @@ The Native panel creates gameplay source, incrementally builds it, probes candid
 
 ## Not implemented
 - IPC viewport frame transport.
-- Arbitrary gameplay component/system/observer registration, general reflected schema migration and lifecycle-aware DLL retirement. Current ABI only supports stateless callbacks over host-owned Position data.
+- General reflected schema migration and in-place rich DLL retirement. The separate internal exact SDK supports trusted component/system/observer registration with process-restart updates; ABI1 stays limited to stateless callbacks over host-owned Position data.
 - Actual native editor-plugin loading, registration APIs, automatic startup-crash recovery and package UI.
 - Asset browser/import/caching/cooking; rotation/scale gizmos; complete prefab overrides; multi-edit.
 - PBR game rendering, Jolt, audio, animation, navigation, game UI and standalone playable export.
 - First-person reference game, advanced 3D tools, Linux graphics, dedicated 2D editing and multiplayer.
 
 ## Known foundation constraints
-Scene edits reconcile content inside the persistent authoring world and retain at most 100 whole-document undo snapshots. Large-scene history/performance work remains deferred. Module tick callbacks must be stateless and must not retain host pointers, create unmanaged threads, or register external callbacks. The CLI pauses stepping while building; the editor continues play during background compilation. IPC is local JSON lines over inherited pipes, not the planned named-pipe/frame-transport service. Plugin packages are trusted local inputs; metadata validation is not executable safety validation.
+Scene edits reconcile content inside the persistent authoring world and retain at most 100 whole-document undo snapshots. Large-scene history/performance work remains deferred. ABI1 module tick callbacks must be stateless and must not retain host pointers, create unmanaged threads, or register external callbacks. The CLI pauses stepping while building; the editor continues play during background compilation. IPC is local JSON lines over inherited pipes, not the planned named-pipe/frame-transport service. Plugin packages are trusted local inputs; metadata validation is not executable safety validation.
 
 ## Windows downloads
 The Windows CI job uploads `FORGE-Windows-x64.zip` containing Release executables, adjacent DLLs and dependency notices. Run 34942452023 produced the first successful Release package, from commit `0b4043142c24d0d237ecb891f0c81f072840a6ad`. Extract the entire ZIP on Windows; the editor executable depends on the packaged DLLs. Native D3D12 compilation requires Microsoft ATL, which is unavailable in the current Linux MinGW toolchain.
