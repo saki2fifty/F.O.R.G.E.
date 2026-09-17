@@ -4,13 +4,15 @@ End-user instructions live in the separate [Projects](../manual/editor/projects.
 
 ## Project manifest
 
-`forge.project.json` version 1 contains a display name and a project-relative startup scene:
+`forge.project.json` version 2 stores a display name, simulation frequency, startup scene reference and input map:
 
 ```json
-{"version": 1, "name": "MyGame", "startup_scene": "Scenes/main.scene.json"}
+{"version": 2, "name": "MyGame", "simulation_hz": 60,
+ "startup_scene": {"asset": "11111111-1111-4111-8111-111111111111", "source": "Scenes/main.scene.json"},
+ "input": {"version": 1, "actions": []}}
 ```
 
-The startup path must resolve to a `.json` file inside the canonical project root. Scene destinations cannot be the root manifest or files beneath `.forge`. A missing manifest selects the legacy `main.scene.json` path. Initial startup can allow an empty legacy folder; opening a project through the normal project command requires its startup scene.
+Startup AssetId is authoritative; the source is a locator hint. Resolution follows moves and rejects missing/duplicate identity. A null startup opens an untitled empty scene. Source paths stay inside the canonical project root; scene destinations cannot overwrite the manifest or `.forge` control files. A missing manifest retains legacy main.scene.json behavior. Version-1 manifests with a startup path remain readable; explicit settings Save upgrades with an original backup. No opening-time manifest write occurs. See [Core services](core-services.md) and [Input](input.md) for validation, ownership and migration policy.
 
 Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the manifest in a sibling directory before renaming it into place. Existing destinations are rejected. Opening the result subsequently acquires project writer ownership.
 

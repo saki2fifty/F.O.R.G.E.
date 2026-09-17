@@ -3,26 +3,40 @@
 #include <stdexcept>
 #include <vector>
 namespace forge {
-WorldContext::WorldContext(WorldRole role) : role_(role) {
-    schema_ = detail::register_builtins(world_);
-    world_.component<TemplateMember>("forge.prefab_member_definition")
-        .add(flecs::OnInstantiate, flecs::Inherit);
-    world_.component<WorldTransform>("forge.world_transform")
-        .add(flecs::OnInstantiate, flecs::DontInherit);
-    world_.component<SpatialBinding>("forge.spatial_binding")
-        .add(flecs::OnInstantiate, flecs::Override);
-    world_.component<PersistentEntityId>("forge.entity_id")
-        .add(flecs::OnInstantiate, flecs::DontInherit);
-    world_.component<StableId>("forge.stable_id").add(flecs::OnInstantiate, flecs::DontInherit);
-    world_.component<AuthoredName>("forge.authored_name")
-        .add(flecs::OnInstantiate, flecs::DontInherit);
-    world_.component<AuthoredPrefab>("forge.authored_prefab")
-        .add(flecs::OnInstantiate, flecs::DontInherit);
-    world_.component<MissingStructuralParent>().add(flecs::OnInstantiate, flecs::DontInherit);
-    world_.component<SceneMember>("forge.scene_member")
-        .add(flecs::Exclusive)
-        .add(flecs::OnInstantiate, flecs::DontInherit)
-        .add(flecs::OnDeleteTarget, flecs::Delete);
+WorldContext::WorldContext(WorldRole role, ServiceAccess services)
+    : services_(services), role_(role) {
+    // Validate the built-in composition before registration. No runtime package solver.
+    const auto order = module_order(
+        {{"core", {}, 0}, {"transforms", {"core"}, 0}, {"prefabs", {"transforms"}, 0}}, 0);
+    if (order != std::vector<std::string>{"core", "transforms", "prefabs"})
+        fail_invariant(services_, "Unexpected built-in registration order");
+    for (const auto& module : order) {
+        if (module == "core") {
+            schema_ = detail::register_builtins(world_);
+            world_.component<PersistentEntityId>("forge.entity_id")
+                .add(flecs::OnInstantiate, flecs::DontInherit);
+            world_.component<StableId>("forge.stable_id")
+                .add(flecs::OnInstantiate, flecs::DontInherit);
+            world_.component<AuthoredName>("forge.authored_name")
+                .add(flecs::OnInstantiate, flecs::DontInherit);
+            world_.component<SceneMember>("forge.scene_member")
+                .add(flecs::Exclusive)
+                .add(flecs::OnInstantiate, flecs::DontInherit)
+                .add(flecs::OnDeleteTarget, flecs::Delete);
+        } else if (module == "transforms") {
+            world_.component<WorldTransform>("forge.world_transform")
+                .add(flecs::OnInstantiate, flecs::DontInherit);
+            world_.component<SpatialBinding>("forge.spatial_binding")
+                .add(flecs::OnInstantiate, flecs::Override);
+            world_.component<MissingStructuralParent>().add(flecs::OnInstantiate,
+                                                            flecs::DontInherit);
+        } else if (module == "prefabs") {
+            world_.component<TemplateMember>("forge.prefab_member_definition")
+                .add(flecs::OnInstantiate, flecs::Inherit);
+            world_.component<AuthoredPrefab>("forge.authored_prefab")
+                .add(flecs::OnInstantiate, flecs::DontInherit);
+        }
+    }
     // Revision invalidation includes direct native writes, removal and relation edits.
     // Internal observation only: application notifications remain post-commit.
     world_.observer()
@@ -78,6 +92,7 @@ std::map<std::uint64_t, TransformNode> WorldContext::collect_transforms() const 
 void WorldContext::evaluate_world_transforms() {
     if (evaluated_epoch_ == transform_epoch_)
         return;
+    auto profile = services_.profile("ecs", "TransformEvaluation");
     const auto nodes = collect_transforms();
     const auto& evaluated = transform_evaluator_.evaluate(nodes);
     evaluating_transforms_ = true;

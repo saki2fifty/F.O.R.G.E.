@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cctype>
 #include <forge/prefab_authoring.hpp>
+#include <forge/project.hpp>
 #include <forge/project_lease.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -21,9 +22,10 @@ inline Json read_json(const std::filesystem::path& path) {
 }
 inline std::filesystem::path project_file(const std::filesystem::path& root,
                                           const std::filesystem::path& path) {
+    const ProjectPaths paths(root);
     const auto resolved =
-        std::filesystem::weakly_canonical(path.is_absolute() ? path : root / path);
-    const auto relative = resolved.lexically_relative(std::filesystem::weakly_canonical(root));
+        path.is_absolute() ? paths.resolve(paths.relative(path)) : paths.resolve(path);
+    const auto relative = paths.relative(resolved);
     auto first_part = relative.empty() ? std::string{} : path_text(*relative.begin());
     auto relative_text = path_text(relative);
 #ifdef _WIN32
@@ -54,6 +56,15 @@ class SceneDocument {
         if (!prefabs_)
             throw std::runtime_error("No prefab project");
         return *prefabs_;
+    }
+    ProjectSettings& settings() {
+        if (!settings_)
+            throw std::runtime_error("No project settings");
+        return *settings_;
+    }
+    void save_settings(Json candidate, const Json* expected = nullptr) {
+        check_ownership();
+        settings().save(std::move(candidate), expected);
     }
     const std::filesystem::path& project() const { return root_; }
     const std::filesystem::path& path() const { return path_; }
@@ -88,18 +99,16 @@ class SceneDocument {
         auto name = path_text(next_root.filename());
         auto first = project_file(next_root, "main.scene.json");
         const auto manifest = next_root / "forge.project.json";
-        if (std::filesystem::exists(manifest)) {
-            const auto data = read_json(manifest);
-            if (data.at("version") != 1)
-                throw std::runtime_error("Unsupported project version");
-            name = data.at("name").get<std::string>();
-            first = project_file(
-                next_root, std::filesystem::u8path(data.at("startup_scene").get<std::string>()));
-        }
+        auto settings = std::make_unique<ProjectSettings>(next_root);
+        name = settings->document().at("name").get<std::string>();
+        const auto startup = settings->startup();
+        const bool untitled = std::filesystem::exists(manifest) && !startup;
+        if (startup)
+            first = project_file(next_root, *startup);
         std::optional<Json> doc;
-        if (std::filesystem::exists(first))
+        if (!untitled && std::filesystem::exists(first))
             doc = read_json(first);
-        else if (!allow_empty || std::filesystem::exists(manifest))
+        else if (!untitled && (!allow_empty || std::filesystem::exists(manifest)))
             throw std::runtime_error("Project has no startup scene");
         auto prefabs = std::make_unique<PrefabLibrary>(next_root);
         // Definition scan precedes activation. Malformed assets are reported rather
@@ -108,12 +117,13 @@ class SceneDocument {
         Scene::validate_document(intended);
         prefabs->load_scene(scene_, intended);
         prefabs_ = std::move(prefabs);
+        settings_ = std::move(settings);
         if (candidate)
             lease_ = std::move(candidate);
         ++generation_;
         root_ = next_root;
         name_ = name;
-        path_ = first;
+        path_ = untitled ? std::filesystem::path{} : first;
         saved_ = scene_.document();
         disk_ = doc;
         persisted_ = doc.has_value();
@@ -135,11 +145,12 @@ class SceneDocument {
             std::filesystem::create_directory(stage / "Scenes");
             std::filesystem::create_directory(stage / "Assets");
             std::filesystem::create_directory(stage / "Native");
-            atomic_write(stage / "Scenes/main.scene.json", empty_scene().dump(2));
-            atomic_write(
-                stage / "forge.project.json",
-                Json{{"version", 1}, {"name", name}, {"startup_scene", "Scenes/main.scene.json"}}
-                    .dump(2));
+            const auto initial = empty_scene();
+            atomic_write(stage / "Scenes/main.scene.json", initial.dump(2));
+            auto settings = ProjectSettings::defaults(name);
+            settings["startup_scene"] = {{"asset", initial.at("asset_id")},
+                                         {"source", "Scenes/main.scene.json"}};
+            atomic_write(stage / "forge.project.json", settings.dump(2));
             if (std::filesystem::exists(target))
                 throw std::runtime_error("Project destination appeared during creation");
             std::filesystem::rename(stage, target);
@@ -272,6 +283,7 @@ class SceneDocument {
 
   private:
     Scene& scene_;
+    std::unique_ptr<ProjectSettings> settings_;
     std::unique_ptr<PrefabLibrary> prefabs_;
     std::shared_ptr<ProjectLease> lease_;
     std::uint64_t generation_ = 0;

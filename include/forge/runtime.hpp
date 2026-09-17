@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <forge/input.hpp>
 #include <forge/module.hpp>
 #include <forge/scene.hpp>
 #include <functional>
@@ -55,6 +56,8 @@ class RuntimeSimulation {
     RuntimeSimulation(const RuntimeSimulation&) = delete;
     RuntimeSimulation& operator=(const RuntimeSimulation&) = delete;
     void tick(float dt);
+    RuntimeInput& input() { return input_; }
+    Json input_status() const { return input_monitor_.status(input_.map()); }
     void reset_presentation();
     Json presentation(double alpha) const;
 
@@ -64,7 +67,11 @@ class RuntimeSimulation {
     Module& module_;
     ForgeHostV1 host_;
     PresentationPoses poses_;
+    RuntimeInput input_;
+    InputMonitor input_monitor_;
+    std::uint64_t input_tick_ = 0;
     flecs::entity previous_pipeline_;
+    flecs::entity input_phase_, input_system_;
     flecs::entity pipeline_, gameplay_, transforms_, gameplay_phase_, transform_phase_;
 };
 } // namespace forge

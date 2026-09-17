@@ -511,6 +511,7 @@ void Scene::publish_prefab_sources(const PrefabSources& sources,
 }
 void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& source_document,
                                    const std::function<void()>& durable_write, bool all) {
+    auto profile = context_.services().profile("prefab", "PrefabReconciliation");
     std::set<AssetId> visiting, done;
     std::function<void(AssetId)> dependencies = [&](AssetId asset) {
         if (done.contains(asset))

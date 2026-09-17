@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <flecs.h>
 #include <forge/identity.hpp>
+#include <forge/services.hpp>
 #include <forge/transform.hpp>
 #include <map>
 #include <nlohmann/json.hpp>
@@ -38,7 +39,8 @@ enum class WorldRole { Authoring, Runtime, Preview, Validation };
 class Scene;
 class WorldContext {
   public:
-    explicit WorldContext(WorldRole role = WorldRole::Authoring);
+    explicit WorldContext(WorldRole role = WorldRole::Authoring, ServiceAccess services = {});
+    ServiceAccess services() const { return services_; }
     ~WorldContext();
     WorldContext(const WorldContext&) = delete;
     WorldContext& operator=(const WorldContext&) = delete;
@@ -73,6 +75,7 @@ class WorldContext {
     TransformEvaluator transform_evaluator_;
     std::uint64_t transform_epoch_ = 1, evaluated_epoch_ = 0;
     bool evaluating_transforms_ = false;
+    ServiceAccess services_;
     WorldRole role_;
     std::map<flecs::entity_t, Content> content_;
     Json schema_;
@@ -83,10 +86,13 @@ class WorldContext {
 // object by applications, so they outlive its world. No generic service locator.
 class EngineContext {
   public:
-    explicit EngineContext(WorldRole role = WorldRole::Authoring) : world_(role) {}
+    explicit EngineContext(WorldRole role = WorldRole::Authoring, bool profiling = false)
+        : services_(profiling), world_(role, services_.access()) {}
+    ServiceAccess services() const { return services_.access(); }
     WorldContext& world() { return world_; }
 
   private:
+    EngineServices services_;
     WorldContext world_;
 };
 } // namespace forge

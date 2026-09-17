@@ -2,6 +2,10 @@
 
 **Current delivery: Build 260917-000037 — Phase 5 structured prefabs.** See [prefab architecture](prefabs.md), the [prefab user guide](../manual/editor/prefabs.md), and [verified delivery evidence](../changelog/20260917/README.md#phase-5-verified-delivery--build-260917-000037). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 
+## Phase 5.5 source — core services
+
+Project-owned settings/input, project path consolidation, schema discovery, typed context services, structured diagnostics and bounded CPU instrumentation are implemented. See [core services](core-services.md), [input architecture](input.md), [Project Settings](../manual/editor/project-settings.md) and [input walkthrough](../manual/editor/input.md). Local core14/editor2/sanitizer10 regressions pass; Windows delivery is pending. Current delivery above remains the last verified package until that validation completes. Dependency pins, native ABI1, protocol2, existing prefab/transform semantics and dock layout are preserved. AssetHandle, Apply and Phase6 stay deferred.
+
 ## Verified on Linux and Windows
 - C++20 core and C17 sample module build.
 - Scene save/load, unknown data preservation, invalid-document rejection, undo/redo.

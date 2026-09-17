@@ -93,7 +93,8 @@ inline void test_documents() {
     doc->new_scene();
     require(doc->path().empty() && doc->dirty() && !scene.undo(),
             "New scene carried history or a filename");
-    scene.edit(edited);
+    const auto untitled = forge::duplicate_scene_asset(edited);
+    scene.edit(untitled);
     require(doc->autosave(), "Untitled autosave failed");
     doc.reset();
     {
@@ -103,7 +104,7 @@ inline void test_documents() {
         resumed.open_project(project);
         require(resumed.has_untitled_recovery(), "Untitled recovery missing after restart");
         resumed.recover_untitled();
-        require(resumed.path().empty() && resumed.dirty() && restarted.document() == edited,
+        require(resumed.path().empty() && resumed.dirty() && restarted.document() == untitled,
                 "Untitled recovery failed");
         resumed.save_as(project / "Scenes/recovered.scene.json");
         require(!resumed.has_untitled_recovery(), "Save As left stale untitled recovery");
@@ -164,6 +165,10 @@ inline void test_documents() {
                               {"name", "Before"},
                               {"components", {{"plugin.missing", {{"entity", legacy_id}}}}}}})}};
     forge::atomic_write(legacy_path, v1.dump());
+    forge::atomic_write(
+        legacy_project / "forge.project.json",
+        forge::Json{{"version", 1}, {"name", "Legacy"}, {"startup_scene", "Scenes/main.scene.json"}}
+            .dump());
     forge::Json assigned;
     {
         forge::EngineContext legacy_engine;

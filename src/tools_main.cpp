@@ -1,10 +1,15 @@
 #include <forge/authoring.hpp>
 #include <forge/build.hpp>
+#include <forge/schema.hpp>
 #include <iostream>
 // Deliberately memory-only: this process cannot compete with an editor for project files.
 int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--version") {
         std::cout << "FORGE tools | Build: " << forge::build_id << '\n';
+        return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "--document-schemas") {
+        std::cout << forge::core_document_schemas().describe().dump(2) << '\n';
         return 0;
     }
     if (argc != 2 || std::string(argv[1]) != "--stdio") {

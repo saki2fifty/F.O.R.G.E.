@@ -7,6 +7,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 ## Projects and authored content
 
 - [Projects](editor/projects.md): create, open, and return to projects.
+- [Project settings](editor/project-settings.md): shared simulation frequency, startup scene, and controls.
 - [Scenes](editor/scenes.md): create and switch scene files.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
 - [Content browser](editor/content-browser.md): find and open project scene files.
@@ -28,6 +29,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 ## Testing gameplay
 
 - [Play mode](editor/play-mode.md): run an isolated copy of your scene.
+- [Gameplay input](editor/input.md): bind actions and inspect fixed-tick input without writing code.
 - [Native gameplay](editor/native-gameplay.md): compile and reload the supported C++ sample.
 
 ## Current boundaries

@@ -44,3 +44,6 @@ Changing projects or scenes stops play. Compilation temporarily disables conflic
 ## Structured prefabs in Play
 
 Play receives the current validated prefab definitions and stable member mappings. Changes made by gameplay remain in the isolated runtime. Stop Play before editing a prefab source. See [Prefabs](prefabs.md).
+
+
+Project [Simulation Hz](project-settings.md) sets the next Play session’s frequency. [Gameplay input](input.md) uses explicit Scene capture; Esc releases, F6 pauses/resumes and F7 steps. Console’s Gameplay input section shows fixed-tick values and edge counts.

@@ -24,3 +24,6 @@ Expand a component to see its supported fields, stable property identifiers, num
 The current components are LocalTranslation, LocalRotation, LocalScale, Tint, and Primitive. Rotation fields here are quaternion XYZW; Inspector presents Euler degrees. This window is read-only; use Inspector to change values. Animation-related metadata prepares property bindings for future tools; animation editing is not available in this build.
 
 Continue with [Inspector](inspector.md) and [Command palette](commands.md).
+
+
+Console → Gameplay input displays consumed runtime action values and edge counts. `forge_tools --document-schemas` lists the current document contracts without opening a window or writing files.

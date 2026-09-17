@@ -6,6 +6,7 @@
 #include "command_workspace.hpp"
 #include "content.hpp"
 #include "files.hpp"
+#include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
@@ -13,6 +14,7 @@
 #include "performance.hpp"
 #include "play.hpp"
 #include "prefabs.hpp"
+#include "project_settings.hpp"
 #include "scene_cache.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
@@ -150,6 +152,8 @@ int main(int argc, char** argv) {
         forge::Scene scene(scene_engine.world());
         forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
+        forge::GameInput game_input;
+        forge::ProjectSettingsEditor project_settings;
         const char* base = SDL_GetBasePath();
         if (!base)
             throw std::runtime_error("Cannot locate runtime directory");
@@ -162,6 +166,9 @@ int main(int argc, char** argv) {
                 action();
             } catch (const std::exception& e) {
                 message = e.what();
+                forge::Diagnostic diagnostic{forge::Severity::Error, "editor", message, {}};
+                diagnostic.context.asset = scene.asset_id();
+                scene_engine.services().emit(std::move(diagnostic));
             }
         };
         auto open_scratch = [&] {
@@ -216,7 +223,14 @@ int main(int argc, char** argv) {
         while (running) {
             performance.begin();
             SDL_Event event;
+            game_input.pump(play,
+                            workspace.scene && !files.busy() && !ImGui::GetIO().WantTextInput &&
+                                !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                                 ImGuiPopupFlags_AnyPopupLevel) &&
+                                (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS));
             while (SDL_PollEvent(&event)) {
+                if (game_input.event(event, play))
+                    continue;
                 gui->HandleSDLEvent(&event);
                 if (event.type == SDL_EVENT_KEY_DOWN && (event.key.mod & SDL_KMOD_CTRL)) {
                     float scale = forge::ui::interface_scale;
@@ -276,6 +290,7 @@ int main(int argc, char** argv) {
                 continue;
             }
             play.pump();
+            native->simulation_hz = files.document.settings().simulation_hz();
             native->pump(play, authoring_snapshot.snapshot(scene));
             files.set_switch_available(!native->busy());
             int width = 0, height = 0;
@@ -322,6 +337,7 @@ int main(int argc, char** argv) {
                 commands.menu([&] {
                     automation.menu();
                     performance.menu();
+                    project_settings.menu();
                 });
                 if (workspace.menu()) {
                     try {
@@ -376,6 +392,9 @@ int main(int argc, char** argv) {
                             play.active() ? "Restart" : "Play",
                             "Start a fresh isolated play world from the current authored scene."))
                         perform([&] {
+                            play.stop();
+                            play.configure(files.document.settings().simulation_hz(),
+                                           files.document.settings().input());
                             play.start(runtime_path, scene.snapshot(), native->artifact());
                         });
                     if (play.can_recover() &&
@@ -650,6 +669,8 @@ int main(int argc, char** argv) {
                                 play.active() ? "PLAY" : "EDIT");
                     forge::ui::help("Active scene. * means unsaved changes. Play uses an isolated "
                                     "copy; stop play to edit.");
+                    if (play.active())
+                        game_input.controls(play);
                     bool frame_selected = false, fit_scene = false;
                     ImGui::BeginDisabled(modal.active() || scene_tools.move.active());
                     try {
@@ -747,12 +768,14 @@ int main(int argc, char** argv) {
                             nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
                         const bool gizmo = orientation.input(
                             camera, image_origin, size,
-                            focused && !modal.active() && !scene_tools.move.active() && !popup);
+                            focused && !game_input.captured() && !modal.active() &&
+                                !scene_tools.move.active() && !popup);
                         ImGui::SetCursorScreenPos(image_origin);
                         forge::ui::ViewportInput input;
                         const bool was_modal = modal.active();
                         if (forge::ui::camera_controls(camera, size, focused, &input,
-                                                       gizmo || was_modal || popup)) {
+                                                       gizmo || was_modal || popup ||
+                                                           game_input.captured())) {
                             if (selected.empty() ||
                                 !camera.frame(preview, selected, size.x / size.y))
                                 message = "Selected entity has no visible block, or exceeds camera "
@@ -919,6 +942,7 @@ int main(int argc, char** argv) {
                     }
                     ImGui::TextWrapped("%s", play.status().c_str());
                     if (play.active()) {
+                        forge::draw_input_monitor(play);
                         const auto& timing = play.timing();
                         ImGui::Text(
                             "Tick: %llu | Fixed: %.0f Hz | Dropped: %llu | Clamped: %.3f s",
@@ -937,6 +961,7 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
+            project_settings.draw(files.document, scene, edit_locked, message);
             if (panels_before != workspace.settings()) {
                 try {
                     perform(save_preferences);

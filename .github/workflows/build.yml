@@ -173,14 +173,14 @@ jobs:
       - name: Verify process controllers before renderer
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "editor_process_and_scale|editor_native_iteration" --output-on-failure
-      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_runtime_clock_tests forge_sample forge_tools forge_prefab_tests forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
+      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_services_tests forge_runtime_clock_tests forge_sample forge_tools forge_prefab_tests forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Compile preview shaders
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/preview_shader_test.py
       - name: Test editor process isolation and scaling
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "editor_viewport_render|authoring_|world_lifetime|structured_prefabs|persistent_identity|hierarchical_transforms|runtime_clock_and_interpolation|runtime_protocol" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "editor_viewport_render|core_services|input_protocol|authoring_|world_lifetime|structured_prefabs|persistent_identity|hierarchical_transforms|runtime_clock_and_interpolation|runtime_protocol" --output-on-failure
       - name: Save viewport render checks
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

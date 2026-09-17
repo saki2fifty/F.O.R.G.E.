@@ -1,6 +1,7 @@
 #include "builtins.hpp"
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
+#include <forge/project_paths.hpp>
 #include <fstream>
 #include <set>
 namespace forge {
@@ -81,18 +82,13 @@ std::string instantiate_prefab(Scene& scene, AssetId asset) {
 PrefabLibrary::PrefabLibrary(std::filesystem::path project)
     : project_(std::filesystem::weakly_canonical(project)), catalog_(project_) {}
 std::filesystem::path PrefabLibrary::locate(const std::filesystem::path& relative) const {
-    if (relative.empty() || relative.is_absolute() || relative.has_root_name() ||
-        !relative.filename().string().ends_with(".prefab.json"))
+    const auto normalized = ProjectPaths::normalize(relative);
+    if (!normalized.filename().string().ends_with(".prefab.json"))
         throw std::runtime_error("Choose a project-relative .prefab.json filename");
-    for (const auto& part : relative)
-        if (part == ".." || part == "." || part.string().find(':') != std::string::npos ||
-            part == ".forge" || part == ".git")
+    for (const auto& part : normalized)
+        if (part == ".forge" || part == ".git")
             throw std::runtime_error("Invalid prefab asset path");
-    const auto absolute = std::filesystem::weakly_canonical(project_ / relative);
-    const auto resolved = absolute.lexically_relative(project_);
-    if (resolved.empty() || resolved.is_absolute() || *resolved.begin() == "..")
-        throw std::runtime_error("Prefab path escapes project");
-    return absolute;
+    return ProjectPaths(project_).resolve(normalized);
 }
 PrefabSources PrefabLibrary::scan(AssetCatalog& candidate,
                                   std::map<AssetId, AssetRecord>& records) const {

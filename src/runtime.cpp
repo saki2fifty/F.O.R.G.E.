@@ -124,7 +124,13 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
         throw std::runtime_error("Simulation requires a runtime WorldContext");
     auto& world = context.world();
     previous_pipeline_ = world.get_pipeline();
-    gameplay_phase_ = world.entity("forge.runtime.Gameplay").add(flecs::Phase);
+    input_phase_ = world.entity("forge.runtime.Input").add(flecs::Phase);
+    gameplay_phase_ =
+        world.entity("forge.runtime.Gameplay").add(flecs::Phase).depends_on(input_phase_);
+    input_system_ = world.system("forge.runtime.InputMonitor")
+                        .kind(input_phase_)
+                        .immediate()
+                        .run([this](flecs::iter&) { input_monitor_.consume(input_.snapshot()); });
     transform_phase_ =
         world.entity("forge.runtime.Transforms").add(flecs::Phase).depends_on(gameplay_phase_);
     pipeline_ = world.pipeline()
@@ -142,22 +148,27 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
                       .immediate()
                       .run([this](flecs::iter&) { context_.evaluate_world_transforms(); });
     world.set_pipeline(pipeline_);
+    input_system_.add<FixedSimulation>();
     gameplay_.add<FixedSimulation>();
     transforms_.add<FixedSimulation>();
     reset_presentation();
 }
 RuntimeSimulation::~RuntimeSimulation() {
     context_.world().set_pipeline(previous_pipeline_);
+    input_system_.destruct();
     gameplay_.destruct();
     transforms_.destruct();
     pipeline_.destruct();
     transform_phase_.destruct();
     gameplay_phase_.destruct();
+    input_phase_.destruct();
 }
 void RuntimeSimulation::tick(float dt) {
     if (!std::isfinite(dt) || dt <= 0)
         throw std::runtime_error("Gameplay requires a positive fixed tick delta");
     // progress updates Flecs frame/time metadata from this explicit fixed delta.
+    auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
+    input_.latch(++input_tick_);
     context_.world().progress(dt);
     poses_.capture(context_.transform_nodes());
 }
@@ -166,6 +177,7 @@ void RuntimeSimulation::reset_presentation() {
     poses_.reset(context_.transform_nodes());
 }
 Json RuntimeSimulation::presentation(double alpha) const {
+    auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);
     auto result = scene_.effective_document();
     const auto values = poses_.evaluate(alpha);
     for (auto& item : result.at("entities")) {

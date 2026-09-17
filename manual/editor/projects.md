@@ -38,3 +38,6 @@ A trusted script can work through the owning editor using [Live automation](live
 Launching `forge_editor.exe` without a project argument first reopens your last project. On a fresh installation, it creates a **Scratch** project under your personal FORGE settings folder, outside the application ZIP folder. If the last project cannot be opened, Console explains the fallback to Scratch. An explicitly supplied project that cannot be opened reports an error instead.
 
 The Content panel shows the project name; hover it for the complete folder path. The title bar also identifies the project and scene. Use File → New project or Open project to choose where your game belongs. Launchers with an explicit Project argument keep using that directory. Existing projects and scenes are retained.
+
+
+Shared simulation frequency and startup scene identity are edited in [Project settings](project-settings.md). Version-1 project manifests remain readable; settings saves migrate them explicitly with a backup.

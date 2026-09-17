@@ -88,6 +88,7 @@ class NativeBuild {
     const std::string& log() const { return log_; }
     std::string source_path() const { return (source_ / "gameplay.cpp").string(); }
     bool auto_build = false;
+    double simulation_hz = 60;
     std::string cmake = "cmake", ninja = "ninja";
 
     void create_source() {
@@ -172,6 +173,7 @@ class NativeBuild {
                     } while (!std::filesystem::create_directory(version));
                     candidate_ = std::filesystem::absolute(version / name).string();
                     std::filesystem::copy_file(work_ / "build" / name, candidate_);
+                    probe_.configure(simulation_hz, InputMap{});
                     probe_.start(runtime_, play.active() ? play.snapshot() : authored, candidate_,
                                  true);
                     phase_ = Phase::Probe;

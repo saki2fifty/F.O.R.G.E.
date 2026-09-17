@@ -19,3 +19,6 @@ Pause the pointer over a control to show help after roughly 0.4 seconds. Long he
 FORGE remembers interface scale, tooltip state, panel layout, recent/last projects, native tool/build-on-save settings, and the Create menu's At view target setting in its Windows user preferences area. Scene tool preferences also persist: move handles, grid, snap spacing, and flight speed. Use **Save view** in Scene to keep a per-scene camera bookmark. Undo history does not persist.
 
 There is no theme picker or general settings dialog yet. See [Panels and windows](panels-windows.md).
+
+
+Shared game behavior is configured separately under [Tools → Project Settings](project-settings.md). Layout, scale, tooltips and machine tool paths stay personal.

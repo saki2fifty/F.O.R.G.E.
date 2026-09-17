@@ -66,6 +66,15 @@ int main(int argc, char** argv) {
                     if (command == "hello") {
                         if (initialized)
                             throw std::runtime_error("Session already initialized");
+                        auto next_config = config;
+                        if (argc == 1)
+                            next_config.simulation_hz =
+                                request.value("simulation_hz", config.simulation_hz);
+                        next_config.validate();
+                        forge::InputMap input(
+                            request.value("input_map", forge::InputMap{}.source()));
+                        simulation.input().configure(std::move(input));
+                        clock = forge::RuntimeClock(next_config);
                         initialized = true;
                     } else if (!initialized || request.value("session", "") != session)
                         throw std::runtime_error("Stale or missing runtime session");
@@ -73,10 +82,21 @@ int main(int argc, char** argv) {
                     if (request.contains("seconds"))
                         throw std::runtime_error(
                             "Caller delta is unsupported; Step advances one fixed tick");
+                    if (command == "step" && !clock.paused())
+                        throw std::runtime_error("Single Step requires Pause");
+                    if (request.contains("input_events")) {
+                        if (command != "snapshot" && command != "pause" && command != "resume" &&
+                            command != "step")
+                            throw std::runtime_error(
+                                "Input events require a snapshot or clock control request");
+                        simulation.input().submit(
+                            request.at("input_events").get<std::vector<forge::InputEvent>>());
+                    }
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
                         scene.restore_snapshot(request.at("scene"));
+                        simulation.input().release_all();
                         simulation.reset_presentation();
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
@@ -92,6 +112,7 @@ int main(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Pause and checkpoint before module replacement");
                         module.load(request.at("path").get<std::string>());
+                        simulation.input().release_all();
                         activation = "loaded_pending_first_tick";
                         ++activation_generation;
                         activation_tick = 0;
@@ -110,9 +131,17 @@ int main(int argc, char** argv) {
                     response["scene"] = scene.snapshot(); // Uninterpolated recovery state only.
                     response["effective_scene"] = simulation.presentation(clock.alpha());
                     response["schema"] = scene.schema();
+                    response["input"] = simulation.input_status();
                 } catch (const std::exception& error) {
                     response["ok"] = false;
                     response["error"] = error.what();
+                    forge::Diagnostic diagnostic{
+                        forge::Severity::Error, "runtime", error.what(), {}};
+                    diagnostic.context.tick = clock.tick();
+                    diagnostic.context.session = session;
+                    diagnostic.context.asset = scene.asset_id();
+                    engine.services().emit(diagnostic);
+                    response["diagnostic"] = forge::diagnostic_json(diagnostic);
                 }
                 response["timing"] = clock.status();
                 response["activation"] = {{"state", activation},

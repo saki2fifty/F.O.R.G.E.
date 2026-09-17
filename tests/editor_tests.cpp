@@ -5,6 +5,7 @@
 #include "camera_controls.hpp"
 #include "command_workspace_tests.hpp"
 #include "document_tests.hpp"
+#include "game_input_tests.hpp"
 #include "help.hpp"
 #include "interaction_tests.hpp"
 #include "play.hpp"
@@ -305,6 +306,8 @@ int main(int argc, char** argv) {
                 "Manual URL did not escape path characters");
         test_documents();
         test_prefab_editor_documents();
+        test_project_settings_ui();
+        test_game_input(argv[1]);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_automation_workspace(scale);
         test_authoring();

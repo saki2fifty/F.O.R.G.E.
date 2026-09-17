@@ -1,6 +1,8 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <cmath>
+#include <forge/input.hpp>
 #include <forge/scene.hpp>
 #include <string>
 namespace forge {
@@ -24,6 +26,26 @@ class PlaySession {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
     }
     const Json& timing() const { return timing_; }
+    const Json& input_status() const { return input_status_; }
+    void configure(double hz, InputMap map) {
+        if (active())
+            throw std::runtime_error("Stop Play before configuring input/settings");
+        if (!std::isfinite(hz) || hz < 1 || hz > 240)
+            throw std::runtime_error("Invalid simulation frequency");
+        simulation_hz_ = hz;
+        input_map_ = map.source();
+    }
+    void input_event(InputEvent event) {
+        if (!ready())
+            return;
+        if (input_events_.size() >= 4096) {
+            input_events_.clear();
+            input_events_.push_back({{}, 0, true});
+            notice_ = "Input queue overflow: controls released. ";
+            return;
+        }
+        input_events_.push_back(std::move(event));
+    }
     const std::string& session() const { return session_; }
     const std::string& module() const { return module_; } // Last known-good artifact only.
     Reload reload_result() const { return reload_result_; }
@@ -157,6 +179,7 @@ class PlaySession {
                 snapshot_ = response.at("scene");
                 effective_ = response.at("effective_scene");
                 timing_ = response.at("timing");
+                input_status_ = response.value("input", Json::object());
                 ++snapshot_version_;
                 if (stage_ == Stage::Hello) {
                     stage_ = Stage::Replace;
@@ -280,6 +303,8 @@ class PlaySession {
         ++snapshot_version_;
         stage_ = Stage::Hello;
         request_id_ = 0;
+        input_events_.clear();
+        input_status_ = Json::object();
         const char* args[] = {executable_.c_str(), nullptr};
         log_.clear();
         const auto properties = SDL_CreateProperties();
@@ -301,10 +326,16 @@ class PlaySession {
             return;
         }
         status_ = "Starting play...";
-        send({{"command", "hello"}});
+        send({{"command", "hello"}, {"simulation_hz", simulation_hz_}, {"input_map", input_map_}});
     }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
+        if ((sent_command_ == "snapshot" || sent_command_ == "step" || sent_command_ == "resume" ||
+             sent_command_ == "pause") &&
+            !input_events_.empty()) {
+            request["input_events"] = input_events_;
+            input_events_.clear();
+        }
         request["protocol"] = 2;
         request["id"] = ++request_id_;
         if (!session_.empty())
@@ -315,6 +346,9 @@ class PlaySession {
         waiting_ = true;
         sent_at_ = SDL_GetTicks();
     }
+    double simulation_hz_ = 60;
+    Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
+    std::vector<InputEvent> input_events_;
     SDL_Process* process_ = nullptr;
     Stage stage_ = Stage::Hello;
     Reload reload_result_ = Reload::Idle;

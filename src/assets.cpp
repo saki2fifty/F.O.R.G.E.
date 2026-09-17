@@ -1,20 +1,13 @@
 #include <forge/assets.hpp>
+#include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
+#include <forge/schema.hpp>
 #include <fstream>
 namespace forge {
 AssetCatalog::AssetCatalog(std::filesystem::path project)
     : project_(std::filesystem::weakly_canonical(project)) {}
 std::filesystem::path AssetCatalog::locate(const std::filesystem::path& source) const {
-    if (source.empty() || source.is_absolute() || source.has_root_name())
-        throw std::runtime_error("Asset source must be project-relative");
-    for (const auto& part : source)
-        if (part == ".." || part == "." || part.string().find(':') != std::string::npos)
-            throw std::runtime_error("Invalid asset source locator");
-    const auto path = std::filesystem::weakly_canonical(project_ / source);
-    const auto relative = path.lexically_relative(project_);
-    if (relative.empty() || *relative.begin() == ".." || relative.is_absolute())
-        throw std::runtime_error("Asset source escapes the project");
-    return path;
+    return ProjectPaths(project_).resolve(source);
 }
 void AssetCatalog::add(AssetRecord record) {
     if (!record.id || record.type.empty() || !record.schema_version)
@@ -22,12 +15,13 @@ void AssetCatalog::add(AssetRecord record) {
     for (auto dependency : record.dependencies)
         if (!dependency)
             throw std::runtime_error("Empty asset dependency identity");
+    record.source = ProjectPaths::normalize(record.source);
     (void)locate(record.source);
     if (records_.contains(record.id))
         throw std::runtime_error("Duplicate asset identity: " + record.id.str());
     for (const auto& [id, old] : records_) {
         (void)id;
-        if (locate(old.source) == locate(record.source))
+        if (ProjectPaths(project_).same_locator(old.source, record.source))
             throw std::runtime_error("Asset source already has a different identity");
     }
     records_.emplace(record.id, std::move(record));
@@ -40,7 +34,7 @@ AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
         throw std::runtime_error("Scene must be migrated before catalog registration");
     AssetRecord record{doc.at("asset_id").get<AssetId>(),
                        SceneAsset::type,
-                       source,
+                       ProjectPaths::normalize(source),
                        doc.at("version").get<unsigned>(),
                        {}};
     add(record);
@@ -108,9 +102,7 @@ void AssetCatalog::save(const std::filesystem::path& index) const {
 }
 void AssetCatalog::load(const std::filesystem::path& index) {
     std::ifstream stream(index);
-    const auto doc = Json::parse(stream);
-    if (doc.at("version") != 1 || !doc.at("assets").is_array())
-        throw std::runtime_error("Unsupported asset index");
+    const auto doc = core_document_schemas().prepare("asset_index", Json::parse(stream));
     AssetCatalog candidate(project_);
     for (const auto& record : doc.at("assets")) {
         const auto& schema = record.at("schema_version");

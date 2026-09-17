@@ -63,3 +63,6 @@ Press **Ctrl+Shift+P** after finishing a drag or text edit to open the [Command 
 ## Scene tool selection
 
 Hover the Scene image and press **W** for Move or **Q** for Select. Move shows the selected object’s X/Y/Z handles. Select hides handles. These keys do not switch tools while navigating with RMB/MMB or typing into a field.
+
+
+During explicit gameplay input capture, Esc releases controls, F6 pauses/resumes and F7 steps. Other keyboard/mouse input belongs to project actions until capture ends. See [Gameplay input](input.md).

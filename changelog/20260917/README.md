@@ -146,3 +146,15 @@ All **28** accepted Build35 viewport images are byte-identical. The new structur
 ZIP CRC, manifest hashes, source/build identity, three x64 PE executables and **24** matching manual source/HTML pages were verified. SHA256: `29f17efa8461d01ddb46c5e7b7354ce617092c278fea4c3403adeac8e97e6bcc`. Build35 is archived; packages contains only the latest numbered ZIP and current executable folder. Cleanup dry run is empty.
 
 Phase5 implementation and automated validation are complete. Interactive Windows desktop acceptance remains for the user. Apply to Prefab is deliberately deferred; Revert is implemented. Stop before Phase6: no physics, audio, animation, navigation, broad SDK or editor layout redesign was added.
+
+
+## Phase 5.5 — core services foundation (validation in progress)
+
+- Extend the existing project manifest to version2 with validated simulation frequency, stable startup scene identity and project-owned input configuration. Preserve version1 reading/backup-on-save and unknown fields; personal preferences and runtime state stay separate.
+- Add SDL-neutral digital/1D/2D actions, UUIDv4 action identities, keyboard/mouse/gamepad bindings, immutable fixed-tick snapshots and a built-in runtime monitor. Protocol2 carries bounded input batches; native ABI1 is unchanged. Explicit Scene capture, Esc/F6/F7 routing, focus/disconnect resets and project settings UI preserve editor layout.
+- Consolidate project-relative path normalization/root confinement, schema discovery/preparation conventions and built-in bootstrap dependency validation. Proven scene identity journals, migration and prefab revision semantics remain format-owned.
+- Add EngineContext-owned, capability-restricted diagnostics/profiling with bounded storage and owner-thread/lifetime checks. Instrument current simulation/transforms/prefab boundaries; retain existing Console messages and frame metrics. Loaded AssetHandle, generic tasks/VFS and major subsystem/SDK work remain deferred.
+- Add core/headless protocol, settings persistence/failure/path-case, service lifetime, injected-clock profiling, SDL virtual-gamepad and UI tests. Legacy document fixtures now use independent untitled identities and a true version1 manifest instead of overwriting a version2 startup asset reference.
+- Initial Linux core14/14, editor2/2, sanitizer10/10 and Windows-target syntax checks passed; final expanded checks and actual Windows delivery remain pending. No Apply to Prefab or Phase6 work.
+
+- Final local checks passed: Linux core **14/14** (11.84s), rebuilt SDL/ImGui/process/native **2/2** (15.20s), ASan/UBSan/LSan **10/10**, Windows-target syntax, manual **3/3**, formatting and workflow lint. Settings tests cover stale drafts, blocked atomic writes, moved/duplicate startup identities and null startup. A compiled-out profiling probe verifies no clock access or records. Actual clean Windows/MSVC/WARP results follow delivery.
