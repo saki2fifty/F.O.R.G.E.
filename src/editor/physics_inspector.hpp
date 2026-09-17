@@ -44,7 +44,8 @@ inline void physics_inspector(Scene& scene, const std::string& selected, std::st
             const auto schema = scene.schema();
             for (const auto& type : schema.at("components")) {
                 const std::string key = type.at("id");
-                if (!type.value("optional", false) || !components.contains(key))
+                if ((key != "forge.physics_body" && !key.ends_with("_collider")) ||
+                    !components.contains(key))
                     continue;
                 ImGui::PushID(key.c_str());
                 ui::heading(physics_label(key),

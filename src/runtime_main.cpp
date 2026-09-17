@@ -28,20 +28,47 @@ int main(int argc, char** argv) {
         std::vector<forge::EngineModule> sdk_modules;
         std::optional<forge::ProjectSettings> sdk_project;
         forge::EngineServices bootstrap_services;
-        if (argc == 3 && std::string(argv[1]) == "--sdk-project") {
-            sdk_project.emplace(std::filesystem::u8path(argv[2]));
-            config.simulation_hz = sdk_project->simulation_hz();
-            sdk_modules =
-                forge::project_native_modules(std::filesystem::u8path(argv[2]),
-                                              sdk_project->document(), bootstrap_services.access());
-        } else if (argc == 3 && std::string(argv[1]) == "--simulation-hz") {
-            std::size_t consumed = 0;
-            config.simulation_hz = std::stod(argv[2], &consumed);
-            if (consumed != std::string(argv[2]).size())
-                throw std::runtime_error("Invalid simulation frequency");
-        } else if (argc != 1)
-            throw std::runtime_error(
-                "Usage: forge_runtime [--simulation-hz 1..240 | --sdk-project PROJECT]");
+        std::optional<forge::AudioConfig> audio_config;
+        std::filesystem::path project_root;
+        bool explicit_hz = false, sdk_profile = false;
+        std::string audio_mode;
+        for (int i = 1; i < argc; ++i) {
+            const std::string option = argv[i];
+            if (i + 1 >= argc)
+                throw std::runtime_error("Missing runtime argument value");
+            const std::string value = argv[++i];
+            if (option == "--sdk-project" || option == "--project") {
+                project_root = std::filesystem::u8path(value);
+                sdk_profile = option == "--sdk-project";
+            } else if (option == "--audio") {
+                if (value != "device" && value != "offline")
+                    throw std::runtime_error("Audio mode must be device or offline");
+                audio_mode = value;
+            } else if (option == "--simulation-hz") {
+                std::size_t consumed = 0;
+                config.simulation_hz = std::stod(value, &consumed);
+                explicit_hz = true;
+                if (consumed != value.size())
+                    throw std::runtime_error("Invalid simulation frequency");
+            } else
+                throw std::runtime_error("Unknown runtime option: " + option);
+        }
+        if (!project_root.empty() && sdk_profile) {
+            sdk_project.emplace(project_root);
+            if (!explicit_hz)
+                config.simulation_hz = sdk_project->simulation_hz();
+            if (sdk_profile)
+                sdk_modules = forge::project_native_modules(project_root, sdk_project->document(),
+                                                            bootstrap_services.access());
+        }
+        if (!audio_mode.empty()) {
+            if (project_root.empty())
+                throw std::runtime_error("Audio requires --project or --sdk-project");
+            audio_config = forge::AudioConfig{project_root,
+                                              audio_mode == "offline" ? forge::AudioOutput::Offline
+                                                                      : forge::AudioOutput::Device,
+                                              false};
+        }
         forge::PhysicsConfig physics_config =
             sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
@@ -51,10 +78,12 @@ int main(int argc, char** argv) {
             forge::Scene scene;
             forge::RuntimeSimulation simulation;
             Runtime(forge::Module& m, std::vector<forge::EngineModule> modules,
-                    forge::PhysicsConfig physics)
+                    forge::PhysicsConfig physics, const std::optional<forge::AudioConfig>& audio)
                 : engine(forge::WorldRole::Runtime, false,
                          [&] {
                              modules.push_back(forge::physics_module(physics));
+                             if (audio)
+                                 modules.push_back(forge::audio_module(*audio));
                              return std::move(modules);
                          }()),
                   scene(engine.world()), simulation(engine.world(), scene, m) {}
@@ -62,7 +91,7 @@ int main(int argc, char** argv) {
                 return std::static_pointer_cast<forge::PhysicsRuntime>(engine.services().physics());
             }
         };
-        auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config);
+        auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config, audio_config);
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
         std::random_device random;
@@ -129,7 +158,7 @@ int main(int argc, char** argv) {
                         if (initialized)
                             throw std::runtime_error("Session already initialized");
                         auto next_config = config;
-                        if (argc == 1)
+                        if (!sdk_project && !explicit_hz)
                             next_config.simulation_hz =
                                 request.value("simulation_hz", config.simulation_hz);
                         next_config.validate();
@@ -138,7 +167,7 @@ int main(int argc, char** argv) {
                                                                    : forge::InputMap{}.source()));
                         input_map = std::move(input);
                         runtime->simulation.input().configure(input_map);
-                        if (argc == 1 && request.contains("gravity"))
+                        if (!sdk_project && request.contains("gravity"))
                             physics_config.gravity = request.at("gravity").get<forge::Double3>();
                         physics_config.validate();
                         runtime->physics()->configure(physics_config);
@@ -166,8 +195,8 @@ int main(int argc, char** argv) {
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
-                        auto candidate =
-                            std::make_unique<Runtime>(module, sdk_modules, physics_config);
+                        auto candidate = std::make_unique<Runtime>(module, sdk_modules,
+                                                                   physics_config, audio_config);
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
                         if (request.contains("recovery") && !request.at("recovery").is_null()) {
@@ -194,17 +223,20 @@ int main(int argc, char** argv) {
                         }
                         candidate->simulation.restore_input_tick(recovered_tick);
                         candidate->simulation.reset_presentation();
+                        candidate->simulation.sync_audio();
                         runtime.swap(
                             candidate); // Publish only a complete validated reconstruction.
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();
+                            runtime->simulation.audio_paused(false);
                             clock.resume(forge::RuntimeClock::Clock::now());
                         }
-                    } else if (command == "pause")
+                    } else if (command == "pause") {
+                        runtime->simulation.audio_paused(true);
                         clock.pause(forge::RuntimeClock::Clock::now());
-                    else if (command == "step")
+                    } else if (command == "step")
                         clock.step(tick);
                     else if (command == "load_module") {
                         if (!clock.paused())
@@ -219,6 +251,7 @@ int main(int argc, char** argv) {
                     } else if (command == "save")
                         runtime->scene.save(request.at("path").get<std::string>());
                     else if (command == "quit") {
+                        runtime->simulation.audio_paused(true);
                         clock.pause(forge::RuntimeClock::Clock::now());
                         quit = true;
                         quit_deadline = forge::RuntimeClock::Clock::now() + std::chrono::seconds(1);
@@ -231,9 +264,16 @@ int main(int argc, char** argv) {
                     if (!tick_failed)
                         response["recovery"] = capture();
                     response["physics"] = runtime->physics()->status();
+                    response["audio"] =
+                        runtime->engine.services().available(forge::Capability::Audio)
+                            ? std::static_pointer_cast<forge::AudioRuntime>(
+                                  runtime->engine.services().audio())
+                                  ->status()
+                            : forge::Json{{"output", "disabled"}};
                     response["effective_scene"] = runtime->simulation.presentation(clock.alpha());
                     response["schema"] = runtime->scene.schema();
                     response["input"] = runtime->simulation.input_status();
+                    response["diagnostics"] = runtime->engine.services().diagnostics();
                 } catch (const std::exception& error) {
                     response["ok"] = false;
                     response["error"] = error.what();

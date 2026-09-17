@@ -29,9 +29,21 @@ Json xyz() {
 }
 Json text_type() { return {{"type", "string"}, {"maxLength", 1024}}; }
 void validate_value(const Json& value, const Json& schema, const std::string& path) {
+    if (schema.contains("anyOf")) {
+        for (const auto& candidate : schema.at("anyOf")) {
+            try {
+                validate_value(value, candidate, path);
+                return;
+            } catch (const CommandError&) {
+            }
+        }
+        throw CommandError("invalid_arguments", path + ": unsupported property value type");
+    }
     const auto type = schema.at("type").get<std::string>();
     bool valid = type == "object"    ? value.is_object()
                  : type == "string"  ? value.is_string()
+                 : type == "boolean" ? value.is_boolean()
+                 : type == "null"    ? value.is_null()
                  : type == "integer" ? value.is_number_integer()
                                      : value.is_number();
     if (!valid)
@@ -52,7 +64,7 @@ void validate_value(const Json& value, const Json& schema, const std::string& pa
                                           [](unsigned char c) { return (c & 0xc0) != 0x80; });
         if (std::size_t(length) > schema.value("maxLength", 1024u))
             throw CommandError("invalid_arguments", path + ": text too long");
-    } else {
+    } else if (value.is_number()) {
         const auto n = value.get<double>();
         if (!std::isfinite(n) || n < schema.value("minimum", -1e100) ||
             n > schema.value("maximum", 1e100))
@@ -137,14 +149,23 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
         }
         for (const auto& [field, value] : values.items()) {
             auto schema = property_schema(scene, canonical, field);
-            if (!value.is_number() || (schema.at("type") == "uint32" && !value.is_number_integer()))
-                throw CommandError("invalid_arguments",
-                                   "Property requires its declared numeric type");
-            double n = value.get<double>();
-            if (!std::isfinite(n) ||
-                (schema.contains("minimum") && n < schema.at("minimum").get<double>()) ||
-                (schema.contains("maximum") && n > schema.at("maximum").get<double>()))
-                throw CommandError("invalid_arguments", "Property outside declared range");
+            if (schema.at("type") == "asset_ref") {
+                if (!value.is_null())
+                    (void)value.get<AssetId>();
+            } else if (schema.at("type") == "bool") {
+                if (!value.is_boolean())
+                    throw CommandError("invalid_arguments", "Boolean required");
+            } else {
+                if (!value.is_number() ||
+                    (schema.at("type") == "uint32" && !value.is_number_integer()))
+                    throw CommandError("invalid_arguments",
+                                       "Property requires its declared numeric type");
+                double n = value.get<double>();
+                if (!std::isfinite(n) ||
+                    (schema.contains("minimum") && n < schema.at("minimum").get<double>()) ||
+                    (schema.contains("maximum") && n > schema.at("maximum").get<double>()))
+                    throw CommandError("invalid_arguments", "Property outside declared range");
+            }
             if (property_intent)
                 e["property_overrides"][canonical][field] = value;
             c[canonical][field] = value;
@@ -465,7 +486,8 @@ Json authoring_commands() {
     auto field = entity_arg;
     field["component"] = text_type();
     field["field"] = text_type();
-    field["value"] = number(-1e38, 1e38);
+    field["value"] = {{"anyOf", Json::array({number(-1e38, 1e38), text_type(),
+                                             Json{{"type", "boolean"}}, Json{{"type", "null"}}})}};
     add("property.set", "Set reflected property",
         "Validate against the supported reflected property schema.", field,
         {"entity", "component", "field", "value"});

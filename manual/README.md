@@ -6,6 +6,8 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Projects and authored content
 
+- [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
+
 - [Projects](editor/projects.md): create, open, and return to projects.
 - [Project settings](editor/project-settings.md): shared simulation frequency, startup scene, and controls.
 - [Scenes](editor/scenes.md): create and switch scene files.

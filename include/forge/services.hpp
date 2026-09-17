@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <forge/audio_service.hpp>
 #include <forge/identity.hpp>
 #include <forge/physics_service.hpp>
 #include <functional>
@@ -22,7 +23,13 @@ struct Diagnostic {
     DiagnosticContext context;
 };
 nlohmann::json diagnostic_json(const Diagnostic& diagnostic);
-enum class Capability : unsigned { Diagnostics = 1, Profiling = 2, Rendering = 4, Physics = 8 };
+enum class Capability : unsigned {
+    Diagnostics = 1,
+    Profiling = 2,
+    Rendering = 4,
+    Physics = 8,
+    Audio = 16
+};
 constexpr unsigned capability(Capability value) { return static_cast<unsigned>(value); }
 struct ModuleRequirement {
     std::string id;
@@ -33,6 +40,9 @@ std::vector<std::string> module_order(const std::vector<ModuleRequirement>& modu
                                       unsigned available);
 namespace detail {
 struct ServiceState;
+struct AudioSlot {
+    std::weak_ptr<AudioService> service;
+};
 struct PhysicsSlot {
     std::weak_ptr<PhysicsService> service;
 };
@@ -57,6 +67,8 @@ class ServiceAccess {
   public:
     bool available(Capability capability) const;
     ServiceAccess world_scope() const;
+    void publish_audio(const std::shared_ptr<AudioService>& service) const;
+    std::shared_ptr<AudioService> audio() const;
     void publish_physics(const std::shared_ptr<PhysicsService>& service) const;
     std::shared_ptr<PhysicsService> physics() const;
     void require(Capability capability) const;
@@ -72,6 +84,7 @@ class ServiceAccess {
     std::weak_ptr<detail::ServiceState> state_;
     unsigned allowed_ = 0;
     std::shared_ptr<detail::PhysicsSlot> physics_;
+    std::shared_ptr<detail::AudioSlot> audio_;
 };
 // Owned before worlds; access handles are weak and cannot extend owner lifetime.
 // All access is on the construction thread. Worker results cross through callers' queues.
@@ -83,7 +96,7 @@ class EngineServices {
     ~EngineServices();
     EngineServices(const EngineServices&) = delete;
     EngineServices& operator=(const EngineServices&) = delete;
-    ServiceAccess access(unsigned allowed = 11) const;
+    ServiceAccess access(unsigned allowed = 27) const;
 
   private:
     std::shared_ptr<detail::ServiceState> state_;

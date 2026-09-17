@@ -22,6 +22,8 @@ inline void test_prefab_editor_documents() {
     auto selected = forge::authoring_command(scene, "entity.create", {{"name", "Reusable"}})
                         .at("selected")
                         .get<std::string>();
+    forge::authoring_command(scene, "component.add",
+                             {{"entity", selected}, {"component", "forge.audio_source"}});
     auto source = forge::create_prefab_source(scene, selected);
     const auto asset = document.prefabs().create(scene, source, "Assets/Sample.prefab.json");
     selected = forge::instantiate_prefab(scene, asset);
@@ -70,7 +72,11 @@ inline void test_prefab_editor_documents() {
     io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
     forge::PrefabEditor editor;
     editor.edit_source(document, asset);
-    for (int frame = 0; frame < 2; ++frame) {
+    for (int frame = 0; frame < 3; ++frame) {
+        if (frame == 1)
+            forge::atomic_write(project / "forge.assets.json", "malformed");
+        if (frame == 2)
+            std::filesystem::remove(project / "forge.assets.json");
         ImGui::NewFrame();
         ImGui::Begin("Prefab content test");
         editor.content(scene, document, selected, false);
@@ -80,6 +86,10 @@ inline void test_prefab_editor_documents() {
         for (const auto& row : doc.at("entities"))
             if (row.at("id") == selected)
                 editor.inspector(scene, document, row);
+        std::string audio_message;
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        forge::audio_inspector(scene, document, selected, audio_message);
+        require(audio_message.empty(), "Audio Inspector failed to draw inherited source");
         ImGui::End();
         editor.draw(scene, document, false);
         ImGui::Render();

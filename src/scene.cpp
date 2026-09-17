@@ -204,7 +204,7 @@ void Scene::replace(const Json& source) {
         std::string id, name, parent, base;
         bool prefab;
         SpatialBinding spatial;
-        std::array<std::optional<detail::Value>, 9> values;
+        std::array<std::optional<detail::Value>, detail::builtin_count> values;
     };
     // All parsing/type conversion/opaque copies happen before the first world write.
     auto opaque = doc;
@@ -787,7 +787,7 @@ void detail::SceneDraft::edit(const Json& document) {
             for (const auto& [field, initial] : type.defaults.items())
                 if (initial.is_number_unsigned())
                     data[field] = data.at(field).get<std::uint32_t>();
-                else
+                else if (initial.is_number())
                     data[field] = std::string(type.name) == "forge.local_translation"
                                       ? data.at(field).get<double>()
                                       : double(data.at(field).get<float>());

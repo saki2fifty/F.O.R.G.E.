@@ -1,6 +1,6 @@
 # Engine modules and the internal native SDK
 
-Phase6A adds registration and lifetime policy. Physics/audio/animation/navigation/runtime UI integrations and a public SDK remain separate work. Apply to Prefab and AssetHandle remain deferred.
+Phase6A adds registration and lifetime policy; Phase6B physics and Phase6C audio exercise it with concrete providers. Animation/navigation/runtime UI and a public SDK remain separate work. Apply to Prefab and AssetHandle remain deferred.
 
 ## Three categories
 
@@ -74,3 +74,7 @@ See [core services](core-services.md), [fixed input](input.md), and [runtime tim
 ## Physics provider
 
 `forge.physics` is the first simulated subsystem provider. See [Physics](physics.md) for its world-scoped capability, lifecycle, fixed pipeline and exact-SDK extensions.
+
+## Audio provider
+
+`forge.audio` supplies schema-only contexts and explicit device/offline runtime compositions. Its world-scoped Audio capability exposes owner-thread source commands. See [Audio](audio.md) for asset resolution, callback retirement, Pause/Step/Resume, recovery policy and exact-SDK use. Required consumers verify actual provider availability before startup; optional device failure does not fabricate capability.

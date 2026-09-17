@@ -37,8 +37,8 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
             current = m.id;
             if (!valid_module_id(m.id) || m.implementation.empty() || !m.schema_roles ||
                 (m.schema_roles & ~all_world_roles) || (m.runtime_roles & ~m.schema_roles) ||
-                (m.required_services & ~m.allowed_services) || (m.allowed_services & ~15u) ||
-                (m.provided_services & ~8u))
+                (m.required_services & ~m.allowed_services) || (m.allowed_services & ~31u) ||
+                (m.provided_services & ~24u))
                 throw std::runtime_error("Invalid module descriptor");
             if (selected.contains(m.id))
                 throw std::runtime_error("Duplicate module ID");
@@ -66,7 +66,7 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
                         std::find(n.dependencies.begin(), n.dependencies.end(), id) ==
                             n.dependencies.end())
                         throw std::runtime_error(
-                            "Required physics capability needs an explicit provider dependency");
+                            "Required runtime capability needs an explicit provider dependency");
             }
         }
         order_ = module_order(requirements, available);
@@ -87,6 +87,10 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
         for (auto& entry : entries_)
             if (entry.module.runtime_roles & role_mask(role)) {
                 current = entry.module.id;
+                for (auto cap : {Capability::Diagnostics, Capability::Profiling,
+                                 Capability::Rendering, Capability::Physics, Capability::Audio})
+                    if (entry.module.required_services & capability(cap))
+                        entry.context->services.require(cap);
                 entry.started = true; // Stop must handle partial startup.
                 auto scope = services.profile("module", "Startup");
                 if (entry.module.start)

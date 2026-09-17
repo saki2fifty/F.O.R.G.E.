@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/input.hpp>
+#include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
 #include <string>
 namespace forge {
@@ -27,12 +28,14 @@ class PlaySession {
     }
     const Json& timing() const { return timing_; }
     const Json& input_status() const { return input_status_; }
-    void configure(double hz, InputMap map, Double3 gravity = {0, -9.81, 0}) {
+    void configure(double hz, InputMap map, Double3 gravity = {0, -9.81, 0},
+                   std::filesystem::path project = {}) {
         if (active())
             throw std::runtime_error("Stop Play before configuring input/settings");
         if (!std::isfinite(hz) || hz < 1 || hz > 240)
             throw std::runtime_error("Invalid simulation frequency");
         gravity_ = gravity;
+        audio_project_ = path_utf8(project);
         simulation_hz_ = hz;
         input_map_ = map.source();
     }
@@ -180,6 +183,17 @@ class PlaySession {
                     }
                     throw std::runtime_error(error);
                 }
+                const auto diagnostics = response.value("diagnostics", Json::array());
+                if (diagnostics != diagnostics_) {
+                    for (const auto& d : diagnostics)
+                        if (std::find(diagnostics_.begin(), diagnostics_.end(), d) ==
+                            diagnostics_.end())
+                            log_ +=
+                                d.value("category", "runtime") + ": " + d.value("text", "") + "\n";
+                    if (log_.size() > 131072)
+                        log_.erase(0, log_.size() - 131072);
+                    diagnostics_ = diagnostics;
+                }
                 snapshot_ = response.at("scene");
                 recovery_ = response.at("recovery");
                 effective_ = response.at("effective_scene");
@@ -319,12 +333,20 @@ class PlaySession {
         request_id_ = 0;
         input_events_.clear();
         input_status_ = Json::object();
-        const char* args[] = {executable_.c_str(), nullptr};
+        std::vector<const char*> args{executable_.c_str()};
+        if (!audio_project_.empty()) {
+            args.push_back("--project");
+            args.push_back(audio_project_.c_str());
+            args.push_back("--audio");
+            args.push_back(probe_ ? "offline" : "device");
+        }
+        args.push_back(nullptr);
         log_.clear();
+        diagnostics_ = Json::array();
         const auto properties = SDL_CreateProperties();
         const bool configured =
             properties &&
-            SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, args) &&
+            SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, args.data()) &&
             SDL_SetNumberProperty(properties, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER,
                                   SDL_PROCESS_STDIO_APP) &&
             SDL_SetNumberProperty(properties, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER,
@@ -373,6 +395,8 @@ class PlaySession {
     Reload reload_result_ = Reload::Idle;
     std::string executable_, module_, loading_, requested_, previous_, notice_, session_, control_;
     Json checkpoint_, initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
+    Json diagnostics_ = Json::array();
+    std::string audio_project_;
     bool transaction_ = false, restoring_ = false, probe_ = false, recoverable_ = false;
     bool prior_paused_ = false, desired_paused_ = false, waiting_ = false;
     std::uint64_t snapshot_version_ = 0, request_id_ = 0, activation_generation_ = 0;

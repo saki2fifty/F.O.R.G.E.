@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <forge/audio.hpp>
 #include <forge/input.hpp>
 #include <forge/module.hpp>
 #include <forge/physics.hpp>
@@ -61,6 +62,8 @@ class RuntimeSimulation {
     RuntimeSimulation(const RuntimeSimulation&) = delete;
     RuntimeSimulation& operator=(const RuntimeSimulation&) = delete;
     void tick(float dt);
+    void audio_paused(bool value);
+    void sync_audio();
     RuntimeInput& input() { return input_; }
     Json input_status() const { return input_monitor_.status(input_.map()); }
     void reset_presentation();
@@ -85,6 +88,7 @@ class RuntimeSimulation {
     flecs::entity pre_physics_, physics_step_, physics_adopt_;
     flecs::entity pre_phase_, physics_phase_, adoption_phase_, post_phase_;
     std::shared_ptr<PhysicsRuntime> physics_;
+    std::shared_ptr<AudioRuntime> audio_;
     std::exception_ptr stage_error_;
     template <class F> void stage(F&& f) noexcept {
         if (stage_error_)

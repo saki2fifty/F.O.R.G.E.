@@ -37,6 +37,11 @@ class AssetCatalog {
   public:
     explicit AssetCatalog(std::filesystem::path project);
     void add(AssetRecord record);
+    const std::map<AssetId, AssetRecord>& records() const { return records_; }
+    static AssetCatalog open_project(const std::filesystem::path& root);
+    static std::filesystem::path project_index(const std::filesystem::path& root);
+    static AssetRecord register_audio_clip(const std::filesystem::path& project,
+                                           const std::filesystem::path& source);
     AssetRecord add_scene(const std::filesystem::path& source);
     void relocate(AssetId id, const std::filesystem::path& source);
     AssetResolution resolve(AssetId id, const std::string& expected_type) const;

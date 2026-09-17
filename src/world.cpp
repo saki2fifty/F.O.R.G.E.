@@ -57,6 +57,14 @@ struct PhysicsRegistration {
         schema = detail::register_builtins(world, true);
     }
 };
+struct AudioRegistration {
+    Json schema;
+    explicit AudioRegistration(flecs::world& world) {
+        world.module<AudioRegistration>();
+        RegistrationScope scope(world);
+        schema = detail::register_builtins(world, 2);
+    }
+};
 struct InputRegistration {
     explicit InputRegistration(flecs::world& world) {
         world.module<InputRegistration>();
@@ -90,6 +98,13 @@ EngineModule physics_schema_module() {
     result.schemas = [](ModuleContext& c) { c.world.import<PhysicsRegistration>(); };
     return result;
 }
+EngineModule audio_schema_module() {
+    EngineModule result;
+    result.id = "forge.audio";
+    result.dependencies = {"forge.core", "forge.transforms"};
+    result.schemas = [](ModuleContext& c) { c.world.import<AudioRegistration>(); };
+    return result;
+}
 WorldContext::WorldContext(WorldRole role, ServiceAccess services,
                            std::vector<EngineModule> modules)
     : services_(services.world_scope()), role_(role) {
@@ -97,6 +112,9 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.physics"; }))
         composition.push_back(physics_schema_module());
+    if (std::none_of(modules.begin(), modules.end(),
+                     [](const auto& m) { return m.id == "forge.audio"; }))
+        composition.push_back(audio_schema_module());
     for (auto& module : modules)
         composition.push_back(std::move(module));
     modules_.bootstrap(world_, role_, services_, std::move(composition), this);
@@ -105,6 +123,9 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
         for (const auto& c :
              world_.import<PhysicsRegistration>().get<PhysicsRegistration>().schema.at(
                  "components"))
+            schema_["components"].push_back(c);
+        for (const auto& c :
+             world_.import<AudioRegistration>().get<AudioRegistration>().schema.at("components"))
             schema_["components"].push_back(c);
         // Revision invalidation includes direct native writes, removal and relation edits.
         // Internal observation only: application notifications remain post-commit.

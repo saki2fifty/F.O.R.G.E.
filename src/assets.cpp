@@ -1,9 +1,63 @@
+#include <algorithm>
+#include <cctype>
 #include <forge/assets.hpp>
+#include <forge/audio_components.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
 #include <forge/schema.hpp>
 #include <fstream>
 namespace forge {
+std::filesystem::path AssetCatalog::project_index(const std::filesystem::path& root) {
+    return ProjectPaths(root).resolve("forge.assets.json");
+}
+AssetCatalog AssetCatalog::open_project(const std::filesystem::path& root) {
+    AssetCatalog result(root);
+    const auto index = project_index(root);
+    if (std::filesystem::exists(index)) {
+        if (std::filesystem::file_size(index) > 4 * 1024 * 1024)
+            throw std::runtime_error("Asset index exceeds 4 MiB");
+        result.load(index);
+    }
+    return result;
+}
+AssetRecord AssetCatalog::register_audio_clip(const std::filesystem::path& root,
+                                              const std::filesystem::path& source) {
+    ProjectPaths paths(root);
+    const auto locator = ProjectPaths::normalize(source);
+    const auto file = paths.resolve(locator);
+    auto ext = file.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char c) { return char(std::tolower(c)); });
+    if (ext != ".wav" || !std::filesystem::is_regular_file(file))
+        throw std::runtime_error("Select an existing project-relative WAV file");
+    const auto index = project_index(root);
+    auto read = [](const auto& p) {
+        if (!std::filesystem::exists(p))
+            return std::string{};
+        if (std::filesystem::file_size(p) > 4 * 1024 * 1024)
+            throw std::runtime_error("Asset index exceeds 4 MiB");
+        std::ifstream in(p, std::ios::binary);
+        if (!in)
+            throw std::runtime_error("Cannot read asset index");
+        return std::string(std::istreambuf_iterator<char>(in), {});
+    };
+    const auto baseline = read(index);
+    auto catalog = open_project(root);
+    for (const auto& [id, record] : catalog.records()) {
+        (void)id;
+        if (paths.same_locator(record.source, locator)) {
+            if (record.type != AudioClipAsset::type)
+                throw std::runtime_error("Source already registered with another asset type");
+            return record;
+        }
+    }
+    AssetRecord record{AssetId::generate(), AudioClipAsset::type, locator, 1, {}};
+    catalog.add(record);
+    if (read(index) != baseline)
+        throw std::runtime_error("Asset index changed externally; refresh and retry");
+    catalog.save(index);
+    return record;
+}
 AssetCatalog::AssetCatalog(std::filesystem::path project)
     : project_(std::filesystem::weakly_canonical(project)) {}
 std::filesystem::path AssetCatalog::locate(const std::filesystem::path& source) const {

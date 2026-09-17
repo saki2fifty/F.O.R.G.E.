@@ -53,6 +53,8 @@ finally:
  if p.poll() is None:p.kill();p.wait()
 trace=(stage/'trace.txt').read_text();assert trace.count('tick\n')==2 and trace.endswith('unload\n'),trace
 print('Installed SDK client, PE/ELF shared dependency, relocated runtime, fixed ticks and unload verified')
+# Prove the installed audio headers and callback boundary from the relocated host too.
+subprocess.run([sys.executable,str(Path(__file__).with_name('audio_process_test.py')),str(runtime),str(client/('audio_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=40)
 # Retain a clean install for CI artifact, without the test project and trace.
 (stage/'trace.txt').unlink();shutil.rmtree(project)
 

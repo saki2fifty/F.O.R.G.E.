@@ -10,9 +10,9 @@ The approved initial ancestry rule rejects separate Static/Kinematic bodies whos
 
 Final [run35249791138](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35249791138), source `92e13a4`, passed Windows/Linux static **18/18** and shared SDK **22/22**, Windows process/editor **2/2**, remaining physics/runtime/viewport suites **16/16**, shaders and three executable build identifiers. No compatible editor cache existed, so the final editor build compiled from scratch. All **29** viewport fixtures match Build40 byte-for-byte. Local core/SDK/editor, sanitizer **15+5**, manual **3/3**, C17 headers, format and workflow checks passed.
 
-ZIP checksums/manifest, three x64 executables, **27** matching manual source/HTML pages, dependency licenses and separate Windows/Linux SDK archives are verified. Build40 is archived; only the current ZIP and executable folder remain in packages. Build41 was withheld for the ancestry issue; Build42 was superseded by the final completed-boundary capture guard. Interactive Windows acceptance remains the user's check.
+ZIP checksums/manifest, three x64 executables, **27** matching manual source/HTML pages, dependency licenses and separate Windows/Linux SDK archives are verified. Build40 is archived; only the current ZIP and executable folder remain in packages. Build41 was withheld for the ancestry issue; Build42 was superseded by the final completed-boundary capture guard. User confirmed Build43 Windows testing succeeds.
 
-**Phase 6B is complete. Stop before Phase 6C.** Advanced physics, compound attachments/joints, save games, audio, animation, navigation and runtime UI remain deferred.
+**Phase 6B is complete and user accepted.** Phase6C audio is authorized and under validation; Build43 remains the current delivered package until new Windows evidence is complete. See [Audio](audio.md) and its [user guide](../manual/editor/audio.md). Advanced physics, compound attachments/joints, save games, animation, navigation and runtime UI remain deferred.
 
 ## Phase 6A — verified foundation
 

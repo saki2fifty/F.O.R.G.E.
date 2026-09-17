@@ -25,6 +25,7 @@ typedef struct ecs_world_t ecs_world_t;
 /* Requirement marker only: headless composition does not supply rendering. */
 #define FORGE_SDK_RENDERING 4u
 #define FORGE_SDK_PHYSICS 8u
+#define FORGE_SDK_AUDIO 16u
 typedef struct ForgeSdkPhysicsHitV1 {
     uint32_t size;
     char scene[37], entity[37]; /* FORGE UUIDs, never Jolt BodyID */
@@ -54,6 +55,10 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* physics_move)(void*, const char* scene_uuid, const char* entity_uuid,
                                           const double position[3], const float rotation_xyzw[4],
                                           uint32_t motion, uint32_t clear_velocity);
+    /* Fixed owner thread; source is (scene AssetId, EntityId). 0 stop, 1 restart/play.
+       Returns 1 queued, 0 invalid/unavailable. No device/sample-clock authority. */
+    int32_t(FORGE_SDK_CALL* audio_source)(void*, const char* scene_uuid, const char* entity_uuid,
+                                          uint32_t play);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

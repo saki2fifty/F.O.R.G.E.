@@ -175,7 +175,8 @@ class NativeBuild {
                     candidate_ = std::filesystem::absolute(version / name).string();
                     std::filesystem::copy_file(work_ / "build" / name, candidate_);
                     probe_.configure(simulation_hz, InputMap{},
-                                     play.active() ? play.gravity() : gravity);
+                                     play.active() ? play.gravity() : gravity,
+                                     source_.parent_path());
                     probe_.start(runtime_, play.active() ? play.snapshot() : authored, candidate_,
                                  true, play.active() ? play.recovery() : Json());
                     phase_ = Phase::Probe;

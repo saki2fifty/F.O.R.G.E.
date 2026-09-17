@@ -1,12 +1,15 @@
 #pragma once
 #include <array>
+#include <forge/audio_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
 #include <optional>
 #include <variant>
 namespace forge::detail {
-using Value = std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive,
-                           PhysicsBody, BoxCollider, SphereCollider, CapsuleCollider>;
+inline constexpr std::size_t builtin_count = 11;
+using Value =
+    std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
+                 BoxCollider, SphereCollider, CapsuleCollider, AudioSource, AudioListener>;
 struct Builtin {
     const char* name;
     const char* description;
@@ -19,7 +22,7 @@ struct Builtin {
     flecs::entity (*owner)(flecs::entity);
     void (*apply)(flecs::entity, const std::optional<Value>&);
 };
-const std::array<Builtin, 9>& builtins();
-Json register_builtins(flecs::world& world, bool physics = false);
+const std::array<Builtin, builtin_count>& builtins();
+Json register_builtins(flecs::world& world, unsigned family = 0);
 void validate_components(const Json& components);
 } // namespace forge::detail

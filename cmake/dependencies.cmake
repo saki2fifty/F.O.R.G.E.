@@ -39,3 +39,17 @@ endif()
 FetchContent_Declare(jolt GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
  GIT_TAG e77f175595e64cb44218cc9d9d56fc365ad0e36a SOURCE_SUBDIR Build) # 5.6.0
 FetchContent_MakeAvailable(jolt)
+
+# miniaudio implementation is private to forge.audio. No headers installed in SDK.
+FetchContent_Declare(miniaudio GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+ GIT_TAG 9634bedb5b5a2ca38c1ee7108a9358a4e233f14d SOURCE_SUBDIR forge-unused) # 0.11.25
+FetchContent_MakeAvailable(miniaudio)
+add_library(forge_miniaudio STATIC "${miniaudio_SOURCE_DIR}/miniaudio.c")
+target_include_directories(forge_miniaudio PUBLIC "${miniaudio_SOURCE_DIR}")
+target_compile_definitions(forge_miniaudio PUBLIC MA_NO_MP3 MA_NO_FLAC MA_NO_ENCODING MA_NO_GENERATION
+ MA_ENABLE_ONLY_SPECIFIC_BACKENDS MA_ENABLE_WASAPI MA_ENABLE_PULSEAUDIO MA_ENABLE_ALSA MA_ENABLE_NULL)
+find_package(Threads REQUIRED)
+target_link_libraries(forge_miniaudio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+if(UNIX)
+ target_link_libraries(forge_miniaudio PRIVATE m)
+endif()

@@ -16,8 +16,8 @@
 #endif
 namespace forge {
 namespace {
-const std::set<std::string> builtins{"forge.core", "forge.transforms", "forge.prefabs",
-                                     "forge.input", "forge.physics"};
+const std::set<std::string> builtins{"forge.core",  "forge.transforms", "forge.prefabs",
+                                     "forge.input", "forge.physics",    "forge.audio"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
@@ -57,6 +57,24 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.audio_source = [](void* p, const char* scene, const char* entity,
+                               uint32_t play) -> int32_t {
+            try {
+                auto& c = static_cast<Bridge*>(p)->context;
+                if (!c.input || play > 1)
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                auto audio = c.services.audio();
+                if (play)
+                    audio->play(ref);
+                else
+                    audio->stop_source(ref);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.raycast = [](void* p, const double* origin, const double* displacement,
                           ForgeSdkPhysicsHitV1* out) -> int32_t {
             try {
@@ -241,9 +259,9 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             }
         };
         result.start = [api](ModuleContext& c) {
-            if (c.services.available(Capability::Physics))
-                static_cast<Bridge*>(c.state.get())->host.capabilities |=
-                    capability(Capability::Physics);
+            for (auto cap : {Capability::Physics, Capability::Audio})
+                if (c.services.available(cap))
+                    static_cast<Bridge*>(c.state.get())->host.capabilities |= capability(cap);
             char error[1024]{};
             if (api->start &&
                 !api->start(&static_cast<Bridge*>(c.state.get())->host, error, sizeof(error))) {

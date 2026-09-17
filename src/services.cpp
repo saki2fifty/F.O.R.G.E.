@@ -65,13 +65,29 @@ EngineServices::~EngineServices() { state_->alive = false; }
 ServiceAccess EngineServices::access(unsigned allowed) const {
     ServiceAccess a;
     a.state_ = state_;
-    a.allowed_ = allowed & 11;
+    a.allowed_ = allowed & 27;
     return a;
 }
 ServiceAccess ServiceAccess::world_scope() const {
     auto result = *this;
     result.physics_ = std::make_shared<detail::PhysicsSlot>();
+    result.audio_ = std::make_shared<detail::AudioSlot>();
     return result;
+}
+void ServiceAccess::publish_audio(const std::shared_ptr<AudioService>& service) const {
+    auto state = state_.lock();
+    if (!state || !(allowed_ & capability(Capability::Audio)))
+        throw std::runtime_error("Audio publication requires owner capability");
+    state->check();
+    if (!audio_)
+        throw std::logic_error("Audio requires world-scoped slot");
+    if (!audio_->service.expired() && service)
+        throw std::logic_error("Audio provider already installed");
+    audio_->service = service;
+}
+std::shared_ptr<AudioService> ServiceAccess::audio() const {
+    require(Capability::Audio);
+    return audio_->service.lock();
 }
 void ServiceAccess::publish_physics(const std::shared_ptr<PhysicsService>& service) const {
     auto state = state_.lock();
@@ -91,7 +107,8 @@ std::shared_ptr<PhysicsService> ServiceAccess::physics() const {
 bool ServiceAccess::available(Capability c) const {
     const auto state = state_.lock();
     return (allowed_ & capability(c)) && state && state->alive &&
-           (c != Capability::Physics || (physics_ && !physics_->service.expired()));
+           (c != Capability::Physics || (physics_ && !physics_->service.expired())) &&
+           (c != Capability::Audio || (audio_ && !audio_->service.expired()));
 }
 void ServiceAccess::require(Capability c) const {
     if (!available(c))

@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
+#include "audio_inspector.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
 #include "camera_controls.hpp"
@@ -402,7 +403,8 @@ int main(int argc, char** argv) {
                             play.stop();
                             play.configure(files.document.settings().simulation_hz(),
                                            files.document.settings().input(),
-                                           files.document.settings().physics().gravity);
+                                           files.document.settings().physics().gravity,
+                                           files.document.project());
                             play.start(runtime_path, scene.snapshot(), native->artifact());
                         });
                     if (play.can_recover() &&
@@ -617,6 +619,7 @@ int main(int argc, char** argv) {
                             blockout.draw(scene, selected, message);
                             ImGui::BeginDisabled(blockout.active());
                             forge::physics_inspector(scene, selected, message);
+                            forge::audio_inspector(scene, files.document, selected, message);
                             if (ImGui::Button("Object actions"))
                                 ImGui::OpenPopup("##object-actions");
                             forge::ui::help("Duplicate or delete this object and its children; "

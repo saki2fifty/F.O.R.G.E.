@@ -38,7 +38,7 @@ def package(build, dependencies, output):
     images += dlls
     for image in images:
         check_pe64(image)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src')
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src')
     notices = []
     for name in source_names:
         source = dependencies/name
@@ -62,7 +62,7 @@ def package(build, dependencies, output):
         manifest['files']['manual/'+page.relative_to(manual_output).as_posix()] = hashlib.sha256(page.read_bytes()).hexdigest()
     manifest['files']['build.json'] = hashlib.sha256((build/'build.json').read_bytes()).hexdigest()
     example_root = source/'samples/projects'
-    example_files = sorted(example_root.rglob('*.json'))
+    example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav'))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
     automation_sources = sorted((source/'samples/automation').glob('*.py'))

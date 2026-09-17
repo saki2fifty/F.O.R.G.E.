@@ -133,6 +133,8 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
                         .run([this](flecs::iter&) { input_monitor_.consume(input_.snapshot()); });
     if (context.services().available(Capability::Physics))
         physics_ = std::static_pointer_cast<PhysicsRuntime>(context.services().physics());
+    if (context.services().available(Capability::Audio))
+        audio_ = std::static_pointer_cast<AudioRuntime>(context.services().audio());
     pre_phase_ =
         world.entity("forge.runtime.PrePhysics").add(flecs::Phase).depends_on(gameplay_phase_);
     physics_phase_ = world.entity("forge.runtime.Physics").add(flecs::Phase).depends_on(pre_phase_);
@@ -223,9 +225,18 @@ void RuntimeSimulation::tick(float dt) {
     if (stage_error_)
         std::rethrow_exception(stage_error_);
     poses_.capture(context_.transform_nodes());
+    sync_audio();
     if (physics_)
         for (auto id : physics_->take_discontinuities())
             poses_.snap(id);
+}
+void RuntimeSimulation::audio_paused(bool value) {
+    if (audio_)
+        audio_->paused(value);
+}
+void RuntimeSimulation::sync_audio() {
+    if (audio_)
+        audio_->synchronize(input_tick_);
 }
 void RuntimeSimulation::reset_presentation() {
     context_.evaluate_world_transforms();

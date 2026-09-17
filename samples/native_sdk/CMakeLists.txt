@@ -6,3 +6,6 @@ find_package(ForgeNativeSdk CONFIG REQUIRED PATHS "${FORGE_NATIVE_SDK}/sdk" NO_D
 add_library(gameplay MODULE probe.cpp)
 target_link_libraries(gameplay PRIVATE ForgeNativeSdk::Flecs)
 set_target_properties(gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+add_library(audio_gameplay MODULE audio_probe.cpp)
+target_link_libraries(audio_gameplay PRIVATE ForgeNativeSdk::Flecs)
+set_target_properties(audio_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)

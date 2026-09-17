@@ -1,4 +1,5 @@
 #pragma once
+#include "audio_inspector.hpp"
 #include "document.hpp"
 #include "widgets.hpp"
 #include <cmath>
@@ -6,6 +7,10 @@
 #include <set>
 namespace forge {
 inline const char* prefab_component_label(const std::string& key) {
+    if (key == "forge.audio_source")
+        return "Audio Source";
+    if (key == "forge.audio_listener")
+        return "Audio Listener";
     if (key == "forge.local_translation")
         return "Translation";
     if (key == "forge.local_rotation")
@@ -291,7 +296,7 @@ class PrefabEditor {
                         }
                     }
                     const auto schema = scene.schema();
-                    if (ImGui::BeginCombo("Add physics component", "Choose component")) {
+                    if (ImGui::BeginCombo("Add optional component", "Choose component")) {
                         for (const auto& component : schema.at("components")) {
                             const std::string key = component.at("id");
                             if (!component.value("optional", false) ||
@@ -341,6 +346,11 @@ class PrefabEditor {
                         }
                         for (const auto& field : component.at("fields")) {
                             const std::string f = field.at("id");
+                            if (key.starts_with("forge.audio_")) {
+                                (void)audio_field(project.project(), field,
+                                                  m["components"][key][f]);
+                                continue;
+                            }
                             double n = m["components"][key].at(f).get<double>();
                             if (ImGui::InputDouble(f.c_str(), &n, 0, 0, "%.4f")) {
                                 if (field.at("type") == "uint32") {

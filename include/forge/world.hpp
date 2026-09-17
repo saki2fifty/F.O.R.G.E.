@@ -37,6 +37,7 @@ struct AuthoredPrefab {};
 // Derived availability marker, never authored or inherited.
 struct MissingStructuralParent {};
 EngineModule physics_schema_module();
+EngineModule audio_schema_module();
 class Scene;
 class WorldContext {
   public:
