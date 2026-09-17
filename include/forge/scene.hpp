@@ -36,7 +36,8 @@ class Scene {
     void load(const std::filesystem::path& path);
     void edit(const Json& document);
     void rename_entity(const std::string& id, const std::string& name);
-    void reparent_entity(const std::string& id, const std::string& parent);
+    void reparent_entity(const std::string& id, const std::string& parent,
+                         ReparentMode mode = ReparentMode::PreserveWorld);
     std::string duplicate_subtree(const std::string& id);
     void delete_subtree(const std::string& id);
     bool can_undo() const { return !undo_.empty(); }

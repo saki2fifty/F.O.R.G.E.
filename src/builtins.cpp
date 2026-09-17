@@ -8,6 +8,8 @@ template <class T> Json encode(const T& p) {
         return {{"kind", p.kind}};
     else if constexpr (std::is_same_v<T, Tint>)
         return {{"r", p.r}, {"g", p.g}, {"b", p.b}};
+    else if constexpr (std::is_same_v<T, LocalRotation>)
+        return {{"x", p.x}, {"y", p.y}, {"z", p.z}, {"w", p.w}};
     else
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
@@ -16,6 +18,8 @@ template <class T> Value decode(const Json& p) {
         return T{p.at("kind").get<std::uint32_t>()};
     else if constexpr (std::is_same_v<T, Tint>)
         return T{p.at("r"), p.at("g"), p.at("b")};
+    else if constexpr (std::is_same_v<T, LocalRotation>)
+        return T{p.at("x"), p.at("y"), p.at("z"), p.at("w")};
     else
         return T{p.at("x"), p.at("y"), p.at("z")};
 }
@@ -37,23 +41,29 @@ template <class T> void apply(flecs::entity e, const std::optional<Value>& value
 }
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
-    if constexpr (std::is_same_v<T, Position>) {
+    if constexpr (std::is_same_v<T, LocalTranslation>) {
         ecs_struct_desc_t meta{};
         meta.entity = c.id();
-        meta.members[0] = {"x", w.id<float>()};
-        meta.members[1] = {"y", w.id<float>()};
-        meta.members[2] = {"z", w.id<float>()};
+        meta.members[0] = {"x", w.id<double>()};
+        meta.members[1] = {"y", w.id<double>()};
+        meta.members[2] = {"z", w.id<double>()};
         meta.create_member_entities = true;
         if (!ecs_struct_init(w.c_ptr(), &meta))
-            throw std::runtime_error("Position reflection registration failed");
+            throw std::runtime_error("LocalTranslation reflection registration failed");
         for (const char* axis : {"x", "y", "z"}) {
-            const auto text = std::string("Position along the ") + axis + " axis in world units.";
+            const auto text =
+                std::string("LocalTranslation along the ") + axis + " axis in world units.";
             c.lookup(axis).set_doc_brief(text.c_str());
         }
     } else if constexpr (std::is_same_v<T, Primitive>)
         c.template member<std::uint32_t>("kind");
     else if constexpr (std::is_same_v<T, Tint>)
         c.template member<float>("r").template member<float>("g").template member<float>("b");
+    else if constexpr (std::is_same_v<T, LocalRotation>)
+        c.template member<float>("x")
+            .template member<float>("y")
+            .template member<float>("z")
+            .template member<float>("w");
     else
         c.template member<float>("x").template member<float>("y").template member<float>("z");
     c.add(flecs::OnInstantiate, flecs::Inherit);
@@ -69,15 +79,20 @@ Builtin descriptor(const char* name, const char* description, const char* unit,
 } // namespace
 const std::array<Builtin, 5>& builtins() {
     static const std::array<Builtin, 5> types = {
-        descriptor<Position>(
-            "forge.position", "Position in world units", "world_units", {}, {},
-            [](flecs::world& w) { return register_type<Position>(w, "forge.position"); }),
-        descriptor<Rotation>(
-            "forge.rotation", "Euler rotation in degrees, X then Y then Z", "degrees", -360000,
-            360000, [](flecs::world& w) { return register_type<Rotation>(w, "forge.rotation"); }),
-        descriptor<Scale>("forge.scale", "Positive local-axis scale, from 0.001 to 10000",
-                          "unitless", 0.001, 10000,
-                          [](flecs::world& w) { return register_type<Scale>(w, "forge.scale"); }),
+        descriptor<LocalTranslation>(
+            "forge.local_translation", "Local translation in meters", "meters", {}, {},
+            [](flecs::world& w) {
+                return register_type<LocalTranslation>(w, "forge.local_translation");
+            }),
+        descriptor<LocalRotation>(
+            "forge.local_rotation", "Normalized local quaternion XYZW", "unitless", -1, 1,
+            [](flecs::world& w) {
+                return register_type<LocalRotation>(w, "forge.local_rotation");
+            }),
+        descriptor<LocalScale>(
+            "forge.local_scale", "Positive local-axis scale, from 0.001 to 10000", "unitless",
+            0.001, 10000,
+            [](flecs::world& w) { return register_type<LocalScale>(w, "forge.local_scale"); }),
         descriptor<Tint>("forge.tint", "Opaque blockout color, channels from 0 to 1", "unitless", 0,
                          1, [](flecs::world& w) { return register_type<Tint>(w, "forge.tint"); }),
         descriptor<Primitive>(
@@ -93,17 +108,20 @@ void validate_components(const Json& components) {
         for (const auto& [field, initial] : type.defaults.items()) {
             const auto& value = data.at(field);
             const bool integral = initial.is_number_unsigned();
+            const bool wide = std::string(type.name) == "forge.local_translation";
             if (!value.is_number() || (integral && !value.is_number_integer()))
                 throw std::runtime_error("Component field has invalid numeric type");
             const double n = value.get<double>();
             // Compare float fields in their actual storage precision, preserving v1 bounds.
             const double low = type.minimum
                                    ? (integral ? *type.minimum : double(float(*type.minimum)))
-                                   : -double(std::numeric_limits<float>::max());
-            const double high =
-                type.maximum ? *type.maximum : double(std::numeric_limits<float>::max());
-            if (!std::isfinite(n) || (integral ? n : double(value.get<float>())) < low ||
-                (integral ? n : double(value.get<float>())) > high)
+                                   : -(wide ? std::numeric_limits<double>::max()
+                                            : double(std::numeric_limits<float>::max()));
+            const double high = type.maximum ? *type.maximum
+                                             : (wide ? std::numeric_limits<double>::max()
+                                                     : double(std::numeric_limits<float>::max()));
+            if (!std::isfinite(n) || ((integral || wide) ? n : double(value.get<float>())) < low ||
+                ((integral || wide) ? n : double(value.get<float>())) > high)
                 throw std::runtime_error("Component field outside supported range");
         }
         (void)type.decode(data);
@@ -123,7 +141,8 @@ Json register_builtins(flecs::world& world) {
             const bool primitive = m.type == world.id<std::uint32_t>();
             Json f = {{"id", m.name},
                       {"property_id", std::string(type.name) + "." + m.name},
-                      {"type", primitive ? "uint32" : "float32"},
+                      {"type", primitive ? "uint32"
+                                         : (m.type == world.id<double>() ? "float64" : "float32")},
                       {"description", type.description},
                       {"default", type.defaults.at(m.name)},
                       {"serialized", true},

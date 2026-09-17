@@ -1,61 +1,52 @@
-# Scene documents: v2 identity and v1 compatibility
+# Scene documents: v3 transforms and legacy compatibility
 
 ```json
 {
-  "version": 1,
-  "entities": [
-    {
-      "id": "player",
-      "name": "Player",
-      "components": {
-        "forge.position": { "x": 0, "y": 1, "z": 0 }
-      }
-    }
-  ]
-}
-```
-
-The example above is the legacy v1 format. Its IDs are document-local strings, independent of Flecs entity IDs. Names need not be unique. `parent` references another entity ID; `base` references an entity marked `prefab: true`. Relationship graphs must be acyclic. Missing targets and duplicate/empty IDs are rejected before changing loaded scene content.
-
-Position fields must be finite float-compatible numbers. Unknown component objects and additional document fields survive load/save so missing plugins do not erase authored data. Position, Rotation, Scale, Tint, and Primitive have live Flecs reflection and scene integration. The native module ABI remains Position-only.
-
-Undo/redo replays immutable snapshots as typed changes inside the same long-lived world. Invalid replacements preserve current content, history and registrations. File saves write a neighboring temporary file and atomically replace the destination; this is not a general multi-writer locking or power-loss durability guarantee.
-
-## Primitive transforms and appearance
-
-Scene v1 accepts optional reflected `forge.rotation` (XYZ degrees, each within ±360000), `forge.scale` (XYZ, each 0.001–10000), `forge.tint` (RGB, each 0–1), and `forge.primitive` (`kind`: 0 cube, 1 sphere, 2 cylinder, 3 plane). All numeric fields must be finite. Missing appearance fields render with zero rotation, unit scale, teal tint, and cube geometry. Unknown fields remain preserved.
-
-The preview applies local scale, then Euler X/Y/Z rotation, then world Position. ChildOf still organizes entities without propagating parent transforms. Supported prefab fields inherit through Flecs; live preview snapshots read effective Flecs values without modifying authored ownership. Inspector edits create owning overrides.
-
-The renderer and picker share immutable triangle meshes. Normals use inverse-transpose scale/rotation; fixed directional lighting modulates opaque RGB tint. Nine float4 constants (144 bytes) replace the original position-only shader layout. Framing uses transformed mesh bounds. Rotation/scale are Inspector controls; viewport handles remain translation-only. See the separate [Transforms guide](../manual/editor/transforms.md).
-
-World ownership, opaque-data merging and in-place mutation are described in [World ownership and scene authoring](world-lifetime.md). Scene-v1 files and world-space transforms are unchanged.
-
-## Version 2
-
-```json
-{
-  "version": 2,
+  "version": 3,
   "asset_id": "44444444-4444-4444-8444-444444444444",
-  "legacy_ids": {"player": "11111111-1111-4111-8111-111111111111"},
   "entities": [{
     "id": "11111111-1111-4111-8111-111111111111",
     "name": "Player",
-    "components": {"forge.position": {"x": 0, "y": 1, "z": 2}}
+    "spatial": {"mode": "follow_structure"},
+    "components": {
+      "forge.local_translation": {"x": 0, "y": 1, "z": 2},
+      "forge.local_rotation": {"x": 0, "y": 0, "z": 0, "w": 1},
+      "forge.local_scale": {"x": 1, "y": 1, "z": 1}
+    }
   }]
 }
 ```
 
-AssetId is the scene's durable document identity. EntityId and AssetId are distinct 128-bit UUIDv4 value types, serialized as lowercase canonical UUIDs; malformed, nil, other-version and noncanonical inputs are rejected. No DocumentId is introduced. New entities use UUIDs, never reusable entity-N keys. Human-readable default object names use a separate count and are not identity.
+AssetId is the scene's durable authored-document identity. EntityId and AssetId are distinct UUIDv4 types serialized as canonical lowercase strings. No DocumentId or persistent runtime-instance identity is introduced. `parent` and `base` are scene-local EntityId strings; base must identify a prefab. Names need not be unique. Structural, inheritance and effective spatial graphs must be acyclic.
 
-`parent` and `base` retain their field names and string representation, but in v2 contain canonical EntityIds, implicitly qualified by the owning scene AssetId. They remain scene-local structural references and must resolve; arbitrary EntityRef values can represent missing targets. No local transform, Parent storage, quaternion or prefab-member migration occurs.
+## Authored local channels
 
-`legacy_ids` maps old strings to EntityIds, including missing/deleted targets. Missing aliases do not bind by name; retained aliases do not make deleted entities exist. A legacy alias cannot shadow a different present canonical ID. The compatibility entry points accept explicit old aliases, while supported serialization and new commands use UUIDs. Opaque plugin values, unknown component fields, unknown entity fields and envelope fields are not recursively rewritten. Reserved v2 envelope-field collisions in v1 are diagnosed without overwriting the source.
+Only owned components are serialized. Missing local channels can inherit independently from `base`: owning translation never materializes inherited rotation or scale. Effective translation makes an entity transform-capable; missing rotation/scale default to identity/unit scale. Local translation is finite double XYZ; rotation is normalized float XYZW (squared-length tolerance 2e-6); scale remains positive float XYZ, 0.001–10000. Tint and Primitive are unchanged. Rotation display/edit adapters use Euler degrees; ordinary saves preserve canonical quaternion fields directly.
 
-In-memory v1 replacement is a compatibility adapter into the current scene: it retains the scene identity and known alias assignments. It has no filename and performs no disk writes. Callers must retain the returned v2 document across processes. Real file opening uses `read_scene_file`, which validates before activation and retains assignments in a neighboring versioned identity record. A new scene uses `empty_scene` and receives a fresh AssetId.
+`spatial.mode` is `follow_structure`, `world` or `explicit`; absence means follow_structure. Explicit requires `target: {"scene": "<AssetId>", "entity": "<EntityId>"}`. Other modes cannot contain target. Missing/non-transform/cross-scene targets remain unresolved in Phase 3. See [transform semantics](transforms.md).
 
-The companion record stores the original JSON and migrated JSON. Reopening the unchanged legacy source verifies the record and uses the same identifiers. A conflicting source/record is rejected. Opening never replaces the original scene. The first v2 Save copies original bytes to `.v1.backup`, checks any existing backup for agreement, then atomically replaces the scene. Failure retains the source and assignment record. These are single-scene operations under the existing project writer lease, not project-wide migration transactions or power-loss guarantees.
+`WorldTransform`, `world_affine` and `spatial_resolved` are derived presentation data, rejected as authored v3 input. Effective read snapshots additionally expose legacy Position/Rotation/Scale display adapters; they must not be saved as authored documents. Persist `Scene::document()` / `scene.read`, not `effective_document()` / entity-query rows.
 
-After successful migration, identity is embedded and independent of the file location. Save As to a distinct new filename for a persisted scene means a new logical scene asset: fresh AssetId and authored EntityIds, remapped known internal references, preserved opaque JSON. It resets history after successful publication. Ordinary Save and the first save of an untitled scene retain identity. OS-level file copying retains the same logical identity; use the duplication service for a new asset.
+Unknown envelope, entity and component fields survive. Known channels are read from Flecs. Spatial mode/target are live typed state; extra spatial fields remain opaque. No raw handles, pointers or matrix ABI blobs are persisted.
 
-See [Persistent identity and asset metadata](identity-assets.md) for resolver scope and the asset service.
+## v1 and v2 migration
+
+Legacy v1 uses document-local string IDs and `forge.position`, `forge.rotation` (XYZ degrees), `forge.scale`. Version 2 adds durable UUID identity but retains those world-space transform semantics. Phase 3 accepts both and normalizes into v3 before world mutation:
+
+1. For v1 only, allocate/reuse the explicit legacy UUID assignments. Version 2 UUIDs remain byte-for-byte unchanged.
+2. Convert only owned Position into LocalTranslation, preserving the original effective float value as double.
+3. Convert only owned Euler Rotation using the existing Rz * Ry * Rx order into a normalized quaternion. Inherited rotation stays absent/inherited.
+4. Rename only owned Scale to LocalScale. Independent ownership of every channel is preserved.
+5. Set migrated rows to World binding. Structural ChildOf links remain intact but do not suddenly propagate motion.
+
+Unknown Position/Scale extras remain with their renamed component. Unknown legacy Rotation fields are retained under `forge.local_rotation.legacy_euler_fields`; the known XYZ values become quaternion fields. Unknown plugin payloads and opaque references are never recursively rewritten. Reserved v3 field/type collisions are diagnosed with the source untouched.
+
+Opening an old file never replaces it. v1's neighboring `.forge-identity.json` journal retains the original and v2 identity assignment, then the deterministic v3 transform migration is applied. Conflicting source/journal data is rejected; never discard the journal to retry. v2 already has durable identities and needs no new identity journal. In-memory compatibility replacement retains current scene identity/known aliases; callers retain the returned v3 document across processes.
+
+The first Save validates v3, atomically publishes an exact-byte `.v1.backup` or `.v2.backup` of the old source, and atomically replaces the scene. Existing backup mismatch rejects the save. Blocked backup/replacement preserves source and assignments; retry after releasing the blocker. Readers are closed before replacement. This is one-scene protection under the project writer lease, not a project-wide migration or power-loss durability guarantee.
+
+## Identity, duplication and history
+
+Ordinary Save, rename, transforms and reparent retain identity. Subtree duplication creates new EntityIds and remaps known internal parent/base/spatial targets. Whole-scene duplication creates a new AssetId and fresh EntityIds, remaps known internal EntityRefs and legacy aliases, and preserves opaque payloads. Save As to a distinct filename for a persisted scene uses this new-asset operation. OS copying retains identity.
+
+Undo/redo patches authored channels and bindings inside the long-lived Flecs world. Derived matrices are recomputed, never stored as history authority. Invalid candidate graphs or unrepresentable world-to-local operations leave state and history unchanged. See [world ownership](world-lifetime.md) and [identity and assets](identity-assets.md).

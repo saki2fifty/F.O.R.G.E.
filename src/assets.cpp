@@ -36,9 +36,13 @@ AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
     std::ifstream stream(locate(source));
     const auto doc = Json::parse(stream);
     Scene::validate_document(doc);
-    if (doc.at("version") != 2)
+    if (doc.at("version") != 2 && doc.at("version") != 3)
         throw std::runtime_error("Scene must be migrated before catalog registration");
-    AssetRecord record{doc.at("asset_id").get<AssetId>(), SceneAsset::type, source, 2, {}};
+    AssetRecord record{doc.at("asset_id").get<AssetId>(),
+                       SceneAsset::type,
+                       source,
+                       doc.at("version").get<unsigned>(),
+                       {}};
     add(record);
     return record;
 }

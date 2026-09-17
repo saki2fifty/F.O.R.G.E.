@@ -1,8 +1,13 @@
 #include "builtins.hpp"
 #include <forge/world.hpp>
+#include <vector>
 namespace forge {
 WorldContext::WorldContext(WorldRole role) : role_(role) {
     schema_ = detail::register_builtins(world_);
+    world_.component<WorldTransform>("forge.world_transform")
+        .add(flecs::OnInstantiate, flecs::DontInherit);
+    world_.component<SpatialBinding>("forge.spatial_binding")
+        .add(flecs::OnInstantiate, flecs::Override);
     world_.component<PersistentEntityId>("forge.entity_id")
         .add(flecs::OnInstantiate, flecs::DontInherit);
     world_.component<StableId>("forge.stable_id").add(flecs::OnInstantiate, flecs::DontInherit);
@@ -23,12 +28,80 @@ WorldContext::WorldContext(WorldRole role) : role_(role) {
         .event(flecs::OnSet)
         .event(flecs::OnRemove)
         .each([this](flecs::entity e) {
+            if (evaluating_transforms_)
+                return;
+            ++transform_epoch_;
             auto it = content_.find(owner_of(e));
             if (it != content_.end())
                 ++it->second.serial;
         });
 }
 WorldContext::~WorldContext() = default;
+LocalTransform WorldContext::get_local_transform(flecs::entity e) const {
+    LocalTransform result;
+    if (e.has<LocalTranslation>())
+        result.translation = e.get<LocalTranslation>();
+    if (e.has<LocalRotation>())
+        result.rotation = e.get<LocalRotation>();
+    if (e.has<LocalScale>())
+        result.scale = e.get<LocalScale>();
+    return result;
+}
+void WorldContext::evaluate_world_transforms() {
+    if (evaluated_epoch_ == transform_epoch_)
+        return;
+    std::map<std::uint64_t, TransformNode> nodes;
+    auto query = world_.query_builder<const LocalTranslation>()
+                     .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                     .build();
+    query.each([&](flecs::entity e, const LocalTranslation&) {
+        TransformNode n{get_local_transform(e)};
+        const auto b = e.has<SpatialBinding>() ? e.get<SpatialBinding>() : SpatialBinding{};
+        auto p = e.target(flecs::ChildOf);
+        std::uint64_t structural = p && p.has<LocalTranslation>() ? p.id() : 0, explicit_target = 0;
+        if (b.mode == SpatialMode::Explicit) {
+            const auto resolved = resolve(b.target, owner_of(e));
+            if (resolved.state == ResolveState::Available &&
+                world_.entity(resolved.entity).has<LocalTranslation>())
+                explicit_target = resolved.entity;
+        }
+        const auto parent = effective_spatial_parent(b.mode, structural, explicit_target);
+        n.parent = parent.entity;
+        n.parent_resolved = parent.resolved;
+        nodes.emplace(e.id(), n);
+    });
+    const auto& evaluated = transform_evaluator_.evaluate(nodes);
+    evaluating_transforms_ = true;
+    try {
+        for (const auto& [id, v] : evaluated) {
+            auto e = world_.entity(id);
+            if (!e.owns<WorldTransform>())
+                e.set<WorldTransform>({v.affine, v.resolved, 1});
+            else {
+                const auto previous = e.get<WorldTransform>();
+                if (previous.affine != v.affine || previous.resolved != v.resolved)
+                    e.set<WorldTransform>({v.affine, v.resolved, previous.revision + 1});
+            }
+        }
+        // Retire a derived value if its entity loses its effective translation.
+        std::vector<flecs::entity> stale;
+        auto derived = world_.query_builder<const WorldTransform>()
+                           .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                           .build();
+        derived.each([&](flecs::entity e, const WorldTransform&) {
+            if (!nodes.contains(e.id()))
+                stale.push_back(e);
+        });
+        for (auto e : stale)
+            e.remove<WorldTransform>();
+        evaluated_epoch_ = transform_epoch_;
+        evaluating_transforms_ = false;
+    } catch (...) {
+        evaluating_transforms_ = false;
+        throw;
+    }
+}
+
 WorldContext::Resolution WorldContext::resolve(EntityRef ref, flecs::entity_t membership) const {
     Resolution result{ResolveState::Unresolved};
     unsigned matches = 0;

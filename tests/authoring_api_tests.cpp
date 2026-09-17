@@ -23,9 +23,9 @@ int main() {
         };
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
-        check(discovery["result"]["commands"].size() == 16, "Command catalog incomplete");
+        check(discovery["result"]["commands"].size() == 20, "Command catalog incomplete");
         const auto schema = discovery["result"]["schema"];
-        check(schema["components"][0]["fields"][0]["property_id"] == "forge.position.x",
+        check(schema["components"][0]["fields"][0]["property_id"] == "forge.local_translation.x",
               "Stable property identity missing");
         check(schema["components"][2]["fields"][0]["default"] == 1, "Scale defaults missing");
         Json batch = Json::array();
@@ -71,11 +71,12 @@ int main() {
             scene, "transform.rotation",
             {{"entity", first_id}, {"value", {{"x", 25}, {"y", 30}, {"z", 10}}}});
         forge::authoring_command(scene, "transform.ground", {{"entity", first_id}});
-        check(std::abs(forge::object_bounds(scene.document()["entities"][0]).first[1]) < 1e-5,
+        check(std::abs(forge::object_bounds(scene.effective_document()["entities"][0]).first[1]) <
+                  1e-5,
               "Ground command ignored transform");
         forge::authoring_command(scene, "transform.copy_from",
                                  {{"entity", second_id}, {"source", first_id}});
-        check(scene.document()["entities"][1]["components"]["forge.scale"]["y"] == 3,
+        check(scene.document()["entities"][1]["components"]["forge.local_scale"]["y"] == 3,
               "Copy from failed");
         const auto query =
             invoke("entity.query", {{"component", "forge.scale"}, {"limit", 2}, {"offset", 1}});
@@ -93,16 +94,16 @@ int main() {
         auto d = scene.document();
         d["entities"][0]["prefab"] = true;
         d["entities"][1]["base"] = first_id;
-        d["entities"][1]["components"].erase("forge.scale");
+        d["entities"][1]["components"].erase("forge.local_scale");
         inherited.reset(d);
         forge::authoring_command(
             inherited, "property.set",
             {{"entity", second_id}, {"component", "forge.scale"}, {"field", "x"}, {"value", 7}});
-        check(inherited.document()["entities"][1]["components"]["forge.scale"]["y"] == 3,
+        check(inherited.document()["entities"][1]["components"]["forge.local_scale"]["y"] == 3,
               "Partial override lost inherited siblings");
         forge::authoring_command(inherited, "component.revert",
                                  {{"entity", second_id}, {"component", "forge.scale"}});
-        check(!inherited.document()["entities"][1]["components"].contains("forge.scale"),
+        check(!inherited.document()["entities"][1]["components"].contains("forge.local_scale"),
               "Revert failed");
         check(inherited.effective_document()["entities"][1]["components"]["forge.scale"]["x"] == 2,
               "Revert did not restore inherited value");

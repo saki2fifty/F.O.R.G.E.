@@ -26,11 +26,11 @@ int main(int argc, char** argv) {
         check(scene.document() == forge::migrate_scene(doc, &snapshot),
               "round trip with unknown component");
         for (const char* axis : {"x", "y", "z"}) {
-            const auto member = scene.world().component<forge::Position>().lookup(axis);
+            const auto member = scene.world().component<forge::LocalTranslation>().lookup(axis);
             check(member.is_alive(), "documented reflection member must exist");
             const auto* brief = ecs_doc_get_brief(scene.world().c_ptr(), member.id());
-            check(brief && std::string(brief) ==
-                               std::string("Position along the ") + axis + " axis in world units.",
+            check(brief && std::string(brief) == std::string("LocalTranslation along the ") + axis +
+                                                     " axis in world units.",
                   "reflection member documentation survives dependency upgrade");
         }
         const auto schema = scene.schema();
@@ -50,9 +50,9 @@ int main(int argc, char** argv) {
             prefabs.replace({{"version", 1}, {"entities", forge::Json::array({prefab, instance})}});
             prefabs.translate(2, 0, 0);
             auto saved = prefabs.document();
-            check(saved["entities"][0]["components"]["forge.position"]["x"] == 0,
+            check(saved["entities"][0]["components"]["forge.local_translation"]["x"] == 0,
                   "instance edit preserves prefab");
-            check(saved["entities"][1]["components"]["forge.position"]["x"] == 2,
+            check(saved["entities"][1]["components"]["forge.local_translation"]["x"] == 2,
                   "instance materializes position override");
         }
         {
@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
                              static_cast<forge::Scene*>(p)->translate(x, y, z);
                          }};
         module.tick(host, 0.5f);
-        check(scene.document()["entities"][0]["components"]["forge.position"]["x"] == 5.5,
+        check(scene.document()["entities"][0]["components"]["forge.local_translation"]["x"] == 5.5,
               "native callback changes Flecs state");
         try {
             module.load(std::filesystem::absolute("missing-library"));
@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
         } catch (const std::runtime_error&) {
         }
         module.tick(host, 0.5f);
-        check(scene.document()["entities"][0]["components"]["forge.position"]["x"] == 6.0,
+        check(scene.document()["entities"][0]["components"]["forge.local_translation"]["x"] == 6.0,
               "failed module retains active code");
         std::cout << "core behavior passed\n";
     } catch (const std::exception& e) {

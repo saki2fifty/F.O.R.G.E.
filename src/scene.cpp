@@ -1,5 +1,6 @@
 #include "builtins.hpp"
 #include "scene_draft.hpp"
+#include "spatial_document.hpp"
 #include <array>
 #include <cmath>
 #include <forge/scene.hpp>
@@ -17,10 +18,10 @@ namespace forge {
 namespace {
 void validate(const Json& doc) {
     if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
-        (doc.at("version") != 1 && doc.at("version") != 2) || !doc.contains("entities") ||
-        !doc.at("entities").is_array())
-        throw std::runtime_error("Expected scene version 1 or 2 and an entities array");
-    if (doc.at("version") == 2) {
+        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3) ||
+        !doc.contains("entities") || !doc.at("entities").is_array())
+        throw std::runtime_error("Expected scene version 1, 2 or 3 and an entities array");
+    if (doc.at("version") != 1) {
         (void)doc.at("asset_id").get<AssetId>();
         if (doc.contains("legacy_ids")) {
             if (!doc.at("legacy_ids").is_object())
@@ -35,7 +36,7 @@ void validate(const Json& doc) {
     std::map<std::string, const Json*> entities;
     for (const auto& e : doc.at("entities")) {
         const auto id = e.at("id").get<std::string>();
-        if (doc.at("version") == 2)
+        if (doc.at("version") != 1)
             (void)EntityId::parse(id);
         if (id.empty() || !entities.emplace(id, &e).second)
             throw std::runtime_error("Empty or duplicate entity ID");
@@ -43,9 +44,34 @@ void validate(const Json& doc) {
             throw std::runtime_error("Invalid entity name/components");
         if (e.contains("prefab") && !e.at("prefab").is_boolean())
             throw std::runtime_error("Invalid prefab flag");
-        detail::validate_components(e.at("components"));
+        if (doc.at("version") == 3)
+            detail::validate_components(e.at("components"));
+        else {
+            const auto& c = e.at("components");
+            for (auto name : {"forge.position", "forge.rotation", "forge.scale", "forge.tint",
+                              "forge.primitive"}) {
+                if (!c.contains(name))
+                    continue;
+                for (auto field : std::string(name) == "forge.primitive"
+                                      ? std::vector<const char*>{"kind"}
+                                  : std::string(name) == "forge.tint"
+                                      ? std::vector<const char*>{"r", "g", "b"}
+                                      : std::vector<const char*>{"x", "y", "z"}) {
+                    const auto& v = c.at(name).at(field);
+                    if (!v.is_number() || !std::isfinite(v.get<float>()))
+                        throw std::runtime_error("Invalid legacy component value");
+                    const float n = v.get<float>();
+                    if ((std::string(name) == "forge.rotation" && std::abs(n) > 360000) ||
+                        (std::string(name) == "forge.scale" && (n < .001f || n > 10000)) ||
+                        (std::string(name) == "forge.tint" && (n < 0 || n > 1)) ||
+                        (std::string(name) == "forge.primitive" &&
+                         (!v.is_number_integer() || n < 0 || n > 3)))
+                        throw std::runtime_error("Legacy component outside range");
+                }
+            }
+        }
     }
-    if (doc.at("version") == 2 && doc.contains("legacy_ids"))
+    if (doc.at("version") != 1 && doc.contains("legacy_ids"))
         for (const auto& [alias, target] : doc.at("legacy_ids").items())
             if (entities.contains(alias) && target != alias)
                 throw std::runtime_error("Legacy alias shadows a persistent entity ID");
@@ -98,6 +124,8 @@ void validate(const Json& doc) {
         (void)e;
         visit(id);
     }
+    if (doc.at("version") == 3)
+        detail::validate_spatial(doc);
 }
 Json& find_entity(Json& doc, const std::string& id) {
     for (auto& entity : doc["entities"])
@@ -158,10 +186,11 @@ std::size_t Scene::entity_count() const {
 }
 void Scene::replace(const Json& source) {
     validate(source);
-    const auto doc = source.at("version") == 1 ? migrate_scene(source, &opaque_) : source;
+    const auto doc = source.at("version") != 3 ? migrate_scene(source, &opaque_) : source;
     struct Intended {
         std::string id, name, parent, base;
         bool prefab;
+        SpatialBinding spatial;
         std::array<std::optional<detail::Value>, 5> values;
     };
     // All parsing/type conversion/opaque copies happen before the first world write.
@@ -174,6 +203,7 @@ void Scene::replace(const Json& source) {
                       item.value("parent", std::string{}),
                       item.value("base", std::string{}),
                       item.value("prefab", false),
+                      detail::read_binding(item),
                       {}};
         retained.insert(next.id);
         auto& components = item["components"];
@@ -192,6 +222,10 @@ void Scene::replace(const Json& source) {
         item.erase("name");
         item.erase("parent");
         item.erase("base");
+        if (item.contains("spatial")) {
+            item["spatial"].erase("mode");
+            item["spatial"].erase("target");
+        }
         // Keep explicit false presence, never its live truth.
         if (item.value("prefab", false))
             item.erase("prefab");
@@ -274,6 +308,8 @@ void Scene::replace(const Json& source) {
             e = world().entity().add<SceneMember>(membership_).set<StableId>({next.id});
             entities_[next.id] = e.id();
         }
+        if (!e.owns<SpatialBinding>() || e.get<SpatialBinding>() != next.spatial)
+            e.set<SpatialBinding>(next.spatial);
         if (!e.owns<AuthoredName>() || e.get<AuthoredName>().value != next.name)
             e.set<AuthoredName>({next.name});
         if (next.prefab != e.has<AuthoredPrefab>()) {
@@ -340,6 +376,8 @@ void Scene::reset(const Json& doc) {
     redo_.clear();
 }
 Json Scene::serialize(bool effective) const {
+    if (effective)
+        context_.evaluate_world_transforms();
     auto doc = opaque_;
     auto output = Json::array();
     std::map<std::string, const Json*> fragments;
@@ -350,6 +388,13 @@ Json Scene::serialize(bool effective) const {
         if (!e || !e.is_alive())
             continue;
         item["name"] = e.get<AuthoredName>().value;
+        const auto binding = e.has<SpatialBinding>() ? e.get<SpatialBinding>() : SpatialBinding{};
+        if (item.contains("spatial") || binding.mode != SpatialMode::FollowStructure)
+            item["spatial"]["mode"] = binding.mode == SpatialMode::World      ? "world"
+                                      : binding.mode == SpatialMode::Explicit ? "explicit"
+                                                                              : "follow_structure";
+        if (binding.mode == SpatialMode::Explicit)
+            item["spatial"]["target"] = binding.target;
         bool implicit_prefab = false;
         for (auto parent = e.target(flecs::ChildOf); parent; parent = parent.target(flecs::ChildOf))
             implicit_prefab |= parent.has(flecs::Prefab);
@@ -381,6 +426,17 @@ Json Scene::serialize(bool effective) const {
                 data = Json::object();
             data.update(value);
         }
+        if (effective && e.has<LocalTranslation>()) {
+            const auto t = context_.get_local_transform(e);
+            auto& c = item["components"];
+            c["forge.position"] = c.at("forge.local_translation");
+            c["forge.scale"] = c.value("forge.local_scale", detail::encode(t.scale));
+            auto angles = rotation_to_euler(t.rotation);
+            c["forge.rotation"] = {{"x", angles[0]}, {"y", angles[1]}, {"z", angles[2]}};
+            const auto& w = e.get<WorldTransform>();
+            item["world_affine"] = w.affine.m;
+            item["spatial_resolved"] = w.resolved;
+        }
         output.push_back(std::move(item));
     }
     doc["entities"] = std::move(output);
@@ -403,7 +459,9 @@ void detail::SceneDraft::edit(const Json& document) {
                 if (initial.is_number_unsigned())
                     data[field] = data.at(field).get<std::uint32_t>();
                 else
-                    data[field] = data.at(field).get<float>();
+                    data[field] = std::string(type.name) == "forge.local_translation"
+                                      ? data.at(field).get<double>()
+                                      : double(data.at(field).get<float>());
         }
     document_ = std::move(normalized);
 }
@@ -424,11 +482,18 @@ Json detail::SceneDraft::effective_document() const {
                     e["components"][type.name] = current->at("components").at(type.name);
         }
     }
-    return result;
+    return project_spatial(std::move(result));
 }
 Json Scene::preview_document(const Json& intended) const {
     detail::SceneDraft draft(*this);
-    draft.edit(intended);
+    auto canonical = intended;
+    for (auto& e : canonical["entities"])
+        for (auto name : {"forge.position", "forge.rotation", "forge.scale"})
+            if (e["components"].contains(name)) {
+                detail::write_channel(e, name, e["components"].at(name));
+                e["components"].erase(name);
+            }
+    draft.edit(canonical);
     return draft.effective_document();
 }
 
@@ -469,7 +534,7 @@ void Scene::load(const std::filesystem::path& path) {
 }
 void Scene::edit(const Json& doc) {
     auto before = document();
-    if (before == (doc.at("version") == 1 ? migrate_scene(doc, &before) : doc))
+    if (before == (doc.at("version") != 3 ? migrate_scene(doc, &before) : doc))
         return;
     replace(doc);
     undo_.push_back(std::move(before));
@@ -484,14 +549,13 @@ void detail::SceneDraft::rename_entity(const std::string& id, const std::string&
     find_entity(doc, resolve_legacy_id(doc, id))["name"] = name;
     edit(doc);
 }
-void detail::SceneDraft::reparent_entity(const std::string& id, const std::string& parent) {
+void detail::SceneDraft::reparent_entity(const std::string& id, const std::string& parent,
+                                         ReparentMode mode) {
     auto doc = document();
-    auto& e = find_entity(doc, resolve_legacy_id(doc, id));
-    if (parent.empty())
-        e.erase("parent");
-    else
-        e["parent"] = resolve_legacy_id(doc, parent);
-    edit(doc); // Existing relationship validation rejects missing parents and cycles.
+    const auto canonical_parent = resolve_legacy_id(doc, parent);
+    detail::rebind(doc, effective_document(), resolve_legacy_id(doc, id),
+                   {{"mode", "follow_structure"}}, &canonical_parent, mode);
+    edit(doc);
 }
 std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
     auto doc = document();
@@ -508,6 +572,9 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
         } while (!occupied.insert(copy).second);
         remap[original] = copy;
     }
+    std::map<EntityId, EntityId> typed_remap;
+    for (const auto& [a, b] : remap)
+        typed_remap.emplace(EntityId::parse(a), EntityId::parse(b));
     auto copies = Json::array();
     for (auto e : doc["entities"]) {
         const auto original = e.at("id").get<std::string>();
@@ -519,6 +586,8 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
         for (const char* relation : {"parent", "base"})
             if (e.contains(relation) && remap.contains(e.at(relation).get<std::string>()))
                 e[relation] = remap.at(e.at(relation).get<std::string>());
+        detail::remap_spatial(e, doc.at("asset_id").get<AssetId>(),
+                              doc.at("asset_id").get<AssetId>(), typed_remap);
         copies.push_back(std::move(e));
     }
     for (auto& e : copies)
@@ -530,13 +599,24 @@ void detail::SceneDraft::delete_subtree(const std::string& id) {
     auto doc = document();
     const auto canonical = resolve_legacy_id(doc, id);
     const auto ids = subtree(doc, canonical);
+    const auto effective = effective_document();
     auto remaining = Json::array();
     for (const auto& e : doc["entities"]) {
         if (ids.contains(e.at("id").get<std::string>()))
             continue;
         if (ids.contains(e.value("base", std::string{})))
             throw std::runtime_error("Cannot delete a prefab used outside this subtree");
-        remaining.push_back(e);
+        auto survivor = e;
+        const auto binding = detail::read_binding(e);
+        if (binding.mode == SpatialMode::Explicit &&
+            binding.target.scene == doc.at("asset_id").get<AssetId>() &&
+            ids.contains(binding.target.entity.str())) {
+            auto detached = doc;
+            detail::rebind(detached, effective, e.at("id"), {{"mode", "world"}}, nullptr,
+                           ReparentMode::PreserveWorld);
+            survivor = find_entity(detached, e.at("id"));
+        }
+        remaining.push_back(survivor);
     }
     doc["entities"] = std::move(remaining);
     edit(doc);
@@ -546,9 +626,9 @@ void Scene::rename_entity(const std::string& id, const std::string& name) {
     draft.rename_entity(id, name);
     edit(draft.document());
 }
-void Scene::reparent_entity(const std::string& id, const std::string& parent) {
+void Scene::reparent_entity(const std::string& id, const std::string& parent, ReparentMode mode) {
     detail::SceneDraft draft(*this);
-    draft.reparent_entity(id, parent);
+    draft.reparent_entity(id, parent, mode);
     edit(draft.document());
 }
 std::string Scene::duplicate_subtree(const std::string& id) {
@@ -581,12 +661,8 @@ bool Scene::redo() {
     return true;
 }
 void Scene::translate(float x, float y, float z) {
-    world().defer_begin();
-    world().each([&](flecs::entity e, const Position& p) {
-        if (context_.owner_of(e) == membership_)
-            e.set<Position>({p.x + x, p.y + y, p.z + z});
-    });
-    world().defer_end();
-    committed();
+    auto next = document();
+    detail::translate_world(next, effective_document(), {x, y, z});
+    replace(next);
 }
 } // namespace forge

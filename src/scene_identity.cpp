@@ -1,3 +1,4 @@
+#include "spatial_document.hpp"
 #include <forge/scene.hpp>
 #include <forge/scene_identity.hpp>
 #include <fstream>
@@ -17,14 +18,14 @@ std::filesystem::path sibling(const std::filesystem::path& path, const char* suf
 }
 } // namespace
 Json empty_scene() {
-    return {{"version", 2}, {"asset_id", AssetId::generate()}, {"entities", Json::array()}};
+    return {{"version", 3}, {"asset_id", AssetId::generate()}, {"entities", Json::array()}};
 }
 std::string resolve_legacy_id(const Json& document, const std::string& id) {
     if (document.contains("legacy_ids") && document.at("legacy_ids").contains(id))
         return document.at("legacy_ids").at(id).get<std::string>();
     return id;
 }
-Json migrate_scene(const Json& source, const Json* existing) {
+static Json migrate_identity(const Json& source, const Json* existing = nullptr) {
     Scene::validate_document(source);
     if (source.at("version") == 2)
         return source;
@@ -58,9 +59,18 @@ Json migrate_scene(const Json& source, const Json* existing) {
     Scene::validate_document(result);
     return result;
 }
+Json migrate_scene(const Json& source, const Json* existing) {
+    if (source.at("version") == 3) {
+        Scene::validate_document(source);
+        return source;
+    }
+    auto result = detail::migrate_transforms(migrate_identity(source, existing));
+    Scene::validate_document(result);
+    return result;
+}
 Json duplicate_scene_asset(const Json& source) {
     Scene::validate_document(source);
-    if (source.at("version") != 2)
+    if (source.at("version") != 3)
         throw std::runtime_error("Migrate the scene before duplicating its asset");
     auto result = source;
     result["asset_id"] = AssetId::generate();
@@ -98,6 +108,9 @@ Json duplicate_scene_asset(const Json& source) {
                         source.at("asset_id").get<AssetId>(), result.at("asset_id").get<AssetId>(),
                         typed_remap)
                         .entity;
+    for (auto& e : result["entities"])
+        detail::remap_spatial(e, source.at("asset_id").get<AssetId>(),
+                              result.at("asset_id").get<AssetId>(), typed_remap);
     if (result.contains("legacy_ids"))
         for (auto& id : result["legacy_ids"])
             id = fresh(id.get<std::string>());
@@ -107,8 +120,8 @@ Json duplicate_scene_asset(const Json& source) {
 Json read_scene_file(const std::filesystem::path& path) {
     auto source = read(path);
     Scene::validate_document(source);
-    if (source.at("version") == 2)
-        return source;
+    if (source.at("version") != 1)
+        return migrate_scene(source);
     const auto journal_path = sibling(path, ".forge-identity.json");
     if (std::filesystem::exists(journal_path)) {
         const auto journal = read(journal_path);
@@ -118,23 +131,24 @@ Json read_scene_file(const std::filesystem::path& path) {
                 ". Preserve both files and resolve the conflict before migration.");
         const auto result = journal.at("document");
         Scene::validate_document(result);
-        if (migrate_scene(source, &result) != result)
+        if (migrate_identity(source, &result) != result)
             throw std::runtime_error("Invalid scene identity record: " + journal_path.string());
-        return result;
+        return migrate_scene(result);
     }
-    const auto result = migrate_scene(source);
+    const auto result = migrate_identity(source);
     atomic_write(journal_path,
                  Json{{"version", 1}, {"source", source}, {"document", result}}.dump(2));
-    return result;
+    return migrate_scene(result);
 }
 void write_scene_file(const std::filesystem::path& path, const Json& document) {
     Scene::validate_document(document);
-    if (document.at("version") != 2)
+    if (document.at("version") != 3)
         throw std::runtime_error("Save requires a migrated scene");
     if (std::filesystem::exists(path)) {
         const auto source = read(path);
-        if (source.value("version", 0) == 1) {
-            const auto backup = sibling(path, ".v1.backup");
+        if (source.at("version") == 1 || source.at("version") == 2) {
+            const auto backup =
+                sibling(path, source.at("version") == 1 ? ".v1.backup" : ".v2.backup");
             if (std::filesystem::exists(backup)) {
                 if (read(backup) != source)
                     throw std::runtime_error("Legacy backup differs; save aborted: " +

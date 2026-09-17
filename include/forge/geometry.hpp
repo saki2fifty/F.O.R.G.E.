@@ -20,8 +20,24 @@ inline Float3 read_xyz(const Json& components, const char* name, Float3 fallback
 struct ObjectTransform {
     Float3 position{}, scale{1, 1, 1};
     std::array<Float3, 3> axes{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+    AffineTransform affine;
+    bool derived = false;
     explicit ObjectTransform(const Json& entity) {
+        if (entity.contains("world_affine")) {
+            if (!entity.value("spatial_resolved", false))
+                throw std::runtime_error("Unresolved world transform");
+            affine = {entity.at("world_affine").get<std::array<double, 12>>()};
+            derived = true;
+            for (unsigned i = 0; i < 3; ++i) {
+                position[i] = float(affine.m[4 * i + 3]);
+                for (unsigned j = 0; j < 3; ++j)
+                    axes[i][j] = float(affine.m[4 * j + i]);
+            }
+            return;
+        }
         const auto& c = entity.at("components");
+        if (c.contains("forge.local_translation"))
+            throw std::runtime_error("Canonical geometry requires an evaluated WorldTransform");
         position = read_xyz(c, "forge.position", {});
         scale = read_xyz(c, "forge.scale", {1, 1, 1});
         auto angles = read_xyz(c, "forge.rotation", {});
@@ -34,6 +50,10 @@ struct ObjectTransform {
                  {cz * sy * cx + sz * sx, sz * sy * cx - cz * sx, cy * cx}}};
     }
     Float3 point(Float3 p) const {
+        if (derived) {
+            auto p2 = affine.point({p[0], p[1], p[2]});
+            return {float(p2[0]), float(p2[1]), float(p2[2])};
+        }
         auto value = position;
         for (unsigned i = 0; i < 3; ++i)
             for (unsigned j = 0; j < 3; ++j)
@@ -41,6 +61,10 @@ struct ObjectTransform {
         return value;
     }
     Float3 inverse_vector(Float3 p) const {
+        if (derived) {
+            auto p2 = inverse(affine).vector({p[0], p[1], p[2]});
+            return {float(p2[0]), float(p2[1]), float(p2[2])};
+        }
         return {geom_dot(axes[0], p) / scale[0], geom_dot(axes[1], p) / scale[1],
                 geom_dot(axes[2], p) / scale[2]};
     }

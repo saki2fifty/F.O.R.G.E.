@@ -52,3 +52,12 @@ Updated authoring API discovery, world ownership/resolution and project save/rec
 - LocalTransform is an assembled value only. Authored storage uses independent LocalTranslation, LocalRotation and LocalScale channels; WorldTransform is transient derived state.
 - Added shared effective spatial-parent policy and iterative parent-first evaluation with cycle detection and cached unchanged results. No second authored hierarchy, dependency update, fixed clock or structured-prefab implementation.
 - Core math covers compound/pole/180-degree orientations, inverse/decomposition, shear/singularity rejection and a 20,000-node evaluation chain. Full bundle validation is recorded below as integration completes.
+
+## Phase 3 — Flecs ownership, scene-v3 and spatial authoring
+
+- Registered independent inheritable local TRS components, instance-owned non-inherited WorldTransform, and owned SpatialBinding. Transform reads/undo/edit stay inside the existing WorldContext; derived writes do not dirty authored state.
+- Added FollowStructure, World and membership-scoped Explicit EntityRef binding. New parenting preserves world placement and follows its parent; keep-local remains explicit. Missing/non-transform/cross-scene attachment targets stay unresolved with diagnostics.
+- Scene-v1/v2 migrate to v3 without changing UUIDs, independent channel ownership or old world-space behavior. Owned Euler values become normalized quaternions; inherited rotations remain inherited. Exact original files survive `.v1.backup`/`.v2.backup` publication and blocked-save retries. Unknown data remains opaque; legacy rotation extras have a retained nested field.
+- Channel-specific local/world operations, independent revert, exact quaternion copying, preserve-world compensation, cycle/shear rejection, dependent detachment, spatial-reference remapping and history use one shared authoring/evaluation path. Only necessary reparent compensation channels become owned.
+- Existing native displacement now handles parent motion once per entity; native ABI and externally stepped timing remain unchanged.
+- Local Linux core tests: 10/10 passed. Targeted ASan/UBSan/LSan tests: 5/5 passed. Coverage includes generated prefab-child derived ownership, inherited-channel gestures, v2 filesystem retry/IDs, same-asset membership scope, deletion rejection and opaque/internal/external reference duplication. Windows execution is pending at this commit.

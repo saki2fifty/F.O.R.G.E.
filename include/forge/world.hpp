@@ -2,24 +2,13 @@
 #include <cstdint>
 #include <flecs.h>
 #include <forge/identity.hpp>
+#include <forge/transform.hpp>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 namespace forge {
 using Json = nlohmann::json;
-struct Position {
-    float x{}, y{}, z{};
-    bool operator==(const Position&) const = default;
-};
-struct Rotation {
-    float x{}, y{}, z{};
-    bool operator==(const Rotation&) const = default;
-}; // Degrees, local X then Y then Z.
-struct Scale {
-    float x = 1, y = 1, z = 1;
-    bool operator==(const Scale&) const = default;
-};
 struct Tint {
     float r = 0.2f, g = 0.6f, b = 0.7f;
     bool operator==(const Tint&) const = default;
@@ -57,6 +46,8 @@ class WorldContext {
     };
     Resolution resolve(EntityRef ref, flecs::entity_t membership = 0) const;
     std::optional<EntityRef> reference(flecs::entity_t entity) const;
+    LocalTransform get_local_transform(flecs::entity entity) const;
+    void evaluate_world_transforms();
 
   private:
     friend class Scene;
@@ -69,6 +60,9 @@ class WorldContext {
     flecs::entity_t owner_of(flecs::entity entity) const;
     flecs::entity_t attach();
     void detach(flecs::entity_t root);
+    TransformEvaluator transform_evaluator_;
+    std::uint64_t transform_epoch_ = 1, evaluated_epoch_ = 0;
+    bool evaluating_transforms_ = false;
     WorldRole role_;
     std::map<flecs::entity_t, Content> content_;
     Json schema_;

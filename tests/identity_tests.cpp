@@ -73,13 +73,14 @@ int main() {
             rejects([&] { (void)migrate_scene(bad); });
         }
         const auto migrated = migrate_scene(v1);
-        require(migrated.at("version") == 2 && migrate_scene(migrated) == migrated,
+        require(migrated.at("version") == 3 && migrate_scene(migrated) == migrated,
                 "Migration idempotence");
         require(migrate_scene(v1, &migrated) == migrated, "Retained assignment changed");
         require(migrated["future"] == v1["future"] &&
                     migrated["entities"][2]["components"] == v1["entities"][2]["components"],
                 "Opaque payload rewritten");
-        require(migrated["entities"][1]["components"] == v1["entities"][1]["components"],
+        require(migrated["entities"][1]["components"]["forge.local_translation"] ==
+                    v1["entities"][1]["components"]["forge.position"],
                 "Transform or unknown field changed");
         require(migrated["entities"][2]["base"] == migrated["entities"][1]["id"],
                 "Known base not migrated");

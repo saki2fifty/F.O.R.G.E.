@@ -1,4 +1,5 @@
 #include "scene_draft.hpp"
+#include "spatial_document.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -22,8 +23,9 @@ Json number(double low, double high) {
     return {{"type", "number"}, {"minimum", low}, {"maximum", high}};
 }
 Json xyz() {
-    return object({{"x", number(-1e6, 1e6)}, {"y", number(-1e6, 1e6)}, {"z", number(-1e6, 1e6)}},
-                  {"x", "y", "z"});
+    return object(
+        {{"x", number(-1e12, 1e12)}, {"y", number(-1e12, 1e12)}, {"z", number(-1e12, 1e12)}},
+        {"x", "y", "z"});
 }
 Json text_type() { return {{"type", "string"}, {"maxLength", 1024}}; }
 void validate_value(const Json& value, const Json& schema, const std::string& path) {
@@ -93,34 +95,64 @@ Json property_schema(const detail::SceneDraft& scene, const std::string& compone
 void set_fields(detail::SceneDraft& scene, const std::string& id, const std::string& component,
                 const Json& values) {
     auto doc = scene.document();
-    auto& c = entity(doc, id)["components"];
-    if (!c.contains(component)) {
-        const auto e = effective(scene, id);
-        if (e.at("components").contains(component))
-            c[component] = e.at("components").at(component);
-        else {
-            const auto schema = scene.schema();
-            for (const auto& item : schema.at("components"))
-                if (item.at("id") == component) {
-                    c[component] = Json::object();
-                    for (const auto& f : item.at("fields"))
-                        c[component][f.at("id").get<std::string>()] = f.at("default");
-                }
+    auto& e = entity(doc, id);
+    const bool legacy = component == "forge.position" || component == "forge.rotation" ||
+                        component == "forge.scale";
+    const auto view = effective(scene, id);
+    std::string canonical = component == "forge.position"   ? "forge.local_translation"
+                            : component == "forge.rotation" ? "forge.local_rotation"
+                            : component == "forge.scale"    ? "forge.local_scale"
+                                                            : component;
+    if (legacy) {
+        auto merged = view.at("components").value(component, Json::object());
+        if (merged.empty())
+            merged = {{"x", component == "forge.scale" ? 1 : 0},
+                      {"y", component == "forge.scale" ? 1 : 0},
+                      {"z", component == "forge.scale" ? 1 : 0}};
+        for (const auto& [field, value] : values.items()) {
+            if (field != "x" && field != "y" && field != "z")
+                throw CommandError("unsupported_property", "Unknown transform display field");
+            if (!value.is_number() || !std::isfinite(value.get<double>()))
+                throw CommandError("invalid_arguments", "Invalid transform value");
+            if (component == "forge.rotation" && std::abs(value.get<double>()) > 360000)
+                throw CommandError("invalid_arguments", "Euler degrees out of range");
+            merged[field] = value;
         }
-    }
-    for (const auto& [field, value] : values.items()) {
-        const auto schema = property_schema(scene, component, field);
-        if (!value.is_number() || (schema.at("type") == "uint32" && !value.is_number_integer()))
-            throw CommandError("invalid_arguments", "Property requires its declared numeric type");
-        const auto n = value.get<double>();
-        if (!std::isfinite(n) ||
-            (schema.contains("minimum") && n < schema.at("minimum").get<double>()) ||
-            (schema.contains("maximum") && n > schema.at("maximum").get<double>()))
-            throw CommandError("invalid_arguments", "Property outside declared range");
-        c[component][field] = value;
+        detail::write_channel(e, component.c_str(), merged);
+    } else {
+        auto& c = e["components"];
+        if (!c.contains(canonical)) {
+            if (view.at("components").contains(canonical))
+                c[canonical] = view.at("components").at(canonical);
+            else {
+                const auto schema = scene.schema();
+                for (const auto& item : schema.at("components"))
+                    if (item.at("id") == canonical)
+                        for (const auto& f : item.at("fields"))
+                            c[canonical][f.at("id").get<std::string>()] = f.at("default");
+            }
+        }
+        for (const auto& [field, value] : values.items()) {
+            auto schema = property_schema(scene, canonical, field);
+            if (!value.is_number() || (schema.at("type") == "uint32" && !value.is_number_integer()))
+                throw CommandError("invalid_arguments",
+                                   "Property requires its declared numeric type");
+            double n = value.get<double>();
+            if (!std::isfinite(n) ||
+                (schema.contains("minimum") && n < schema.at("minimum").get<double>()) ||
+                (schema.contains("maximum") && n > schema.at("maximum").get<double>()))
+                throw CommandError("invalid_arguments", "Property outside declared range");
+            c[canonical][field] = value;
+        }
+        if (canonical == "forge.local_rotation") {
+            const auto& q = c.at(canonical);
+            c[canonical].update(
+                detail::encode(normalized({q.at("x"), q.at("y"), q.at("z"), q.at("w")})));
+        }
     }
     scene.edit(doc);
 }
+
 Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     const auto id = resolve_legacy_id(scene.document(), a.value("entity", std::string{}));
     if (!id.empty()) {
@@ -143,6 +175,12 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
                {"forge.scale", {{"x", kind == 3 ? 4 : 1}, {"y", 1}, {"z", kind == 3 ? 4 : 1}}},
                {"forge.tint", {{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}}},
                {"forge.primitive", {{"kind", kind}}}}}});
+        auto& created_row = doc["entities"].back();
+        for (auto channel : {"forge.position", "forge.rotation", "forge.scale"}) {
+            detail::write_channel(created_row, channel, created_row["components"].at(channel));
+            created_row["components"].erase(channel);
+        }
+        created_row["spatial"] = {{"mode", "follow_structure"}};
         const auto name = doc["entities"].back().at("name").get<std::string>();
         if (name.find_first_not_of(" \t\r\n") == std::string::npos)
             throw CommandError("invalid_arguments", "Entity name must not be blank");
@@ -151,8 +189,67 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     } else if (op == "entity.rename")
         scene.rename_entity(id, a.at("name"));
     else if (op == "entity.reparent")
-        scene.reparent_entity(id, a.at("parent"));
-    else if (op == "entity.duplicate")
+        scene.reparent_entity(id, a.at("parent"),
+                              a.value("mode", std::string("preserve_world")) == "keep_local"
+                                  ? ReparentMode::KeepLocal
+                                  : ReparentMode::PreserveWorld);
+    else if (op == "transform.binding") {
+        auto doc = scene.document();
+        detail::rebind(doc, scene.effective_document(), id, a.at("spatial"), nullptr,
+                       a.value("mode", std::string("preserve_world")) == "keep_local"
+                           ? ReparentMode::KeepLocal
+                           : ReparentMode::PreserveWorld);
+        scene.edit(doc);
+    } else if (op == "transform.world_translation" || op == "transform.world_rotate") {
+        auto doc = scene.document();
+        const auto view = scene.effective_document();
+        const auto e = effective(scene, id);
+        if (!e.value("spatial_resolved", false))
+            throw CommandError("unresolved_reference", "Spatial parent is unresolved");
+        AffineTransform desired{e.at("world_affine").get<std::array<double, 12>>()};
+        if (op == "transform.world_translation") {
+            const auto& p = a.at("value");
+            desired.m[3] = p.at("x");
+            desired.m[7] = p.at("y");
+            desired.m[11] = p.at("z");
+        } else {
+            const auto& axis = a.at("axis");
+            auto rotation = affine_transform(
+                {{},
+                 rotation_about_axis({axis.at("x"), axis.at("y"), axis.at("z")}, a.at("degrees")),
+                 {}});
+            auto rotated = rotation * desired;
+            for (unsigned i = 0; i < 3; ++i)
+                rotated.m[i * 4 + 3] = desired.m[i * 4 + 3];
+            desired = rotated;
+        }
+        detail::write_world(doc, view, id, desired,
+                            op == "transform.world_translation" ? TransformChannel::Translation
+                                                                : TransformChannel::Rotation);
+        scene.edit(doc);
+    } else if (op == "transform.local") {
+        auto doc = scene.document();
+        const auto current = detail::read_local(effective(scene, id).at("components"));
+        auto desired = current;
+        unsigned mask = 0;
+        if (a.contains("translation")) {
+            const auto& p = a.at("translation");
+            desired.translation = {p.at("x"), p.at("y"), p.at("z")};
+            mask |= 1;
+        }
+        if (a.contains("rotation")) {
+            const auto& p = a.at("rotation");
+            desired.rotation = normalized({p.at("x"), p.at("y"), p.at("z"), p.at("w")});
+            mask |= 2;
+        }
+        if (a.contains("scale")) {
+            const auto& p = a.at("scale");
+            desired.scale = {p.at("x"), p.at("y"), p.at("z")};
+            mask |= 4;
+        }
+        detail::write_local(entity(doc, id), current, desired, TransformChannel(mask));
+        scene.edit(doc);
+    } else if (op == "entity.duplicate")
         result["selected"] = scene.duplicate_subtree(id);
     else if (op == "entity.delete") {
         scene.delete_subtree(id);
@@ -174,23 +271,36 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         const auto e = effective(scene, id);
         if (!e.at("components").contains("forge.position"))
             throw CommandError("unavailable", "Entity has no position");
-        auto p = read_xyz(e.at("components"), "forge.position", {});
+        auto p = ObjectTransform(e).position;
         if (op == "transform.ground")
             p[1] -= object_bounds(e).first[1];
         else
             for (auto& coordinate : p)
                 coordinate = float(std::round(coordinate / a.at("step").get<double>()) *
                                    a.at("step").get<double>());
-        set_fields(scene, id, "forge.position", {{"x", p[0]}, {"y", p[1]}, {"z", p[2]}});
+        auto doc = scene.document();
+        AffineTransform desired{e.at("world_affine").get<std::array<double, 12>>()};
+        desired.m[3] = p[0];
+        desired.m[7] = p[1];
+        desired.m[11] = p[2];
+        detail::write_world(doc, scene.effective_document(), id, desired,
+                            TransformChannel::Translation);
+        scene.edit(doc);
     } else if (op == "transform.copy_from") {
         const auto source = effective(scene, a.at("source"));
-        for (const char* c : {"forge.position", "forge.rotation", "forge.scale"}) {
-            const auto p = read_xyz(source.at("components"), c,
-                                    std::string(c) == "forge.scale" ? Float3{1, 1, 1} : Float3{});
-            set_fields(scene, id, c, {{"x", p[0]}, {"y", p[1]}, {"z", p[2]}});
-        }
+        auto doc = scene.document();
+        detail::write_local(entity(doc, id),
+                            detail::read_local(effective(scene, id).at("components")),
+                            detail::read_local(source.at("components")), TransformChannel::All);
+        scene.edit(doc);
     } else if (op == "component.revert") {
-        const auto component = a.at("component").get<std::string>();
+        auto component = a.at("component").get<std::string>();
+        if (component == "forge.position")
+            component = "forge.local_translation";
+        else if (component == "forge.rotation")
+            component = "forge.local_rotation";
+        else if (component == "forge.scale")
+            component = "forge.local_scale";
         const auto schema = scene.schema();
         bool known = false;
         for (const auto& c : schema.at("components"))
@@ -228,9 +338,12 @@ Json authoring_commands() {
         {"entity", "name"});
     auto parent = entity_arg;
     parent["parent"] = text_type();
+    const Json reparent_mode = {{"type", "string"}, {"enum", {"preserve_world", "keep_local"}}};
+    parent["mode"] = reparent_mode;
     add("entity.reparent", "Move to parent",
-        "Change organization; preserve world-space transform. Empty parent means root.", parent,
-        {"entity", "parent"});
+        "Follow the structural parent spatially. Default preserve_world; keep_local retains local "
+        "channels. Empty parent means root.",
+        parent, {"entity", "parent"});
     add("entity.duplicate", "Duplicate subtree",
         "Copy the selected entity and descendants, remapping internal references.", entity_arg,
         {"entity"});
@@ -241,9 +354,42 @@ Json authoring_commands() {
         auto args = entity_arg;
         args["value"] = xyz();
         add(op.c_str(), ("Set " + std::string(axis)).c_str(),
-            "Set supported XYZ values; reflected property constraints apply.", args,
-            {"entity", "value"});
+            "Set this local channel only. Rotation accepts Euler degrees and stores a normalized "
+            "quaternion.",
+            args, {"entity", "value"});
     }
+    auto world_translation = entity_arg;
+    world_translation["value"] = xyz();
+    add("transform.world_translation", "Move in world space",
+        "Own translation only; retain rotation/scale ownership.", world_translation,
+        {"entity", "value"});
+    auto world_rotation = entity_arg;
+    world_rotation["axis"] = xyz();
+    world_rotation["degrees"] = number(-360000, 360000);
+    add("transform.world_rotate", "Rotate in world space",
+        "Rotate about the object origin. Reject required shear or unrelated channel changes.",
+        world_rotation, {"entity", "axis", "degrees"});
+    auto local = entity_arg;
+    local["translation"] = xyz();
+    local["scale"] = xyz();
+    local["rotation"] = object({{"x", number(-1e38, 1e38)},
+                                {"y", number(-1e38, 1e38)},
+                                {"z", number(-1e38, 1e38)},
+                                {"w", number(-1e38, 1e38)}},
+                               {"x", "y", "z", "w"});
+    add("transform.local", "Set selected local channels",
+        "Only supplied channels become owned; at least one channel is required.", local,
+        {"entity"});
+    auto binding = entity_arg;
+    binding["mode"] = reparent_mode;
+    binding["spatial"] =
+        object({{"mode", {{"type", "string"}, {"enum", {"world", "follow_structure", "explicit"}}}},
+                {"target",
+                 object({{"scene", text_type()}, {"entity", text_type()}}, {"scene", "entity"})}},
+               {"mode"});
+    add("transform.binding", "Set spatial binding",
+        "Separate spatial attachment from structural ownership; preserve_world by default.",
+        binding, {"entity", "spatial"});
     auto color = entity_arg;
     color["value"] =
         object({{"r", number(0, 1)}, {"g", number(0, 1)}, {"b", number(0, 1)}}, {"r", "g", "b"});
@@ -264,8 +410,8 @@ Json authoring_commands() {
     auto copy = entity_arg;
     copy["source"] = text_type();
     add("transform.copy_from", "Copy transform from entity",
-        "Copy effective position, rotation and scale from a source entity.", copy,
-        {"entity", "source"});
+        "Copy all effective local channels from a source entity, retaining quaternion rotation.",
+        copy, {"entity", "source"});
     auto field = entity_arg;
     field["component"] = text_type();
     field["field"] = text_type();
@@ -280,7 +426,7 @@ Json authoring_commands() {
         {"entity", "component"});
     return commands;
 }
-Json apply_authoring(Scene& scene, const Json& commands, std::uint64_t revision) {
+static Json prepare_authoring(const Scene& scene, const Json& commands, std::uint64_t revision) {
     if (revision != scene.revision())
         throw CommandError("stale_revision", "Scene changed; read current state before retrying");
     if (!commands.is_array() || commands.empty() || commands.size() > 128)
@@ -317,11 +463,18 @@ Json apply_authoring(Scene& scene, const Json& commands, std::uint64_t revision)
     const auto next = candidate.document();
     if (next.at("entities").size() > 10000)
         throw CommandError("limit_exceeded", "Authoring commands support at most 10000 entities");
+    return {{"document", next}, {"results", results}};
+}
+Json preview_authoring(const Scene& scene, const Json& commands) {
+    return prepare_authoring(scene, commands, scene.revision()).at("document");
+}
+Json apply_authoring(Scene& scene, const Json& commands, std::uint64_t revision) {
+    const auto prepared = prepare_authoring(scene, commands, revision);
     const auto before = scene.revision();
-    scene.edit(next);
+    scene.edit(prepared.at("document"));
     return {{"changed", before != scene.revision()},
             {"revision", scene.revision()},
-            {"results", results}};
+            {"results", prepared.at("results")}};
 }
 Json authoring_command(Scene& scene, const std::string& operation, const Json& arguments) {
     return apply_authoring(scene,
@@ -353,12 +506,17 @@ Json scene_diagnostics(const Scene& scene) {
     for (const auto& e : view.at("entities")) {
         const bool prefab = e.value("prefab", false);
         prefabs += prefab;
-        if (!prefab && e.at("components").contains("forge.position"))
+        if (!prefab && e.at("components").contains("forge.local_translation") &&
+            e.value("spatial_resolved", false))
             ++visible;
         if (names[e.at("name").get<std::string>()] > 1)
             add(e, "duplicate_name", "Display name is shared; stable IDs remain distinct.");
-        if (!prefab && !e.at("components").contains("forge.position"))
-            add(e, "no_position", "Entity has no effective Position and is not drawn.");
+        if (!prefab && !e.at("components").contains("forge.local_translation"))
+            add(e, "no_position", "Entity has no effective LocalTranslation and is not drawn.");
+        else if (!prefab && !e.value("spatial_resolved", false))
+            add(e, "unresolved_spatial_parent",
+                "Spatial target is unavailable in this scene; repair its binding to draw the "
+                "entity.");
     }
     for (const auto& e : doc.at("entities"))
         for (const auto& [name, value] : e.at("components").items()) {

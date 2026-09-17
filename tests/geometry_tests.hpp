@@ -56,7 +56,7 @@ inline void test_geometry() {
     require(scene.document() == forge::migrate_scene(doc, &unchanged_identity),
             "New components/unknown data round trip");
     require(scene.schema()["components"].size() == 5 &&
-                scene.schema()["components"][1]["id"] == "forge.rotation",
+                scene.schema()["components"][1]["id"] == "forge.local_rotation",
             "Reflected transform schema");
     const auto unchanged = scene.document();
     for (auto bad : {0.0f, -1.0f, 10001.0f}) {
@@ -97,8 +97,8 @@ inline void test_geometry() {
     bool inherited = false;
     handles.each([&](flecs::entity e, const forge::StableId& id) {
         if (id.value == scene.canonical_id("instance"))
-            inherited = e.has<forge::Rotation>() && !e.owns<forge::Rotation>() &&
-                        e.get<forge::Scale>().z == 4;
+            inherited = e.has<forge::LocalRotation>() && !e.owns<forge::LocalRotation>() &&
+                        e.get<forge::LocalScale>().z == 4;
     });
     require(inherited, "Flecs transform inheritance missing");
 }

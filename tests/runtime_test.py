@@ -26,17 +26,26 @@ try:
             return math.isclose(a,b,rel_tol=1e-6,abs_tol=1e-6)
         return a==b
     migrated = loaded['scene']
-    assert migrated['version'] == 2 and migrated['asset_id']
-    expected = dict(example, version=2, asset_id=migrated['asset_id'], legacy_ids=migrated['legacy_ids'])
+    assert migrated['version'] == 3 and migrated['asset_id']
+    expected = dict(example, version=3, asset_id=migrated['asset_id'], legacy_ids=migrated['legacy_ids'])
     for e in expected['entities']:
         e['id'] = migrated['legacy_ids'][e['id']]
         for relation in ('parent', 'base'):
             if relation in e: e[relation] = migrated['legacy_ids'][e[relation]]
+        e['spatial'] = {'mode': 'world'}
+        c=e['components']
+        if 'forge.position' in c: c['forge.local_translation']=c.pop('forge.position')
+        if 'forge.scale' in c: c['forge.local_scale']=c.pop('forge.scale')
+        if 'forge.rotation' in c:
+            rotation=c.pop('forge.rotation')
+            x,y,z=[math.radians(rotation[axis])/2 for axis in ('x','y','z')]
+            cx,sx,cy,sy,cz,sz=math.cos(x),math.sin(x),math.cos(y),math.sin(y),math.cos(z),math.sin(z)
+            c['forge.local_rotation']=dict(x=sx*cy*cz-cx*sy*sz,y=cx*sy*cz+sx*cy*sz,z=cx*cy*sz-sx*sy*cz,w=cx*cy*cz+sx*sy*sz)
     assert equivalent(expected, migrated)
     assert request('snapshot')['scene']==loaded['scene']
     assert request('load_module', path=module)['ok']
     stepped = request('step', seconds=0.1)
-    assert stepped['ok'] and stepped['effective_scene']['version'] == 2
+    assert stepped['ok'] and stepped['effective_scene']['version'] == 3
     assert not request('step', seconds=-1)['ok']
     assert request('ping')['ok']
     assert request('quit')['ok']

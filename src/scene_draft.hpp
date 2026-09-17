@@ -12,7 +12,8 @@ class SceneDraft {
     std::size_t entity_count() const { return document_.at("entities").size(); }
     void edit(const Json& document);
     void rename_entity(const std::string& id, const std::string& name);
-    void reparent_entity(const std::string& id, const std::string& parent);
+    void reparent_entity(const std::string& id, const std::string& parent,
+                         ReparentMode mode = ReparentMode::PreserveWorld);
     std::string duplicate_subtree(const std::string& id);
     void delete_subtree(const std::string& id);
 

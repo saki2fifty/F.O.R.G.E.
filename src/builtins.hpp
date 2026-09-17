@@ -4,7 +4,7 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-using Value = std::variant<Position, Rotation, Scale, Tint, Primitive>;
+using Value = std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive>;
 struct Builtin {
     const char* name;
     const char* description;

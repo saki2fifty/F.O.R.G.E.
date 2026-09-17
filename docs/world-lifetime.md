@@ -19,13 +19,13 @@ Application scope
 
 Objects leave scope in reverse order. Scenes and external world users must leave before the context; callback code and services must outlive it. `Scene` has no default constructor, owns no world, and cannot be copied. `EngineContext` is a narrow application composition root, not a subsystem service locator. `WorldRole` records purpose; it does not implement a scheduler or activate future modules.
 
-`WorldContext` creates its Flecs world and registers the current five component types once. Position retains explicit reflection-member entities and their descriptions. Internal identity, display-name and membership tags are not additional public component schemas. The internal descriptor list supplies codecs, validation limits, defaults and schema policy; field structure for schema discovery comes from Flecs Meta. No public registration SDK is introduced.
+`WorldContext` creates its Flecs world and registers the current five component types once. LocalTranslation retains explicit reflection-member entities and their descriptions. Internal identity, display-name and membership tags are not additional public component schemas. The internal descriptor list supplies codecs, validation limits, defaults and schema policy; field structure for schema discovery comes from Flecs Meta. No public registration SDK is introduced.
 
 ## Scene content and live authority
 
 `Scene(WorldContext&)` allocates a scene-membership root. Each authored entity has a `SceneMember` relationship to that root. Membership and persistent-ID lookup are world-owned and scoped per loaded scene. Legacy aliases resolve within their scene; repeated loaded copies of one asset require explicit membership scope. Closing a Scene deletes that membership's content, including generated descendants, while registrations and other memberships survive. This is an ownership primitive, not an additive-scene editor feature.
 
-Flecs owns the supported Position, Rotation, Scale, Tint and Primitive values; display names; structural ChildOf/IsA links; and prefab state. A small authored-prefab marker distinguishes explicit v1 prefab declarations from the Prefab tag Flecs implicitly gives children. It prevents ordinary edits from inserting implicit declarations into existing files.
+Flecs owns the supported LocalTranslation, LocalRotation, LocalScale, Tint and Primitive values; display names; structural ChildOf/IsA links; and prefab state. A small authored-prefab marker distinguishes explicit v1 prefab declarations from the Prefab tag Flecs implicitly gives children. It prevents ordinary edits from inserting implicit declarations into existing files.
 
 The Scene retains envelope/row metadata and unknown fragments, with supported component fields and live names/relations removed. `document()` merges owned live values into those fragments; `effective_document()` reads inherited values from Flecs. Unknown fields on inherited components are obtained from the owner selected by Flecs, not a JSON ancestry walk. Explicit component removal removes that component from serialization rather than resurrecting stale values. `SceneDocument` still owns disk baselines, paths, writer leases, dirty/recovery state and file generations; its source location remains temporarily unchanged.
 
@@ -47,7 +47,7 @@ Flecs deferral is not rollback. The supported authoring boundary is single-threa
 
 Normal Inspector, API, diagnostics and render reads use `Scene::effective_document()`. The JSON inheritance helper was removed from `geometry.hpp`. A private five-type inheritance projection remains only for detached batch intent and transient gesture previews: a pending base edit must affect a later command/preview before any live mutation. It is not stored as live state, used for normal reads, or published as a general prefab API.
 
-Existing ChildOf prefab interiors still use Flecs instantiation. When a source prefab or its subtree changes, affected generated interiors are reconciled through Flecs while authored handles survive. Existing Prefab/IsA override semantics remain; v1 input migrates identity into scene-v2. Parent storage, TreeSpawner assets, stable member IDs and new prefab workflows are not introduced.
+Existing ChildOf prefab interiors still use Flecs instantiation. When a source prefab or its subtree changes, affected generated interiors are reconciled through Flecs while authored handles survive. Existing Prefab/IsA override semantics remain; v1 input migrates identity and transforms into scene-v3. Parent storage, TreeSpawner assets, stable member IDs and new prefab workflows are not introduced.
 
 Runtime protocol 1 remains caller-stepped. Successful responses retain `scene` as the authored/owned checkpoint and add `effective_scene` as a Flecs-derived presentation snapshot. The editor renders the latter; recovery/reload still uses the former. Commands, step timing, native ABI v1 and process isolation are unchanged. The runtime declares Module before EngineContext, ensuring the world is destroyed before the final DLL unload. The existing bounded stateless v1 replacement rules remain unchanged; this is not general callback-bearing DLL reload.
 
@@ -55,11 +55,15 @@ Runtime protocol 1 remains caller-stepped. Successful responses retain `scene` a
 
 `world_lifetime` exercises surviving world/system/observer/query registrations, stable unaffected handles, restored persistent identity, scoped memberships, invalid/stale batch isolation with a redo branch, all five live codecs, native removals, unknown-field round trips, inherited/owned values and shutdown hooks/contexts. On Linux its test-only linker wrapper counts actual `ecs_init` calls and asserts zero additional worlds during ordinary commands/history; no product instrumentation API is added.
 
-Editor tests check cached inherited reads after native writes. The D3D12 WARP fixtures now consume Flecs-derived effective snapshots through the unchanged production renderer, enabling comparison against the accepted images. Platform execution results are recorded in the dated changelog.
+Editor tests check cached inherited reads after native writes. The D3D12 WARP fixtures now consume Flecs-derived effective snapshots through the production affine renderer, enabling comparison against the accepted images. Platform execution results are recorded in the dated changelog.
 
-Remaining work: UUID/reference migration, asset identity, hierarchical transforms, structured prefab assets, fixed runtime timing, general registration/lifecycle SDKs and specialized authoring domains. SceneDraft/history still use whole-document data; there is no large-scene performance claim.
+Remaining work: structured prefab assets, fixed runtime timing, general registration/lifecycle SDKs and specialized authoring domains. SceneDraft/history still use whole-document data; there is no large-scene performance claim.
 
 
 ## Phase 2 identity integration
 
 World/registration ownership and in-place reconciliation remain unchanged. Scene-v2 embeds the scene AssetId and canonical EntityIds; WorldContext additionally owns membership-scoped typed identity maps. PersistentEntityId is registered once with DontInherit. Legacy v1 inputs normalize before world mutation; file opening retains those assignments through the migration record. Entity strings in UI/API snapshots now carry canonical UUIDs, while explicit legacy aliases remain available. See [identity and assets](identity-assets.md) and [scene migration](scene-format.md).
+
+## Phase 3 transform integration
+
+The persistent context now registers independent local TRS channels plus transient WorldTransform and owned SpatialBinding. The existing observer invalidates derived evaluation; reads evaluate once per changed world epoch. Derived writes do not dirty authored state. Native mutable references require modified notifications and valid component values. Scene-v3 persists local channels/bindings only. Legacy source scenes retain World binding and independent channel inheritance. See [transform ownership](transforms.md).

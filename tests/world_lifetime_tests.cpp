@@ -49,16 +49,17 @@ void lifetime_and_failure() {
     forge::Scene scene(context);
     scene.reset(fixture());
     auto* world = scene.world().c_ptr();
-    const auto position_type = scene.world().id<forge::Position>();
-    const auto member = scene.world().component<forge::Position>().lookup("x").id();
+    const auto position_type = scene.world().id<forge::LocalTranslation>();
+    const auto member = scene.world().component<forge::LocalTranslation>().lookup("x").id();
     const auto untouched = scene.entity("untouched").id();
     unsigned events = 0;
     auto observer = scene.world()
-                        .observer<forge::Position>()
+                        .observer<forge::LocalTranslation>()
                         .event(flecs::OnSet)
-                        .each([&](const forge::Position&) { ++events; });
-    auto query = scene.world().query<const forge::Position>();
-    auto system = scene.world().system<const forge::Position>().each([](const forge::Position&) {});
+                        .each([&](const forge::LocalTranslation&) { ++events; });
+    auto query = scene.world().query<const forge::LocalTranslation>();
+    auto system = scene.world().system<const forge::LocalTranslation>().each(
+        [](const forge::LocalTranslation&) {});
 #ifdef FORGE_WRAP_WORLD_INIT
     const auto created = world_creations;
     require(created == 1, "World creation probe is not observing the context constructor");
@@ -66,8 +67,8 @@ void lifetime_and_failure() {
     auto stable = [&] {
         require(scene.world().c_ptr() == world, "World replaced");
         require(observer.is_alive() && system.is_alive(), "World-lifetime registration lost");
-        require(scene.world().id<forge::Position>() == position_type &&
-                    scene.world().component<forge::Position>().lookup("x").id() == member,
+        require(scene.world().id<forge::LocalTranslation>() == position_type &&
+                    scene.world().component<forge::LocalTranslation>().lookup("x").id() == member,
                 "Schema re-registered");
         require(scene.entity("untouched").id() == untouched, "Unrelated entity handle changed");
         require(query.count() > 0, "External query invalidated");
@@ -153,16 +154,16 @@ void lifetime_and_failure() {
                     observer.is_alive(),
                 "Unloading one scene deleted another or registration");
         other.translate(1, 0, 0);
-        require(other.entity("a").get<forge::Position>().x == 2,
+        require(other.entity("a").get<forge::LocalTranslation>().x == 2,
                 "Scene-local runtime translate failed");
     }
     require(observer.is_alive() && scene.world().c_ptr() == world, "Scene destructor ended world");
     scene.reset(fixture());
     const auto rev_before_native = scene.revision();
     scene.entity("a")
-        .set<forge::Position>({20, 21, 22})
-        .set<forge::Rotation>({30, 31, 32})
-        .set<forge::Scale>({4, 5, 6})
+        .set<forge::LocalTranslation>({20, 21, 22})
+        .set<forge::LocalRotation>(forge::rotation_from_euler({30, 31, 32}))
+        .set<forge::LocalScale>({4, 5, 6})
         .set<forge::Tint>({.1f, .2f, .3f})
         .set<forge::Primitive>({3})
         .set<forge::AuthoredName>({"Native name"})
@@ -172,23 +173,24 @@ void lifetime_and_failure() {
     const auto doc = scene.document();
     const auto& a = by_id(doc, "a");
     require(a.at("name") == "Native name" && a.at("parent") == scene.canonical_id("b") &&
-                a["components"]["forge.position"]["x"] == 20 &&
-                a["components"]["forge.rotation"]["y"] == 31 &&
-                a["components"]["forge.scale"]["z"] == 6 &&
+                a["components"]["forge.local_translation"]["x"] == 20 &&
+                a["components"]["forge.local_rotation"]["y"] ==
+                    scene.entity("a").get<forge::LocalRotation>().y &&
+                a["components"]["forge.local_scale"]["z"] == 6 &&
                 a["components"]["forge.tint"]["r"] == Json(.1f) &&
                 a["components"]["forge.primitive"]["kind"] == 3,
             "Known serialization ignored Flecs writes");
-    require(a["components"]["forge.position"]["future"] ==
+    require(a["components"]["forge.local_translation"]["future"] ==
                 fixture()["entities"][0]["components"]["forge.position"]["future"],
             "Known field merge lost opaque fields");
-    scene.entity("a").remove<forge::Rotation>();
-    require(!by_id(scene.document(), "a")["components"].contains("forge.rotation"),
+    scene.entity("a").remove<forge::LocalRotation>();
+    require(!by_id(scene.document(), "a")["components"].contains("forge.local_rotation"),
             "Removed native component resurrected from JSON");
     const auto view =
         api.handle({{"api", 1}, {"method", "entity.query"}, {"target", api.target()}});
     require(view.at("ok") &&
                 by_id(view.at("result"),
-                      scene.canonical_id("a"))["components"]["forge.position"]["x"] == 20,
+                      scene.canonical_id("a"))["components"]["forge.local_translation"]["x"] == 20,
             "API read ignored native state");
     const auto unknown = by_id(scene.document(), "a");
     const auto duplicated = scene.duplicate_subtree("a");
@@ -221,9 +223,9 @@ void prefabs() {
     scene.reset(doc);
     auto base = scene.entity("a");
     auto instance = scene.entity("b");
-    base.set<forge::Scale>({7, 8, 9});
+    base.set<forge::LocalScale>({7, 8, 9});
     require(by_id(scene.effective_document(), "b")["components"]["forge.scale"]["x"] == 7 &&
-                !by_id(scene.document(), "b")["components"].contains("forge.scale"),
+                !by_id(scene.document(), "b")["components"].contains("forge.local_scale"),
             "Inherited read became an owned save value");
     require(by_id(scene.effective_document(), "b")["components"]["forge.position"]["future"] ==
                 doc["entities"][0]["components"]["forge.position"]["future"],
@@ -238,17 +240,19 @@ void prefabs() {
               {"arguments",
                {{"entity", "b"}, {"component", "forge.scale"}, {"field", "x"}, {"value", 10}}}}}),
         scene.revision());
-    require(instance.get<forge::Scale>().y == 12 && instance.owns<forge::Scale>(),
+    require(instance.get<forge::LocalScale>().y == 12 && instance.owns<forge::LocalScale>(),
             "Batch intent lost pending inherited siblings");
     forge::authoring_command(scene, "component.revert",
                              {{"entity", "b"}, {"component", "forge.scale"}});
-    require(!instance.owns<forge::Scale>() && instance.get<forge::Scale>().x == 7,
+    require(!instance.owns<forge::LocalScale>() && instance.get<forge::LocalScale>().x == 7,
             "Revert failed to reveal live base");
     require(scene.entity("b").id() == instance.id(), "Prefab override replaced instance");
     // Existing ChildOf prefab children remain Flecs-generated runtime content.
     doc = scene.document();
     const auto child_id = forge::EntityId::generate().str();
-    auto child = item(child_id.c_str());
+    auto child = forge::migrate_scene(
+        Json{{"version", 1}, {"entities", Json::array({item("child")})}})["entities"][0];
+    child["id"] = child_id;
     doc["legacy_ids"]["child"] = child_id;
     child["parent"] = scene.canonical_id("a");
     child["prefab"] = true;
