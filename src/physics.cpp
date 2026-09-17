@@ -613,9 +613,11 @@ Json PhysicsRuntime::checkpoint() const {
         throw std::runtime_error("Physics checkpoint requires synchronized content; write body "
                                  "components before Physics");
     for (const auto& [id, b] : s.bodies)
-        if (!desired.contains(id) || desired.at(id).first != b.config)
-            throw std::runtime_error("Physics checkpoint configuration changed after adoption; "
-                                     "defer component edits to Gameplay");
+        if (!desired.contains(id) || desired.at(id).first != b.config ||
+            !equivalent(desired.at(id).second.translation, b.last.translation) ||
+            !equivalent(desired.at(id).second.rotation, b.last.rotation))
+            throw std::runtime_error("Physics checkpoint configuration or pose changed after "
+                                     "adoption; defer component/transform edits to Gameplay");
     JPH::StateRecorderImpl recorder;
     s.system.SaveState(recorder);
     auto bytes = recorder.GetData();

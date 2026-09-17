@@ -37,7 +37,7 @@ Config changes are compared against realized settings at a safe boundary. Compat
 
 ## Queries, commands and contacts
 
-Raycast returns closest hit EntityRef, point, normal and fraction; displacement defines ray length. Results are owning FORGE values and never expose BodyID. Teleport/kinematic commands are bounded to 4096 pending requests and processed at the next pre-physics boundary. PostPhysics commands therefore take effect next tick. Direct physics-component writes belong in Gameplay before synchronization; capture rejects unsynchronized component changes after adoption. Commands preserve world-space target semantics for supported parent transforms.
+Raycast returns closest hit EntityRef, point, normal and fraction; displacement defines ray length. Results are owning FORGE values and never expose BodyID. Teleport/kinematic commands are bounded to 4096 pending requests and processed at the next pre-physics boundary. PostPhysics commands therefore take effect next tick. Direct physics-component writes belong in Gameplay before synchronization; capture rejects unsynchronized component or world-pose changes after adoption, including movement inherited from nonphysics ancestors. Commands preserve world-space target semantics for supported parent transforms.
 
 Static and moving are internal filtering classes. Static/static pairs are excluded; moving bodies interact with static/moving. These Jolt layer numbers are not serialized. Future authored collision layers need their own versioned project contract.
 

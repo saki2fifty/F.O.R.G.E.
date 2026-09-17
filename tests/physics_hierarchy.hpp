@@ -128,6 +128,21 @@ void physics_hierarchy_tests() {
         ancestry_rejected(f, child, f.scene.entity("parent"),
                           [&] { f.physics->synchronize(1.f / 60); });
     }
+    // A completed checkpoint must not mix a post-physics transform edit with old solver state.
+    // Include a visual intermediary: its late movement can move a separate descendant body.
+    for (unsigned motion : {0u, 1u}) {
+        Fixture f;
+        setup_hierarchy(f, motion, true);
+        auto parent = f.scene.entity("parent");
+        parent.remove<PhysicsBody>().remove<BoxCollider>();
+        f.physics->synchronize(0);
+        f.tick();
+        (void)f.physics->checkpoint();
+        f.scene.entity("middle").set<LocalTranslation>({0, 1, 0});
+        reject([&] { (void)f.physics->checkpoint(); });
+        f.tick();
+        (void)f.physics->checkpoint();
+    }
     // Target preflight must preserve both authored values and component ownership on failure.
     for (bool teleport : {false, true}) {
         Fixture f;
