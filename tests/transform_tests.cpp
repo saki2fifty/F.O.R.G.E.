@@ -5,7 +5,9 @@
 #include <iostream>
 #include <stdexcept>
 #ifdef _WIN32
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 using namespace forge;
@@ -22,7 +24,7 @@ template <class F> void rejects(F fn) {
     }
     throw std::runtime_error("Expected rejection");
 }
-void near(double a, double b, double tolerance = 2e-6) {
+void expect_near(double a, double b, double tolerance = 2e-6) {
     if (std::abs(a - b) > tolerance)
         throw std::runtime_error("Numeric mismatch: " + std::to_string(a) + " vs " +
                                  std::to_string(b));
@@ -39,9 +41,9 @@ AffineTransform world(const Scene& s, const std::string& id) {
     check(e.at("spatial_resolved"), "Unresolved transform");
     return {e.at("world_affine").get<std::array<double, 12>>()};
 }
-void near(AffineTransform a, AffineTransform b, double tolerance = 2e-6) {
+void expect_near(AffineTransform a, AffineTransform b, double tolerance = 2e-6) {
     for (unsigned i = 0; i < 12; ++i)
-        near(a.m[i], b.m[i], tolerance);
+        expect_near(a.m[i], b.m[i], tolerance);
 }
 std::string create(Scene& s, double x) {
     return authoring_command(s, "entity.create", {{"position", xyz(x)}}).at("selected");
@@ -88,13 +90,13 @@ void math() {
         auto m = affine_transform({{}, q, {}});
         for (unsigned i = 0; i < 3; ++i)
             for (unsigned j = 0; j < 3; ++j)
-                near(m.m[4 * j + i], old.axes[i][j], 4e-7);
-        near(affine_transform({{}, rotation_from_euler(rotation_to_euler(q)), {}}), m, 5e-7);
+                expect_near(m.m[4 * j + i], old.axes[i][j], 4e-7);
+        expect_near(affine_transform({{}, rotation_from_euler(rotation_to_euler(q)), {}}), m, 5e-7);
     }
     LocalTransform t{{1e10 + .25, 2, 3}, rotation_from_euler({27, -89, 177}), {2, 3, 4}};
     auto m = affine_transform(t);
-    near(inverse(m) * m, AffineTransform{}, 5e-6);
-    near(affine_transform(decompose(m)), m, 2e-6);
+    expect_near(inverse(m) * m, AffineTransform{}, 5e-6);
+    expect_near(affine_transform(decompose(m)), m, 2e-6);
     auto shear = affine_transform({{}, rotation_from_euler({0, 0, 25}), {2, 3, 1}}) *
                  affine_transform({{}, rotation_from_euler({0, 45, 15}), {}});
     rejects([&] { decompose(shear); });
@@ -107,7 +109,7 @@ void math() {
     for (std::uint64_t i = 1; i <= 20000; ++i)
         deep.emplace(i, TransformNode{{{1, 0, 0}, {}, {}}, i - 1, true});
     auto result = evaluate_transforms(deep);
-    near(result.at(20000).affine.m[3], 20000);
+    expect_near(result.at(20000).affine.m[3], 20000);
     deep.at(1).parent = 20000;
     rejects([&] { evaluate_transforms(deep); });
 }
@@ -127,12 +129,12 @@ void migration_and_inheritance() {
     check(doc["entities"][0]["components"]["forge.local_rotation"]["legacy_euler_fields"]
              ["unknown"] == "retain",
           "Rotation opaque fields lost");
-    near(world(s, "child").m[3], 105);
+    expect_near(world(s, "child").m[3], 105);
     s.entity("parent").set<LocalTranslation>({200, 0, 0});
-    near(world(s, "child").m[3], 105);
+    expect_near(world(s, "child").m[3], 105);
     b.set<LocalScale>({5, 6, 7});
     b.set<LocalRotation>(rotation_from_euler({10, 20, 30}));
-    near(i.get<LocalScale>().x, 5);
+    expect_near(i.get<LocalScale>().x, 5);
     check(equivalent(i.get<LocalRotation>(), b.get<LocalRotation>()),
           "Prefab rotation update lost");
     auto view = s.effective_document();
@@ -179,21 +181,21 @@ void hierarchy() {
     auto p = create(s, 10), c = create(s, 15), other = create(s, 99);
     auto handle = s.entity(c).id();
     s.reparent_entity(c, p);
-    near(s.entity(c).get<LocalTranslation>().x, 5);
-    near(world(s, c).m[3], 15);
+    expect_near(s.entity(c).get<LocalTranslation>().x, 5);
+    expect_near(world(s, c).m[3], 15);
     s.entity(p).set<LocalTranslation>({20, 0, 0});
-    near(world(s, c).m[3], 25);
-    near(world(s, other).m[3], 99);
+    expect_near(world(s, c).m[3], 25);
+    expect_near(world(s, other).m[3], 99);
     const auto unchanged = s.entity(other).get<WorldTransform>().revision;
     s.entity(p).set<LocalRotation>(rotation_from_euler({0, 0, 90}));
     auto point = world(s, c).point({0, 0, 0});
-    near(point[0], 20);
-    near(point[1], 5);
+    expect_near(point[0], 20);
+    expect_near(point[1], 5);
     check(s.entity(other).get<WorldTransform>().revision == unchanged,
           "Unrelated derived value rewritten");
     auto before = world(s, c);
     s.reparent_entity(c, "");
-    near(world(s, c), before);
+    expect_near(world(s, c), before);
     check(s.entity(c).id() == handle, "Reparent changed entity handle");
     s.reparent_entity(c, p, ReparentMode::KeepLocal);
     auto local = s.entity(c).get<LocalTranslation>();
@@ -202,7 +204,7 @@ void hierarchy() {
     s.reparent_entity(c, p);
     auto doc = s.document();
     auto copy = s.duplicate_subtree(p);
-    near(world(s, copy), world(s, p));
+    expect_near(world(s, copy), world(s, p));
     check(copy != p, "Duplicate identity reused");
     auto copied = s.document();
     s.undo();
@@ -214,7 +216,7 @@ void hierarchy() {
         {{"entity", other}, {"spatial", {{"mode", "explicit"}, {"target", s.reference(p)}}}});
     auto other_world = world(s, other);
     s.entity(p).set<LocalTranslation>({30, 0, 0});
-    near(world(s, other).m[3], other_world.m[3] + 10);
+    expect_near(world(s, other).m[3], other_world.m[3] + 10);
     const auto saved = s.document();
     rejects([&] {
         authoring_command(
@@ -224,7 +226,7 @@ void hierarchy() {
     check(saved == s.document(), "Spatial cycle partially committed");
     auto retained = world(s, other);
     s.delete_subtree(p);
-    near(world(s, other), retained);
+    expect_near(world(s, other), retained);
     check(s.entity(other).get<SpatialBinding>().mode == SpatialMode::World,
           "Explicit dependent not detached");
     s.undo();
@@ -255,7 +257,7 @@ void compensation() {
     s.entity(p).set<LocalRotation>(rotation_from_euler({0, 0, 45}));
     auto original = world(s, i);
     s.reparent_entity(i, p);
-    near(world(s, i), original, 4e-6);
+    expect_near(world(s, i), original, 4e-6);
     check(instance.owns<LocalRotation>() && instance.owns<LocalScale>(),
           "Necessary compensation overrides missing");
     auto a = create(s, 0), b = create(s, 5);
@@ -269,12 +271,12 @@ void compensation() {
     s.reparent_entity(b, a, ReparentMode::KeepLocal);
     auto shear = world(s, b);
     rejects([&] { s.reparent_entity(b, ""); });
-    near(world(s, b), shear);
+    expect_near(world(s, b), shear);
     s.translate(1, 2, 3);
     auto translated = world(s, b);
-    near(translated.m[3], shear.m[3] + 1);
-    near(translated.m[7], shear.m[7] + 2);
-    near(translated.m[11], shear.m[11] + 3);
+    expect_near(translated.m[3], shear.m[3] + 1);
+    expect_near(translated.m[7], shear.m[7] + 2);
+    expect_near(translated.m[11], shear.m[11] + 3);
 }
 void generated_and_channels() {
     EngineContext engine;
@@ -282,7 +284,7 @@ void generated_and_channels() {
     auto prefab = w.prefab().set<LocalTranslation>({10, 0, 0});
     auto child = w.prefab().child_of(prefab).set<LocalTranslation>({2, 0, 0});
     engine.world().evaluate_world_transforms();
-    near(child.get<WorldTransform>().affine.m[3], 12);
+    expect_near(child.get<WorldTransform>().affine.m[3], 12);
     auto instance = w.entity().is_a(prefab).set<LocalTranslation>({20, 0, 0});
     check(!instance.has<WorldTransform>(), "Prototype derived state inherited");
     unsigned children = 0;
@@ -294,7 +296,7 @@ void generated_and_channels() {
     engine.world().evaluate_world_transforms();
     instance.children([&](flecs::entity e) {
         check(e.owns<WorldTransform>(), "Generated child lacks owned derived state");
-        near(e.get<WorldTransform>().affine.m[3], 22);
+        expect_near(e.get<WorldTransform>().affine.m[3], 22);
     });
     Scene scene(engine.world());
     scene.reset(legacy());
@@ -333,9 +335,9 @@ void generated_native_movement() {
     scene.translate(1, 2, 3);
     scene.effective_document();
     const auto after = generated.get<WorldTransform>().affine;
-    near(after.m[3], before.m[3] + 1);
-    near(after.m[7], before.m[7] + 2);
-    near(after.m[11], before.m[11] + 3);
+    expect_near(after.m[3], before.m[3] + 1);
+    expect_near(after.m[7], before.m[7] + 2);
+    expect_near(after.m[11], before.m[11] + 3);
     check(generated.id() == handle && generated.owns<LocalTranslation>(),
           "Generated runtime movement rebuilt child or missed owned translation");
     // Following the moved instance must apply its world displacement only once.
@@ -344,9 +346,9 @@ void generated_native_movement() {
     before = generated.get<WorldTransform>().affine;
     scene.translate(1, 2, 3);
     scene.effective_document();
-    near(generated.get<WorldTransform>().affine.m[3], before.m[3] + 1);
-    near(generated.get<WorldTransform>().affine.m[7], before.m[7] + 2);
-    near(generated.get<WorldTransform>().affine.m[11], before.m[11] + 3);
+    expect_near(generated.get<WorldTransform>().affine.m[3], before.m[3] + 1);
+    expect_near(generated.get<WorldTransform>().affine.m[7], before.m[7] + 2);
+    expect_near(generated.get<WorldTransform>().affine.m[11], before.m[11] + 3);
 }
 void affine_operations() {
     EngineContext engine;
@@ -359,9 +361,9 @@ void affine_operations() {
     const auto rotation = s.entity(c).get<LocalRotation>();
     const auto scale = s.entity(c).get<LocalScale>();
     authoring_command(s, "transform.world_translation", {{"entity", c}, {"value", xyz(7, 8, 9)}});
-    near(world(s, c).m[3], 7);
-    near(world(s, c).m[7], 8);
-    near(world(s, c).m[11], 9);
+    expect_near(world(s, c).m[3], 7);
+    expect_near(world(s, c).m[7], 8);
+    expect_near(world(s, c).m[11], 9);
     check(s.entity(c).get<LocalRotation>() == rotation && s.entity(c).get<LocalScale>() == scale,
           "World move changed other local channels");
     const auto view = row(s.effective_document(), c);
@@ -369,7 +371,7 @@ void affine_operations() {
     const auto point = geometry.point({.2f, .3f, .4f});
     const auto expected = world(s, c).point({.2, .3, .4});
     for (unsigned a = 0; a < 3; ++a)
-        near(point[a], expected[a], 2e-6);
+        expect_near(point[a], expected[a], 2e-6);
     rejects([&] { ObjectTransform invalid(row(s.document(), c)); });
     auto doc = s.document();
     for (auto& e : doc["entities"])
@@ -478,7 +480,7 @@ void files_and_scope() {
           "Disk migration materialized inherited channels");
     scene.reset(empty_scene());
     scene.load(path);
-    near(world(scene, "instance"), expected);
+    expect_near(world(scene, "instance"), expected);
     const auto p = create(scene, 7), c = create(scene, 9);
     authoring_command(
         scene, "transform.binding",
@@ -493,13 +495,13 @@ void files_and_scope() {
     Scene loaded(engine.world());
     loaded.reset(saved);
     scene.entity(p).set<LocalTranslation>({17, 0, 0});
-    near(world(scene, c).m[3], 19);
-    near(world(loaded, c).m[3], 9);
+    expect_near(world(scene, c).m[3], 19);
+    expect_near(world(loaded, c).m[3], 9);
     auto before = loaded.document();
     rejects([&] { loaded.reparent_entity(p, c); });
     check(loaded.document() == before, "Mixed FollowStructure/Explicit cycle accepted");
     scene.reset(empty_scene());
-    near(world(loaded, c).m[3], 9);
+    expect_near(world(loaded, c).m[3], 9);
     check(!engine.world().world().lookup("forge.local_transform"),
           "Combined LocalTransform registered as authority");
 }
