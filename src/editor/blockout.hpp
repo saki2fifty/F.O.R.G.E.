@@ -151,6 +151,7 @@ class BlockoutProperties {
             const char* space_label = mode == "world"      ? "World"
                                       : mode == "explicit" ? "Explicit attachment"
                                                            : "Follow parent";
+            ImGui::BeginDisabled(entity.contains("prefab_member"));
             if (ImGui::BeginCombo("Space", space_label)) {
                 for (auto choice : {"follow_structure", "world"}) {
                     if (ImGui::Selectable(std::string(choice) == "world" ? "World"
@@ -198,6 +199,7 @@ class BlockoutProperties {
                     bind(
                         {{"entity", id}, {"mode", "keep_local"}, {"spatial", {{"mode", "world"}}}});
             }
+            ImGui::EndDisabled();
             vector_control(scene, id, "forge.position");
             vector_control(scene, id, "forge.rotation");
             vector_control(scene, id, "forge.scale");

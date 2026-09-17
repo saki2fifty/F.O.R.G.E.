@@ -10,6 +10,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 - [Scenes](editor/scenes.md): create and switch scene files.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
 - [Content browser](editor/content-browser.md): find and open project scene files.
+- [Prefabs](editor/prefabs.md): create reusable groups, edit sources, override and revert instance values.
 - [Primitives and color](editor/primitives.md): create built-in shapes and give them a tint.
 - [Transforms](editor/transforms.md): rotate, scale, copy, paste, and reset objects.
 - [Inspector](editor/inspector.md): edit the selected entity's properties.

@@ -62,10 +62,17 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
-    void draw(EditorFiles& files, bool* open = nullptr) {
+    void draw(EditorFiles& files, bool* open = nullptr,
+              const std::function<void()>& prefab_controls = {}) {
         if (!ImGui::Begin("Content", open)) {
             ImGui::End();
             return;
+        }
+        if (prefab_controls) {
+            const bool show = ImGui::CollapsingHeader("Prefab assets");
+            ui::help("Create, edit and instantiate reusable prefab assets.");
+            if (show)
+                prefab_controls();
         }
         ui::heading("Project scenes",
                     "Browse recognized scene documents within the current project. "

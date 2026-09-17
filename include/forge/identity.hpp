@@ -31,8 +31,15 @@ template <class Tag> class PersistentId {
 };
 struct EntityIdTag;
 struct AssetIdTag;
+struct PrefabMemberIdTag;
 using EntityId = PersistentId<EntityIdTag>;
 using AssetId = PersistentId<AssetIdTag>;
+using PrefabMemberId = PersistentId<PrefabMemberIdTag>;
+struct PrefabMemberRef {
+    AssetId prefab;
+    PrefabMemberId member;
+    auto operator<=>(const PrefabMemberRef&) const = default;
+};
 struct PersistentEntityId {
     EntityId value;
 };
@@ -56,6 +63,12 @@ template <class Tag> void to_json(nlohmann::json& j, const PersistentId<Tag>& id
 }
 template <class Tag> void from_json(const nlohmann::json& j, PersistentId<Tag>& id) {
     id = PersistentId<Tag>::parse(j.get<std::string>());
+}
+inline void to_json(nlohmann::json& j, const PrefabMemberRef& ref) {
+    j = {{"prefab", ref.prefab}, {"member", ref.member}};
+}
+inline void from_json(const nlohmann::json& j, PrefabMemberRef& ref) {
+    ref = {j.at("prefab").get<AssetId>(), j.at("member").get<PrefabMemberId>()};
 }
 inline void to_json(nlohmann::json& j, const EntityRef& ref) {
     j = {{"scene", ref.scene}, {"entity", ref.entity}};

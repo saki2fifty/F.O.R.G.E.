@@ -121,3 +121,15 @@ Clean [Windows run 35182526241](https://github.com/saki2fifty/F.O.R.G.E./actions
 All **28** accepted Build31 viewport images are byte-identical. Final local editor rebuild succeeded before **2/2** tests passed (14.44s); updated Windows-target syntax, Linux core11/11, sanitizer6/6 plus pipe1/1, manual3/3, formatting and workflow lint passed. ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executables and23 matching manual source/HTML pages were verified. ZIP SHA256: `34cfbf8898186b052b7ece22d2de2e16b636b1592123c9da2c893be597c51c27`.
 
 Build31 was archived. Package cleanup leaves only the current numbered ZIP and executable folder; cleanup dry run is empty. Builds32–34 were superseded/failed and never delivered. Phase4 implementation and automated validation are complete. Interactive Windows desktop acceptance remains for the user. No Phase5, structured prefabs, physics, animation or dependency changes are included.
+
+
+## Phase 5 — structured prefab implementation (validation in progress)
+
+- Added independent AssetId-backed prefab schema 1, UUIDv4 member identities and scene4 stable instance-member mappings. Ordinary scenes/legacy ChildOf prefabs keep their existing behavior.
+- Immutable Flecs Prefab/IsA revisions use Parent interiors; dynamic attachments remain ChildOf. Candidate hierarchies are prepared before single-file publication, with explicit retirement of old templates.
+- Explicit component/scalar override intent includes equal-value edits; independent local TRS channels and scene-owned Revert/Undo/Redo are preserved. Source publication affecting this scene establishes a clearly documented scene-history boundary.
+- UI-independent source create/duplicate/publish, instance creation/duplication, bounded project discovery, stable references, missing/removed-member diagnostics and transient runtime dependency snapshots. Content and Inspector provide the corresponding prefab controls and source window.
+- Added dedicated prefab regression coverage and isolated-runtime snapshot/native-tick checks. Expanded function-based manual and technical schema/lifetime/publication docs. Local and actual Windows validation results will be recorded after execution; no delivery claimed yet.
+- Apply to Prefab is deliberately deferred, with no UI/API workflow. Nested/structural overrides, Unpack and Phase6 remain out of scope. No dependency pins changed.
+
+- Final local validation: core **12/12** (11.13s), rebuilt editor/UI/recovery/native **2/2** (14.23s), ASan/UBSan/LSan **8/8** (21.76s), Windows-target syntax for editor/core/UI/render tests, manual **3/3**, formatting, workflow lint and diff whitespace checks passed. Source history name Revert, nested/legacy selection rejection, stable duplicate-name UI IDs, and missing-parent agreement between live transforms and detached previews are included. Actual Windows/WARP and ZIP verification remain pending.

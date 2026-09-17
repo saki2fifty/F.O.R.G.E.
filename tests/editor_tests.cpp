@@ -8,6 +8,7 @@
 #include "help.hpp"
 #include "interaction_tests.hpp"
 #include "play.hpp"
+#include "prefab_editor_tests.hpp"
 #include "scene_cache_tests.hpp"
 #include "sdl_input_tests.hpp"
 #include "status_bar.hpp"
@@ -303,6 +304,7 @@ int main(int argc, char** argv) {
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
         test_documents();
+        test_prefab_editor_documents();
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_automation_workspace(scale);
         test_authoring();

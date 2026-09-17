@@ -1,8 +1,10 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
+#include <forge/prefab.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/world.hpp>
+#include <functional>
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -31,6 +33,15 @@ class Scene {
     void reset(const Json& document);
     std::size_t entity_count() const;
     Json schema() const;
+    const PrefabSources& prefab_sources() const { return prefab_sources_; }
+    void set_prefab_sources(const PrefabSources& sources);
+    // Owner-thread, single-asset publication. Durable write runs only after the
+    // replacement hierarchy has been realized and validated. A throwing writer
+    // leaves live instances, revision and history untouched.
+    void publish_prefab_sources(const PrefabSources& sources,
+                                const std::function<void()>& durable_write);
+    Json snapshot() const;
+    void restore_snapshot(const Json& snapshot);
     void replace(const Json& document);
     void save(const std::filesystem::path& path) const;
     void load(const std::filesystem::path& path);
@@ -54,7 +65,11 @@ class Scene {
     Json opaque_;
     Json serialize(bool effective) const;
     void committed();
+    void replace_prefab_sources(const PrefabSources&, const Json&, const std::function<void()>&,
+                                bool);
     std::vector<Json> undo_, redo_;
+    PrefabSources prefab_sources_;
+    PrefabTemplates prefab_templates_;
 };
 void atomic_write(const std::filesystem::path& path, const std::string& contents);
 } // namespace forge

@@ -11,6 +11,8 @@ class SceneDraft {
     Json effective_document() const;
     std::size_t entity_count() const { return document_.at("entities").size(); }
     void edit(const Json& document);
+    std::string instantiate_prefab(AssetId asset);
+    void revert_prefab_name(const std::string& id);
     void rename_entity(const std::string& id, const std::string& name);
     void reparent_entity(const std::string& id, const std::string& parent,
                          ReparentMode mode = ReparentMode::PreserveWorld);
@@ -19,5 +21,6 @@ class SceneDraft {
 
   private:
     Json document_, schema_;
+    PrefabSources prefabs_;
 };
 } // namespace forge::detail

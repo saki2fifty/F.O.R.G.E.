@@ -50,3 +50,7 @@ The first Save validates v3, atomically publishes an exact-byte `.v1.backup` or 
 Ordinary Save, rename, transforms and reparent retain identity. Subtree duplication creates new EntityIds and remaps known internal parent/base/spatial targets. Whole-scene duplication creates a new AssetId and fresh EntityIds, remaps known internal EntityRefs and legacy aliases, and preserves opaque payloads. Save As to a distinct filename for a persisted scene uses this new-asset operation. OS copying retains identity.
 
 Undo/redo patches authored channels and bindings inside the long-lived Flecs world. Derived matrices are recomputed, never stored as history authority. Invalid candidate graphs or unrepresentable world-to-local operations leave state and history unchanged. See [world ownership](world-lifetime.md) and [identity and assets](identity-assets.md).
+
+## Scene 4 structured instances
+
+Scenes containing first-class prefab instances use version 4, with stable instance-member maps and explicit override intent. Ordinary new scenes remain version 3; legacy versions retain their prior migration/compatibility behavior. See [Prefab architecture](prefabs.md) for the independent prefab schema, member provenance, missing states and runtime snapshot envelope.

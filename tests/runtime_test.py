@@ -136,3 +136,35 @@ try:
 finally:
     if p.poll() is None:p.kill();p.wait()
 print('Nonblocking parent/runtime pipe framing and large-message progress passed')
+
+# Structured definitions travel with the isolated runtime checkpoint, without
+# resolving editor paths or flattening inherited state into authored rows.
+import uuid
+uid=lambda:str(uuid.uuid4())
+asset,scene_asset,root_member,child_member,root_entity=([uid() for _ in range(5)])
+components={'forge.local_translation':dict(x=0,y=1,z=0)}
+prefab=dict(format='forge.prefab',version=1,asset_id=asset,revision=1,root=root_member,
+    members=[dict(id=root_member,name='Root',components=components),
+             dict(id=child_member,name='Child',parent=root_member,components=components)])
+structured=dict(version=4,asset_id=scene_asset,entities=[dict(id=root_entity,name='Instance',components={},
+    prefab_instance=dict(asset=asset,revision=1,members={root_member:root_entity}))],_prefab_sources=[prefab])
+p=subprocess.Popen([runtime],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+sequence=0
+try:
+    assert request('hello')['ok']
+    loaded=request('replace',scene=structured);assert loaded['ok'],loaded
+    checkpoint=loaded['scene'];mapping=checkpoint['entities'][0]['prefab_instance']['members']
+    assert len(mapping)==2 and mapping[root_member]==root_entity
+    child=next(e for e in loaded['effective_scene']['entities'] if e['id']==mapping[child_member])
+    assert child['world_affine'][7]==2
+    assert child['spatial_resolved']
+    assert all(not e['components'] for e in checkpoint['entities'])
+    assert request('replace',scene=checkpoint)['scene']==checkpoint
+    assert request('load_module',path=module)['ok']
+    step=request('step');assert step['ok'] and step['activation']['state']=='active'
+    assert step['scene']['_prefab_sources']==[prefab]
+    assert next(e for e in step['scene']['entities'] if e['id']==root_entity)['prefab_instance']['members']==mapping
+    assert request('quit')['ok'];assert p.wait(timeout=5)==0
+finally:
+    if p.poll() is None:p.kill();p.wait()
+print('Structured prefab isolated runtime realization, checkpoint and native fixed-tick preservation passed')

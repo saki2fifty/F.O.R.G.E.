@@ -11,10 +11,17 @@ class AuthoringSnapshot {
             auto next = scene.document();
             document_ = std::move(next);
             effective_.reset();
+            snapshot_.reset();
             owner_ = &scene;
             revision_ = scene.revision();
         }
         return document_;
+    }
+    const Json& snapshot(const Scene& scene) {
+        document(scene);
+        if (!snapshot_)
+            snapshot_ = scene.snapshot();
+        return *snapshot_;
     }
     const Json& effective(const Scene& scene) {
         document(scene);
@@ -27,7 +34,7 @@ class AuthoringSnapshot {
     const Scene* owner_ = nullptr;
     std::uint64_t revision_ = 0;
     Json document_;
-    std::optional<Json> effective_;
+    std::optional<Json> effective_, snapshot_;
 };
 // Rebuild on source changes, every live preview, and once when a preview ends.
 // Build callbacks are lazy: unchanged frames do no JSON copies or prefab resolution.

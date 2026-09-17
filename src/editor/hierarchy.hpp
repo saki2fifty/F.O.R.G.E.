@@ -44,8 +44,12 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
                 flags |= ImGuiTreeNodeFlags_Leaf;
             if (!filter.empty() || expand != 0)
                 ImGui::SetNextItemOpen(!filter.empty() || expand > 0, ImGuiCond_Always);
-            const bool open = ImGui::TreeNodeEx(
-                id.c_str(), flags, "%s", e->at("name").get_ref<const std::string&>().c_str());
+            const bool open = ImGui::TreeNodeEx(id.c_str(), flags, "%s%s",
+                                                e->at("name").get_ref<const std::string&>().c_str(),
+                                                e->value("missing_member", false) ? " [missing]"
+                                                : e->contains("prefab_instance")  ? " [prefab]"
+                                                : e->contains("prefab_member")    ? " [member]"
+                                                                                  : "");
             if (ImGui::IsItemClicked())
                 selected = id;
             help("Select this authored entity. Expand the arrow to see its children.");

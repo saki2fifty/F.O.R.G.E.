@@ -18,9 +18,10 @@ namespace forge {
 namespace {
 void validate(const Json& doc) {
     if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
-        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3) ||
+        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3 &&
+         doc.at("version") != 4) ||
         !doc.contains("entities") || !doc.at("entities").is_array())
-        throw std::runtime_error("Expected scene version 1, 2 or 3 and an entities array");
+        throw std::runtime_error("Expected scene version 1, 2, 3 or 4 and an entities array");
     if (doc.at("version") != 1) {
         (void)doc.at("asset_id").get<AssetId>();
         if (doc.contains("legacy_ids")) {
@@ -33,6 +34,7 @@ void validate(const Json& doc) {
             }
         }
     }
+    validate_prefab_instances(doc);
     std::map<std::string, const Json*> entities;
     for (const auto& e : doc.at("entities")) {
         const auto id = e.at("id").get<std::string>();
@@ -44,7 +46,7 @@ void validate(const Json& doc) {
             throw std::runtime_error("Invalid entity name/components");
         if (e.contains("prefab") && !e.at("prefab").is_boolean())
             throw std::runtime_error("Invalid prefab flag");
-        if (doc.at("version") == 3)
+        if (doc.at("version") >= 3)
             detail::validate_components(e.at("components"));
         else {
             const auto& c = e.at("components");
@@ -99,6 +101,17 @@ void validate(const Json& doc) {
             visit(id);
         }
     }
+    for (const auto& [id, row] : entities)
+        if (row->contains("prefab_instance")) {
+            auto parent = row->value("parent", std::string{});
+            while (!parent.empty()) {
+                const auto& ancestor = *entities.at(parent);
+                if (ancestor.value("prefab", false))
+                    throw std::runtime_error(
+                        "Structured instances inside legacy prefab definitions are unsupported");
+                parent = ancestor.value("parent", std::string{});
+            }
+        }
     // Prefab expansion follows base links and then child links. Validate their
     // combined graph before Flecs can attempt recursive child instantiation.
     std::map<std::string, std::vector<std::string>> expansion;
@@ -124,7 +137,7 @@ void validate(const Json& doc) {
         (void)e;
         visit(id);
     }
-    if (doc.at("version") == 3)
+    if (doc.at("version") >= 3)
         detail::validate_spatial(doc);
 }
 Json& find_entity(Json& doc, const std::string& id) {
@@ -186,7 +199,7 @@ std::size_t Scene::entity_count() const {
 }
 void Scene::replace(const Json& source) {
     validate(source);
-    const auto doc = source.at("version") != 3 ? migrate_scene(source, &opaque_) : source;
+    const auto doc = source.at("version") < 3 ? migrate_scene(source, &opaque_) : source;
     struct Intended {
         std::string id, name, parent, base;
         bool prefab;
@@ -195,9 +208,56 @@ void Scene::replace(const Json& source) {
     };
     // All parsing/type conversion/opaque copies happen before the first world write.
     auto opaque = doc;
+    auto reconciled = reconcile_prefab_intent(doc, prefab_sources_);
+    if (reconciled.at("entities").size() != doc.at("entities").size())
+        throw std::runtime_error(
+            "Instance member rows cannot be removed independently; edit the prefab source");
+    for (const auto& item : doc.at("entities"))
+        if (item.contains("prefab_member")) {
+            const auto& expected = find_entity(reconciled, item.at("id"));
+            for (auto key : {"name", "parent", "spatial", "missing_member"})
+                if (item.value(key, Json()) != expected.value(key, Json()))
+                    throw std::runtime_error(
+                        "Edit structured member names/hierarchy/bindings in the prefab source");
+        }
+    const auto projected = project_prefab_intent(doc, prefab_sources_);
+    detail::validate_spatial(projected);
+    std::map<std::string, flecs::entity> structured_bases;
+    std::set<std::string> inactive_members;
+    for (const auto& item : doc.at("entities")) {
+        const Json* root = nullptr;
+        std::string member;
+        if (item.contains("prefab_instance"))
+            root = &item;
+        else if (item.contains("prefab_member")) {
+            for (const auto& r : doc.at("entities"))
+                if (r.at("id") == item.at("prefab_member").at("root"))
+                    root = &r;
+            member = item.at("prefab_member").at("member");
+        }
+        if (!root)
+            continue;
+        const auto asset = root->at("prefab_instance").at("asset").get<AssetId>();
+        if (!prefab_templates_.contains(asset) || item.value("missing_member", false)) {
+            if (item.contains("prefab_member"))
+                inactive_members.insert(item.at("id"));
+            continue;
+        }
+        const auto& compiled = *prefab_templates_.at(asset);
+        if (member.empty())
+            member = compiled.document.root().str();
+        auto found = compiled.members().find(PrefabMemberId::parse(member));
+        if (found == compiled.members().end()) {
+            inactive_members.insert(item.at("id"));
+            continue;
+        }
+        structured_bases.emplace(item.at("id"), found->second);
+    }
     std::vector<Intended> intended;
     std::set<std::string> retained;
     for (auto& item : opaque["entities"]) {
+        if (inactive_members.contains(item.at("id")))
+            continue;
         Intended next{item.at("id"),
                       item.at("name"),
                       item.value("parent", std::string{}),
@@ -207,11 +267,23 @@ void Scene::replace(const Json& source) {
                       {}};
         retained.insert(next.id);
         auto& components = item["components"];
+        auto materialized = components;
+        if (item.contains("property_overrides")) {
+            for (const auto& projected_row : projected.at("entities"))
+                if (projected_row.at("id") == item.at("id"))
+                    for (const auto& [component, fields] : item.at("property_overrides").items()) {
+                        (void)fields;
+                        if (projected_row.at("components").contains(component))
+                            materialized[component] = projected_row.at("components").at(component);
+                    }
+        }
         for (std::size_t i = 0; i < detail::builtins().size(); ++i) {
             const auto& type = detail::builtins()[i];
+            if (!materialized.contains(type.name))
+                continue;
+            next.values[i] = type.decode(materialized.at(type.name));
             if (!components.contains(type.name))
                 continue;
-            next.values[i] = type.decode(components.at(type.name));
             for (const auto& [field, value] : type.defaults.items()) {
                 (void)value;
                 components[type.name].erase(field);
@@ -220,7 +292,8 @@ void Scene::replace(const Json& source) {
                 components.erase(type.name);
         }
         item.erase("name");
-        item.erase("parent");
+        if (!inactive_members.contains(next.parent))
+            item.erase("parent");
         item.erase("base");
         if (item.contains("spatial")) {
             item["spatial"].erase("mode");
@@ -279,10 +352,13 @@ void Scene::replace(const Json& source) {
         if (!e || !e.is_alive())
             continue;
         const auto parent = e.target(flecs::ChildOf);
-        if (parent && parent != entity(next.parent))
+        if (parent && parent != entity(next.parent) &&
+            !new_items.at(next.id)->contains("prefab_member"))
             e.remove(flecs::ChildOf, parent);
         const auto base = e.target(flecs::IsA);
-        if (base && (base != entity(next.base) || refresh.contains(next.id))) {
+        const auto desired_base =
+            structured_bases.contains(next.id) ? structured_bases.at(next.id) : entity(next.base);
+        if (base && (base != desired_base || refresh.contains(next.id))) {
             std::vector<flecs::entity> generated;
             e.children([&](flecs::entity child) {
                 if (!child.target<SceneMember>())
@@ -293,6 +369,29 @@ void Scene::replace(const Json& source) {
             e.remove(flecs::IsA, base);
         }
     }
+    std::set<std::string> rebuild_roots;
+    for (const auto& item : doc.at("entities"))
+        if (item.contains("prefab_instance") && structured_bases.contains(item.at("id"))) {
+            auto e = entity(item.at("id"));
+            if (!e || e.target(flecs::IsA) != structured_bases.at(item.at("id")))
+                rebuild_roots.insert(item.at("id"));
+        }
+    for (const auto& next : intended) {
+        auto e = entity(next.id);
+        if (e && e.is_alive() && !new_items.at(next.id)->contains("prefab_member")) {
+            auto p = e.parent();
+            if (p && p.has<TemplateMember>())
+                e.remove(flecs::ChildOf, p);
+        }
+    }
+    for (const auto& item : previous.at("entities"))
+        if (item.contains("prefab_member") &&
+            rebuild_roots.contains(item.at("prefab_member").at("root"))) {
+            auto e = entity(item.at("id"));
+            if (e && e.is_alive())
+                e.destruct();
+            entities_.erase(item.at("id").get<std::string>());
+        }
     for (auto it = entities_.begin(); it != entities_.end();) {
         if (!retained.contains(it->first)) {
             auto e = world().entity(it->second);
@@ -302,12 +401,40 @@ void Scene::replace(const Json& source) {
         } else
             ++it;
     }
+    for (const auto& root_id : rebuild_roots) {
+        auto e = entity(root_id);
+        if (!e || !e.is_alive()) {
+            e = world().entity().add<SceneMember>(membership_).set<StableId>({root_id});
+            entities_[root_id] = e.id();
+        }
+        e.is_a(structured_bases.at(root_id));
+        const auto& mapping = new_items.at(root_id)->at("prefab_instance").at("members");
+        std::function<void(flecs::entity)> adopt = [&](flecs::entity parent) {
+            parent.children([&](flecs::entity child) {
+                if (!child.has<TemplateMember>())
+                    return;
+                const auto key = child.get<TemplateMember>().id.str();
+                if (!mapping.contains(key))
+                    throw std::runtime_error(
+                        "Compiled prefab member missing from instance mapping");
+                const std::string id = mapping.at(key);
+                child.add<SceneMember>(membership_).set<StableId>({id});
+                entities_[id] = child.id();
+                adopt(child);
+            });
+        };
+        adopt(e);
+    }
     for (const auto& next : intended) {
         auto e = entity(next.id);
         if (!e || !e.is_alive()) {
             e = world().entity().add<SceneMember>(membership_).set<StableId>({next.id});
             entities_[next.id] = e.id();
         }
+        if (inactive_members.contains(next.parent))
+            e.add<MissingStructuralParent>();
+        else
+            e.remove<MissingStructuralParent>();
         if (!e.owns<SpatialBinding>() || e.get<SpatialBinding>() != next.spatial)
             e.set<SpatialBinding>(next.spatial);
         if (!e.owns<AuthoredName>() || e.get<AuthoredName>().value != next.name)
@@ -336,7 +463,8 @@ void Scene::replace(const Json& source) {
     }
     for (const auto& next : intended) {
         auto e = entity(next.id);
-        if (!next.parent.empty() && e.target(flecs::ChildOf) != entity(next.parent))
+        if (!next.parent.empty() && entity(next.parent) &&
+            e.target(flecs::ChildOf) != entity(next.parent))
             e.child_of(entity(next.parent));
     }
     // Build source child/base dependencies first, independent of file row order.
@@ -370,6 +498,193 @@ void Scene::replace(const Json& source) {
     opaque_ = std::move(opaque);
     committed();
 }
+void Scene::set_prefab_sources(const PrefabSources& sources) {
+    publish_prefab_sources(sources, [] {});
+}
+void Scene::publish_prefab_sources(const PrefabSources& sources,
+                                   const std::function<void()>& durable_write) {
+    if (sources == prefab_sources_) {
+        durable_write();
+        return;
+    }
+    replace_prefab_sources(sources, document(), durable_write, false);
+}
+void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& source_document,
+                                   const std::function<void()>& durable_write, bool all) {
+    std::set<AssetId> visiting, done;
+    std::function<void(AssetId)> dependencies = [&](AssetId asset) {
+        if (done.contains(asset))
+            return;
+        if (!visiting.insert(asset).second)
+            throw std::runtime_error("Cyclic prefab dependencies");
+        if (!sources.contains(asset))
+            throw std::runtime_error("Missing prefab dependency: " + asset.str());
+        PrefabDocument::validate(sources.at(asset));
+        for (const auto& dependency : sources.at(asset).value("dependencies", Json::array()))
+            dependencies(dependency.get<AssetId>());
+        visiting.erase(asset);
+        done.insert(asset);
+    };
+    for (const auto& [asset, source] : sources) {
+        (void)source;
+        dependencies(asset);
+    }
+    PrefabTemplates candidate;
+    for (const auto& [asset, source] : sources) {
+        PrefabDocument parsed(source);
+        if (parsed.asset() != asset)
+            throw std::runtime_error("Prefab source AssetId mismatch");
+        const auto old = prefab_templates_.find(asset);
+        if (old != prefab_templates_.end() && old->second->document.source == source)
+            candidate[asset] = old->second;
+        else {
+            if (old != prefab_templates_.end() &&
+                parsed.revision() <= old->second->document.revision())
+                throw std::runtime_error(
+                    "Prefab revisions must advance; an existing revision is immutable");
+            candidate[asset] = std::make_shared<CompiledPrefab>(context_, std::move(parsed));
+        }
+    }
+    const auto before = document();
+    const auto intended = reconcile_prefab_intent(source_document, sources);
+    validate(intended);
+    detail::validate_spatial(project_prefab_intent(intended, sources));
+    // Temporary candidate content in the existing WorldContext. It is never
+    // advanced, presented, notified or exposed as an authored scene. No new world.
+    Scene staged(context_);
+    staged.prefab_templates_ = candidate;
+    staged.prefab_sources_ = sources;
+    staged.replace(intended);
+    (void)staged.effective_document();
+    std::set<std::string> roots, affected;
+    for (const auto& item : intended.at("entities"))
+        if (item.contains("prefab_instance")) {
+            const auto asset = item.at("prefab_instance").at("asset").get<AssetId>();
+            if (prefab_sources_.contains(asset) != sources.contains(asset) ||
+                (prefab_sources_.contains(asset) && sources.contains(asset) &&
+                 prefab_sources_.at(asset) != sources.at(asset)))
+                roots.insert(item.at("id"));
+        }
+    auto collect = [&](const Json& doc) {
+        for (const auto& item : doc.at("entities"))
+            if (all || roots.contains(item.at("id")) ||
+                (item.contains("prefab_member") &&
+                 roots.contains(item.at("prefab_member").at("root"))))
+                affected.insert(item.at("id"));
+    };
+    collect(before);
+    collect(intended);
+    auto next_entities = entities_;
+    for (const auto& id : affected) {
+        next_entities.erase(id);
+        if (staged.entities_.contains(id))
+            next_entities[id] = staged.entities_.at(id);
+    }
+    std::map<EntityId, flecs::entity_t> next_persistent;
+    for (const auto& [id, handle] : next_entities)
+        next_persistent.emplace(EntityId::parse(id), handle);
+    // Allocate/resolve every commit action before publishing bytes. There are no
+    // user-supplied writers, parsing or container growth in the handoff. Flecs
+    // lifecycle hooks remain trusted native code, as elsewhere in the host.
+    std::vector<flecs::entity> detach, retire, adopt;
+    std::vector<std::pair<flecs::entity, bool>> availability;
+    std::vector<std::pair<flecs::entity, flecs::entity>> attach;
+    for (const auto& [id, handle] : entities_) {
+        auto e = world().entity(handle);
+        if (affected.contains(id))
+            retire.push_back(e);
+        else if (e.parent() && e.parent().owns<StableId>() &&
+                 affected.contains(e.parent().get<StableId>().value))
+            detach.push_back(e);
+    }
+    for (const auto& id : affected)
+        if (next_entities.contains(id))
+            adopt.push_back(world().entity(next_entities.at(id)));
+    for (const auto& item : intended.at("entities")) {
+        const std::string id = item.at("id"), parent = item.value("parent", "");
+        if (item.contains("prefab_member") || !next_entities.contains(id))
+            continue;
+        auto e = world().entity(next_entities.at(id));
+        auto p = world().entity(next_entities.contains(parent) ? next_entities.at(parent) : 0);
+        if (e.parent() != p)
+            attach.emplace_back(e, p);
+        availability.emplace_back(e, !parent.empty() && !p);
+    }
+    const auto next_asset = intended.at("asset_id").get<AssetId>();
+    auto next_sources = sources;
+    auto next_opaque = staged.opaque_;
+    durable_write(); // A failed atomic replacement discards candidates only.
+    for (auto e : detach)
+        e.remove(flecs::ChildOf, flecs::Wildcard);
+    for (auto e : adopt)
+        e.add<SceneMember>(membership_);
+    for (auto [e, p] : attach) {
+        e.remove(flecs::ChildOf, flecs::Wildcard);
+        if (p)
+            e.child_of(p);
+    }
+    for (auto [e, missing] : availability) {
+        if (missing)
+            e.add<MissingStructuralParent>();
+        else
+            e.remove<MissingStructuralParent>();
+    }
+    for (auto e : retire)
+        if (e.is_alive())
+            e.destruct();
+    for (const auto& id : affected)
+        staged.entities_.erase(id);
+    entities_.swap(next_entities);
+    context_.content_.at(membership_).persistent.swap(next_persistent);
+    context_.content_.at(membership_).asset = next_asset;
+    opaque_.swap(next_opaque);
+    prefab_sources_.swap(next_sources);
+    prefab_templates_.swap(candidate);
+    if (!affected.empty()) {
+        undo_.clear();
+        redo_.clear();
+    }
+    committed();
+}
+Json Scene::snapshot() const {
+    auto result = document();
+    std::set<AssetId> referenced;
+    for (const auto& item : result.at("entities"))
+        if (item.contains("prefab_instance"))
+            referenced.insert(item.at("prefab_instance").at("asset").get<AssetId>());
+    std::function<void(AssetId)> append = [&](AssetId id) {
+        if (!prefab_sources_.contains(id))
+            return;
+        const auto& source = prefab_sources_.at(id);
+        if (!result.contains("_prefab_sources"))
+            result["_prefab_sources"] = Json::array();
+        result["_prefab_sources"].push_back(source);
+        for (const auto& dependency : source.value("dependencies", Json::array())) {
+            const auto target = dependency.get<AssetId>();
+            if (referenced.insert(target).second)
+                append(target);
+        }
+    };
+    const auto initial = referenced;
+    for (auto id : initial)
+        append(id);
+    return result;
+}
+void Scene::restore_snapshot(const Json& source) {
+    auto doc = source;
+    PrefabSources definitions;
+    for (const auto& item : doc.value("_prefab_sources", Json::array())) {
+        PrefabDocument parsed(item);
+        if (!definitions.emplace(parsed.asset(), item).second)
+            throw std::runtime_error("Duplicate prefab dependency");
+    }
+    doc.erase("_prefab_sources");
+    validate(doc);
+    if (definitions == prefab_sources_)
+        replace(reconcile_prefab_intent(doc, definitions));
+    else
+        replace_prefab_sources(definitions, doc, [] {}, true);
+}
 void Scene::reset(const Json& doc) {
     replace(doc);
     undo_.clear();
@@ -385,8 +700,13 @@ Json Scene::serialize(bool effective) const {
         fragments[item.at("id")] = &item;
     for (auto item : doc.at("entities")) {
         auto e = entity(item.at("id"));
-        if (!e || !e.is_alive())
+        if (!e || !e.is_alive()) {
+            if (item.contains("prefab_member")) {
+                item["missing_member"] = true;
+                output.push_back(std::move(item));
+            }
             continue;
+        }
         item["name"] = e.get<AuthoredName>().value;
         const auto binding = e.has<SpatialBinding>() ? e.get<SpatialBinding>() : SpatialBinding{};
         if (item.contains("spatial") || binding.mode != SpatialMode::FollowStructure)
@@ -421,6 +741,14 @@ Json Scene::serialize(bool effective) const {
                             fragment->second->at("components").at(type.name);
                 }
             }
+            if (!effective &&
+                item.value("property_overrides", Json::object()).contains(type.name)) {
+                auto& fields = item["property_overrides"][type.name];
+                for (auto& [field, v] : fields.items())
+                    if (value.contains(field))
+                        v = value.at(field);
+                continue;
+            }
             auto& data = item["components"][type.name];
             if (!data.is_object())
                 data = Json::object();
@@ -446,7 +774,7 @@ Json Scene::document() const { return serialize(false); }
 Json Scene::effective_document() const { return serialize(true); }
 Json Scene::schema() const { return context_.schema(); }
 detail::SceneDraft::SceneDraft(const Scene& source)
-    : document_(source.document()), schema_(source.schema()) {}
+    : document_(source.document()), schema_(source.schema()), prefabs_(source.prefab_sources()) {}
 void detail::SceneDraft::edit(const Json& document) {
     Scene::validate_document(document);
     auto normalized = document;
@@ -465,10 +793,39 @@ void detail::SceneDraft::edit(const Json& document) {
         }
     document_ = std::move(normalized);
 }
+std::string detail::SceneDraft::instantiate_prefab(AssetId asset) {
+    if (!prefabs_.contains(asset))
+        throw std::runtime_error("Prefab source is not available in this project");
+    const PrefabDocument source(prefabs_.at(asset));
+    auto doc = document_;
+    doc["version"] = 4;
+    const auto id = EntityId::generate().str();
+    std::string name = "Prefab";
+    for (const auto& m : source.source.at("members"))
+        if (m.at("id") == source.root().str())
+            name = m.at("name");
+    doc["entities"].push_back({{"id", id},
+                               {"name", name},
+                               {"components", Json::object()},
+                               {"prefab_instance",
+                                {{"asset", asset},
+                                 {"revision", source.revision()},
+                                 {"members", {{source.root().str(), id}}}}}});
+    edit(reconcile_prefab_intent(doc, prefabs_));
+    return id;
+}
+void detail::SceneDraft::revert_prefab_name(const std::string& id) {
+    auto doc = document_;
+    auto& root = find_entity(doc, id);
+    if (!root.contains("prefab_instance"))
+        throw std::runtime_error("Select a prefab instance root");
+    root.erase("name_override");
+    edit(reconcile_prefab_intent(doc, prefabs_));
+}
 Json detail::SceneDraft::effective_document() const {
     // Only detached transaction/gesture intent is evaluated here. Live views use
     // Scene::effective_document and Flecs get/has. No world or callbacks are created.
-    auto result = document_;
+    auto result = project_prefab_intent(document_, prefabs_);
     std::map<std::string, const Json*> source;
     for (const auto& e : document_.at("entities"))
         source[e.at("id")] = &e;
@@ -534,7 +891,7 @@ void Scene::load(const std::filesystem::path& path) {
 }
 void Scene::edit(const Json& doc) {
     auto before = document();
-    if (before == (doc.at("version") != 3 ? migrate_scene(doc, &before) : doc))
+    if (before == (doc.at("version") < 3 ? migrate_scene(doc, &before) : doc))
         return;
     replace(doc);
     undo_.push_back(std::move(before));
@@ -546,7 +903,10 @@ void detail::SceneDraft::rename_entity(const std::string& id, const std::string&
     if (name.empty() || name.find_first_not_of(" \t\r\n") == std::string::npos)
         throw std::runtime_error("Entity name must not be blank");
     auto doc = document();
-    find_entity(doc, resolve_legacy_id(doc, id))["name"] = name;
+    auto& target = find_entity(doc, resolve_legacy_id(doc, id));
+    target["name"] = name;
+    if (target.contains("prefab_instance"))
+        target["name_override"] = true;
     edit(doc);
 }
 void detail::SceneDraft::reparent_entity(const std::string& id, const std::string& parent,
@@ -560,6 +920,8 @@ void detail::SceneDraft::reparent_entity(const std::string& id, const std::strin
 std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
     auto doc = document();
     const auto canonical = resolve_legacy_id(doc, id);
+    if (find_entity(doc, canonical).contains("prefab_member"))
+        throw std::runtime_error("Operate on the whole prefab instance or edit its source");
     const auto ids = subtree(doc, canonical);
     std::set<std::string> occupied;
     for (const auto& e : doc["entities"])
@@ -572,6 +934,13 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
         } while (!occupied.insert(copy).second);
         remap[original] = copy;
     }
+    for (const auto& e : doc["entities"])
+        if (ids.contains(e.at("id")) && e.contains("prefab_instance"))
+            for (const auto& value : e.at("prefab_instance").at("members")) {
+                const std::string old = value;
+                if (!remap.contains(old))
+                    remap[old] = EntityId::generate().str();
+            }
     std::map<EntityId, EntityId> typed_remap;
     for (const auto& [a, b] : remap)
         typed_remap.emplace(EntityId::parse(a), EntityId::parse(b));
@@ -581,8 +950,11 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
         if (!ids.contains(original))
             continue;
         e["id"] = remap.at(original);
-        if (original == canonical)
+        if (original == canonical) {
             e["name"] = e.at("name").get<std::string>() + " Copy";
+            if (e.contains("prefab_instance"))
+                e["name_override"] = true;
+        }
         for (const char* relation : {"parent", "base"})
             if (e.contains(relation) && remap.contains(e.at(relation).get<std::string>()))
                 e[relation] = remap.at(e.at(relation).get<std::string>());
@@ -590,7 +962,9 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
                               doc.at("asset_id").get<AssetId>(), typed_remap);
         copies.push_back(std::move(e));
     }
-    for (auto& e : copies)
+    Json copied_document = {{"entities", copies}};
+    remap_prefab_instances(copied_document, typed_remap);
+    for (auto& e : copied_document["entities"])
         doc["entities"].push_back(std::move(e));
     edit(doc);
     return remap.at(canonical);
@@ -598,6 +972,8 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
 void detail::SceneDraft::delete_subtree(const std::string& id) {
     auto doc = document();
     const auto canonical = resolve_legacy_id(doc, id);
+    if (find_entity(doc, canonical).contains("prefab_member"))
+        throw std::runtime_error("Operate on the whole prefab instance or edit its source");
     const auto ids = subtree(doc, canonical);
     const auto effective = effective_document();
     auto remaining = Json::array();

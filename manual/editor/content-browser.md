@@ -20,3 +20,7 @@ The browser skips `.forge`, `.git`, project manifests, and symbolic links. It li
 Content currently supports scene discovery and opening. Asset importing, thumbnails, file rename/delete, and drag-and-drop placement are not available yet. See [Scenes](scenes.md) and [Saving and recovery](saving-recovery.md).
 
 The browser checks document structure, so package metadata such as build.json and manifest.json no longer appears as scene content. Scenes using custom `.json` filenames are still recognized. Opening performs full validation. Scans are bounded to 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit; use File → Open scene if a scan exceeds those limits.
+
+## Prefab assets
+
+Expand **Prefab assets** to create, instantiate, duplicate or edit reusable object groups. See [Prefabs](prefabs.md) for the full workflow. The scene list remains separate.

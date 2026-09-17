@@ -25,9 +25,15 @@ struct StableId {
 struct AuthoredName {
     std::string value;
 };
+// Definition identity is inherited for lookup, never used as an instance EntityId.
+struct TemplateMember {
+    PrefabMemberId id;
+};
 struct SceneMember {};
 // Distinguish an authored prefab declaration from ChildOf's implicit Prefab tag.
 struct AuthoredPrefab {};
+// Derived availability marker, never authored or inherited.
+struct MissingStructuralParent {};
 enum class WorldRole { Authoring, Runtime, Preview, Validation };
 class Scene;
 class WorldContext {

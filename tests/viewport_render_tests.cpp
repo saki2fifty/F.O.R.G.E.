@@ -1,3 +1,4 @@
+#include <forge/prefab_authoring.hpp>
 // Exercise the production Diligent renderer using Windows' D3D12 software device.
 #include <windows.h>
 
@@ -390,6 +391,20 @@ int main(int argc, char** argv) {
                 ++lit_faces;
             }
         require(lit_faces >= 2, "Hierarchical shading fixture needs two visible faces");
+        // The same authored hierarchy must render identically when realized as
+        // inheriting Parent/IsA members rather than ordinary ChildOf entities.
+        const auto prefab_source = forge::create_prefab_source(live_scene, parent);
+        forge::Scene prefab_scene(scene_engine.world());
+        prefab_scene.set_prefab_sources({{prefab_source.asset(), prefab_source.source}});
+        forge::instantiate_prefab(prefab_scene, prefab_source.asset());
+        ++generation;
+        const auto structured =
+            readback(device, context,
+                     viewport.render(context, prefab_scene.effective_document(), width, height,
+                                     camera, generation, false, {false, 1}));
+        save(structured, width, height, images / "structured-prefab.ppm");
+        require(structured == sheared,
+                "Structured Parent/IsA prefab rendering differs from authored hierarchy");
         context->WaitForIdle();
         std::cout << "D3D12 WARP: grid axis alignment, look/pan/orbit/fly/zoom, resize, "
                      "visibility, spacing, thin lines, horizon fade, extent and occlusion passed\n";

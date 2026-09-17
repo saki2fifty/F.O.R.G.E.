@@ -12,6 +12,7 @@
 #include "orientation.hpp"
 #include "performance.hpp"
 #include "play.hpp"
+#include "prefabs.hpp"
 #include "scene_cache.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
@@ -198,6 +199,7 @@ int main(int argc, char** argv) {
         bool initialize_layout = startup_layout.text.empty();
         forge::Viewport viewport(device);
         forge::AuthoringSnapshot authoring_snapshot;
+        forge::PrefabEditor prefab_editor;
         forge::PreviewSnapshot preview_snapshot;
         forge::EditorCamera camera;
         try {
@@ -274,7 +276,7 @@ int main(int argc, char** argv) {
                 continue;
             }
             play.pump();
-            native->pump(play, authoring_snapshot.document(scene));
+            native->pump(play, authoring_snapshot.snapshot(scene));
             files.set_switch_available(!native->busy());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
@@ -374,7 +376,7 @@ int main(int argc, char** argv) {
                             play.active() ? "Restart" : "Play",
                             "Start a fresh isolated play world from the current authored scene."))
                         perform([&] {
-                            play.start(runtime_path, scene.document(), native->artifact());
+                            play.start(runtime_path, scene.snapshot(), native->artifact());
                         });
                     if (play.can_recover() &&
                         forge::ui::button(
@@ -520,14 +522,21 @@ int main(int argc, char** argv) {
                                 authored_name = name;
                             }
                             try {
+                                prefab_editor.inspector(scene, files.document, e);
                                 if (ImGui::InputText("Name", entity_name, sizeof(entity_name),
-                                                     ImGuiInputTextFlags_EnterReturnsTrue)) {
+                                                     ImGuiInputTextFlags_EnterReturnsTrue |
+                                                         (e.contains("prefab_member")
+                                                              ? ImGuiInputTextFlags_ReadOnly
+                                                              : 0))) {
                                     forge::authoring_command(
                                         scene, "entity.rename",
                                         {{"entity", selected}, {"name", entity_name}});
                                 }
-                                forge::ui::help(
-                                    "Rename this entity. Press Enter to commit one undoable edit.");
+                                forge::ui::help(e.contains("prefab_member")
+                                                    ? "This name follows the prefab. Use Open "
+                                                      "prefab source to rename this member."
+                                                    : "Rename this entity. Press Enter to commit "
+                                                      "one undoable edit.");
                                 if (ImGui::TreeNode("Details")) {
                                     ImGui::TextWrapped("ID: %s", selected.c_str());
                                     forge::ui::help("Stable authored identity. Renaming does not "
@@ -540,8 +549,10 @@ int main(int argc, char** argv) {
                                 for (const auto& candidate : doc["entities"])
                                     if (candidate.at("id") == parent)
                                         parent_name = candidate.at("name").get<std::string>();
+                                ImGui::BeginDisabled(e.contains("prefab_member"));
                                 const bool choose_parent =
                                     ImGui::BeginCombo("Parent", parent_name.c_str());
+                                ImGui::EndDisabled();
                                 forge::ui::help(
                                     "Parent spatially with world placement preserved. The child "
                                     "then follows its parent. Unrepresentable local shear and "
@@ -584,7 +595,8 @@ int main(int argc, char** argv) {
                                             "ground or snap its position.");
                             if (ImGui::BeginPopup("##object-actions")) {
                                 try {
-                                    if (ImGui::MenuItem("Duplicate subtree", "Ctrl+D"))
+                                    if (ImGui::MenuItem("Duplicate subtree", "Ctrl+D", false,
+                                                        !e.contains("prefab_member")))
                                         selected =
                                             forge::authoring_command(scene, "entity.duplicate",
                                                                      {{"entity", selected}})
@@ -592,7 +604,8 @@ int main(int argc, char** argv) {
                                                 .get<std::string>();
                                     forge::ui::help("Duplicate this object and descendants with "
                                                     "new identities.");
-                                    if (ImGui::MenuItem("Delete subtree", "Delete")) {
+                                    if (ImGui::MenuItem("Delete subtree", "Delete", false,
+                                                        !e.contains("prefab_member"))) {
                                         forge::authoring_command(scene, "entity.delete",
                                                                  {{"entity", selected}});
                                         selected.clear();
@@ -805,7 +818,10 @@ int main(int argc, char** argv) {
             if (workspace.content) {
                 ImGui::BeginDisabled(modal.active() || scene_tools.move.active() ||
                                      blockout.active() || play.active());
-                content.draw(files, &workspace.content);
+                content.draw(files, &workspace.content, [&] {
+                    prefab_editor.content(scene, files.document, selected, edit_locked);
+                });
+                prefab_editor.draw(scene, files.document, edit_locked);
                 ImGui::EndDisabled();
             }
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))

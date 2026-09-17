@@ -5,6 +5,8 @@
 namespace forge {
 WorldContext::WorldContext(WorldRole role) : role_(role) {
     schema_ = detail::register_builtins(world_);
+    world_.component<TemplateMember>("forge.prefab_member_definition")
+        .add(flecs::OnInstantiate, flecs::Inherit);
     world_.component<WorldTransform>("forge.world_transform")
         .add(flecs::OnInstantiate, flecs::DontInherit);
     world_.component<SpatialBinding>("forge.spatial_binding")
@@ -16,6 +18,7 @@ WorldContext::WorldContext(WorldRole role) : role_(role) {
         .add(flecs::OnInstantiate, flecs::DontInherit);
     world_.component<AuthoredPrefab>("forge.authored_prefab")
         .add(flecs::OnInstantiate, flecs::DontInherit);
+    world_.component<MissingStructuralParent>().add(flecs::OnInstantiate, flecs::DontInherit);
     world_.component<SceneMember>("forge.scene_member")
         .add(flecs::Exclusive)
         .add(flecs::OnInstantiate, flecs::DontInherit)
@@ -66,7 +69,8 @@ std::map<std::uint64_t, TransformNode> WorldContext::collect_transforms() const 
         }
         const auto parent = effective_spatial_parent(b.mode, structural, explicit_target);
         n.parent = parent.entity;
-        n.parent_resolved = parent.resolved;
+        n.parent_resolved = parent.resolved && !(b.mode == SpatialMode::FollowStructure &&
+                                                 e.has<MissingStructuralParent>());
         nodes.emplace(e.id(), n);
     });
     return nodes;

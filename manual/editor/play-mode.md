@@ -40,3 +40,7 @@ Console reports runtime failures. After a later gameplay crash, **Recover** star
 The separate process protects the editor from gameplay-process crashes. Editor defects and trusted native editor plugins can still crash the editor. Scene autosave recovery is separate from runtime checkpoint recovery.
 
 Changing projects or scenes stops play. Compilation temporarily disables conflicting file operations; waiting for a paused candidate's first tick does not block Step, Resume or Stop. See [Saving and recovery](saving-recovery.md).
+
+## Structured prefabs in Play
+
+Play receives the current validated prefab definitions and stable member mappings. Changes made by gameplay remain in the isolated runtime. Stop Play before editing a prefab source. See [Prefabs](prefabs.md).

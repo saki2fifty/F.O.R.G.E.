@@ -60,7 +60,7 @@ static Json migrate_identity(const Json& source, const Json* existing = nullptr)
     return result;
 }
 Json migrate_scene(const Json& source, const Json* existing) {
-    if (source.at("version") == 3) {
+    if (source.at("version") == 3 || source.at("version") == 4) {
         Scene::validate_document(source);
         return source;
     }
@@ -70,7 +70,7 @@ Json migrate_scene(const Json& source, const Json* existing) {
 }
 Json duplicate_scene_asset(const Json& source) {
     Scene::validate_document(source);
-    if (source.at("version") != 3)
+    if (source.at("version") != 3 && source.at("version") != 4)
         throw std::runtime_error("Migrate the scene before duplicating its asset");
     auto result = source;
     result["asset_id"] = AssetId::generate();
@@ -96,6 +96,10 @@ Json duplicate_scene_asset(const Json& source) {
     };
     for (auto& entity : result["entities"])
         entity["id"] = fresh(entity.at("id"));
+    for (const auto& entity : result["entities"])
+        if (entity.contains("prefab_instance"))
+            for (const auto& id : entity.at("prefab_instance").at("members"))
+                (void)fresh(id.get<std::string>());
     std::map<EntityId, EntityId> typed_remap;
     for (const auto& [old, id] : remap)
         typed_remap.emplace(EntityId::parse(old), EntityId::parse(id));
@@ -111,6 +115,7 @@ Json duplicate_scene_asset(const Json& source) {
     for (auto& e : result["entities"])
         detail::remap_spatial(e, source.at("asset_id").get<AssetId>(),
                               result.at("asset_id").get<AssetId>(), typed_remap);
+    remap_prefab_instances(result, typed_remap);
     if (result.contains("legacy_ids"))
         for (auto& id : result["legacy_ids"])
             id = fresh(id.get<std::string>());
@@ -142,7 +147,7 @@ Json read_scene_file(const std::filesystem::path& path) {
 }
 void write_scene_file(const std::filesystem::path& path, const Json& document) {
     Scene::validate_document(document);
-    if (document.at("version") != 3)
+    if (document.at("version") != 3 && document.at("version") != 4)
         throw std::runtime_error("Save requires a migrated scene");
     if (std::filesystem::exists(path)) {
         const auto source = read(path);

@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cctype>
+#include <forge/prefab_authoring.hpp>
 #include <forge/project_lease.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -49,6 +50,11 @@ inline std::filesystem::path project_control_file(const std::filesystem::path& r
 class SceneDocument {
   public:
     explicit SceneDocument(Scene& scene) : scene_(scene) {}
+    PrefabLibrary& prefabs() {
+        if (!prefabs_)
+            throw std::runtime_error("No prefab project");
+        return *prefabs_;
+    }
     const std::filesystem::path& project() const { return root_; }
     const std::filesystem::path& path() const { return path_; }
     const std::string& name() const { return name_; }
@@ -95,7 +101,13 @@ class SceneDocument {
             doc = read_json(first);
         else if (!allow_empty || std::filesystem::exists(manifest))
             throw std::runtime_error("Project has no startup scene");
-        scene_.reset(doc ? read_scene_file(first) : empty_scene());
+        auto prefabs = std::make_unique<PrefabLibrary>(next_root);
+        // Definition scan precedes activation. Malformed assets are reported rather
+        // than replacing an already open scene with partial prefab content.
+        auto intended = doc ? read_scene_file(first) : empty_scene();
+        Scene::validate_document(intended);
+        prefabs->load_scene(scene_, intended);
+        prefabs_ = std::move(prefabs);
         if (candidate)
             lease_ = std::move(candidate);
         ++generation_;
@@ -141,7 +153,8 @@ class SceneDocument {
         check_ownership();
         const auto next_path = project_file(root_, path);
         const auto doc = read_json(next_path);
-        scene_.reset(read_scene_file(next_path));
+        auto intended = read_scene_file(next_path);
+        prefabs().load_scene(scene_, intended);
         ++generation_;
         path_ = next_path;
         saved_ = scene_.document();
@@ -233,7 +246,7 @@ class SceneDocument {
              data.at("base") != (disk_ ? *disk_ : Json{})))
             throw std::runtime_error(
                 "Recovery does not match the current disk scene; recovery file preserved");
-        scene_.edit(data.at("document"));
+        scene_.edit(reconcile_prefab_intent(data.at("document"), scene_.prefab_sources()));
         seen_ = 0;
     }
     void recover_untitled() {
@@ -241,7 +254,7 @@ class SceneDocument {
         const auto data = read_json(recovery_path(true));
         if (data.at("version") != 1 || data.at("scene") != "" || !data.at("base").is_null())
             throw std::runtime_error("Invalid untitled recovery record");
-        scene_.reset(data.at("document"));
+        scene_.reset(reconcile_prefab_intent(data.at("document"), scene_.prefab_sources()));
         ++generation_;
         path_.clear();
         saved_.reset();
@@ -259,6 +272,7 @@ class SceneDocument {
 
   private:
     Scene& scene_;
+    std::unique_ptr<PrefabLibrary> prefabs_;
     std::shared_ptr<ProjectLease> lease_;
     std::uint64_t generation_ = 0;
     std::filesystem::path root_, path_;

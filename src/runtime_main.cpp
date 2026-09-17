@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
-                        scene.replace(request.at("scene"));
+                        scene.restore_snapshot(request.at("scene"));
                         simulation.reset_presentation();
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
                         throw std::runtime_error("Unknown command");
                     response["ok"] = true;
                     response["module"] = module.id();
-                    response["scene"] = scene.document(); // Uninterpolated recovery state only.
+                    response["scene"] = scene.snapshot(); // Uninterpolated recovery state only.
                     response["effective_scene"] = simulation.presentation(clock.alpha());
                     response["schema"] = scene.schema();
                 } catch (const std::exception& error) {

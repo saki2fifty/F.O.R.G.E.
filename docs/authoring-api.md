@@ -60,3 +60,9 @@ Discovery now includes 20 commands. `transform.position`, `transform.rotation` a
 - Copy/reset explicitly write all local channels; copy retains the quaternion exactly. Ground/snap and move gestures remain world-position operations.
 
 `scene.read` returns authored v3 state. `entity.query` includes transient `world_affine`, `spatial_resolved` and local legacy display adapters; these rows are presentation data, not valid authored snapshots. See [transform contracts](transforms.md) for membership-scoped targets, rejection tolerances and invalidation.
+
+## Structured prefabs
+
+`prefab.instantiate` takes an `asset` UUID available in the bound scene's validated prefab sources. `property.revert` takes `entity`, `component`, and `field`; color/primitive scalar masks are supported. Transform channels use `component.revert`. All are scene-owned operations with revision checks and Undo/Redo. UI-independent C++ `PrefabLibrary` owns source create/duplicate/publish; remote scene capabilities do not imply filesystem publication authority. No Apply capability is exposed. See [Prefabs](prefabs.md).
+
+`prefab.revert_name` takes an instance-root `entity` and removes its explicit display-name override. It shares scene revision checks and history.

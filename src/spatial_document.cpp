@@ -124,9 +124,13 @@ Json migrate_transforms(const Json& source) {
 Json project_spatial(Json doc) {
     std::map<std::string, std::uint64_t> ids;
     std::uint64_t n = 0;
-    for (const auto& e : doc.at("entities"))
-        if (e.at("components").contains("forge.local_translation"))
+    std::set<std::string> missing;
+    for (const auto& e : doc.at("entities")) {
+        if (e.contains("prefab_member") && e.value("missing_member", false))
+            missing.insert(e.at("id"));
+        else if (e.at("components").contains("forge.local_translation"))
             ids[e.at("id")] = ++n;
+    }
     std::map<std::uint64_t, TransformNode> nodes;
     for (auto& e : doc["entities"]) {
         const auto id = e.at("id").get<std::string>();
@@ -143,7 +147,9 @@ Json project_spatial(Json doc) {
                                          : 0;
         const auto parent = effective_spatial_parent(b.mode, structural, explicit_target);
         node.parent = parent.entity;
-        node.parent_resolved = parent.resolved;
+        node.parent_resolved =
+            parent.resolved && !(b.mode == SpatialMode::FollowStructure &&
+                                 missing.contains(e.value("parent", std::string{})));
         nodes[ids.at(id)] = node;
     }
     const auto evaluated = evaluate_transforms(nodes);

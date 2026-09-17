@@ -29,3 +29,7 @@ See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 Use **Search names or IDs...** in Hierarchy to filter the hierarchy. Matching descendants keep their ancestor rows visible, and matching paths open automatically. Matching is case-insensitive for ASCII text. Clear the search to show all entities again.
 
 Entities are listed alphabetically within each parent. **Expand all** opens all branches; **Collapse all** closes them. An active search keeps matching paths open even after Collapse all.
+
+## Structured groups
+
+The Hierarchy marks prefab roots **[prefab]**, structured children **[member]**, and unavailable members **[missing]**. Duplicate or delete the whole instance from its root. Edit an interior member's name or hierarchy in its [prefab source](prefabs.md).

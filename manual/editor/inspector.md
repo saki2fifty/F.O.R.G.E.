@@ -24,3 +24,7 @@ Right-click **Reset transform** to find **Reset position**, which sets X, Y, and
 For direct manipulation, use the [Viewport move handles](viewport.md). Inspector shows the move preview but disables its controls during the drag; releasing the mouse commits it.
 
 See [Transforms](transforms.md) for Rotation/Scale fields and Copy/Paste/Reset transform. See [Primitives and color](primitives.md) for Shape and Color controls. Materials, arbitrary component editing, and multi-selection are not implemented.
+
+## Prefab members
+
+Structured instances show their source revision and Revert controls in **Prefab instance**. Transform channels can be overridden independently. Change source-member names and hierarchy through **Open prefab source**. See [Prefabs](prefabs.md).

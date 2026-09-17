@@ -103,6 +103,9 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
                             : component == "forge.rotation" ? "forge.local_rotation"
                             : component == "forge.scale"    ? "forge.local_scale"
                                                             : component;
+    const bool property_intent = (e.contains("prefab_instance") || e.contains("prefab_member")) &&
+                                 (canonical == "forge.tint" || canonical == "forge.primitive") &&
+                                 !e["components"].contains(canonical);
     if (legacy) {
         auto merged = view.at("components").value(component, Json::object());
         if (merged.empty())
@@ -142,6 +145,8 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
                 (schema.contains("minimum") && n < schema.at("minimum").get<double>()) ||
                 (schema.contains("maximum") && n > schema.at("maximum").get<double>()))
                 throw CommandError("invalid_arguments", "Property outside declared range");
+            if (property_intent)
+                e["property_overrides"][canonical][field] = value;
             c[canonical][field] = value;
         }
         if (canonical == "forge.local_rotation") {
@@ -150,6 +155,8 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
                 detail::encode(normalized({q.at("x"), q.at("y"), q.at("z"), q.at("w")})));
         }
     }
+    if (property_intent)
+        e["components"].erase(canonical);
     scene.edit(doc);
 }
 
@@ -160,7 +167,11 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         (void)entity(doc, id);
     }
     Json result = {{"operation", op}, {"selected", id}};
-    if (op == "entity.create") {
+    if (op == "prefab.instantiate")
+        result["selected"] = scene.instantiate_prefab(a.at("asset").get<AssetId>());
+    else if (op == "prefab.revert_name")
+        scene.revert_prefab_name(id);
+    else if (op == "entity.create") {
         auto doc = scene.document();
         const auto created = free_id(doc);
         const unsigned kind = a.value("kind", 0u);
@@ -309,7 +320,27 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             throw CommandError("unsupported_property",
                                "Only supported built-in overrides can be removed");
         auto doc = scene.document();
-        entity(doc, id)["components"].erase(component);
+        auto& row = entity(doc, id);
+        row["components"].erase(component);
+        if (row.contains("property_overrides"))
+            row["property_overrides"].erase(component);
+        scene.edit(doc);
+    } else if (op == "property.revert") {
+        auto doc = scene.document();
+        auto& row = entity(doc, id);
+        const std::string component = a.at("component"), field = a.at("field");
+        if (component != "forge.tint" && component != "forge.primitive")
+            throw CommandError("unsupported_property",
+                               "Revert this complete transform channel instead");
+        (void)property_schema(scene, component, field);
+        if (row["components"].contains(component))
+            throw CommandError("unsupported_property",
+                               "Use component Revert for a full component override");
+        if (row.contains("property_overrides") && row["property_overrides"].contains(component)) {
+            row["property_overrides"][component].erase(field);
+            if (row["property_overrides"][component].empty())
+                row["property_overrides"].erase(component);
+        }
         scene.edit(doc);
     } else
         throw CommandError("unknown_operation", "Unknown authoring operation: " + op);
@@ -419,6 +450,14 @@ Json authoring_commands() {
     add("property.set", "Set reflected property",
         "Validate against the supported reflected property schema.", field,
         {"entity", "component", "field", "value"});
+    field.erase("value");
+    add("property.revert", "Revert property", "Remove explicit scalar override intent.", field,
+        {"entity", "component", "field"});
+    add("prefab.instantiate", "Instantiate prefab",
+        "Create a linked instance of an available project prefab asset.", {{"asset", text_type()}},
+        {"asset"});
+    add("prefab.revert_name", "Revert instance name", "Follow the prefab root display name again.",
+        entity_arg, {"entity"});
     auto component = entity_arg;
     component["component"] = text_type();
     add("component.revert", "Remove component override",
@@ -504,6 +543,15 @@ Json scene_diagnostics(const Scene& scene) {
                          {"message", message}});
     };
     for (const auto& e : view.at("entities")) {
+        if (e.value("missing_member", false))
+            add(e, "missing_prefab_member",
+                "Prefab member is unavailable. Its mapping and override intent are retained; its "
+                "EntityRef is unresolved.");
+        if (e.contains("prefab_instance") &&
+            e.at("prefab_instance").value("status", "") != "current")
+            add(e, "missing_prefab_asset",
+                "Prefab asset is unavailable. Restore or relocate the same asset identity and "
+                "refresh prefabs.");
         const bool prefab = e.value("prefab", false);
         prefabs += prefab;
         if (!prefab && e.at("components").contains("forge.local_translation") &&

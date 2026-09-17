@@ -15,3 +15,7 @@ Saving does not clear history. Undoing back to the saved contents clears the uns
 New/Open/Reload clears the previous scene's history. History contains at most 100 scene snapshots and does not survive closing the editor. Camera movement, interface scaling, panel arrangements, native compilation, and runtime gameplay are not scene undo operations.
 
 See [Saving and recovery](saving-recovery.md) for restoring work across restarts.
+
+## Prefab history
+
+Prefab instance creation, duplication, deletion, overrides and Revert are scene edits. Publishing a shared prefab source affecting this scene clears scene Undo/Redo; scene Undo does not undo the source asset. See [Prefabs](prefabs.md).
