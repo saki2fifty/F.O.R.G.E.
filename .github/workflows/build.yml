@@ -167,7 +167,7 @@ jobs:
           }
       - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_tools forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
+      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_runtime_clock_tests forge_sample forge_tools forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Compile preview shaders
         working-directory: ${{ runner.temp }}/forge-work/FORGE
