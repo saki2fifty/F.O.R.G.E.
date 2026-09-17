@@ -9,7 +9,7 @@ with tempfile.TemporaryDirectory(prefix='animation-relocation-',dir=archive.pare
  tool=root/'tools/gltf2ozz.exe'
  assert hashlib.sha256(tool.read_bytes()).hexdigest()==manifest['files']['tools/gltf2ozz.exe']
  assert (root/'licenses/ozz-converter.txt').is_file()
- env=os.environ.copy();env['PATH']=str(Path(env['SystemRoot'])/'System32')
+ env=os.environ.copy();env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
  prepared=subprocess.check_output([fixture,root/'projects',tool,root/'Examples/Animation/two-joints.gltf','--prepare'],env=env,cwd=root,text=True,timeout=60)
  project=Path(prepared.strip())
  records=json.loads((project/'forge.assets.json').read_text())['assets']
