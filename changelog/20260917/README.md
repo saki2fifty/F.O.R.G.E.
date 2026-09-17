@@ -110,3 +110,5 @@ ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executabl
 - Windows polling follow-up: Build33 passed core11/11, shader compilation and WARP rendering, but SDL editor handshake/native probe tests timed out. Bound both controller/runtime writes to 1KiB fragments and retain bounded multi-fragment pumps; add an explicitly nonblocking parent/runtime framing test with a payload larger than pipe capacity and clearer timeout diagnostics. Build33 was not packaged or delivered.
 
 - Run Windows process-controller tests before compiling the renderer so handshake/reload failures are found earlier; avoid rerunning those suites in the later render/core selection.
+
+- Build34 core11/11 passed the new nonblocking pipe regression; editor-test compilation rejected the expanded diagnostic's string argument. Pass the diagnostic through the existing C-string assertion helper. The preceding local editor rerun used an older executable after its rebuild failed, so it is not evidence for that revision; rebuild successfully before rerunning and recording final editor results. No Build34 package delivered.

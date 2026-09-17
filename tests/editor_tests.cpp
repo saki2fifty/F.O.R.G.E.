@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
         }
         require(play.active(), "Runtime unexpectedly stopped");
         require(play.status().find("Playing") != std::string::npos,
-                "Play handshake failed: " + play.status() + " | " + play.log());
+                ("Play handshake failed: " + play.status() + " | " + play.log()).c_str());
         require(play.snapshot() == original, "Play snapshot round trip failed");
         require(authored.document() == original, "Play changed authoring");
         auto edited = original;
