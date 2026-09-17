@@ -81,12 +81,17 @@ jobs:
       - run: cmake --install ../AgentFiles/build/core --prefix ../AgentFiles/install/core --component Runtime
         if: matrix.profile == 'core'
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Resolve experimental SDK artifact path
+        if: matrix.profile == 'native-sdk' && github.event_name == 'workflow_dispatch'
+        id: sdk-artifact
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+        run: python -c "import os; from pathlib import Path; p=Path('../AgentFiles/build/native-sdk/experimental-native-sdk.tar.gz').resolve(); assert p.is_file(); open(os.environ['GITHUB_OUTPUT'],'a').write('path='+p.as_posix()+'\n')"
       - name: Save experimental exact native SDK
         if: matrix.profile == 'native-sdk' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: FORGE-Experimental-SDK-${{ matrix.os }}
-          path: ${{ runner.os == 'Windows' && format('{0}/forge-work/AgentFiles/build/native-sdk/experimental-native-sdk.tar.gz', runner.temp) || format('{0}/../AgentFiles/build/native-sdk/experimental-native-sdk.tar.gz', github.workspace) }}
+          path: ${{ steps.sdk-artifact.outputs.path }}
           if-no-files-found: error
           retention-days: 14
   editor:

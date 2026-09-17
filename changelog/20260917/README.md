@@ -178,3 +178,5 @@ Phase5.5 implementation and automated validation are complete. User acceptance: 
 - CI distinguishes static/shared profiles; ordinary editor layout and renderer ownership remain unchanged. No6B, new subsystem library, public plugin SDK, AssetHandle or Apply to Prefab. Tests and delivery evidence will follow execution.
 
 - Final local verification: static core **15/15**, shared SDK **18/18**, static ASan/UBSan/LSan **11/11**, shared SDK sanitizer **3/3**, rebuilt SDL/editor/ABI1 reload **2/2**, C17 boundary-header compilation, manual **3/3**, formatting and workflow lint passed. The installed-client test verifies relocated execution, shared Flecs linkage and teardown. Experimental SDK archives preserve executable permissions and SONAME symlinks. Windows results remain pending.
+
+- Build39 Linux static15/15 and shared18/18 passed. SDK artifact upload rejected a path containing `..`; resolve the verified archive path before handing it to the upload action. No Build39 delivery is claimed.
