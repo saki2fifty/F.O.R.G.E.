@@ -58,3 +58,8 @@ Runtime protocol 1 remains caller-stepped. Successful responses retain `scene` a
 Editor tests check cached inherited reads after native writes. The D3D12 WARP fixtures now consume Flecs-derived effective snapshots through the unchanged production renderer, enabling comparison against the accepted images. Platform execution results are recorded in the dated changelog.
 
 Remaining work: UUID/reference migration, asset identity, hierarchical transforms, structured prefab assets, fixed runtime timing, general registration/lifecycle SDKs and specialized authoring domains. SceneDraft/history still use whole-document data; there is no large-scene performance claim.
+
+
+## Phase 2 identity integration
+
+World/registration ownership and in-place reconciliation remain unchanged. Scene-v2 embeds the scene AssetId and canonical EntityIds; WorldContext additionally owns membership-scoped typed identity maps. PersistentEntityId is registered once with DontInherit. Legacy v1 inputs normalize before world mutation; file opening retains those assignments through the migration record. Entity strings in UI/API snapshots now carry canonical UUIDs, while explicit legacy aliases remain available. See [identity and assets](identity-assets.md) and [scene migration](scene-format.md).

@@ -169,3 +169,10 @@ Implemented in `c0bd61f` with Windows-only fixture correction `68c59dc`; deliver
 Applications own WorldContext; scene edits/load/unload/history reconcile content without rebuilding worlds. Registration runs once per context. Flecs supplies all five known live component values and relationships; unknown fragments remain document-owned. Scene-v1 IDs/formats/world-space transforms, current prefab behavior, UI, caller-stepped runtime and v1 native ABI remain. SceneDocument's source location and whole-document drafts/history remain bounded debt.
 
 Executed validation: Linux core 8/8; Linux editor/native 2/2; ASan/UBSan/LSan targeted 3/3; Windows core 8/8; Windows Release editor/API/lifetime/native/WARP suites 7/7; shaders/build identifiers, format/manual/cache/workflow checks. All 24 accepted Build 17 images and all 27 Build 19 images match byte-for-byte. Package/source/manual/hash verification completed. Build 20 failed compiling a new WARP fixture variable name and was superseded without delivery. Interactive desktop acceptance remains separate; no performance or full-engine-completion claim. Phase 2 and later architecture are not implemented.
+
+
+## Phase 2: persistent identity and minimal asset metadata
+
+Implemented typed UUIDv4 entity/asset identities, scene-v2, legacy alias and migration records, ordinary-save identity retention, whole-scene duplication with new identities, membership-scoped entity resolution, and the separate minimal forge_assets metadata service. Existing authoring, scene lifetime, transforms, prefab semantics, runtime clock/native ABI and viewport remain the baseline. No separate DocumentId or loaded AssetHandle is introduced. See [identity and assets](identity-assets.md) for exact scope and limitations.
+
+Local validation: core9/9, targeted sanitizer4/4, manual3/3 and Windows-target syntax checks passed. Local editor/process/input/migration/native suites: 2/2 passed. Final Windows package/WARP verification is pending; this is not yet a desktop acceptance claim.

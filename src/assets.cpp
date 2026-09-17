@@ -1,0 +1,117 @@
+#include <forge/assets.hpp>
+#include <forge/scene.hpp>
+#include <fstream>
+namespace forge {
+AssetCatalog::AssetCatalog(std::filesystem::path project)
+    : project_(std::filesystem::weakly_canonical(project)) {}
+std::filesystem::path AssetCatalog::locate(const std::filesystem::path& source) const {
+    if (source.empty() || source.is_absolute() || source.has_root_name())
+        throw std::runtime_error("Asset source must be project-relative");
+    for (const auto& part : source)
+        if (part == ".." || part == "." || part.string().find(':') != std::string::npos)
+            throw std::runtime_error("Invalid asset source locator");
+    const auto path = std::filesystem::weakly_canonical(project_ / source);
+    const auto relative = path.lexically_relative(project_);
+    if (relative.empty() || *relative.begin() == ".." || relative.is_absolute())
+        throw std::runtime_error("Asset source escapes the project");
+    return path;
+}
+void AssetCatalog::add(AssetRecord record) {
+    if (!record.id || record.type.empty() || !record.schema_version)
+        throw std::runtime_error("Invalid asset metadata");
+    for (auto dependency : record.dependencies)
+        if (!dependency)
+            throw std::runtime_error("Empty asset dependency identity");
+    (void)locate(record.source);
+    if (records_.contains(record.id))
+        throw std::runtime_error("Duplicate asset identity: " + record.id.str());
+    for (const auto& [id, old] : records_) {
+        (void)id;
+        if (locate(old.source) == locate(record.source))
+            throw std::runtime_error("Asset source already has a different identity");
+    }
+    records_.emplace(record.id, std::move(record));
+}
+AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
+    std::ifstream stream(locate(source));
+    const auto doc = Json::parse(stream);
+    Scene::validate_document(doc);
+    if (doc.at("version") != 2)
+        throw std::runtime_error("Scene must be migrated before catalog registration");
+    AssetRecord record{doc.at("asset_id").get<AssetId>(), SceneAsset::type, source, 2, {}};
+    add(record);
+    return record;
+}
+AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_type) const {
+    const auto it = records_.find(id);
+    if (it == records_.end())
+        return {AssetState::Unresolved, {}, "Asset identity is not registered"};
+    const auto& record = it->second;
+    if (record.type != expected_type)
+        return {AssetState::Incompatible, record,
+                "Asset type mismatch: expected " + expected_type + ", found " + record.type};
+    try {
+        const auto path = locate(record.source);
+        if (!std::filesystem::is_regular_file(path))
+            return {AssetState::Missing, record, "Asset source is missing"};
+        if (record.type == SceneAsset::type) {
+            std::ifstream stream(path);
+            const auto doc = Json::parse(stream);
+            Scene::validate_document(doc);
+            if (doc.at("version") != record.schema_version ||
+                doc.at("asset_id").get<AssetId>() != id)
+                return {AssetState::Incompatible, record,
+                        "Scene identity or schema does not match metadata"};
+        } else if (record.schema_version != 1) {
+            return {AssetState::Incompatible, record, "Unsupported asset metadata schema"};
+        }
+        return {AssetState::Available, record, {}};
+    } catch (const std::exception& e) {
+        return {AssetState::Incompatible, record, e.what()};
+    }
+}
+void AssetCatalog::relocate(AssetId id, const std::filesystem::path& source) {
+    auto candidate = *this;
+    const auto it = candidate.records_.find(id);
+    if (it == candidate.records_.end())
+        throw std::runtime_error("Unknown asset identity");
+    auto record = it->second;
+    record.source = source;
+    candidate.records_.erase(it);
+    candidate.add(record);
+    const auto resolved = candidate.resolve(id, record.type);
+    if (resolved.state != AssetState::Available)
+        throw std::runtime_error(resolved.diagnostic);
+    records_.swap(candidate.records_);
+}
+void AssetCatalog::save(const std::filesystem::path& index) const {
+    auto records = Json::array();
+    for (const auto& [id, record] : records_) {
+        const auto text = record.source.generic_u8string();
+        records.push_back({{"id", id},
+                           {"type", record.type},
+                           {"source", std::string(text.begin(), text.end())},
+                           {"schema_version", record.schema_version},
+                           {"dependencies", record.dependencies}});
+    }
+    atomic_write(index, Json{{"version", 1}, {"assets", records}}.dump(2));
+}
+void AssetCatalog::load(const std::filesystem::path& index) {
+    std::ifstream stream(index);
+    const auto doc = Json::parse(stream);
+    if (doc.at("version") != 1 || !doc.at("assets").is_array())
+        throw std::runtime_error("Unsupported asset index");
+    AssetCatalog candidate(project_);
+    for (const auto& record : doc.at("assets")) {
+        const auto& schema = record.at("schema_version");
+        if (!schema.is_number_integer() || schema.get<double>() < 1 ||
+            schema.get<double>() > 4294967295.0)
+            throw std::runtime_error("Invalid asset schema version");
+        candidate.add({record.at("id").get<AssetId>(), record.at("type").get<std::string>(),
+                       std::filesystem::u8path(record.at("source").get<std::string>()),
+                       record.at("schema_version").get<unsigned>(),
+                       record.at("dependencies").get<std::vector<AssetId>>()});
+    }
+    records_.swap(candidate.records_);
+}
+} // namespace forge
