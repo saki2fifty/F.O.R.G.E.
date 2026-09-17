@@ -20,7 +20,7 @@ The editor requires Windows x64, an AVX2-capable processor, and a D3D12-capable 
 5. Choose the other entity in **Parent** to organize it underneath that entity.
 6. Select **Fit scene** in **Scene** to see both blocks.
 
-Parenting currently organizes entities without moving them or making their positions relative to the parent.
+Choosing a Parent preserves the object’s placement, makes its coordinates local to that parent, and lets it follow later parent motion. Older scenes retain independent **World** binding until you change it. See [Transforms](../editor/transforms.md).
 
 ## Save and preview
 

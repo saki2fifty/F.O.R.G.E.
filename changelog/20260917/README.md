@@ -77,3 +77,7 @@ Final review found that the first native movement adapter considered authored ro
 Final portability check renamed the transform test's `near` helper to avoid Windows' legacy `near` macro. Reservation 260917-000027 was superseded before dispatch; no package was produced. The generated-child correction passed local core10/10, editor2/2 and targeted sanitizer5/5 before this test-only rename.
 
 The new affine WARP test camera was preflighted using the production transform math. Its original angle covered only one face above the test's visibility threshold; the corrected angle covers two, including a shear-affected normal. This is a test-fixture correction; product code is unchanged. Build260917-000028 passed Windows/Linux core and formatting, then was superseded before editor/package delivery for this correction. The replacement remains a clean build.
+
+### Guide consistency
+
+Synchronized the Scenes, first-scene tutorial, Viewport, Diagnostics and native gameplay pages with format3, local coordinates, inherited parent motion, quaternion schema and unresolved attachments. Technical project/native/dependency pages now describe the same active contracts. Manual generation/link/build-identity tests pass3/3. This follow-up changes documentation only; clean candidate29 continues verifying the identical product implementation before the final matching-manual package.

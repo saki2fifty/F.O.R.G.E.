@@ -32,12 +32,14 @@ The **Content** panel lists project-relative recognized JSON scenes. Filter the 
 
 Each scene and authored object now has a permanent identifier. Renaming objects, changing their parent, editing properties, saving, and reopening preserve these identifiers. Undoing a deletion restores the original object's identifier. Duplicating objects creates new identifiers.
 
-Opening an older scene keeps its original file intact. FORGE writes a companion `<scene filename>.forge-identity.json` record beside it so the assigned identifiers stay the same if you close and reopen before saving. Keep this record with the older scene, including in source control. If you move or rename an unsaved format-1 file, move or rename its companion to match; saving to format 2 before moving is simpler. The folder must be writable to establish these identities.
+Opening a format-1 scene keeps its original file intact. FORGE writes a companion `<scene filename>.forge-identity.json` record beside it so the assigned identifiers stay the same if you close and reopen before saving. Keep this record with the older scene, including in source control. If you move or rename an unsaved format-1 file, move or rename its companion to match; saving to format 3 before moving is simpler. The folder must be writable to establish these identities.
 
-Your next **Save** writes scene format 2 and keeps the original format 1 file as `<scene filename>.v1.backup`. Older FORGE builds cannot open format 2; the backup preserves the older format. Neither file is an extra scene shown in Content.
+Your next **Save** writes scene format 3 and keeps the original format-1 file as `<scene filename>.v1.backup`. Format-2 scenes already contain permanent identifiers; they open without a new identity record and retain `<scene filename>.v2.backup` on their first format-3 save. Older FORGE builds cannot open format 3; the backup preserves the older format. Neither file is an extra scene shown in Content.
 
-Once saved in format 2, the scene carries its identifiers inside the file. Moving or renaming that file within your project preserves its identity. A saved view bookmark still uses the old filename and may need to be saved again. Update the project's startup scene path if you move that scene.
+Once saved in format 3, the scene carries its identifiers inside the file. Moving or renaming that file within your project preserves its identity. A saved view bookmark still uses the old filename and may need to be saved again. Update the project's startup scene path if you move that scene.
 
 Use **Save As** to create an independent copy. Copying files with your operating system also copies their identifiers; that is a copy of the same asset, not a new asset. The asset metadata API rejects duplicate registrations; a full project-wide conflict browser is not available yet.
 
-Unknown plugin data is preserved exactly as JSON values. FORGE updates the hierarchy and prefab references it understands, but does not guess at reference strings inside unavailable plugin data.
+Unknown plugin data is preserved exactly as JSON values. FORGE updates the hierarchy, prefab and explicit spatial references it understands, but does not guess at reference strings inside unavailable plugin data.
+
+Legacy scenes retain their appearance and independent parent behavior using **Space → World**. New parenting follows the parent while preserving placement. See [Transforms](transforms.md).

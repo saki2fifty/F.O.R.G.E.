@@ -20,6 +20,6 @@ Edit `Native/gameplay.cpp` in your code editor. Enable **Build on save** to watc
 
 A failed compilation keeps the previous validated module available. Candidates are built as separate artifacts and checked in a worker before activation. Compatible supported changes can preserve the play session; incompatible schema changes restart the play world.
 
-The current interface supports stateless callbacks over host-owned Position data. It does not migrate arbitrary C++ state. Do not retain host pointers or create unmanaged background work in a module.
+The current interface supports stateless movement callbacks over host-owned transforms, applied through local translation. It does not migrate arbitrary C++ state. Do not retain host pointers or create unmanaged background work in a module.
 
 Rebuild after reopening the editor to select a validated module; previous artifacts remain cached. Wait for compilation to finish before switching scenes or projects. See [Play mode](play-mode.md).

@@ -35,7 +35,7 @@ Shortcuts start only over the Scene image, outside text editing and camera gestu
 
 ## Copy, paste, and reset
 
-**Copy transform** copies effective **local** position, rotation, and scale to FORGE's internal clipboard. Select another object and choose **Paste transform** to apply them as one undoable edit. Paste intentionally overrides all three local channels; quaternion rotation is copied exactly. Shape, color, hierarchy, and identity are retained. The internal clipboard lasts for the editor session and is separate from the system clipboard.
+**Copy transform** copies effective **local** position, rotation, and scale to FORGE's internal clipboard. Select another object and choose **Paste transform** to apply them as one undoable edit. Paste intentionally overrides all three local channels; quaternion rotation is copied directly without converting through Euler angles. Shape, color, hierarchy, and identity are retained. The internal clipboard lasts for the editor session and is separate from the system clipboard.
 
 **Reset transform** sets position and rotation to zero and scale to one. Right-click **Reset transform** and choose **Reset position** to change only position. Both are undoable.
 

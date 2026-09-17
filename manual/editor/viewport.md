@@ -33,7 +33,7 @@ If object axes are missing, check that **Move** is selected and Play is stopped.
 3. Release the left mouse button to apply the move as one undoable edit.
 4. Press Escape before release to cancel.
 
-A drag previews the new position without saving partial changes. Losing application focus, resizing the viewport, or changing scenes cancels it. An axis pointing nearly straight toward the camera is hidden because it has too little screen length to drag; orbit to expose it. Moves affect the selected entity only. Parenting still does not make children follow parent positions.
+A drag previews the new position without saving partial changes. Losing application focus, resizing the viewport, or changing scenes cancels it. An axis pointing nearly straight toward the camera is hidden because it has too little screen length to drag; orbit to expose it. The move changes only the selected object’s local translation. Children set to **Follow parent** move with it; children set to **World** remain independent. See [Transforms](transforms.md).
 
 Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **View → Snap spacing**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale handles, multi-selection, and local-axis move handles are not available yet.
 
