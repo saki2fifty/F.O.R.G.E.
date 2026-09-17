@@ -123,7 +123,7 @@ All **28** accepted Build31 viewport images are byte-identical. Final local edit
 Build31 was archived. Package cleanup leaves only the current numbered ZIP and executable folder; cleanup dry run is empty. Builds32–34 were superseded/failed and never delivered. Phase4 implementation and automated validation are complete. Interactive Windows desktop acceptance remains for the user. No Phase5, structured prefabs, physics, animation or dependency changes are included.
 
 
-## Phase 5 — structured prefab implementation (validation in progress)
+## Phase 5 — structured prefab implementation
 
 - Added independent AssetId-backed prefab schema 1, UUIDv4 member identities and scene4 stable instance-member mappings. Ordinary scenes/legacy ChildOf prefabs keep their existing behavior.
 - Immutable Flecs Prefab/IsA revisions use Parent interiors; dynamic attachments remain ChildOf. Candidate hierarchies are prepared before single-file publication, with explicit retirement of old templates.
@@ -135,3 +135,14 @@ Build31 was archived. Package cleanup leaves only the current numbered ZIP and e
 - Final local validation: core **12/12** (11.13s), rebuilt editor/UI/recovery/native **2/2** (14.23s), ASan/UBSan/LSan **8/8** (21.76s), Windows-target syntax for editor/core/UI/render tests, manual **3/3**, formatting, workflow lint and diff whitespace checks passed. Source history name Revert, nested/legacy selection rejection, stable duplicate-name UI IDs, and missing-parent agreement between live transforms and detached previews are included. Actual Windows/WARP and ZIP verification remain pending.
 
 - Windows Build36 passed Linux/Windows core and formatting but MSVC rejected three reversed JSON/string comparisons in the prefab source window. Compare explicit string values instead; no Build36 package was delivered. Added regression assertions for restoring removed members and dynamic attachments, equal-value rotation/scale inheritance, name Revert history and invalid dependency graphs. Rebuilt targeted core and ASan/UBSan/LSan tests pass.
+
+
+### Phase 5 verified delivery — Build 260917-000037
+
+Clean [Windows run 35189296706](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35189296706), packaged source `aebe8fa99ab4139e9733be031a8eca257ca25c14`, passed every job: Windows core **12/12** (25.96 s), early SDL/editor/native **2/2** (15.08 s), and remaining prefab/render/runtime/transform/identity/world/API suites **10/10** (6.33 s). Linux core and formatting passed. All four preview/grid shaders compiled and all three executables reported the reserved build ID.
+
+All **28** accepted Build35 viewport images are byte-identical. The new structured Parent/IsA prefab image is byte-identical to the ordinary hierarchy/shear fixture and was visually inspected. Final local correction validation passed editor **2/2** (14.30 s), targeted prefab **1/1** (3.82 s) and targeted ASan/UBSan/LSan **1/1** (15.24 s), following the earlier complete core12/editor2/sanitizer8 suites.
+
+ZIP CRC, manifest hashes, source/build identity, three x64 PE executables and **24** matching manual source/HTML pages were verified. SHA256: `29f17efa8461d01ddb46c5e7b7354ce617092c278fea4c3403adeac8e97e6bcc`. Build35 is archived; packages contains only the latest numbered ZIP and current executable folder. Cleanup dry run is empty.
+
+Phase5 implementation and automated validation are complete. Interactive Windows desktop acceptance remains for the user. Apply to Prefab is deliberately deferred; Revert is implemented. Stop before Phase6: no physics, audio, animation, navigation, broad SDK or editor layout redesign was added.

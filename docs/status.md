@@ -1,5 +1,7 @@
 # Implementation status
 
+**Current delivery: Build 260917-000037 — Phase 5 structured prefabs.** See [prefab architecture](prefabs.md), the [prefab user guide](../manual/editor/prefabs.md), and [verified delivery evidence](../changelog/20260917/README.md#phase-5-verified-delivery--build-260917-000037). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
+
 ## Verified on Linux and Windows
 - C++20 core and C17 sample module build.
 - Scene save/load, unknown data preservation, invalid-document rejection, undo/redo.
@@ -199,8 +201,8 @@ ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executabl
 Runtime-owned 60 Hz fixed ticks, bounded catch-up/debt diagnostics, protocol2 nonblocking process control, Pause/Step/Resume, derived local-pose interpolation and transactional first-live-tick native activation are implemented. See [runtime timing](runtime-timing.md) and the [Play guide](../manual/editor/play-mode.md). Clean Build260917-000035 passed Windows core11/11 and editor11/11 (two process/native suites plus nine render/runtime/API suites), including D3D12 WARP. All28 accepted Build31 viewport images are byte-identical. Linux core11/11, local editor2/2, sanitizer6/6 plus runtime pipe1/1, manual and formatting checks pass. ZIP/build/source/manifest/manual verification and package cleanup are complete; interactive Windows desktop acceptance remains pending. See the [daily changelog](../changelog/20260917/README.md) for delivery evidence. No dependency or scene-format changes; no Phase5, physics or animation integration.
 
 
-## Phase 5 structured prefabs — validation in progress
+## Phase 5 structured prefabs — verified Build 260917-000037
 
 Current source adds AssetId prefab documents, stable member/instance identities, immutable Parent/IsA realization, explicit component/scalar overrides, independent local TRS, Revert and direct source publication. Content/Inspector/source controls, project loading, missing-member diagnostics and isolated runtime snapshots use the same core model. See [technical architecture](prefabs.md) and [user workflow](../manual/editor/prefabs.md).
 
-Apply is deliberately absent. Successful source publication affecting the scene clears scene history; it does not claim scene Undo can undo shared asset edits. Legacy prefabs stay compatible and are not automatically migrated. Nested/structural overrides and later engine phases are deferred. Final validation and Windows delivery evidence will be recorded in the daily changelog.
+Apply is deliberately absent. Successful source publication affecting the scene clears scene history; it does not claim scene Undo can undo shared asset edits. Legacy prefabs stay compatible and are not automatically migrated. Nested/structural overrides and later engine phases are deferred. Windows core12/12, editor/native2/2 and remaining prefab/render/runtime suites10/10 passed in clean run35189296706. Linux, sanitizers and all28 previous render fixtures passed; the new prefab render equals the ordinary hierarchy. Package/build/manual verification and cleanup are complete. See the daily changelog for detailed evidence. Interactive desktop acceptance remains pending; stop before Phase6.
