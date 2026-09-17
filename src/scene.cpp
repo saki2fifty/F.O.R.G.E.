@@ -17,8 +17,8 @@ namespace forge {
 namespace {
 void validate(const Json& doc) {
     if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
-        (doc.value("version", 0) != 1 && doc.value("version", 0) != 2) ||
-        !doc.contains("entities") || !doc.at("entities").is_array())
+        (doc.at("version") != 1 && doc.at("version") != 2) || !doc.contains("entities") ||
+        !doc.at("entities").is_array())
         throw std::runtime_error("Expected scene version 1 or 2 and an entities array");
     if (doc.at("version") == 2) {
         (void)doc.at("asset_id").get<AssetId>();

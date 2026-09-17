@@ -26,6 +26,11 @@
 - Backup creation also publishes through a neighboring temporary file and atomic replacement. An interrupted backup cannot leave a partial final backup that blocks all later migration retries.
 - Added failed-backup-publication and exact-original-byte regression checks. Reservation 260917-000022 was superseded before package dispatch to include this correction; its number remains consumed.
 
+## Format validation
+
+- Reject unsupported format numbers without narrowing the JSON integer. Regression cases include oversized values that previously wrapped to 1 or 2.
+- Build260917-000023 is a validation candidate only, superseded for delivery by this correction. Its number remains consumed.
+
 ## Validation
 
 Local Linux core/API/runtime/native/plugin suites: 9/9 passed. Targeted ASan/UBSan/LeakSanitizer identity/lifetime/API/core suites: 4/4 passed. Manual tests: 3/3 passed; format/whitespace and workflow checks passed. Windows-target syntax checks passed; this is not Windows execution. Local editor/process/input/migration/native iteration suites: 2/2 passed. Full Windows/WARP validation remains pending before delivery.
