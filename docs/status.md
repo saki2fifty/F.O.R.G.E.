@@ -1,10 +1,12 @@
 # Implementation status
 
-**Current delivery: Build 260917-000037 — Phase 5 structured prefabs.** See [prefab architecture](prefabs.md), the [prefab user guide](../manual/editor/prefabs.md), and [verified delivery evidence](../changelog/20260917/README.md#phase-5-verified-delivery--build-260917-000037). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
+**Current delivery: Build 260917-000038 — Phase 5.5 core services foundation.** See [core services](core-services.md), [input architecture](input.md), the [Project Settings guide](../manual/editor/project-settings.md), [input walkthrough](../manual/editor/input.md), and [verified delivery evidence](../changelog/20260917/README.md#phase-55-verified-delivery--build-260917-000038). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 
-## Phase 5.5 source — core services
+## Phase 5.5 — verified foundation
 
-Project-owned settings/input, project path consolidation, schema discovery, typed context services, structured diagnostics and bounded CPU instrumentation are implemented. See [core services](core-services.md), [input architecture](input.md), [Project Settings](../manual/editor/project-settings.md) and [input walkthrough](../manual/editor/input.md). Local core14/editor2/sanitizer10 regressions pass; Windows delivery is pending. Current delivery above remains the last verified package until that validation completes. Dependency pins, native ABI1, protocol2, existing prefab/transform semantics and dock layout are preserved. AssetHandle, Apply and Phase6 stay deferred.
+Project-owned settings/input, project path consolidation, schema discovery, typed context services, structured diagnostics and bounded CPU instrumentation are implemented. Clean Windows core14/14, SDL/editor/native2/2 and remaining services/input/render/runtime suites12/12 passed, including D3D12 WARP. All29 accepted Build37 render fixtures are byte-identical. Local core14/editor2/sanitizer10, manual/format/syntax and profiling compile-out checks pass. ZIP/build/manifest/26-page manual verification and package cleanup are complete.
+
+Dependency pins, native ABI1, protocol2, existing prefab/transform semantics and dock layout are preserved. InputMonitor consumes project actions without a C++ edit; gameplay DLL action access belongs to the later SDK. AssetHandle, Apply and Phase6 stay deferred. Interactive desktop acceptance remains for the user. STOP before Phase6.
 
 ## Verified on Linux and Windows
 - C++20 core and C17 sample module build.

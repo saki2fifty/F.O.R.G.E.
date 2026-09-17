@@ -158,3 +158,12 @@ Phase5 implementation and automated validation are complete. Interactive Windows
 - Initial Linux core14/14, editor2/2, sanitizer10/10 and Windows-target syntax checks passed; final expanded checks and actual Windows delivery remain pending. No Apply to Prefab or Phase6 work.
 
 - Final local checks passed: Linux core **14/14** (11.84s), rebuilt SDL/ImGui/process/native **2/2** (15.20s), ASan/UBSan/LSan **10/10**, Windows-target syntax, manual **3/3**, formatting and workflow lint. Settings tests cover stale drafts, blocked atomic writes, moved/duplicate startup identities and null startup. A compiled-out profiling probe verifies no clock access or records. Actual clean Windows/MSVC/WARP results follow delivery.
+
+
+### Phase 5.5 verified delivery — Build 260917-000038
+
+Clean [Windows run 35194395680](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35194395680), packaged source `82b2c9518808e2025ef6e7ea4a96b5667ef58442`, passed every job. Windows core **14/14** (25.84s), early SDL/editor/process/native **2/2** (14.07s), remaining services/input/prefab/render/runtime/transform/identity/world/API suites **12/12** (6.29s), including D3D12 WARP. Linux core and formatting passed. Four preview/grid shaders compiled; all three executables reported the reserved build ID.
+
+All **29** accepted Build37 viewport fixtures are byte-identical. ZIP CRC, manifest hashes, source/build identity, three x64 PE executables and **26** matching manual source/HTML pages verified. SHA256: `8ca8a15daf240acd25697ac2891cf3870372cfb9f3b85e8677374592181558e5`. Build37 archived, disposable staging removed, and package cleanup dry run is empty. Final local sanitizer suite passed10/10 in23.80s.
+
+Phase5.5 implementation and automated validation are complete. User acceptance: change/save/reopen Simulation Hz; add a digital Space action; Play/Capture and inspect Console counts; F6 Pause/Resume, F7 Step, Esc release; then existing prefab/transform smoke checks. See [Project Settings](../../manual/editor/project-settings.md) and [Gameplay input](../../manual/editor/input.md). Interactive desktop acceptance remains for the user. Native ABI1 action access, AssetHandle, VFS/task framework, Apply to Prefab and all Phase6 integrations remain deferred. No dependency upgrade or dock layout redesign.
