@@ -345,8 +345,8 @@ int main(int argc, char** argv) {
                 child_view = e;
         const forge::ObjectTransform transformed(child_view);
         camera.target = transformed.position;
-        camera.pitch = -.3f;
-        camera.yaw = .15f;
+        camera.pitch = -.55f;
+        camera.yaw = -.6f;
         camera.distance = 8;
         ++generation;
         const auto sheared = readback(device, context,
