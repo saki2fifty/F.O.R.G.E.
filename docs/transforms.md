@@ -48,7 +48,7 @@ Move handles request world translation but write only LocalTranslation. R gestur
 
 Deleting a structural subtree removes its owned descendants. A structurally surviving explicit dependent detaches to World while preserving its affine placement if representable. Otherwise deletion is rejected before mutation. Duplication remaps known internal spatial EntityRefs; external refs and opaque plugin payloads remain unchanged. Undo/redo restores authored channels/bindings and reevaluates derived state in the same world.
 
-The existing native ABI world-displacement callback is adapted through parent-aware local translation. Simultaneously moving parent and child moves the child once. It does not expose arbitrary transform registration or change caller-stepped runtime timing.
+The existing native ABI world-displacement callback is adapted through parent-aware local translation. It prepares local translation writes from live membership-scoped Flecs entities, including generated prefab children without authored rows. All results validate before writes. Simultaneously moving parent and child moves the child once; generated handles survive. It does not expose arbitrary transform registration or change caller-stepped runtime timing.
 
 ## Future ownership
 

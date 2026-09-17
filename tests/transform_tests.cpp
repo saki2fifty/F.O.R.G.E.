@@ -317,6 +317,37 @@ void generated_and_channels() {
     authoring_command(scene, "transform.copy_from", {{"entity", id}, {"source", base}});
     check(i.get<LocalRotation>() == exact, "Copy introduced an Euler roundtrip");
 }
+void generated_native_movement() {
+    EngineContext engine;
+    Scene scene(engine.world());
+    auto source = legacy();
+    source["entities"][3]["parent"] = "base";
+    source["entities"][3]["prefab"] = true;
+    scene.reset(source);
+    flecs::entity generated;
+    scene.entity("instance").children([&](flecs::entity e) { generated = e; });
+    check(bool(generated), "Native generated child fixture absent");
+    const auto handle = generated.id();
+    scene.effective_document();
+    auto before = generated.get<WorldTransform>().affine;
+    scene.translate(1, 2, 3);
+    scene.effective_document();
+    const auto after = generated.get<WorldTransform>().affine;
+    near(after.m[3], before.m[3] + 1);
+    near(after.m[7], before.m[7] + 2);
+    near(after.m[11], before.m[11] + 3);
+    check(generated.id() == handle && generated.owns<LocalTranslation>(),
+          "Generated runtime movement rebuilt child or missed owned translation");
+    // Following the moved instance must apply its world displacement only once.
+    generated.set<SpatialBinding>({SpatialMode::FollowStructure, {}});
+    scene.effective_document();
+    before = generated.get<WorldTransform>().affine;
+    scene.translate(1, 2, 3);
+    scene.effective_document();
+    near(generated.get<WorldTransform>().affine.m[3], before.m[3] + 1);
+    near(generated.get<WorldTransform>().affine.m[7], before.m[7] + 2);
+    near(generated.get<WorldTransform>().affine.m[11], before.m[11] + 3);
+}
 void affine_operations() {
     EngineContext engine;
     Scene s(engine.world());
@@ -483,6 +514,7 @@ int main() {
         files_and_scope();
         generated_and_channels();
         affine_operations();
+        generated_native_movement();
         std::cout << "Transform math, inheritance, migration, hierarchy, channels, cycles, history "
                      "and native movement passed\n";
     } catch (const std::exception& e) {

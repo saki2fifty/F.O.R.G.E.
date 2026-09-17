@@ -57,6 +57,8 @@ class WorldContext {
         AssetId asset;
         std::uint64_t serial = 0;
     };
+    std::map<std::uint64_t, TransformNode> collect_transforms() const;
+    void translate_content(flecs::entity_t membership, Double3 delta);
     flecs::entity_t owner_of(flecs::entity entity) const;
     flecs::entity_t attach();
     void detach(flecs::entity_t root);

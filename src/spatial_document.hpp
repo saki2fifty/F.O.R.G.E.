@@ -22,7 +22,6 @@ void rebind(Json& authored, const Json& effective, const std::string& id, const 
             const std::string* structural_parent, ReparentMode mode);
 // Inspector/legacy operation adapters: canonical storage remains local channels only.
 void write_channel(Json& entity, const char* display_component, const Json& values);
-void translate_world(Json& authored, const Json& effective, Double3 delta);
 void remap_spatial(Json& entity, AssetId source, AssetId destination,
                    const std::map<EntityId, EntityId>& remap);
 } // namespace forge::detail

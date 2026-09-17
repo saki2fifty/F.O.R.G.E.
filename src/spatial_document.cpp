@@ -250,52 +250,6 @@ void write_channel(Json& e, const char* name, const Json& values) {
     else
         c[name].update(values);
 }
-void translate_world(Json& authored, const Json& effective, Double3 delta) {
-    std::map<std::string, std::uint64_t> ids;
-    std::map<std::uint64_t, const Json*> rows;
-    std::uint64_t counter = 0;
-    for (const auto& e : effective.at("entities"))
-        if (e.contains("world_affine")) {
-            ids[e.at("id")] = ++counter;
-            rows[counter] = &e;
-        }
-    std::map<std::string, Json*> output;
-    for (auto& e : authored["entities"])
-        output[e.at("id")] = &e;
-    for (const auto& [index, ptr] : rows) {
-        (void)index;
-        const auto& e = *ptr;
-        if (e.value("prefab", false))
-            continue;
-        const auto b = read_binding(e);
-        const auto structural =
-            ids.contains(e.value("parent", std::string{})) ? ids.at(e.at("parent")) : 0;
-        const auto explicit_target =
-            b.mode == SpatialMode::Explicit &&
-                    b.target.scene == effective.at("asset_id").get<AssetId>() &&
-                    ids.contains(b.target.entity.str())
-                ? ids.at(b.target.entity.str())
-                : 0;
-        const auto parent = effective_spatial_parent(b.mode, structural, explicit_target);
-        if (!parent.resolved || !e.value("spatial_resolved", false))
-            throw std::runtime_error("Runtime translation has an unresolved spatial parent");
-        auto current = read_local(e.at("components")), desired = current;
-        AffineTransform parent_world;
-        if (parent.entity) {
-            const auto& p = *rows.at(parent.entity);
-            parent_world = matrix(p);
-            if (!p.value("prefab", false))
-                for (unsigned i = 0; i < 3; ++i)
-                    parent_world.m[4 * i + 3] += delta[i];
-        }
-        const auto old = matrix(e);
-        const auto next =
-            inverse(parent_world)
-                .point({old.m[3] + delta[0], old.m[7] + delta[1], old.m[11] + delta[2]});
-        desired.translation = {next[0], next[1], next[2]};
-        write_local(*output.at(e.at("id")), current, desired, TransformChannel::Translation, true);
-    }
-}
 void remap_spatial(Json& e, AssetId source, AssetId destination,
                    const std::map<EntityId, EntityId>& remap) {
     auto b = read_binding(e);

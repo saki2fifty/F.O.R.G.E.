@@ -1,5 +1,6 @@
 #include "builtins.hpp"
 #include <forge/world.hpp>
+#include <stdexcept>
 #include <vector>
 namespace forge {
 WorldContext::WorldContext(WorldRole role) : role_(role) {
@@ -47,9 +48,7 @@ LocalTransform WorldContext::get_local_transform(flecs::entity e) const {
         result.scale = e.get<LocalScale>();
     return result;
 }
-void WorldContext::evaluate_world_transforms() {
-    if (evaluated_epoch_ == transform_epoch_)
-        return;
+std::map<std::uint64_t, TransformNode> WorldContext::collect_transforms() const {
     std::map<std::uint64_t, TransformNode> nodes;
     auto query = world_.query_builder<const LocalTranslation>()
                      .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
@@ -70,6 +69,12 @@ void WorldContext::evaluate_world_transforms() {
         n.parent_resolved = parent.resolved;
         nodes.emplace(e.id(), n);
     });
+    return nodes;
+}
+void WorldContext::evaluate_world_transforms() {
+    if (evaluated_epoch_ == transform_epoch_)
+        return;
+    const auto nodes = collect_transforms();
     const auto& evaluated = transform_evaluator_.evaluate(nodes);
     evaluating_transforms_ = true;
     try {
@@ -100,6 +105,42 @@ void WorldContext::evaluate_world_transforms() {
         evaluating_transforms_ = false;
         throw;
     }
+}
+
+void WorldContext::translate_content(flecs::entity_t membership, Double3 delta) {
+    evaluate_world_transforms();
+    const auto nodes = collect_transforms();
+    std::map<flecs::entity_t, LocalTranslation> pending;
+    // Include generated prefab interiors, which deliberately have no authored JSON row.
+    auto moves = [&](flecs::entity_t id) {
+        auto e = world_.entity(id);
+        return owner_of(e) == membership && !e.has(flecs::Prefab);
+    };
+    for (const auto& [id, node] : nodes) {
+        if (!moves(id))
+            continue;
+        auto e = world_.entity(id);
+        const auto value = e.get<WorldTransform>();
+        if (!value.resolved)
+            throw std::runtime_error("Runtime translation has an unresolved spatial parent");
+        AffineTransform parent;
+        if (node.parent) {
+            parent = world_.entity(node.parent).get<WorldTransform>().affine;
+            if (moves(node.parent))
+                for (unsigned i = 0; i < 3; ++i)
+                    parent.m[4 * i + 3] += delta[i];
+        }
+        const auto point =
+            inverse(parent).point({value.affine.m[3] + delta[0], value.affine.m[7] + delta[1],
+                                   value.affine.m[11] + delta[2]});
+        auto local = node.local;
+        local.translation = {point[0], point[1], point[2]};
+        (void)affine_transform(local); // Validate every result before mutating any entity.
+        if (!equivalent(node.local.translation, local.translation))
+            pending.emplace(id, local.translation);
+    }
+    for (const auto& [id, translation] : pending)
+        world_.entity(id).set<LocalTranslation>(translation);
 }
 
 WorldContext::Resolution WorldContext::resolve(EntityRef ref, flecs::entity_t membership) const {

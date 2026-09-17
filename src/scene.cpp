@@ -661,8 +661,7 @@ bool Scene::redo() {
     return true;
 }
 void Scene::translate(float x, float y, float z) {
-    auto next = document();
-    detail::translate_world(next, effective_document(), {x, y, z});
-    replace(next);
+    context_.translate_content(membership_, {x, y, z});
+    committed();
 }
 } // namespace forge
