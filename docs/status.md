@@ -1,6 +1,6 @@
 # Implementation status
 
-**Phase 6B source implementation is under validation.** Jolt physics, primitive body/collider authoring, world-scoped service/SDK access and private physics-aware recovery are described in [Physics](physics.md). No Phase6C work is included. The previous verified package below remains the delivered baseline until the new Windows build succeeds.
+**Phase 6B source implementation is under validation; delivery is held.** Clean Build 260917-000041 passed Windows/Linux core, shared SDK and editor CI, but an additional physics-ancestry probe found that a Static/Kinematic body following a Dynamic physics ancestor can have different collision and displayed positions. The supported-parenting policy needs resolution before release. Jolt physics and private recovery are described in [Physics](physics.md). No Phase6C work is included; Build40 remains the delivered baseline.
 
 **Current delivery: Build 260917-000040 — Phase 6A module / gameplay SDK foundation.** See [engine modules](engine-modules.md) and [verified delivery evidence](../changelog/20260917/README.md#phase6a-verified-delivery--build-260917-000040). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 
@@ -214,7 +214,7 @@ ZIP CRC, manifest hashes, reserved source/build identity, three x64 PE executabl
 
 ## Phase 4 runtime timing
 
-Runtime-owned 60 Hz fixed ticks, bounded catch-up/debt diagnostics, protocol2 nonblocking process control, Pause/Step/Resume, derived local-pose interpolation and transactional first-live-tick native activation are implemented. See [runtime timing](runtime-timing.md) and the [Play guide](../manual/editor/play-mode.md). Clean Build260917-000035 passed Windows core11/11 and editor11/11 (two process/native suites plus nine render/runtime/API suites), including D3D12 WARP. All28 accepted Build31 viewport images are byte-identical. Linux core11/11, local editor2/2, sanitizer6/6 plus runtime pipe1/1, manual and formatting checks pass. ZIP/build/source/manifest/manual verification and package cleanup are complete; interactive Windows desktop acceptance remains pending. See the [daily changelog](../changelog/20260917/README.md) for delivery evidence. No dependency or scene-format changes; no Phase5, physics or animation integration.
+Runtime-owned 60 Hz fixed ticks, bounded catch-up/debt diagnostics, protocol2 nonblocking process control, Pause/Step/Resume, derived local-pose interpolation and transactional first-live-tick native activation are implemented. See [runtime timing](runtime-timing.md) and the [Play guide](../manual/editor/play-mode.md). Clean Build 260917-000035 passed Windows core11/11 and editor11/11 (two process/native suites plus nine render/runtime/API suites), including D3D12 WARP. All28 accepted Build31 viewport images are byte-identical. Linux core11/11, local editor2/2, sanitizer6/6 plus runtime pipe1/1, manual and formatting checks pass. ZIP/build/source/manifest/manual verification and package cleanup are complete; interactive Windows desktop acceptance remains pending. See the [daily changelog](../changelog/20260917/README.md) for delivery evidence. No dependency or scene-format changes; no Phase5, physics or animation integration.
 
 
 ## Phase 5 structured prefabs — verified Build 260917-000037

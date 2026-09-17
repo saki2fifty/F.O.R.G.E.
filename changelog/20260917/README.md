@@ -219,3 +219,9 @@ Phase6A implementation and automated validation are complete. Ordinary authoring
 - Catch host-stage exceptions inside Flecs callbacks and report them after the pipeline releases its state; a failed runtime tick cannot advertise another successful checkpoint. Preserve safe teardown after runtime collider removal.
 - Enable Jolt RTTI for UBSan boundary compatibility and match its CRT to the actual FORGE build, including the default Windows Debug core profile. Windows results remain pending.
 - Instrumented Jolt/Flecs/FORGE ASan+UBSan+LeakSanitizer suite **15/15** passed outside the sandbox; the sandbox prevented LeakSanitizer's process inspection. Both C boundary headers compile as C17. Shared-SDK sanitizer and clean Windows delivery checks follow.
+
+### Build 260917-000041 — clean validation and delivery hold
+
+- Implementation `8733d21` passed all six jobs in clean [run35243398061](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35243398061): Windows/Linux static and shared SDK, formatting, and editor/package checks. All 29 viewport fixtures are byte-identical to Build 40. Additional shared Jolt/Flecs/FORGE sanitizer tests **5/5** passed.
+- Final physics ancestry probe found that a separate Static or Kinematic body spatially following a Dynamic ancestor can lag its displayed transform: approximately 8 cm after 30 ticks in the falling-parent fixture. Private recovery preserves the mismatch; it does not fix invalid integration semantics. Existing CI lacked this case.
+- Hold Build 41 delivery pending an explicit supported-parenting decision and regression fixes. The proposed initial restriction has not been implemented. No automatic detachment, local-pose rebasing, compound/joint framework or Phase 6C work. Build 40 remains the current package. Phase 6B completion and desktop acceptance are not claimed.
