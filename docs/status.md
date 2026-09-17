@@ -1,6 +1,12 @@
 # Implementation status
 
-**Current delivery: Build 260917-000043 — Phase 6B Jolt physics foundation.** Physics authoring, runtime simulation, exact-SDK access and private physics-aware recovery are implemented and automatically validated. See [Physics](physics.md), the [user guide](../manual/editor/physics.md), and the [daily changelog](../changelog/20260917/README.md#phase-6b-verified-delivery--build-260917-000043). Earlier sections retain historical evidence.
+**Current delivery: Build 260917-000044 — Phase 6C audio foundation.** WAV asset registration, AudioSource/AudioListener authoring, runtime playback, spatial updates, pause/step policy, prefab inheritance and exact-SDK Play/Stop are implemented. See [Audio](audio.md), its [user guide](../manual/editor/audio.md), and the [daily changelog](../changelog/20260917/README.md#phase-6c-verified-delivery--build-260917-000044).
+
+## Phase 6C — verified foundation
+
+Clean run 35261569939 passed Windows/Linux static (20 tests) and shared SDK (25 tests), Windows editor/process (2 suites), and the remaining audio/physics/runtime/WARP checks (18 suites). Shaders compiled and executable build IDs matched. All 29 viewport fixtures match Build 43. Local sanitizer suites (17 + 8), editor suites (2), manual tests (3), formatting, workflow lint and C17 checks passed. ZIP integrity, source/build identity, 28 manual pages, test tone, licenses and both exact SDK archives are verified. Build 43 is archived; package cleanup is complete.
+
+miniaudio 0.11.25 remains private to forge.audio. Authoring/headless schema worlds need no device; optional output failure reports diagnostics and continues silently. Device mixing is independent of the fixed clock; gameplay group Pause freezes playback and Step stays silent. Recovery restarts autoplay from frame0 and leaves manual voices stopped, preserving pause. AssetHandle, streaming/cooking/buses, advanced audio tooling and sample-accurate recovery remain deferred. Physical speaker/headphone acceptance is a separate user test. **Phase 6C complete; stop before Phase 6D.**
 
 ## Phase 6B — verified foundation
 
@@ -12,7 +18,7 @@ Final [run35249791138](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/352
 
 ZIP checksums/manifest, three x64 executables, **27** matching manual source/HTML pages, dependency licenses and separate Windows/Linux SDK archives are verified. Build40 is archived; only the current ZIP and executable folder remain in packages. Build41 was withheld for the ancestry issue; Build42 was superseded by the final completed-boundary capture guard. User confirmed Build43 Windows testing succeeds.
 
-**Phase 6B is complete and user accepted.** Phase6C audio is authorized and under validation; Build43 remains the current delivered package until new Windows evidence is complete. See [Audio](audio.md) and its [user guide](../manual/editor/audio.md). Advanced physics, compound attachments/joints, save games, animation, navigation and runtime UI remain deferred.
+**Phase 6B is complete and user accepted.** Phase6C audio was subsequently implemented and delivered as Build44; see the current section above. See [Audio](audio.md) and its [user guide](../manual/editor/audio.md). Advanced physics, compound attachments/joints, save games, animation, navigation and runtime UI remain deferred.
 
 ## Phase 6A — verified foundation
 

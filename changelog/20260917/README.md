@@ -257,3 +257,15 @@ Build41 remains withheld. Build42 passed core/SDK CI but its unfinished editor b
 - New tests cover asset identity/missing/invalid/type mismatch, source realization, sharing, pause/step, spatial parenting/listeners, prefab overrides/Revert, repeated null-device teardown, process recovery and SDK capabilities. Full platform/sanitizer verification and numbered delivery are pending; no physical hardware playback claim.
 
 Final local Phase6C checks passed: static **20/20**, shared SDK **25/25** (including installed audio-client compilation and relocated execution), SDL/editor/native **2/2**, static ASan/UBSan/LeakSanitizer **17/17**, shared SDK sanitizer **8/8**, manual **3/3**, formatting, C17 boundary headers and workflow lint. A regression preserves protocol-authoritative gravity when the audio asset root is supplied. Offline PCM proves pause cursor freezing, loop/gain/pitch/resampling and explicit null-device callbacks prove teardown; physical playback remains a user test. Windows milestone validation follows.
+
+### Phase 6C verified delivery — Build 260917-000044
+
+Source `39d1421`, clean [run35261569939](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35261569939), passed all jobs. Windows/Linux static **20/20** and shared SDK **25/25** passed, including installed audio-client compilation and relocated execution. Windows editor/process **2/2**, remaining audio/physics/runtime/viewport **18/18**, four shaders and all three executable build identifiers passed. All **29** viewport images are byte-identical to accepted Build43.
+
+Local static20/shared25/editor2, static ASan/UBSan/LSan17/shared sanitizer8, manual3, C17 headers, formatting and workflow lint passed. PCM tests verify cursor freeze, loop/gain/pitch/resampling and spatial updates; explicit null callbacks verify teardown. These do not claim physical speaker/headphone playback.
+
+Verified ZIP CRC, every manifest hash, exact source/build identity, three x64 executables, **28** matching manual source/HTML pages, generated test tone and miniaudio license. Separate Windows/Linux exact SDK archives preserve shared-Flecs/CRT/executable/symlink packaging and include audio headers without exposing miniaudio. ZIP SHA256: `4333f5685c1e1858ee469ad9380249945f48b8d19a9aa23cd8c181c5714ac8af`. Build43 is archived; packages contains only the new numbered ZIP and current extracted editor.
+
+Phase6C implementation and automated validation are complete. User physical-audio acceptance remains pending: follow [Audio](../../manual/editor/audio.md) to register the included WAV, add source/listener, test Play/Pause/Step/Resume, positioning, persistence and prefab Revert. **Stop before Phase6D.** No animation/navigation/runtime-UI integration, public SDK, AssetHandle or Apply to Prefab.
+
+Delivery documentation now identifies Build44 as current and distinguishes the historical dependency-modernization checkpoint from the later Jolt/miniaudio integrations.
