@@ -45,3 +45,10 @@ Verified ZIP CRC, manifest/source/build identity, three x64 PE executables and a
 ## Documentation consistency
 
 Updated authoring API discovery, world ownership/resolution and project save/recovery documentation to match scene-v2 and the AssetId-only document model. This delivery-evidence update changes documentation only; packaged product source remains `d98c0a5`. Phase 2 is complete. Phase 3 is not started.
+
+## Phase 3 — transform math and evaluation
+
+- Added dependency-neutral double affine math, normalized float quaternions and positive local scale; preserved the existing Rz * Ry * Rx rotation convention.
+- LocalTransform is an assembled value only. Authored storage uses independent LocalTranslation, LocalRotation and LocalScale channels; WorldTransform is transient derived state.
+- Added shared effective spatial-parent policy and iterative parent-first evaluation with cycle detection and cached unchanged results. No second authored hierarchy, dependency update, fixed clock or structured-prefab implementation.
+- Core math covers compound/pole/180-degree orientations, inverse/decomposition, shear/singularity rejection and a 20,000-node evaluation chain. Full bundle validation is recorded below as integration completes.
