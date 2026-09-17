@@ -273,8 +273,10 @@ struct PhysicsRuntime::Impl {
         api.DestroyBody(it->second.id);
         bodies.erase(it);
     }
-    std::map<std::uint64_t, std::pair<Configuration, LocalTransform>> desired() {
-        context.evaluate_world_transforms();
+    std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>
+    desired(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
+        const auto nodes = planned ? *planned : context.transform_nodes();
+        const auto evaluated = evaluate_transforms(nodes);
         std::map<std::uint64_t, std::pair<Configuration, LocalTransform>> result;
         std::vector<flecs::entity_t> candidates;
         auto q = context.world().query<const PhysicsBody>();
@@ -289,9 +291,43 @@ struct PhysicsRuntime::Impl {
             if (!context.reference(e.id()))
                 throw std::runtime_error(
                     "Physics Body requires authored EntityId/scene membership");
-            if (!e.has<WorldTransform>() || !e.get<WorldTransform>().resolved)
+            if (!evaluated.contains(id) || !evaluated.at(id).resolved)
                 throw std::runtime_error("Physics Body needs a resolved Transform");
-            auto pose = decompose(e.get<WorldTransform>().affine);
+            if (e.get<PhysicsBody>().motion < 2) {
+                // Phase 3 already resolves FollowStructure, Explicit, and World boundaries.
+                // Traverse that same graph, including entities without physics components.
+                for (auto parent = nodes.at(id).parent; parent; parent = nodes.at(parent).parent) {
+                    auto ancestor = context.world().entity(parent);
+                    if (ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().motion == 2) {
+                        const auto ancestor_ref = context.reference(parent);
+                        const auto label = [](flecs::entity entity) {
+                            if (entity.has<AuthoredName>())
+                                return entity.get<AuthoredName>().value;
+                            return std::string(entity.name().c_str() ? entity.name().c_str()
+                                                                     : "unnamed");
+                        };
+                        Diagnostic d{Severity::Error,
+                                     "physics.unsupported_dynamic_ancestry",
+                                     "Physics Body '" + label(e) +
+                                         "' cannot spatially follow Dynamic Physics Body '" +
+                                         label(ancestor) +
+                                         "'. Separate Static/Kinematic bodies require independent "
+                                         "World binding or a non-Dynamic spatial ancestry; "
+                                         "physical attachments "
+                                         "need future compound/constraint support.",
+                                     {}};
+                        d.context.entity = ref->entity;
+                        d.context.asset = ref->scene;
+                        d.context.related_entity = ancestor_ref;
+                        d.context.module = "forge.physics";
+                        d.context.property = "spatial";
+                        d.context.tick = tick;
+                        context.services().emit(d);
+                        throw PhysicsConfigurationError(std::move(d));
+                    }
+                }
+            }
+            auto pose = decompose(evaluated.at(id).affine);
             valid_position(pose.translation);
             result.emplace(e.id(), std::pair{configuration(e, pose.scale), pose});
         }
@@ -345,7 +381,53 @@ void PhysicsRuntime::configure(PhysicsConfig config) {
 void PhysicsRuntime::synchronize(float dt) {
     auto& s = *impl_;
     s.check();
-    auto desired = s.desired();
+    const auto initial = s.desired();
+    auto nodes = s.context.transform_nodes();
+    std::set<std::uint64_t> commanded;
+    for (const auto& cmd : s.commands) {
+        const auto resolved = s.context.resolve(cmd.ref);
+        if (resolved.state != WorldContext::ResolveState::Available ||
+            !initial.contains(resolved.entity))
+            throw std::runtime_error("Physics command target was removed or is unresolved");
+        const auto id = resolved.entity;
+        if (!cmd.teleport && (initial.at(id).first.body.motion != 1 || dt <= 0))
+            throw std::runtime_error("Kinematic target requires a Kinematic Body and fixed tick");
+        const auto evaluated = evaluate_transforms(nodes);
+        auto target = decompose(evaluated.at(id).affine);
+        target.translation = cmd.p;
+        target.rotation = cmd.q;
+        auto affine = affine_transform(target);
+        if (nodes.at(id).parent)
+            affine = inverse(evaluated.at(nodes.at(id).parent).affine) * affine;
+        const auto local = decompose(affine);
+        if (!equivalent(local.scale, nodes.at(id).local.scale))
+            throw std::runtime_error("Physics target would change LocalScale under its spatial "
+                                     "parent; choose a representable target or World binding");
+        nodes.at(id).local.translation = local.translation;
+        nodes.at(id).local.rotation = local.rotation;
+        commanded.insert(id);
+    }
+    const auto desired = s.desired(&nodes);
+    // Preflight direct Dynamic writes and all target geometry before any ECS/Jolt mutation.
+    for (const auto& [entity, value] : desired) {
+        const auto it = s.bodies.find(entity);
+        if (value.first.body.motion == 2 && it != s.bodies.end() &&
+            it->second.config.body.motion == 2 && !commanded.contains(entity) &&
+            (!equivalent(value.second.translation, it->second.last.translation) ||
+             !equivalent(value.second.rotation, it->second.last.rotation)))
+            throw std::runtime_error("Dynamic pose is solver-owned; use Physics teleport instead "
+                                     "of direct transform writes");
+    }
+    for (auto id : commanded) {
+        auto e = s.context.world().entity(id);
+        const auto before = s.context.get_local_transform(e);
+        const auto& local = nodes.at(id).local;
+        if (!equivalent(before.translation, local.translation))
+            e.set<LocalTranslation>(local.translation);
+        if (!equivalent(before.rotation, local.rotation))
+            e.set<LocalRotation>(local.rotation);
+    }
+    s.context.evaluate_world_transforms();
     auto& api = s.system.GetBodyInterface();
     // Validate the complete candidate before touching live realization.
     for (auto it = s.bodies.begin(); it != s.bodies.end();) {
@@ -381,18 +463,7 @@ void PhysicsRuntime::synchronize(float dt) {
             it = s.bodies.emplace(entity, s.create(entity, config, pose)).first;
             s.snaps.push_back(entity);
         }
-        auto& body = it->second;
-        if (config.body.motion == 0)
-            api.SetPositionAndRotationWhenChanged(body.id, position(pose.translation),
-                                                  rotation(pose.rotation),
-                                                  JPH::EActivation::Activate);
-        else if (config.body.motion == 1 && dt > 0)
-            api.MoveKinematic(body.id, position(pose.translation), rotation(pose.rotation), dt);
-        else if (config.body.motion == 2 && (!equivalent(pose.translation, body.last.translation) ||
-                                             !equivalent(pose.rotation, body.last.rotation)))
-            throw std::runtime_error("Dynamic pose is solver-owned; use Physics teleport instead "
-                                     "of direct transform writes");
-        body.last = pose;
+        it->second.last = pose;
     }
     for (const auto& cmd : s.commands) {
         auto found = s.context.resolve(cmd.ref);
@@ -413,21 +484,17 @@ void PhysicsRuntime::synchronize(float dt) {
                     "Kinematic target requires a Kinematic Body and fixed tick");
             api.MoveKinematic(body.id, position(cmd.p), rotation(cmd.q), dt);
         }
-        // Convert world intent back to authored local simulation channels for any parent mode.
-        auto e = s.context.world().entity(found.entity);
-        auto world_pose = body.last;
-        world_pose.translation = cmd.p;
-        world_pose.rotation = cmd.q;
-        auto nodes = s.context.transform_nodes();
-        auto parent = nodes.at(found.entity).parent;
-        auto affine = affine_transform(world_pose);
-        if (parent)
-            affine =
-                inverse(s.context.world().entity(parent).get<WorldTransform>().affine) * affine;
-        auto local = decompose(affine);
-        e.set<LocalTranslation>(local.translation);
-        e.set<LocalRotation>(local.rotation);
-        body.last = world_pose;
+    }
+    // Resolve every body's final target after FIFO intent, independent of entity-ID order.
+    // Teleports establish discontinuities before kinematic velocities are derived.
+    for (auto& [entity, body] : s.bodies) {
+        const auto& pose = desired.at(entity).second;
+        if (body.config.body.motion == 0)
+            api.SetPositionAndRotationWhenChanged(body.id, position(pose.translation),
+                                                  rotation(pose.rotation),
+                                                  JPH::EActivation::Activate);
+        else if (body.config.body.motion == 1 && dt > 0)
+            api.MoveKinematic(body.id, position(pose.translation), rotation(pose.rotation), dt);
     }
     s.commands.clear();
 }

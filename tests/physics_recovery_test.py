@@ -49,5 +49,23 @@ try:
  # Rejected recovery can be followed explicitly by clean Play, with authored location.
  clean=b.request('replace',scene=initial['scene']);assert clean['timing']['tick']==0 and height(clean)==5
  assert clean['physics']['tick']==0
+ # Replacement validates effective ancestry in the unpublished candidate. The structured
+ # identities must survive candidate destruction, and the previous world stays usable.
+ invalid=copy.deepcopy(clean['scene'])
+ parent=next(e for e in invalid['entities'] if e['name']=='cube')
+ child=next(e for e in invalid['entities'] if e['name']=='floor')
+ child['spatial']=dict(mode='explicit',target=dict(scene=invalid['asset_id'],entity=parent['id']))
+ b.request_id+=1
+ b.process.stdin.write(json.dumps(dict(protocol=2,id=b.request_id,session=b.session,command='replace',scene=invalid))+'\n')
+ b.process.stdin.flush()
+ response=json.loads(b.lines.get(timeout=5))
+ assert not response['ok'], response
+ diagnostic=response['diagnostic']
+ assert diagnostic['category']=='physics.unsupported_dynamic_ancestry',diagnostic
+ assert diagnostic['context']['entity']==child['id'],diagnostic
+ assert diagnostic['context']['related_entity']==dict(scene=invalid['asset_id'],entity=parent['id']),diagnostic
+ unchanged=b.request('snapshot')
+ assert unchanged['scene']==clean['scene'] and unchanged['timing']['tick']==0
+ assert b.request('step')['timing']['tick']==1
 finally:a.close();b.close()
 print('Coherent physics recovery, velocity, pause/step/resume, isolation, rejection and clean restart passed')

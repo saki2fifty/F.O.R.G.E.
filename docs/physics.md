@@ -1,8 +1,15 @@
 # Physics module and transient recovery
 
-> Validation hold: Build 260917-000041 passes the existing CI suites, but a separate Static/Kinematic body spatially following a Dynamic ancestor can lag its displayed transform. This configuration is not validated for use. Phase6B delivery is held while the initial supported-parenting policy is reviewed; no automatic hierarchy rewrite is implemented.
 
 `forge.physics` separates reflected engine-owned authoring values from Jolt-owned simulation objects. `physics_components.hpp` contains POD settings; `physics_service.hpp` contains owner-thread queries/commands. `physics.hpp` is host composition/internal runtime infrastructure, excluded from the experimental SDK distribution.
+
+## Effective spatial ancestry
+
+Before body realization, each fixed-tick synchronization, checkpoint capture, and recovery reconstruction, Static/Kinematic bodies are checked against the existing Phase 3 effective spatial-parent graph. Traversal includes nonphysics intermediaries and Explicit links and stops at World binding. Reaching a Dynamic PhysicsBody raises `physics.unsupported_dynamic_ancestry`. The structured diagnostic carries the affected EntityId/scene AssetId, `related_entity` as the Dynamic ancestor's EntityRef, module, property, tick and an explanation. Runtime candidate failures retain this diagnostic after candidate destruction and leave the previous runtime unchanged while discarding the failed candidate.
+
+Validation covers body/configuration changes, spatial reparenting and prefab realization/reconciliation when runtime synchronization consumes those changes, including scene replacement and recovery. Authoring worlds still have no solver; authoring an unsupported arrangement does not silently repair it. Physics realization rejects it. Structural ChildOf with spatial World is allowed; nonphysics visual descendants may follow Dynamics; supported non-Dynamic ancestry remains allowed. This initial restriction leaves compound colliders, constraints and deliberate attachment semantics for future work.
+
+Movement commands are prepared in FIFO order in detached transform values. Parent commands therefore affect subsequent child conversion, and final targets for all bodies are evaluated after the batch. Validation of ancestry, shear, shape scale and translation/rotation-only scale preservation precedes local-channel/Jolt mutation. Only changed local translation/rotation channels are written; LocalScale is never overridden by a pose target. Invalid batches preserve values and prefab channel ownership. Teleports are applied before final kinematic velocities are calculated. Derived WorldTransform remains owned exclusively by the transform system. These changes do not alter scene, identity, ABI1 or private recovery-envelope versions.
 
 ## Dependency and lifetime
 

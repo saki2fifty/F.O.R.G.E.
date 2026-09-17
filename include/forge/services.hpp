@@ -12,6 +12,7 @@ struct DiagnosticContext {
     std::optional<EntityId> entity;
     std::optional<AssetId> asset;
     std::optional<PrefabMemberId> member;
+    std::optional<EntityRef> related_entity;
     std::string source, property, session, module, world_role, dependency;
     std::optional<std::uint64_t> tick;
 };

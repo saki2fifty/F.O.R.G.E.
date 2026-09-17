@@ -239,9 +239,13 @@ int main(int argc, char** argv) {
                     response["error"] = error.what();
                     forge::Diagnostic diagnostic{
                         forge::Severity::Error, "runtime", error.what(), {}};
+                    if (const auto* physics =
+                            dynamic_cast<const forge::PhysicsConfigurationError*>(&error))
+                        diagnostic = physics->diagnostic;
                     diagnostic.context.tick = clock.tick();
                     diagnostic.context.session = session;
-                    diagnostic.context.asset = runtime->scene.asset_id();
+                    if (!diagnostic.context.asset)
+                        diagnostic.context.asset = runtime->scene.asset_id();
                     runtime->engine.services().emit(diagnostic);
                     response["diagnostic"] = forge::diagnostic_json(diagnostic);
                 }

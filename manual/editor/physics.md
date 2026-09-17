@@ -24,6 +24,18 @@ Duplicate the falling cube and move the copy sideways to test several bodies. Yo
 
 Physics runs only in Play. Editing an object does not run a hidden simulation in the authoring scene.
 
+## Parenting physics objects
+
+A separate **Static** or **Kinematic** Physics Body cannot spatially follow a **Dynamic** Physics Body. This also applies through intermediary objects and **Explicit** spatial-parent links. Before physics realization or the next simulation step, FORGE reports the affected object and Dynamic ancestor and rejects the configuration. Recovery performs the same check.
+
+To keep structural ownership while the bodies act independently, set the child's **Child space** to **World**. This breaks spatial inheritance. For example, a car can structurally own another body without pulling that body along with it. FORGE never changes this setting, your hierarchy, or your transforms automatically.
+
+Objects without a Physics Body—such as a camera mount or visual mesh—can still follow a Dynamic parent. Static and Kinematic bodies can follow supported non-dynamic ancestors. A World-bound intermediary also breaks the spatial chain.
+
+This is an initial restriction on separate simulated bodies. Physically connected collision shapes and bodies need future compound-collider or joint features; transform parenting does not create those connections.
+
+Gameplay translation/rotation targets preserve the current local scale. A target that would require changing that scale, or creating shear, is rejected. Rejected target batches leave existing transforms unchanged.
+
 ## Collider sizes
 
 A body currently needs **exactly one** collider, centered on its transform:
@@ -34,7 +46,7 @@ A body currently needs **exactly one** collider, centered on its transform:
 
 Collider geometry is independent of the visible primitive. Changing a mesh's Shape does not change its collider. Match their dimensions yourself. Collider wireframes are not available in this first integration.
 
-Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support positive scale on each axis. Spheres and capsules require uniform positive world scale. Shear, negative scale, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow parents when their final world transform meets these restrictions.
+Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support positive scale on each axis. Spheres and capsules require uniform positive world scale. Shear, negative scale, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow non-dynamic spatial parents when their final world transform meets these restrictions.
 
 ## Weight, friction, and bounce
 

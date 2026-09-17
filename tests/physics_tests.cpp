@@ -54,8 +54,10 @@ Json source() {
 double y(Fixture& f, const char* id = "cube") {
     return f.scene.entity(id).get<LocalTranslation>().y;
 }
+#include "physics_hierarchy.hpp"
 int main() {
     try {
+        physics_hierarchy_tests();
         {
             EngineContext authoring;
             check(!authoring.services().available(Capability::Physics), "Authoring created solver");

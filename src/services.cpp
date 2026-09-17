@@ -30,6 +30,8 @@ Json diagnostic_json(const Diagnostic& d) {
         context["asset"] = *d.context.asset;
     if (d.context.member)
         context["member"] = *d.context.member;
+    if (d.context.related_entity)
+        context["related_entity"] = *d.context.related_entity;
     if (d.context.tick)
         context["tick"] = *d.context.tick;
     if (!d.context.source.empty())

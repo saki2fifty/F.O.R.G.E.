@@ -1,6 +1,6 @@
 # Implementation status
 
-**Phase 6B source implementation is under validation; delivery is held.** Clean Build 260917-000041 passed Windows/Linux core, shared SDK and editor CI, but an additional physics-ancestry probe found that a Static/Kinematic body following a Dynamic physics ancestor can have different collision and displayed positions. The supported-parenting policy needs resolution before release. Jolt physics and private recovery are described in [Physics](physics.md). No Phase6C work is included; Build40 remains the delivered baseline.
+**Phase 6B corrections are under final validation.** The approved initial physics-ancestry restriction and target synchronization/scale checks are implemented with regression coverage. Build41 remains withheld; Build40 remains the delivered package until the corrected source passes full validation and packaging. See [Physics](physics.md). No Phase6C work is included.
 
 **Current delivery: Build 260917-000040 — Phase 6A module / gameplay SDK foundation.** See [engine modules](engine-modules.md) and [verified delivery evidence](../changelog/20260917/README.md#phase6a-verified-delivery--build-260917-000040). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 

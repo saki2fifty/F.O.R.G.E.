@@ -4,6 +4,13 @@
 namespace forge {
 // Host composition API, not exported by the experimental gameplay SDK.
 EngineModule physics_module(PhysicsConfig config = {});
+// Host-only error retaining identity through failed candidate-world destruction.
+class PhysicsConfigurationError : public std::runtime_error {
+  public:
+    explicit PhysicsConfigurationError(Diagnostic value)
+        : std::runtime_error(value.text), diagnostic(std::move(value)) {}
+    Diagnostic diagnostic;
+};
 class PhysicsRuntime : public PhysicsService {
   public:
     explicit PhysicsRuntime(WorldContext&, PhysicsConfig);
