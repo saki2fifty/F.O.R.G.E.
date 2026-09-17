@@ -141,7 +141,18 @@ void write_scene_file(const std::filesystem::path& path, const Json& document) {
                                              backup.string());
             } else {
                 // Preserve the original bytes, including unknown fields and formatting.
-                std::filesystem::copy_file(path, backup);
+                std::string original;
+                {
+                    std::ifstream stream(path, std::ios::binary);
+                    if (!stream)
+                        throw std::runtime_error("Cannot read original scene for backup");
+                    original.assign(std::istreambuf_iterator<char>(stream), {});
+                    if (stream.bad())
+                        throw std::runtime_error("Cannot finish reading scene backup");
+                }
+                // Publish the backup atomically too: interruption cannot leave a partial
+                // final backup that would make every later retry fail validation.
+                atomic_write(backup, original);
             }
         }
     }

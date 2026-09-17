@@ -186,6 +186,12 @@ int main() {
         Scene reopened(world);
         reopened.load(path);
         require(reopened.document() == first, "Reopen changed assigned identity");
+        const auto backup_pending = path.string() + ".v1.backup.pending";
+        std::filesystem::create_directory(backup_pending);
+        rejects([&] { write_scene_file(path, first); });
+        require(read(path) == v1 && !std::filesystem::exists(path.string() + ".v1.backup"),
+                "Failed backup publication damaged source or left partial final backup");
+        std::filesystem::remove(backup_pending);
         // Failed replacement preserves original source and backup; retry uses the same assignment.
 #ifdef _WIN32
         const auto locked = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
@@ -205,6 +211,11 @@ int main() {
         require(read_scene_file(path) == first && read(path.string() + ".v1.backup") == v1,
                 "Saved migration lost identity/backup");
         write_scene_file(path, first);
+        {
+            std::ifstream backup(path.string() + ".v1.backup", std::ios::binary);
+            const std::string bytes{std::istreambuf_iterator<char>(backup), {}};
+            require(bytes == original_bytes, "Backup changed original formatting/bytes");
+        }
         const auto moved = folder / "renamed.scene.json";
         std::filesystem::rename(path, moved);
         require(read_scene_file(moved) == first, "Move changed scene identity");

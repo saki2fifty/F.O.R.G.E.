@@ -21,6 +21,11 @@
 - Added identity/migration/duplication/scope/asset tests, including actual Windows blocked-file replacement. Windows editor CI explicitly builds/runs the new suite.
 - Asset loading handles, importers, cook pipelines and a project-wide conflict browser remain deferred. The current five numeric components do not contain arbitrary typed reference fields; known hierarchy/base links are remapped, and a typed helper serves future known fields without scanning opaque payloads.
 
+## Migration recovery refinement
+
+- Backup creation also publishes through a neighboring temporary file and atomic replacement. An interrupted backup cannot leave a partial final backup that blocks all later migration retries.
+- Added failed-backup-publication and exact-original-byte regression checks. Reservation 260917-000022 was superseded before package dispatch to include this correction; its number remains consumed.
+
 ## Validation
 
 Local Linux core/API/runtime/native/plugin suites: 9/9 passed. Targeted ASan/UBSan/LeakSanitizer identity/lifetime/API/core suites: 4/4 passed. Manual tests: 3/3 passed; format/whitespace and workflow checks passed. Windows-target syntax checks passed; this is not Windows execution. Local editor/process/input/migration/native iteration suites: 2/2 passed. Full Windows/WARP validation remains pending before delivery.

@@ -32,7 +32,7 @@ The **Content** panel lists project-relative recognized JSON scenes. Filter the 
 
 Each scene and authored object now has a permanent identifier. Renaming objects, changing their parent, editing properties, saving, and reopening preserve these identifiers. Undoing a deletion restores the original object's identifier. Duplicating objects creates new identifiers.
 
-Opening an older scene keeps its original file intact. FORGE writes a companion `<scene filename>.forge-identity.json` record beside it so the assigned identifiers stay the same if you close and reopen before saving. Keep this record with the older scene, including in source control. The folder must be writable to establish these identities.
+Opening an older scene keeps its original file intact. FORGE writes a companion `<scene filename>.forge-identity.json` record beside it so the assigned identifiers stay the same if you close and reopen before saving. Keep this record with the older scene, including in source control. If you move or rename an unsaved format-1 file, move or rename its companion to match; saving to format 2 before moving is simpler. The folder must be writable to establish these identities.
 
 Your next **Save** writes scene format 2 and keeps the original format 1 file as `<scene filename>.v1.backup`. Older FORGE builds cannot open format 2; the backup preserves the older format. Neither file is an extra scene shown in Content.
 
