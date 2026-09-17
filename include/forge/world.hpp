@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <flecs.h>
+#include <forge/engine_module.hpp>
 #include <forge/identity.hpp>
 #include <forge/services.hpp>
 #include <forge/transform.hpp>
@@ -35,12 +36,13 @@ struct SceneMember {};
 struct AuthoredPrefab {};
 // Derived availability marker, never authored or inherited.
 struct MissingStructuralParent {};
-enum class WorldRole { Authoring, Runtime, Preview, Validation };
 class Scene;
 class WorldContext {
   public:
-    explicit WorldContext(WorldRole role = WorldRole::Authoring, ServiceAccess services = {});
+    explicit WorldContext(WorldRole role = WorldRole::Authoring, ServiceAccess services = {},
+                          std::vector<EngineModule> modules = {});
     ServiceAccess services() const { return services_; }
+    ModuleLifecycle& modules() { return modules_; }
     ~WorldContext();
     WorldContext(const WorldContext&) = delete;
     WorldContext& operator=(const WorldContext&) = delete;
@@ -80,14 +82,16 @@ class WorldContext {
     std::map<flecs::entity_t, Content> content_;
     Json schema_;
     // Destroy the world before state used by its observers/hooks.
+    ModuleLifecycle modules_; // Code/providers must outlive world finalization.
     flecs::world world_;
 };
 // Application composition root. Services/code owners are declared before this
 // object by applications, so they outlive its world. No generic service locator.
 class EngineContext {
   public:
-    explicit EngineContext(WorldRole role = WorldRole::Authoring, bool profiling = false)
-        : services_(profiling), world_(role, services_.access()) {}
+    explicit EngineContext(WorldRole role = WorldRole::Authoring, bool profiling = false,
+                           std::vector<EngineModule> modules = {})
+        : services_(profiling), world_(role, services_.access(), std::move(modules)) {}
     ServiceAccess services() const { return services_.access(); }
     WorldContext& world() { return world_; }
 

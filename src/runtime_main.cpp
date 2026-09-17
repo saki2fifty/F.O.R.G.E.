@@ -1,10 +1,20 @@
 #include "runtime_io.hpp"
 #include <forge/build.hpp>
+#include <forge/native_sdk.hpp>
+#include <forge/native_sdk_identity.h>
+#include <forge/project.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
 #include <random>
 #include <thread>
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--sdk-info") {
+        std::cout << forge::Json{{"profile", FORGE_NATIVE_SDK_PROFILE},
+                                 {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT}}
+                         .dump()
+                  << '\n';
+        return 0;
+    }
     if (argc == 2 && std::string(argv[1]) == "--version") {
         std::cout << "FORGE runtime | Build: " << forge::build_id << '\n';
         return 0;
@@ -15,16 +25,26 @@ int main(int argc, char** argv) {
 #endif
     try {
         forge::RuntimeConfig config;
-        if (argc == 3 && std::string(argv[1]) == "--simulation-hz") {
+        std::vector<forge::EngineModule> sdk_modules;
+        std::optional<forge::ProjectSettings> sdk_project;
+        forge::EngineServices bootstrap_services;
+        if (argc == 3 && std::string(argv[1]) == "--sdk-project") {
+            sdk_project.emplace(std::filesystem::u8path(argv[2]));
+            config.simulation_hz = sdk_project->simulation_hz();
+            sdk_modules =
+                forge::project_native_modules(std::filesystem::u8path(argv[2]),
+                                              sdk_project->document(), bootstrap_services.access());
+        } else if (argc == 3 && std::string(argv[1]) == "--simulation-hz") {
             std::size_t consumed = 0;
             config.simulation_hz = std::stod(argv[2], &consumed);
             if (consumed != std::string(argv[2]).size())
                 throw std::runtime_error("Invalid simulation frequency");
         } else if (argc != 1)
-            throw std::runtime_error("Usage: forge_runtime [--simulation-hz 1..240]");
+            throw std::runtime_error(
+                "Usage: forge_runtime [--simulation-hz 1..240 | --sdk-project PROJECT]");
         forge::RuntimeClock clock(config);
         forge::Module module; // Code outlives all systems, scene content and the world.
-        forge::EngineContext engine(forge::WorldRole::Runtime);
+        forge::EngineContext engine(forge::WorldRole::Runtime, false, std::move(sdk_modules));
         forge::Scene scene(engine.world());
         forge::RuntimeSimulation simulation(engine.world(), scene, module);
         forge::RuntimeIo io;
@@ -72,7 +92,8 @@ int main(int argc, char** argv) {
                                 request.value("simulation_hz", config.simulation_hz);
                         next_config.validate();
                         forge::InputMap input(
-                            request.value("input_map", forge::InputMap{}.source()));
+                            request.value("input_map", sdk_project ? sdk_project->input().source()
+                                                                   : forge::InputMap{}.source()));
                         simulation.input().configure(std::move(input));
                         clock = forge::RuntimeClock(next_config);
                         initialized = true;

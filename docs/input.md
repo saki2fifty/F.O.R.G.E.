@@ -23,3 +23,7 @@ Hello may carry simulation_hz and input_map; explicit runtime CLI frequency take
 Capture is explicit in Scene during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. The adapter owns one SDL gamepad connection; device removal releases state and closes its handle. Multiple players/devices, rumble, sensors, gameplay cursor locking and an elaborate Input Map UI are deferred.
 
 Official SDL headers at fa2c02bb6e21974a89ea9824bc53c9932abe5f9c were inspected for event fields, gamepad lifetime/ranges, keyboard scancodes and virtual-joystick tests. See [SDL_GetGamepads](https://wiki.libsdl.org/SDL3/SDL_GetGamepads), [SDL_OpenGamepad](https://wiki.libsdl.org/SDL3/SDL_OpenGamepad), and [SDL_AttachVirtualJoystick](https://wiki.libsdl.org/SDL3/SDL_AttachVirtualJoystick). ImGui capture helpers were checked at b48d1afbe8ee8b238e2961dc363a949dd7304e23. No dependency changed.
+
+## Internal SDK consumer
+
+Phase6A's separate exact native SDK exposes borrowed action snapshots through ActionId, alongside direct Flecs fixed-system registration. The existing ABI1 remains unchanged. See [Engine modules](engine-modules.md); the test module is transient and does not introduce engine-defined gameplay actions.

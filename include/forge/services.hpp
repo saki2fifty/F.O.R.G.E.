@@ -11,7 +11,7 @@ struct DiagnosticContext {
     std::optional<EntityId> entity;
     std::optional<AssetId> asset;
     std::optional<PrefabMemberId> member;
-    std::string source, property, session, module;
+    std::string source, property, session, module, world_role, dependency;
     std::optional<std::uint64_t> tick;
 };
 struct Diagnostic {
@@ -20,7 +20,7 @@ struct Diagnostic {
     DiagnosticContext context;
 };
 nlohmann::json diagnostic_json(const Diagnostic& diagnostic);
-enum class Capability : unsigned { Diagnostics = 1, Profiling = 2 };
+enum class Capability : unsigned { Diagnostics = 1, Profiling = 2, Rendering = 4 };
 constexpr unsigned capability(Capability value) { return static_cast<unsigned>(value); }
 struct ModuleRequirement {
     std::string id;

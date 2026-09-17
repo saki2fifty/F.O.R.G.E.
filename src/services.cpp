@@ -40,6 +40,10 @@ Json diagnostic_json(const Diagnostic& d) {
         context["session"] = d.context.session;
     if (!d.context.module.empty())
         context["module"] = d.context.module;
+    if (!d.context.world_role.empty())
+        result["context"]["world_role"] = d.context.world_role;
+    if (!d.context.dependency.empty())
+        result["context"]["dependency"] = d.context.dependency;
     return result;
 }
 [[noreturn]] void fail_invariant(ServiceAccess services, const std::string& text) {

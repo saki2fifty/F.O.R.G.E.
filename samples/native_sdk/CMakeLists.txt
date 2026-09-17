@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.24)
+project(ForgeInternalSdkProbe LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(ForgeNativeSdk CONFIG REQUIRED PATHS "${FORGE_NATIVE_SDK}/sdk" NO_DEFAULT_PATH)
+add_library(gameplay MODULE probe.cpp)
+target_link_libraries(gameplay PRIVATE ForgeNativeSdk::Flecs)
+set_target_properties(gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)

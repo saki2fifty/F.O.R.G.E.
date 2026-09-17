@@ -169,7 +169,14 @@ void RuntimeSimulation::tick(float dt) {
     // progress updates Flecs frame/time metadata from this explicit fixed delta.
     auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
     input_.latch(++input_tick_);
-    context_.world().progress(dt);
+    context_.modules().begin_tick(input_.snapshot());
+    try {
+        context_.world().progress(dt);
+    } catch (...) {
+        context_.modules().end_tick();
+        throw;
+    }
+    context_.modules().end_tick();
     poses_.capture(context_.transform_nodes());
 }
 void RuntimeSimulation::reset_presentation() {

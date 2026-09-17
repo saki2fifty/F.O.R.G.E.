@@ -27,6 +27,8 @@ class CacheIdentity(unittest.TestCase):
             environment = dict(ImageVersion='image1', VCToolsVersion='msvc1',
                                WindowsSDKVersion='sdk1', RUNNER_ARCH='X64')
             first = cache.cache_key(root, environment)
+            for key, value in [('FORGE_LINKAGE_PROFILE', 'shared-native-sdk'), ('FORGE_CRT_PROFILE', 'MultiThreadedDLL')]:
+                self.assertNotEqual(first, cache.cache_key(root, dict(environment, **{key: value})))
             (root/'main.cpp').write_text('new product code')
             self.assertEqual(first, cache.cache_key(root, environment))
             for key in environment:

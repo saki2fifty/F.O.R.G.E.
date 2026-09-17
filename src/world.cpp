@@ -3,58 +3,109 @@
 #include <stdexcept>
 #include <vector>
 namespace forge {
-WorldContext::WorldContext(WorldRole role, ServiceAccess services)
-    : services_(services), role_(role) {
-    // Validate the built-in composition before registration. No runtime package solver.
-    const auto order = module_order(
-        {{"core", {}, 0}, {"transforms", {"core"}, 0}, {"prefabs", {"transforms"}, 0}}, 0);
-    if (order != std::vector<std::string>{"core", "transforms", "prefabs"})
-        fail_invariant(services_, "Unexpected built-in registration order");
-    for (const auto& module : order) {
-        if (module == "core") {
-            schema_ = detail::register_builtins(world_);
-            world_.component<PersistentEntityId>("forge.entity_id")
-                .add(flecs::OnInstantiate, flecs::DontInherit);
-            world_.component<StableId>("forge.stable_id")
-                .add(flecs::OnInstantiate, flecs::DontInherit);
-            world_.component<AuthoredName>("forge.authored_name")
-                .add(flecs::OnInstantiate, flecs::DontInherit);
-            world_.component<SceneMember>("forge.scene_member")
-                .add(flecs::Exclusive)
-                .add(flecs::OnInstantiate, flecs::DontInherit)
-                .add(flecs::OnDeleteTarget, flecs::Delete);
-        } else if (module == "transforms") {
-            world_.component<WorldTransform>("forge.world_transform")
-                .add(flecs::OnInstantiate, flecs::DontInherit);
-            world_.component<SpatialBinding>("forge.spatial_binding")
-                .add(flecs::OnInstantiate, flecs::Override);
-            world_.component<MissingStructuralParent>().add(flecs::OnInstantiate,
-                                                            flecs::DontInherit);
-        } else if (module == "prefabs") {
-            world_.component<TemplateMember>("forge.prefab_member_definition")
-                .add(flecs::OnInstantiate, flecs::Inherit);
-            world_.component<AuthoredPrefab>("forge.authored_prefab")
-                .add(flecs::OnInstantiate, flecs::DontInherit);
-        }
+namespace {
+struct RegistrationScope {
+    ecs_world_t* world;
+    ecs_entity_t previous;
+    explicit RegistrationScope(flecs::world& w)
+        : world(w.c_ptr()), previous(ecs_set_scope(world, 0)) {}
+    ~RegistrationScope() { ecs_set_scope(world, previous); }
+};
+struct CoreRegistration {
+    Json schema;
+    explicit CoreRegistration(flecs::world& world) {
+        world.module<CoreRegistration>();
+        RegistrationScope scope(world);
+        schema = detail::register_builtins(world);
+        world.component<PersistentEntityId>("forge.entity_id")
+            .add(flecs::OnInstantiate, flecs::DontInherit);
+        world.component<StableId>("forge.stable_id").add(flecs::OnInstantiate, flecs::DontInherit);
+        world.component<AuthoredName>("forge.authored_name")
+            .add(flecs::OnInstantiate, flecs::DontInherit);
+        world.component<SceneMember>("forge.scene_member")
+            .add(flecs::Exclusive)
+            .add(flecs::OnInstantiate, flecs::DontInherit)
+            .add(flecs::OnDeleteTarget, flecs::Delete);
     }
-    // Revision invalidation includes direct native writes, removal and relation edits.
-    // Internal observation only: application notifications remain post-commit.
-    world_.observer()
-        .with(flecs::Wildcard)
-        .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
-        .event(flecs::OnAdd)
-        .event(flecs::OnSet)
-        .event(flecs::OnRemove)
-        .each([this](flecs::entity e) {
-            if (evaluating_transforms_)
-                return;
-            ++transform_epoch_;
-            auto it = content_.find(owner_of(e));
-            if (it != content_.end())
-                ++it->second.serial;
-        });
+};
+struct TransformsRegistration {
+    explicit TransformsRegistration(flecs::world& world) {
+        world.module<TransformsRegistration>();
+        RegistrationScope scope(world);
+        world.component<WorldTransform>("forge.world_transform")
+            .add(flecs::OnInstantiate, flecs::DontInherit);
+        world.component<SpatialBinding>("forge.spatial_binding")
+            .add(flecs::OnInstantiate, flecs::Override);
+        world.component<MissingStructuralParent>().add(flecs::OnInstantiate, flecs::DontInherit);
+    }
+};
+struct PrefabsRegistration {
+    explicit PrefabsRegistration(flecs::world& world) {
+        world.module<PrefabsRegistration>();
+        RegistrationScope scope(world);
+        world.component<TemplateMember>("forge.prefab_member_definition")
+            .add(flecs::OnInstantiate, flecs::Inherit);
+        world.component<AuthoredPrefab>("forge.authored_prefab")
+            .add(flecs::OnInstantiate, flecs::DontInherit);
+    }
+};
+struct InputRegistration {
+    explicit InputRegistration(flecs::world& world) {
+        world.module<InputRegistration>();
+        RegistrationScope scope(world);
+        world.component<FixedSimulation>("forge.runtime.FixedSimulation");
+    }
+};
+std::vector<EngineModule> built_in_modules() {
+    std::vector<EngineModule> result;
+    auto add = [&](const char* id, std::vector<std::string> dependencies, auto schemas) {
+        EngineModule m;
+        m.id = id;
+        m.dependencies = std::move(dependencies);
+        m.schemas = schemas;
+        result.push_back(std::move(m));
+    };
+    add("forge.core", {}, [](ModuleContext& c) { c.world.import<CoreRegistration>(); });
+    add("forge.transforms", {"forge.core"},
+        [](ModuleContext& c) { c.world.import<TransformsRegistration>(); });
+    add("forge.prefabs", {"forge.transforms"},
+        [](ModuleContext& c) { c.world.import<PrefabsRegistration>(); });
+    add("forge.input", {"forge.core"},
+        [](ModuleContext& c) { c.world.import<InputRegistration>(); });
+    return result;
 }
-WorldContext::~WorldContext() = default;
+} // namespace
+WorldContext::WorldContext(WorldRole role, ServiceAccess services,
+                           std::vector<EngineModule> modules)
+    : services_(services), role_(role) {
+    auto composition = built_in_modules();
+    for (auto& module : modules)
+        composition.push_back(std::move(module));
+    modules_.bootstrap(world_, role_, services_, std::move(composition));
+    try {
+        schema_ = world_.import<CoreRegistration>().get<CoreRegistration>().schema;
+        // Revision invalidation includes direct native writes, removal and relation edits.
+        // Internal observation only: application notifications remain post-commit.
+        world_.observer()
+            .with(flecs::Wildcard)
+            .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+            .event(flecs::OnAdd)
+            .event(flecs::OnSet)
+            .event(flecs::OnRemove)
+            .each([this](flecs::entity e) {
+                if (evaluating_transforms_)
+                    return;
+                ++transform_epoch_;
+                auto it = content_.find(owner_of(e));
+                if (it != content_.end())
+                    ++it->second.serial;
+            });
+    } catch (...) {
+        modules_.stop();
+        throw;
+    }
+}
+WorldContext::~WorldContext() { modules_.stop(); }
 LocalTransform WorldContext::get_local_transform(flecs::entity e) const {
     LocalTransform result;
     if (e.has<LocalTranslation>())

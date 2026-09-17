@@ -1,1 +1,2 @@
-{"build_id": "@FORGE_BUILD_ID@", "source_commit": "@FORGE_SOURCE_COMMIT@"}
+{"linkage_profile": "@FORGE_LINKAGE_PROFILE@",
+  "build_id": "@FORGE_BUILD_ID@", "source_commit": "@FORGE_SOURCE_COMMIT@"}

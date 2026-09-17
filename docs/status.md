@@ -2,6 +2,10 @@
 
 **Current delivery: Build 260917-000038 — Phase 5.5 core services foundation.** See [core services](core-services.md), [input architecture](input.md), the [Project Settings guide](../manual/editor/project-settings.md), [input walkthrough](../manual/editor/input.md), and [verified delivery evidence](../changelog/20260917/README.md#phase-55-verified-delivery--build-260917-000038). Sections below retain the historical implementation record; later phases supersede earlier descriptions.
 
+## Phase 6A — implementation under validation
+
+Source module lifecycle and a separate internal shared-Flecs native SDK profile are implemented. See [engine modules](engine-modules.md) for registration, capability, exact-build compatibility, ownership and packaging contracts. Static ABI1/editor gameplay stays supported; rich SDK registrations require a fresh runtime process. Linux regression and lifetime checks pass; actual Windows validation and the next numbered package are pending. No Phase 6B subsystem integration is included.
+
 ## Phase 5.5 — verified foundation
 
 Project-owned settings/input, project path consolidation, schema discovery, typed context services, structured diagnostics and bounded CPU instrumentation are implemented. Clean Windows core14/14, SDL/editor/native2/2 and remaining services/input/render/runtime suites12/12 passed, including D3D12 WARP. All29 accepted Build37 render fixtures are byte-identical. Local core14/editor2/sanitizer10, manual/format/syntax and profiling compile-out checks pass. ZIP/build/manifest/26-page manual verification and package cleanup are complete.

@@ -392,6 +392,11 @@ int main(int argc, char** argv) {
                             play.active() ? "Restart" : "Play",
                             "Start a fresh isolated play world from the current authored scene."))
                         perform([&] {
+                            if (files.document.settings().requires_native_sdk())
+                                throw std::runtime_error(
+                                    "This project requires the experimental native SDK runtime. "
+                                    "Use forge_runtime --sdk-project; editor Play currently "
+                                    "supports ABI1.");
                             play.stop();
                             play.configure(files.document.settings().simulation_hz(),
                                            files.document.settings().input());

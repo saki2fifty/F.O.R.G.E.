@@ -5,7 +5,6 @@
 #include <forge/scene.hpp>
 #include <functional>
 namespace forge {
-struct FixedSimulation {};
 struct RuntimeConfig {
     double simulation_hz = 60;
     double max_elapsed = .250;

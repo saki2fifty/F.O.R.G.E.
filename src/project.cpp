@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/native_sdk.hpp>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -34,13 +35,7 @@ void ProjectSettings::validate(const Json& data) {
         (void)ProjectPaths::normalize(
             std::filesystem::u8path(startup.at("source").get<std::string>()));
     }
-    if (data.contains("modules")) {
-        if (!data["modules"].is_array())
-            throw std::runtime_error("Project modules must be an array");
-        for (const auto& module : data["modules"])
-            if (module != "core" && module != "transforms" && module != "input")
-                throw std::runtime_error("Unsupported required project module");
-    }
+    validate_project_modules(data);
 }
 ProjectSettings::ProjectSettings(std::filesystem::path root)
     : paths_(std::move(root)), data_(defaults(path_utf8(paths_.root().filename()))) {

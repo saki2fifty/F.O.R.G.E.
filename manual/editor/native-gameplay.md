@@ -25,3 +25,11 @@ While paused, a successful load displays **Reload pending first tick**. **Step**
 The current interface supports stateless movement callbacks over host-owned transforms, applied through local translation. It does not migrate arbitrary C++ state. Do not retain host pointers or create unmanaged background work in a module.
 
 Rebuild after reopening the editor to select a validated module; previous artifacts remain cached. Wait for compilation to finish before switching scenes or projects. See [Play mode](play-mode.md).
+
+## Experimental engine SDK
+
+Your existing **Create source** and **Build & Reload** workflow is unchanged. It uses the limited gameplay API described above.
+
+An internal engine SDK now has a separate build profile for testing direct ECS registration. It is not a new editor command or a stable public plugin SDK. Its registering code requires a fresh runtime process when changed; it does not use the ordinary gameplay reload workflow. No additional test or C++ edit is needed for normal editor use.
+
+If a project explicitly declares an experimental SDK module, editor Play reports that the separate SDK runtime is required. It does not silently skip the declared module. Ordinary ABI1 projects are unaffected.

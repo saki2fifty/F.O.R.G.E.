@@ -19,6 +19,17 @@
         "FORGE_BUILD_EDITOR": "ON",
         "FETCHCONTENT_BASE_DIR": "${sourceDir}/../AgentFiles/dependencies/windows-editor"
       }
+    },
+    {
+      "name": "native-sdk",
+      "inherits": "core",
+      "binaryDir": "${sourceDir}/../AgentFiles/build/native-sdk",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FORGE_ENABLE_NATIVE_SDK": "ON",
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/../AgentFiles/dependencies/native-sdk",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL"
+      }
     }
   ],
   "buildPresets": [
@@ -29,12 +40,23 @@
     {
       "name": "windows-editor",
       "configurePreset": "windows-editor"
+    },
+    {
+      "name": "native-sdk",
+      "configurePreset": "native-sdk"
     }
   ],
   "testPresets": [
     {
       "name": "core",
       "configurePreset": "core",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "native-sdk",
+      "configurePreset": "native-sdk",
       "output": {
         "outputOnFailure": true
       }

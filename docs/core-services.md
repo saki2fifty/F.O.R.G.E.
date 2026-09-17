@@ -55,4 +55,4 @@ Worker work produces immutable candidate results, with bounded ownership and can
 
 ## Deliberate boundaries
 
-No Apply to Prefab, general transaction framework, gameplay/plugin SDK, loaded-resource handles, VFS, replay/networking, new subsystem integration or editor redesign. Phase6 remains separate authorization.
+Phase5.5 introduced no Apply to Prefab, general transaction framework, gameplay/plugin SDK, loaded-resource handles, VFS, replay/networking or new subsystem integration. Phase6A subsequently adds the bounded internal registration/SDK profile described in [Engine modules](engine-modules.md); later subsystem phases still require separate authorization.

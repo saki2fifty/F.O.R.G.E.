@@ -14,6 +14,8 @@ def cache_key(root, environment):
             raise RuntimeError(f'Missing runner/toolchain identity: {name}')
         digest.update(f'{name}={value}\n'.encode())
     digest.update(str(root.resolve()).encode())
+    for name, default in (('FORGE_LINKAGE_PROFILE', 'static-abi1'), ('FORGE_CRT_PROFILE', 'MultiThreaded')):
+        digest.update(f'{name}={environment.get(name, default)}\n'.encode())
     for command in (['cmake', '--version'], ['ninja', '--version']):
         digest.update(subprocess.check_output(command))
     for path in sorted([root/'CMakeLists.txt', root/'CMakePresets.json', *root.glob('cmake/*.cmake')]):

@@ -10,6 +10,12 @@ class ProjectSettings {
     static void validate(const nlohmann::json& data);
     const nlohmann::json& document() const { return data_; }
     double simulation_hz() const { return data_.value("simulation_hz", 60.0); }
+    bool requires_native_sdk() const {
+        for (const auto& module : data_.value("modules", nlohmann::json::array()))
+            if (module.is_object())
+                return true;
+        return false;
+    }
     InputMap input() const { return InputMap(data_.at("input")); }
     std::optional<std::filesystem::path> startup() const;
     void save(nlohmann::json candidate, const nlohmann::json* expected = nullptr);

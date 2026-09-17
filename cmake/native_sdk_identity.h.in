@@ -1,0 +1,4 @@
+#pragma once
+/* Generated exact profile. Internal, no public SDK stability promise. */
+#define FORGE_NATIVE_SDK_FINGERPRINT "@FORGE_NATIVE_SDK_FINGERPRINT@"
+#define FORGE_NATIVE_SDK_PROFILE "@FORGE_LINKAGE_PROFILE@"
