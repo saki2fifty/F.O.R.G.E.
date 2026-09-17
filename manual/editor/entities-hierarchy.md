@@ -1,6 +1,6 @@
 # Entities and hierarchy
 
-Entities are the things you author in a scene. Hierarchy lists them in a tree; Inspector edits the selected entity. An entity with Position appears as a built-in primitive in the viewport, defaulting to a cube.
+Entities are the things you author in a scene. Hierarchy lists them in a tree; Inspector edits the selected entity. An entity with a resolved transform appears as a built-in primitive in the viewport, defaulting to a cube.
 
 ## Add and select an entity
 
@@ -14,13 +14,13 @@ Select the entity, edit **Inspector → Name**, and press Enter to commit. Renam
 
 Select an entity and choose another entity in **Inspector → Parent**. Expand the parent's row in Hierarchy to see its children. Choose **Scene root** to remove the parent relationship.
 
-Positions remain world-space values. Moving a parent does not move its children yet. A parent cannot be placed under one of its descendants; a rejected operation leaves the hierarchy unchanged and reports the problem in Console.
+Choosing a Parent preserves the object’s world placement, then makes it follow that parent’s transform. Moving, rotating or scaling the parent now affects the child. Older scenes retain **Space → World** until you explicitly change Space or reparent them. A parent cannot be placed under one of its descendants; a rejected operation leaves the hierarchy unchanged and reports the problem in Console.
 
 ## Duplicate or delete
 
 **Inspector → Object actions → Duplicate subtree**, or Ctrl+D, copies the selection and its descendants with new IDs. Copies start at the original positions, so move them in Inspector to see them separately.
 
-**Object actions → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet.
+**Object actions → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
 
 See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 

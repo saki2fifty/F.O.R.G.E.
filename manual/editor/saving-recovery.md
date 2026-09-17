@@ -38,8 +38,8 @@ Recovery also checks the saved baseline. If it no longer matches, FORGE keeps th
 
 ## Older scenes and identity records
 
-Opening an older scene prepares its permanent identifiers without replacing its source file. Keep the neighboring `.forge-identity.json` record until migration is saved; it makes reopen and failed-save retries retain the same identifiers. Save keeps a `.v1.backup` of the original before replacing the scene atomically with format 2.
+Opening an older scene prepares its permanent identifiers without replacing its source file. Keep the neighboring `.forge-identity.json` record until migration is saved; it makes reopen and failed-save retries retain the same identifiers. Save keeps a `.v1.backup` of the original before replacing the scene atomically with format 3. Format-2 scenes already have permanent IDs; their first format-3 save retains an exact `.v2.backup` instead.
 
 If an older scene changes externally after its identity record was created, opening it reports a conflict and preserves both files. Do not delete the identity record to force a retry: doing so would lose the assigned identifiers. Restore the matching source and record from your backup/source control, or retain both versions for deliberate reconciliation. Automatic cross-file/plugin reference reconciliation is not implemented.
 
-If saving fails because another program holds the file open, close that program and retry. The editor keeps the current scene, the original disk file, and the identity record. Opening and editing do not change the meaning of existing world-space transforms.
+If saving fails because another program holds the file open, close that program and retry. The editor keeps the current scene, the original disk file, and the identity record. Migration preserves the old placement and independent parent behavior using **Space → World**. New parenting uses **Follow parent**. See [Transforms](transforms.md).

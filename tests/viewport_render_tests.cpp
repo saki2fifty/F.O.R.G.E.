@@ -321,6 +321,75 @@ int main(int argc, char** argv) {
         auto sky = render("looking-away");
         require(std::all_of(sky.begin(), sky.end(), [&](auto p) { return p == sky[0]; }),
                 "Grid drew behind an upward-looking camera");
+        // Hierarchical nonuniform scale + child rotation must retain shear in the
+        // production renderer, picker and inverse-transpose lighting.
+        live_scene.reset(forge::empty_scene());
+        auto parent = forge::authoring_command(live_scene, "entity.create", {})
+                          .at("selected")
+                          .get<std::string>();
+        auto child = forge::authoring_command(live_scene, "entity.create", {})
+                         .at("selected")
+                         .get<std::string>();
+        live_scene.entity(parent).set<forge::LocalTranslation>({20, 0, 0});
+        live_scene.entity(parent).set<forge::LocalRotation>(
+            forge::rotation_from_euler({20, 25, 0}));
+        live_scene.entity(parent).set<forge::LocalScale>({2, 1.5f, 1});
+        live_scene.entity(child).set<forge::LocalTranslation>({-10, 0, 0});
+        live_scene.entity(child).set<forge::LocalRotation>(forge::rotation_from_euler({0, 0, 35}));
+        live_scene.entity(child).set<forge::Tint>({1, 1, 1});
+        live_scene.reparent_entity(child, parent, forge::ReparentMode::KeepLocal);
+        const auto effective = live_scene.effective_document();
+        forge::Json child_view;
+        for (const auto& e : effective.at("entities"))
+            if (e.at("id") == child)
+                child_view = e;
+        const forge::ObjectTransform transformed(child_view);
+        camera.target = transformed.position;
+        camera.pitch = -.3f;
+        camera.yaw = .15f;
+        camera.distance = 8;
+        ++generation;
+        const auto sheared = readback(device, context,
+                                      viewport.render(context, effective, width, height, camera,
+                                                      generation, false, {false, 1}));
+        save(sheared, width, height, images / "hierarchical-shear.ppm");
+        const auto inv = forge::inverse(transformed.affine);
+        const auto eye = camera.eye();
+        unsigned lit_faces = 0;
+        for (unsigned axis = 0; axis < 3; ++axis)
+            for (int sign : {-1, 1}) {
+                forge::Float3 local{};
+                local[axis] = .5f * sign;
+                const auto center = transformed.point(local);
+                forge::Float3 normal{};
+                for (unsigned j = 0; j < 3; ++j)
+                    normal[j] = float(inv.m[4 * axis + j]) * sign;
+                const float length = std::sqrt(forge::geom_dot(normal, normal));
+                for (auto& value : normal)
+                    value /= length;
+                const auto to_eye = forge::geom_sub(eye, center);
+                if (forge::geom_dot(normal, to_eye) < 1)
+                    continue;
+                const auto at = forge::project_point(camera, center, width, height);
+                require(bool(at), "Hierarchical face outside view");
+                auto ray = forge::geom_sub(center, eye);
+                const float distance = std::sqrt(forge::geom_dot(ray, ray));
+                for (auto& value : ray)
+                    value /= distance;
+                auto hit = forge::object_hit(child_view, eye, ray, .01f, 1000);
+                require(hit && std::abs(*hit - distance) < .001f,
+                        "Hierarchical picking does not agree with rendered face");
+                const float light_dot =
+                    forge::geom_dot(normal, {-.4f, .8f, -.5f}) / std::sqrt(1.05f);
+                const int expected = int(std::round(255 * (.3f + .7f * std::max(0.0f, light_dot))));
+                const auto pixel = sheared[int((*at)[1]) * width + int((*at)[0])];
+                require(std::abs(int(pixel[0]) - expected) <= 2 &&
+                            std::abs(int(pixel[1]) - expected) <= 2 &&
+                            std::abs(int(pixel[2]) - expected) <= 2,
+                        "Hierarchical affine shading lost inverse-transpose normals");
+                ++lit_faces;
+            }
+        require(lit_faces >= 2, "Hierarchical shading fixture needs two visible faces");
         context->WaitForIdle();
         std::cout << "D3D12 WARP: grid axis alignment, look/pan/orbit/fly/zoom, resize, "
                      "visibility, spacing, thin lines, horizon fade, extent and occlusion passed\n";

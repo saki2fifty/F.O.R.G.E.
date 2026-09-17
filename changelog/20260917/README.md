@@ -61,3 +61,11 @@ Updated authoring API discovery, world ownership/resolution and project save/rec
 - Channel-specific local/world operations, independent revert, exact quaternion copying, preserve-world compensation, cycle/shear rejection, dependent detachment, spatial-reference remapping and history use one shared authoring/evaluation path. Only necessary reparent compensation channels become owned.
 - Existing native displacement now handles parent motion once per entity; native ABI and externally stepped timing remain unchanged.
 - Local Linux core tests: 10/10 passed. Targeted ASan/UBSan/LSan tests: 5/5 passed. Coverage includes generated prefab-child derived ownership, inherited-channel gestures, v2 filesystem retry/IDs, same-asset membership scope, deletion rejection and opaque/internal/external reference duplication. Windows execution is pending at this commit.
+
+## Phase 3 — editor, affine rendering and user guide
+
+- Inspector exposes local Position/Euler Rotation/Scale, a compact Space selector and per-channel revert; unresolved attachment recovery is explicit. Global help/scale/layout remain intact.
+- Move/R/S gestures preview through shared authoring operations and commit one undo step. Translation owns only translation; R owns only quaternion rotation; S owns only scale. Copy/paste retains quaternion values and deliberately writes all local channels.
+- Rendering, bounds and picking consume evaluated affine transforms, including hierarchy-induced shear. GPU normals use explicit inverse-transpose columns. Added a D3D12 WARP fixture comparing projected sheared cube faces, picking and expected lighting; existing 27 accepted images remain comparison inputs.
+- Updated function-based manual pages and technical ownership, API, migration, units, tolerances and deferred-scope documentation. No editor layout redesign or new dependencies.
+- Local editor/process/input/native suites: 2/2 passed (11.81s), including camera/drag/R/S/scale/document/history regressions. Windows-target core/editor/render-test syntax, formatting, actionlint and manual tests passed. Clean Windows build/render/package validation follows; interactive desktop acceptance is separate.

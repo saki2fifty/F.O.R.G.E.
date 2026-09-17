@@ -10,14 +10,14 @@ inline void test_transforms() {
     forge::authoring_command(scene, "transform.rotation",
                              {{"entity", id}, {"value", {{"x", 23}, {"y", 41}, {"z", 17}}}});
     const auto original = scene.document();
-    const forge::ObjectTransform before(original.at("entities").at(0));
+    const forge::ObjectTransform before(scene.effective_document().at("entities").at(0));
     forge::TransformGesture g;
     for (int axis = 0; axis < 3; ++axis) {
         require(g.begin(scene, id, forge::TransformGesture::Mode::Rotate, {0, 0, 1}),
                 "Cannot begin rotation");
         g.constrain(axis);
         require(g.update(90), "Cannot rotate world axis");
-        const auto preview = g.preview(original);
+        const auto preview = scene.preview_document(g.preview(original));
         const forge::ObjectTransform after(preview.at("entities").at(0));
         forge::Float3 a{};
         a[axis] = 1;
@@ -142,7 +142,7 @@ inline void test_interaction_input(float scale) {
     key(ImGuiKey_Enter);
     require(!modal.active(), "Enter did not confirm");
     auto doc = scene.document();
-    require(doc["entities"][0]["components"]["forge.scale"]["x"] == 2,
+    require(doc["entities"][0]["components"]["forge.local_scale"]["x"] == 2,
             "Numeric constrained scale failed");
     forge::authoring_history(scene, false);
     require(scene.document() == original, "Numeric transform did not undo once");

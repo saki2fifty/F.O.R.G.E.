@@ -26,12 +26,12 @@ inline void test_scene_cache() {
                 "keep",
             "Cached prefab resolution lost unknown data");
     auto changed = scene.document();
-    changed["entities"][0]["components"]["forge.position"]["x"] = 7;
+    changed["entities"][0]["components"]["forge.local_translation"]["x"] = 7;
     scene.edit(changed);
     require(snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["x"] == 7,
             "Prefab edit did not invalidate effective snapshot");
     const auto cached_revision = scene.revision();
-    scene.entity("11111111-1111-4111-8111-111111111111").set<forge::Position>({11, 12, 13});
+    scene.entity("11111111-1111-4111-8111-111111111111").set<forge::LocalTranslation>({11, 12, 13});
     require(scene.revision() != cached_revision &&
                 snapshot.effective(scene)["entities"][1]["components"]["forge.position"]["x"] == 11,
             "Direct Flecs write left cached inherited view stale");

@@ -21,8 +21,13 @@ class TransformGesture {
         auto doc = scene.effective_document();
         for (const auto& e : doc.at("entities")) {
             if (e.at("id") != id || e.value("prefab", false) ||
-                !e.at("components").contains("forge.position"))
+                !e.at("components").contains("forge.position") ||
+                !e.value("spatial_resolved", true))
                 continue;
+            owner_ = &scene;
+            amount_ = mode == Mode::Scale ? 1 : 0;
+            pending_.reset();
+            error_.clear();
             entity_ = id;
             revision_ = scene.revision();
             mode_ = mode;
@@ -42,60 +47,27 @@ class TransformGesture {
     bool update(float amount) {
         if (!active() || !std::isfinite(amount))
             return false;
-        auto next = read_xyz(original_.at("components"), component(),
-                             mode_ == Mode::Scale ? Float3{1, 1, 1} : Float3{});
-        if (mode_ == Mode::Scale) {
-            if (amount <= 0)
-                return false;
-            for (unsigned i = 0; i < 3; ++i) {
-                if (axis_ < 0 || axis_ == int(i))
-                    next[i] *= amount;
-                if (!std::isfinite(next[i]) || next[i] < .001f || next[i] > 10000)
-                    return false;
-            }
-        } else {
-            if (std::abs(amount) > 360000)
-                return false;
-            Float3 axis = view_axis_;
-            if (axis_ >= 0) {
-                axis = {};
-                axis[axis_] = 1;
-            }
-            if (std::remainder(amount, 360.0f) == 0) {
-                value_ = next;
-                return true;
-            }
-            const float angle = std::remainder(amount, 360.0f) * .0174532925199433f;
-            const float c = std::cos(angle), s = std::sin(angle);
-            auto axes = ObjectTransform(original_).axes;
-            for (auto& v : axes) {
-                const auto cross = geom_cross(axis, v);
-                const float d = geom_dot(axis, v);
-                for (unsigned i = 0; i < 3; ++i)
-                    v[i] = v[i] * c + cross[i] * s + axis[i] * d * (1 - c);
-            }
-            // Convert composed Rz*Ry*Rx back to the existing scene-v1 Euler representation.
-            const float y = std::asin(std::clamp(-axes[0][2], -1.0f, 1.0f));
-            const bool pole = std::abs(std::cos(y)) < .0001f;
-            next = {pole ? 0.0f : std::atan2(axes[1][2], axes[2][2]), y,
-                    pole ? std::atan2(-axes[1][0], axes[1][1])
-                         : std::atan2(axes[0][1], axes[0][0])};
-            for (auto& n : next)
-                n *= 57.29577951308232f;
+        const auto previous = amount_;
+        amount_ = amount;
+        try {
+            auto next = preview_authoring(*owner_, Json::array({command()}));
+            const auto view = owner_->preview_document(next);
+            const auto& e = blockout_entity(view, entity_);
+            value_ = read_xyz(e.at("components"), component(),
+                              mode_ == Mode::Scale ? Float3{1, 1, 1} : Float3{});
+            pending_ = std::move(next);
+            error_.clear();
+            return true;
+        } catch (const std::exception& e) {
+            amount_ = previous;
+            error_ = e.what();
+            return false;
         }
-        value_ = next;
-        return true;
     }
-    Json preview(const Json& source) const {
-        auto doc = source;
-        if (active()) {
-            auto& c = blockout_entity(doc, entity_)["components"][component()];
-            c["x"] = value_[0];
-            c["y"] = value_[1];
-            c["z"] = value_[2];
-        }
-        return doc;
-    }
+    const std::string& error() const { return error_; }
+
+    Json preview(const Json& source) const { return active() && pending_ ? *pending_ : source; }
+
     bool accept(Scene& scene) {
         if (!active())
             return false;
@@ -103,21 +75,42 @@ class TransformGesture {
             cancel();
             throw std::runtime_error("Transform cancelled: scene changed");
         }
-        if (value_ == read_xyz(original_.at("components"), component(),
-                               mode_ == Mode::Scale ? Float3{1, 1, 1} : Float3{})) {
-            cancel();
-            return false;
-        }
-        const auto id = entity_;
-        const auto operation = mode_ == Mode::Scale ? "transform.scale" : "transform.rotation";
+        const auto cmd = command();
+        const bool neutral =
+            mode_ == Mode::Scale ? amount_ == 1 : std::remainder(amount_, 360.0f) == 0;
         cancel();
-        authoring_command(
-            scene, operation,
-            {{"entity", id}, {"value", {{"x", value_[0]}, {"y", value_[1]}, {"z", value_[2]}}}});
-        return true;
+        if (neutral)
+            return false;
+        const auto result = apply_authoring(scene, Json::array({cmd}), scene.revision());
+        return result.at("changed");
     }
 
   private:
+    Json command() const {
+        Json args = {{"entity", entity_}};
+        if (mode_ == Mode::Scale) {
+            if (amount_ <= 0)
+                throw std::runtime_error("Scale must be positive");
+            auto value = read_xyz(original_.at("components"), "forge.scale", {1, 1, 1});
+            for (unsigned i = 0; i < 3; ++i)
+                if (axis_ < 0 || axis_ == int(i))
+                    value[i] *= amount_;
+            args["value"] = {{"x", value[0]}, {"y", value[1]}, {"z", value[2]}};
+            return {{"operation", "transform.scale"}, {"arguments", args}};
+        }
+        auto axis = view_axis_;
+        if (axis_ >= 0) {
+            axis = {};
+            axis[axis_] = 1;
+        }
+        args["axis"] = {{"x", axis[0]}, {"y", axis[1]}, {"z", axis[2]}};
+        args["degrees"] = amount_;
+        return {{"operation", "transform.world_rotate"}, {"arguments", args}};
+    }
+    const Scene* owner_ = nullptr;
+    float amount_ = 0;
+    std::optional<Json> pending_;
+    std::string error_;
     const char* component() const {
         return mode_ == Mode::Scale ? "forge.scale" : "forge.rotation";
     }
@@ -211,6 +204,8 @@ struct ModalTransform {
                    (typed.empty() ? std::to_string(amount) : typed) + (scale ? "x" : " deg") +
                    (valid ? " | Enter / click: apply | Esc / RMB: cancel"
                           : " | Invalid value; edit or Esc to cancel");
+        if (!valid && !gesture.error().empty())
+            feedback += " | " + gesture.error();
         if (!began && valid &&
             (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
              ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false) ||

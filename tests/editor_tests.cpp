@@ -329,19 +329,21 @@ int main(int argc, char** argv) {
         original["entities"].push_back(
             {{"id", "66666666-6666-4666-8666-666666666666"},
              {"name", "Test"},
-             {"components", {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}}}}}});
+             {"components", {{"forge.local_translation", {{"x", 0}, {"y", 1}, {"z", 0}}}}}});
         authored.replace(original);
         {
             forge::EditorCamera camera;
             const auto before = original;
-            require(camera.frame(original, "66666666-6666-4666-8666-666666666666", 0.4f),
+            require(camera.frame(authored.effective_document(),
+                                 "66666666-6666-4666-8666-666666666666", 0.4f),
                     "Frame selected failed");
             const auto portrait_distance = camera.distance;
-            require(camera.frame(original, "66666666-6666-4666-8666-666666666666", 2.0f),
+            require(camera.frame(authored.effective_document(),
+                                 "66666666-6666-4666-8666-666666666666", 2.0f),
                     "Landscape frame failed");
             require(portrait_distance > camera.distance, "Framing ignored narrow aspect");
             camera.orbit(130, 70);
-            require(camera.frame(original, "", 0.4f), "Fit scene failed");
+            require(camera.frame(authored.effective_document(), "", 0.4f), "Fit scene failed");
             const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
                        forward = camera.forward();
             for (float x : {-0.5f, 0.5f})
@@ -358,7 +360,8 @@ int main(int argc, char** argv) {
                                 "Framed cube is clipped");
                     }
             const auto target = camera.target;
-            require(!camera.frame(original, "missing", 1), "Missing frame target accepted");
+            require(!camera.frame(authored.effective_document(), "missing", 1),
+                    "Missing frame target accepted");
             require(camera.target == target, "Failed frame moved camera");
             camera.pan(10, 0, 800);
             require(camera.target != target, "Pan did not move target");
@@ -400,7 +403,7 @@ int main(int argc, char** argv) {
         require(play.snapshot() == original, "Play snapshot round trip failed");
         require(authored.document() == original, "Play changed authoring");
         auto edited = original;
-        edited["entities"][0]["components"]["forge.position"]["x"] = 10;
+        edited["entities"][0]["components"]["forge.local_translation"]["x"] = 10;
         authored.edit(edited);
         play.pump();
         require(play.snapshot() == original, "Authoring edit leaked into running play scene");

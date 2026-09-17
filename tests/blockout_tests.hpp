@@ -11,25 +11,26 @@ inline void test_blockout() {
     require(scene.entity_count() == 4, "Palette creation failed");
     auto doc = scene.document();
     auto& first = forge::blockout_entity(doc, ids[0]);
-    first["components"]["forge.rotation"] = {{"x", 20}, {"y", 35}, {"z", 12}};
-    first["components"]["forge.scale"] = {{"x", 2}, {"y", 3}, {"z", 4}};
+    const auto q = forge::rotation_from_euler({20, 35, 12});
+    first["components"]["forge.local_rotation"] = {{"x", q.x}, {"y", q.y}, {"z", q.z}, {"w", q.w}};
+    first["components"]["forge.local_scale"] = {{"x", 2}, {"y", 3}, {"z", 4}};
     scene.edit(doc);
     forge::BlockoutProperties properties;
     properties.copy_transform(scene, ids[0]);
     const auto before = scene.document();
     properties.paste_transform(scene, ids[1]);
     const auto pasted = scene.document();
-    require(forge::blockout_entity(doc, ids[0])["components"]["forge.rotation"] ==
-                pasted["entities"][1]["components"]["forge.rotation"],
+    require(forge::blockout_entity(doc, ids[0])["components"]["forge.local_rotation"] ==
+                pasted["entities"][1]["components"]["forge.local_rotation"],
             "Transform clipboard rotation mismatch");
     require(pasted["entities"][1]["components"]["forge.primitive"]["kind"] == 1,
             "Paste changed shape");
     require(scene.undo() && scene.document() == before, "Transform paste is not undoable");
     forge::EditorCamera camera;
-    require(camera.frame(scene.document(), "", 1.0f), "Scaled primitive framing failed");
+    require(camera.frame(scene.effective_document(), "", 1.0f), "Scaled primitive framing failed");
     const auto eye = camera.eye(), forward = camera.forward(), right = camera.right(),
                up = camera.up();
-    const auto authored = scene.document();
+    const auto authored = scene.effective_document();
     for (const auto& e : authored.at("entities")) {
         const forge::ObjectTransform transform(e);
         for (const auto& vertex : forge::primitive_meshes()[forge::primitive_kind(e)]) {
@@ -83,8 +84,9 @@ inline void test_property_drag(float scale, const char* component = "forge.rotat
     frame();
     require(properties.active() && scene.document() == before,
             "Inspector drag did not stage outside authored scene");
-    require(properties.preview(before)["entities"][0]["components"][component]["x"] !=
-                before["entities"][0]["components"][component]["x"],
+    require(scene.preview_document(
+                properties.preview(before))["entities"][0]["components"][component]["x"] !=
+                scene.effective_document()["entities"][0]["components"][component]["x"],
             "Inspector preview did not rotate");
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
     frame();

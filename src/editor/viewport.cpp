@@ -6,7 +6,7 @@ using namespace Diligent;
 namespace forge {
 Viewport::Viewport(IRenderDevice* device) : device_(device) {
     const char* vs = R"(
-cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; float4 axisX; float4 axisY; float4 axisZ; float4 tint; };
+cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; float4 axisX; float4 axisY; float4 axisZ; float4 tint; float4 normalX; float4 normalY; float4 normalZ; };
 struct Out { float4 position : SV_POSITION; float3 color : COLOR0; };
 Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     float3 world = axisX.xyz*vertex.x + axisY.xyz*vertex.y + axisZ.xyz*vertex.z + centerAspect.xyz;
@@ -15,7 +15,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     float depthScale=upFar.w/(upFar.w-eyeNear.w);
     Out o; o.position=float4(p.x*rightFocal.w/centerAspect.w,p.y*rightFocal.w,
                              (p.z-eyeNear.w)*depthScale,p.z);
-    float3 n=normalize(axisX.xyz*normal.x*axisX.w + axisY.xyz*normal.y*axisY.w + axisZ.xyz*normal.z*axisZ.w);
+    float3 n=normalize(normalX.xyz*normal.x + normalY.xyz*normal.y + normalZ.xyz*normal.z);
     float light=0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5))));
     o.color=tint.rgb*light; return o;
 })";
@@ -72,7 +72,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
         throw std::runtime_error("Primitive vertex buffer creation failed");
     BufferDesc buffer;
     buffer.Name = "FORGE preview position";
-    buffer.Size = 144;
+    buffer.Size = 192;
     buffer.Usage = USAGE_DYNAMIC;
     buffer.BindFlags = BIND_UNIFORM_BUFFER;
     buffer.CPUAccessFlags = CPU_ACCESS_WRITE;
@@ -174,12 +174,14 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     for (const auto& entity : scene.at("entities")) {
         if (entity.value("prefab", false) || !entity.at("components").contains("forge.position"))
             continue;
-        const auto& p = entity.at("components").at("forge.position");
+        if (!entity.value("spatial_resolved", true))
+            continue;
+        const ObjectTransform world_transform(entity);
         {
             MapHelper<float> data(context, constants_, MAP_WRITE, MAP_FLAG_DISCARD);
-            data[0] = p.at("x").get<float>();
-            data[1] = p.at("y").get<float>();
-            data[2] = p.at("z").get<float>();
+            data[0] = world_transform.position[0];
+            data[1] = world_transform.position[1];
+            data[2] = world_transform.position[2];
             data[3] = float(width) / float(height);
             for (unsigned i = 0; i < 3; ++i) {
                 data[4 + i] = eye[i];
@@ -197,6 +199,21 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                     data[20 + axis * 4 + coordinate] =
                         transform.axes[axis][coordinate] * transform.scale[axis];
                 data[23 + axis * 4] = 1.0f / (transform.scale[axis] * transform.scale[axis]);
+            }
+            if (transform.derived) {
+                const auto inv = inverse(transform.affine);
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
+                        data[36 + axis * 4 + coordinate] = float(inv.m[4 * axis + coordinate]);
+                    data[39 + axis * 4] = 0;
+                }
+            } else {
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
+                        data[36 + axis * 4 + coordinate] =
+                            transform.axes[axis][coordinate] / transform.scale[axis];
+                    data[39 + axis * 4] = 0;
+                }
             }
             const auto& c = entity.at("components");
             const auto tint = c.value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});

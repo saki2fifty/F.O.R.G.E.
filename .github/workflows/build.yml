@@ -167,14 +167,14 @@ jobs:
           }
       - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_tools forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
+      - run: cmake --build ../AgentFiles/b --target forge_editor forge_runtime forge_tools forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Compile preview shaders
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/preview_shader_test.py
       - name: Test editor process isolation and scaling
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "editor_|authoring_|world_lifetime|persistent_identity" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "editor_|authoring_|world_lifetime|persistent_identity|hierarchical_transforms" --output-on-failure
       - name: Save viewport render checks
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

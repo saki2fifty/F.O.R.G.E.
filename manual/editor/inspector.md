@@ -9,13 +9,13 @@ Inspector shows properties for the entity selected in Hierarchy. Its current edi
 3. Drag X, Y, or Z, or Ctrl-click to type. The preview updates; release commits one undo step. Escape cancels a drag.
 4. Use Undo if you want to reverse a change, and Save to keep it on disk.
 
-Coordinates use world units: Y is vertical. Parenting does not turn these into local coordinates. The camera's movement does not change these values.
+Coordinates are local to the selected spatial parent; **Space → World** makes them world coordinates. Y is vertical and one unit is one meter. The camera's movement does not change these values.
 
 During Play, Inspector is read-only. Stop Play to edit the authored scene, then start Play to use the changes.
 
 ## Identity and hierarchy controls
 
-**Name** commits when you press Enter. Expand **Details** to see **ID**, which shows the stable identity and is read-only. **Parent** and the **Object actions → Duplicate subtree / Delete subtree** commands operate on scene organization; their behavior is explained in [Entities and hierarchy](entities-hierarchy.md).
+**Name** commits when you press Enter. Expand **Details** to see **ID**, which shows the stable identity and is read-only. **Parent** and the **Object actions → Duplicate subtree / Delete subtree** commands operate on scene organization and transform following; their behavior is explained in [Entities and hierarchy](entities-hierarchy.md).
 
 ## Position commands
 

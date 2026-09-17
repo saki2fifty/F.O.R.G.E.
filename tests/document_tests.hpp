@@ -37,11 +37,11 @@ inline void test_documents() {
     require(!doc->dirty() && doc->name() == "My Game", "Project opens dirty or with wrong name");
     const auto original = scene.document();
     auto edited = original;
-    edited["entities"].push_back(
-        {{"id", "55555555-5555-4555-8555-555555555555"},
-         {"name", "Test"},
-         {"components",
-          {{"forge.position", {{"x", 1}, {"y", 2}, {"z", 3}}}, {"unknown", {{"keep", true}}}}}});
+    edited["entities"].push_back({{"id", "55555555-5555-4555-8555-555555555555"},
+                                  {"name", "Test"},
+                                  {"components",
+                                   {{"forge.local_translation", {{"x", 1}, {"y", 2}, {"z", 3}}},
+                                    {"unknown", {{"keep", true}}}}}});
     scene.edit(edited);
     require(doc->dirty(), "Edit not marked dirty");
     scene.undo();

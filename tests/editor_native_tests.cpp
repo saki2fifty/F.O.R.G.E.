@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
         scene["entities"].push_back(
             {{"id", forge::EntityId::generate().str()},
              {"name", "Test"},
-             {"components", {{"forge.position", {{"x", 5}, {"y", 123}, {"z", 0}}}}}});
+             {"components", {{"forge.local_translation", {{"x", 5}, {"y", 123}, {"z", 0}}}}}});
         authored.replace(scene);
         forge::PlaySession play;
         forge::NativeBuild native(root, argv[1], argv[2]);
@@ -62,7 +62,8 @@ int main(int argc, char** argv) {
                 pump();
         };
         auto x = [&] {
-            return play.snapshot()["entities"][0]["components"]["forge.position"]["x"].get<float>();
+            return play.snapshot()["entities"][0]["components"]["forge.local_translation"]["x"]
+                .get<float>();
         };
         native.build();
         settle();
@@ -123,7 +124,7 @@ int main(int argc, char** argv) {
                 "Schema restart failed: " + native.log());
         require(play.status().find("Schema changed") != std::string::npos,
                 "Schema restart was not reported");
-        require(play.snapshot()["entities"][0]["components"]["forge.position"]["y"] == 123,
+        require(play.snapshot()["entities"][0]["components"]["forge.local_translation"]["y"] == 123,
                 "Reflected state lost across reload");
         // Source watching detects a new save and deploys it without pressing Build.
         const auto schema_artifact = native.artifact();
@@ -155,8 +156,8 @@ int main(int argc, char** argv) {
         play.recover();
         settle();
         require(play.ready(), "Checkpoint recovery failed");
-        require(play.snapshot()["entities"][0]["components"]["forge.position"]["y"] ==
-                    checkpoint["entities"][0]["components"]["forge.position"]["y"],
+        require(play.snapshot()["entities"][0]["components"]["forge.local_translation"]["y"] ==
+                    checkpoint["entities"][0]["components"]["forge.local_translation"]["y"],
                 "Recovery lost reflected state");
         before = x();
         step_for(100);

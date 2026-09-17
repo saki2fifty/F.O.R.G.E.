@@ -178,3 +178,10 @@ Implemented typed UUIDv4 entity/asset identities, scene-v2, legacy alias and mig
 Local validation: core9/9, targeted sanitizer4/4, manual3/3 and Windows-target syntax checks passed. Local editor/process/input/migration/native suites: 2/2 passed. Clean **Build 260917-000025**, source `d98c0a5387506caa5983ad76afb12a52da3b4c9e`, passed [Windows/Linux CI](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35167379024): Windows core **9/9**, Windows editor/native/process/identity/API/WARP **8/8**. All 27 WARP fixture images match Phase 1 Build 21 byte-for-byte. Shader compilation, executable build identifiers, ZIP/manifest hashes, three x64 executables and 23 matching manual pages were verified. The delivered ZIP is `260917-000025-FORGE-Windows-x64.zip`.
 
 Build 22 was superseded before dispatch, Build 23 before delivery for exact scene-version validation, and Build 24 failed compiling a new MSVC test assertion; the explicit-string assertion correction is included in Build 25. No failed candidate was delivered. Desktop/GPU acceptance remains for the user. Phase 2 is complete; Phase 3 and later changes have not started.
+
+
+## Phase 3 — hierarchical transforms
+
+Current source uses independent authored LocalTranslation/LocalRotation/LocalScale and transient instance-owned WorldTransform. Spatial binding separates FollowStructure, World and Explicit from structural ChildOf. Scene-v3 migration preserves IDs, independent prefab channel ownership and old world-space parent behavior. New parenting preserves placement and follows the parent. Shared authoring conversion handles gestures, compensation, cycles, deletion and shear rejection; renderer/picker consume full affine transforms. See [technical contracts](transforms.md) and [user guide](../manual/editor/transforms.md). Earlier sections record historical behavior.
+
+Local validation and final Windows delivery evidence are recorded in the daily changelog. Phase 4 timing, structured prefab work, physics/animation and dependency changes remain outside this phase.

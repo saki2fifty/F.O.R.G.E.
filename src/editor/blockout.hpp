@@ -39,7 +39,7 @@ class BlockoutProperties {
     Json preview(const Json& source) const {
         auto doc = source;
         if (active())
-            blockout_entity(doc, pending_)["components"][component_] = values_;
+            return preview_authoring(*owner_, commands());
         return doc;
     }
     bool commit(Scene& scene) {
@@ -49,42 +49,38 @@ class BlockoutProperties {
             cancel();
             throw std::runtime_error("Property edit cancelled because the scene changed");
         }
-        Json commands = Json::array();
-        for (const auto& [field, value] : values_.items())
-            if (component_ == "forge.tint" ? (field == "r" || field == "g" || field == "b")
-                                           : (field == "x" || field == "y" || field == "z"))
-                commands.push_back({{"operation", "property.set"},
-                                    {"arguments",
-                                     {{"entity", pending_},
-                                      {"component", component_},
-                                      {"field", field},
-                                      {"value", value}}}});
+        const auto edits = commands();
         const auto revision = revision_;
         cancel();
-        apply_authoring(scene, commands, revision);
+        apply_authoring(scene, edits, revision);
         return true;
     }
     void copy_transform(const Scene& scene, const std::string& id) {
         auto view = scene.effective_document();
         const auto& c = blockout_entity(view, id).at("components");
         clipboard_ = Json::object();
-        for (const char* name : {"forge.position", "forge.rotation", "forge.scale"}) {
-            const auto value =
-                read_xyz(c, name, std::string(name) == "forge.scale" ? Float3{1, 1, 1} : Float3{});
-            (*clipboard_)[name] = {{"x", value[0]}, {"y", value[1]}, {"z", value[2]}};
+        for (const char* channel : {"translation", "rotation", "scale"}) {
+            const auto name = std::string("forge.local_") + channel;
+            if (c.contains(name))
+                (*clipboard_)[channel] = c.at(name);
+            else if (std::string(channel) == "rotation")
+                (*clipboard_)[channel] = {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}};
+            else
+                (*clipboard_)[channel] = {{"x", 1}, {"y", 1}, {"z", 1}};
+            for (auto it = (*clipboard_)[channel].begin(); it != (*clipboard_)[channel].end();) {
+                if (it.key() != "x" && it.key() != "y" && it.key() != "z" && it.key() != "w")
+                    it = (*clipboard_)[channel].erase(it);
+                else
+                    ++it;
+            }
         }
     }
     void paste_transform(Scene& scene, const std::string& id) {
         if (!clipboard_)
             throw std::runtime_error("Copy a transform first");
-        Json commands = Json::array();
-        for (const auto& [name, value] : clipboard_->items())
-            for (const auto& [axis, number] : value.items())
-                commands.push_back(
-                    {{"operation", "property.set"},
-                     {"arguments",
-                      {{"entity", id}, {"component", name}, {"field", axis}, {"value", number}}}});
-        apply_authoring(scene, commands, scene.revision());
+        auto args = *clipboard_;
+        args["entity"] = id;
+        authoring_command(scene, "transform.local", args); // Explicitly copy all three channels.
     }
     void vector_control(Scene& scene, const std::string& id, const std::string& name) {
         if (active() && ImGui::IsKeyPressed(ImGuiKey_Escape, false))
@@ -94,25 +90,27 @@ class BlockoutProperties {
         const bool scale = name == "forge.scale";
         const bool position = name == "forge.position";
         const auto& components = blockout_entity(snapshot_.effective(scene), id).at("components");
-        auto value = read_xyz(components, name.c_str(), scale ? Float3{1, 1, 1} : Float3{});
+        const auto shown = read_xyz(components, name.c_str(), scale ? Float3{1, 1, 1} : Float3{});
+        Double3 value{shown[0], shown[1], shown[2]};
+        if (position && components.contains(name)) {
+            const auto& p = components.at(name);
+            value = {p.at("x"), p.at("y"), p.at("z")};
+        }
         if (pending_ == id && component_ == name)
             value = {values_.at("x"), values_.at("y"), values_.at("z")};
-        const bool changed = ImGui::DragFloat3(scale      ? "Scale"
-                                               : position ? "Position"
-                                                          : "Rotation",
-                                               value.data(),
-                                               scale      ? 0.01f
-                                               : position ? 0.05f
-                                                          : 0.5f,
-                                               scale      ? 0.001f
-                                               : position ? -1000000.0f
-                                                          : -360000.0f,
-                                               scale      ? 10000.0f
-                                               : position ? 1000000.0f
-                                                          : 360000.0f,
-                                               "%.3f", ImGuiSliderFlags_AlwaysClamp);
+        const double low = scale ? double(.001f) : position ? -1e12 : -360000.0;
+        const double high = scale ? 10000.0 : position ? 1e12 : 360000.0;
+        const bool changed = ImGui::DragScalarN(scale      ? "Scale"
+                                                : position ? "Position"
+                                                           : "Rotation",
+                                                ImGuiDataType_Double, value.data(), 3,
+                                                scale      ? .01f
+                                                : position ? .05f
+                                                           : .5f,
+                                                &low, &high, "%.3f", ImGuiSliderFlags_AlwaysClamp);
         const bool released = ImGui::IsItemDeactivatedAfterEdit();
-        ui::help(position ? "World X/Y/Z position. Drag or Ctrl-click to type. Release commits one "
+        ui::help(position ? "Local X/Y/Z translation in meters. Drag or Ctrl-click to type. "
+                            "Release commits one "
                             "undo step; Escape cancels."
                  : scale  ? "Positive X/Y/Z scale. Drag or Ctrl-click to type. Values range from "
                             "0.001 to 10000. Release commits one undo step; Escape cancels."
@@ -139,14 +137,85 @@ class BlockoutProperties {
             if (!entity.at("components").contains("forge.position"))
                 return;
             ui::heading("Transform",
-                        "Local-axis scale, then Euler X/Y/Z rotation, then world position. Parent "
-                        "transforms are not inherited.");
+                        "Authored local translation, quaternion rotation shown as Euler degrees, "
+                        "and scale. Spatial binding controls parent motion.");
+            auto bind = [&](const Json& args) {
+                try {
+                    authoring_command(scene, "transform.binding", args);
+                } catch (const std::exception& ex) {
+                    status = ex.what();
+                }
+            };
+            const auto binding = entity.value("spatial", Json{{"mode", "follow_structure"}});
+            const auto mode = binding.at("mode").get<std::string>();
+            const char* space_label = mode == "world"      ? "World"
+                                      : mode == "explicit" ? "Explicit attachment"
+                                                           : "Follow parent";
+            if (ImGui::BeginCombo("Space", space_label)) {
+                for (auto choice : {"follow_structure", "world"}) {
+                    if (ImGui::Selectable(std::string(choice) == "world" ? "World"
+                                                                         : "Follow parent",
+                                          mode == choice))
+                        bind({{"entity", id}, {"spatial", {{"mode", choice}}}});
+                    ui::help(
+                        "Preserve world placement while changing spatial binding. Only required "
+                        "local channels become owned. Unrepresentable local shear is rejected.");
+                }
+                if (ImGui::BeginMenu("Explicit attachment")) {
+                    const auto targets = scene.effective_document();
+                    for (const auto& target : targets.at("entities")) {
+                        const auto target_id = target.at("id").get<std::string>();
+                        if (target_id == id ||
+                            !target.at("components").contains("forge.local_translation"))
+                            continue;
+                        ImGui::PushID(target_id.c_str());
+                        if (ImGui::MenuItem(
+                                target.at("name").get_ref<const std::string&>().c_str()))
+                            bind(
+                                {{"entity", id},
+                                 {"spatial",
+                                  {{"mode", "explicit"}, {"target", scene.reference(target_id)}}}});
+                        ui::help("Follow this object's transform without changing structural "
+                                 "ownership. Preserve world placement; cycles are rejected.");
+                        ImGui::PopID();
+                    }
+                    ImGui::EndMenu();
+                }
+                ui::help("Attach spatially to another transformed object in this scene.");
+                ImGui::EndCombo();
+            }
+            ui::help("Follow parent inherits the structural parent's transform. World keeps the "
+                     "object independent. Explicit follows another object. Migrated old scenes "
+                     "start in World space.");
+            if (!entity.value("spatial_resolved", true)) {
+                ImGui::TextWrapped(
+                    "Spatial parent is missing or unresolved; this object is not rendered.");
+                ui::help("The reference is retained. Restore its target, or explicitly detach "
+                         "using the current local values.");
+                if (ui::button("Detach (keep local)",
+                               "Switch to World using current local values. This may change "
+                               "placement; it is one undoable edit."))
+                    bind(
+                        {{"entity", id}, {"mode", "keep_local"}, {"spatial", {{"mode", "world"}}}});
+            }
             vector_control(scene, id, "forge.position");
             vector_control(scene, id, "forge.rotation");
             vector_control(scene, id, "forge.scale");
+            if (ImGui::BeginPopupContextItem("##channel-revert")) {
+                for (auto channel : {"translation", "rotation", "scale"}) {
+                    const auto component = std::string("forge.local_") + channel;
+                    if (ImGui::MenuItem((std::string("Revert ") + channel).c_str()))
+                        authoring_command(scene, "component.revert",
+                                          {{"entity", id}, {"component", component}});
+                    ui::help("Remove only this owned channel to use prefab defaults, or the "
+                             "default/absence when no prefab provides it.");
+                }
+                ImGui::EndPopup();
+            }
             ImGui::BeginDisabled(active());
-            if (ui::button("Copy transform", "Copy effective position, rotation, and scale into "
-                                             "the editor's internal clipboard.")) {
+            if (ui::button("Copy transform",
+                           "Copy effective local position, quaternion rotation, and scale into "
+                           "the editor's internal clipboard.")) {
                 copy_transform(scene, id);
                 status = "Transform copied";
             }
@@ -186,7 +255,7 @@ class BlockoutProperties {
                     .value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});
             Float3 rgb{color.at("r"), color.at("g"), color.at("b")};
             if (ImGui::ColorEdit3("Color", rgb.data(), ImGuiColorEditFlags_NoInputs))
-                stage(scene, id, "forge.tint", rgb, {"r", "g", "b"});
+                stage(scene, id, "forge.tint", {rgb[0], rgb[1], rgb[2]}, {"r", "g", "b"});
             ui::help("Choose an opaque RGB blockout color. Lighting modulates the displayed color. "
                      "Each picker drag is one undo step.");
             if (component_ == "forge.tint" && !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
@@ -199,20 +268,34 @@ class BlockoutProperties {
     }
 
   private:
-    void stage(Scene& scene, const std::string& id, const std::string& component, Float3 value,
+    Json commands() const {
+        Json value;
+        const bool color = component_ == "forge.tint";
+        for (auto field : color ? std::array<const char*, 3>{"r", "g", "b"}
+                                : std::array<const char*, 3>{"x", "y", "z"})
+            value[field] = values_.at(field);
+        const Json args = {{"entity", pending_}, {"value", value}};
+        const Json command = {{"operation", color ? std::string("appearance.color")
+                                                  : "transform." + component_.substr(6)},
+                              {"arguments", args}};
+        return Json::array({command});
+    }
+    const Scene* owner_ = nullptr;
+    void stage(Scene& scene, const std::string& id, const std::string& component, Double3 value,
                std::array<const char*, 3> fields) {
         if (suppressed_)
             return;
-        for (float number : value)
+        for (double number : value)
             if (!std::isfinite(number) ||
                 (component == "forge.scale" && (number < 0.001f || number > 10000)) ||
                 (component == "forge.rotation" && std::abs(number) > 360000) ||
-                (component == "forge.position" && std::abs(number) > 1000000) ||
+                (component == "forge.position" && std::abs(number) > 1e12) ||
                 (component == "forge.tint" && (number < 0 || number > 1)))
                 throw std::runtime_error("Invalid property value; edit rejected");
         if (active() && (pending_ != id || component_ != component))
             commit(scene);
         if (!active()) {
+            owner_ = &scene;
             pending_ = id;
             component_ = component;
             revision_ = scene.revision();

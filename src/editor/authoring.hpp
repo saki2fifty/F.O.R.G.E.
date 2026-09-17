@@ -10,6 +10,10 @@ inline float dot(Vec3 a, Vec3 b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2
 inline std::optional<Vec3> block_position(const Json& e) {
     if (e.value("prefab", false) || !e.at("components").contains("forge.position"))
         return {};
+    if (!e.value("spatial_resolved", true))
+        return {};
+    if (e.contains("world_affine"))
+        return ObjectTransform(e).position;
     const auto& p = e.at("components").at("forge.position");
     return Vec3{p.at("x"), p.at("y"), p.at("z")};
 }
@@ -18,17 +22,6 @@ inline std::optional<Vec3> entity_position(const Json& doc, const std::string& i
         if (e.at("id") == id)
             return block_position(e);
     return {};
-}
-inline void set_position(Json& doc, const std::string& id, Vec3 position) {
-    for (auto& e : doc.at("entities"))
-        if (e.at("id") == id) {
-            auto& fields = e["components"]["forge.position"];
-            fields["x"] = position[0];
-            fields["y"] = position[1];
-            fields["z"] = position[2];
-            return;
-        }
-    throw std::runtime_error("Entity no longer exists");
 }
 // Coordinates are relative to the viewport image, in logical pixels.
 inline std::optional<std::array<float, 2>> project_point(const EditorCamera& camera, Vec3 p,
@@ -103,6 +96,7 @@ class MoveGesture {
         const auto p = entity_position(scene.effective_document(), id);
         if (!p || axis < -1 || axis > 2)
             return false;
+        owner_ = &scene;
         id_ = id;
         start_ = preview_ = *p;
         revision_ = scene.revision();
@@ -124,10 +118,12 @@ class MoveGesture {
         }
     }
     Json preview(const Json& source) const {
-        auto copy = source;
-        if (active())
-            set_position(copy, id_, preview_);
-        return copy;
+        if (!active())
+            return source;
+        const Json value = {{"x", preview_[0]}, {"y", preview_[1]}, {"z", preview_[2]}};
+        const Json args = {{"entity", id_}, {"value", value}};
+        const Json command = {{"operation", "transform.world_translation"}, {"arguments", args}};
+        return preview_authoring(*owner_, Json::array({command}));
     }
     bool commit(Scene& scene) {
         if (!active())
@@ -139,7 +135,7 @@ class MoveGesture {
         if (preview_ == start_)
             return false;
         authoring_command(
-            scene, "transform.position",
+            scene, "transform.world_translation",
             {{"entity", id},
              {"value", {{"x", preview_[0]}, {"y", preview_[1]}, {"z", preview_[2]}}}});
         return true;
@@ -147,6 +143,7 @@ class MoveGesture {
     void cancel() { id_.clear(); }
 
   private:
+    const Scene* owner_ = nullptr;
     std::string id_;
     Vec3 start_{}, preview_{};
     std::uint64_t revision_ = 0;

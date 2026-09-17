@@ -526,8 +526,10 @@ int main(int argc, char** argv) {
                                         parent_name = candidate.at("name").get<std::string>();
                                 const bool choose_parent =
                                     ImGui::BeginCombo("Parent", parent_name.c_str());
-                                forge::ui::help("Change the Flecs ChildOf relationship. Positions "
-                                                "remain in world units. Cycles are rejected.");
+                                forge::ui::help(
+                                    "Parent spatially with world placement preserved. The child "
+                                    "then follows its parent. Unrepresentable local shear and "
+                                    "cycles are rejected.");
                                 std::string new_parent = parent;
                                 if (choose_parent) {
                                     if (ImGui::Selectable("Scene root", parent.empty()))
