@@ -20,7 +20,7 @@ template <class F> void reject(F f) {
     throw std::runtime_error("Expected rejection");
 }
 std::string read(const std::filesystem::path& p) {
-    std::ifstream in(p);
+    std::ifstream in(p, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), {}};
 }
 Json input() {
@@ -132,6 +132,7 @@ int main(int argc, char** argv) {
                   NavStatus::Invalid,
               "Corrupt artifact reached Detour");
         std::ofstream(artifact, std::ios::binary) << good_bytes;
+        check(read(artifact) == good_bytes, "Binary fixture restoration changed bytes");
         auto checkpoint = f.navigation->checkpoint();
         auto mid = f.scene.snapshot();
         Fixture recovered(root);
