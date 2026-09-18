@@ -150,3 +150,6 @@ One final numbered package delivered. Build53 archived; packages contains only B
 - Closing a prefab draft returns member selection to asset scope. Added regression coverage for catalog resolution, closed-draft selection and visible asset-table space.
 - Actual-editor fixtures now wait for a confirmed running state before capturing Game and also capture 1920×1080 at200%, alongside the960×640 stress layout. The manual states practical window/scale ranges.
 - Default bottom-dock height accounts for scaled control rows within a bounded 22–40% share; existing custom dock sizes remain untouched.
+
+- Build59 passed all clean CI checks and verified12 actual-editor captures; all38 existing render fixtures remain byte-identical to Build54. A first-launch tab-selection mismatch remained: newly appearing dock tabs could steal Content focus. Apply default focus after all initial dock tabs have been created and assert the initial Content tab in the actual-editor WARP fixture. Build59 is retained as an undelivered review artifact.
+- Added a portable real-ImGui first-use docking regression, in addition to the actual Windows editor assertion, for Content focus after all primary tabs appear.

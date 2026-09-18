@@ -422,10 +422,10 @@ int main(int argc, char** argv) {
                                                      : "EDIT",
                                   editor.problems.size(), !selected.empty(), native->busy());
             const auto dock = ImGui::DockSpaceOverViewport();
-            if (initialize_layout || workspace.reset) {
+            const bool rebuilt_workspace = initialize_layout || workspace.reset;
+            if (rebuilt_workspace) {
                 workspace.reset = false;
                 forge::ui::initialize_workspace(dock);
-                content.focus();
                 initialize_layout = false;
             }
             const bool edit_locked = play.active() || native->busy() || files.busy() ||
@@ -1442,6 +1442,9 @@ int main(int argc, char** argv) {
                 }
             }
             performance.draw(viewport.redraws, viewport.retained);
+            // Apply default focus after all first-use dock tabs have been created.
+            if (rebuilt_workspace)
+                ImGui::SetWindowFocus("Content");
             const auto ui_submit = forge::ui::Performance::Clock::now();
             auto* rtv = swap->GetCurrentBackBufferRTV();
             context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1454,6 +1457,11 @@ int main(int argc, char** argv) {
             if (fixture.prepared && fixture.frames > 12 &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured()))) {
+                if (fixture.stage == 0) {
+                    auto* content_window = ImGui::FindWindowByName("Content");
+                    if (!content_window || !content_window->DockTabIsVisible)
+                        throw std::runtime_error("Fresh workspace did not select Content");
+                }
                 fixture.capture(device, context, rtv);
                 if (fixture.stage == 12) {
                     play.stop();

@@ -65,7 +65,6 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
-    void focus() { focus_requested_ = true; }
     const AssetRecord* record(AssetId id) const {
         if (!catalog_)
             return nullptr;
@@ -153,10 +152,8 @@ class ContentBrowser {
     void draw(EditorFiles& files, bool* open = nullptr,
               const std::function<void()>& prefab_controls = {},
               const std::function<void()>& asset_controls = {}, bool locked = false) {
-        if (focus_requested_ || (ui::editor_context && ui::editor_context->reveal_content)) {
+        if (ui::editor_context && ui::editor_context->reveal_content)
             ImGui::SetNextWindowFocus();
-            focus_requested_ = false;
-        }
         if (!ImGui::Begin("Content", open)) {
             ImGui::End();
             return;
@@ -359,7 +356,7 @@ class ContentBrowser {
     AssetId inspected_;
     std::string error_, type_;
     char filter_[256]{}, folder_[256]{}, wav_[1024] = "Assets/sound.wav";
-    bool reveal_ = false, focus_requested_ = false;
+    bool reveal_ = false;
     Uint64 refreshed_ = 0;
 };
 } // namespace forge

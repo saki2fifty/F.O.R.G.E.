@@ -286,3 +286,33 @@ inline void test_responsive_xyz() {
     forge::ui::style(1);
     ImGui::DestroyContext();
 }
+
+inline void test_initial_content_tab() {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {1440, 900};
+    io.DeltaTime = 1.f / 60;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    unsigned char* pixels;
+    int w, h;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+    for (int frame = 0; frame < 4; ++frame) {
+        ImGui::NewFrame();
+        const auto dock = ImGui::DockSpaceOverViewport();
+        if (!frame)
+            forge::ui::initialize_workspace(dock);
+        for (const char* name : {"Hierarchy###World", "Inspector", "Scene", "Game", "Content",
+                                 "Problems###Problems", "Gameplay Code###Native", "Console"}) {
+            ImGui::Begin(name);
+            ImGui::TextUnformatted(name);
+            ImGui::End();
+        }
+        if (!frame)
+            ImGui::SetWindowFocus("Content");
+        ImGui::Render();
+    }
+    require(ImGui::FindWindowByName("Content")->DockTabIsVisible,
+            "First-use dock tabs stole default Content focus");
+    ImGui::DestroyContext();
+}

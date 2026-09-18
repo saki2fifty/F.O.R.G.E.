@@ -314,6 +314,7 @@ int main(int argc, char** argv) {
         test_redesign_drawers();
         test_draft_ownership();
         test_responsive_xyz();
+        test_initial_content_tab();
         test_animation_editor();
         test_navigation_editor();
         test_documents();
