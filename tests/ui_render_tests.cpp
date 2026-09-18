@@ -1,10 +1,12 @@
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
+// Diligent's native queue interface requires the Direct3D declarations first.
+#include <d3d12.h>
+
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include <RmlUi/Core.h>
 #include <cstring>
-#include <d3d12.h>
 #include <dxgi1_4.h>
 #include <forge/ui_diligent.hpp>
 #include <forge/ui_presenter.hpp>

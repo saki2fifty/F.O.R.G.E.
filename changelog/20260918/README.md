@@ -64,3 +64,5 @@ Core30/30, shared exact SDK38/38, editor/input3/3 passed. Static sanitizer29 + c
 ### Windows renderer naming correction
 
 Build51 is withheld. All four Windows/Linux core and SDK jobs and the editor process-controller tests passed. The editor compilation caught Windows' `interface` macro expanding a new renderer method name. Renamed that private accessor to `render_interface`; Linux syntax checks also define the Windows macro to cover this collision. A new numbered Windows build will verify the correction; no scene/ABI1/rendering behavior change.
+
+Build52 is withheld. Windows/Linux core30/30 and SDK38/38 passed. The independent UI WARP test included Diligent's native queue header before its required Direct3D declarations; moved the Direct3D include into a prerequisite group, matching the existing viewport fixture. No runtime or renderer behavior changed. Windows compilation/render/package validation will rerun with a new reserved build ID.
