@@ -140,3 +140,5 @@ One final numbered package delivered. Build53 archived; packages contains only B
 - Problem navigation reveals Inspector and selects the scene task so an unrelated open prefab/settings draft does not retain the active Save route after navigating to a scene issue.
 
 - Made the Windows-only screenshot fixture self-contained and preserved required native Direct3D include ordering. Build56 was cancelled before packaging after this source-review finding; no ZIP was delivered. Final portable editor and editor sanitizer runs both passed **3/3**.
+
+- Windows validation exposed an MSVC C++20 overload ambiguity in the Inspector first-property Revert comparison. Compare the explicitly typed schema string; preserve identical override behavior. Build57 failed before packaging and was not delivered.

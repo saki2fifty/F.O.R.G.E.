@@ -139,7 +139,9 @@ class ComponentInspector {
                     ImGui::TextDisabled("%s", field_override ? "Overridden" : "Inherited");
                     ui::help("Explicit override intent, not a value comparison. Equal-value "
                              "overrides remain overridden.");
-                    if (field_override && (!whole || name == type.at("fields")[0].at("id"))) {
+                    if (field_override &&
+                        (!whole ||
+                         name == type.at("fields")[0].at("id").get_ref<const std::string&>())) {
                         ImGui::SameLine();
                         if (ui::button(whole ? "Revert component" : "Revert",
                                        whole ? "This is a whole-component override. Revert resumes "
