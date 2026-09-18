@@ -230,3 +230,31 @@ inline void test_draft_ownership() {
             "Invalid prefab draft replaced known good source or closed");
     ImGui::DestroyContext();
 }
+
+inline void test_responsive_xyz() {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {960, 640};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int w, h;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+    for (float scale : {1.f, 2.f})
+        for (float width : {200.f, 600.f}) {
+            forge::ui::style(scale);
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0});
+            ImGui::SetNextWindowSize({width, 500});
+            ImGui::Begin("Responsive XYZ");
+            double values[] = {0, -9.81, 0};
+            forge::ui::xyz_input("Gravity", values, "X/Y/Z gravity");
+            require(ImGui::GetItemRectMax().x <= ImGui::GetWindowPos().x + ImGui::GetWindowWidth(),
+                    "XYZ field escaped a narrow panel");
+            require(values[1] == -9.81, "Drawing responsive fields changed authored values");
+            ImGui::End();
+            ImGui::Render();
+        }
+    forge::ui::style(1);
+    ImGui::DestroyContext();
+}

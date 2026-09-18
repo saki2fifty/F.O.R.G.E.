@@ -84,6 +84,7 @@ class ComponentInspector {
         const bool prefab = owned.contains("prefab_instance") || owned.contains("prefab_member") ||
                             owned.contains("base");
         const auto masks = owned.value("property_overrides", Json::object());
+        unsigned visible_components = 0;
         for (const auto& type : schema.at("components")) {
             if (!type.value("optional", false))
                 continue;
@@ -100,6 +101,7 @@ class ComponentInspector {
                                std::string::npos;
             if (!component_match && !field_match)
                 continue;
+            ++visible_components;
             const bool whole = owned.at("components").contains(key);
             const bool partial = masks.contains(key);
             const bool expanded =
@@ -156,6 +158,11 @@ class ComponentInspector {
             if (errors_.contains(id))
                 ui::field_error(errors_.at(id));
         }
+        if (!visible_components)
+            ImGui::TextWrapped(filter_[0]
+                                   ? "No matching components or properties. Clear the search to "
+                                     "show all attached components."
+                                   : "No behavior components attached. Use + Add Component.");
     }
 
   private:

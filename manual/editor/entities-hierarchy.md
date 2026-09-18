@@ -4,7 +4,7 @@ Entities are the things you author in a scene. Hierarchy lists them in a tree; I
 
 ## Add and select an entity
 
-Select **Create → Cube** in the top toolbar. FORGE creates a cube with a unique authored ID, transform, and color. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
+Select **Scene → Create → Cube** or **Entity → Create / Cube**. FORGE creates a cube with a unique authored ID, transform, and color. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
 
 ## Rename an entity
 
@@ -18,7 +18,7 @@ Choosing a Parent preserves the object’s world placement, then makes it follow
 
 ## Duplicate or delete
 
-**Inspector → Object actions → Duplicate subtree**, or Ctrl+D, copies the selection and its descendants with new IDs. Copies start at the original positions, so move them in Inspector to see them separately.
+**Entity → Duplicate subtree**, or Ctrl+D, copies the selection and its descendants with new IDs. Copies start at the original positions, so move them in Inspector to see them separately.
 
 **Command palette → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
 

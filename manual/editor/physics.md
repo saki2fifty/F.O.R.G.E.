@@ -56,7 +56,7 @@ Scaled collider dimensions must stay between .001 and 10000 meters. Boxes suppor
 - `restitution`: bounciness, from **0** to **1**; default **0**.
 - `gravity_factor`: multiplier for project gravity; **0** disables gravity for this body.
 
-Press **Enter** to commit a numeric edit. Scene Undo/Redo includes these changes. In a prefab instance, editing a supported field records explicit override intent, including an edit equal to the source value. **Revert** restores the source value. **Remove / Revert component** removes local ownership; inherited prefab values can become visible again.
+Press **Enter** to commit a numeric edit. Scene Undo/Redo includes these changes. In a prefab instance, editing a supported field records explicit override intent, including an edit equal to the source value. **Revert** restores the source value. the component header’s **Remove component / Revert component** removes local ownership; inherited prefab values can become visible again.
 
 ## Project gravity
 

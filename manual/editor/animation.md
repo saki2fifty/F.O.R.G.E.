@@ -22,11 +22,11 @@ how its world transform affects the skeleton.
 ## Animator controls
 
 - **Skeleton:** the converted joint layout and rest pose.
-- **Animation clip:** a clip converted for that exact skeleton revision.
+- **Clip:** a clip converted for that exact skeleton revision.
 - **Enabled:** evaluate and show this Animator during Play.
-- **Play on Start:** begin when the runtime first creates this Animator. Changing this field on an existing player does not restart it.
+- **Play On Start:** begin when the runtime first creates this Animator. Changing this field on an existing player does not restart it.
 - **Loop:** repeat at the end. Without Loop, playback holds the final pose.
-- **Playback speed:** `1` is normal speed, `2` is double speed, and `0` holds time. The supported range is `0–4`. Enter commits the edit.
+- **Speed:** `1` is normal speed, `2` is double speed, and `0` holds time. The supported range is `0–4`. Enter commits the edit.
 
 Animator edits use scene Undo/Redo. Prefab instances can independently override
 properties; even an edit equal to the source remains an explicit override. Use the

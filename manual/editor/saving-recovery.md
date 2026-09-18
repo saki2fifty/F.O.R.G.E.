@@ -6,7 +6,7 @@ Save writes the active scene file. Recovery snapshots separately preserve unsave
 
 A `*` in the title and **Unsaved changes** in Hierarchy indicate edits that differ from the saved scene. Undoing back to the saved state clears the dirty indicator. A new untitled scene needs a filename before it can be saved.
 
-Press Ctrl+S or select **Save**. For an untitled scene, choose a file inside the project. Ctrl+Shift+S always opens Save As.
+Press Ctrl+S or select **Save**. For an untitled scene, choose a file inside the project. Ctrl+Shift+S opens Save scene As... when Scene is the active task.
 
 ## Resolve an unsaved-change prompt
 

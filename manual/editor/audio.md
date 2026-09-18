@@ -16,8 +16,8 @@ Start with a comfortable speaker/headphone volume. The example is a quiet, four-
 
 ## Source controls
 
-- **Audio clip:** a registered asset, stored by its persistent identity. A path is only its current location.
-- **Play on Start:** automatically starts this source when the runtime realizes it. Changing this option on an already realized voice does not restart it.
+- **Clip:** a registered asset, stored by its persistent identity. A path is only its current location.
+- **Play On Start:** automatically starts this source when the runtime realizes it. Changing this option on an already realized voice does not restart it.
 - **Loop:** repeat at the end of the clip. Disable it to play once.
 - **Gain:** linear volume. `0` is silent, `1` is nominal; the supported range is `0–4`. Values above `1` amplify and may clip when mixed.
 - **Pitch:** playback speed and pitch together; `1` is normal, `0.25–4` is supported. This is not independent time stretching.

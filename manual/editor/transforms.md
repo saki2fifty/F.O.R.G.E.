@@ -41,7 +41,7 @@ Shortcuts start only over the Scene image, outside text editing and camera gestu
 
 ## Ground placement and snapping
 
-Under **Object actions**, **Place on ground** moves the lowest point of the transformed mesh to world Y=0, keeping X and Z. It accounts for rotation and scale. It does not query terrain or other objects.
+In the command palette, **Transform / Place on ground** moves the lowest point of the transformed mesh to world Y=0, keeping X and Z. It accounts for rotation and scale. It does not query terrain or other objects.
 
 **Snap position** rounds world position using the Scene **View → Snap spacing**. Move-handle snapping also remains position-only; it does not snap rotation or scale.
 

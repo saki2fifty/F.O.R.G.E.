@@ -174,6 +174,8 @@ class CommandWorkspace {
             if (busy)
                 ImGui::TextWrapped("Finish the current operation or stop Play to edit.");
             ImGui::BeginChild("command_results", {0, 0});
+            if (matches.empty())
+                ImGui::TextWrapped("No matching actions. Clear or change the search.");
             for (int i = 0; i < int(matches.size()); ++i) {
                 const auto& e = matches[i];
                 const bool inspect = e.operation == "diagnostics" || e.operation == "schema";

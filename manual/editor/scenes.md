@@ -14,7 +14,7 @@ A successful open clears the previous scene's undo history, stops play, and rest
 
 ## Save another copy
 
-Press Ctrl+Shift+S or choose **File → Save As...**, then choose another filename within the project. Choose a filename that does not already exist. After saving, the new file becomes the active scene. A copy of a saved scene receives a new scene identity and new object identities; its object hierarchy and prefab links still point to the corresponding copied objects. The old file stays unchanged, and the copy starts a new undo history. Extensionless selections receive `.scene.json`.
+Press Ctrl+Shift+S or choose **File → Save scene As...**, then choose another filename within the project. Choose a filename that does not already exist. After saving, the new file becomes the active scene. A copy of a saved scene receives a new scene identity and new object identities; its object hierarchy and prefab links still point to the corresponding copied objects. The old file stays unchanged, and the copy starts a new undo history. Extensionless selections receive `.scene.json`.
 
 Scene destinations must end in `.json`. The project manifest and `.forge` working folder cannot be used as scene destinations.
 
@@ -26,7 +26,7 @@ See [Saving and recovery](saving-recovery.md) for conflict handling and [Undo an
 
 ## Browse project scenes
 
-The **Content** panel lists project-relative recognized JSON scenes. Filter the list, select a file and choose **Open selected**, or double-click it. Opening uses the same unsaved-change guard as File → Open scene. See [Content browser](content-browser.md).
+The **Content** panel lists project-relative recognized JSON scenes. Filter the list by Type → scene, then double-click a scene or use its **Open scene** context action. Opening uses the same unsaved-change guard as File → Open scene. See [Content browser](content-browser.md).
 
 ## Scene identity and older scenes
 

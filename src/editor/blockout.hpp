@@ -108,12 +108,16 @@ class BlockoutProperties {
         ui::help("Local transform channels. Each row owns only its corresponding translation, "
                  "rotation or scale channel.");
         ImGui::PushID(name.c_str());
-        ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvail().x);
+        const bool stacked = ImGui::GetContentRegionAvail().x < 240 * ui::interface_scale;
+        if (!stacked)
+            ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvail().x);
         const char* formats[] = {"X %.3f", "Y %.3f", "Z %.3f"};
         for (int axis = 0; axis < 3; ++axis) {
             ImGui::PushID(axis);
-            if (axis)
+            if (axis && !stacked)
                 ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+            if (stacked)
+                ImGui::SetNextItemWidth(-1);
             changed |= ImGui::DragScalar("##value", ImGuiDataType_Double, &value[axis],
                                          scale      ? .01f
                                          : position ? .05f
@@ -122,7 +126,8 @@ class BlockoutProperties {
             released |= ImGui::IsItemDeactivatedAfterEdit();
             ui::help("Drag this labeled axis or Ctrl-click to type. Release commits one scene "
                      "Undo; Escape cancels.");
-            ImGui::PopItemWidth();
+            if (!stacked)
+                ImGui::PopItemWidth();
             ImGui::PopID();
         }
         ImGui::PopID();

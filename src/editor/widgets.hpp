@@ -3,6 +3,7 @@
 #include <cmath>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <type_traits>
 namespace forge::ui {
 inline bool tooltips = true;
 inline ImVec2 tooltip_position(const ImRect& item, ImVec2 size, const ImRect& screen, float gap) {
@@ -116,6 +117,34 @@ inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderFinish(dock);
 }
 inline float interface_scale = 1.0f;
+template <class T> inline bool xyz_input(const char* label, T* values, const char* description) {
+    ImGui::TextUnformatted(label);
+    help(description);
+    ImGui::PushID(label);
+    const float available = ImGui::GetContentRegionAvail().x;
+    const bool stacked = available < 240 * interface_scale;
+    const float width = stacked ? available : (available - 2 * ImGui::GetStyle().ItemSpacing.x) / 3;
+    bool changed = false;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (axis && !stacked)
+            ImGui::SameLine();
+        ImGui::PushID(axis);
+        ImGui::BeginGroup();
+        const char* names[] = {"X", "Y", "Z"};
+        ImGui::TextUnformatted(names[axis]);
+        ImGui::SameLine(0, 4 * interface_scale);
+        ImGui::SetNextItemWidth(
+            std::max(20.f, width - ImGui::CalcTextSize(names[axis]).x - 4 * interface_scale));
+        changed |= ImGui::InputScalar(
+            "##value", std::is_same_v<T, double> ? ImGuiDataType_Double : ImGuiDataType_Float,
+            &values[axis], nullptr, nullptr, "%.3f");
+        help(description);
+        ImGui::EndGroup();
+        ImGui::PopID();
+    }
+    ImGui::PopID();
+    return changed;
+}
 inline void style(float scale = 1.0f) {
     interface_scale = std::isfinite(scale) ? std::clamp(scale, 0.65f, 2.0f) : 1.0f;
     ImGui::GetStyle() = ImGuiStyle{};

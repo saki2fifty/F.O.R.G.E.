@@ -4,7 +4,7 @@ Primitives are built-in shapes for blocking out a level before detailed assets a
 
 ## Create a shape
 
-Open **Create** in the top toolbar and choose a shape.
+Open **Create** in the Scene panel and choose a shape.
 
 - **Cube** starts one world unit wide, high, and deep.
 - **Sphere** starts with a diameter of one world unit.

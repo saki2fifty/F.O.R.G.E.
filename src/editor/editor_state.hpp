@@ -103,7 +103,8 @@ class Problems {
     void clear() { items_.clear(); }
     const auto& items() const { return items_; }
     std::size_t size() const { return items_.size(); }
-    void draw(EditorSelection& selection, bool* open) {
+    bool draw(EditorSelection& selection, bool* open) {
+        bool navigated = false;
         const auto title = "Problems (" + std::to_string(size()) + ")###Problems";
         if (ImGui::Begin(title.c_str(), open)) {
             heading("Needs attention",
@@ -121,10 +122,13 @@ class Problems {
                 const auto size = ImGui::CalcTextSize(label.c_str(), nullptr, false, wrap);
                 const auto position = ImGui::GetCursorScreenPos();
                 if (ImGui::Selectable("##problem", false, 0, {0, size.y})) {
-                    if (!p.entity.empty())
+                    if (!p.entity.empty()) {
                         selection.select_entity(p.entity);
-                    else if (p.asset)
+                        navigated = true;
+                    } else if (p.asset) {
                         selection.select_asset(p.asset);
+                        navigated = true;
+                    }
                 }
                 ImGui::GetWindowDrawList()->AddText(
                     ImGui::GetFont(), ImGui::GetFontSize(), position,
@@ -141,6 +145,7 @@ class Problems {
             }
         }
         ImGui::End();
+        return navigated;
     }
 
   private:

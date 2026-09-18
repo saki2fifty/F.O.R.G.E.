@@ -7,7 +7,7 @@ Commands that edit scenes are suppressed while typing or interacting with modal 
 - Ctrl+N: new scene.
 - Ctrl+O: open a scene within the project.
 - Ctrl+S: save the active scene.
-- Ctrl+Shift+S: Save As.
+- Ctrl+Shift+S: Save scene As... (active Scene task).
 - Ctrl+Z: undo.
 - Ctrl+Shift+Z or Ctrl+Y: redo.
 - Ctrl+D: duplicate the selected subtree.

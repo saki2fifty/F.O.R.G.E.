@@ -467,7 +467,9 @@ class PrefabEditor {
                                     rotation_to_euler({q.at("x"), q.at("y"), q.at("z"), q.at("w")});
                                 float degrees[3] = {float(angles[0]), float(angles[1]),
                                                     float(angles[2])};
-                                if (ImGui::InputFloat3("Degrees XYZ", degrees) &&
+                                if (ui::xyz_input("Rotation (degrees)", degrees,
+                                                  "Source local rotation: X, Y and Z Euler angles "
+                                                  "in degrees.") &&
                                     std::isfinite(degrees[0]) && std::isfinite(degrees[1]) &&
                                     std::isfinite(degrees[2]) && std::abs(degrees[0]) <= 360000 &&
                                     std::abs(degrees[1]) <= 360000 &&

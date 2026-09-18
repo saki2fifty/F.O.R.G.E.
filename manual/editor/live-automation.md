@@ -41,7 +41,7 @@ FORGE rejects automation edits while play, a native build, a file operation, a p
 
 Opening or reloading a scene, creating a new scene, recovering an untitled scene, switching projects, or saving under a new filename stops the connection. Enable a new connection for the new document. An ordinary Save keeps the connection active.
 
-**Automation (on)** in the toolbar shows that a listener is running. **Stop connection** closes it immediately. Changes that already committed remain in the scene and can be undone.
+**Automation (on)** in Tools shows that a listener is running. **Stop connection** closes it immediately. Changes that already committed remain in the scene and can be undone.
 
 ## Failures and recovery
 

@@ -129,3 +129,12 @@ One final numbered package delivered. Build53 archived; packages contains only B
 - Focused portable editor/input/native tests passed **3/3**, including the three original defects, all registered optional component drawers, independent dirty-draft close/save/failure paths and outside-Game capture release.
 - Clean Linux static **32/32** and exact SDK **41/41** regressions passed. Final sanitizer and clean Windows results will be recorded after execution.
 - Added actual-editor WARP fixture captures for the redesigned panels and responsive layouts. Existing viewport/shader/runtime UI and package-relocation checks remain in the delivery workflow. Automated fixtures are distinct from physical Windows acceptance.
+
+### Final documentation and narrow-panel review
+
+- Corrected older manual routes for scene creation, scene Save As, Content scene opening, entity actions, audio fields and Scene/Game ownership so the bundled how-to pages match the redesigned controls.
+- Shared labeled XYZ draft inputs cover prefab Euler rotation and project gravity; narrow Inspector transform rows stack vertically rather than squeeze unreadable columns. Added 100%/200% narrow/wide field-layout assertions.
+- Added explicit no-result guidance for attached-component filtering and command search.
+- Clean static/shared sanitizer suites passed **32/32** and **40/40**; editor sanitizer **3/3** passed before this final presentation follow-up. Build55 was cancelled before packaging to include these corrections in the final delivery; it was not delivered.
+
+- Problem navigation reveals Inspector and selects the scene task so an unrelated open prefab/settings draft does not retain the active Save route after navigating to a scene issue.

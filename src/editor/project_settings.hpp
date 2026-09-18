@@ -110,8 +110,8 @@ class ProjectSettingsEditor {
             auto gravity = draft_.value("physics", Json{{"version", 1}, {"gravity", {0, -9.81, 0}}})
                                .at("gravity")
                                .get<Double3>();
-            if (ImGui::InputScalarN("Gravity XYZ", ImGuiDataType_Double, gravity.data(), 3, nullptr,
-                                    nullptr, "%.3f")) {
+            if (ui::xyz_input("Gravity (m/s^2)", gravity.data(),
+                              "World acceleration in meters per second squared; +Y is up.")) {
                 if (!draft_.contains("physics"))
                     draft_["physics"] = {{"version", 1}};
                 draft_["physics"]["gravity"] = gravity;

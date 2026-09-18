@@ -1,6 +1,6 @@
 # Viewport
 
-The Scene panel previews authored primitives or the current play world's primitives. Camera navigation changes your view without editing entity positions.
+The Scene panel previews authored primitives. The separate Game panel presents the running world. Camera navigation changes your view without editing entity positions.
 
 ## Orbit and look
 

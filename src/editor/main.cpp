@@ -1233,7 +1233,10 @@ int main(int argc, char** argv) {
             if (workspace.problems) {
                 if (auto* settings = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                     ImGui::SetNextWindowDockID(settings->DockId, ImGuiCond_FirstUseEver);
-                editor.problems.draw(editor.selection, &workspace.problems);
+                if (editor.problems.draw(editor.selection, &workspace.problems)) {
+                    workspace.inspector = true;
+                    editor.task.owner = forge::ui::DocumentTask::Scene;
+                }
             }
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                 ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
