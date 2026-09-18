@@ -66,3 +66,14 @@ Core30/30, shared exact SDK38/38, editor/input3/3 passed. Static sanitizer29 + c
 Build51 is withheld. All four Windows/Linux core and SDK jobs and the editor process-controller tests passed. The editor compilation caught Windows' `interface` macro expanding a new renderer method name. Renamed that private accessor to `render_interface`; Linux syntax checks also define the Windows macro to cover this collision. A new numbered Windows build will verify the correction; no scene/ABI1/rendering behavior change.
 
 Build52 is withheld. Windows/Linux core30/30 and SDK38/38 passed. The independent UI WARP test included Diligent's native queue header before its required Direct3D declarations; moved the Direct3D include into a prerequisite group, matching the existing viewport fixture. No runtime or renderer behavior changed. Windows compilation/render/package validation will rerun with a new reserved build ID.
+
+
+## Phase6F verified delivery — Build 260918-000053
+
+Source `a4131578468972663346c832532bfb0ca1e6b541`, [run35311619027](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35311619027), passed every job. Windows/Linux core **30/30** and exact SDK **38/38**, Windows editor controllers **2/2** and remaining runtime/input/render checks **30/30** passed. Actual D3D12 WARP exercises premultiplied alpha, scissors, transforms, stencil set/inverse/intersection, textures, fonts and resize. All **29** previous viewport fixtures are byte-identical; nine separate UI fixtures passed, and the two HUD document sizes were visually inspected. All four existing shaders and executable build identities passed.
+
+Packaged UI font/notices/rendering, navigation worker and official animation converter passed relocation with developer PATH removed. ZIP CRC, all84 manifest hashes, exact reserved source/build, five x64 executables/four DLLs,31 matching manual pages, font/license resources and both experimental SDK archives were verified. License text matches pinned upstream sources after Windows newline normalization. ZIP SHA256: `7f5226f8d8844ce3735011efb9d7b60aa8e2123d5f710ed23ce411f66742ff77`.
+
+The editor had no compatible cache and rebuilt from scratch; this successful run saved a verified cache. Build50 is archived; packages contains only Build53 ZIP and current extracted editor. Builds51/52 remain withheld historical attempts. This delivery-evidence documentation follows the packaged source commit without changing its binaries or manual.
+
+Manual acceptance: [Runtime UI](../../manual/editor/runtime-ui.md): create HUD example, assign UI Document, Play/capture input, Pause/type/Step/Resume, resize, save/reopen and prefab visibility/Revert. No C++ edits required. Physical GPU, mixed-DPI and IME desktop acceptance remains pending. **Phase6F complete; STOP before Phase6G.**

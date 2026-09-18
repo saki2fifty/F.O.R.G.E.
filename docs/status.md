@@ -1,6 +1,10 @@
 # Phase 6F current increment
 
-Runtime UI source integration adds RmlUi/FreeType, a reusable Diligent presenter, UiDocument authoring, copied runtime models and semantic commands, HUD creation and reload. Core30/SDK38/editor3 pass locally; all30 static/37 shared sanitizer checks pass after the converter-fixture override correction. Windows delivery verification is pending. See [Runtime UI](runtime-ui.md) and its [manual](../manual/editor/runtime-ui.md). No Phase6G work is included. Earlier chronological entries below describe their historical checkpoints.
+Phase6F is implemented and verified in **Build 260918-000053**, source `a4131578468972663346c832532bfb0ca1e6b541`, [Windows/Linux run35311619027](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35311619027). Runtime UI adds RmlUi/FreeType, a reusable ImGui-free Diligent presenter, UiDocument authoring, copied runtime models, semantic commands, HUD creation and safe reload. See [Runtime UI](runtime-ui.md) and its [manual](../manual/editor/runtime-ui.md).
+
+Windows/Linux core30/30 and SDK38/38, Windows editor controllers2/2 and remaining runtime/input/render suites30/30 passed. All29 existing viewport fixtures are byte-identical; nine separate UI fixtures cover rendering and two document sizes. Relocated UI/navigation/animation packages pass. Local normal and sanitizer evidence is recorded in the daily changelog. ZIP identities/hashes, five x64 programs, bundled fonts/licenses,31 manual pages and both SDK archives are verified. Physical GPU, mixed-DPI and IME desktop acceptance remains the user's check.
+
+**STOP before Phase6G.** No broad public SDK consolidation, Phase7 asset pipeline or editor layout redesign is included. Earlier chronological entries below describe historical checkpoints.
 
 # Implementation status
 
