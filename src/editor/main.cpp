@@ -425,6 +425,7 @@ int main(int argc, char** argv) {
             if (initialize_layout || workspace.reset) {
                 workspace.reset = false;
                 forge::ui::initialize_workspace(dock);
+                content.focus();
                 initialize_layout = false;
             }
             const bool edit_locked = play.active() || native->busy() || files.busy() ||
@@ -591,6 +592,8 @@ int main(int argc, char** argv) {
                         ready = false;
                     break;
                 case 8:
+                    editor.selection.select_entity(
+                        scene.document().at("entities")[0].at("id").get<std::string>());
                     game_input.release(play);
                     play.stop();
                     SDL_SetWindowSize(window.get(), 960, 640);
@@ -600,6 +603,10 @@ int main(int argc, char** argv) {
                     forge::ui::style(2);
                     break;
                 case 10:
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    workspace.reset = true;
+                    break;
+                case 11:
                     forge::ui::style(1);
                     SDL_SetWindowSize(window.get(), 2560, 1080);
                     break;
@@ -1444,10 +1451,11 @@ int main(int argc, char** argv) {
             gui->Render(context);
 #ifdef FORGE_UI_FIXTURE
             ++fixture.frames;
-            if (fixture.prepared && fixture.frames > 12 && (fixture.stage != 6 || play.ready()) &&
+            if (fixture.prepared && fixture.frames > 12 &&
+                (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured()))) {
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 11) {
+                if (fixture.stage == 12) {
                     play.stop();
                     running = false;
                 }

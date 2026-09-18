@@ -52,7 +52,7 @@ class PrefabEditor {
         if (dirty())
             close_requested_ = true;
         else
-            open_ = false;
+            finish_close();
     }
     void request_save() { save_requested_ = true; }
     void rename_member(const std::string& name) {
@@ -76,7 +76,7 @@ class PrefabEditor {
             return false;
         draft_ = baseline_;
         close_requested_ = false;
-        open_ = false;
+        finish_close();
         return true;
     }
     bool publish(Scene& scene, SceneDocument& project) {
@@ -595,6 +595,12 @@ class PrefabEditor {
     }
 
   private:
+    void finish_close() {
+        open_ = false;
+        if (ui::editor_context &&
+            ui::editor_context->selection.kind() == ui::SelectionKind::PrefabMember)
+            ui::editor_context->selection.select_asset(ui::editor_context->selection.asset());
+    }
     char component_filter_[192]{};
     bool close_requested_ = false, save_requested_ = false, focus_requested_ = false;
     AssetId pending_asset_;

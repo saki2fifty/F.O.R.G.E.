@@ -142,3 +142,11 @@ One final numbered package delivered. Build53 archived; packages contains only B
 - Made the Windows-only screenshot fixture self-contained and preserved required native Direct3D include ordering. Build56 was cancelled before packaging after this source-review finding; no ZIP was delivered. Final portable editor and editor sanitizer runs both passed **3/3**.
 
 - Windows validation exposed an MSVC C++20 overload ambiguity in the Inspector first-property Revert comparison. Compare the explicitly typed schema string; preserve identical override behavior. Build57 failed before packaging and was not delivered.
+
+### Actual-render acceptance corrections
+
+- Build58 passed all six clean Windows/Linux jobs, editor controller2/2 and renderer/subsystem33/33, shaders, relocation and build identifiers. All38 previous viewport/runtime UI images were byte-identical to Build54. It was held before delivery after visual review found Content rows below the fold and missing prefab catalog entries.
+- Compact Content search/filters preserve visible asset rows in the default bottom area. Content merges existing prefab-library AssetRecords without creating a second database; newly selected prefab assets resolve with Content hidden. Reveal brings the Content tab forward; fresh/reset layouts focus Content.
+- Closing a prefab draft returns member selection to asset scope. Added regression coverage for catalog resolution, closed-draft selection and visible asset-table space.
+- Actual-editor fixtures now wait for a confirmed running state before capturing Game and also capture 1920×1080 at200%, alongside the960×640 stress layout. The manual states practical window/scale ranges.
+- Default bottom-dock height accounts for scaled control rows within a bounded 22–40% share; existing custom dock sizes remain untouched.

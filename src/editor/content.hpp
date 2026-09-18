@@ -65,6 +65,7 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
+    void focus() { focus_requested_ = true; }
     const AssetRecord* record(AssetId id) const {
         if (!catalog_)
             return nullptr;
@@ -83,12 +84,37 @@ class ContentBrowser {
             if (!candidate.records().contains(id))
                 candidate.add_scene(path);
         }
+        for (const auto& [id, prefab] : files.document.prefabs().records()) {
+            if (!candidate.records().contains(id))
+                candidate.add(prefab);
+            else if (candidate.records().at(id).type != prefab.type ||
+                     candidate.records().at(id).source != prefab.source)
+                throw std::runtime_error("Conflicting prefab asset identity in Content");
+        }
+        root_ = files.document.project();
         catalog_ = std::move(candidate);
         refreshed_ = SDL_GetTicks();
     }
+    const AssetRecord* resolve_record(EditorFiles& files, AssetId id) {
+        const bool changed = inspected_ != id;
+        inspected_ = id;
+        if (root_ != files.document.project() || !catalog_ || (changed && !record(id)) ||
+            SDL_GetTicks() - refreshed_ > 5000) {
+            try {
+                refresh(files);
+                error_.clear();
+            } catch (const std::exception& e) {
+                error_ = e.what();
+                refreshed_ = SDL_GetTicks();
+                if (root_ != files.document.project())
+                    catalog_.reset();
+            }
+        }
+        return record(id);
+    }
     void inspect(EditorFiles& files, ui::EditorSelection& selection,
                  const std::function<void(AssetId)>& open_prefab = {}) {
-        const auto* asset = record(selection.asset());
+        const auto* asset = resolve_record(files, selection.asset());
         if (!asset) {
             ImGui::TextWrapped(
                 "This asset is no longer available. Refresh Content or select another asset.");
@@ -127,6 +153,10 @@ class ContentBrowser {
     void draw(EditorFiles& files, bool* open = nullptr,
               const std::function<void()>& prefab_controls = {},
               const std::function<void()>& asset_controls = {}, bool locked = false) {
+        if (focus_requested_ || (ui::editor_context && ui::editor_context->reveal_content)) {
+            ImGui::SetNextWindowFocus();
+            focus_requested_ = false;
+        }
         if (!ImGui::Begin("Content", open)) {
             ImGui::End();
             return;
@@ -190,10 +220,18 @@ class ContentBrowser {
                 error_ = e.what();
                 refreshed_ = SDL_GetTicks();
             }
+        const bool wide_filters = ImGui::GetContentRegionAvail().x >= 600 * ui::interface_scale;
+        if (wide_filters)
+            ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::InputTextWithHint("##asset-search", "Search project assets...", filter_,
                                  sizeof(filter_));
         ui::help("Search source path, generated clip name and asset type.");
+        if (wide_filters)
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * .35f);
+        else
+            ImGui::SetNextItemWidth(
+                std::max(20.f, ImGui::GetContentRegionAvail().x - 60 * ui::interface_scale));
         if (ImGui::BeginCombo("Type", type_.empty() ? "All assets" : type_.c_str())) {
             if (ImGui::Selectable("All assets", type_.empty()))
                 type_.clear();
@@ -209,6 +247,10 @@ class ContentBrowser {
             ImGui::EndCombo();
         }
         ui::help("Show only one of the asset types currently registered in this project.");
+        if (wide_filters)
+            ImGui::SameLine();
+        ImGui::SetNextItemWidth(
+            std::max(20.f, ImGui::GetContentRegionAvail().x - 65 * ui::interface_scale));
         if (ImGui::BeginCombo("Folder", folder_[0] ? folder_ : "All folders")) {
             if (ImGui::Selectable("All folders", !folder_[0]))
                 folder_[0] = 0;
@@ -314,9 +356,10 @@ class ContentBrowser {
     std::filesystem::path root_;
     std::optional<AssetCatalog> catalog_;
     ui::EditorSelection fallback_;
+    AssetId inspected_;
     std::string error_, type_;
     char filter_[256]{}, folder_[256]{}, wav_[1024] = "Assets/sound.wav";
-    bool reveal_ = false;
+    bool reveal_ = false, focus_requested_ = false;
     Uint64 refreshed_ = 0;
 };
 } // namespace forge

@@ -103,7 +103,12 @@ inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->WorkSize);
     ImGuiID center = dock;
-    auto bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.22f, nullptr, &center);
+    const float bottom_fraction =
+        std::clamp(5 * ImGui::GetFrameHeightWithSpacing() /
+                       std::max(1.f, ImGui::GetMainViewport()->WorkSize.y),
+                   .22f, .40f);
+    auto bottom =
+        ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, bottom_fraction, nullptr, &center);
     auto left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.18f, nullptr, &center);
     auto right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.25f, nullptr, &center);
     ImGui::DockBuilderDockWindow("Hierarchy###World", left);

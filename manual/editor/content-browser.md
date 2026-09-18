@@ -33,3 +33,5 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 This is a catalog browser, not a general importer or file manager. Arbitrary file importing, thumbnails, file rename/delete, asset placement into the Scene, and cooking are not implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 16 directory levels, 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
+
+The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.

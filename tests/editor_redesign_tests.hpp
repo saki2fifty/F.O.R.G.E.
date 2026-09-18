@@ -92,6 +92,34 @@ inline void test_redesign_drawers() {
     forge::ComponentInspector inspector;
     forge::ContentBrowser content;
     content.refresh(files);
+    const auto prefab_asset = files.document.prefabs().create(
+        scene, forge::create_prefab_source(scene, entity), "Assets/New.prefab.json");
+    require(content.resolve_record(files, prefab_asset) != nullptr,
+            "New prefab missing from asset Inspector before Content refresh");
+    require(content.record(prefab_asset)->type == "prefab", "Prefab asset type lost in Content");
+    {
+        forge::PrefabEditor draft;
+        draft.edit_source(files.document, prefab_asset);
+        require(context.selection.kind() == forge::ui::SelectionKind::PrefabMember,
+                "Prefab member scope missing");
+        draft.request_close();
+        require(context.selection.kind() == forge::ui::SelectionKind::Asset &&
+                    context.selection.asset() == prefab_asset,
+                "Closed source retained stale prefab member selection");
+        context.selection.select_entity(entity);
+    }
+    for (int frame = 0; frame < 2; ++frame) {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({1440, 200});
+        content.draw(files);
+        auto* window = ImGui::FindWindowByName("Content");
+        auto* table = ImGui::TableFindByID(window->GetID("Assets"));
+        require(table &&
+                    table->InnerClipRect.GetHeight() >= 3 * ImGui::GetTextLineHeightWithSpacing(),
+                "Content filters hide asset rows in the default bottom workspace");
+        ImGui::Render();
+    }
     for (const auto& c : schema.at("components"))
         if (c.value("optional", false)) {
             const std::string key = c.at("id");

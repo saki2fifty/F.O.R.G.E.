@@ -20,6 +20,12 @@ Existing custom layouts are preserved. New Game and Problems panels join the exi
 
 At crowded sizes, widen Inspector, tab it with another panel, hide panels through Window, or use Ctrl+Minus. Ctrl+Plus increases readability and Ctrl+0 restores 100%.
 
+## Window size and scale
+
+Use 1440×900 or larger at 100% for the full default workspace. At 150–200%, a 1920×1080 or larger window gives more room; widen or tab the Inspector as needed. A 960×640 window is supported for reduced tasks at 100%. At 200% in that small window, use Menu/More..., hide or tab panels, or reduce zoom: the complete workspace cannot fit at once. Docking remains under your control.
+
+Fresh/reset layouts show Content in the bottom workspace. Existing saved layouts keep their active tabs.
+
 ## Independent tasks
 
 **Prefab source** opens from Content or an instance's Inspector, independently of whether Content remains visible. **Tools → Project Settings** opens project configuration. Both retain unpublished drafts and guard close/switch with Save or Publish, Discard, and Cancel.

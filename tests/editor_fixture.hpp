@@ -69,6 +69,7 @@ struct EditorFixture {
                                "game-paused-captured",
                                "narrow-100",
                                "narrow-200",
+                               "high-scale-200",
                                "ultrawide"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
