@@ -1,63 +1,10 @@
 #pragma once
-#include "audio_inspector.hpp"
+#include "document.hpp"
+#include "property_drawer.hpp"
 #include <forge/animation_conversion.hpp>
+#include <forge/authoring.hpp>
 #include <future>
 namespace forge {
-inline void animation_inspector(Scene& scene, SceneDocument& project, const std::string& selected,
-                                std::string& message) {
-    if (selected.empty())
-        return;
-    try {
-        Json item;
-        const auto effective = scene.effective_document();
-        for (const auto& e : effective.at("entities"))
-            if (e.at("id") == selected)
-                item = e;
-        if (item.is_null())
-            return;
-        if (ImGui::TreeNode("Animation")) {
-            struct Scope {
-                ~Scope() { ImGui::TreePop(); }
-            } scope;
-            ui::help("Single-clip skeletal playback in Play. Shows joints and bones; character "
-                     "mesh rendering is not available yet.");
-            constexpr const char* key = "forge.animator";
-            if (!item.at("components").contains(key)) {
-                if (ui::button("Add Animator",
-                               "Add an optional Animator in one undoable scene edit."))
-                    authoring_command(scene, "component.add",
-                                      {{"entity", selected}, {"component", key}});
-            } else {
-                auto schema = scene.schema();
-                for (const auto& type : schema.at("components"))
-                    if (type.at("id") == key)
-                        for (const auto& field : type.at("fields")) {
-                            const std::string name = field.at("id");
-                            auto value = item["components"][key][name];
-                            if (audio_field(project.project(), field, value))
-                                authoring_command(scene, "property.set",
-                                                  {{"entity", selected},
-                                                   {"component", key},
-                                                   {"field", name},
-                                                   {"value", value}});
-                        }
-                if (ui::button("Remove / Revert Animator",
-                               "Remove owned Animator configuration or its prefab overrides; scene "
-                               "Undo restores this edit."))
-                    authoring_command(scene, "component.revert",
-                                      {{"entity", selected}, {"component", key}});
-                ImGui::TextWrapped(
-                    "Convert a glTF in Content > Animation assets. Play shows the sampled bones; "
-                    "Pause freezes them and Step advances one simulation tick.");
-                ui::help("Prefab property overrides and Revert use the existing Inspector prefab "
-                         "controls. Animation assets are separate from scene Undo.");
-            }
-        } else
-            ui::help("Add and configure skeletal animation for this object.");
-    } catch (const std::exception& e) {
-        message = e.what();
-    }
-}
 class AnimationTools {
   public:
     explicit AnimationTools(std::filesystem::path executable) : converter_(std::move(executable)) {}
@@ -79,6 +26,7 @@ class AnimationTools {
                       "Animation clip in its Animator.";
         } catch (const std::exception& e) {
             message = e.what();
+            ui::report_error("animation_tools.hpp", message);
         }
     }
     void content(SceneDocument& project, bool locked, std::string& message) {
@@ -108,6 +56,7 @@ class AnimationTools {
                 message = "Converting animation...";
             } catch (const std::exception& e) {
                 message = e.what();
+                ui::report_error("animation_tools.hpp", message);
             }
         }
         ImGui::EndDisabled();

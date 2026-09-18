@@ -1,34 +1,37 @@
 # Inspector
 
-Inspector shows properties for the entity selected in Hierarchy. Its current editable controls cover the name, hierarchy, position, rotation, scale, primitive shape, and color.
+Inspector follows one explicit selection: an authored entity, a project asset, or a prefab source member. Selecting an asset clears entity selection. A prefab member selection points you to the independent **Prefab source** window; editing a scene instance is a different task.
 
-## Change a position
+## Edit an entity
 
-1. Select an entity in Hierarchy.
-2. Find the Position fields in Inspector.
-3. Drag X, Y, or Z, or Ctrl-click to type. The preview updates; release commits one undo step. Escape cancels a drag.
-4. Use Undo if you want to reverse a change, and Save to keep it on disk.
+Select an object in **Hierarchy** or **Scene**. Inspector shows its name, parent, local transform, appearance and attached components. **Name** commits with Enter. **Details** contains the persistent entity ID.
 
-Coordinates are local to the selected spatial parent; **Space → World** makes them world coordinates. Y is vertical and one unit is one meter. The camera's movement does not change these values.
+Position, Rotation and Scale have labeled X/Y/Z fields. Drag an axis or Ctrl-click to type; release commits one scene Undo step. Escape cancels a drag. Position uses meters, rotation uses Euler degrees, and scale is a multiplier. A move owns translation only; it does not override inherited rotation or scale.
 
-During Play, Inspector is read-only. Stop Play to edit the authored scene, then start Play to use the changes.
+**Space** chooses Follow parent, World or an explicit attachment. **Parent** preserves world placement and then follows the chosen parent. Cycles and unrepresentable shear reject without changing the scene. See [Transforms](transforms.md) and [Hierarchy](entities-hierarchy.md).
 
-## Identity and hierarchy controls
+Inspector authoring controls are read-only during Play. Scene retains the authored view; Game displays runtime results.
 
-**Name** commits when you press Enter. Expand **Details** to see **ID**, which shows the stable identity and is read-only. **Parent** and the **Object actions → Duplicate subtree / Delete subtree** commands operate on scene organization and transform following; their behavior is explained in [Entities and hierarchy](entities-hierarchy.md).
+## Add and find components
 
-## Position commands
+Click **+ Add Component** and search a component name or category. The list comes from FORGE's registered schema. Already attached components are marked **Added**, including inherited components.
 
-Right-click **Reset transform** to find **Reset position**, which sets X, Y, and Z to zero. **Object actions → Place on ground** moves the lowest point of the transformed mesh to Y=0 while keeping X and Z. It does not query terrain or collisions. **Object actions → Snap position** rounds all three coordinates to multiples of the Scene **View → Snap spacing**. Each command is one undoable edit.
+Attached components have collapsible headers. **Search components or properties...** filters these sections. Transform and identity stay above the filtered list. Right-click a component header for **Remove component**, or **Revert component** on a prefab instance.
 
-For direct manipulation, use the [Viewport move handles](viewport.md). Inspector shows the move preview but disables its controls during the drag; releasing the mouse commits it.
+## Edit a property
 
-See [Transforms](transforms.md) for Rotation/Scale fields and Copy/Paste/Reset transform. See [Primitives and color](primitives.md) for Shape and Color controls. Materials, arbitrary component editing, and multi-selection are not implemented.
+Booleans use checkboxes, motion uses Static/Kinematic/Dynamic choices, integer values use integer fields, and decimal values use numeric fields with units. Numeric/text component edits commit with Enter. An invalid edit retains the previous good value, shows an error beside the field, and creates a Problems entry.
 
-## Prefab members
+Asset fields show paths rather than requiring UUID entry. Use their picker/search, clear them, reveal them in Content, or drag a compatible Content asset onto them. See [Content browser](content-browser.md).
 
-Structured instances show their source revision and Revert controls in **Prefab instance**. Transform channels can be overridden independently. Change source-member names and hierarchy through **Open prefab source**. See [Prefabs](prefabs.md).
+## Prefab intent and Revert
 
-## Physics properties
+Prefab properties show **Inherited** or **Overridden** from explicit ownership/override intent. A value equal to its source can still be overridden. **Revert** follows the source again and supports scene Undo/Redo. Whole-component overrides have **Revert component**; independent translation, rotation and scale each have their own Revert.
 
-Expand **Physics** to add optional bodies and Box/Sphere/Capsule colliders. See [Physics](physics.md) for field meanings and a falling-cube walkthrough.
+The lower **Prefab instance** section shows revision/status and **Open prefab source**. **All override operations** is an advanced summary, not another source-editing transaction. Publishing source changes is outside scene Undo. Apply to Prefab remains deferred.
+
+## More operations
+
+Use the **Entity** menu or Hierarchy context menu to duplicate or delete. Transform reset, snap, ground placement, and color/shape commands are searchable in the [Command palette](commands.md). Ground placement aligns the preview mesh to Y=0; it does not query terrain.
+
+Multi-selection, arbitrary plugin inspectors and material editing are not implemented.

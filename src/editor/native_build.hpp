@@ -83,6 +83,7 @@ class NativeBuild {
         return phase_ != Phase::Idle && !(phase_ == Phase::Reload && pending_wait_);
     }
     bool has_source() const { return std::filesystem::exists(source_ / "CMakeLists.txt"); }
+    const std::string& error() const { return error_; }
     const std::string& artifact() const { return active_; }
     const std::string& status() const { return status_; }
     const std::string& log() const { return log_; }
@@ -93,9 +94,12 @@ class NativeBuild {
     std::string cmake = "cmake", ninja = "ninja";
 
     void create_source() {
-        if (std::filesystem::exists(source_))
+        const bool empty_directory = std::filesystem::is_directory(source_) &&
+                                     !std::filesystem::is_symlink(source_) &&
+                                     std::filesystem::is_empty(source_);
+        if (std::filesystem::exists(std::filesystem::symlink_status(source_)) && !empty_directory)
             throw std::runtime_error(
-                "Native directory already exists; no sources were overwritten");
+                "Native contains existing content; no sources were overwritten");
         std::filesystem::create_directories(source_.parent_path());
         auto staging = source_;
         staging += ".pending";
@@ -107,10 +111,17 @@ class NativeBuild {
                                        staging / "gameplay.cpp");
             std::filesystem::copy_file(sdk_ / "samples/native/CMakeLists.txt",
                                        staging / "CMakeLists.txt");
+            // Prepare both files first. remove() only removes an empty directory, never its
+            // contents; a concurrent addition therefore prevents publication safely.
+            if (empty_directory && !std::filesystem::remove(source_))
+                throw std::runtime_error("Native changed while creating source; retry safely");
             std::filesystem::rename(staging, source_);
             status_ = "Gameplay source created. Build it, then press Play.";
         } catch (...) {
-            std::filesystem::remove_all(staging);
+            std::error_code ignored;
+            std::filesystem::remove_all(staging, ignored);
+            if (empty_directory && !std::filesystem::exists(source_))
+                std::filesystem::create_directory(source_, ignored);
             throw;
         }
     }
@@ -220,6 +231,7 @@ class NativeBuild {
     }
 
   private:
+    std::string error_;
     enum class Phase { Idle, Configure, Compile, Probe, AwaitPlay, Reload };
     using Stamp =
         std::map<std::filesystem::path, std::pair<std::filesystem::file_time_type, std::uintmax_t>>;
@@ -263,6 +275,7 @@ class NativeBuild {
         }
     }
     void fail(const std::string& error) {
+        error_ = error;
         command_.close();
         probe_.stop();
         phase_ = Phase::Idle;
@@ -270,6 +283,7 @@ class NativeBuild {
         append("\n" + status_ + "\n");
     }
     void commit() {
+        error_.clear();
         active_ = candidate_;
         phase_ = Phase::Idle;
         status_ = "Build validated. Gameplay is ready for Play / Restart.";

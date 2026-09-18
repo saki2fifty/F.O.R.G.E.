@@ -1,40 +1,35 @@
 # Panels and windows
 
-FORGE uses dockable panels so you can arrange the workspace around your task. Drag a panel tab to dock it beside another panel or group it into a tabbed area. Resize a split by dragging its divider.
+FORGE uses dockable panels. Drag a tab to move it or dock beside another panel; drag a divider to resize the split.
 
-## Find the right panel
+## Default workspace
 
-- **Hierarchy** lists scene entities and their parent/child organization.
-- **Inspector** edits the Hierarchy selection.
-- **Scene** shows the block preview and camera controls.
-- **Content** browses project scene files and opens them through the save guard.
-- **Gameplay Code** creates and compiles gameplay source, with compiler output and expandable Compiler setup.
-- **Console** displays editor, file, and runtime diagnostics.
+- **Hierarchy**, left: scene entities and structural organization.
+- **Scene / Game**, center tabs: authored scene versus isolated runtime presentation.
+- **Inspector**, right: the selected entity, asset or prefab-member context.
+- **Content / Problems / Console / Gameplay Code**, bottom tabs: assets, actionable issues, chronological messages and native compilation.
+- The permanent bottom status bar shows FPS, frame time, editor CPU/RAM, VSync state, runtime state, entity/selection counts, problem count and build activity.
 
-The top toolbar holds file, help, edit, play, and tooltip controls. The bottom performance bar remains visible below the docking area.
+Application menus sit above the global action bar. The bar provides Save, Undo/Redo and Play/Pause/Step/Stop. **More...** retains access to actions hidden at narrow widths. Narrow windows or large UI scales group application menus under **Menu**.
 
-## Keep a useful layout
+## Recover a panel or layout
 
-Your panel arrangement is saved between editor sessions. The current layout is global to the editor, rather than separately stored for each project. Ctrl+Minus makes controls smaller if a crowded panel needs more space; Ctrl+Plus increases readability.
+Use **Window** to show a closed panel. **Window → Reset layout** restores the default arrangement. Panel visibility and docking are saved in personal preferences, separately from project data.
 
-Tooltips explain controls when you pause the pointer over them. See [Settings and appearance](settings.md) and [Performance and diagnostics](performance.md).
+Existing custom layouts are preserved. New Game and Problems panels join the existing Scene and Console docks on first use. Reset layout is deliberate; it does not happen merely because you upgraded.
 
-## Inspection tools
+At crowded sizes, widen Inspector, tab it with another panel, hide panels through Window, or use Ctrl+Minus. Ctrl+Plus increases readability and Ctrl+0 restores 100%.
 
-The Tools menu opens the [Command palette](commands.md), [Scene diagnostics and Component schema](diagnostics.md). Diagnostics lists informational scene findings; Component schema describes the supported built-in data.
+## Independent tasks
 
-## Local automation
+**Prefab source** opens from Content or an instance's Inspector, independently of whether Content remains visible. **Tools → Project Settings** opens project configuration. Both retain unpublished drafts and guard close/switch with Save or Publish, Discard, and Cancel.
 
-Open **Tools → Automation → Local connection...** to start a read-only or editable connection, copy connection details, inspect its status, or stop it. See [Live automation](live-automation.md) for the included Python example.
+The action bar's **Active** label identifies which task Ctrl+S saves. Scene Undo/Redo is disabled while an independent draft owns the active task. There is no cross-document Undo.
 
-## Show, hide, or restore panels
+## Advanced tools
 
-Use **Window** to show or hide a panel. You can also close a panel with its tab's close button. **Window → Reset layout** restores Hierarchy on the left, Scene in the center, Inspector on the right, and Content / Console / Gameplay Code tabs below.
+Tools contains [Command palette](commands.md), [Scene diagnostics / Component schema](diagnostics.md), Performance, Project Settings and [Local automation](live-automation.md). Ordinary authoring does not require an automation connection.
 
-Existing custom layouts are retained when World becomes Hierarchy and Native becomes Gameplay Code. The previous layout file is backed up during that migration. Use Reset layout if you want the new default arrangement. Panel visibility is saved with your personal settings.
+## Layout file problems
 
-Scene controls now fit in a compact toolbar. Its **View** menu holds framing, camera bookmarks, grid settings, flight speed and orientation visibility. Scene name, unsaved-change marker and Edit/Play state appear above it. Content shows the active project; hover that name for its folder.
-
-## If a saved layout cannot be updated
-
-Layout migration closes its file reader before replacing `workspace.ini` and keeps the original backup. If a lock or permissions problem prevents the update, FORGE continues with the layout it could read, reports the affected path in Console and the launch log, and disables layout saving for that session so the original file is preserved. If it cannot read the layout, it uses the default arrangement for that session. Restart after resolving the reported file problem to retry. Project and scene files are separate from this workspace setting.
+If migration cannot replace a locked or inaccessible workspace file, FORGE preserves the original, reports the path, uses the readable layout where possible and disables layout saving for that session. Restart after resolving the file issue. Scene/project files are separate.

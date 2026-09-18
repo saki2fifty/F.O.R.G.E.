@@ -108,6 +108,7 @@ class PlaySession {
     std::uint64_t snapshot_version() const { return snapshot_version_; }
     const std::string& status() const { return status_; }
     const std::string& log() const { return log_; }
+    const Json& diagnostics() const { return diagnostics_; }
     void stop() {
         close_process();
         if (transaction_ || !requested_.empty())

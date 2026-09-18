@@ -1,4 +1,5 @@
 #pragma once
+#include "component_inspector.hpp"
 #include "navigation_tools.hpp"
 void require(bool, const char*);
 inline void test_navigation_editor() {
@@ -29,7 +30,8 @@ inline void test_navigation_editor() {
         ImGui::SetNextWindowSize({1200, 900});
         ImGui::Begin("Navigation test");
         ImGui::SetNextItemOpen(true);
-        forge::navigation_inspector(scene, project, id, message);
+        forge::ComponentInspector inspector;
+        inspector.draw(scene, project, id);
         require(message.empty(), "Navigation reflected fields failed");
         ImGui::SetNextItemOpen(true);
         tools.content(scene, project, false, message);

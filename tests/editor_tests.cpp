@@ -6,14 +6,15 @@
 #include "camera_controls.hpp"
 #include "command_workspace_tests.hpp"
 #include "document_tests.hpp"
+#include "editor_redesign_tests.hpp"
 #include "game_input_tests.hpp"
 #include "help.hpp"
 #include "interaction_tests.hpp"
 #include "navigation_editor_tests.hpp"
-#include "physics_inspector.hpp"
 #include "play.hpp"
 #include "prefab_editor_tests.hpp"
 #include "project_settings.hpp"
+#include "property_drawer_tests.hpp"
 #include "scene_cache_tests.hpp"
 #include "sdl_input_tests.hpp"
 #include "status_bar.hpp"
@@ -308,6 +309,10 @@ int main(int argc, char** argv) {
         require(forge::ui::local_file_url(std::filesystem::current_path() / "space #%.html")
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
+        test_typed_ui_layer();
+        test_editor_selection_and_actions();
+        test_redesign_drawers();
+        test_draft_ownership();
         test_animation_editor();
         test_navigation_editor();
         test_documents();

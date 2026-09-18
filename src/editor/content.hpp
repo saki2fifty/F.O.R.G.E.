@@ -1,8 +1,11 @@
 #pragma once
 #include "files.hpp"
+#include "help.hpp"
+#include "property_drawer.hpp"
 #include "search.hpp"
 #include <algorithm>
 #include <cctype>
+#include <set>
 namespace forge {
 inline std::vector<std::filesystem::path> scene_files(const std::filesystem::path& root) {
     std::vector<std::filesystem::path> result;
@@ -62,92 +65,258 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
+    const AssetRecord* record(AssetId id) const {
+        if (!catalog_)
+            return nullptr;
+        const auto it = catalog_->records().find(id);
+        return it == catalog_->records().end() ? nullptr : &it->second;
+    }
+    void refresh(EditorFiles& files) {
+        auto candidate = AssetCatalog::open_project(files.document.project());
+        // Scenes already carry their AssetId. Use the same catalog abstraction for discovery;
+        // browsing never creates a replacement identity or writes a second asset database.
+        for (const auto& path : scene_files(files.document.project())) {
+            const auto doc = read_json(files.document.project() / path);
+            if (!doc.contains("asset_id"))
+                continue;
+            const auto id = doc.at("asset_id").get<AssetId>();
+            if (!candidate.records().contains(id))
+                candidate.add_scene(path);
+        }
+        catalog_ = std::move(candidate);
+        refreshed_ = SDL_GetTicks();
+    }
+    void inspect(EditorFiles& files, ui::EditorSelection& selection,
+                 const std::function<void(AssetId)>& open_prefab = {}) {
+        const auto* asset = record(selection.asset());
+        if (!asset) {
+            ImGui::TextWrapped(
+                "This asset is no longer available. Refresh Content or select another asset.");
+            if (ui::button("Clear selection", "Clear the missing asset selection."))
+                selection.clear();
+            return;
+        }
+        ImGui::TextWrapped("Asset: %s", asset_display(*asset).c_str());
+        ui::help("Asset inspection does not edit an entity. Select an entity to return to "
+                 "component properties.");
+        ImGui::Text("Type: %s", asset->type.c_str());
+        ImGui::TextWrapped("Source: %s", path_text(asset->source).c_str());
+        auto resolution = catalog_->resolve(asset->id, asset->type);
+        if (resolution.state != AssetState::Available)
+            ui::field_error(resolution.diagnostic);
+        if (asset->type == "scene" &&
+            ui::button("Open scene", "Open through the scene and draft save guards."))
+            files.request(
+                {EditorFiles::Command::OpenScene, files.document.project() / asset->source, {}});
+        if (asset->type == "prefab" && open_prefab &&
+            ui::button("Edit prefab source", "Open this independent prefab source document."))
+            open_prefab(asset->id);
+        if (ui::button("Reveal source folder",
+                       "Open the containing folder in your operating system."))
+            SDL_OpenURL(ui::local_file_url((files.document.project() / asset->source).parent_path())
+                            .c_str());
+        if (ImGui::TreeNode("Asset details")) {
+            ImGui::TextWrapped("AssetId: %s", asset->id.str().c_str());
+            ImGui::Text("Dependencies: %zu", asset->dependencies.size());
+            ImGui::TextWrapped("%s", asset->metadata.dump(2).c_str());
+            ImGui::TreePop();
+        }
+        ui::help("Advanced identity and converter/dependency metadata. AssetIds remain unchanged "
+                 "by selecting or inspecting.");
+    }
     void draw(EditorFiles& files, bool* open = nullptr,
               const std::function<void()>& prefab_controls = {},
-              const std::function<void()>& animation_controls = {}) {
+              const std::function<void()>& asset_controls = {}, bool locked = false) {
         if (!ImGui::Begin("Content", open)) {
             ImGui::End();
             return;
         }
-        if (prefab_controls) {
-            const bool show = ImGui::CollapsingHeader("Prefab assets");
-            ui::help("Create, edit and instantiate reusable prefab assets.");
-            if (show)
-                prefab_controls();
-        }
-        if (animation_controls)
-            animation_controls();
-        ui::heading("Project scenes",
-                    "Browse recognized scene documents within the current project. "
-                    "Open validates scene contents.");
-        ImGui::Text("Project: %s", files.document.name().c_str());
-        ui::help(path_text(files.document.project()).c_str());
+        auto& selection = ui::editor_context ? ui::editor_context->selection : fallback_;
+        if (ui::editor_context)
+            ui::editor_context->task.focus(ui::DocumentTask::Scene);
         if (root_ != files.document.project()) {
             root_ = files.document.project();
-            selected_.clear();
-            paths_.clear();
-            refresh_ = true;
+            catalog_.reset();
+            refreshed_ = 0;
         }
-        if (ui::button(
-                "Refresh",
-                "Scan project folders again after files are added or renamed outside FORGE."))
-            refresh_ = true;
+        bool rescan = !catalog_ || SDL_GetTicks() - refreshed_ > 5000;
+        if (ui::button("Create / Register", "Create or register supported project assets. These "
+                                            "operations are separate from scene Undo."))
+            ImGui::OpenPopup("Asset operations");
         ImGui::SameLine();
-        if (ui::button("New scene",
-                       "Create an unsaved empty scene; Save As chooses its project filename."))
-            files.request({EditorFiles::Command::NewScene, {}, {}});
-        if (refresh_ || SDL_GetTicks() - refreshed_ > 5000) {
+        if (ui::button("Refresh",
+                       "Refresh registered assets and discover saved scene documents.")) {
+            rescan = true;
+            error_.clear();
+        }
+        if (ImGui::BeginPopup("Asset operations")) {
+            ImGui::BeginDisabled(locked);
+            if (ui::button("New scene", "Create an empty scene through the unsaved-change guard."))
+                files.request({EditorFiles::Command::NewScene, {}, {}});
+            if (ImGui::CollapsingHeader("Audio / Register WAV")) {
+                ImGui::InputText("Project WAV path", wav_, sizeof(wav_));
+                ui::help("Path relative to this project. Copy your WAV into Assets first; "
+                         "registration does not transcode or copy files.");
+                if (ui::button("Register WAV", "Register the WAV with an AssetId, then assign it "
+                                               "through an Audio Source field.")) {
+                    try {
+                        files.document.check_ownership();
+                        auto a =
+                            AssetCatalog::register_audio_clip(root_, std::filesystem::u8path(wav_));
+                        selection.select_asset(a.id);
+                        rescan = true;
+                    } catch (const std::exception& e) {
+                        error_ = e.what();
+                    }
+                }
+            }
+            ui::help("Register a supported existing WAV inside this project.");
+            if (prefab_controls && ImGui::CollapsingHeader("Prefabs"))
+                prefab_controls();
+            ui::help("Create a prefab from the selected entity, instantiate, duplicate or edit a "
+                     "selected prefab asset.");
+            if (asset_controls)
+                asset_controls();
+            ImGui::EndDisabled();
+            if (locked)
+                ImGui::TextWrapped(
+                    "Stop Play and finish the current operation to create or register assets.");
+            ImGui::EndPopup();
+        }
+        if (rescan)
             try {
-                paths_ = scene_files(root_);
-                error_.clear();
+                refresh(files);
             } catch (const std::exception& e) {
                 error_ = e.what();
+                refreshed_ = SDL_GetTicks();
             }
-            refresh_ = false;
-            refreshed_ = SDL_GetTicks();
-        }
-        ImGui::InputTextWithHint("##scene-filter", "Filter scene paths...", filter_,
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputTextWithHint("##asset-search", "Search project assets...", filter_,
                                  sizeof(filter_));
-        ui::help(
-            "Filter project-relative JSON filenames. Matching is case-insensitive for ASCII text.");
-        const auto needle = search_key(filter_);
-        ImGui::BeginChild(
-            "##scene-files",
-            {0, std::max(60.0f, ImGui::GetContentRegionAvail().y - 100 * ui::interface_scale)},
-            ImGuiChildFlags_Borders);
-        for (const auto& path : paths_) {
-            const auto text = path_text(path);
-            if (!needle.empty() && search_key(text).find(needle) == std::string::npos)
-                continue;
-            if (ImGui::Selectable(text.c_str(), selected_ == path,
-                                  ImGuiSelectableFlags_AllowDoubleClick)) {
-                selected_ = path;
-                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    files.request({EditorFiles::Command::OpenScene, root_ / path, {}});
-            }
-            ui::help("Double-click to open this scene through the unsaved-change guard. Non-scene "
-                     "JSON is rejected without replacing your scene.");
+        ui::help("Search source path, generated clip name and asset type.");
+        if (ImGui::BeginCombo("Type", type_.empty() ? "All assets" : type_.c_str())) {
+            if (ImGui::Selectable("All assets", type_.empty()))
+                type_.clear();
+            std::set<std::string> types;
+            if (catalog_)
+                for (const auto& [id, a] : catalog_->records()) {
+                    (void)id;
+                    types.insert(a.type);
+                }
+            for (const auto& t : types)
+                if (ImGui::Selectable(t.c_str(), t == type_))
+                    type_ = t;
+            ImGui::EndCombo();
         }
-        ImGui::EndChild();
-        ImGui::BeginDisabled(selected_.empty() || files.busy());
-        if (ui::button("Open selected",
-                       "Open the selected scene. Unsaved edits are resolved first."))
-            files.request({EditorFiles::Command::OpenScene, root_ / selected_, {}});
-        ImGui::EndDisabled();
-        ImGui::TextWrapped("%s", error_.empty()
-                                     ? "Scenes only. Asset importing is not available yet."
-                                     : error_.c_str());
-        ui::help("The browser skips .forge, .git, symbolic links, and folders deeper than 16 "
-                 "levels. It refreshes every five seconds while visible.");
+        ui::help("Show only one of the asset types currently registered in this project.");
+        if (ImGui::BeginCombo("Folder", folder_[0] ? folder_ : "All folders")) {
+            if (ImGui::Selectable("All folders", !folder_[0]))
+                folder_[0] = 0;
+            std::set<std::string> folders;
+            if (catalog_)
+                for (const auto& [id, asset] : catalog_->records()) {
+                    (void)id;
+                    for (auto p = asset.source.parent_path(); !p.empty(); p = p.parent_path())
+                        folders.insert(path_text(p) + "/");
+                }
+            for (const auto& folder : folders)
+                if (ImGui::Selectable(folder.c_str(), folder == folder_))
+                    SDL_strlcpy(folder_, folder.c_str(), sizeof(folder_));
+            ImGui::EndCombo();
+        }
+        ui::help("Browse folders containing registered assets, including descendants. All folders "
+                 "searches the whole project.");
+        if (ui::editor_context && ui::editor_context->reveal_content) {
+            filter_[0] = folder_[0] = 0;
+            type_.clear();
+            ui::editor_context->reveal_content = false;
+            reveal_ = true;
+        }
+        unsigned count = 0;
+        if (ImGui::BeginTable(
+                "Assets", 2,
+                ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable,
+                {0,
+                 std::max(60.f, ImGui::GetContentRegionAvail().y - (error_.empty() ? 0 : 50.f))})) {
+            ImGui::TableSetupColumn("Asset", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed,
+                                    110 * ui::interface_scale);
+            ImGui::TableHeadersRow();
+            if (catalog_)
+                for (const auto& [id, a] : catalog_->records()) {
+                    auto label = asset_display(a);
+                    if ((!type_.empty() && a.type != type_) ||
+                        search_key(label + " " + a.type).find(search_key(filter_)) ==
+                            std::string::npos ||
+                        !search_key(path_text(a.source)).starts_with(search_key(folder_)))
+                        continue;
+                    ++count;
+                    ui::IdScope scope(id.str().c_str());
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    const bool selected =
+                        selection.kind() == ui::SelectionKind::Asset && selection.asset() == id;
+                    if (ImGui::Selectable(
+                            label.c_str(), selected,
+                            ImGuiSelectableFlags(ImGuiSelectableFlags_SelectOnRelease) |
+                                ImGuiSelectableFlags_AllowDoubleClick |
+                                ImGuiSelectableFlags_SpanAllColumns)) {
+                        selection.select_asset(id);
+                        if (a.type == "scene" && ImGui::IsMouseDoubleClicked(0))
+                            files.request({EditorFiles::Command::OpenScene, root_ / a.source, {}});
+                    }
+                    ui::help("Select to inspect this asset. Drag to a compatible asset field; "
+                             "double-click scenes to open. Right-click for asset actions.");
+                    if (reveal_ && selected) {
+                        ImGui::SetScrollHereY();
+                        reveal_ = false;
+                    }
+                    if (ImGui::BeginDragDropSource()) {
+                        auto text = id.str();
+                        ImGui::SetDragDropPayload("FORGE_ASSET", text.c_str(), text.size() + 1);
+                        ImGui::Text("%s (%s)", label.c_str(), a.type.c_str());
+                        ImGui::EndDragDropSource();
+                    }
+                    if (ImGui::BeginPopupContextItem("Asset actions")) {
+                        if (ImGui::MenuItem("Inspect"))
+                            selection.select_asset(id);
+                        if (a.type == "scene" && ImGui::MenuItem("Open scene"))
+                            files.request({EditorFiles::Command::OpenScene, root_ / a.source, {}});
+                        if (ImGui::MenuItem("Reveal source folder"))
+                            SDL_OpenURL(
+                                ui::local_file_url((root_ / a.source).parent_path()).c_str());
+                        if (a.type == "prefab" && prefab_controls) {
+                            selection.select_asset(id);
+                            prefab_controls();
+                        }
+                        ImGui::EndPopup();
+                    }
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(a.type.c_str());
+                }
+            if (!count) {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextWrapped("No matching assets. Clear filters or use Create / Register.");
+            }
+            ImGui::EndTable();
+        }
+        if (!error_.empty()) {
+            ui::field_error(error_);
+            if (ui::editor_context)
+                ui::editor_context->problems.report(
+                    {"content", "Error", error_, {}, path_text(root_), {}, {}});
+        }
         ImGui::End();
     }
 
   private:
-    std::filesystem::path root_, selected_;
-    std::vector<std::filesystem::path> paths_;
-    std::string error_;
-    char filter_[256]{};
-    bool refresh_ = true;
+    std::filesystem::path root_;
+    std::optional<AssetCatalog> catalog_;
+    ui::EditorSelection fallback_;
+    std::string error_, type_;
+    char filter_[256]{}, folder_[256]{}, wav_[1024] = "Assets/sound.wav";
+    bool reveal_ = false;
     Uint64 refreshed_ = 0;
 };
 } // namespace forge

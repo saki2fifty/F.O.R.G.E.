@@ -1,29 +1,24 @@
-# Scene diagnostics and component schema
+# Problems and diagnostics
 
-These windows help you understand the data in your authored scene. Open them from **Tools** or the command palette.
+**Problems** retains actionable errors and warnings for the current editor session. **Console** records chronological status changes and low-level runtime/build details. A failed field edit also explains itself beside that field.
+
+## Find and resolve an issue
+
+1. Open **Window → Problems**, or look at the problem count in the status bar.
+2. Select an entry to inspect its entity or asset when that context is available.
+3. Read the property/source context, correct the input or file, then retry the operation.
+4. Use **Clear resolved / dismiss** to dismiss displayed entries. This clears messages; it does not repair project data.
+
+Messages are bounded to 256 displayed entries and retained across panel closure. Repeated observed diagnostics are deduplicated. Switching projects starts a new session list. Console retains the most recent 256 status changes; **Clear log** clears only the displayed log.
+
+Build output is also available in **Gameplay Code**. Runtime UI, asset conversion/build and authoring failures feed Problems. Some low-level messages have no navigable target; use their source text and Console details.
 
 ## Scene diagnostics
 
-The top of the window shows entity count, visible primitives, prefab templates, owned component count, and document revision. The report refreshes after a committed scene change.
-
-Visible means an entity has an effective local translation, a resolved spatial binding, and is not a prefab template. It does not mean that the camera can currently see it. Owned components exclude values inherited from a prefab.
-
-Findings are informational:
-
-- Duplicate names are allowed because entity IDs remain distinct.
-- An entity without effective local translation is not drawn in the preview.
-- An unresolved spatial attachment hides the object until its binding is repaired.
-- Unknown component data is retained when saving, but the current runtime does not implement it.
-
-Click a finding to select its entity, then inspect it in Hierarchy or Inspector. Findings never automatically delete or repair anything. This window does not yet validate imported assets or standalone export requirements.
+**Tools → Scene diagnostics** provides informational scene findings, including duplicate names, missing effective transform values and unresolved spatial bindings. Duplicate names are allowed because identities remain distinct. Unknown component data is retained when saving, although the current runtime cannot implement unknown behavior.
 
 ## Component schema
 
-Expand a component to see its supported fields, stable property identifiers, numeric types, defaults, units, and limits. These describe the same built-in data checked by authoring commands.
+**Tools → Component schema** shows registered components and their field identities, types, defaults, units and limits. These are the same schemas used by Add Component and the typed Inspector. Quaternion storage is shown here; authored rotation editing presents Euler degrees.
 
-The current components are LocalTranslation, LocalRotation, LocalScale, Tint, and Primitive. Rotation fields here are quaternion XYZW; Inspector presents Euler degrees. This window is read-only; use Inspector to change values. Animation-related metadata prepares property bindings for future tools; animation editing is not available in this build.
-
-Continue with [Inspector](inspector.md) and [Command palette](commands.md).
-
-
-Console → Gameplay input displays consumed runtime action values and edge counts. `forge_tools --document-schemas` lists the current document contracts without opening a window or writing files.
+See [Inspector](inspector.md), [Native gameplay](native-gameplay.md) and [Play mode](play-mode.md).

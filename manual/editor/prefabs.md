@@ -6,7 +6,7 @@ A prefab is a reusable group of objects saved as its own asset. Instances follow
 
 1. Build a small group of ordinary objects in the Hierarchy, with one parent and its children. A subtree already containing prefab instances or legacy prefab definitions is rejected; nested prefab conversion is deferred.
 2. Select the parent.
-3. In **Content**, expand **Prefab assets**.
+3. In **Content**, expand **Create / Register → Prefabs**.
 4. Enter a new project-relative filename, such as `Assets/Chair.prefab.json`.
 5. Click **Create from selection**.
 
@@ -14,7 +14,7 @@ Your original objects remain in the scene. Create does not replace or delete the
 
 ## Add linked copies
 
-Select the prefab's filename in **Content → Prefab assets**, then click **Instantiate**. Repeat to create another copy. Each copy has its own object identities. Instantiation is one scene Undo step.
+Select the prefab in Content, then use **Create / Register → Prefabs → Instantiate**, or its right-click menu. Repeat to create another copy. Each copy has its own object identities. Instantiation is one scene Undo step.
 
 The Hierarchy marks roots with **[prefab]** and their structured children with **[member]**. Select any member to inspect it. Move, rotate and scale work on individual members; rearranging, renaming or removing the source's interior happens in **Edit source**. You can attach ordinary scene objects beneath a member using the usual Parent control.
 
@@ -36,7 +36,7 @@ Transform Revert works on a whole channel: translation, rotation or scale. Rotat
 
 ## Edit the reusable source
 
-1. Select the asset in **Content → Prefab assets** and click **Edit source**. Alternatively, select an instance and click **Open prefab source** in its Inspector.
+1. Select the asset in Content and click **Edit prefab source** in Inspector, or use its context menu. Alternatively, select an instance and click **Open prefab source** in its Inspector.
 2. In **Prefab source**, select a member.
 3. Edit its name or component fields. **Parent member** changes the source hierarchy while keeping the member's local transform.
 4. **Member space** selects FollowStructure, World or an explicit source-member attachment while retaining local values. Instance-root attachment is chosen in the scene Inspector.
@@ -45,7 +45,7 @@ Transform Revert works on a whole channel: translation, rotation or scale. Rotat
 
 FORGE validates the candidate and prepares replacement instances before replacing the saved asset. Invalid values, hierarchy cycles, stale files and failed file replacement keep the previous usable revision and instance state. The error stays visible and your candidate remains in the source window for correction.
 
-A successful publication updates non-overridden values. Existing overrides remain intact. **Discard edits** restores the window's last published contents. Closing the window discards unpublished edits.
+A successful publication updates non-overridden values. Existing overrides remain intact. **Discard edits** restores the window's last published contents. Closing an unsaved source asks Publish, Discard or Cancel.
 
 **History boundary:** publishing a source change affecting the current scene clears that scene's Undo/Redo history. Scene Undo does not undo shared prefab-asset edits. Save your scene after a source change adds new members so their new object mappings are persisted. Apply from an instance back into its source is not available.
 
@@ -75,4 +75,12 @@ See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and
 
 Body and collider components can be inherited from prefab sources. Source changes propagate to fields without overrides; explicit instance edits remain. Revert removes that intent and is part of scene Undo. Solver objects exist only during Play and are never saved in the prefab. See [Physics](physics.md).
 
-A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Child space** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.
+A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Space** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.
+
+## Draft close and active Save
+
+Prefab source stays open when Content is hidden. An asterisk and **Unsaved draft** identify unpublished changes. Selecting the same source again keeps its draft. Closing, switching source or switching project asks **Publish**, **Discard**, or **Cancel**. Failed publication leaves the draft open and previous good source/instances intact.
+
+Ctrl+S publishes when Prefab source is the active task. Scene Save does not publish it, and scene Undo/Redo does not edit it. Publishing may clear scene history because existing instances reconcile to a new source revision. No Apply to Prefab or cross-document undo transaction is provided.
+
+Source members use **+ Add Component** and the same typed fields as the entity Inspector, including UI Document asset references and integer Layer. Source draft changes validate on Publish.

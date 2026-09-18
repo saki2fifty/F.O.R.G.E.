@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 namespace forge::ui {
-inline void status_bar(const Telemetry& stats, bool playing, std::size_t entities) {
+inline void status_bar(const Telemetry& stats, bool playing, std::size_t entities,
+                       const std::string& runtime_state = {}, std::size_t problems = 0,
+                       bool selected = false, bool building = false) {
     struct Field {
         std::string text;
         const char* help;
@@ -36,10 +38,16 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
         {"VSync off",
          "Diligent Present(0): no requested vertical synchronization and no application FPS cap. "
          "Driver or desktop compositor settings may still limit presentation."},
-        {playing ? "PLAY" : "EDIT",
+        {runtime_state.empty() ? (playing ? "PLAY" : "EDIT") : runtime_state,
          "Current play-process state. Authoring remains separate from the play world."},
         {std::to_string(entities) + " entities",
-         "Number of authored entities, including prefab definitions."}};
+         "Number of authored entities, including prefab definitions."},
+        {std::to_string(selected ? 1 : 0) + " selected",
+         "Authored entity selection count. Asset selection has a separate Inspector scope."},
+        {std::to_string(problems) + " problems",
+         "Open Window > Problems for actionable diagnostics."},
+        {building ? "Building..." : "Build idle",
+         "Gameplay build state; details are in Gameplay Code."}};
     const auto& style = ImGui::GetStyle();
     auto* viewport = ImGui::GetMainViewport();
     const float available = std::max(1.0f, viewport->Size.x - 2 * style.WindowPadding.x);

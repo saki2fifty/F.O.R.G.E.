@@ -20,7 +20,7 @@ Choosing a Parent preserves the object’s world placement, then makes it follow
 
 **Inspector → Object actions → Duplicate subtree**, or Ctrl+D, copies the selection and its descendants with new IDs. Copies start at the original positions, so move them in Inspector to see them separately.
 
-**Object actions → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
+**Command palette → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
 
 See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 
@@ -33,3 +33,9 @@ Entities are listed alphabetically within each parent. **Expand all** opens all 
 ## Structured groups
 
 The Hierarchy marks prefab roots **[prefab]**, structured children **[member]**, and unavailable members **[missing]**. Duplicate or delete the whole instance from its root. Edit an interior member's name or hierarchy in its [prefab source](prefabs.md).
+
+## Context commands and dragging
+
+Right-click an entity for Rename entity, Duplicate subtree, Delete subtree, Add Component and Move to scene root. F2 focuses its Name field in Inspector.
+
+Drag an entity onto another hierarchy row to reparent it. FORGE previews validation before accepting the drop. Valid reparenting preserves world placement and then follows the new parent; cycles, fixed prefab interiors and unrepresentable transforms are rejected without rewriting the hierarchy. Empty searches explain that the filter can be cleared.

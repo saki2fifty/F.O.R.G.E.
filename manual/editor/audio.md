@@ -5,10 +5,10 @@ An **Audio Source** plays a registered WAV clip during Play. An **Audio Listener
 ## Hear your first sound
 
 1. Copy the included `Examples/Audio/test-tone.wav` into your project's `Assets` folder. You can also use your own small mono or stereo WAV.
-2. Create a cube and select it. Expand **Audio** in the Inspector and choose **Add AudioSource**.
-3. Enter `Assets/test-tone.wav` in **WAV in project**, then click **Register WAV**. The file must already be inside the project.
-4. Select it in **Audio clip**. Enable **Play on Start** and **Loop**.
-5. Create another entity at the origin, select it, expand **Audio**, and choose **Add AudioListener**. Leave **Enabled** checked.
+2. Open **Content → Create / Register → Audio / Register WAV**, enter `Assets/test-tone.wav` in **Project WAV path**, then click **Register WAV**. The file must already be inside the project.
+3. Create a cube and select it. Use **+ Add Component → Audio / Audio Source** in Inspector.
+4. Select it in **Clip**. Enable **Play On Start** and **Loop**.
+5. Create another entity at the origin, select it, use **+ Add Component → Audio / Audio Listener**. Leave **Enabled** checked.
 6. Press **Play**. You should hear the tone. **Pause** freezes it; **Step** advances the game once and remains silent; **Resume** continues playback. **Stop** ends all runtime sound.
 7. Save the scene, reopen it, and repeat.
 
@@ -38,7 +38,7 @@ To check positioning, Stop, move the source to either side of the listener, and 
 
 Create a prefab from an entity with AudioSource, then instantiate it twice. Edit the prefab source to change defaults. Instances follow successfully published changes unless they override the property. Gain, clip, loop, and other source properties can have independent override intent, including an override equal to the current default.
 
-Use the existing prefab property **Revert** controls or **Remove / Revert component** to return to inheritance. Scene edits and Revert participate in scene Undo/Redo. Direct prefab source publication has the existing separate history boundary; it is not undone by scene Undo.
+Use the existing prefab property **Revert** controls or the component header’s **Remove component / Revert component** to return to inheritance. Scene edits and Revert participate in scene Undo/Redo. Direct prefab source publication has the existing separate history boundary; it is not undone by scene Undo.
 
 ## Registered clips
 
@@ -48,7 +48,7 @@ Supported catalog relocation preserves identity; automatically detecting files m
 
 ## Recovery and limitations
 
-After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play on Start** voices restart from the beginning; other voices remain stopped. A paused recovery remains silent until Resume. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
+After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play On Start** voices restart from the beginning; other voices remain stopped. A paused recovery remains silent until Resume. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
 
 The tested source format is 16-bit PCM WAV, mono or stereo, at 24 or 48 kHz. Other WAV encodings are not yet an acceptance promise.
 

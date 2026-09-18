@@ -46,8 +46,16 @@ Changing projects or scenes stops play. Compilation temporarily disables conflic
 Play receives the current validated prefab definitions and stable member mappings. Changes made by gameplay remain in the isolated runtime. Stop Play before editing a prefab source. See [Prefabs](prefabs.md).
 
 
-Project [Simulation Hz](project-settings.md) sets the next Play session’s frequency. [Gameplay input](input.md) uses explicit Scene capture; Esc releases, F6 pauses/resumes and F7 steps. Console’s Gameplay input section shows fixed-tick values and edge counts.
+Project [Simulation Hz](project-settings.md) sets the next Play session’s frequency. [Gameplay input](input.md) uses explicit Game capture; Esc releases, F6 pauses/resumes and F7 steps. Console’s Gameplay input section shows fixed-tick values and edge counts.
 
 ## Physics recovery
 
 [Physics](physics.md) runs on the same fixed clock. Recover restores the last complete supported physics checkpoint, including velocity and sleeping state. An incompatible or incomplete checkpoint produces a failure message and a clean Play restart option. This is session recovery, not a save-game feature.
+
+## Scene and Game are separate views
+
+**Scene** always shows the authored world and editor tools. **Game** shows the snapshot from the one isolated Play process. Starting Play opens Game; switching tabs does not start another simulation. The Game camera begins from the Scene camera position. This remains the current block-preview renderer, not a finished game-camera/rendering pipeline.
+
+Global Play/Pause/Step/Stop are also in **Run**, the command palette and **More...** at narrow widths. Game labels Starting, Playing, Paused, Stopped or Crashed/Recovery available; the permanent status bar also identifies runtime state.
+
+Use **Capture gameplay input** in Game. Escape, focus loss, hiding Game, or clicking outside its image releases input. Editor buttons receive that outside click. F6 pauses/resumes, F7 steps while paused; Ctrl+Plus/Minus remains available for editor zoom. Runtime HUD and Reload UI belong to Game. Authoring stays locked during Play.

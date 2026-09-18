@@ -1,4 +1,5 @@
 #pragma once
+#include "component_inspector.hpp"
 #include "prefabs.hpp"
 #include "scene_cache.hpp"
 void require(bool condition, const char* message);
@@ -28,6 +29,8 @@ inline void test_prefab_editor_documents() {
                              {{"entity", selected}, {"component", "forge.navigation_agent"}});
     forge::authoring_command(scene, "component.add",
                              {{"entity", selected}, {"component", "forge.navigation_surface"}});
+    forge::authoring_command(scene, "component.add",
+                             {{"entity", selected}, {"component", "forge.ui_document"}});
     auto source = forge::create_prefab_source(scene, selected);
     const auto asset = document.prefabs().create(scene, source, "Assets/Sample.prefab.json");
     selected = forge::instantiate_prefab(scene, asset);
@@ -92,10 +95,17 @@ inline void test_prefab_editor_documents() {
                 editor.inspector(scene, document, row);
         std::string audio_message;
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
-        forge::audio_inspector(scene, document, selected, audio_message);
+        forge::ComponentInspector inspector;
+        inspector.draw(scene, document, selected);
         require(audio_message.empty(), "Audio Inspector failed to draw inherited source");
         ImGui::End();
+        ImGui::LogToBuffer();
         editor.draw(scene, document, false);
+        const std::string source_controls = GImGui->LogBuffer.c_str();
+        ImGui::LogFinish();
+        require(source_controls.find("Publish source") != std::string::npos &&
+                    source_controls.find("Discard edits") != std::string::npos,
+                "UI Document interrupted prefab source drawing");
         ImGui::Render();
         require(ImGui::GetDrawData()->TotalVtxCount > 0, "Prefab UI smoke draw empty");
     }

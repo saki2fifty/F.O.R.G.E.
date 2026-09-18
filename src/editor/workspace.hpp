@@ -14,7 +14,9 @@ inline std::string migrate_layout(std::string text) {
         }
     };
     for (const auto& names :
-         {std::pair{"World", "Hierarchy###World"}, std::pair{"Native", "Gameplay Code###Native"}}) {
+         {std::pair{"World", "Hierarchy###World"}, std::pair{"Native", "Gameplay Code###Native"},
+          std::pair{"Prefab source", "Prefab source###Prefab source"},
+          std::pair{"Project Settings", "Project Settings###Project Settings"}}) {
         replace(std::string("[Window][") + names.first + "]",
                 std::string("[Window][") + names.second + "]");
         char old_id[16], new_id[16];
@@ -70,10 +72,12 @@ inline void load_startup_layout(const StartupLayout& layout, const char* path) {
 }
 struct Workspace {
     bool hierarchy = true, inspector = true, scene = true, content = true, console = true,
-         build = true;
+         build = true, game = true, problems = true;
     bool reset = false;
     void load(const Json& settings) {
         const auto p = settings.value("panels", Json::object());
+        game = p.value("game", true);
+        problems = p.value("problems", true);
         hierarchy = p.value("hierarchy", true);
         inspector = p.value("inspector", true);
         scene = p.value("scene", true);
@@ -83,7 +87,8 @@ struct Workspace {
     }
     Json settings() const {
         return {{"hierarchy", hierarchy}, {"inspector", inspector}, {"scene", scene},
-                {"content", content},     {"console", console},     {"build", build}};
+                {"content", content},     {"console", console},     {"build", build},
+                {"game", game},           {"problems", problems}};
     }
     bool menu() {
         bool changed = false;
@@ -95,6 +100,8 @@ struct Workspace {
             for (auto p : {Panel{"Hierarchy", &hierarchy},
                            {"Inspector", &inspector},
                            {"Scene", &scene},
+                           {"Game", &game},
+                           {"Problems", &problems},
                            {"Content", &content},
                            {"Console", &console},
                            {"Gameplay Code", &build}}) {
@@ -104,13 +111,13 @@ struct Workspace {
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Reset layout")) {
-                hierarchy = inspector = scene = content = console = build = true;
+                hierarchy = inspector = scene = game = content = problems = console = build = true;
                 reset = true;
                 changed = true;
             }
-            help(
-                "Restore Hierarchy left, Scene center, Inspector right, and "
-                "Content/Console/Gameplay Code tabs below. Replaces your custom dock arrangement.");
+            help("Restore Hierarchy left, Scene/Game center, Inspector right, and "
+                 "Content/Problems/Console/Gameplay Code tabs below. Replaces your custom dock "
+                 "arrangement.");
             ImGui::EndMenu();
         }
         help("Recover hidden panels or restore the default workspace.");

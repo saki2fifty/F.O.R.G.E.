@@ -1,4 +1,5 @@
 #pragma once
+#include "editor_state.hpp"
 #include "scene_cache.hpp"
 #include "widgets.hpp"
 #include <forge/authoring.hpp>
@@ -100,15 +101,32 @@ class BlockoutProperties {
             value = {values_.at("x"), values_.at("y"), values_.at("z")};
         const double low = scale ? double(.001f) : position ? -1e12 : -360000.0;
         const double high = scale ? 10000.0 : position ? 1e12 : 360000.0;
-        const bool changed = ImGui::DragScalarN(scale      ? "Scale"
-                                                : position ? "Position"
-                                                           : "Rotation",
-                                                ImGuiDataType_Double, value.data(), 3,
-                                                scale      ? .01f
-                                                : position ? .05f
-                                                           : .5f,
-                                                &low, &high, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-        const bool released = ImGui::IsItemDeactivatedAfterEdit();
+        const char* label = scale ? "Scale" : position ? "Position (m)" : "Rotation (deg)";
+        bool changed = false, released = false;
+        ImGui::BeginGroup();
+        ImGui::TextUnformatted(label);
+        ui::help("Local transform channels. Each row owns only its corresponding translation, "
+                 "rotation or scale channel.");
+        ImGui::PushID(name.c_str());
+        ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvail().x);
+        const char* formats[] = {"X %.3f", "Y %.3f", "Z %.3f"};
+        for (int axis = 0; axis < 3; ++axis) {
+            ImGui::PushID(axis);
+            if (axis)
+                ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+            changed |= ImGui::DragScalar("##value", ImGuiDataType_Double, &value[axis],
+                                         scale      ? .01f
+                                         : position ? .05f
+                                                    : .5f,
+                                         &low, &high, formats[axis], ImGuiSliderFlags_AlwaysClamp);
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            ui::help("Drag this labeled axis or Ctrl-click to type. Release commits one scene "
+                     "Undo; Escape cancels.");
+            ImGui::PopItemWidth();
+            ImGui::PopID();
+        }
+        ImGui::PopID();
+        ImGui::EndGroup();
         ui::help(position ? "Local X/Y/Z translation in meters. Drag or Ctrl-click to type. "
                             "Release commits one "
                             "undo step; Escape cancels."
@@ -120,8 +138,34 @@ class BlockoutProperties {
             stage(scene, id, name, value, {"x", "y", "z"});
         if (released && component_ == name)
             commit(scene);
+        const auto authored = scene.document();
+        for (const auto& row : authored.at("entities"))
+            if (row.at("id") == id) {
+                if (!row.contains("prefab_instance") && !row.contains("prefab_member") &&
+                    !row.contains("base"))
+                    break;
+                const std::string channel = scale      ? "forge.local_scale"
+                                            : position ? "forge.local_translation"
+                                                       : "forge.local_rotation";
+                const bool owned = row.at("components").contains(channel);
+                ImGui::TextDisabled("%s", owned ? "Overridden" : "Inherited");
+                ui::help("Independent transform-channel ownership. Equal values can still be "
+                         "explicit overrides.");
+                if (owned) {
+                    ImGui::SameLine();
+                    ui::IdScope scope(channel.c_str());
+                    if (ui::button("Revert", "Remove only this channel override. Other transform "
+                                             "channels remain unchanged; scene Undo restores it."))
+                        authoring_command(scene, "component.revert",
+                                          {{"entity", id}, {"component", channel}});
+                }
+            }
     }
     void draw(Scene& scene, const std::string& id, std::string& status) {
+        if (error_entity_ != id) {
+            error_.clear();
+            error_entity_ = id;
+        }
         try {
             check(scene);
             if (active() && pending_ != id)
@@ -142,116 +186,122 @@ class BlockoutProperties {
             auto bind = [&](const Json& args) {
                 try {
                     authoring_command(scene, "transform.binding", args);
+                    error_.clear();
                 } catch (const std::exception& ex) {
-                    status = ex.what();
+                    status = error_ = ex.what();
+                    ui::report_error("transform/" + id, error_);
                 }
             };
             const auto binding = entity.value("spatial", Json{{"mode", "follow_structure"}});
             const auto mode = binding.at("mode").get<std::string>();
+            std::string explicit_label = "Explicit: unresolved";
+            const auto spatial_document = scene.document();
+            if (mode == "explicit")
+                for (const auto& target : spatial_document.at("entities"))
+                    if (binding.at("target").at("entity") == target.at("id"))
+                        explicit_label = "Explicit: " + target.at("name").get<std::string>();
             const char* space_label = mode == "world"      ? "World"
-                                      : mode == "explicit" ? "Explicit attachment"
+                                      : mode == "explicit" ? explicit_label.c_str()
                                                            : "Follow parent";
-            ImGui::BeginDisabled(entity.contains("prefab_member"));
-            if (ImGui::BeginCombo("Space", space_label)) {
-                for (auto choice : {"follow_structure", "world"}) {
-                    if (ImGui::Selectable(std::string(choice) == "world" ? "World"
-                                                                         : "Follow parent",
-                                          mode == choice))
-                        bind({{"entity", id}, {"spatial", {{"mode", choice}}}});
-                    ui::help(
-                        "Preserve world placement while changing spatial binding. Only required "
-                        "local channels become owned. Unrepresentable local shear is rejected.");
-                }
-                if (ImGui::BeginMenu("Explicit attachment")) {
-                    const auto targets = scene.effective_document();
-                    for (const auto& target : targets.at("entities")) {
-                        const auto target_id = target.at("id").get<std::string>();
-                        if (target_id == id ||
-                            !target.at("components").contains("forge.local_translation"))
-                            continue;
-                        ImGui::PushID(target_id.c_str());
-                        if (ImGui::MenuItem(
-                                target.at("name").get_ref<const std::string&>().c_str()))
-                            bind(
-                                {{"entity", id},
-                                 {"spatial",
-                                  {{"mode", "explicit"}, {"target", scene.reference(target_id)}}}});
-                        ui::help("Follow this object's transform without changing structural "
-                                 "ownership. Preserve world placement; cycles are rejected.");
-                        ImGui::PopID();
+            {
+                ui::DisabledScope disabled(entity.contains("prefab_member"));
+                if (ImGui::BeginCombo("Space", space_label)) {
+                    for (auto choice : {"follow_structure", "world"}) {
+                        if (ImGui::Selectable(std::string(choice) == "world" ? "World"
+                                                                             : "Follow parent",
+                                              mode == choice))
+                            bind({{"entity", id}, {"spatial", {{"mode", choice}}}});
+                        ui::help("Preserve world placement while changing spatial binding. Only "
+                                 "required "
+                                 "local channels become owned. Unrepresentable local shear is "
+                                 "rejected.");
                     }
-                    ImGui::EndMenu();
+                    if (ImGui::BeginMenu("Explicit attachment")) {
+                        const auto targets = scene.effective_document();
+                        for (const auto& target : targets.at("entities")) {
+                            const auto target_id = target.at("id").get<std::string>();
+                            if (target_id == id ||
+                                !target.at("components").contains("forge.local_translation"))
+                                continue;
+                            ImGui::PushID(target_id.c_str());
+                            if (ImGui::MenuItem(
+                                    target.at("name").get_ref<const std::string&>().c_str()))
+                                bind({{"entity", id},
+                                      {"spatial",
+                                       {{"mode", "explicit"},
+                                        {"target", scene.reference(target_id)}}}});
+                            ui::help("Follow this object's transform without changing structural "
+                                     "ownership. Preserve world placement; cycles are rejected.");
+                            ImGui::PopID();
+                        }
+                        ImGui::EndMenu();
+                    }
+                    ui::help("Attach spatially to another transformed object in this scene.");
+                    ImGui::EndCombo();
                 }
-                ui::help("Attach spatially to another transformed object in this scene.");
-                ImGui::EndCombo();
+                ui::help(
+                    "Follow parent inherits the structural parent's transform. World keeps the "
+                    "object independent. Explicit follows another object. Migrated old scenes "
+                    "start in World space.");
+                if (!entity.value("spatial_resolved", true)) {
+                    ImGui::TextWrapped(
+                        "Spatial parent is missing or unresolved; this object is not rendered.");
+                    ui::help("The reference is retained. Restore its target, or explicitly detach "
+                             "using the current local values.");
+                    if (ui::button("Detach (keep local)",
+                                   "Switch to World using current local values. This may change "
+                                   "placement; it is one undoable edit."))
+                        bind({{"entity", id},
+                              {"mode", "keep_local"},
+                              {"spatial", {{"mode", "world"}}}});
+                }
             }
-            ui::help("Follow parent inherits the structural parent's transform. World keeps the "
-                     "object independent. Explicit follows another object. Migrated old scenes "
-                     "start in World space.");
-            if (!entity.value("spatial_resolved", true)) {
-                ImGui::TextWrapped(
-                    "Spatial parent is missing or unresolved; this object is not rendered.");
-                ui::help("The reference is retained. Restore its target, or explicitly detach "
-                         "using the current local values.");
-                if (ui::button("Detach (keep local)",
-                               "Switch to World using current local values. This may change "
-                               "placement; it is one undoable edit."))
-                    bind(
-                        {{"entity", id}, {"mode", "keep_local"}, {"spatial", {{"mode", "world"}}}});
-            }
-            ImGui::EndDisabled();
             vector_control(scene, id, "forge.position");
             vector_control(scene, id, "forge.rotation");
             vector_control(scene, id, "forge.scale");
-            if (ImGui::BeginPopupContextItem("##channel-revert")) {
-                for (auto channel : {"translation", "rotation", "scale"}) {
-                    const auto component = std::string("forge.local_") + channel;
-                    if (ImGui::MenuItem((std::string("Revert ") + channel).c_str()))
-                        authoring_command(scene, "component.revert",
-                                          {{"entity", id}, {"component", component}});
-                    ui::help("Remove only this owned channel to use prefab defaults, or the "
-                             "default/absence when no prefab provides it.");
+            {
+                ui::DisabledScope disabled(active());
+                if (ui::button("Copy transform",
+                               "Copy effective local position, quaternion rotation, and scale into "
+                               "the editor's internal clipboard.")) {
+                    copy_transform(scene, id);
+                    status = "Transform copied";
                 }
-                ImGui::EndPopup();
+                ImGui::SameLine();
+                {
+                    ui::DisabledScope disabled(!clipboard_);
+                    if (ui::button("Paste transform",
+                                   "Replace position, rotation, and scale as one "
+                                   "undoable edit. Color and shape are unchanged.")) {
+                        paste_transform(scene, id);
+                        status = "Transform pasted";
+                    }
+                }
+                if (ui::button("Reset transform", "Set position and rotation to zero and scale to "
+                                                  "one as one undoable edit.")) {
+                    authoring_command(scene, "transform.reset", {{"entity", id}});
+                }
             }
-            ImGui::BeginDisabled(active());
-            if (ui::button("Copy transform",
-                           "Copy effective local position, quaternion rotation, and scale into "
-                           "the editor's internal clipboard.")) {
-                copy_transform(scene, id);
-                status = "Transform copied";
-            }
-            ImGui::SameLine();
-            ImGui::BeginDisabled(!clipboard_);
-            if (ui::button("Paste transform", "Replace position, rotation, and scale as one "
-                                              "undoable edit. Color and shape are unchanged.")) {
-                paste_transform(scene, id);
-                status = "Transform pasted";
-            }
-            ImGui::EndDisabled();
-            if (ui::button(
-                    "Reset transform",
-                    "Set position and rotation to zero and scale to one as one undoable edit.")) {
-                authoring_command(scene, "transform.reset", {{"entity", id}});
-            }
-            ImGui::EndDisabled();
             if (ImGui::BeginPopupContextItem("##transform-actions")) {
+                ui::PopupScope popup;
                 if (ImGui::MenuItem("Reset position"))
                     authoring_command(scene, "transform.position",
                                       {{"entity", id}, {"value", {{"x", 0}, {"y", 0}, {"z", 0}}}});
                 ui::help("Reset position only; retain rotation and scale.");
-                ImGui::EndPopup();
             }
             ui::heading("Primitive appearance", "Built-in meshes and opaque blockout tint. This is "
                                                 "not a material or texture system.");
             int kind = int(primitive_kind(entity));
-            ImGui::BeginDisabled(active());
-            if (ImGui::Combo("Shape", &kind, primitive_names, 4)) {
-                authoring_command(scene, "appearance.shape", {{"entity", id}, {"kind", kind}});
+            {
+                ui::DisabledScope disabled(active());
+                if (ImGui::Combo("Shape", &kind, primitive_names, 4)) {
+                    authoring_command(scene, "appearance.shape", {{"entity", id}, {"kind", kind}});
+                }
+                ui::help(
+                    "Switch between Cube, Sphere, Cylinder, and Plane, retaining transform and "
+                    "color. Plane is two-sided and lies in local XZ.");
+                appearance_intent(scene, id, "forge.primitive", {"kind"});
             }
-            ui::help("Switch between Cube, Sphere, Cylinder, and Plane, retaining transform and "
-                     "color. Plane is two-sided and lies in local XZ.");
-            ImGui::EndDisabled();
             const auto color =
                 entity.at("components")
                     .value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});
@@ -263,13 +313,56 @@ class BlockoutProperties {
             if (component_ == "forge.tint" && !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
                 !ImGui::IsAnyItemActive())
                 commit(scene);
+            appearance_intent(scene, id, "forge.tint", {"r", "g", "b"});
         } catch (const std::exception& e) {
             cancel();
-            status = e.what();
+            status = error_ = e.what();
+            ui::report_error("transform/" + id, error_);
         }
+        if (!error_.empty())
+            ui::field_error(error_);
     }
 
   private:
+    std::string error_, error_entity_;
+    void appearance_intent(Scene& scene, const std::string& id, const std::string& component,
+                           std::initializer_list<const char*> fields) {
+        const auto doc = scene.document();
+        for (const auto& row : doc.at("entities"))
+            if (row.at("id") == id) {
+                if (!row.contains("prefab_instance") && !row.contains("prefab_member") &&
+                    !row.contains("base"))
+                    return;
+                ui::IdScope scope(component.c_str());
+                ui::DisabledScope disabled(active());
+                const bool whole = row.at("components").contains(component);
+                const auto masks = row.value("property_overrides", Json::object());
+                if (whole) {
+                    ImGui::TextDisabled("Overridden component");
+                    ui::help("Explicit whole-component ownership, even when equal to the source.");
+                    if (ui::button("Revert component", "Follow the source appearance again; scene "
+                                                       "Undo restores this override."))
+                        authoring_command(scene, "component.revert",
+                                          {{"entity", id}, {"component", component}});
+                } else
+                    for (const auto* field : fields) {
+                        ui::IdScope field_scope(field);
+                        const bool overridden =
+                            masks.contains(component) && masks.at(component).contains(field);
+                        ImGui::TextDisabled("%s: %s", field,
+                                            overridden ? "Overridden" : "Inherited");
+                        ui::help("Explicit per-property intent, independent of value equality.");
+                        if (overridden) {
+                            ImGui::SameLine();
+                            if (ui::button("Revert", "Remove only this property's override. Other "
+                                                     "appearance fields stay unchanged."))
+                                authoring_command(
+                                    scene, "property.revert",
+                                    {{"entity", id}, {"component", component}, {"field", field}});
+                        }
+                    }
+            }
+    }
     Json commands() const {
         Json value;
         const bool color = component_ == "forge.tint";
@@ -287,6 +380,7 @@ class BlockoutProperties {
                std::array<const char*, 3> fields) {
         if (suppressed_)
             return;
+        error_.clear();
         for (double number : value)
             if (!std::isfinite(number) ||
                 (component == "forge.scale" && (number < 0.001f || number > 10000)) ||

@@ -5,9 +5,9 @@ Physics makes objects fall, collide, and come to rest during Play. FORGE uses Jo
 ## Make a falling cube
 
 1. Create a cube named **Floor**. Set its position to **(0, -0.5, 0)** and scale to **(10, 1, 10)**.
-2. In Inspector, expand **Physics**. Use **Add component** to add **Physics Body**, then **Box Collider**. Leave `motion` at **Static**. The box's default dimensions are one meter; the object's scale makes it match the floor.
+2. In Inspector, use **+ Add Component** to add **Physics Body**, then **Box Collider**. Leave **Motion** at **Static**. The box's default dimensions are one meter; the object's scale makes it match the floor.
 3. Create another cube at **(0, 5, 0)**. Add **Physics Body** and **Box Collider**.
-4. Set this cube's **Child space** to **World**, then set its physics `motion` to **Dynamic**.
+4. Set this cube's **Space** to **World**, then set its physics **Motion** to **Dynamic**.
 5. Press **Play**. The cube falls and rests on the floor. No gameplay code is needed.
 6. **Pause** freezes simulation. **Step** advances exactly one fixed tick. **Resume** continues.
 7. **Stop** returns to the authored positions. Save, reopen, and Play to repeat.
@@ -20,7 +20,7 @@ Duplicate the falling cube and move the copy sideways to test several bodies. Yo
 
 **Kinematic** follows a target supplied by gameplay. It can push dynamic objects. Merely choosing Kinematic does not add a movement controller.
 
-**Dynamic** is moved by the solver. It requires **Child space: World**, even when it has a structural parent. Moving the parent then does not pull the body through the world. FORGE rejects an unsupported binding instead of changing your hierarchy.
+**Dynamic** is moved by the solver. It requires **Space: World**, even when it has a structural parent. Moving the parent then does not pull the body through the world. FORGE rejects an unsupported binding instead of changing your hierarchy.
 
 Physics runs only in Play. Editing an object does not run a hidden simulation in the authoring scene.
 
@@ -28,7 +28,7 @@ Physics runs only in Play. Editing an object does not run a hidden simulation in
 
 A separate **Static** or **Kinematic** Physics Body cannot spatially follow a **Dynamic** Physics Body. This also applies through intermediary objects and **Explicit** spatial-parent links. Before physics realization or the next simulation step, FORGE reports the affected object and Dynamic ancestor and rejects the configuration. Recovery performs the same check.
 
-To keep structural ownership while the bodies act independently, set the child's **Child space** to **World**. This breaks spatial inheritance. For example, a car can structurally own another body without pulling that body along with it. FORGE never changes this setting, your hierarchy, or your transforms automatically.
+To keep structural ownership while the bodies act independently, set the child's **Space** to **World**. This breaks spatial inheritance. For example, a car can structurally own another body without pulling that body along with it. FORGE never changes this setting, your hierarchy, or your transforms automatically.
 
 Objects without a Physics Body—such as a camera mount or visual mesh—can still follow a Dynamic parent. Static and Kinematic bodies can follow supported non-dynamic ancestors. A World-bound intermediary also breaks the spatial chain.
 
@@ -72,4 +72,4 @@ This integration supports boxes, spheres, capsules, a default static/moving coll
 
 See [Play mode](play-mode.md), [Transforms](transforms.md), and [Prefabs](prefabs.md).
 
-A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Child space** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.
+A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Space** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.

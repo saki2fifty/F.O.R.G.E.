@@ -2,6 +2,7 @@
 #include "document.hpp"
 #include "file_dialog.hpp"
 #include "widgets.hpp"
+#include <functional>
 namespace forge {
 class EditorFiles {
   public:
@@ -12,7 +13,7 @@ class EditorFiles {
         std::string name;
     };
     SceneDocument document;
-    std::string status = "Ready";
+    std::string status = "Ready", error;
     bool changed = false, preferences_changed = false, quit = false;
     EditorFiles(Scene& scene, SDL_Window* window, std::vector<std::string>& recent)
         : document(scene), window_(window), recent_(recent) {}
@@ -24,7 +25,11 @@ class EditorFiles {
         remember();
     }
     bool busy() const { return dialog_.busy() || pending_.has_value(); }
+    std::function<bool(const Action&)> before_request;
+    std::function<void()> save_active;
     void request(Action action) {
+        if (before_request && !before_request(action))
+            return;
         if (busy())
             return;
         if (!can_switch_ && action.command != Command::Quit) {
@@ -51,7 +56,7 @@ class EditorFiles {
                     execute();
             }
         } catch (const std::exception& e) {
-            status = e.what();
+            status = error = e.what();
         }
     }
     enum class Resolution { Save, Discard, Cancel };
@@ -104,7 +109,7 @@ class EditorFiles {
                         break;
                     }
                 } catch (const std::exception& e) {
-                    status = e.what();
+                    status = error = e.what();
                     if (pending_)
                         unsaved_prompt_ = true;
                 }
@@ -117,11 +122,11 @@ class EditorFiles {
                 if (document.autosave())
                     status = "Recovery snapshot saved (your scene file is unchanged)";
             } catch (const std::exception& e) {
-                status = e.what();
+                status = error = e.what();
             }
         }
     }
-    void menu() {
+    void menu(const std::function<void()>& save_menu = {}, bool scene_write = true) {
         if (ImGui::BeginMenu("File")) {
             ui::help("Projects, scene files, and recovery snapshots.");
             ImGui::BeginDisabled(busy());
@@ -155,12 +160,19 @@ class EditorFiles {
                 else
                     status = "Untitled scenes have no disk file to reload";
             }
-            if (entry("Save",
-                      "Save the active scene. Ctrl+S. External disk changes are protected."))
-                save();
-            if (entry("Save As...",
+            if (save_menu)
+                save_menu();
+            else if (entry("Save", "Save the active task. Ctrl+S.")) {
+                if (save_active)
+                    save_active();
+                else
+                    save();
+            }
+            ImGui::BeginDisabled(!scene_write);
+            if (entry("Save scene As...",
                       "Save to another JSON scene file inside this project. Ctrl+Shift+S."))
                 save(true);
+            ImGui::EndDisabled();
             ImGui::Separator();
             if (entry("Create recovery snapshot", "Write unsaved edits to the recovery file now; "
                                                   "the scene file remains unchanged.")) {
@@ -168,7 +180,7 @@ class EditorFiles {
                     status = document.autosave() ? "Recovery snapshot saved"
                                                  : "No new unsaved edits to snapshot";
                 } catch (const std::exception& e) {
-                    status = e.what();
+                    status = error = e.what();
                 }
             }
             if (entry("Recover current scene", "Restore a matching autosave as an undoable edit. "
@@ -177,7 +189,7 @@ class EditorFiles {
                     document.recover();
                     status = "Recovery restored; inspect and Save to keep it";
                 } catch (const std::exception& e) {
-                    status = e.what();
+                    status = error = e.what();
                 }
             }
             if (entry("Recover untitled scene",
@@ -190,15 +202,19 @@ class EditorFiles {
         }
         ui::help("Project and scene file operations, recent projects, and autosave recovery.");
     }
-    void shortcuts() {
+    void shortcuts(bool scene_write = true) {
         const auto& io = ImGui::GetIO();
         if (busy() ||
             ImGui::IsPopupOpen(nullptr,
                                ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
             io.WantTextInput || ImGui::IsAnyItemActive() || !io.KeyCtrl)
             return;
-        if (ImGui::IsKeyPressed(ImGuiKey_S, false))
-            save(io.KeyShift);
+        if (ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+            if (!io.KeyShift && save_active)
+                save_active();
+            else if (scene_write)
+                save(io.KeyShift);
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_O, false))
             open_scene_dialog();
         if (ImGui::IsKeyPressed(ImGuiKey_N, false))
@@ -261,7 +277,7 @@ class EditorFiles {
                     resolve_pending(Resolution::Discard);
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
-                    status = e.what();
+                    status = error = e.what();
                 }
             }
             if (ui::button("Cancel", "Keep working on the current scene.")) {
@@ -294,7 +310,7 @@ class EditorFiles {
                     status = "Recovery restored; inspect and Save to keep it";
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
-                    status = e.what();
+                    status = error = e.what();
                 }
             }
             if (ui::button("Keep saved scene",
@@ -303,7 +319,7 @@ class EditorFiles {
                     document.discard_recovery(recovery_untitled_);
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
-                    status = e.what();
+                    status = error = e.what();
                 }
             }
             if (ui::button("Later", "Keep the recovery file; access it again from File."))
@@ -316,7 +332,13 @@ class EditorFiles {
 
   private:
     static bool entry(const char* label, const char* description) {
-        const bool clicked = ImGui::MenuItem(label);
+        const std::string name = label;
+        const char* shortcut = name == "New scene"          ? "Ctrl+N"
+                               : name == "Open scene..."    ? "Ctrl+O"
+                               : name == "Save"             ? "Ctrl+S"
+                               : name == "Save scene As..." ? "Ctrl+Shift+S"
+                                                            : nullptr;
+        const bool clicked = ImGui::MenuItem(label, shortcut);
         ui::help(description);
         return clicked;
     }
@@ -372,7 +394,7 @@ class EditorFiles {
                      (document.path().empty() ? "Untitled" : path_text(document.path().filename()));
             return true;
         } catch (const std::exception& e) {
-            status = e.what();
+            status = error = e.what();
             return false;
         }
     }

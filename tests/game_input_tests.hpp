@@ -85,6 +85,16 @@ inline void test_game_input(const char* runtime) {
         e.type = SDL_EVENT_WINDOW_FOCUS_LOST;
         input.event(e, play);
         require(!input.captured(), "Window focus loss retained capture");
+        input.viewport({100, 100}, {400, 300});
+        input.capture(play);
+        e = {};
+        e.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+        e.button.x = 50;
+        e.button.y = 50;
+        e.button.button = SDL_BUTTON_LEFT;
+        require(!input.event(e, play) && !input.captured(),
+                "Editor click outside Game did not release capture and reach editor");
+        require(!tick()["held"].get<bool>(), "Outside click left gameplay input held");
         play.stop();
     }
     require(SDL_DetachVirtualJoystick(device), SDL_GetError());

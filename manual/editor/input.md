@@ -8,7 +8,7 @@ Input actions give your project named controls with stable identities. They are 
 2. Click **Add action**, expand **New action**, and name it `Test jump`.
 3. Keep **Kind: digital** and **Control: key.space**. Click **Save settings**.
 4. Open Console and expand **Gameplay input** after starting Play.
-5. In the Scene panel, click **Capture gameplay input**.
+5. In the Game panel, click **Capture gameplay input**.
 6. Press and hold Space. The action shows **held**, and **presses** increases once.
 7. Release Space. It shows **up**, and **releases** increases once.
 8. Press **Esc** to return controls to the editor.
@@ -44,7 +44,7 @@ Gamepad controls use **pad.** names. FORGE uses the first connected gamepad. Sti
 
 ## Who owns the controls?
 
-Outside capture, keyboard/mouse input belongs to the editor: camera navigation, shortcuts and text fields keep their normal behavior. Capture is explicit in the Scene panel during Play. While captured, keyboard/mouse clicks go to gameplay, with Esc/F6/F7 reserved. Release capture before clicking other editor controls or typing.
+Outside capture, keyboard/mouse input belongs to the editor: camera navigation, shortcuts and text fields keep their normal behavior. Capture is explicit in the Game panel during Play. While captured, keyboard/mouse clicks go to gameplay, with Esc/F6/F7 reserved. Clicking outside the Game image releases capture and sends the click to the editor.
 
 Focus loss, capture release, device disconnect and play-process restart neutralize input. Pending presses and mouse deltas are cleared so they do not fire later. Held controls must be released and pressed again after regaining capture. A live module replacement also clears runtime input at its load boundary.
 

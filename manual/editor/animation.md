@@ -7,10 +7,10 @@ not yet import or draw a skinned character mesh.
 ## Try the included animation
 
 1. Copy `Examples/Animation/two-joints.gltf` from the extracted ZIP into your project's `Assets` folder. This small example contains two joints and a clip named **Lift**.
-2. Open **Content → Animation assets**. In **glTF in project**, enter `Assets/two-joints.gltf`.
+2. Open **Content → Create / Register → Animation assets**. In **glTF in project**, enter `Assets/two-joints.gltf`.
 3. Choose **Convert/Register Animation**. Wait for the completion message in the Console. **Cancel conversion** stops an unfinished conversion.
-4. Create an entity and select it. Expand **Animation** in the Inspector and choose **Add Animator**.
-5. Choose the converted asset in **Skeleton**, then choose **Lift** in **Animation clip**. Leave **Enabled**, **Play on Start**, and **Loop** checked.
+4. Create an entity and select it. Use **+ Add Component → Animation / Animator** in Inspector.
+5. Choose the converted asset in **Skeleton**, then choose **Lift** in **Clip**. Leave **Enabled**, **Play On Start**, and **Loop** checked.
 6. Press **Play**. One joint stays at the object's origin; the other moves upward and repeats. Orbit or zoom the viewport to see the connecting bone.
 7. Press **Pause**: the bones hold their pose. **Step** advances one simulation tick. **Resume** continues, and **Stop** returns to the authored scene.
 8. Save, reopen, and repeat. The scene retains asset references and settings, not temporary bone poses.

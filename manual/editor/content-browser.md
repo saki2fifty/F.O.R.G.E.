@@ -1,30 +1,35 @@
 # Content browser
 
-Content lists recognized JSON scenes inside the current project. It helps you switch scenes without opening the system file dialog.
+Content is the project's asset browser. It lists registered scenes, prefabs, audio, animation, navigation and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
 
-## Open a scene
+## Find and inspect an asset
 
-1. Select the **Content** tab. In existing layouts it initially joins the Console docking area.
-2. Type part of a relative path into **Filter scene paths...**, if needed.
-3. Double-click the file, or select it and choose **Open selected**.
-4. Resolve the unsaved-change prompt if the current scene has edits.
+1. Open **Window → Content**.
+2. Use **Search project assets...**, **Type** and **Folder** to narrow the list.
+3. Click an asset to inspect its type, source and availability in Inspector. This replaces entity selection; it does not change an entity's properties.
+4. Double-click a scene to open it, or use **Open scene** in its context menu. Resolve any unsaved scene or draft prompts first.
 
-Files are validated when opened. A JSON file that is not a valid scene produces a diagnostic without replacing your authored scene. The browser recognizes scene structure during scanning; opening performs full scene validation.
+**Refresh** rescans immediately; the visible browser refreshes approximately every five seconds. Empty results explain how to clear filters or create/register content. **Reveal source folder** opens the containing folder in your operating system. Advanced **Asset details** shows identity and dependency metadata.
 
-## Create or refresh
+## Assign an asset
 
-**New scene** creates an empty untitled scene. Use Save As to choose its project filename. **Refresh** rescans immediately after an external file operation; the visible browser also refreshes approximately every five seconds.
+Select the destination entity and find its component field in Inspector. Drag a compatible Content row onto the field. Starting the drag preserves the entity Inspector. A regular click selects the asset instead.
 
-The browser skips `.forge`, `.git`, project manifests, and symbolic links. It limits scans to 16 nested directory levels, 10,000 entries, and fewer than 4,096 JSON files. If a limit is reached, use File → Open scene directly.
+Alternatively open the field's picker, search, and choose a compatible asset. **None / Clear** removes the reference; **Reveal in Content** selects the referenced asset without modifying the scene. Fields validate expected asset type. Assignment is a scene edit and supports Undo/Redo; asset creation and external file edits do not.
 
-Content currently supports scene discovery and opening. Asset importing, thumbnails, file rename/delete, and drag-and-drop placement are not available yet. See [Scenes](scenes.md) and [Saving and recovery](saving-recovery.md).
+## Create or register supported content
 
-The browser checks document structure, so package metadata such as build.json and manifest.json no longer appears as scene content. Scenes using custom `.json` filenames are still recognized. Opening performs full validation. Scans are bounded to 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit; use File → Open scene if a scan exceeds those limits.
+Open **Create / Register**:
 
-## Prefab assets
+- **New scene** creates an untitled scene through the save guard.
+- **Audio / Register WAV** registers a WAV already copied into this project. Enter its project-relative path and choose **Register WAV**.
+- **Prefabs** contains Create from selection, Instantiate, Edit source and Duplicate asset.
+- The animation, navigation and Runtime UI sections expose their existing conversion, build and registration tools.
 
-Expand **Prefab assets** to create, instantiate, duplicate or edit reusable object groups. See [Prefabs](prefabs.md) for the full workflow. The scene list remains separate.
+See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [Runtime UI](runtime-ui.md) and [Prefabs](prefabs.md). Stop Play to create/register assets; browsing remains available.
 
-## Runtime UI assets
+## Current limits
 
-Use **Content → Runtime UI** to create a HUD example or register a project-relative RML document. Assign it to an entity in **Inspector → Runtime UI**. See [Runtime UI](runtime-ui.md) for the complete workflow. These asset operations are outside scene Undo.
+This is a catalog browser, not a general importer or file manager. Arbitrary file importing, thumbnails, file rename/delete, asset placement into the Scene, and cooking are not implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+
+Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 16 directory levels, 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.

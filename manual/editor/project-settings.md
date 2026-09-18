@@ -14,7 +14,7 @@ The default is 60 Hz. Step still advances exactly one tick; at 120 Hz that tick 
 
 ## Choose the startup scene
 
-Save your current scene, then click **Use saved current scene as startup** and **Save settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save As workflow for an independent scene.
+Save your current scene, then click **Use saved current scene as startup** and **Save settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save scene As... workflow for an independent scene.
 
 ## Configure controls
 
@@ -24,7 +24,7 @@ The **Input actions** section defines project actions and their bindings. See [G
 
 **Save settings** validates the complete candidate before atomically replacing `forge.project.json`. Invalid frequency, bindings or startup references leave the previous configuration intact. An externally changed manifest is rejected; reopen the project before editing it again.
 
-**Discard edits** restores the currently loaded settings. Closing the window discards edits. Scene Undo does not undo project settings.
+**Discard edits** restores the currently loaded settings. Closing an unsaved window asks Save, Discard or Cancel. Scene Undo does not undo project settings.
 
 Older version-1 manifests are read without replacing them. The first settings save writes version 2 and retains `forge.project.json.v1.backup`. Unknown fields are preserved. Unsupported future versions are rejected.
 
@@ -33,3 +33,9 @@ See also [Projects](projects.md), [Play mode](play-mode.md), and [Settings and a
 ## Gravity
 
 **Physics → Gravity XYZ** controls acceleration for the next Play runtime. The default is (0, -9.81, 0) m/s². Unknown project settings remain preserved. See [Physics](physics.md).
+
+## Save the active settings draft
+
+The window title gains an asterisk and shows **Unsaved settings** after an edit. Ctrl+S saves these settings while this task is active. Closing or switching project asks **Save Settings**, **Discard**, or **Cancel**. A validation failure keeps the draft open. Scene Save and scene Undo/Redo do not own project settings.
+
+There are at most 64 input actions and 16 bindings per action. Add controls disable and explain the limit when reached. Settings take effect on the next Play.

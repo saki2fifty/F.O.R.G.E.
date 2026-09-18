@@ -1,13 +1,59 @@
 #pragma once
 #include "document.hpp"
+#include "editor_state.hpp"
 #include "widgets.hpp"
 namespace forge {
 class ProjectSettingsEditor {
   public:
-    void open() { open_ = true; }
+    void open() {
+        open_ = true;
+        focus_requested_ = true;
+    }
+    bool dirty() const { return loaded_ && draft_ != baseline_; }
+    bool is_open() const { return open_; }
+    bool close_cancelled = false;
+    void request_close() {
+        if (dirty())
+            close_requested_ = true;
+        else {
+            open_ = false;
+            loaded_ = false;
+        }
+    }
+    void request_save() { save_requested_ = true; }
+    void set_frequency(double hz) {
+        if (loaded_)
+            draft_["simulation_hz"] = hz;
+    }
+    bool resolve_close(ui::DraftResolution choice, SceneDocument& document, std::string& status) {
+        if (choice == ui::DraftResolution::Cancel) {
+            close_requested_ = false;
+            close_cancelled = true;
+            return false;
+        }
+        if (choice == ui::DraftResolution::Save && !save(document, status))
+            return false;
+        draft_ = baseline_;
+        close_requested_ = false;
+        open_ = false;
+        loaded_ = false;
+        return true;
+    }
+    bool save(SceneDocument& document, std::string& status) {
+        try {
+            document.save_settings(draft_, &baseline_);
+            baseline_ = draft_;
+            error_.clear();
+            status = "Project settings saved; next Play uses this configuration";
+            return true;
+        } catch (const std::exception& e) {
+            status = error_ = e.what();
+            return false;
+        }
+    }
     void menu() {
         if (ImGui::MenuItem("Project Settings"))
-            open_ = true;
+            open();
         ui::help("Shared simulation frequency, startup scene and input actions. Personal layout "
                  "and UI scale remain user preferences.");
     }
@@ -21,13 +67,31 @@ class ProjectSettingsEditor {
             root_ = document.project();
             loaded_ = true;
         }
-        ImGui::SetNextWindowSize({560 * ui::interface_scale, 530 * ui::interface_scale},
-                                 ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("Project Settings", &open_)) {
+        ui::draft_window_size({560 * ui::interface_scale, 530 * ui::interface_scale});
+        if (focus_requested_) {
+            ImGui::SetNextWindowFocus();
+            focus_requested_ = false;
+        }
+        bool visible = true;
+        const auto title = std::string(dirty() ? "* " : "") + "Project Settings###Project Settings";
+        const bool expanded = ImGui::Begin(title.c_str(), &visible);
+        if (!visible)
+            request_close();
+        if (ui::editor_context)
+            ui::editor_context->task.focus(ui::DocumentTask::Settings);
+        if (save_requested_ && !locked) {
+            save_requested_ = false;
+            save(document, status);
+        }
+        if (expanded) {
+            ImGui::TextWrapped("%s | Save Settings owns this draft. Scene Undo does not edit it.",
+                               dirty() ? "Unsaved settings" : "Saved settings");
+            ui::help("Ctrl+S saves settings when this task is active. Closing unsaved settings "
+                     "asks Save, Discard or Cancel.");
             ImGui::BeginDisabled(locked);
             double hz = draft_.value("simulation_hz", 60.0);
             if (ImGui::InputDouble("Simulation Hz", &hz, 1, 10, "%.1f"))
-                draft_["simulation_hz"] = hz;
+                set_frequency(hz);
             ui::help("Shared project frequency, 1..240 Hz. Takes effect on the next Play. Catch-up "
                      "limits and interpolation policy remain unchanged.");
             if (ui::button("Use saved current scene as startup",
@@ -57,6 +121,7 @@ class ProjectSettingsEditor {
             ui::heading("Input actions",
                         "Project-owned stable action identities. Rename labels without changing "
                         "the identity used by runtime consumers.");
+            ImGui::BeginDisabled(draft_["input"]["actions"].size() >= 64);
             if (ui::button("Add action",
                            "Create a digital action with a Space binding. Rename it and choose "
                            "digital, one-dimensional or two-dimensional values.")) {
@@ -69,6 +134,9 @@ class ProjectSettingsEditor {
                           Json::array(
                               {{{"control", "key.space"}, {"x", 1}, {"y", 0}, {"deadzone", 0}}})}});
             }
+            ImGui::EndDisabled();
+            if (draft_["input"]["actions"].size() >= 64)
+                ImGui::TextWrapped("Action limit reached (64). Remove an action to add another.");
             auto& actions = draft_["input"]["actions"];
             int remove = -1;
             for (std::size_t i = 0; i < actions.size(); ++i) {
@@ -147,12 +215,16 @@ class ProjectSettingsEditor {
                     }
                     if (remove_binding >= 0)
                         bindings.erase(bindings.begin() + remove_binding);
+                    ImGui::BeginDisabled(bindings.size() >= 16);
                     if (ui::button("Add binding",
                                    "Add another control contribution to this action.")) {
                         if (bindings.size() < 16)
                             bindings.push_back(
                                 {{"control", "key.space"}, {"x", 1}, {"y", 0}, {"deadzone", 0}});
                     }
+                    ImGui::EndDisabled();
+                    if (bindings.size() >= 16)
+                        ImGui::TextWrapped("Binding limit reached (16).");
                     if (ui::button("Remove action",
                                    "Remove this action from project configuration. Existing "
                                    "gameplay code referencing its ID must handle absence."))
@@ -167,32 +239,62 @@ class ProjectSettingsEditor {
             if (ui::button("Save settings",
                            "Validate and atomically save this project manifest. Changes take "
                            "effect next Play. Scene Undo does not own project settings.")) {
-                try {
-                    document.save_settings(draft_, &baseline_);
-                    baseline_ = draft_;
-                    status = "Project settings saved; next Play uses this configuration";
-                } catch (const std::exception& e) {
-                    status = e.what();
-                }
+                save(document, status);
             }
             ImGui::SameLine();
             if (ui::button("Discard edits",
                            "Restore the current loaded project settings without writing files."))
                 draft_ = baseline_ = document.settings().document();
             ImGui::EndDisabled();
-            ImGui::TextWrapped("Play > Capture gameplay input sends controls to your actions. Esc "
+            ImGui::TextWrapped("Game > Capture gameplay input sends controls to your actions. Esc "
                                "releases. F6 pauses/resumes; F7 steps. Console > Gameplay input "
                                "shows consumed values and edge counts.");
             ui::help("Input actions are a foundation; binding an action does not automatically add "
                      "a player controller or gameplay behavior.");
         }
+        if (!error_.empty()) {
+            ui::field_error(error_);
+            ui::report_error("project-settings", error_);
+        }
         ImGui::End();
+        if (close_requested_)
+            ImGui::OpenPopup("Unsaved Project Settings");
+        if (ImGui::BeginPopupModal("Unsaved Project Settings", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextWrapped(
+                "Save project settings before closing? Scene Save does not save this draft.");
+            ui::help("Save validates this project manifest. Discard affects only the draft; Cancel "
+                     "keeps editing.");
+            ImGui::BeginDisabled(locked);
+            bool finish = false;
+            if (ui::button("Save Settings",
+                           "Validate and save this project; failure retains the draft."))
+                finish = resolve_close(ui::DraftResolution::Save, document, status);
+            if (ui::button("Discard", "Discard unpublished project settings."))
+                finish = resolve_close(ui::DraftResolution::Discard, document, status);
+            ImGui::EndDisabled();
+            if (ui::button("Cancel", "Keep editing and cancel the pending close or switch.")) {
+                resolve_close(ui::DraftResolution::Cancel, document, status);
+                ImGui::CloseCurrentPopup();
+            }
+            if (!error_.empty())
+                ui::field_error(error_);
+            if (finish) {
+                close_requested_ = false;
+                open_ = false;
+                loaded_ = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
         if (!open_)
             loaded_ = false;
     }
 
   private:
-    bool open_ = false, loaded_ = false;
+    bool open_ = false, loaded_ = false, close_requested_ = false, save_requested_ = false,
+         focus_requested_ = false;
+    std::string error_;
     std::filesystem::path root_;
     Json draft_, baseline_;
 };

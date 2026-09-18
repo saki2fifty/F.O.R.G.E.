@@ -1,6 +1,7 @@
 #pragma once
 #include "animation_debug.hpp"
 #include "animation_tools.hpp"
+#include "component_inspector.hpp"
 void require(bool, const char*);
 inline void test_animation_editor() {
     const auto root =
@@ -31,7 +32,8 @@ inline void test_animation_editor() {
         ImGui::SetNextWindowSize({1000, 700});
         ImGui::Begin("Animation test");
         ImGui::SetNextItemOpen(true);
-        forge::animation_inspector(scene, project, id, message);
+        forge::ComponentInspector inspector;
+        inspector.draw(scene, project, id);
         require(message.empty(), "Animator Inspector failed to draw reflected fields");
         ImGui::SetNextItemOpen(true);
         tools.content(project, false, message);

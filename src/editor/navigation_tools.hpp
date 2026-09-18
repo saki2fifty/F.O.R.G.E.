@@ -1,78 +1,19 @@
 #pragma once
-#include "audio_inspector.hpp"
 #include "authoring.hpp"
+#include "document.hpp"
+#include "property_drawer.hpp"
 #include <forge/assets.hpp>
+#include <forge/authoring.hpp>
 #include <forge/navigation_build.hpp>
 #include <future>
 namespace forge {
-inline void navigation_inspector(Scene& scene, SceneDocument& project, const std::string& selected,
-                                 std::string& message) {
-    if (selected.empty())
-        return;
-    try {
-        Json item;
-        const auto effective = scene.effective_document();
-        for (const auto& e : effective.at("entities"))
-            if (e.at("id") == selected)
-                item = e;
-        if (item.is_null())
-            return;
-        if (!ImGui::TreeNode("Navigation")) {
-            ui::help("Mark static build geometry or configure a nonphysics path-following agent.");
-            return;
-        }
-        struct Scope {
-            ~Scope() { ImGui::TreePop(); }
-        } scope;
-        ui::help("NavigationSurface is static baked geometry. NavigationAgent follows a path "
-                 "during Play; it cannot own a PhysicsBody.");
-        for (const char* key : {"forge.navigation_surface", "forge.navigation_agent"}) {
-            ImGui::PushID(key);
-            struct IdScope {
-                ~IdScope() { ImGui::PopID(); }
-            } id;
-            const bool surface = std::string_view(key) == "forge.navigation_surface";
-            if (!item.at("components").contains(key)) {
-                if (ui::button(
-                        surface ? "Add Navigation Surface" : "Add Navigation Agent",
-                        surface
-                            ? "Include this primitive in the next navigation build, with scene "
-                              "Undo support."
-                            : "Add optional nonphysics path following, with scene Undo support."))
-                    authoring_command(scene, "component.add",
-                                      {{"entity", selected}, {"component", key}});
-                continue;
-            }
-            ImGui::SeparatorText(surface ? "Build geometry" : "Path following");
-            ui::help(surface ? "Include the floor and obstacle primitives. Changes require "
-                               "rebuilding navigation."
-                             : "Choose the scene navmesh, enter a world-space destination, enable "
-                               "Has destination, then Play.");
-            auto schema = scene.schema();
-            for (const auto& type : schema.at("components"))
-                if (type.at("id") == key)
-                    for (const auto& field : type.at("fields")) {
-                        const std::string name = field.at("id");
-                        auto value = item["components"][key][name];
-                        if (audio_field(project.project(), field, value))
-                            authoring_command(scene, "property.set",
-                                              {{"entity", selected},
-                                               {"component", key},
-                                               {"field", name},
-                                               {"value", value}});
-                    }
-            if (ui::button(
-                    "Remove / Revert",
-                    "Remove this owned component or its prefab override; scene Undo restores it."))
-                authoring_command(scene, "component.revert",
-                                  {{"entity", selected}, {"component", key}});
-        }
-    } catch (const std::exception& e) {
-        message = e.what();
-    }
-}
 class NavigationTools {
   public:
+    void overlay_control() {
+        ImGui::Checkbox("Navigation overlay", &show_);
+        ui::help("Show or hide navigation triangles and paths in the viewport; this does not "
+                 "rebuild navigation.");
+    }
     explicit NavigationTools(std::filesystem::path worker) : worker_(std::move(worker)) {}
     ~NavigationTools() { cancel_.request_stop(); }
     void poll(Scene& scene, SceneDocument& project, bool playing, std::string& message) {
@@ -96,6 +37,7 @@ class NavigationTools {
                       "destination.";
         } catch (const std::exception& e) {
             message = e.what();
+            ui::report_error("navigation_tools.hpp", message);
         }
     }
     void content(Scene& scene, SceneDocument& project, bool locked, std::string& message) {
@@ -127,6 +69,7 @@ class NavigationTools {
             }
         } catch (const std::exception& e) {
             message = e.what();
+            ui::report_error("navigation_tools.hpp", message);
         }
         ImGui::BeginDisabled(locked || job_.valid());
         auto field = [](const char* label, float& value, const char* help) {
@@ -161,6 +104,7 @@ class NavigationTools {
                 message = "Building navigation...";
             } catch (const std::exception& e) {
                 message = e.what();
+                ui::report_error("navigation_tools.hpp", message);
             }
         }
         ImGui::EndDisabled();
@@ -168,9 +112,9 @@ class NavigationTools {
             ui::button("Cancel navigation build",
                        "Discard the unpublished candidate and retain the last good asset."))
             cancel_.request_stop();
-        ImGui::Checkbox("Show navigation", &show_);
-        ui::help("Overlay admitted navmesh triangles and runtime agent paths in Scene. This does "
-                 "not affect simulation.");
+        ImGui::TextWrapped(
+            "Show the navigation overlay through Scene > View > Navigation overlay.");
+        ui::help("Presentation controls live beside the viewport; this section builds the asset.");
         std::string state = selected_ ? "NavMesh ready" : "No NavMesh built for this scene";
         if (selected_)
             try {

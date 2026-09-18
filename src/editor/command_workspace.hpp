@@ -1,4 +1,5 @@
 #pragma once
+#include "actions.hpp"
 #include "camera.hpp"
 #include "widgets.hpp"
 #include <algorithm>
@@ -78,6 +79,8 @@ inline std::vector<PaletteEntry> palette_entries(const std::string& selected, fl
 }
 class CommandWorkspace {
   public:
+    const EditorActions* actions = nullptr;
+    void open_palette() { request_open_ = true; }
     bool diagnostics_open = false, schema_open = false;
     void menu(const std::function<void()>& extra = {}) {
         if (ImGui::BeginMenu("Tools")) {
@@ -100,7 +103,7 @@ class CommandWorkspace {
     }
     void draw(Scene& scene, std::string& selected, std::string& message, float snap, Float3 target,
               bool at_target, bool busy) {
-        if (!busy && !ImGui::IsAnyItemActive() &&
+        if ((actions || !busy) && !ImGui::IsAnyItemActive() &&
             !ImGui::IsPopupOpen(nullptr,
                                 ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
             ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift &&
@@ -147,6 +150,15 @@ class CommandWorkspace {
                 if (entry.operation == "history.redo")
                     entry.available = scene.can_redo();
             }
+            if (actions) {
+                all.clear();
+                for (const auto& a : actions->entries)
+                    all.push_back({a.label + (a.shortcut.empty() ? "" : " (" + a.shortcut + ")"),
+                                   a.id,
+                                   {},
+                                   a.available,
+                                   a.description});
+            }
             std::vector<PaletteEntry> matches;
             for (auto& entry : all)
                 if (command_matches(entry.label, filter_))
@@ -165,7 +177,7 @@ class CommandWorkspace {
             for (int i = 0; i < int(matches.size()); ++i) {
                 const auto& e = matches[i];
                 const bool inspect = e.operation == "diagnostics" || e.operation == "schema";
-                const bool enabled = e.available && (!busy || inspect);
+                const bool enabled = e.available && (actions || !busy || inspect);
                 ImGui::BeginDisabled(!enabled);
                 const bool click = ImGui::Selectable(e.label.c_str(), i == index_);
                 help(enabled ? e.help.c_str()
@@ -176,7 +188,9 @@ class CommandWorkspace {
                     ImGui::SetScrollHereY();
                 if (enabled && (click || (activate && i == index_))) {
                     try {
-                        if (e.operation == "diagnostics")
+                        if (actions)
+                            actions->invoke(e.operation);
+                        else if (e.operation == "diagnostics")
                             diagnostics_open = true;
                         else if (e.operation == "schema")
                             schema_open = true;

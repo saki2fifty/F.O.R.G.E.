@@ -1,6 +1,6 @@
 #pragma once
-#include "audio_inspector.hpp"
 #include "document.hpp"
+#include "property_drawer.hpp"
 #include "widgets.hpp"
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -45,7 +45,65 @@ inline std::string prefab_member_label(const Json& document, const std::string& 
 }
 class PrefabEditor {
   public:
+    bool dirty() const { return open_ && draft_ != baseline_; }
+    bool is_open() const { return open_; }
+    bool close_cancelled = false;
+    void request_close() {
+        if (dirty())
+            close_requested_ = true;
+        else
+            open_ = false;
+    }
+    void request_save() { save_requested_ = true; }
+    void rename_member(const std::string& name) {
+        for (auto& member : draft_["members"])
+            if (member.at("id") == member_)
+                member["name"] = name;
+    }
+    void set_property(const std::string& component, const std::string& field, const Json& value) {
+        for (auto& member : draft_["members"])
+            if (member.at("id") == member_)
+                member.at("components").at(component).at(field) = value;
+    }
+    bool resolve_close(ui::DraftResolution choice, Scene& scene, SceneDocument& project) {
+        if (choice == ui::DraftResolution::Cancel) {
+            close_requested_ = false;
+            pending_asset_ = {};
+            close_cancelled = true;
+            return false;
+        }
+        if (choice == ui::DraftResolution::Save && !publish(scene, project))
+            return false;
+        draft_ = baseline_;
+        close_requested_ = false;
+        open_ = false;
+        return true;
+    }
+    bool publish(Scene& scene, SceneDocument& project) {
+        try {
+            project.check_ownership();
+            project.prefabs().publish(scene, baseline_, draft_);
+            baseline_ = project.prefabs().source(baseline_.at("asset_id").get<AssetId>());
+            draft_ = baseline_;
+            error_.clear();
+            return true;
+        } catch (const std::exception& e) {
+            error_ = e.what();
+            return false;
+        }
+    }
     void edit_source(SceneDocument& project, AssetId asset) {
+        if (open_ && project_ == project.project() && baseline_.at("asset_id") == Json(asset)) {
+            focus_requested_ = true;
+            if (ui::editor_context)
+                ui::editor_context->selection.select_member(asset, member_);
+            return;
+        }
+        if (dirty()) {
+            pending_asset_ = asset;
+            close_requested_ = true;
+            return;
+        }
         auto source = project.prefabs().source(asset);
         baseline_ = source;
         draft_ = std::move(source);
@@ -54,12 +112,22 @@ class PrefabEditor {
         project_ = project.project();
         content_project_ = project_;
         open_ = true;
+        focus_requested_ = true;
         error_.clear();
+        if (ui::editor_context)
+            ui::editor_context->selection.select_member(asset, member_);
     }
     void content(Scene& scene, SceneDocument& project, std::string& selection, bool locked) {
         if (content_project_ != project.project()) {
             selected_ = {};
             content_project_ = project.project();
+        }
+        if (ui::editor_context) {
+            const auto& current = ui::editor_context->selection;
+            selected_ = current.kind() == ui::SelectionKind::Asset &&
+                                project.prefabs().records().contains(current.asset())
+                            ? current.asset()
+                            : AssetId{};
         }
         ImGui::BeginDisabled(locked);
         auto run = [&](auto action) {
@@ -80,6 +148,8 @@ class PrefabEditor {
             run([&] {
                 selected_ = project.prefabs().create(scene, create_prefab_source(scene, selection),
                                                      std::filesystem::u8path(path_));
+                if (ui::editor_context)
+                    ui::editor_context->selection.select_asset(selected_);
             });
         ImGui::EndDisabled();
         if (ui::button(
@@ -87,11 +157,12 @@ class PrefabEditor {
                 "Validate external source edits and reconcile instances. Failed candidates keep "
                 "the previous revision. Successful source changes clear scene history."))
             run([&] { project.prefabs().refresh(scene); });
-        for (const auto& [id, record] : project.prefabs().records()) {
-            if (ImGui::Selectable(path_text(record.source).c_str(), selected_ == id))
-                selected_ = id;
-            ui::help(id.str().c_str());
-        }
+        if (!ui::editor_context)
+            for (const auto& [id, record] : project.prefabs().records()) {
+                if (ImGui::Selectable(path_text(record.source).c_str(), selected_ == id))
+                    selected_ = id;
+                ui::help(id.str().c_str());
+            }
         ImGui::BeginDisabled(!selected_);
         if (ui::button(
                 "Instantiate",
@@ -106,6 +177,8 @@ class PrefabEditor {
             run([&] {
                 selected_ =
                     project.prefabs().duplicate(scene, selected_, std::filesystem::u8path(path_));
+                if (ui::editor_context)
+                    ui::editor_context->selection.select_asset(selected_);
             });
         ImGui::EndDisabled();
         ImGui::EndDisabled();
@@ -159,6 +232,12 @@ class PrefabEditor {
                 error_ = e.what();
             }
         }
+        if (!ImGui::TreeNode("All override operations")) {
+            ui::help("Advanced overview of component/property revert actions. Common Revert "
+                     "controls are beside their properties above.");
+            return;
+        }
+        ui::help("Revert explicit instance overrides without changing the shared source asset.");
         const auto schema = scene.schema();
         for (const auto& component : schema.at("components")) {
             const std::string key = component.at("id");
@@ -196,251 +275,327 @@ class PrefabEditor {
                 }
             ImGui::PopID();
         }
+        ImGui::TreePop();
     }
     void draw(Scene& scene, SceneDocument& project, bool locked) {
         if (project_ != project.project())
             open_ = false;
         if (!open_)
             return;
-        ImGui::SetNextWindowSize({620 * ui::interface_scale, 620 * ui::interface_scale},
-                                 ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin("Prefab source", &open_)) {
-            ImGui::End();
-            return;
+        ui::draft_window_size({620 * ui::interface_scale, 620 * ui::interface_scale});
+        if (focus_requested_) {
+            ImGui::SetNextWindowFocus();
+            focus_requested_ = false;
         }
-        const auto edited = baseline_.at("asset_id").get<AssetId>();
-        if (project.prefabs().records().contains(edited))
-            ImGui::TextWrapped("Source: %s",
-                               path_text(project.prefabs().records().at(edited).source).c_str());
-        ui::help("The file being edited in this source window.");
-        ImGui::TextWrapped(
-            "Edit the reusable source here. Publishing updates non-overridden instance values and "
-            "clears scene Undo/Redo. Scene Undo never reverses a published asset edit.");
-        ui::help("Closing this window discards unpublished edits.");
-        ImGui::BeginDisabled(locked);
-        try {
-            for (const auto& m : draft_.at("members")) {
-                const std::string id = m.at("id");
-                ImGui::PushID(id.c_str());
-                if (ImGui::Selectable(m.at("name").get_ref<const std::string&>().c_str(),
-                                      member_ == id))
-                    member_ = id;
-                ui::help("Choose a source member. Names are display labels; member identity "
-                         "survives rename/reparent.");
-                ImGui::PopID();
-            }
-            ImGui::Separator();
-            for (auto& m : draft_["members"])
-                if (m.at("id") == member_) {
-                    char name[1024]{};
-                    SDL_strlcpy(name, m.at("name").get<std::string>().c_str(), sizeof(name));
-                    if (ImGui::InputText("Member name", name, sizeof(name)))
-                        m["name"] = name;
-                    ui::help("Rename this member in every instance. Its durable member identity is "
-                             "unchanged.");
-                    if (member_ != draft_.at("root").get_ref<const std::string&>()) {
-                        if (ImGui::BeginCombo(
-                                "Parent member",
-                                prefab_member_label(draft_, m.at("parent")).c_str())) {
-                            for (const auto& target : draft_.at("members"))
-                                if (target.at("id") != member_) {
-                                    ImGui::PushID(
-                                        target.at("id").get_ref<const std::string&>().c_str());
-                                    if (ImGui::Selectable(
-                                            target.at("name").get_ref<const std::string&>().c_str(),
-                                            m.at("parent") == target.at("id")))
-                                        m["parent"] = target.at("id");
-                                    ui::help("Change the structural parent, keeping local "
-                                             "channels. Cycles are rejected at publication.");
-                                    ImGui::PopID();
-                                }
-                            ImGui::EndCombo();
-                        }
-                        ui::help("Source hierarchy uses validated structured parenting. Instances "
-                                 "cannot rearrange its interiors.");
+        bool visible = true;
+        const auto title = std::string(dirty() ? "* " : "") + "Prefab source###Prefab source";
+        const bool expanded = ImGui::Begin(title.c_str(), &visible);
+        if (!visible)
+            request_close();
+        if (ui::editor_context)
+            ui::editor_context->task.focus(ui::DocumentTask::Prefab);
+        if (save_requested_ && !locked) {
+            save_requested_ = false;
+            publish(scene, project);
+        }
+        if (expanded) {
+            ImGui::TextWrapped(
+                "%s | Publish saves this asset. Scene Undo does not edit this draft.",
+                dirty() ? "Unsaved draft" : "Published");
+            ui::help("This is an independent prefab source document. Ctrl+S publishes when this "
+                     "task is active; Undo/Redo are scene-only and disabled for this task.");
+            const auto edited = baseline_.at("asset_id").get<AssetId>();
+            if (project.prefabs().records().contains(edited))
+                ImGui::TextWrapped(
+                    "Source: %s", path_text(project.prefabs().records().at(edited).source).c_str());
+            ui::help("The file being edited in this source window.");
+            ImGui::TextWrapped(
+                "Edit the reusable source here. Publishing updates non-overridden instance values "
+                "and "
+                "clears scene Undo/Redo. Scene Undo never reverses a published asset edit.");
+            ui::help("Closing an unsaved draft asks to Publish, Discard or Cancel.");
+            ImGui::BeginDisabled(locked);
+            try {
+                for (const auto& m : draft_.at("members")) {
+                    const std::string id = m.at("id");
+                    ImGui::PushID(id.c_str());
+                    if (ImGui::Selectable(m.at("name").get_ref<const std::string&>().c_str(),
+                                          member_ == id)) {
+                        member_ = id;
+                        if (ui::editor_context)
+                            ui::editor_context->selection.select_member(edited, member_);
                     }
-                    if (member_ != draft_.at("root").get_ref<const std::string&>()) {
-                        auto binding = m.value("spatial", Json{{"mode", "follow_structure"}});
-                        if (ImGui::BeginCombo(
-                                "Member space",
-                                binding.at("mode").get_ref<const std::string&>().c_str())) {
-                            for (const char* mode : {"follow_structure", "world", "explicit"}) {
-                                if (ImGui::Selectable(mode, binding.at("mode") == mode)) {
-                                    binding = {{"mode", mode}};
-                                    if (std::string(mode) == "explicit")
-                                        binding["member"] = draft_.at("root");
-                                    m["spatial"] = binding;
-                                }
-                                ui::help("Follow the structural parent, use world coordinates, or "
-                                         "attach to another source member. Local channels are "
-                                         "retained.");
-                            }
-                            ImGui::EndCombo();
-                        }
-                        ui::help("Source member spatial attachment. Instances inherit this "
-                                 "source-owned binding.");
-                        if (binding.at("mode") == "explicit") {
+                    ui::help("Choose a source member. Names are display labels; member identity "
+                             "survives rename/reparent.");
+                    ImGui::PopID();
+                }
+                ImGui::Separator();
+                for (auto& m : draft_["members"])
+                    if (m.at("id") == member_) {
+                        char name[1024]{};
+                        SDL_strlcpy(name, m.at("name").get<std::string>().c_str(), sizeof(name));
+                        if (ImGui::InputText("Member name", name, sizeof(name)))
+                            rename_member(name);
+                        ui::help(
+                            "Rename this member in every instance. Its durable member identity is "
+                            "unchanged.");
+                        if (member_ != draft_.at("root").get_ref<const std::string&>()) {
                             if (ImGui::BeginCombo(
-                                    "Spatial target",
-                                    prefab_member_label(draft_, binding.at("member")).c_str())) {
+                                    "Parent member",
+                                    prefab_member_label(draft_, m.at("parent")).c_str())) {
                                 for (const auto& target : draft_.at("members"))
                                     if (target.at("id") != member_) {
                                         ImGui::PushID(
                                             target.at("id").get_ref<const std::string&>().c_str());
                                         if (ImGui::Selectable(target.at("name")
                                                                   .get_ref<const std::string&>()
-                                                                  .c_str()))
-                                            m["spatial"]["member"] = target.at("id");
-                                        ui::help("Persistent source member target; cyclic "
-                                                 "attachment is rejected when publishing.");
+                                                                  .c_str(),
+                                                              m.at("parent") == target.at("id")))
+                                            m["parent"] = target.at("id");
+                                        ui::help("Change the structural parent, keeping local "
+                                                 "channels. Cycles are rejected at publication.");
                                         ImGui::PopID();
                                     }
                                 ImGui::EndCombo();
                             }
-                            ui::help("Resolve this target separately through each instance's "
-                                     "stable member mapping.");
+                            ui::help(
+                                "Source hierarchy uses validated structured parenting. Instances "
+                                "cannot rearrange its interiors.");
                         }
-                    }
-                    const auto schema = scene.schema();
-                    if (ImGui::BeginCombo("Add optional component", "Choose component")) {
+                        if (member_ != draft_.at("root").get_ref<const std::string&>()) {
+                            auto binding = m.value("spatial", Json{{"mode", "follow_structure"}});
+                            if (ImGui::BeginCombo(
+                                    "Member space",
+                                    binding.at("mode").get_ref<const std::string&>().c_str())) {
+                                for (const char* mode : {"follow_structure", "world", "explicit"}) {
+                                    if (ImGui::Selectable(mode, binding.at("mode") == mode)) {
+                                        binding = {{"mode", mode}};
+                                        if (std::string(mode) == "explicit")
+                                            binding["member"] = draft_.at("root");
+                                        m["spatial"] = binding;
+                                    }
+                                    ui::help(
+                                        "Follow the structural parent, use world coordinates, or "
+                                        "attach to another source member. Local channels are "
+                                        "retained.");
+                                }
+                                ImGui::EndCombo();
+                            }
+                            ui::help("Source member spatial attachment. Instances inherit this "
+                                     "source-owned binding.");
+                            if (binding.at("mode") == "explicit") {
+                                if (ImGui::BeginCombo(
+                                        "Spatial target",
+                                        prefab_member_label(draft_, binding.at("member"))
+                                            .c_str())) {
+                                    for (const auto& target : draft_.at("members"))
+                                        if (target.at("id") != member_) {
+                                            ImGui::PushID(target.at("id")
+                                                              .get_ref<const std::string&>()
+                                                              .c_str());
+                                            if (ImGui::Selectable(target.at("name")
+                                                                      .get_ref<const std::string&>()
+                                                                      .c_str()))
+                                                m["spatial"]["member"] = target.at("id");
+                                            ui::help("Persistent source member target; cyclic "
+                                                     "attachment is rejected when publishing.");
+                                            ImGui::PopID();
+                                        }
+                                    ImGui::EndCombo();
+                                }
+                                ui::help("Resolve this target separately through each instance's "
+                                         "stable member mapping.");
+                            }
+                        }
+                        const auto schema = scene.schema();
+                        if (ui::button("+ Add Component",
+                                       "Add a registered component to this source member. Publish "
+                                       "validates the complete candidate."))
+                            ImGui::OpenPopup("Source Add Component");
+                        if (ImGui::BeginPopup("Source Add Component")) {
+                            ImGui::InputTextWithHint("##source-component-search",
+                                                     "Search components...", component_filter_,
+                                                     sizeof(component_filter_));
+                            ui::help("Search by registered component name or category.");
+                            for (const auto& component : schema.at("components")) {
+                                const std::string key = component.at("id");
+                                if (!component.value("optional", false) ||
+                                    m["components"].contains(key))
+                                    continue;
+                                const auto label = component.value("category", std::string{}) +
+                                                   " / " + component.value("display_name", key);
+                                if (search_key(label).find(search_key(component_filter_)) ==
+                                    std::string::npos)
+                                    continue;
+                                if (ImGui::Selectable(label.c_str()))
+                                    for (const auto& field : component.at("fields"))
+                                        m["components"][key][field.at("id").get<std::string>()] =
+                                            field.at("default");
+                                ui::help(
+                                    "Add optional source defaults. Publish validates this prefab "
+                                    "candidate; runtime validates collider realization before "
+                                    "Play.");
+                            }
+                            ImGui::EndPopup();
+                        }
+                        ui::help(
+                            "Registered component defaults for this prefab member. Dynamic bodies "
+                            "need spatial World binding.");
                         for (const auto& component : schema.at("components")) {
                             const std::string key = component.at("id");
-                            if (!component.value("optional", false) ||
-                                m["components"].contains(key))
+                            if (!m["components"].contains(key))
                                 continue;
-                            if (ImGui::Selectable(key.c_str()))
-                                for (const auto& field : component.at("fields"))
-                                    m["components"][key][field.at("id").get<std::string>()] =
-                                        field.at("default");
-                            ui::help(
-                                "Add optional source defaults. Publish validates this prefab "
-                                "candidate; runtime validates collider realization before Play.");
-                        }
-                        ImGui::EndCombo();
-                    }
-                    ui::help("Body and collider defaults for this prefab member. Dynamic bodies "
-                             "need spatial World binding.");
-                    for (const auto& component : schema.at("components")) {
-                        const std::string key = component.at("id");
-                        if (!m["components"].contains(key))
-                            continue;
-                        ImGui::PushID(key.c_str());
-                        ui::heading(prefab_component_label(key),
-                                    "Edit prefab defaults. Explicit instance overrides are "
-                                    "preserved at publication.");
-                        if (key == "forge.local_rotation") {
-                            const auto& q = m["components"][key];
-                            const auto angles =
-                                rotation_to_euler({q.at("x"), q.at("y"), q.at("z"), q.at("w")});
-                            float degrees[3] = {float(angles[0]), float(angles[1]),
-                                                float(angles[2])};
-                            if (ImGui::InputFloat3("Degrees XYZ", degrees) &&
-                                std::isfinite(degrees[0]) && std::isfinite(degrees[1]) &&
-                                std::isfinite(degrees[2]) && std::abs(degrees[0]) <= 360000 &&
-                                std::abs(degrees[1]) <= 360000 && std::abs(degrees[2]) <= 360000) {
-                                const auto rotation =
-                                    rotation_from_euler({degrees[0], degrees[1], degrees[2]});
-                                m["components"][key].update({{"x", rotation.x},
-                                                             {"y", rotation.y},
-                                                             {"z", rotation.z},
-                                                             {"w", rotation.w}});
+                            ui::IdScope component_scope(key.c_str());
+                            ui::heading(
+                                component
+                                    .value("display_name", std::string(prefab_component_label(key)))
+                                    .c_str(),
+                                "Edit prefab defaults. Explicit instance overrides are "
+                                "preserved at publication.");
+                            if (component.value("optional", false)) {
+                                if (ui::button("Remove component",
+                                               "Remove this component from the draft. Publish "
+                                               "validates affected instances; Discard restores the "
+                                               "draft baseline.")) {
+                                    m["components"].erase(key);
+                                    continue;
+                                }
                             }
-                            ui::help("Local Euler angles in degrees, stored as one normalized "
-                                     "quaternion channel.");
-                            ImGui::PopID();
-                            continue;
-                        }
-                        for (const auto& field : component.at("fields")) {
-                            const std::string f = field.at("id");
-                            if (key.starts_with("forge.audio_") ||
-                                key.starts_with("forge.navigation_") || key == "forge.animator") {
-                                (void)audio_field(project.project(), field,
-                                                  m["components"][key][f]);
+                            if (key == "forge.local_rotation") {
+                                const auto& q = m["components"][key];
+                                const auto angles =
+                                    rotation_to_euler({q.at("x"), q.at("y"), q.at("z"), q.at("w")});
+                                float degrees[3] = {float(angles[0]), float(angles[1]),
+                                                    float(angles[2])};
+                                if (ImGui::InputFloat3("Degrees XYZ", degrees) &&
+                                    std::isfinite(degrees[0]) && std::isfinite(degrees[1]) &&
+                                    std::isfinite(degrees[2]) && std::abs(degrees[0]) <= 360000 &&
+                                    std::abs(degrees[1]) <= 360000 &&
+                                    std::abs(degrees[2]) <= 360000) {
+                                    const auto rotation =
+                                        rotation_from_euler({degrees[0], degrees[1], degrees[2]});
+                                    m["components"][key].update({{"x", rotation.x},
+                                                                 {"y", rotation.y},
+                                                                 {"z", rotation.z},
+                                                                 {"w", rotation.w}});
+                                }
+                                ui::help("Local Euler angles in degrees, stored as one normalized "
+                                         "quaternion channel.");
                                 continue;
                             }
-                            double n = m["components"][key].at(f).get<double>();
-                            if (ImGui::InputDouble(f.c_str(), &n, 0, 0, "%.4f")) {
-                                if (field.at("type") == "uint32") {
-                                    if (std::isfinite(n) && n >= 0 &&
-                                        n <= field.value("maximum", 3.0) && std::floor(n) == n)
-                                        m["components"][key][f] = static_cast<unsigned>(n);
-                                } else
-                                    m["components"][key][f] = n;
+                            for (const auto& field : component.at("fields")) {
+                                const std::string f = field.at("id");
+                                auto value = m["components"][key][f];
+                                if (property_field(project.project(), field, value, false))
+                                    set_property(key, f, value);
                             }
-                            ui::help(key == "forge.local_rotation"
-                                         ? "Quaternion component. Publication requires a finite "
-                                           "normalized quaternion; use a complete valid rotation."
-                                         : "Source property. Publication validates the supported "
-                                           "range before changing instances.");
                         }
-                        ImGui::PopID();
                     }
+                if (ui::button("Add child", "Add a new member under the selected source member. It "
+                                            "receives a fresh member identity.")) {
+                    const auto id = PrefabMemberId::generate().str();
+                    Json components = Json::object();
+                    const auto schema = scene.schema();
+                    for (const auto& type : schema.at("components"))
+                        if (!type.value("optional", false))
+                            for (const auto& field : type.at("fields"))
+                                components[type.at("id").get<std::string>()]
+                                          [field.at("id").get<std::string>()] = field.at("default");
+                    components["forge.local_translation"]["y"] = 1;
+                    draft_["members"].push_back({{"id", id},
+                                                 {"name", "Child"},
+                                                 {"parent", member_},
+                                                 {"components", components}});
+                    member_ = id;
                 }
-            if (ui::button("Add child", "Add a new member under the selected source member. It "
-                                        "receives a fresh member identity.")) {
-                const auto id = PrefabMemberId::generate().str();
-                Json components = Json::object();
-                const auto schema = scene.schema();
-                for (const auto& type : schema.at("components"))
-                    if (!type.value("optional", false))
-                        for (const auto& field : type.at("fields"))
-                            components[type.at("id").get<std::string>()]
-                                      [field.at("id").get<std::string>()] = field.at("default");
-                components["forge.local_translation"]["y"] = 1;
-                draft_["members"].push_back({{"id", id},
-                                             {"name", "Child"},
-                                             {"parent", member_},
-                                             {"components", components}});
-                member_ = id;
-            }
-            ImGui::SameLine();
-            ImGui::BeginDisabled(member_ == draft_.at("root").get_ref<const std::string&>());
-            if (ui::button("Remove member subtree",
-                           "Remove this source subtree. Published instances retain removed "
-                           "members' IDs and override data as diagnostics.")) {
-                std::set<std::string> removed{member_};
-                bool changed;
-                do {
-                    changed = false;
+                ImGui::SameLine();
+                ImGui::BeginDisabled(member_ == draft_.at("root").get_ref<const std::string&>());
+                if (ui::button("Remove member subtree",
+                               "Remove this source subtree. Published instances retain removed "
+                               "members' IDs and override data as diagnostics.")) {
+                    std::set<std::string> removed{member_};
+                    bool changed;
+                    do {
+                        changed = false;
+                        for (const auto& m : draft_["members"])
+                            if (removed.contains(m.value("parent", "")))
+                                changed |= removed.insert(m.at("id")).second;
+                    } while (changed);
+                    auto kept = Json::array();
                     for (const auto& m : draft_["members"])
-                        if (removed.contains(m.value("parent", "")))
-                            changed |= removed.insert(m.at("id")).second;
-                } while (changed);
-                auto kept = Json::array();
-                for (const auto& m : draft_["members"])
-                    if (!removed.contains(m.at("id")))
-                        kept.push_back(m);
-                draft_["members"] = kept;
-                member_ = draft_.at("root");
+                        if (!removed.contains(m.at("id")))
+                            kept.push_back(m);
+                    draft_["members"] = kept;
+                    member_ = draft_.at("root");
+                }
+                ImGui::EndDisabled();
+                if (ui::button(
+                        "Publish source",
+                        "Validate and realize the candidate, atomically replace this one prefab "
+                        "asset, then activate prepared instances. A failed candidate leaves the "
+                        "previous source, instances and history intact.")) {
+                    publish(scene, project);
+                }
+                ImGui::SameLine();
+                if (ui::button("Discard edits",
+                               "Reload the last published source into this window. "
+                               "Unpublished edits are discarded.")) {
+                    draft_ = baseline_;
+                    member_ = draft_.at("root");
+                    error_.clear();
+                }
+            } catch (const std::exception& e) {
+                error_ = e.what();
             }
             ImGui::EndDisabled();
-            if (ui::button("Publish source",
-                           "Validate and realize the candidate, atomically replace this one prefab "
-                           "asset, then activate prepared instances. A failed candidate leaves the "
-                           "previous source, instances and history intact.")) {
-                project.check_ownership();
-                project.prefabs().publish(scene, baseline_, draft_);
-                baseline_ = project.prefabs().source(baseline_.at("asset_id").get<AssetId>());
-                draft_ = baseline_;
-                error_.clear();
+            if (!error_.empty()) {
+                ui::field_error(error_);
+                ui::report_error("prefab-source", error_);
             }
-            ImGui::SameLine();
-            if (ui::button("Discard edits", "Reload the last published source into this window. "
-                                            "Unpublished edits are discarded.")) {
-                draft_ = baseline_;
-                member_ = draft_.at("root");
-                error_.clear();
-            }
-        } catch (const std::exception& e) {
-            error_ = e.what();
         }
-        ImGui::EndDisabled();
-        if (!error_.empty())
-            ImGui::TextWrapped("%s", error_.c_str());
         ImGui::End();
+        if (close_requested_)
+            ImGui::OpenPopup("Unsaved prefab source");
+        if (ImGui::BeginPopupModal("Unsaved prefab source", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextWrapped(
+                "Publish this prefab before closing? Scene Save does not save this draft.");
+            ui::help("Publishing changes the shared asset; Discard affects only this unpublished "
+                     "draft. Cancel keeps editing.");
+            ImGui::BeginDisabled(locked);
+            bool finish = false;
+            if (ui::button("Publish",
+                           "Validate and publish before closing. Failure keeps the draft open."))
+                finish = resolve_close(ui::DraftResolution::Save, scene, project);
+            if (ui::button(
+                    "Discard",
+                    "Discard unpublished source changes; committed assets remain unchanged."))
+                finish = resolve_close(ui::DraftResolution::Discard, scene, project);
+            ImGui::EndDisabled();
+            if (ui::button("Cancel", "Keep the draft and cancel the pending close or switch.")) {
+                resolve_close(ui::DraftResolution::Cancel, scene, project);
+                ImGui::CloseCurrentPopup();
+            }
+            if (!error_.empty())
+                ui::field_error(error_);
+            if (finish) {
+                close_requested_ = false;
+                open_ = false;
+                ImGui::CloseCurrentPopup();
+                if (pending_asset_) {
+                    auto next = pending_asset_;
+                    pending_asset_ = {};
+                    edit_source(project, next);
+                }
+            }
+            ImGui::EndPopup();
+        }
     }
 
   private:
+    char component_filter_[192]{};
+    bool close_requested_ = false, save_requested_ = false, focus_requested_ = false;
+    AssetId pending_asset_;
     AssetId selected_;
     Json baseline_, draft_;
     std::string member_, error_;

@@ -89,6 +89,14 @@ inline bool scalar(const char* label, float* value, const char* description) {
     help(description);
     return result;
 }
+inline void draft_window_size(ImVec2 preferred) {
+    const auto available = ImGui::GetMainViewport()->WorkSize;
+    const ImVec2 maximum{std::max(240.f, available.x), std::max(200.f, available.y)};
+    ImGui::SetNextWindowSize({std::min(preferred.x, maximum.x), std::min(preferred.y, maximum.y)},
+                             ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints({std::min(360.f, maximum.x), std::min(260.f, maximum.y)},
+                                        maximum);
+}
 inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
@@ -100,9 +108,11 @@ inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Hierarchy###World", left);
     ImGui::DockBuilderDockWindow("Content", bottom);
     ImGui::DockBuilderDockWindow("Inspector", right);
+    ImGui::DockBuilderDockWindow("Problems###Problems", bottom);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderDockWindow("Gameplay Code###Native", bottom);
     ImGui::DockBuilderDockWindow("Scene", center);
+    ImGui::DockBuilderDockWindow("Game", center);
     ImGui::DockBuilderFinish(dock);
 }
 inline float interface_scale = 1.0f;

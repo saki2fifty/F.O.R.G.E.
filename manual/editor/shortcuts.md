@@ -66,3 +66,9 @@ Hover the Scene image and press **W** for Move or **Q** for Select. Move shows t
 
 
 During explicit gameplay input capture, Esc releases controls, F6 pauses/resumes and F7 steps. Other keyboard/mouse input belongs to project actions until capture ends. See [Gameplay input](input.md).
+
+## Active task and entity commands
+
+Ctrl+S saves the active Scene, Prefab source or Project Settings task. Ctrl+Shift+S is **Save scene As...** and is unavailable for an independent draft task. Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z operate on scene history; they are disabled while a prefab/settings draft owns the task.
+
+In Hierarchy, **F2** focuses Name in Inspector. **Ctrl+D** duplicates the selected subtree; **Delete** deletes the Hierarchy selection. The context menu and Entity menu use the same scene actions. Ctrl+Shift+P searches the shared action list, including Save and runtime controls.

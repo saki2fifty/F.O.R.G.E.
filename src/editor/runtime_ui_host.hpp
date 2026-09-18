@@ -23,6 +23,9 @@ class RuntimeUiHost {
     bool creation_failed_ = false, suspended_ = true;
 
   public:
+    std::string diagnostic() const {
+        return !error_.empty() ? error_ : presenter_ ? presenter_->diagnostic() : std::string{};
+    }
     RuntimeUiHost(SDL_Window* w, Diligent::IRenderDevice* d, std::filesystem::path font)
         : window_(w), device_(d), font_(std::move(font)) {}
     void clear(PlaySession& play) {

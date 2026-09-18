@@ -7,7 +7,7 @@ This is basic path following. Agents do not avoid each other or react to moving 
 ## Build a floor and obstacles
 
 1. Create a Plane. Set its scale to **20, 1, 20** and position to **0, 0, 0**.
-2. Select it. In **Inspector → Navigation**, click **Add Navigation Surface**. Leave **Enabled** checked.
+2. Select it. In Inspector, use **+ Add Component → Navigation / Navigation Surface**. Leave **Enabled** checked.
 3. Create a Cube at **0, 2, 0**, with scale **2, 4, 4**. Add a Navigation Surface to it too.
 4. You can add a second obstacle elsewhere on the floor. Mark every shape that should affect the route.
 5. Save the scene.
@@ -16,7 +16,7 @@ Only marked primitives contribute. Unmarked objects are invisible to the navigat
 
 ## Build the NavMesh
 
-Open **Content → Navigation**. The defaults work for this example:
+Open **Content → Create / Register → Navigation**. The defaults work for this example:
 
 - **Agent radius: 0.4 m.** Clearance around obstacles and floor edges.
 - **Agent height: 2 m.** Required space above the floor.
@@ -27,14 +27,14 @@ Open **Content → Navigation**. The defaults work for this example:
 
 Click **Build NavMesh**. The editor stays responsive while the worker builds and validates the candidate. **Cancel navigation build** discards the candidate. A failed build keeps the previous usable navmesh.
 
-Enable **Show navigation** to see translucent teal triangles. There should be an opening around the obstacle, with clearance determined by the agent radius. Yellow lines show runtime routes; dots mark their start and end.
+Enable **Scene → View → Navigation overlay** to see translucent teal triangles. There should be an opening around the obstacle, with clearance determined by the agent radius. Yellow lines show runtime routes; dots mark their start and end.
 
 A build is a separate asset operation. Scene Undo does not undo a navmesh build. Successful rebuilds keep the same asset identity, so agents keep their reference.
 
 ## Make an agent follow a path
 
 1. Create another Cube named **Agent** at **-8, 0.1, 0**. A small scale such as **0.2, 0.2, 0.2** makes it easy to see.
-2. In its Navigation section, click **Add Navigation Agent**. Do not mark this moving object as a Navigation Surface or give it a Physics Body.
+2. Use **+ Add Component → Navigation / Navigation Agent**. Do not mark this moving object as a Navigation Surface or give it a Physics Body.
 3. Choose the generated **NavMesh**.
 4. Set **Destination X = 8**, **Destination Y = 0.1**, and **Destination Z = 0**. Press Enter to commit each numeric field.
 5. Enable **Has destination**. Leave **Enabled** checked and **Speed** at 2.

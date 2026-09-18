@@ -126,8 +126,13 @@ struct ModalTransform {
     TransformGesture gesture;
     ImVec2 start{}, size_{};
     std::string typed, feedback;
+    int requested_tool = 0;
+    void request(bool scale) { requested_tool = scale ? 2 : 1; }
     bool active() const { return gesture.active(); }
-    void cancel() { gesture.cancel(); }
+    void cancel() {
+        gesture.cancel();
+        requested_tool = 0;
+    }
     Json preview(const Json& doc) const { return gesture.preview(doc); }
     void input(Scene& scene, const std::string& selected, const EditorCamera& camera, ImVec2 origin,
                ImVec2 size, bool hovered, bool allowed, std::string& status) {
@@ -142,11 +147,12 @@ struct ModalTransform {
             return;
         }
         bool began = false;
-        if (!active() && allowed && hovered && !io.WantTextInput && !ImGui::IsAnyItemActive() &&
-            !io.KeyCtrl && !io.KeyAlt && !io.KeyShift && !ImGui::IsMouseDown(0) &&
-            !ImGui::IsMouseDown(1) && !ImGui::IsMouseDown(2)) {
-            const bool scale = ImGui::IsKeyPressed(ImGuiKey_S, false);
-            const bool rotate = ImGui::IsKeyPressed(ImGuiKey_R, false);
+        if (!active() && allowed && (hovered || requested_tool) && !io.WantTextInput &&
+            !ImGui::IsAnyItemActive() && !io.KeyCtrl && !io.KeyAlt && !io.KeyShift &&
+            !ImGui::IsMouseDown(0) && !ImGui::IsMouseDown(1) && !ImGui::IsMouseDown(2)) {
+            const bool scale = requested_tool == 2 || ImGui::IsKeyPressed(ImGuiKey_S, false);
+            const bool rotate = requested_tool == 1 || ImGui::IsKeyPressed(ImGuiKey_R, false);
+            requested_tool = 0;
             if ((scale || rotate) && gesture.begin(scene, selected,
                                                    scale ? TransformGesture::Mode::Scale
                                                          : TransformGesture::Mode::Rotate,

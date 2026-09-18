@@ -1,63 +1,9 @@
 #pragma once
-#include "audio_inspector.hpp"
+#include "document.hpp"
+#include "property_drawer.hpp"
+#include <forge/authoring.hpp>
 #include <forge/ui_assets.hpp>
 namespace forge {
-inline void runtime_ui_inspector(Scene& scene, SceneDocument& project, const std::string& selected,
-                                 std::string& message) {
-    if (selected.empty())
-        return;
-    try {
-        Json item;
-        const auto effective = scene.effective_document();
-        for (const auto& e : effective.at("entities"))
-            if (e.at("id") == selected)
-                item = e;
-        if (item.is_null())
-            return;
-        if (ImGui::TreeNode("Runtime UI")) {
-            struct Scope {
-                ~Scope() { ImGui::TreePop(); }
-            } scope;
-            ui::help("RmlUi game documents displayed in Play. Configure the asset, visibility and "
-                     "drawing layer.");
-            constexpr const char* key = "forge.ui_document";
-            if (!item.at("components").contains(key)) {
-                if (ui::button("Add UI Document",
-                               "Add an optional UI Document in one undoable scene edit."))
-                    authoring_command(scene, "component.add",
-                                      {{"entity", selected}, {"component", key}});
-            } else {
-                auto schema = scene.schema();
-                for (const auto& type : schema.at("components"))
-                    if (type.at("id") == key)
-                        for (const auto& field : type.at("fields")) {
-                            const std::string name = field.at("id");
-                            auto value = item["components"][key][name];
-                            if (audio_field(project.project(), field, value))
-                                authoring_command(scene, "property.set",
-                                                  {{"entity", selected},
-                                                   {"component", key},
-                                                   {"field", name},
-                                                   {"value", value}});
-                        }
-                if (ui::button(
-                        "Remove / Revert UI Document",
-                        "Remove owned UI Document configuration or its prefab overrides; scene "
-                        "Undo restores this edit."))
-                    authoring_command(scene, "component.revert",
-                                      {{"entity", selected}, {"component", key}});
-                ImGui::TextWrapped(
-                    "Create or register RML in Content > Runtime UI. Play displays the document; "
-                    "Capture gameplay input lets you interact with it.");
-                ui::help("UI assets are separate from scene Undo. Document fields support normal "
-                         "prefab overrides and Revert.");
-            }
-        } else
-            ui::help("Add a runtime UI document to this object.");
-    } catch (const std::exception& e) {
-        message = e.what();
-    }
-}
 class RuntimeUiTools {
     char source_[1024]{};
 
@@ -92,6 +38,7 @@ class RuntimeUiTools {
             }
         } catch (const std::exception& e) {
             message = e.what();
+            ui::report_error("runtime_ui_tools.hpp", message);
         }
         ImGui::EndDisabled();
     }

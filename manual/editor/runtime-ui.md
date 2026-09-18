@@ -4,12 +4,12 @@ Runtime UI is the interface shown **inside your running game**: HUDs, menus, but
 
 ## Create your first HUD
 
-1. Open a writable project. In **Content → Runtime UI**, click **Create HUD example**.
-2. Create or select an entity in the World panel.
-3. In **Inspector → Runtime UI**, click **Add UI Document**.
+1. Open a writable project. In **Content → Create / Register → Runtime UI**, click **Create HUD example**.
+2. Create or select an entity in the Hierarchy panel.
+3. In **Inspector → Components**, click **+ Add Component → Runtime UI / UI Document**.
 4. Use the **Document** asset picker to select the new `Assets/UI/HUD-…/hud.rml` asset. Keep **Enabled** and **Visible** checked.
-5. Save, then press **Play**. The Scene viewport shows a styled panel, image, simulation tick, pause state, buttons and a text field.
-6. Turn on **Capture gameplay input** in the Scene controls to interact with the HUD.
+5. Save, then press **Play**. The Game viewport shows a styled panel, image, simulation tick, pause state, buttons and a text field.
+6. Turn on **Capture gameplay input** in the Game controls to interact with the HUD.
 
 The example creates three files: `hud.rml` for content, `hud.rcss` for appearance, and `badge.tga` for the image. You do not need to enter an asset UUID or write C++.
 
@@ -25,7 +25,7 @@ Resize the viewport and editor window. The HUD remains positioned within the gam
 
 ## Use your own document
 
-Put an `.rml` file and its resources inside the project. Enter its project-relative path in **Content → Runtime UI → RML in project**, then click **Register RML**. Assign it through the Document picker.
+Put an `.rml` file and its resources inside the project. Enter its project-relative path in **Content → Create / Register → Runtime UI → RML in project**, then click **Register RML**. Assign it through the Document picker.
 
 RML resembles HTML; RCSS resembles CSS, but this is not a web browser. Link each stylesheet from the document:
 
@@ -66,7 +66,7 @@ body { font-family: Game; }
 
 ## Edit and reload
 
-Edit the RML or RCSS file using your text editor, save it, then click **Reload UI** in the Scene controls during Play. FORGE prepares the replacement first. If it fails, the previous usable HUD remains visible and an error explains the failure.
+Edit the RML or RCSS file using your text editor, save it, then click **Reload UI** in the Game controls during Play. FORGE prepares the replacement first. If it fails, the previous usable HUD remains visible and an error explains the failure.
 
 Reloading clears hover/focus and local text-field contents. It does not restart gameplay. UI asset creation and file editing are outside scene Undo/Redo; use your text editor or version control for those files.
 
@@ -76,12 +76,12 @@ Add UI Document to more than one entity to show multiple documents. **Layer** co
 
 **Enabled** controls whether a document participates. **Visible** hides or shows it without removing the authored component. A hidden document cannot send gameplay commands.
 
-UI Document works with [prefabs](prefabs.md). The document reference, visibility and layer can inherit from the source or be overridden. Property Revert follows the prefab again; scene Undo/Redo restores these edits. **Remove / Revert UI Document** removes local configuration/overrides. UI DOM and local input state are not saved into the prefab.
+UI Document works with [prefabs](prefabs.md). The document reference, visibility and layer can inherit from the source or be overridden. Property Revert follows the prefab again; scene Undo/Redo restores these edits. the component header’s **Remove component / Revert component** removes local configuration/overrides. UI DOM and local input state are not saved into the prefab.
 
 ## When something does not appear
 
 - Confirm Document points to a registered `.rml` asset and Enabled/Visible are checked.
-- Read the Runtime UI message in the Scene controls. Check balanced tags, linked styles and resource paths.
+- Read the Runtime UI message in the Game controls. Check balanced tags, linked styles and resource paths.
 - Keep resources inside the project; absolute machine paths and web URLs reject.
 - Use the packaged Lato family first to distinguish font issues from layout issues.
 - Large documents, deep nesting, too many files or oversized images/fonts reject with limits.

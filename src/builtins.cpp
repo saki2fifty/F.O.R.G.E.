@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include <cctype>
 #include <cmath>
 #include <stdexcept>
 namespace forge::detail {
@@ -524,9 +525,47 @@ Json register_builtins(flecs::world& world, unsigned family) {
                       {"animatable", !primitive && type.defaults.at(m.name).is_number()},
                       {"unit", type.unit}};
             f.update(field_options(type, m.name));
+            std::string label = m.name;
+            bool initial = true;
+            for (auto& ch : label) {
+                if (ch == '_') {
+                    ch = ' ';
+                    initial = true;
+                } else if (initial) {
+                    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                    initial = false;
+                }
+            }
+            f["display_name"] = label;
+            if (name == "forge.physics_body" && std::string(m.name) == "motion")
+                f["choices"] = Json::array({{{"label", "Static"}, {"value", 0u}},
+                                            {{"label", "Kinematic"}, {"value", 1u}},
+                                            {{"label", "Dynamic"}, {"value", 2u}}});
+            if (name == "forge.primitive" && std::string(m.name) == "kind")
+                f["choices"] = Json::array({{{"label", "Cube"}, {"value", 0u}},
+                                            {{"label", "Sphere"}, {"value", 1u}},
+                                            {{"label", "Cylinder"}, {"value", 2u}},
+                                            {{"label", "Plane"}, {"value", 3u}}});
             fields.push_back(std::move(f));
         }
+        std::string display = name.substr(name.find('.') + 1);
+        bool initial = true;
+        for (auto& ch : display) {
+            if (ch == '_') {
+                ch = ' ';
+                initial = true;
+            } else if (initial) {
+                ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                initial = false;
+            }
+        }
+        if (name == "forge.ui_document")
+            display = "UI Document";
+        const char* categories[] = {
+            "Rendering / Transform", "Physics", "Audio", "Animation", "Navigation", "Runtime UI"};
         components.push_back({{"id", type.name},
+                              {"display_name", display},
+                              {"category", categories[category]},
                               {"schema_version", 1},
                               {"fields", fields},
                               {"optional", category != 0}});

@@ -10,7 +10,7 @@ The supported range is 65–200%. Both text and widget geometry scale, and the v
 
 ## Control tooltips
 
-Use **Tooltips** in the top toolbar to enable or disable contextual help globally. The setting persists between launches.
+Use **Tooltips** in the top Preferences menu to enable or disable contextual help globally. The setting persists between launches.
 
 Pause the pointer over a control to show help after roughly 0.4 seconds. Long help wraps, and placement tries to keep the hovered control visible. Tooltips are suppressed during mouse-button gestures. Disabled controls can still explain why or how they are used.
 
@@ -22,3 +22,7 @@ There is no theme picker or general settings dialog yet. See [Panels and windows
 
 
 Shared game behavior is configured separately under [Tools → Project Settings](project-settings.md). Layout, scale, tooltips and machine tool paths stay personal.
+
+## Fonts and narrow layouts
+
+The editor uses the packaged Lato font for proportional interface text and a monospace font for logs. Its SIL Open Font License is included with the package. Text and geometry scale together from 65% to 200%. At narrow widths application menus group under **Menu**, and **More...** keeps global actions accessible.

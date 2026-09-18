@@ -1,3 +1,4 @@
+#include "document.hpp"
 #include "native_build.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -21,7 +22,7 @@ int main(int argc, char** argv) {
         return 2;
     const auto root = std::filesystem::current_path() /
                       ("native editor test " + std::to_string(SDL_GetPerformanceCounter()));
-    std::filesystem::create_directories(root);
+    forge::SceneDocument::create_project(root, "Native workflow test");
     int result = 0;
     try {
         forge::EngineContext authored_engine;

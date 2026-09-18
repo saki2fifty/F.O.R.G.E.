@@ -14,6 +14,15 @@ class GameInput {
     GameInput(const GameInput&) = delete;
     GameInput& operator=(const GameInput&) = delete;
     bool captured() const { return captured_; }
+    void viewport(ImVec2 origin, ImVec2 size) {
+        origin_ = origin;
+        size_ = size;
+        bounded_ = true;
+    }
+    bool outside(float x, float y) const {
+        return bounded_ && (x < origin_.x || y < origin_.y || x >= origin_.x + size_.x ||
+                            y >= origin_.y + size_.y);
+    }
     void capture(PlaySession& play) {
         if (play.ready()) {
             play.input_event({{}, 0, true});
@@ -52,6 +61,10 @@ class GameInput {
             SDL_CloseGamepad(pad_);
             pad_ = nullptr;
             devices_dirty_ = true;
+            return false;
+        }
+        if (captured_ && e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && outside(e.button.x, e.button.y)) {
+            release(play);
             return false;
         }
         if (!captured_ || !play.ready())
@@ -166,14 +179,16 @@ class GameInput {
         }
         ImGui::EndDisabled();
         if (captured_) {
-            ImGui::SameLine();
-            ImGui::TextUnformatted("GAME INPUT | Esc: release | F6: pause/resume | F7: step");
-            ui::help("Input snapshots advance only on fixed simulation ticks. Clicks are gameplay "
-                     "input until Escape or focus loss.");
+            ImGui::TextWrapped("GAME INPUT | Esc: release | F6: pause/resume | F7: step");
+            ui::help(
+                "Input snapshots advance only on fixed simulation ticks. Clicks are gameplay "
+                "input inside Game. Escape, focus loss or a click outside Game releases capture.");
         }
     }
 
   private:
+    ImVec2 origin_{}, size_{};
+    bool bounded_ = false;
     SDL_Gamepad* pad_ = nullptr;
     bool captured_ = false, devices_dirty_ = true;
     std::string session_;

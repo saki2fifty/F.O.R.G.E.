@@ -98,3 +98,34 @@ Fresh local static32/shared41, ASan+UBSan+LeakSanitizer static32/shared40 and po
 Relocated packaged UI/font, navigation worker and official gltf2ozz passed with developer PATH removed. Verified ZIP CRC, reserved source/build, **180 manifest hashes**, **95 license/notices**, five x64 executables/four DLLs, **31 unchanged manual pages** with the new build identity, and both SDK archives (**237 Linux / 246 Windows regular-file hashes**, two Linux SONAME symlinks). SHA256: `2b99b4a6e228cb0a811c95917413e41c992c4edd11221c2484f7cffd19a41cb0`.
 
 One final numbered package delivered. Build53 archived; packages contains only Build54 ZIP and current extracted editor. No intermediate Phase6G package. This documentation-only follow-up records validation without changing the packaged source/binaries/manual or rerunning the matrix. No new editor controls; desktop GPU/DPI/IME behavior still requires real-machine acceptance. **Phase6 complete; STOP before Phase7.**
+
+## Editor UX redesign — implementation and validation
+
+### Correctness and shared authoring controls
+
+- Fixed prefab-source UI Document drawing, unsigned integer Layer editing, and Create source in a newly created project's existing empty Native folder. Existing source is never overwritten.
+- Added explicit entity/asset/prefab-member selection. Inspector identifies its scope; asset click clears entity selection, while dragging keeps the destination entity Inspector available.
+- Replaced subsystem-specific Inspector implementations with a shared registered-schema Add Component search, grouped components, typed fields, asset search/clear/reveal/drop, inline validation errors and contextual Remove/Revert.
+- Exposed independent XYZ transform labels, prefab ownership/override intent and adjacent Revert, including equal-value intent. Existing local TRS, derived world transforms and scene Undo semantics remain authoritative.
+- Added hierarchy context actions, F2 rename focus and validated world-preserving reparent drag/drop. Rejected operations retain the original scene.
+
+### Workspace and document ownership
+
+- Added independent authored Scene and runtime Game views using the existing single isolated Play process. Scene navigation, modal transforms and the grid retain their existing behavior. Inactive Game presentation cannot cancel a Scene gesture.
+- Added familiar application menus and a separate adaptive global action bar, consistent action availability, command palette routes and compact Menu/More overflow.
+- Added active-task Save ownership, dirty draft indicators and independent prefab/settings close guards. Failed publication stays open; Scene Save cannot silently publish a different draft. Apply and cross-document Undo remain deferred.
+- Made prefab source independent of Content visibility. Preserved custom docking and added Game/Problems tabs; Reset layout remains deliberate.
+- Adopted the already packaged OFL-licensed Lato font, retained monospace logs, and added responsive property labels, labeled axes and bounded draft windows. No new dependency or font modification.
+- Game clearly displays runtime state and input capture. Outside clicks release capture and reach editor controls; Escape/F6/F7 and global interface zoom remain available.
+
+### Content and feedback
+
+- Content now browses the existing AssetCatalog with search/type/folder filtering, asset inspection and supported create/register/conversion/build workflows. No Phase 7 importer, cooker or second asset database.
+- Added bounded session Problems with contextual navigation and chronological Console status transitions. Failed field edits show local errors and retain valid values.
+- Updated function-based manual pages for the exact controls, save/history boundaries and remaining limitations. Added technical editor ownership documentation.
+
+### Validation
+
+- Focused portable editor/input/native tests passed **3/3**, including the three original defects, all registered optional component drawers, independent dirty-draft close/save/failure paths and outside-Game capture release.
+- Clean Linux static **32/32** and exact SDK **41/41** regressions passed. Final sanitizer and clean Windows results will be recorded after execution.
+- Added actual-editor WARP fixture captures for the redesigned panels and responsive layouts. Existing viewport/shader/runtime UI and package-relocation checks remain in the delivery workflow. Automated fixtures are distinct from physical Windows acceptance.

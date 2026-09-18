@@ -66,3 +66,9 @@ For object rotation and scaling with **R / S**, followed by **X / Y / Z**, see [
 ## Static preview performance
 
 An unchanged EDIT view reuses its rendered scene image. Navigation, object edits, resize and transform previews refresh it immediately; Play renders continuously. Grid, selection overlays and the interface remain responsive every frame. See [Performance](performance.md) for measurement and comparison controls.
+
+## Tool discovery
+
+Scene exposes **Select**, **Move**, **Rotate (R)** and **Scale (S)**. Rotate and Scale start the existing modal gesture: X/Y/Z constrains, Enter or left-click confirms, Escape cancels. **View** describes supported tool spaces: world axes for Move/Rotate, local axes for Scale. View also groups grid, orientation, navigation overlay, framing and camera options. Camera gestures and the existing infinite grid remain unchanged.
+
+Runtime output and HUD now appear in the separate **Game** tab; Scene remains authored content during Play.
