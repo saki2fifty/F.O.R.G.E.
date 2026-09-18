@@ -7,6 +7,10 @@
 #include <set>
 namespace forge {
 inline const char* prefab_component_label(const std::string& key) {
+    if (key == "forge.navigation_agent")
+        return "Navigation Agent";
+    if (key == "forge.navigation_surface")
+        return "Navigation Surface";
     if (key == "forge.animator")
         return "Animator";
     if (key == "forge.audio_source")
@@ -348,7 +352,8 @@ class PrefabEditor {
                         }
                         for (const auto& field : component.at("fields")) {
                             const std::string f = field.at("id");
-                            if (key.starts_with("forge.audio_") || key == "forge.animator") {
+                            if (key.starts_with("forge.audio_") ||
+                                key.starts_with("forge.navigation_") || key == "forge.animator") {
                                 (void)audio_field(project.project(), field,
                                                   m["components"][key][f]);
                                 continue;

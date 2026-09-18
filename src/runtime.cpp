@@ -123,6 +123,11 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
     if (context.role() != WorldRole::Runtime)
         throw std::runtime_error("Simulation requires a runtime WorldContext");
     animation_ = animation_runtime(context);
+    if (context.services().available(Capability::Navigation)) {
+        navigation_ = std::static_pointer_cast<NavigationRuntime>(context.services().navigation());
+        navigation_->bind(&scene);
+    }
+
     auto& world = context.world();
     previous_pipeline_ = world.get_pipeline();
     input_phase_ = world.entity("forge.runtime.Input").add(flecs::Phase);
@@ -136,8 +141,19 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
         physics_ = std::static_pointer_cast<PhysicsRuntime>(context.services().physics());
     if (context.services().available(Capability::Audio))
         audio_ = std::static_pointer_cast<AudioRuntime>(context.services().audio());
+    navigation_phase_ =
+        world.entity("forge.runtime.Navigation").add(flecs::Phase).depends_on(gameplay_phase_);
+    navigation_system_ =
+        world.system("forge.runtime.NavigationUpdate")
+            .kind(navigation_phase_)
+            .immediate()
+            .run([this](flecs::iter& it) {
+                if (navigation_)
+                    stage([&] { navigation_->tick(it.delta_time(), input_tick_); });
+            });
+    navigation_system_.add<FixedSimulation>();
     pre_phase_ =
-        world.entity("forge.runtime.PrePhysics").add(flecs::Phase).depends_on(gameplay_phase_);
+        world.entity("forge.runtime.PrePhysics").add(flecs::Phase).depends_on(navigation_phase_);
     physics_phase_ = world.entity("forge.runtime.Physics").add(flecs::Phase).depends_on(pre_phase_);
     adoption_phase_ =
         world.entity("forge.runtime.PhysicsAdoption").add(flecs::Phase).depends_on(physics_phase_);
@@ -193,6 +209,10 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
 }
 RuntimeSimulation::~RuntimeSimulation() {
     context_.world().set_pipeline(previous_pipeline_);
+    if (navigation_)
+        navigation_->bind(nullptr);
+    navigation_system_.destruct();
+    navigation_phase_.destruct();
     pre_physics_.destruct();
     physics_step_.destruct();
     physics_adopt_.destruct();
@@ -215,6 +235,8 @@ void RuntimeSimulation::tick(float dt) {
     auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
     stage_error_ = nullptr;
     input_.latch(++input_tick_);
+    if (navigation_)
+        navigation_->synchronize();
     context_.modules().begin_tick(input_.snapshot());
     try {
         context_.world().progress(dt);
@@ -253,6 +275,11 @@ Json RuntimeSimulation::presentation(double alpha) const {
     const auto values = poses_.evaluate(alpha);
     for (auto& item : result.at("entities")) {
         const auto entity = scene_.entity(item.at("id")).id();
+        if (navigation_) {
+            auto nav = navigation_->debug(entity);
+            if (!nav.is_null())
+                item["navigation_debug"] = std::move(nav);
+        }
         if (animation_) {
             auto pose = animation_->presentation(entity, alpha);
             if (!pose.is_null())

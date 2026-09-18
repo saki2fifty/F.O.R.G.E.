@@ -1,6 +1,6 @@
 #include "animation_asset.hpp"
-#include "animation_bytes.hpp"
 #include "animation_worker.hpp"
+#include "asset_bytes.hpp"
 #include <forge/animation_conversion.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
@@ -9,6 +9,7 @@
 namespace forge {
 namespace {
 using namespace animation_detail;
+using namespace asset_detail;
 std::string index_digest(const std::filesystem::path& index) {
     return std::filesystem::exists(index) ? content_digest(read_bytes(index, 4 * 1024 * 1024))
                                           : "absent";
@@ -59,6 +60,7 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
                                                 const std::filesystem::path& converter,
                                                 std::stop_token cancel) {
     using namespace animation_detail;
+    using namespace asset_detail;
     ProjectPaths paths(root);
     auto locator = ProjectPaths::normalize(source);
     if (locator.extension() != ".gltf")
@@ -231,6 +233,7 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
 }
 std::vector<AssetRecord> AnimationCandidate::publish() {
     using namespace animation_detail;
+    using namespace asset_detail;
     if (!impl_ || impl_->published)
         throw std::runtime_error("Animation candidate is no longer publishable");
     ProjectPaths paths(impl_->root);

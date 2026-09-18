@@ -18,6 +18,12 @@ inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
     const auto& catalog = *loaded;
     auto asset_label = [&](const AssetRecord& record) {
         auto label = path_utf8(record.source);
+        if (record.type == "navmesh" && record.metadata.contains("source_scene")) {
+            auto source = catalog.records().find(record.metadata.at("source_scene").get<AssetId>());
+            label = source != catalog.records().end()
+                        ? path_utf8(source->second.source) + " / Navigation"
+                        : "Scene navigation (" + record.id.str().substr(0, 8) + ")";
+        }
         if (record.metadata.contains("source_asset")) {
             auto source = catalog.records().find(record.metadata.at("source_asset").get<AssetId>());
             if (source != catalog.records().end())
@@ -38,7 +44,8 @@ inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
             value = nullptr;
             changed = true;
         }
-        ui::help("Leave this source unassigned; Play reports a missing clip until one is chosen.");
+        ui::help(
+            "Leave this asset reference unassigned. Features requiring it report a missing asset.");
         for (const auto& [id, record] : catalog.records()) {
             if (record.type != type)
                 continue;
@@ -60,10 +67,17 @@ inline bool audio_field(const std::filesystem::path& root, const Json& field, Js
     const std::string key = field.at("id");
     if (field.at("type") == "asset_ref")
         return asset_ref_picker(root, value, field.at("asset_type"),
-                                field.at("asset_type") == "skeleton"         ? "Skeleton"
+                                field.at("asset_type") == "navmesh"          ? "NavMesh"
+                                : field.at("asset_type") == "skeleton"       ? "Skeleton"
                                 : field.at("asset_type") == "animation_clip" ? "Animation clip"
                                                                              : "Audio clip");
-    const std::map<std::string, const char*> labels = {{"playback_speed", "Playback speed"},
+    const std::map<std::string, const char*> labels = {{"has_destination", "Has destination"},
+                                                       {"speed", "Speed"},
+                                                       {"stopping_distance", "Stopping distance"},
+                                                       {"destination_x", "Destination X"},
+                                                       {"destination_y", "Destination Y"},
+                                                       {"destination_z", "Destination Z"},
+                                                       {"playback_speed", "Playback speed"},
                                                        {"play_on_start", "Play on Start"},
                                                        {"loop", "Loop"},
                                                        {"gain", "Gain"},

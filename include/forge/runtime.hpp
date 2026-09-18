@@ -4,6 +4,7 @@
 #include <forge/audio.hpp>
 #include <forge/input.hpp>
 #include <forge/module.hpp>
+#include <forge/navigation.hpp>
 #include <forge/physics.hpp>
 #include <forge/scene.hpp>
 #include <functional>
@@ -91,6 +92,8 @@ class RuntimeSimulation {
     std::shared_ptr<PhysicsRuntime> physics_;
     std::shared_ptr<AudioRuntime> audio_;
     std::shared_ptr<AnimationRuntime> animation_;
+    std::shared_ptr<NavigationRuntime> navigation_;
+    flecs::entity navigation_phase_, navigation_system_;
     std::exception_ptr stage_error_;
     template <class F> void stage(F&& f) noexcept {
         if (stage_error_)

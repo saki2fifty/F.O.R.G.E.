@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
                          [&] {
                              modules.push_back(forge::physics_module(physics));
                              modules.push_back(forge::animation_module(project));
+                             modules.push_back(forge::navigation_module(project));
                              if (audio)
                                  modules.push_back(forge::audio_module(*audio));
                              return std::move(modules);
@@ -122,6 +123,9 @@ int main(int argc, char** argv) {
                                       {"physics", runtime->physics()->checkpoint()}};
             checkpoint["animation"] =
                 forge::animation_runtime(runtime->engine.world())->checkpoint();
+            checkpoint["navigation"] = std::static_pointer_cast<forge::NavigationRuntime>(
+                                           runtime->engine.world().services().navigation())
+                                           ->checkpoint();
             checkpoint["integrity"] = integrity(checkpoint);
             if (checkpoint.dump().size() > 8 * 1024 * 1024)
                 throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
@@ -227,6 +231,12 @@ int main(int argc, char** argv) {
                             else
                                 animation->restore(
                                     {{"version", 1}, {"entries", forge::Json::array()}});
+                            std::static_pointer_cast<forge::NavigationRuntime>(
+                                candidate->engine.world().services().navigation())
+                                ->restore(recovery.value(
+                                    "navigation", forge::Json{{"version", 1},
+                                                              {"assets", forge::Json::array()},
+                                                              {"agents", forge::Json::array()}}));
                             recovered_tick = recovery.at("tick").get<std::uint64_t>();
                         } else {
                             candidate->scene.restore_snapshot(request.at("scene"));

@@ -1,10 +1,11 @@
 #include "animation_archive.hpp"
 #include "animation_asset.hpp"
-#include "animation_bytes.hpp"
+#include "asset_bytes.hpp"
 #include <cmath>
 #include <iostream>
 #include <random>
 using namespace forge::animation_detail;
+using namespace forge::asset_detail;
 using Bytes = std::vector<std::byte>;
 void check(bool value, const char* why) {
     if (!value)

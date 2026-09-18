@@ -13,6 +13,7 @@
 #include "help.hpp"
 #include "hierarchy.hpp"
 #include "native_build.hpp"
+#include "navigation_tools.hpp"
 #include "orientation.hpp"
 #include "performance.hpp"
 #include "physics_inspector.hpp"
@@ -163,6 +164,8 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Cannot locate runtime directory");
         const auto runtime_path = (std::filesystem::path(base) / "forge_runtime.exe").string();
         forge::EditorFiles files(scene, window.get(), recent_projects);
+        forge::NavigationTools navigation_tools(std::filesystem::path(base) /
+                                                "forge_nav_build.exe");
         forge::AnimationTools animation_tools(std::filesystem::path(base) / "tools/gltf2ozz.exe");
         std::string message =
             "Ready. Block preview is an authoring diagnostic, not the final game renderer.";
@@ -478,6 +481,7 @@ int main(int argc, char** argv) {
                           blockout.at_view_target, edit_locked);
             files.draw_dialogs();
             animation_tools.poll(files.document, message);
+            navigation_tools.poll(scene, files.document, play.active(), message);
             automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +
                                files.document.name() + " / " +
@@ -625,6 +629,7 @@ int main(int argc, char** argv) {
                             forge::physics_inspector(scene, selected, message);
                             forge::audio_inspector(scene, files.document, selected, message);
                             forge::animation_inspector(scene, files.document, selected, message);
+                            forge::navigation_inspector(scene, files.document, selected, message);
                             if (ImGui::Button("Object actions"))
                                 ImGui::OpenPopup("##object-actions");
                             forge::ui::help("Duplicate or delete this object and its children; "
@@ -834,6 +839,7 @@ int main(int argc, char** argv) {
                         scene_tools.draw(rendered, camera, selected, image_origin, size,
                                          can_edit && !modal.active());
                         forge::draw_animation_debug(rendered, camera, image_origin, size);
+                        navigation_tools.draw(rendered, camera, image_origin, size);
                         orientation.draw(camera, image_origin, size);
                         modal.draw(image_origin, size);
                         ImGui::GetWindowDrawList()->AddText(
@@ -862,7 +868,10 @@ int main(int argc, char** argv) {
                 content.draw(
                     files, &workspace.content,
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
-                    [&] { animation_tools.content(files.document, edit_locked, message); });
+                    [&] {
+                        animation_tools.content(files.document, edit_locked, message);
+                        navigation_tools.content(scene, files.document, edit_locked, message);
+                    });
                 prefab_editor.draw(scene, files.document, edit_locked);
                 ImGui::EndDisabled();
             }

@@ -39,6 +39,7 @@ struct MissingStructuralParent {};
 EngineModule physics_schema_module();
 EngineModule audio_schema_module();
 EngineModule animation_schema_module();
+EngineModule navigation_schema_module();
 class Scene;
 class WorldContext {
   public:

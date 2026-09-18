@@ -2,6 +2,7 @@
 #include <chrono>
 #include <forge/audio_service.hpp>
 #include <forge/identity.hpp>
+#include <forge/navigation_service.hpp>
 #include <forge/physics_service.hpp>
 #include <functional>
 #include <memory>
@@ -28,7 +29,8 @@ enum class Capability : unsigned {
     Profiling = 2,
     Rendering = 4,
     Physics = 8,
-    Audio = 16
+    Audio = 16,
+    Navigation = 32
 };
 constexpr unsigned capability(Capability value) { return static_cast<unsigned>(value); }
 struct ModuleRequirement {
@@ -40,6 +42,9 @@ std::vector<std::string> module_order(const std::vector<ModuleRequirement>& modu
                                       unsigned available);
 namespace detail {
 struct ServiceState;
+struct NavigationSlot {
+    std::weak_ptr<NavigationService> service;
+};
 struct AudioSlot {
     std::weak_ptr<AudioService> service;
 };
@@ -67,6 +72,8 @@ class ServiceAccess {
   public:
     bool available(Capability capability) const;
     ServiceAccess world_scope() const;
+    void publish_navigation(const std::shared_ptr<NavigationService>& service) const;
+    std::shared_ptr<NavigationService> navigation() const;
     void publish_audio(const std::shared_ptr<AudioService>& service) const;
     std::shared_ptr<AudioService> audio() const;
     void publish_physics(const std::shared_ptr<PhysicsService>& service) const;
@@ -85,6 +92,7 @@ class ServiceAccess {
     unsigned allowed_ = 0;
     std::shared_ptr<detail::PhysicsSlot> physics_;
     std::shared_ptr<detail::AudioSlot> audio_;
+    std::shared_ptr<detail::NavigationSlot> navigation_;
 };
 // Owned before worlds; access handles are weak and cannot extend owner lifetime.
 // All access is on the construction thread. Worker results cross through callers' queues.
@@ -96,7 +104,7 @@ class EngineServices {
     ~EngineServices();
     EngineServices(const EngineServices&) = delete;
     EngineServices& operator=(const EngineServices&) = delete;
-    ServiceAccess access(unsigned allowed = 27) const;
+    ServiceAccess access(unsigned allowed = 59) const;
 
   private:
     std::shared_ptr<detail::ServiceState> state_;

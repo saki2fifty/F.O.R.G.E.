@@ -73,6 +73,14 @@ struct AnimationRegistration {
         schema = detail::register_builtins(world, 3);
     }
 };
+struct NavigationRegistration {
+    Json schema;
+    explicit NavigationRegistration(flecs::world& world) {
+        world.module<NavigationRegistration>();
+        RegistrationScope scope(world);
+        schema = detail::register_builtins(world, 4);
+    }
+};
 struct InputRegistration {
     explicit InputRegistration(flecs::world& world) {
         world.module<InputRegistration>();
@@ -120,6 +128,13 @@ EngineModule animation_schema_module() {
     result.schemas = [](ModuleContext& c) { c.world.import<AnimationRegistration>(); };
     return result;
 }
+EngineModule navigation_schema_module() {
+    EngineModule result;
+    result.id = "forge.navigation";
+    result.dependencies = {"forge.core", "forge.transforms"};
+    result.schemas = [](ModuleContext& c) { c.world.import<NavigationRegistration>(); };
+    return result;
+}
 WorldContext::WorldContext(WorldRole role, ServiceAccess services,
                            std::vector<EngineModule> modules)
     : services_(services.world_scope()), role_(role) {
@@ -133,6 +148,9 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.animation"; }))
         composition.push_back(animation_schema_module());
+    if (std::none_of(modules.begin(), modules.end(),
+                     [](const auto& m) { return m.id == "forge.navigation"; }))
+        composition.push_back(navigation_schema_module());
     for (auto& module : modules)
         composition.push_back(std::move(module));
     modules_.bootstrap(world_, role_, services_, std::move(composition), this);
@@ -147,6 +165,10 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
             schema_["components"].push_back(c);
         for (const auto& c :
              world_.import<AnimationRegistration>().get<AnimationRegistration>().schema.at(
+                 "components"))
+            schema_["components"].push_back(c);
+        for (const auto& c :
+             world_.import<NavigationRegistration>().get<NavigationRegistration>().schema.at(
                  "components"))
             schema_["components"].push_back(c);
         // Revision invalidation includes direct native writes, removal and relation edits.

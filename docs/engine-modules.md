@@ -87,3 +87,7 @@ weak bridge connects RuntimeSimulation to that provider without introducing a pu
 animation capability/service. The exact SDK installs/fingerprints Animator and typed
 asset refs and proves native fixed-tick writes through the one shared Flecs library.
 Ozz stays private. See [Animation](animation.md).
+
+## Navigation
+
+`forge.navigation` registers NavigationSurface/NavigationAgent in schema worlds and publishes an owner-thread Navigation service in runtime worlds. RuntimeSimulation binds its scene for the service's lifetime, runs agent updates after gameplay and before physics, then releases the borrow before scene destruction. Stopping the module invalidates retained service handles. The runtime has no Recast build or editor dependency. See [Navigation](navigation.md).

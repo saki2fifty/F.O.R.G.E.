@@ -16,9 +16,9 @@
 #endif
 namespace forge {
 namespace {
-const std::set<std::string> builtins{"forge.core",     "forge.transforms", "forge.prefabs",
-                                     "forge.input",    "forge.physics",    "forge.audio",
-                                     "forge.animation"};
+const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
+                                     "forge.input",     "forge.physics",    "forge.audio",
+                                     "forge.animation", "forge.navigation"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
@@ -58,6 +58,41 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.navigation_query = [](void* p, const char* asset, uint32_t operation,
+                                   const double* start, const double* end,
+                                   ForgeSdkNavResultV1* out) -> int32_t {
+            if (!p || !start || !out || out->size != sizeof(*out) || operation > 1 ||
+                (operation == 1 && !end) || !out->xyz || out->capacity == 0 || out->capacity > 64)
+                return 0;
+            out->count = 0;
+            out->status = uint32_t(NavStatus::Unavailable);
+            try {
+                auto& c = static_cast<Bridge*>(p)->context;
+                if (!c.input)
+                    return 0;
+                if (!c.services.available(Capability::Navigation))
+                    return 1;
+                AssetRef<NavMeshAsset> ref{AssetId::parse(bounded(asset, 36))};
+                auto service = c.services.navigation();
+                auto value = operation == 0
+                                 ? service->project_point(ref, {start[0], start[1], start[2]})
+                                 : service->find_path(ref, {start[0], start[1], start[2]},
+                                                      {end[0], end[1], end[2]});
+                if (value.points.size() > out->capacity) {
+                    out->status = uint32_t(NavStatus::Limit);
+                    return 1;
+                }
+                out->status = uint32_t(value.status);
+                out->count = uint32_t(value.points.size());
+                for (unsigned i = 0; i < out->count; ++i)
+                    for (unsigned j = 0; j < 3; ++j)
+                        out->xyz[i * 3 + j] = value.points[i][j];
+                return 1;
+            } catch (...) {
+                out->status = uint32_t(NavStatus::Invalid);
+                return 1;
+            }
+        };
         host.audio_source = [](void* p, const char* scene, const char* entity,
                                uint32_t play) -> int32_t {
             try {
@@ -260,7 +295,7 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             }
         };
         result.start = [api](ModuleContext& c) {
-            for (auto cap : {Capability::Physics, Capability::Audio})
+            for (auto cap : {Capability::Physics, Capability::Audio, Capability::Navigation})
                 if (c.services.available(cap))
                     static_cast<Bridge*>(c.state.get())->host.capabilities |= capability(cap);
             char error[1024]{};

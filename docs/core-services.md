@@ -56,3 +56,7 @@ Worker work produces immutable candidate results, with bounded ownership and can
 ## Deliberate boundaries
 
 Phase5.5 introduced no Apply to Prefab, general transaction framework, gameplay/plugin SDK, loaded-resource handles, VFS, replay/networking or new subsystem integration. Phase6A subsequently adds the bounded internal registration/SDK profile described in [Engine modules](engine-modules.md); later subsystem phases still require separate authorization.
+
+## Navigation capability
+
+Navigation (`32`) is an optional world-scoped weak service slot. The provider owns admitted assets and query scratch; query results are owned FORGE values. Restricted modules cannot query through an absent capability. Runtime query use requires the bound owner thread. The exact SDK exposes bounded POD results; no Detour object escapes. See [Navigation](navigation.md).

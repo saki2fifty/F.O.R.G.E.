@@ -26,6 +26,7 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_RENDERING 4u
 #define FORGE_SDK_PHYSICS 8u
 #define FORGE_SDK_AUDIO 16u
+#define FORGE_SDK_NAVIGATION 32u
 typedef struct ForgeSdkPhysicsHitV1 {
     uint32_t size;
     char scene[37], entity[37]; /* FORGE UUIDs, never Jolt BodyID */
@@ -37,6 +38,12 @@ typedef struct ForgeSdkActionV1 {
     double x, y;
     uint64_t tick;
 } ForgeSdkActionV1;
+/* Navigation statuses: 0 success, 1 partial (no points), 2 missing, 3 stale,
+   4 start outside, 5 end outside, 6 no path, 7 limit, 8 invalid, 9 unavailable. */
+typedef struct ForgeSdkNavResultV1 {
+    uint32_t size, status, count, capacity;
+    double* xyz; /* Caller-owned capacity*3 doubles; capacity 1..64. */
+} ForgeSdkNavResultV1;
 typedef struct ForgeSdkWorldV1 {
     uint32_t size, version;
     ecs_world_t* world; /* borrowed; module must not destroy it */
@@ -59,6 +66,12 @@ typedef struct ForgeSdkWorldV1 {
        Returns 1 queued, 0 invalid/unavailable. No device/sample-clock authority. */
     int32_t(FORGE_SDK_CALL* audio_source)(void*, const char* scene_uuid, const char* entity_uuid,
                                           uint32_t play);
+    /* Fixed owner tick; operation 0 projects start, 1 finds start-to-end path.
+       1 means a status was returned, 0 invalid callback arguments/unavailable tick.
+       Failure returns no points; undersized buffers report limit without truncation. */
+    int32_t(FORGE_SDK_CALL* navigation_query)(void*, const char* navmesh_uuid, uint32_t operation,
+                                              const double start[3], const double end[3],
+                                              ForgeSdkNavResultV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

@@ -24,6 +24,10 @@ inline void test_prefab_editor_documents() {
                         .get<std::string>();
     forge::authoring_command(scene, "component.add",
                              {{"entity", selected}, {"component", "forge.audio_source"}});
+    forge::authoring_command(scene, "component.add",
+                             {{"entity", selected}, {"component", "forge.navigation_agent"}});
+    forge::authoring_command(scene, "component.add",
+                             {{"entity", selected}, {"component", "forge.navigation_surface"}});
     auto source = forge::create_prefab_source(scene, selected);
     const auto asset = document.prefabs().create(scene, source, "Assets/Sample.prefab.json");
     selected = forge::instantiate_prefab(scene, asset);

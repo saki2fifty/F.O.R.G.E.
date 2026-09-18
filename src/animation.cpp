@@ -1,5 +1,5 @@
 #include "animation_asset.hpp"
-#include "animation_bytes.hpp"
+#include "asset_bytes.hpp"
 #include <cmath>
 #include <forge/animation.hpp>
 #include <forge/project_paths.hpp>
@@ -7,6 +7,7 @@
 namespace forge {
 namespace {
 using namespace animation_detail;
+using namespace asset_detail;
 struct AnimationBridge {
     std::weak_ptr<AnimationRuntime> runtime;
 };

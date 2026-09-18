@@ -1,5 +1,10 @@
 # Implementation status
 
+## Phase 6E — navigation implementation under validation
+
+Pinned Recast/Detour, static primitive builds, admitted NavMesh assets, fixed-tick nonphysics agents, semantic recovery, exact SDK queries and editor controls passed local static27/sharedSDK34/editor2 and ASan/UBSan/LeakSanitizer27+33 tests. Manual3, workflow/cache/format/C17 and runtime-link checks passed. Clean Windows validation and delivery remain pending. No new Windows build is claimed yet. See [Navigation](navigation.md). Phase 6F remains unauthorized.
+
+
 ## Phase6D — verified animation foundation
 
 **Current delivery: Build 260917-000047.** Single-clip Animator, pinned Ozz0.17 structural admission, bounded official glTF conversion, catalog provenance, fixed-clock sampling, prefab intent, recovery and debug bones are implemented. See [Animation](animation.md) and the [user guide](../manual/editor/animation.md).

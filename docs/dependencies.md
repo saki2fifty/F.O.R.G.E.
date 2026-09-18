@@ -4,6 +4,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation and private Detour queries | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
@@ -17,7 +18,7 @@ Ozz, Jolt, Flecs, JSON and ImGui use MIT; miniaudio uses its MIT-0 option; SDL u
 
 Build tooling: CMake presets, Ninja incremental targets, Python 3.10+ subprocess/path tooling, MSVC for Windows and GCC for portable tests. Formatting uses clang-format 23.1.1. GitHub Actions uses pinned checkout/setup actions and an explicit Windows compiler environment. Tool versions and host SDK versions should be recorded with release evidence.
 
-Future selections (not fetched or integrated): GLM, Recast/Detour, RmlUi, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
+Future selections (not fetched or integrated): GLM, RmlUi, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
 
 Flecs 4.1.6 compatibility: LocalTranslation registration explicitly requests member entities for attached documentation. Other reflected fields use `EcsStruct` member data. Phase5 adopts `Parent` for validated structured prefab interiors and retains dynamic `ChildOf` attachments and component-granular inheritance. Automatic C++ reflection and callback-update APIs remain deferred. Phase3 independent local TRS and derived world transforms remain the spatial authority.
 
@@ -72,3 +73,7 @@ seek iframes are disabled; no arbitrary .ozz imports. Graphs/controllers/rendere
 import are not provided by this integration. Root-motion extraction, blending/IK,
 FBX and sample skinning remain deferred. See [Animation contract](animation.md) for
 format limits, ownership, conversion settings, compatibility and upgrade gates.
+
+## Navigation adoption (Phase 6E)
+
+Recast and Detour use the zlib license. FORGE compiles their source libraries privately; Crowd, TileCache, DebugUtils and the SDL2/OpenGL demo are disabled. Runtime links Detour; Recast is authoring worker code. See [Navigation](navigation.md) for formats, ownership, bounds, source provenance and deferred features.

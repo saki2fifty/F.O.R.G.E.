@@ -37,3 +37,7 @@ A versioned animation provenance object identifies the source, exact converter/s
 content digests and exact clip-to-skeleton binding. Catalog publication selects the whole
 validated candidate set last. This subsystem-specific bridge does not introduce a
 second database, generic AssetHandle or full importer/cooker. See [Animation](animation.md).
+
+## NavMesh assets
+
+`AssetRef<NavMeshAsset>` uses expected type `navmesh`. Rebuilding a scene's logical navmesh retains its AssetId while selecting a new immutable artifact path. Provenance binds it to the source scene AssetId, included EntityIds, geometry/settings and exact library/subset. Candidate publication verifies current source/catalog state; a failed build never selects partial data. A duplicated logical scene needs a new navmesh built for its own identity. Runtime paths and polygon refs have no persistent identity. See [Navigation](navigation.md).

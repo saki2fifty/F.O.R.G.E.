@@ -29,8 +29,12 @@ static std::string read(const std::filesystem::path& p) {
 }
 int main(int argc, char** argv) {
     try {
-        if (argc != 5)
+        if (argc != 6)
             throw std::runtime_error("good bad failed trace arguments required");
+        reject([&] {
+            EngineContext absent(WorldRole::Runtime, false,
+                                 {load_native_sdk(argv[5], "project.navigation_probe", "1")});
+        });
         const auto trace = std::filesystem::absolute(argv[4]);
 #ifdef _WIN32
         _putenv_s("FORGE_SDK_TRACE", trace.string().c_str());

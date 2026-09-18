@@ -4,7 +4,18 @@
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, Animator>)
+    if constexpr (std::is_same_v<T, NavigationSurface>)
+        return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, NavigationAgent>)
+        return {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
+                {"enabled", p.enabled},
+                {"has_destination", p.has_destination},
+                {"speed", p.speed},
+                {"stopping_distance", p.stopping_distance},
+                {"destination_x", p.destination_x},
+                {"destination_y", p.destination_y},
+                {"destination_z", p.destination_z}};
+    else if constexpr (std::is_same_v<T, Animator>)
         return {{"skeleton", p.skeleton.id ? Json(p.skeleton.id) : Json()},
                 {"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"enabled", p.enabled},
@@ -43,7 +54,21 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, Animator>) {
+    if constexpr (std::is_same_v<T, NavigationSurface>)
+        return T{p.at("enabled")};
+    else if constexpr (std::is_same_v<T, NavigationAgent>) {
+        NavigationAgent a;
+        if (!p.at("navmesh").is_null())
+            a.navmesh.id = p.at("navmesh").get<AssetId>();
+        a.enabled = p.at("enabled");
+        a.has_destination = p.at("has_destination");
+        a.speed = p.at("speed");
+        a.stopping_distance = p.at("stopping_distance");
+        a.destination_x = p.at("destination_x");
+        a.destination_y = p.at("destination_y");
+        a.destination_z = p.at("destination_z");
+        return a;
+    } else if constexpr (std::is_same_v<T, Animator>) {
         Animator v;
         if (!p.at("skeleton").is_null())
             v.skeleton.id = p.at("skeleton").get<AssetId>();
@@ -131,6 +156,18 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 std::string("LocalTranslation along the ") + axis + " axis in world units.";
             c.lookup(axis).set_doc_brief(text.c_str());
         }
+    } else if constexpr (std::is_same_v<T, NavigationSurface>)
+        c.template member<bool>("enabled");
+    else if constexpr (std::is_same_v<T, NavigationAgent>) {
+        register_asset_ref<NavMeshAsset>(w, "forge.navmesh_ref");
+        c.template member<AssetRef<NavMeshAsset>>("navmesh")
+            .template member<bool>("enabled")
+            .template member<bool>("has_destination")
+            .template member<float>("speed")
+            .template member<float>("stopping_distance")
+            .template member<double>("destination_x")
+            .template member<double>("destination_y")
+            .template member<double>("destination_z");
     } else if constexpr (std::is_same_v<T, Animator>) {
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
@@ -245,7 +282,18 @@ const std::array<Builtin, builtin_count>& builtins() {
             }),
         descriptor<Animator>(
             "forge.animator", "Single-clip skeletal animation; derived poses only", "unitless", {},
-            {}, [](flecs::world& w) { return register_type<Animator>(w, "forge.animator"); })};
+            {}, [](flecs::world& w) { return register_type<Animator>(w, "forge.animator"); }),
+        descriptor<NavigationSurface>(
+            "forge.navigation_surface",
+            "Include static primitive geometry when building navigation", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<NavigationSurface>(w, "forge.navigation_surface");
+            }),
+        descriptor<NavigationAgent>(
+            "forge.navigation_agent", "Fixed-tick path following for nonphysics entities",
+            "unitless", {}, {}, [](flecs::world& w) {
+                return register_type<NavigationAgent>(w, "forge.navigation_agent");
+            })};
     return types;
 }
 Json field_options(const Builtin& type, const std::string& field) {
@@ -328,6 +376,37 @@ Json field_options(const Builtin& type, const std::string& field) {
                                        ? "Repeat the clip at its duration"
                                        : "Begin playback when this Animator is realized";
     }
+    if (name == "forge.navigation_agent") {
+        if (field == "navmesh") {
+            value["asset_type"] = NavMeshAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                "Baked navigation asset for this scene; rebuild after changing included geometry";
+        }
+        if (field == "speed") {
+            value["minimum"] = 0;
+            value["maximum"] = 20;
+            value["unit"] = "meters/second";
+            value["description"] = "Fixed-tick movement speed; zero holds position";
+        }
+        if (field == "stopping_distance") {
+            value["minimum"] = .01;
+            value["maximum"] = 5;
+            value["unit"] = "meters";
+            value["description"] = "Stop within this distance of the projected destination";
+        }
+        if (field.starts_with("destination_")) {
+            value["minimum"] = -4090;
+            value["maximum"] = 4090;
+            value["unit"] = "meters";
+            value["description"] = "Destination in world coordinates, +Y up";
+        }
+        if (field == "enabled")
+            value["description"] = "Enable nonphysics movement during Play; no crowd avoidance";
+        if (field == "has_destination")
+            value["description"] =
+                "Request a route to the destination; partial or invalid paths do not move";
+    }
     return value;
 }
 void validate_components(const Json& components) {
@@ -377,8 +456,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
-        const unsigned category = name == "forge.animator"           ? 3u
-                                  : name.starts_with("forge.audio_") ? 2u
+        const unsigned category = name.starts_with("forge.navigation_") ? 4u
+                                  : name == "forge.animator"            ? 3u
+                                  : name.starts_with("forge.audio_")    ? 2u
                                   : (name == "forge.physics_body" || name.ends_with("_collider"))
                                       ? 1u
                                       : 0u;

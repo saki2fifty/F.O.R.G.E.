@@ -1,22 +1,22 @@
-#include "animation_bytes.hpp"
+#include "asset_bytes.hpp"
 #include <array>
 #include <bit>
 #include <cstdint>
 #include <fstream>
 #include <stdexcept>
-namespace forge::animation_detail {
+namespace forge::asset_detail {
 std::vector<std::byte> read_bytes(const std::filesystem::path& path, std::size_t limit) {
     std::ifstream in(path, std::ios::binary | std::ios::ate);
     if (!in)
-        throw std::runtime_error("Cannot read animation input: " + path.string());
+        throw std::runtime_error("Cannot read asset input: " + path.string());
     auto size = in.tellg();
     if (size < 0 || static_cast<std::uint64_t>(size) > limit)
-        throw std::runtime_error("Animation input exceeds byte limit");
+        throw std::runtime_error("Asset input exceeds byte limit");
     std::vector<std::byte> result(static_cast<std::size_t>(size));
     in.seekg(0);
     if (!in.read(reinterpret_cast<char*>(result.data()), size) ||
         in.peek() != std::char_traits<char>::eof())
-        throw std::runtime_error("Animation input changed or was truncated while reading");
+        throw std::runtime_error("Asset input changed or was truncated while reading");
     return result;
 }
 // SHA-256 content identity, not authentication or a trust signature.
@@ -70,4 +70,4 @@ std::string content_digest(std::span<const std::byte> input) {
             result += hex[(value >> bit) & 15];
     return result;
 }
-} // namespace forge::animation_detail
+} // namespace forge::asset_detail

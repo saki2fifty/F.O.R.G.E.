@@ -6,6 +6,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Projects and authored content
 
+- [Navigation](editor/navigation.md): build static navmeshes and test nonphysics agents.
 - [Animation](editor/animation.md): convert glTF skeletons/clips and test Animator playback.
 - [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
 

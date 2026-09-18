@@ -9,6 +9,7 @@
 #include "game_input_tests.hpp"
 #include "help.hpp"
 #include "interaction_tests.hpp"
+#include "navigation_editor_tests.hpp"
 #include "physics_inspector.hpp"
 #include "play.hpp"
 #include "prefab_editor_tests.hpp"
@@ -308,6 +309,7 @@ int main(int argc, char** argv) {
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
         test_animation_editor();
+        test_navigation_editor();
         test_documents();
         test_prefab_editor_documents();
         test_project_settings_ui();

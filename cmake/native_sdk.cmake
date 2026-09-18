@@ -25,7 +25,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE
 file(SHA256 "${PROJECT_SOURCE_DIR}/include/forge/physics_components.hpp" FORGE_PHYSICS_ABI_HASH)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/forge/audio_components.hpp")
 file(SHA256 "${PROJECT_SOURCE_DIR}/include/forge/audio_components.hpp" FORGE_AUDIO_ABI_HASH)
-foreach(header identity.hpp assets.hpp animation_components.hpp)
+foreach(header identity.hpp assets.hpp animation_components.hpp navigation_components.hpp)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/forge/${header}")
  file(SHA256 "${PROJECT_SOURCE_DIR}/include/forge/${header}" _forge_header_hash)
  string(APPEND FORGE_AUDIO_ABI_HASH "${_forge_header_hash}")
