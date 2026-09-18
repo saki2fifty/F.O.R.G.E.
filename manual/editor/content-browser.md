@@ -24,3 +24,7 @@ The browser checks document structure, so package metadata such as build.json an
 ## Prefab assets
 
 Expand **Prefab assets** to create, instantiate, duplicate or edit reusable object groups. See [Prefabs](prefabs.md) for the full workflow. The scene list remains separate.
+
+## Runtime UI assets
+
+Use **Content → Runtime UI** to create a HUD example or register a project-relative RML document. Assign it to an entity in **Inspector → Runtime UI**. See [Runtime UI](runtime-ui.md) for the complete workflow. These asset operations are outside scene Undo.

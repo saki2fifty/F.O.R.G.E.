@@ -91,3 +91,7 @@ Ozz stays private. See [Animation](animation.md).
 ## Navigation
 
 `forge.navigation` registers NavigationSurface/NavigationAgent in schema worlds and publishes an owner-thread Navigation service in runtime worlds. RuntimeSimulation binds its scene for the service's lifetime, runs agent updates after gameplay and before physics, then releases the borrow before scene destruction. Stopping the module invalidates retained service handles. The runtime has no Recast build or editor dependency. See [Navigation](navigation.md).
+
+## Runtime UI
+
+`forge.ui` registers UiDocument through the builtin schema module and supplies a runtime-only, world-scoped UiService when explicitly composed. It produces copied values and validates semantic commands. The separate reusable RmlUi presenter owns no WorldContext and does not load gameplay code. The actual experimental SDK consumer uses allow-action, numeric publication and fixed-tick action polling, without RmlUi types. ABI1 remains unchanged. See [Runtime UI](runtime-ui.md).

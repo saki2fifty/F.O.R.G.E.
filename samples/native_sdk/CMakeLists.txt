@@ -12,3 +12,6 @@ set_target_properties(audio_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN
 add_library(animation_gameplay MODULE animation_probe.cpp)
 target_link_libraries(animation_gameplay PRIVATE ForgeNativeSdk::Flecs)
 set_target_properties(animation_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+add_library(ui_gameplay MODULE ui_probe.cpp)
+target_link_libraries(ui_gameplay PRIVATE ForgeNativeSdk::Flecs)
+set_target_properties(ui_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)

@@ -4,14 +4,15 @@
 #include <forge/audio_components.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/physics_components.hpp>
+#include <forge/ui_components.hpp>
 #include <forge/world.hpp>
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 14;
+inline constexpr std::size_t builtin_count = 15;
 using Value = std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive,
                            PhysicsBody, BoxCollider, SphereCollider, CapsuleCollider, AudioSource,
-                           AudioListener, Animator, NavigationSurface, NavigationAgent>;
+                           AudioListener, Animator, NavigationSurface, NavigationAgent, UiDocument>;
 struct Builtin {
     const char* name;
     const char* description;

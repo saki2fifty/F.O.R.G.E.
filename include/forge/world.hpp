@@ -19,9 +19,6 @@ struct Primitive {
     std::uint32_t kind = 0;
     bool operator==(const Primitive&) const = default;
 }; // Cube, sphere, cylinder, plane.
-struct StableId {
-    std::string value;
-};
 
 // Display names need not be unique Flecs symbol names.
 struct AuthoredName {
@@ -40,6 +37,7 @@ EngineModule physics_schema_module();
 EngineModule audio_schema_module();
 EngineModule animation_schema_module();
 EngineModule navigation_schema_module();
+EngineModule ui_schema_module();
 class Scene;
 class WorldContext {
   public:

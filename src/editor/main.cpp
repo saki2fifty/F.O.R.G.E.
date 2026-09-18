@@ -20,6 +20,8 @@
 #include "play.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
+#include "runtime_ui_host.hpp"
+#include "runtime_ui_tools.hpp"
 #include "scene_cache.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
@@ -213,6 +215,10 @@ int main(int argc, char** argv) {
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
         forge::Viewport viewport(device);
+        forge::RuntimeUiHost runtime_ui(window.get(), device,
+                                        std::filesystem::path(base) /
+                                            "resources/ui/LatoLatin-Regular.ttf");
+        forge::RuntimeUiTools runtime_ui_tools;
         forge::AuthoringSnapshot authoring_snapshot;
         forge::PrefabEditor prefab_editor;
         forge::PreviewSnapshot preview_snapshot;
@@ -237,6 +243,8 @@ int main(int argc, char** argv) {
                                                                  ImGuiPopupFlags_AnyPopupLevel) &&
                                 (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS));
             while (SDL_PollEvent(&event)) {
+                if (runtime_ui.event(event, game_input, play))
+                    continue;
                 if (game_input.event(event, play))
                     continue;
                 gui->HandleSDLEvent(&event);
@@ -298,6 +306,7 @@ int main(int argc, char** argv) {
                 continue;
             }
             play.pump();
+            runtime_ui.sync(play, files.document.project(), workspace.scene);
             native->simulation_hz = files.document.settings().simulation_hz();
             native->gravity = files.document.settings().physics().gravity;
             native->pump(play, authoring_snapshot.snapshot(scene));
@@ -630,6 +639,7 @@ int main(int argc, char** argv) {
                             forge::audio_inspector(scene, files.document, selected, message);
                             forge::animation_inspector(scene, files.document, selected, message);
                             forge::navigation_inspector(scene, files.document, selected, message);
+                            forge::runtime_ui_inspector(scene, files.document, selected, message);
                             if (ImGui::Button("Object actions"))
                                 ImGui::OpenPopup("##object-actions");
                             forge::ui::help("Duplicate or delete this object and its children; "
@@ -691,8 +701,10 @@ int main(int argc, char** argv) {
                                 play.active() ? "PLAY" : "EDIT");
                     forge::ui::help("Active scene. * means unsaved changes. Play uses an isolated "
                                     "copy; stop play to edit.");
-                    if (play.active())
+                    if (play.active()) {
                         game_input.controls(play);
+                        runtime_ui.controls(play);
+                    }
                     bool frame_selected = false, fit_scene = false;
                     ImGui::BeginDisabled(modal.active() || scene_tools.move.active());
                     try {
@@ -833,6 +845,9 @@ int main(int argc, char** argv) {
                             {scene_tools.grid, scene_tools.grid_step});
                         performance.scene_ms = forge::ui::Performance::milliseconds(
                             scene_submit, forge::ui::Performance::Clock::now());
+                        runtime_ui.draw(play, context, texture, image_origin, size,
+                                        unsigned(std::max(1.0f, size.x * render_scale)),
+                                        unsigned(std::max(1.0f, size.y * render_scale)));
                         ImGui::GetWindowDrawList()->AddImage(
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
                             {image_origin.x + size.x, image_origin.y + size.y});
@@ -870,6 +885,7 @@ int main(int argc, char** argv) {
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
                         animation_tools.content(files.document, edit_locked, message);
+                        runtime_ui_tools.content(files.document, edit_locked, message);
                         navigation_tools.content(scene, files.document, edit_locked, message);
                     });
                 prefab_editor.draw(scene, files.document, edit_locked);

@@ -27,6 +27,7 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_PHYSICS 8u
 #define FORGE_SDK_AUDIO 16u
 #define FORGE_SDK_NAVIGATION 32u
+#define FORGE_SDK_UI 64u
 typedef struct ForgeSdkPhysicsHitV1 {
     uint32_t size;
     char scene[37], entity[37]; /* FORGE UUIDs, never Jolt BodyID */
@@ -72,6 +73,16 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* navigation_query)(void*, const char* navmesh_uuid, uint32_t operation,
                                               const double start[3], const double end[3],
                                               ForgeSdkNavResultV1*);
+    /* Private exact-build UI bridge. No RmlUi/native callbacks cross to presentation.
+       Register an argument-free semantic action during module start. */
+    int32_t(FORGE_SDK_CALL* ui_allow_action)(void*, const char* command);
+    /* Fixed owner tick only. Publish a finite copied number for an authored entity. */
+    int32_t(FORGE_SDK_CALL* ui_publish_number)(void*, const char* entity_uuid, const char* name,
+                                               double value);
+    /* Fixed owner tick: 1 event, 0 no event/unavailable, -1 invalid. Entity buffer
+       is caller-owned and must hold at least 37 bytes. Consumes only this command. */
+    int32_t(FORGE_SDK_CALL* ui_poll_action)(void*, const char* command, char* entity_uuid,
+                                            uint32_t capacity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

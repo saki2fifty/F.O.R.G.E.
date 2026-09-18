@@ -71,3 +71,7 @@ Project simulation_hz and input map are provided at protocol2 Hello. Omitting th
 ## Physics and recovery
 
 The fixed pipeline now includes pre-physics synchronization, Jolt Update, adoption and PostPhysics before final transforms. Private physics-aware recovery restores a completed tick and resets interpolation/elapsed debt. See [Physics](physics.md).
+
+## Runtime UI presentation
+
+RmlUi uses the reusable presenter's monotonic presentation clock and can update while fixed simulation is paused. Semantic Pause/Resume/Step commands are validated in the runtime process; custom gameplay UI actions wait for the next fixed tick. No UI update cadence controls the runtime clock. See [Runtime UI](runtime-ui.md).

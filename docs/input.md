@@ -27,3 +27,7 @@ Official SDL headers at fa2c02bb6e21974a89ea9824bc53c9932abe5f9c were inspected 
 ## Internal SDK consumer
 
 Phase6A's separate exact native SDK exposes borrowed action snapshots through ActionId, alongside direct Flecs fixed-system registration. The existing ABI1 remains unchanged. See [Engine modules](engine-modules.md); the test module is transient and does not introduce engine-defined gameplay actions.
+
+## Runtime UI routing
+
+During captured Play input, Escape/F6/F7 retain editor control priority. RmlUi receives viewport mouse, keyboard, text and IME events next; gameplay receives unconsumed input. UI-owned releases remain consumed after focus changes. Capture changes and document replacement neutralize held gameplay input. The new SDL router is tested independently of Diligent against the real runtime. See [Runtime UI ownership and density](runtime-ui.md).

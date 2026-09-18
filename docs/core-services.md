@@ -60,3 +60,7 @@ Phase5.5 introduced no Apply to Prefab, general transaction framework, gameplay/
 ## Navigation capability
 
 Navigation (`32`) is an optional world-scoped weak service slot. The provider owns admitted assets and query scratch; query results are owned FORGE values. Restricted modules cannot query through an absent capability. Runtime query use requires the bound owner thread. The exact SDK exposes bounded POD results; no Detour object escapes. See [Navigation](navigation.md).
+
+## Runtime UI consumer
+
+Phase6F adds a narrowed UiService capability for copied scalar publication and semantic action polling in runtime compositions. Authoring-only/headless worlds can omit it. RmlUi/graphics ownership stays in the separate presentation host; see [Runtime UI](runtime-ui.md).

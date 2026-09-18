@@ -40,6 +40,10 @@ struct PrefabMemberRef {
     PrefabMemberId member;
     auto operator<=>(const PrefabMemberRef&) const = default;
 };
+// Canonical textual mirror used by reflected/native boundary consumers.
+struct StableId {
+    std::string value;
+};
 struct PersistentEntityId {
     EntityId value;
 };

@@ -4,6 +4,7 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <forge/runtime.hpp>
+#include <forge/runtime_ui.hpp>
 #include <iostream>
 #include <random>
 #include <thread>
@@ -30,7 +31,7 @@ int main(int argc, char** argv) {
         forge::EngineServices bootstrap_services;
         std::optional<forge::AudioConfig> audio_config;
         std::filesystem::path project_root;
-        bool explicit_hz = false, sdk_profile = false;
+        bool explicit_hz = false, sdk_profile = false, ui_enabled = false;
         std::string audio_mode;
         for (int i = 1; i < argc; ++i) {
             const std::string option = argv[i];
@@ -40,6 +41,10 @@ int main(int argc, char** argv) {
             if (option == "--sdk-project" || option == "--project") {
                 project_root = std::filesystem::u8path(value);
                 sdk_profile = option == "--sdk-project";
+            } else if (option == "--ui") {
+                if (value != "on" && value != "off")
+                    throw std::runtime_error("UI mode must be on or off");
+                ui_enabled = value == "on";
             } else if (option == "--audio") {
                 if (value != "device" && value != "offline")
                     throw std::runtime_error("Audio mode must be device or offline");
@@ -69,6 +74,8 @@ int main(int argc, char** argv) {
                                                                       : forge::AudioOutput::Device,
                                               false};
         }
+        if (ui_enabled && project_root.empty())
+            throw std::runtime_error("UI requires a project root");
         forge::PhysicsConfig physics_config =
             sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
@@ -79,12 +86,14 @@ int main(int argc, char** argv) {
             forge::RuntimeSimulation simulation;
             Runtime(forge::Module& m, std::vector<forge::EngineModule> modules,
                     forge::PhysicsConfig physics, const std::optional<forge::AudioConfig>& audio,
-                    const std::filesystem::path& project)
+                    const std::filesystem::path& project, bool ui)
                 : engine(forge::WorldRole::Runtime, false,
                          [&] {
                              modules.push_back(forge::physics_module(physics));
                              modules.push_back(forge::animation_module(project));
                              modules.push_back(forge::navigation_module(project));
+                             if (ui)
+                                 modules.push_back(forge::ui_module(project));
                              if (audio)
                                  modules.push_back(forge::audio_module(*audio));
                              return std::move(modules);
@@ -95,13 +104,15 @@ int main(int argc, char** argv) {
             }
         };
         auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config, audio_config,
-                                                 project_root);
+                                                 project_root, ui_enabled);
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
         std::random_device random;
         const std::string session = std::to_string(random()) + "-" + std::to_string(random()) +
                                     "-" + std::to_string(random()) + "-" + std::to_string(random());
-        std::uint64_t last_id = 0;
+        std::uint64_t last_id = 0, ui_generation = 1;
+        forge::ui_protocol::CommandGate ui_commands;
+        ui_commands.reset(session, ui_generation);
         bool initialized = false, quit = false, tick_failed = false;
         std::string activation = "none";
         std::uint64_t activation_generation = 0, activation_tick = 0;
@@ -204,8 +215,9 @@ int main(int argc, char** argv) {
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
-                        auto candidate = std::make_unique<Runtime>(
-                            module, sdk_modules, physics_config, audio_config, project_root);
+                        auto candidate =
+                            std::make_unique<Runtime>(module, sdk_modules, physics_config,
+                                                      audio_config, project_root, ui_enabled);
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
                         if (request.contains("recovery") && !request.at("recovery").is_null()) {
@@ -248,6 +260,7 @@ int main(int argc, char** argv) {
                         runtime.swap(
                             candidate); // Publish only a complete validated reconstruction.
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
+                        ui_commands.reset(session, ++ui_generation);
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();
@@ -267,8 +280,30 @@ int main(int argc, char** argv) {
                         runtime->simulation.input().release_all();
                         activation = "loaded_pending_first_tick";
                         ++activation_generation;
+                        ui_commands.reset(session, ++ui_generation);
                         activation_tick = 0;
                         runtime->simulation.reset_presentation();
+                    } else if (command == "ui") {
+                        if (!ui_enabled)
+                            throw std::runtime_error("Runtime UI is omitted from this composition");
+                        auto ui = std::static_pointer_cast<forge::UiRuntime>(
+                            runtime->engine.services().ui());
+                        response["ui_ack"] =
+                            ui_commands.dispatch(request.at("ui_command"), [&](const auto& cmd) {
+                                ui->command(runtime->scene, cmd, [&](const std::string& control) {
+                                    if (control == "Pause") {
+                                        runtime->simulation.audio_paused(true);
+                                        clock.pause(forge::RuntimeClock::Clock::now());
+                                    } else if (control == "Resume") {
+                                        if (clock.paused()) {
+                                            runtime->simulation.reset_presentation();
+                                            runtime->simulation.audio_paused(false);
+                                            clock.resume(forge::RuntimeClock::Clock::now());
+                                        }
+                                    } else if (control == "Step")
+                                        clock.step(tick);
+                                });
+                            });
                     } else if (command == "save")
                         runtime->scene.save(request.at("path").get<std::string>());
                     else if (command == "quit") {
@@ -294,6 +329,11 @@ int main(int argc, char** argv) {
                     response["effective_scene"] = runtime->simulation.presentation(clock.alpha());
                     response["schema"] = runtime->scene.schema();
                     response["input"] = runtime->simulation.input_status();
+                    if (ui_enabled)
+                        response["ui"] = std::static_pointer_cast<forge::UiRuntime>(
+                                             runtime->engine.services().ui())
+                                             ->snapshot(runtime->scene, session, ui_generation,
+                                                        clock.tick(), clock.paused());
                     response["diagnostics"] = runtime->engine.services().diagnostics();
                 } catch (const std::exception& error) {
                     response["ok"] = false;

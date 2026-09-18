@@ -51,3 +51,7 @@ Focus loss, capture release, device disconnect and play-process restart neutrali
 Input queues are bounded. Overflow releases controls and reports a message rather than replaying an unlimited backlog. This is live local input delivery, not deterministic replay or networking.
 
 See also [Project settings](project-settings.md), [Play mode](play-mode.md), and [Keyboard shortcuts](shortcuts.md).
+
+## Game HUD input
+
+[Runtime UI](runtime-ui.md) receives captured Play input before gameplay actions. Typing in a HUD field should not move the player. Escape releases capture; F6 and F7 remain available. UI capture clears held gameplay controls; release/repress keys when returning to gameplay.

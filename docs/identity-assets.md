@@ -41,3 +41,7 @@ second database, generic AssetHandle or full importer/cooker. See [Animation](an
 ## NavMesh assets
 
 `AssetRef<NavMeshAsset>` uses expected type `navmesh`. Rebuilding a scene's logical navmesh retains its AssetId while selecting a new immutable artifact path. Provenance binds it to the source scene AssetId, included EntityIds, geometry/settings and exact library/subset. Candidate publication verifies current source/catalog state; a failed build never selects partial data. A duplicated logical scene needs a new navmesh built for its own identity. Runtime paths and polygon refs have no persistent identity. See [Navigation](navigation.md).
+
+## Runtime UI assets
+
+A schema-1 `ui_document` catalog record gives RML a durable AssetId. UiDocument stores its typed reference plus enabled/visible/layer. Supporting RCSS/fonts/TGA use bounded project-contained locators; they are not a generic texture/font asset pipeline. DOM instances and command generations are transient. See [Runtime UI](runtime-ui.md).

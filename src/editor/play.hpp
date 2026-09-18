@@ -28,6 +28,17 @@ class PlaySession {
     }
     const Json& timing() const { return timing_; }
     const Json& input_status() const { return input_status_; }
+    const Json& ui_snapshot() const { return ui_snapshot_; }
+    const Json& ui_ack() const { return ui_ack_; }
+    bool submit_ui(const Json& command) {
+        if (!ready() || !ui_command_.is_null() || transaction_)
+            return false;
+        if (command.value("session", "") != session_ || ui_snapshot_.is_null() ||
+            command.at("generation") != ui_snapshot_.at("generation"))
+            return false;
+        ui_command_ = command;
+        return true;
+    }
     void configure(double hz, InputMap map, Double3 gravity = {0, -9.81, 0},
                    std::filesystem::path project = {}) {
         if (active())
@@ -199,6 +210,14 @@ class PlaySession {
                 effective_ = response.at("effective_scene");
                 timing_ = response.at("timing");
                 input_status_ = response.value("input", Json::object());
+                auto next_ui = response.value("ui", Json());
+                if (!next_ui.is_null() && !ui_snapshot_.is_null() &&
+                    next_ui.at("generation") != ui_snapshot_.at("generation"))
+                    ui_command_ = ui_ack_ =
+                        nullptr; // Old queued requests cannot cross replacement.
+                ui_snapshot_ = std::move(next_ui);
+                if (response.contains("ui_ack"))
+                    ui_ack_ = response.at("ui_ack");
                 ++snapshot_version_;
                 if (stage_ == Stage::Hello) {
                     stage_ = Stage::Replace;
@@ -268,6 +287,10 @@ class PlaySession {
                     const auto command = control_;
                     control_.clear();
                     send({{"command", command}});
+                } else if (!ui_command_.is_null()) {
+                    auto command = std::move(ui_command_);
+                    ui_command_ = nullptr;
+                    send({{"command", "ui"}, {"ui_command", std::move(command)}});
                 } else if (!probe_ && SDL_GetTicks() - sent_at_ >= 8)
                     send({{"command", "snapshot"}});
             }
@@ -307,6 +330,7 @@ class PlaySession {
         incoming_.clear();
         control_.clear();
         session_.clear();
+        ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
         waiting_ = false;
     }
     void begin_running() {
@@ -339,6 +363,10 @@ class PlaySession {
             args.push_back(audio_project_.c_str());
             args.push_back("--audio");
             args.push_back(probe_ ? "offline" : "device");
+            if (!probe_) {
+                args.push_back("--ui");
+                args.push_back("on");
+            }
         }
         args.push_back(nullptr);
         log_.clear();
@@ -389,6 +417,7 @@ class PlaySession {
     Json recovery_, initial_recovery_, checkpoint_recovery_;
     double simulation_hz_ = 60;
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
+    Json ui_snapshot_, ui_ack_, ui_command_;
     std::vector<InputEvent> input_events_;
     SDL_Process* process_ = nullptr;
     Stage stage_ = Stage::Hello;

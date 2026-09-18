@@ -4,7 +4,12 @@
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, NavigationSurface>)
+    if constexpr (std::is_same_v<T, UiDocument>)
+        return {{"document", p.document.id ? Json(p.document.id) : Json()},
+                {"enabled", p.enabled},
+                {"visible", p.visible},
+                {"layer", p.layer}};
+    else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationAgent>)
         return {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
@@ -54,7 +59,15 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, NavigationSurface>)
+    if constexpr (std::is_same_v<T, UiDocument>) {
+        UiDocument v;
+        if (!p.at("document").is_null())
+            v.document.id = p.at("document").get<AssetId>();
+        v.enabled = p.at("enabled");
+        v.visible = p.at("visible");
+        v.layer = p.at("layer");
+        return v;
+    } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         NavigationAgent a;
@@ -156,6 +169,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 std::string("LocalTranslation along the ") + axis + " axis in world units.";
             c.lookup(axis).set_doc_brief(text.c_str());
         }
+    } else if constexpr (std::is_same_v<T, UiDocument>) {
+        register_asset_ref<UiDocumentAsset>(w, "forge.ui_document_ref");
+        c.template member<AssetRef<UiDocumentAsset>>("document")
+            .template member<bool>("enabled")
+            .template member<bool>("visible")
+            .template member<std::uint32_t>("layer");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
@@ -291,9 +310,13 @@ const std::array<Builtin, builtin_count>& builtins() {
             }),
         descriptor<NavigationAgent>(
             "forge.navigation_agent", "Fixed-tick path following for nonphysics entities",
-            "unitless", {}, {}, [](flecs::world& w) {
+            "unitless", {}, {},
+            [](flecs::world& w) {
                 return register_type<NavigationAgent>(w, "forge.navigation_agent");
-            })};
+            }),
+        descriptor<UiDocument>(
+            "forge.ui_document", "Runtime UI document displayed during Play", "unitless", {}, {},
+            [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); })};
     return types;
 }
 Json field_options(const Builtin& type, const std::string& field) {
@@ -376,6 +399,19 @@ Json field_options(const Builtin& type, const std::string& field) {
                                        ? "Repeat the clip at its duration"
                                        : "Begin playback when this Animator is realized";
     }
+    if (name == "forge.ui_document") {
+        if (field == "document") {
+            value["asset_type"] = UiDocumentAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Registered RML document identity";
+        } else if (field == "layer") {
+            value["minimum"] = 0;
+            value["maximum"] = 255;
+            value["description"] = "Higher layers draw above lower layers";
+        } else
+            value["description"] = field == "enabled" ? "Load this document during Play"
+                                                      : "Show this document during Play";
+    }
     if (name == "forge.navigation_agent") {
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;
@@ -456,9 +492,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
-        const unsigned category = name.starts_with("forge.navigation_") ? 4u
-                                  : name == "forge.animator"            ? 3u
-                                  : name.starts_with("forge.audio_")    ? 2u
+        const unsigned category = name == "forge.ui_document"             ? 5u
+                                  : name.starts_with("forge.navigation_") ? 4u
+                                  : name == "forge.animator"              ? 3u
+                                  : name.starts_with("forge.audio_")      ? 2u
                                   : (name == "forge.physics_body" || name.ends_with("_collider"))
                                       ? 1u
                                       : 0u;

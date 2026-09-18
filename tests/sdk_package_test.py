@@ -61,4 +61,5 @@ subprocess.run([sys.executable,str(Path(__file__).with_name('animation_process_t
 (stage/'trace.txt').unlink();shutil.rmtree(project)
 
 # Preserve executable modes and Linux SONAME symlinks through artifact transport.
+subprocess.run([sys.executable,str(Path(__file__).with_name('ui_process_test.py')),str(runtime),str(client/('ui_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=40)
 shutil.make_archive(str(build/'experimental-native-sdk'), 'gztar', root_dir=stage)

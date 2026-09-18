@@ -67,7 +67,8 @@ inline bool audio_field(const std::filesystem::path& root, const Json& field, Js
     const std::string key = field.at("id");
     if (field.at("type") == "asset_ref")
         return asset_ref_picker(root, value, field.at("asset_type"),
-                                field.at("asset_type") == "navmesh"          ? "NavMesh"
+                                field.at("asset_type") == "ui_document"      ? "UI document"
+                                : field.at("asset_type") == "navmesh"        ? "NavMesh"
                                 : field.at("asset_type") == "skeleton"       ? "Skeleton"
                                 : field.at("asset_type") == "animation_clip" ? "Animation clip"
                                                                              : "Audio clip");

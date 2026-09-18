@@ -18,7 +18,7 @@ namespace forge {
 namespace {
 const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
                                      "forge.input",     "forge.physics",    "forge.audio",
-                                     "forge.animation", "forge.navigation"};
+                                     "forge.animation", "forge.navigation", "forge.ui"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
@@ -58,6 +58,50 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.ui_allow_action = [](void* p, const char* name) -> int32_t {
+            try {
+                if (!p)
+                    return 0;
+                static_cast<Bridge*>(p)->context.services.ui()->allow_action(bounded(name, 64));
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.ui_publish_number = [](void* p, const char* entity, const char* name,
+                                    double value) -> int32_t {
+            try {
+                if (!p)
+                    return 0;
+                auto& c = static_cast<Bridge*>(p)->context;
+                if (!c.input)
+                    return 0;
+                c.services.ui()->publish(EntityId::parse(bounded(entity, 36)), bounded(name, 64),
+                                         value);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.ui_poll_action = [](void* p, const char* name, char* entity,
+                                 uint32_t capacity) -> int32_t {
+            try {
+                if (!p || !entity || capacity < 37)
+                    return -1;
+                entity[0] = 0;
+                auto& c = static_cast<Bridge*>(p)->context;
+                if (!c.input || !c.services.available(Capability::Ui))
+                    return 0;
+                auto action = c.services.ui()->poll_action(bounded(name, 64));
+                if (!action)
+                    return 0;
+                const auto id = action->entity.str();
+                std::memcpy(entity, id.c_str(), 37);
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.navigation_query = [](void* p, const char* asset, uint32_t operation,
                                    const double* start, const double* end,
                                    ForgeSdkNavResultV1* out) -> int32_t {
@@ -295,7 +339,8 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             }
         };
         result.start = [api](ModuleContext& c) {
-            for (auto cap : {Capability::Physics, Capability::Audio, Capability::Navigation})
+            for (auto cap :
+                 {Capability::Physics, Capability::Audio, Capability::Navigation, Capability::Ui})
                 if (c.services.available(cap))
                     static_cast<Bridge*>(c.state.get())->host.capabilities |= capability(cap);
             char error[1024]{};

@@ -65,7 +65,7 @@ EngineServices::~EngineServices() { state_->alive = false; }
 ServiceAccess EngineServices::access(unsigned allowed) const {
     ServiceAccess a;
     a.state_ = state_;
-    a.allowed_ = allowed & 59;
+    a.allowed_ = allowed & 123;
     return a;
 }
 ServiceAccess ServiceAccess::world_scope() const {
@@ -73,6 +73,7 @@ ServiceAccess ServiceAccess::world_scope() const {
     result.physics_ = std::make_shared<detail::PhysicsSlot>();
     result.audio_ = std::make_shared<detail::AudioSlot>();
     result.navigation_ = std::make_shared<detail::NavigationSlot>();
+    result.ui_ = std::make_shared<detail::UiSlot>();
     return result;
 }
 void ServiceAccess::publish_audio(const std::shared_ptr<AudioService>& service) const {
@@ -105,6 +106,21 @@ std::shared_ptr<NavigationService> ServiceAccess::navigation() const {
     require(Capability::Navigation);
     return navigation_->service.lock();
 }
+void ServiceAccess::publish_ui(const std::shared_ptr<UiService>& service) const {
+    auto state = state_.lock();
+    if (!state || !(allowed_ & capability(Capability::Ui)))
+        throw std::runtime_error("Ui publication requires owner capability");
+    state->check();
+    if (!ui_)
+        throw std::logic_error("Ui requires world-scoped slot");
+    if (!ui_->service.expired() && service)
+        throw std::logic_error("Ui provider already installed");
+    ui_->service = service;
+}
+std::shared_ptr<UiService> ServiceAccess::ui() const {
+    require(Capability::Ui);
+    return ui_->service.lock();
+}
 void ServiceAccess::publish_physics(const std::shared_ptr<PhysicsService>& service) const {
     auto state = state_.lock();
     if (!state || !(allowed_ & capability(Capability::Physics)))
@@ -125,7 +141,8 @@ bool ServiceAccess::available(Capability c) const {
     return (allowed_ & capability(c)) && state && state->alive &&
            (c != Capability::Physics || (physics_ && !physics_->service.expired())) &&
            (c != Capability::Audio || (audio_ && !audio_->service.expired())) &&
-           (c != Capability::Navigation || (navigation_ && !navigation_->service.expired()));
+           (c != Capability::Navigation || (navigation_ && !navigation_->service.expired())) &&
+           (c != Capability::Ui || (ui_ && !ui_->service.expired()));
 }
 void ServiceAccess::require(Capability c) const {
     if (!available(c))

@@ -40,14 +40,14 @@ def package(build, dependencies, output):
         check_pe64(image)
     converter = build/'tools/gltf2ozz.exe'
     check_pe64(converter)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src', 'ozz-src', 'recast-src')
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src')
     notices = []
     for name in source_names:
         source = dependencies/name
         if not source.is_dir():
             raise ValueError(f'Dependency sources required for notices: {source}')
         matches = [p for p in source.rglob('*') if p.is_file() and '.git' not in p.parts
-                   and ('license' in p.name.lower() or p.name.lower().startswith('copying'))]
+                   and ('license' in p.name.lower() or p.name.lower().startswith('copying') or p.name.lower() == 'ftl.txt')]
         if not matches:
             raise ValueError(f'No license notice found in {source}')
         notices.extend((p, 'licenses/'+name+'/'+p.relative_to(source).as_posix()) for p in matches)
@@ -56,6 +56,9 @@ def package(build, dependencies, output):
     manifest['files']['tools/gltf2ozz.exe'] = hashlib.sha256(converter.read_bytes()).hexdigest()
     source = Path(__file__).resolve().parents[1]
     notices.append((source/'docs/licenses/ozz-converter.txt', 'licenses/ozz-converter.txt'))
+    ui_resources = sorted(p for p in (source/'resources/ui').rglob('*') if p.is_file())
+    for resource in ui_resources:
+        manifest['files']['resources/ui/'+resource.name] = hashlib.sha256(resource.read_bytes()).hexdigest()
     manual_output = build/'manual'
     # Render from current sources; stale removed pages cannot leak from a cached build.
     import shutil
@@ -84,6 +87,8 @@ def package(build, dependencies, output):
     os.close(fd)
     try:
         with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+            for resource in ui_resources:
+                archive.write(resource, 'resources/ui/'+resource.name)
             archive.write(converter, 'tools/gltf2ozz.exe')
             archive.write(animation_source, 'Examples/Animation/two-joints.gltf')
             for image in images:

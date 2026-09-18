@@ -40,3 +40,23 @@ Verified ZIP CRC, all manifest hashes, exact source/build identity, five x64 pro
 Manual acceptance: [Navigation](../../manual/editor/navigation.md) provides floor/obstacle generation, agent destination, Play/Pause/Step/Resume, save/reopen and prefab override/Revert. No C++ editing required. This is basic nonphysics following, with no dynamic obstacles or crowd avoidance. **Phase6E complete; STOP before Phase6F.**
 
 Build50 found no compatible editor cache and rebuilt from scratch, then saved the verified cache for later compatible iterations.
+
+## Phase 6F — runtime UI
+
+- Added pinned RmlUi 6.3 and FreeType 2.14.3, licensed engine Lato font, reusable ImGui-free presenter and Diligent geometry/texture/scissor/transform/stencil adapter.
+- Added reflected UiDocument assets/components, runtime-only UiService, bounded copied models, semantic commands with session/generation/incarnation correlation, acknowledgements and duplicate suppression.
+- Preserved runtime gameplay isolation and headless presentation-free linkage. UI presentation remains responsive while paused; gameplay command processing obeys fixed ticks.
+- Added project-contained resource admission and candidate reload with initial geometry/texture preparation; failed replacements preserve the prior usable HUD.
+- Added Content HUD creation/registration, Inspector asset/visibility/layer editing, Play reload, explicit input ownership and release/focus handling. Added the Runtime UI user manual and technical dependency/ownership docs.
+- Added runtime/presenter/process/SDK/prefab/input tests and separate D3D12 UI fixtures. Final local normal suites: core30/30, exact SDK38/38, editor/input3/3. UI/core/presenter checks pass with ASan/UBSan/leak instrumentation; full sanitizer suites and the converter-override retest are recorded in validation evidence. Windows verification is pending; no Windows delivery claim yet. Phase 6G remains outside this change.
+
+### UI integration validation corrections
+
+- Candidate first-render preparation catches lazy image/font/geometry failures before publication; failed structural candidates wait for explicit retry instead of reparsing every frame.
+- Keep command sequencing across hidden viewport/empty document intervals; clear queued stale requests on native-reload generation changes. Added a real editor-process reload-order regression.
+- Use RmlUi6.3's actual project-root font-source path policy and quoted @font-face syntax; include UiDocument in the installed experimental SDK and build/run its consumer. Relocate the unchanged StableId declaration into the identity header for that consumer.
+- Apply the existing unsanitized converter override to animation-admission fixture generation too. Strict UBSan flags exposed Ozz0.17.0's zero-byte file-write call with a null pointer in the converter. FORGE admission and Ozz runtime remain instrumented; no upstream suppression or dependency change is introduced.
+
+### Final local Phase6F validation
+
+Core30/30, shared exact SDK38/38, editor/input3/3 passed. Static sanitizer29 + corrected admission1 and shared sanitizer36 + corrected admission1 passed with ASan/UBSan/leak checks. RmlUi and FreeType are instrumented. Manual3, C17 headers, format/workflow/cache checks and headless/presenter link separation passed. Windows/D3D12 execution remains the next gate.

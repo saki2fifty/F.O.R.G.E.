@@ -1,3 +1,7 @@
+# Phase 6F current increment
+
+Runtime UI source integration adds RmlUi/FreeType, a reusable Diligent presenter, UiDocument authoring, copied runtime models and semantic commands, HUD creation and reload. Core30/SDK38/editor3 pass locally; all30 static/37 shared sanitizer checks pass after the converter-fixture override correction. Windows delivery verification is pending. See [Runtime UI](runtime-ui.md) and its [manual](../manual/editor/runtime-ui.md). No Phase6G work is included. Earlier chronological entries below describe their historical checkpoints.
+
 # Implementation status
 
 ## Phase 6E — verified navigation foundation

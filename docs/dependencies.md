@@ -4,6 +4,8 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
+| FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation and private Detour queries | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
@@ -18,7 +20,7 @@ Ozz, Jolt, Flecs, JSON and ImGui use MIT; miniaudio uses its MIT-0 option; SDL u
 
 Build tooling: CMake presets, Ninja incremental targets, Python 3.10+ subprocess/path tooling, MSVC for Windows and GCC for portable tests. Formatting uses clang-format 23.1.1. GitHub Actions uses pinned checkout/setup actions and an explicit Windows compiler environment. Tool versions and host SDK versions should be recorded with release evidence.
 
-Future selections (not fetched or integrated): GLM, RmlUi, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
+Future selections (not fetched or integrated): GLM, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
 
 Flecs 4.1.6 compatibility: LocalTranslation registration explicitly requests member entities for attached documentation. Other reflected fields use `EcsStruct` member data. Phase5 adopts `Parent` for validated structured prefab interiors and retains dynamic `ChildOf` attachments and component-granular inheritance. Automatic C++ reflection and callback-update APIs remain deferred. Phase3 independent local TRS and derived world transforms remain the spatial authority.
 
@@ -28,7 +30,7 @@ ImGui 1.92.9b compatibility: the editor explicitly keeps the legacy bitmap face 
 
 CI uses CMake **4.4.3**, Ninja **1.13.2**, Ninja generator, Windows Server 2022 runners and explicitly selects Visual Studio 2022 MSVC **14.44.35207** / Windows SDK **10.0.26100.0**. The editor uses the static MSVC runtime (`MultiThreaded`). CMake 3.30 is the project minimum, not the CI version. C++20 and C17 remain required. Hosted images and compiler servicing are not immutable; `ci_cache_key.py` fingerprints actual tools/SDK/image and invalidates incompatible caches. An unavailable selected toolset should fail instead of silently changing compiler families.
 
-Official release review found Flecs 4.1.6, SDL 3.4.16, ImGui 1.92.9b, JSON 3.12.0, CMake 4.4.3 and Ninja 1.13.2 current stable. ImGui uses the corresponding exact docking tag, following the [upstream docking guidance](https://github.com/ocornut/imgui/wiki/Docking). Newer maintenance releases on older CMake branches do not supersede 4.4.3. At that modernization checkpoint, the planned subsystem libraries were unintegrated. Jolt, miniaudio and Ozz were subsequently added in Phase6B/6C/6D below; navigation/game UI remain deferred.
+Official release review found Flecs 4.1.6, SDL 3.4.16, ImGui 1.92.9b, JSON 3.12.0, CMake 4.4.3 and Ninja 1.13.2 current stable. ImGui uses the corresponding exact docking tag, following the [upstream docking guidance](https://github.com/ocornut/imgui/wiki/Docking). Newer maintenance releases on older CMake branches do not supersede 4.4.3. At that modernization checkpoint, the planned subsystem libraries were unintegrated. Jolt, miniaudio and Ozz were subsequently added in Phase6B/6C/6D below; navigation/game UI were subsequently added in Phase 6E/6F.
 
 [Visual Studio 2026 release notes](https://learn.microsoft.com/en-us/visualstudio/releases/2026/release-notes) list 18.10.1. [MSVC versioning](https://learn.microsoft.com/en-us/cpp/overview/compiler-versions) lists 14.51 supported and 14.52 preview; 14.44 remains supported. The [Windows SDK](https://learn.microsoft.com/en-us/windows/apps/windows-sdk/downloads) offers 10.0.28000.2705 (and serviced 26100 releases). Retain the tested VS2022/26100 build baseline: no currently implemented FORGE API requires the newer compiler/SDK. Build SDK selection is **not** a minimum client Windows version. This pass changes neither OS feature targeting nor runtime requirements; a minimum client OS/driver matrix remains unverified and must be established before claiming support.
 
@@ -77,3 +79,9 @@ format limits, ownership, conversion settings, compatibility and upgrade gates.
 ## Navigation adoption (Phase 6E)
 
 Recast and Detour use the zlib license. FORGE compiles their source libraries privately; Crowd, TileCache, DebugUtils and the SDL2/OpenGL demo are disabled. Runtime links Detour; Recast is authoring worker code. See [Navigation](navigation.md) for formats, ownership, bounds, source provenance and deferred features.
+
+## Runtime UI adoption (Phase 6F)
+
+RmlUi 6.3 is the audited stable release (2026-08-22); FreeType 2.14.3 is the selected current font backend. The exact commits above are used together. RmlUi uses MIT, FreeType its FTL option, and packaged Lato Latin uses SIL OFL 1.1. Preserve all three notices. FreeType zlib/bzip2/PNG/HarfBuzz/Brotli dependencies are disabled. RmlUi Lua, SVG, Lottie, samples and optional shaping are disabled; the upstream debugger library may build but is not linked into FORGE. C++17 upstream is compatible with FORGE C++20.
+
+See [Runtime UI](runtime-ui.md) for adopted vs deferred features, source references, memory limits, thread/ownership and lifetime rules. The renderer target and presenter are independent of ImGui; the headless runtime does not link either. Existing world rendering and all dependency pins outside these two additions remain unchanged.
