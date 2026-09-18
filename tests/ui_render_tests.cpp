@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
         require(device && context, "Diligent device attachment failed");
 
         forge::UiDiligentRenderer renderer(device);
-        auto& r = renderer.interface();
+        auto& r = renderer.render_interface();
         TextureDesc desc;
         desc.Name = "UI fixture target";
         desc.Type = RESOURCE_DIM_TEX_2D;

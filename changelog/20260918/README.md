@@ -60,3 +60,7 @@ Build50 found no compatible editor cache and rebuilt from scratch, then saved th
 ### Final local Phase6F validation
 
 Core30/30, shared exact SDK38/38, editor/input3/3 passed. Static sanitizer29 + corrected admission1 and shared sanitizer36 + corrected admission1 passed with ASan/UBSan/leak checks. RmlUi and FreeType are instrumented. Manual3, C17 headers, format/workflow/cache checks and headless/presenter link separation passed. Windows/D3D12 execution remains the next gate.
+
+### Windows renderer naming correction
+
+Build51 is withheld. All four Windows/Linux core and SDK jobs and the editor process-controller tests passed. The editor compilation caught Windows' `interface` macro expanding a new renderer method name. Renamed that private accessor to `render_interface`; Linux syntax checks also define the Windows macro to cover this collision. A new numbered Windows build will verify the correction; no scene/ABI1/rendering behavior change.

@@ -89,7 +89,7 @@ class RuntimeUiHost {
                 };
                 platform.deactivate_text = [this] { SDL_StopTextInput(window_); };
                 presenter_ = std::make_unique<UiPresenter>(
-                    renderer_->interface(), project_,
+                    renderer_->render_interface(), project_,
                     asset_detail::read_bytes(font_, 4 * 1024 * 1024), std::move(platform), &ime_);
                 presenter_->reset(session_, generation_);
                 submitted_ = 0;

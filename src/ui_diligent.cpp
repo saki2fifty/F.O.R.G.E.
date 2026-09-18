@@ -308,7 +308,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0):SV_TAR
 };
 UiDiligentRenderer::UiDiligentRenderer(IRenderDevice* d) : impl_(std::make_unique<Impl>(d)) {}
 UiDiligentRenderer::~UiDiligentRenderer() = default;
-Rml::RenderInterface& UiDiligentRenderer::interface() { return *impl_; }
+Rml::RenderInterface& UiDiligentRenderer::render_interface() { return *impl_; }
 void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned w, unsigned h) {
     auto& s = *impl_;
     if (!c || !color || !w || !h || w > 8192 || h > 8192)

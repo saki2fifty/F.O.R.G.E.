@@ -15,7 +15,7 @@ class UiDiligentRenderer {
     ~UiDiligentRenderer();
     UiDiligentRenderer(const UiDiligentRenderer&) = delete;
     UiDiligentRenderer& operator=(const UiDiligentRenderer&) = delete;
-    Rml::RenderInterface& interface();
+    Rml::RenderInterface& render_interface();
     void begin(Diligent::IDeviceContext*, Diligent::ITextureView* color, unsigned width,
                unsigned height);
     void end();
