@@ -1,4 +1,16 @@
-# Phase 6F current increment
+# Phase 6 complete — final consolidation
+
+**Build 260918-000054** completes Phase6G and the authorized final Phase6 work package. Packaged source: `991aca3447e148cdbb903331eaf820d101674371`; [clean Windows/Linux validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35348388494). Read the [extension author guide](extension-guide.md) and [contract inventory](extension-contracts.md).
+
+Built-in modules, trusted exact-version gameplay modules and the constrained ABI1 path now have documented ownership, live capability/version discovery, checked service access, installed UUID value helpers and a combined sample. No scene/identity/ABI1 change or editor redesign. AssetHandle and a broadly stable plugin ABI remain deferred.
+
+Clean Windows/Linux static **32/32** and exact SDK **41/41** passed, including installed/relocated consumers. Windows editor controllers **2/2** and remaining runtime/input/render suites **32/32** passed with actual D3D12 WARP and four shader builds. Local ASan/UBSan/LeakSanitizer suites passed **32/32** static and **40/40** shared; portable editor/input **3/3** passed. Bounded conversion/navigation subprocesses retain their established unsanitized-worker override; host/admission/runtime tests are instrumented.
+
+All **29 viewport and 9 UI fixtures are byte-identical** to Build53. Relocated UI/navigation/converter packages passed; all **180 Windows package hashes**, **95 notices**, **31 synchronized manual pages**, x64 binaries and SDK manifests (**237 Linux / 246 Windows files**, plus Linux SONAME links) were verified. Package SHA256: `2b99b4a6e228cb0a811c95917413e41c992c4edd11221c2484f7cffd19a41cb0`. Physical GPU/DPI/IME acceptance remains distinct from CI evidence.
+
+**STOP before Phase7.** This is the completed Phase6 foundation, not a finished editor or standalone visual game exporter. Earlier entries below are historical checkpoints.
+
+## Phase 6F historical delivery
 
 Phase6F is implemented and verified in **Build 260918-000053**, source `a4131578468972663346c832532bfb0ca1e6b541`, [Windows/Linux run35311619027](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35311619027). Runtime UI adds RmlUi/FreeType, a reusable ImGui-free Diligent presenter, UiDocument authoring, copied runtime models, semantic commands, HUD creation and safe reload. See [Runtime UI](runtime-ui.md) and its [manual](../manual/editor/runtime-ui.md).
 

@@ -79,7 +79,7 @@ The editor had no compatible cache and rebuilt from scratch; this successful run
 Manual acceptance: [Runtime UI](../../manual/editor/runtime-ui.md): create HUD example, assign UI Document, Play/capture input, Pause/type/Step/Resume, resize, save/reopen and prefab visibility/Revert. No C++ edits required. Physical GPU, mixed-DPI and IME desktop acceptance remains pending. **Phase6F complete; STOP before Phase6G.**
 
 
-## Phase6G — final SDK consolidation and integration (in progress)
+## Phase6G — final SDK consolidation and integration
 
 - Classified core/source, exact SDK, built-in/private, implementation and ABI1 contracts; added extension author guide and explicit process/thread/fixed-clock/recovery ownership maps.
 - Added live exact-SDK capability/version/callability queries, retained the startup bitmap for rebuilt clients, checked callback context/owner thread, named navigation statuses, and exposed bounded module CPU samples through the existing profiler. ABI1 and persistent schemas/identities are unchanged.
@@ -87,4 +87,14 @@ Manual acceptance: [Runtime UI](../../manual/editor/runtime-ui.md): create HUD e
 - Consolidated repeated typed service-slot publication checks; added retained-UI owner-thread checks and UI model/command profiling scopes.
 - Added one combined gameplay sample, live optional-provider/lifecycle regression coverage and cross-subsystem pause/step/recovery integration. Added installed-package mismatch rejection and combined relocated consumer coverage.
 - Package manifests now cover licenses and generated launch/readme files; the exact SDK archive includes regular-file hashes and contained symlink identities. Link-boundary checks prove the headless runtime excludes presentation/editor libraries.
-- Focused SDK/services/UI and combined integration passed. All29 affected regressions passed after fixing installed-test compiler selection, including the relocated SDK consumer. Format, manual3, cache invalidation and workflow lint passed. Final clean Phase6 matrix/delivery is in progress; no intermediate official package. Stop before Phase7.
+- Focused SDK/services/UI and combined integration passed. All29 affected regressions passed after fixing installed-test compiler selection, including the relocated SDK consumer. Format, manual3, cache invalidation and workflow lint passed. Final clean Phase6 results are recorded below; no intermediate official package. Stop before Phase7.
+
+### Final Phase6 delivery — Build260918-000054
+
+Packaged source `991aca3447e148cdbb903331eaf820d101674371`, [clean run35348388494](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35348388494), passed all jobs. Clean Windows/Linux static **32/32** and exact SDK **41/41**, installed/relocated consumers, Windows editor controllers **2/2**, remaining runtime/input/render checks **32/32**, four shader builds and actual D3D12 WARP passed. All **29 viewport and 9 UI fixtures match Build53 byte-for-byte**.
+
+Fresh local static32/shared41, ASan+UBSan+LeakSanitizer static32/shared40 and portable editor/input3 passed. The sanitizer build environment needed the matching GCC12 runtime path for an upstream post-build utility; corrected before testing. No product fix or sanitizer suppression. Bounded converter/navigation worker overrides remain as documented; the instrumented host/admission/runtime still validates corrupt assets and recovery. Format, C17 boundary, manual3, workflow lint and cache checks passed.
+
+Relocated packaged UI/font, navigation worker and official gltf2ozz passed with developer PATH removed. Verified ZIP CRC, reserved source/build, **180 manifest hashes**, **95 license/notices**, five x64 executables/four DLLs, **31 unchanged manual pages** with the new build identity, and both SDK archives (**237 Linux / 246 Windows regular-file hashes**, two Linux SONAME symlinks). SHA256: `2b99b4a6e228cb0a811c95917413e41c992c4edd11221c2484f7cffd19a41cb0`.
+
+One final numbered package delivered. Build53 archived; packages contains only Build54 ZIP and current extracted editor. No intermediate Phase6G package. This documentation-only follow-up records validation without changing the packaged source/binaries/manual or rerunning the matrix. No new editor controls; desktop GPU/DPI/IME behavior still requires real-machine acceptance. **Phase6 complete; STOP before Phase7.**
