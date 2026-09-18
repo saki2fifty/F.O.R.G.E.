@@ -13,18 +13,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
     w.system<const forge::NavigationAgent>()
         .kind(h->fixed_phase)
         .each([h](flecs::entity, const forge::NavigationAgent& a) {
-            flecs::world world(h->world);
-            auto type = world.lookup("forge.navmesh_ref");
-            if (!type) {
-                h->diagnostic(h->context, 3, "Navigation AssetRef schema missing");
-                return;
-            }
-            auto encoded = world.to_json(type.id(), &a.navmesh);
-            if (!encoded.c_str()) {
-                h->diagnostic(h->context, 3, "Navigation AssetRef serialization failed");
-                return;
-            }
-            const auto id = nlohmann::json::parse(encoded.c_str()).get<std::string>();
+            const auto id = a.navmesh.id.str();
             double start[3]{-8, .1, 0}, end[3]{8, .1, 0}, points[192]{};
             ForgeSdkNavResultV1 out{sizeof(out), 0, 0, 64, points};
             bool ok = (h->capabilities & FORGE_SDK_NAVIGATION) &&

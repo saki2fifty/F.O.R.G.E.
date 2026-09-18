@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include <cmath>
 #include <forge/animation.hpp>
+#include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <set>
 namespace forge {

@@ -194,6 +194,9 @@ static void service_tests() {
         auto access = owner.access();
         expired = access;
         access.require(Capability::Diagnostics);
+        check(!access.available(static_cast<Capability>(3)) &&
+                  !access.available(static_cast<Capability>(128)),
+              "Invalid service capability accepted");
         check(!access.restricted(1).available(Capability::Profiling), "Optional capability leaked");
         reject([&] { access.restricted(0).require(Capability::Diagnostics); });
         Diagnostic diagnostic{Severity::Error, "assets", "Missing asset", {}};
@@ -207,8 +210,9 @@ static void service_tests() {
         reject([&] { fail_invariant(access, "test invariant"); });
         check(access.diagnostics().back()["severity"] == "fatal",
               "Invariant lacked fatal diagnostic");
-        bool wrong_thread = false;
+        bool wrong_thread = false, foreign_available = true;
         std::thread worker([&] {
+            foreign_available = access.available(Capability::Diagnostics);
             try {
                 access.emit(diagnostic);
             } catch (...) {
@@ -216,6 +220,7 @@ static void service_tests() {
             }
         });
         worker.join();
+        check(!foreign_available, "Foreign-thread availability leaked");
         check(wrong_thread, "Worker accessed owner-thread service");
         {
             auto outer = access.profile("test", "outer", 3);

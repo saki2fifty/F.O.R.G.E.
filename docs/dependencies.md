@@ -87,3 +87,5 @@ RmlUi 6.3 is the audited stable release (2026-08-22); FreeType 2.14.3 is the sel
 See [Runtime UI](runtime-ui.md) for adopted vs deferred features, source references, memory limits, thread/ownership and lifetime rules. The renderer target and presenter are independent of ImGui; the headless runtime does not link either. Existing world rendering and all dependency pins outside these two additions remain unchanged.
 
 Runtime UI pins are verified together in Build260918-000053: Windows/Linux core30/SDK38, actual D3D12 WARP UI rendering, relocated bundled-font rendering and local ASan/UBSan/leak checks. RmlUi and FreeType are instrumented in local sanitizer profiles. No machine-installed font is required.
+
+Phase6G changes no dependency pins. SDK packaging now installs only the enumerated FORGE value boundary, a pure identity helper library and the matching shared Flecs runtime. No Jolt/miniaudio/Ozz/Detour/RmlUi/Diligent types enter that boundary. [SDK contracts](extension-contracts.md).

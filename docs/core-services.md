@@ -64,3 +64,7 @@ Navigation (`32`) is an optional world-scoped weak service slot. The provider ow
 ## Runtime UI consumer
 
 Phase6F adds a narrowed UiService capability for copied scalar publication and semantic action polling in runtime compositions. Authoring-only/headless worlds can omit it. RmlUi/graphics ownership stays in the separate presentation host; see [Runtime UI](runtime-ui.md).
+
+## Phase6 consolidated access
+
+ServiceAccess uses one typed world-slot publication policy for Physics/Audio/Navigation/UI. Availability rejects foreign threads, invalid/composite capability values and expired/denied providers. Acquired providers remain stopped after world retirement even if their C++ object is retained. Exact SDK clients use the live versioned query and bounded copied callbacks described in the [extension guide](extension-guide.md); EngineServices itself is not exported as a binary service. Intrinsic fixed input remains a ModuleContext borrow. Bounded module CPU samples use the existing profile records.

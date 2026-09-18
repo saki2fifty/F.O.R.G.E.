@@ -2,6 +2,7 @@
 #include "asset_worker.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_geometry.hpp"
+#include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <fstream>
 namespace forge {

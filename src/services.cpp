@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <deque>
 #include <forge/services.hpp>
 #include <set>
@@ -12,7 +13,7 @@ struct ServiceState {
     EngineServices::Now now;
     std::deque<Json> diagnostics, profiles;
     void check() const {
-        if (!alive || owner != std::this_thread::get_id())
+        if (owner != std::this_thread::get_id() || !alive)
             throw std::runtime_error("Engine service access requires its live owner thread");
     }
 };
@@ -65,80 +66,63 @@ EngineServices::~EngineServices() { state_->alive = false; }
 ServiceAccess EngineServices::access(unsigned allowed) const {
     ServiceAccess a;
     a.state_ = state_;
-    a.allowed_ = allowed & 123;
+    a.allowed_ = allowed & supplied_capabilities;
     return a;
 }
 ServiceAccess ServiceAccess::world_scope() const {
     auto result = *this;
-    result.physics_ = std::make_shared<detail::PhysicsSlot>();
-    result.audio_ = std::make_shared<detail::AudioSlot>();
-    result.navigation_ = std::make_shared<detail::NavigationSlot>();
-    result.ui_ = std::make_shared<detail::UiSlot>();
+    result.physics_ = std::make_shared<detail::ServiceSlot<PhysicsService>>();
+    result.audio_ = std::make_shared<detail::ServiceSlot<AudioService>>();
+    result.navigation_ = std::make_shared<detail::ServiceSlot<NavigationService>>();
+    result.ui_ = std::make_shared<detail::ServiceSlot<UiService>>();
     return result;
 }
-void ServiceAccess::publish_audio(const std::shared_ptr<AudioService>& service) const {
+template <class T>
+void ServiceAccess::publish(Capability cap, const std::shared_ptr<detail::ServiceSlot<T>>& slot,
+                            const std::shared_ptr<T>& service) const {
     auto state = state_.lock();
-    if (!state || !(allowed_ & capability(Capability::Audio)))
-        throw std::runtime_error("Audio publication requires owner capability");
+    if (!state || !(allowed_ & capability(cap)))
+        throw std::runtime_error("Service publication requires live owner capability");
     state->check();
-    if (!audio_)
-        throw std::logic_error("Audio requires world-scoped slot");
-    if (!audio_->service.expired() && service)
-        throw std::logic_error("Audio provider already installed");
-    audio_->service = service;
+    if (!slot)
+        throw std::logic_error("Service publication requires a world-scoped slot");
+    if (!slot->service.expired() && service)
+        throw std::logic_error("Service provider already installed");
+    slot->service = service;
+}
+void ServiceAccess::publish_physics(const std::shared_ptr<PhysicsService>& service) const {
+    publish(Capability::Physics, physics_, service);
+}
+std::shared_ptr<PhysicsService> ServiceAccess::physics() const {
+    require(Capability::Physics);
+    return physics_->service.lock();
+}
+void ServiceAccess::publish_audio(const std::shared_ptr<AudioService>& service) const {
+    publish(Capability::Audio, audio_, service);
 }
 std::shared_ptr<AudioService> ServiceAccess::audio() const {
     require(Capability::Audio);
     return audio_->service.lock();
 }
 void ServiceAccess::publish_navigation(const std::shared_ptr<NavigationService>& service) const {
-    auto state = state_.lock();
-    if (!state || !(allowed_ & capability(Capability::Navigation)))
-        throw std::runtime_error("Navigation publication requires owner capability");
-    state->check();
-    if (!navigation_)
-        throw std::logic_error("Navigation requires world-scoped slot");
-    if (!navigation_->service.expired() && service)
-        throw std::logic_error("Navigation provider already installed");
-    navigation_->service = service;
+    publish(Capability::Navigation, navigation_, service);
 }
 std::shared_ptr<NavigationService> ServiceAccess::navigation() const {
     require(Capability::Navigation);
     return navigation_->service.lock();
 }
 void ServiceAccess::publish_ui(const std::shared_ptr<UiService>& service) const {
-    auto state = state_.lock();
-    if (!state || !(allowed_ & capability(Capability::Ui)))
-        throw std::runtime_error("Ui publication requires owner capability");
-    state->check();
-    if (!ui_)
-        throw std::logic_error("Ui requires world-scoped slot");
-    if (!ui_->service.expired() && service)
-        throw std::logic_error("Ui provider already installed");
-    ui_->service = service;
+    publish(Capability::Ui, ui_, service);
 }
 std::shared_ptr<UiService> ServiceAccess::ui() const {
     require(Capability::Ui);
     return ui_->service.lock();
 }
-void ServiceAccess::publish_physics(const std::shared_ptr<PhysicsService>& service) const {
-    auto state = state_.lock();
-    if (!state || !(allowed_ & capability(Capability::Physics)))
-        throw std::runtime_error("Physics publication requires the owner's allowed capability");
-    state->check();
-    if (!physics_)
-        throw std::logic_error("Physics requires a scoped world service slot");
-    if (!physics_->service.expired() && service)
-        throw std::logic_error("Physics provider already installed");
-    physics_->service = service;
-}
-std::shared_ptr<PhysicsService> ServiceAccess::physics() const {
-    require(Capability::Physics);
-    return physics_->service.lock();
-}
 bool ServiceAccess::available(Capability c) const {
     const auto state = state_.lock();
-    return (allowed_ & capability(c)) && state && state->alive &&
+    const auto bit = capability(c);
+    return bit && !(bit & (bit - 1)) && !(bit & ~known_capabilities) && (allowed_ & bit) && state &&
+           state->owner == std::this_thread::get_id() && state->alive &&
            (c != Capability::Physics || (physics_ && !physics_->service.expired())) &&
            (c != Capability::Audio || (audio_ && !audio_->service.expired())) &&
            (c != Capability::Navigation || (navigation_ && !navigation_->service.expired())) &&
@@ -179,6 +163,25 @@ std::vector<Json> ServiceAccess::profiles() const {
 void ServiceAccess::profiling(bool enabled) const {
     require(Capability::Profiling);
     state_.lock()->profiling = enabled;
+}
+void ServiceAccess::record_profile(const std::string& category, const std::string& name,
+                                   double seconds, std::uint64_t tick) const {
+    require(Capability::Profiling);
+    if (category.empty() || category.size() > 128 || name.empty() || name.size() > 128 ||
+        !std::isfinite(seconds) || seconds < 0 || seconds > 3600)
+        throw std::runtime_error("Invalid CPU profile sample");
+#ifndef FORGE_DISABLE_PROFILING
+    auto state = state_.lock();
+    if (!state->profiling)
+        return;
+    if (state->profiles.size() == 512)
+        state->profiles.pop_front();
+    state->profiles.push_back({{"category", category},
+                               {"name", name},
+                               {"seconds", seconds},
+                               {"count", 1},
+                               {"tick", tick}});
+#endif
 }
 ProfileScope ServiceAccess::profile(const char* category, const char* name,
                                     std::uint64_t tick) const {

@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/animation_components.hpp>
+#include <forge/assets.hpp>
 #include <memory>
 #include <stop_token>
 namespace forge {

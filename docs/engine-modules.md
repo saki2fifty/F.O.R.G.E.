@@ -1,11 +1,13 @@
 # Engine modules and the internal native SDK
 
-Phase6A adds registration and lifetime policy; Phase6B physics, Phase6C audio and Phase6D animation exercise it with concrete providers. Navigation/runtime UI and a public SDK remain separate work. Apply to Prefab and AssetHandle remain deferred.
+For the consolidated Phase6 contract, use the [extension author guide](extension-guide.md) and [classified API inventory](extension-contracts.md).
+
+Phase6A adds registration and lifetime policy; Phase6B physics, Phase6C audio, Phase6D animation, Phase6E navigation and Phase6F runtime UI exercise it with concrete providers. Phase6G consolidates the exact SDK and service boundary. A broadly stable public binary SDK remains deferred. Apply to Prefab and AssetHandle remain deferred.
 
 ## Three categories
 
 - **Built-in/source modules:** ordinary C++ compiled with FORGE, direct Flecs access, exact engine code. EngineModule describes dependencies, schema roles, active runtime roles and service permissions. It does not impose the DLL ABI on source code.
-- **Project gameplay:** the existing limited ABI1 workflow stays supported. A separate experimental exact-SDK profile permits trusted registering DLLs/shared objects. Its contract is internal/unstable.
+- **Project gameplay:** the existing limited ABI1 workflow stays supported. A separate experimental exact-SDK profile permits trusted registering DLLs/shared objects. Its contract remains exact-version, not a stable third-party ABI.
 - **General binary plugins:** bounded versioned C API by default. Direct ECS access requires explicit adoption of the exact-SDK tier. Native editor extensions remain trusted and restart-bound; their broad panel/importer/drawer SDK is not implemented here.
 
 ## Registration and ownership
@@ -14,7 +16,7 @@ WorldContext builds a complete dependency order before calling registrations. Du
 
 Built-in Core/Transforms/Prefabs/Input registration uses Flecs imports once per world. Canonical existing authored component names, reflection and ownership are retained. FORGE owns dependency/lifetime policy; Flecs owns component/system/observer/module mechanics. Module implementation versions are separate from SDK compatibility. IDs are lowercase namespaced strings such as forge.transforms or project.sdk_probe; no new UUID identity is needed.
 
-EngineServices remains explicitly injected and owner-thread restricted. Each module receives narrowed Diagnostics/Profiling access. Rendering is a requirement marker that headless composition does not supply; it does not construct a renderer or expose a speculative interface. No global subsystem pointers are introduced.
+EngineServices remains explicitly injected and owner-thread restricted. Each module receives narrowed Diagnostics/Profiling and optional world-provider access. Rendering is a requirement marker that headless composition does not supply; it does not construct a renderer or expose a speculative interface. No global subsystem pointers are introduced.
 
 Startup occurs after all schemas register. Each started module must tolerate Stop after partial startup. Stop runs in reverse dependency order and must drain work without throwing. It must retain any state still needed by Flecs destruction callbacks. Module contexts and code leases survive the entire Flecs world finalization and are then released in reverse dependency order. Native callbacks never survive library unload. If bootstrap fails, the unpublished context is destroyed; arbitrary native side effects are not rolled back.
 
@@ -38,7 +40,7 @@ No STL ownership, implementation classes or exceptions cross native_sdk.h entry/
 
 The host supplies the existing fixed phase and tag. A module's systems opt into that pipeline and receive Flecs' fixed delta. read_action reads a UUID ActionId from the immutable current snapshot; it returns unavailable outside an actual fixed tick or for an absent action. No SDL events or scan codes enter this boundary. Pause/Step/Resume and edge-once semantics remain Phase5.5 behavior.
 
-The SDK sample is a test-only transient component/system/observer. Its fixed action ID is sample data, not an engine-defined action. The sample proves runtime access; it does not add custom component serialization, editor drawers or a player controller.
+The lifecycle probe is a test-only transient component/system/observer. The combined gameplay sample demonstrates fixed input and optional physics/navigation/UI with diagnostics/profiling. Its fixed action ID is sample data, not an engine-defined action. The sample proves runtime access; it does not add custom component serialization, editor drawers or a player controller.
 
 ## Project declarations
 

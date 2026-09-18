@@ -37,8 +37,9 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
             current = m.id;
             if (!valid_module_id(m.id) || m.implementation.empty() || !m.schema_roles ||
                 (m.schema_roles & ~all_world_roles) || (m.runtime_roles & ~m.schema_roles) ||
-                (m.required_services & ~m.allowed_services) || (m.allowed_services & ~127u) ||
-                (m.provided_services & ~120u))
+                (m.required_services & ~m.allowed_services) ||
+                (m.allowed_services & ~known_capabilities) ||
+                (m.provided_services & ~subsystem_capabilities))
                 throw std::runtime_error("Invalid module descriptor");
             if (selected.contains(m.id))
                 throw std::runtime_error("Duplicate module ID");

@@ -35,6 +35,9 @@ enum class Capability : unsigned {
     Ui = 64
 };
 constexpr unsigned capability(Capability value) { return static_cast<unsigned>(value); }
+inline constexpr unsigned subsystem_capabilities = 8u | 16u | 32u | 64u;
+inline constexpr unsigned supplied_capabilities = 1u | 2u | subsystem_capabilities;
+inline constexpr unsigned known_capabilities = supplied_capabilities | 4u;
 struct ModuleRequirement {
     std::string id;
     std::vector<std::string> requires_modules;
@@ -44,17 +47,8 @@ std::vector<std::string> module_order(const std::vector<ModuleRequirement>& modu
                                       unsigned available);
 namespace detail {
 struct ServiceState;
-struct UiSlot {
-    std::weak_ptr<UiService> service;
-};
-struct NavigationSlot {
-    std::weak_ptr<NavigationService> service;
-};
-struct AudioSlot {
-    std::weak_ptr<AudioService> service;
-};
-struct PhysicsSlot {
-    std::weak_ptr<PhysicsService> service;
+template <class T> struct ServiceSlot {
+    std::weak_ptr<T> service;
 };
 } // namespace detail
 class ProfileScope {
@@ -92,15 +86,20 @@ class ServiceAccess {
     std::vector<nlohmann::json> profiles() const;
     ProfileScope profile(const char* category, const char* name, std::uint64_t tick = 0) const;
     void profiling(bool enabled) const;
+    void record_profile(const std::string& category, const std::string& name, double seconds,
+                        std::uint64_t tick = 0) const;
 
   private:
     friend class EngineServices;
     std::weak_ptr<detail::ServiceState> state_;
     unsigned allowed_ = 0;
-    std::shared_ptr<detail::PhysicsSlot> physics_;
-    std::shared_ptr<detail::AudioSlot> audio_;
-    std::shared_ptr<detail::NavigationSlot> navigation_;
-    std::shared_ptr<detail::UiSlot> ui_;
+    template <class T>
+    void publish(Capability, const std::shared_ptr<detail::ServiceSlot<T>>&,
+                 const std::shared_ptr<T>&) const;
+    std::shared_ptr<detail::ServiceSlot<PhysicsService>> physics_;
+    std::shared_ptr<detail::ServiceSlot<AudioService>> audio_;
+    std::shared_ptr<detail::ServiceSlot<NavigationService>> navigation_;
+    std::shared_ptr<detail::ServiceSlot<UiService>> ui_;
 };
 // Owned before worlds; access handles are weak and cannot extend owner lifetime.
 // All access is on the construction thread. Worker results cross through callers' queues.
@@ -112,7 +111,7 @@ class EngineServices {
     ~EngineServices();
     EngineServices(const EngineServices&) = delete;
     EngineServices& operator=(const EngineServices&) = delete;
-    ServiceAccess access(unsigned allowed = 123) const;
+    ServiceAccess access(unsigned allowed = supplied_capabilities) const;
 
   private:
     std::shared_ptr<detail::ServiceState> state_;

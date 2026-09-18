@@ -28,6 +28,26 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_AUDIO 16u
 #define FORGE_SDK_NAVIGATION 32u
 #define FORGE_SDK_UI 64u
+/* Intrinsic fixed-input query ID, not a descriptor permission/provider bit. */
+#define FORGE_SDK_INPUT 128u
+#define FORGE_SDK_CAPABILITY_VERSION 1u
+#define FORGE_SDK_FIXED_ONLY 1u
+#define FORGE_SDK_OWNER_THREAD 2u
+typedef struct ForgeSdkCapabilityV1 {
+    uint32_t size, version, available, callable, flags;
+} ForgeSdkCapabilityV1;
+typedef enum ForgeSdkNavStatusV1 {
+    FORGE_SDK_NAV_SUCCESS = 0,
+    FORGE_SDK_NAV_PARTIAL,
+    FORGE_SDK_NAV_MISSING,
+    FORGE_SDK_NAV_STALE,
+    FORGE_SDK_NAV_START_OUTSIDE,
+    FORGE_SDK_NAV_END_OUTSIDE,
+    FORGE_SDK_NAV_NO_PATH,
+    FORGE_SDK_NAV_LIMIT,
+    FORGE_SDK_NAV_INVALID,
+    FORGE_SDK_NAV_UNAVAILABLE
+} ForgeSdkNavStatusV1;
 typedef struct ForgeSdkPhysicsHitV1 {
     uint32_t size;
     char scene[37], entity[37]; /* FORGE UUIDs, never Jolt BodyID */
@@ -83,6 +103,15 @@ typedef struct ForgeSdkWorldV1 {
        is caller-owned and must hold at least 37 bytes. Consumes only this command. */
     int32_t(FORGE_SDK_CALL* ui_poll_action)(void*, const char* command, char* entity_uuid,
                                             uint32_t capacity);
+    /* Live query, never cache availability across ticks/start/stop. Returns 1 for
+       recognized ID (even absent provider/version mismatch); 0 invalid/unknown.
+       requested_version must match version for available/callable to be set.
+       Ui callable denotes fixed publish/poll; allow_action is startup-only. */
+    int32_t(FORGE_SDK_CALL* query_capability)(void*, uint32_t capability,
+                                              uint32_t requested_version, ForgeSdkCapabilityV1*);
+    /* Bounded copied CPU timing sample. Instrumentation only, never gameplay time.
+       Returns 1 accepted (also when recording disabled), 0 invalid/unavailable. */
+    int32_t(FORGE_SDK_CALL* profile_sample)(void*, const char* name, double seconds);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

@@ -5,11 +5,12 @@
 #include <forge/ui_protocol.hpp>
 #include <forge/world.hpp>
 #include <set>
+#include <thread>
 namespace forge {
 EngineModule ui_module(std::filesystem::path project);
 class UiRuntime final : public UiService {
   public:
-    explicit UiRuntime(std::filesystem::path project);
+    explicit UiRuntime(std::filesystem::path project, ServiceAccess services = {});
     void publish(EntityId, const std::string&, const Json&) override;
     void allow_action(const std::string&) override;
     std::optional<UiAction> poll_action(const std::string&) override;
@@ -20,6 +21,9 @@ class UiRuntime final : public UiService {
     void shutdown();
 
   private:
+    void check() const;
+    std::thread::id owner_ = std::this_thread::get_id();
+    ServiceAccess services_;
     std::filesystem::path project_;
     struct Instance {
         AssetId asset;

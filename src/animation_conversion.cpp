@@ -2,6 +2,7 @@
 #include "animation_worker.hpp"
 #include "asset_bytes.hpp"
 #include <forge/animation_conversion.hpp>
+#include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
 #include <fstream>

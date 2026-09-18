@@ -1,8 +1,11 @@
 # Internal exact SDK; use only the toolchain/configuration that built this distribution.
-if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "@CMAKE_CXX_COMPILER_ID@" OR NOT CMAKE_CXX_COMPILER_VERSION STREQUAL "@CMAKE_CXX_COMPILER_VERSION@" OR NOT CMAKE_SIZEOF_VOID_P EQUAL @CMAKE_SIZEOF_VOID_P@ OR NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "@CMAKE_SYSTEM_PROCESSOR@" OR NOT CMAKE_BUILD_TYPE STREQUAL "@CMAKE_BUILD_TYPE@")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "@CMAKE_SYSTEM_NAME@" OR NOT CMAKE_CXX_COMPILER_ID STREQUAL "@CMAKE_CXX_COMPILER_ID@" OR NOT CMAKE_CXX_COMPILER_VERSION STREQUAL "@CMAKE_CXX_COMPILER_VERSION@" OR NOT CMAKE_SIZEOF_VOID_P EQUAL @CMAKE_SIZEOF_VOID_P@ OR NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "@CMAKE_SYSTEM_PROCESSOR@" OR NOT CMAKE_BUILD_TYPE STREQUAL "@CMAKE_BUILD_TYPE@")
  message(FATAL_ERROR "FORGE native SDK compiler/architecture/configuration mismatch")
 endif()
-if(NOT CMAKE_CXX_FLAGS STREQUAL "@CMAKE_CXX_FLAGS@")
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _forge_sdk_config)
+if(NOT CMAKE_CXX_FLAGS STREQUAL "@CMAKE_CXX_FLAGS@" OR
+   NOT "${CMAKE_CXX_FLAGS_${_forge_sdk_config}}" STREQUAL "@FORGE_SDK_CONFIG_FLAGS@" OR
+   NOT "${MSVC_TOOLSET_VERSION}" STREQUAL "@MSVC_TOOLSET_VERSION@")
  message(FATAL_ERROR "FORGE native SDK compiler flags mismatch")
 endif()
 if(MSVC)
@@ -19,3 +22,17 @@ if(WIN32)
 else()
  set_target_properties(ForgeNativeSdk::Flecs PROPERTIES IMPORTED_LOCATION "${_forge_sdk_root}/bin/libflecs.so.4.1.6" IMPORTED_SONAME "libflecs.so.4")
 endif()
+
+# Pure value helpers contain no ECS implementation or subsystem state.
+add_library(ForgeNativeSdk::Values STATIC IMPORTED)
+set_target_properties(ForgeNativeSdk::Values PROPERTIES
+ IMPORTED_LOCATION "${_forge_sdk_root}/sdk/lib/@CMAKE_STATIC_LIBRARY_PREFIX@forge_identity@CMAKE_STATIC_LIBRARY_SUFFIX@"
+ INTERFACE_INCLUDE_DIRECTORIES "${_forge_sdk_root}/sdk/include"
+ INTERFACE_COMPILE_FEATURES cxx_std_20)
+if(WIN32)
+ set_target_properties(ForgeNativeSdk::Values PROPERTIES INTERFACE_LINK_LIBRARIES bcrypt)
+endif()
+add_library(ForgeNativeSdk::Client INTERFACE IMPORTED)
+set_target_properties(ForgeNativeSdk::Client PROPERTIES
+ INTERFACE_LINK_LIBRARIES "ForgeNativeSdk::Flecs;ForgeNativeSdk::Values"
+ INTERFACE_COMPILE_FEATURES cxx_std_20)

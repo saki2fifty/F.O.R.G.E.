@@ -3,6 +3,7 @@
 #include "navigation_geometry.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/assets.hpp>
 #include <forge/navigation.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/scene.hpp>

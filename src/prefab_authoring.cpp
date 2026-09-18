@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/project_paths.hpp>

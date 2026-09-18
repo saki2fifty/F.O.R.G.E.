@@ -1,8 +1,15 @@
 #include <algorithm>
+#include <forge/assets.hpp>
 #include <forge/runtime_ui.hpp>
 namespace forge {
-UiRuntime::UiRuntime(std::filesystem::path project) : project_(std::move(project)) {}
+UiRuntime::UiRuntime(std::filesystem::path project, ServiceAccess services)
+    : services_(services), project_(std::move(project)) {}
+void UiRuntime::check() const {
+    if (owner_ != std::this_thread::get_id() || !active_)
+        throw std::runtime_error("UI service requires its live owner thread");
+}
 void UiRuntime::publish(EntityId entity, const std::string& name, const Json& value) {
+    check();
     if (!active_ || !entity || !ui_protocol::identifier(name) || name == "tick" || name == "paused")
         throw std::runtime_error("Invalid/reserved UI model publication");
     ui_protocol::validate_value(value);
@@ -22,6 +29,7 @@ void UiRuntime::publish(EntityId entity, const std::string& name, const Json& va
     models_[entity] = std::move(next);
 }
 void UiRuntime::allow_action(const std::string& name) {
+    check();
     if (!active_ || !ui_protocol::identifier(name) || name == "Pause" || name == "Resume" ||
         name == "Step")
         throw std::runtime_error("Invalid/reserved UI command capability");
@@ -30,6 +38,7 @@ void UiRuntime::allow_action(const std::string& name) {
     actions_.insert(name);
 }
 std::optional<UiAction> UiRuntime::poll_action(const std::string& name) {
+    check();
     if (!active_)
         throw std::runtime_error("UI provider has stopped");
     auto it = std::find_if(pending_.begin(), pending_.end(),
@@ -42,6 +51,8 @@ std::optional<UiAction> UiRuntime::poll_action(const std::string& name) {
 }
 Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::uint64_t generation,
                          std::uint64_t tick, bool paused) {
+    check();
+    auto profile = services_.profile("ui", "ModelSnapshot", tick);
     Json docs = Json::array(), errors = Json::array();
     std::optional<AssetCatalog> catalog;
     try {
@@ -105,8 +116,8 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
 }
 void UiRuntime::command(const Scene& scene, const Json& request,
                         const std::function<void(const std::string&)>& control) {
-    if (!active_)
-        throw std::runtime_error("UI provider has stopped");
+    check();
+    auto profile = services_.profile("ui", "CommandValidation");
     const auto instance = request.at("instance").get<std::string>();
     if (instance.size() < 38 || instance[36] != ':')
         throw std::runtime_error("Invalid UI document instance");
@@ -138,6 +149,8 @@ void UiRuntime::command(const Scene& scene, const Json& request,
     pending_.push_back({entity, name, request.value("value", Json())});
 }
 void UiRuntime::shutdown() {
+    if (owner_ != std::this_thread::get_id())
+        throw std::runtime_error("UI shutdown requires owner thread");
     active_ = false;
     instances_.clear();
     models_.clear();
@@ -147,9 +160,11 @@ void UiRuntime::shutdown() {
 EngineModule ui_module(std::filesystem::path project) {
     auto m = ui_schema_module();
     m.runtime_roles = role_mask(WorldRole::Runtime);
-    m.allowed_services = m.provided_services = capability(Capability::Ui);
+    m.provided_services = capability(Capability::Ui);
+    m.allowed_services = m.provided_services | capability(Capability::Profiling) |
+                         capability(Capability::Diagnostics);
     m.start = [project = std::move(project)](ModuleContext& c) {
-        auto r = std::make_shared<UiRuntime>(project);
+        auto r = std::make_shared<UiRuntime>(project, c.services);
         c.services.publish_ui(r);
         c.state = r;
     };

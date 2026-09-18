@@ -1,9 +1,11 @@
+#include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/runtime_ui.hpp>
 #include <forge/ui_assets.hpp>
 #include <fstream>
 #include <iostream>
+#include <thread>
 using namespace forge;
 void check(bool v, const char* why) {
     if (!v)
@@ -58,6 +60,16 @@ int main(int argc, char** argv) {
         scene.entity("hud").set<UiDocument>({{asset.id}, true, true, 2});
         const auto entity = scene.reference("hud").entity;
         auto service = std::static_pointer_cast<UiRuntime>(runtime.services().ui());
+        bool foreign_rejected = false;
+        std::thread foreign([&] {
+            try {
+                service->publish(entity, "health", 1);
+            } catch (const std::exception&) {
+                foreign_rejected = true;
+            }
+        });
+        foreign.join();
+        check(foreign_rejected, "Retained UI service accepted foreign thread");
         service->publish(entity, "health", 100);
         service->allow_action("DecreaseHealth");
         auto state = service->snapshot(scene, "session", 1, 0, true);
@@ -201,6 +213,7 @@ int main(int argc, char** argv) {
         reject([&] { service->command(scene, command, [](const auto&) {}); });
         service->shutdown();
         reject([&] { service->publish(entity, "health", 5); });
+        reject([&] { service->snapshot(scene, "stopped", 1, 0, true); });
         std::filesystem::remove_all(root);
         std::cout
             << "Runtime UI identity, admission, lifetime, history and protocol checks passed\n";

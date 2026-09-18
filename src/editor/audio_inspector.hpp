@@ -1,6 +1,7 @@
 #pragma once
 #include "document.hpp"
 #include "widgets.hpp"
+#include <forge/assets.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/authoring.hpp>
 namespace forge {

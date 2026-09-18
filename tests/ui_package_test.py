@@ -16,6 +16,10 @@ with tempfile.TemporaryDirectory(prefix='ui-relocation-', dir=archive.parent) as
     with zipfile.ZipFile(archive) as package:
         package.extractall(root)
     manifest = json.loads((root / 'manifest.json').read_text())
+    actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+    assert actual - {'manifest.json'} == set(manifest['files']), 'Unhashed package content'
+    for name, digest in manifest['files'].items():
+        assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     font = root / 'resources/ui/LatoLatin-Regular.ttf'
     assert hashlib.sha256(font.read_bytes()).hexdigest() == manifest['files']['resources/ui/LatoLatin-Regular.ttf']
     assert (root / 'resources/ui/LICENSE-Lato.txt').is_file()

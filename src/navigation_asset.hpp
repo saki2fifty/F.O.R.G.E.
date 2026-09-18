@@ -1,5 +1,6 @@
 #pragma once
 #include "navigation_mesh.hpp"
+#include <forge/assets.hpp>
 #include <forge/navigation_build.hpp>
 namespace forge::navigation_detail {
 struct Admitted {

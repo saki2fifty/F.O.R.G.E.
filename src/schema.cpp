@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <forge/assets.hpp>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
 #include <forge/schema.hpp>

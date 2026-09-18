@@ -4,6 +4,7 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/project_paths.hpp>
 #include <set>
+#include <thread>
 #ifdef FORGE_ENABLE_NATIVE_SDK
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -16,6 +17,16 @@
 #endif
 namespace forge {
 namespace {
+static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
+              unsigned(NavStatus::Partial) == FORGE_SDK_NAV_PARTIAL &&
+              unsigned(NavStatus::Missing) == FORGE_SDK_NAV_MISSING &&
+              unsigned(NavStatus::Stale) == FORGE_SDK_NAV_STALE &&
+              unsigned(NavStatus::StartOutside) == FORGE_SDK_NAV_START_OUTSIDE &&
+              unsigned(NavStatus::EndOutside) == FORGE_SDK_NAV_END_OUTSIDE &&
+              unsigned(NavStatus::NoPath) == FORGE_SDK_NAV_NO_PATH &&
+              unsigned(NavStatus::Limit) == FORGE_SDK_NAV_LIMIT &&
+              unsigned(NavStatus::Invalid) == FORGE_SDK_NAV_INVALID &&
+              unsigned(NavStatus::Unavailable) == FORGE_SDK_NAV_UNAVAILABLE);
 const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
                                      "forge.input",     "forge.physics",    "forge.audio",
                                      "forge.animation", "forge.navigation", "forge.ui"};
@@ -45,6 +56,18 @@ std::string bounded(const char* p, std::size_t maximum) {
 struct Bridge {
     ModuleContext& context;
     ForgeSdkWorldV1 host{};
+    std::thread::id owner = std::this_thread::get_id();
+    enum class Stage { Schema, Starting, Running, Stopped } stage = Stage::Schema;
+    static Bridge& get(void* p) {
+        if (!p)
+            throw std::runtime_error("Null SDK context");
+        auto& bridge = *static_cast<Bridge*>(p);
+        if (bridge.owner != std::this_thread::get_id())
+            throw std::runtime_error("SDK requires its owner thread");
+        return bridge;
+    }
+    bool runtime_active() const { return stage == Stage::Starting || stage == Stage::Running; }
+
     explicit Bridge(ModuleContext& c) : context(c) {
         host.size = sizeof(host);
         host.version = FORGE_NATIVE_SDK_ABI;
@@ -58,11 +81,54 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.query_capability = [](void* p, uint32_t cap, uint32_t version,
+                                   ForgeSdkCapabilityV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return 0;
+            *out = {sizeof(*out), 0, 0, 0, 0};
+            try {
+                auto& b = Bridge::get(p);
+                if (!cap || (cap & (cap - 1)) || (cap & ~(known_capabilities | FORGE_SDK_INPUT)))
+                    return 0;
+                out->version = FORGE_SDK_CAPABILITY_VERSION;
+                out->flags = FORGE_SDK_OWNER_THREAD;
+                bool fixed = cap == FORGE_SDK_INPUT || cap == FORGE_SDK_PHYSICS ||
+                             cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION ||
+                             cap == FORGE_SDK_UI;
+                if (fixed)
+                    out->flags |= FORGE_SDK_FIXED_ONLY;
+                if (version != out->version)
+                    return 1;
+                bool available = cap == FORGE_SDK_INPUT
+                                     ? b.context.role == WorldRole::Runtime && b.runtime_active()
+                                     : b.context.services.available(static_cast<Capability>(cap));
+                if (fixed && !b.runtime_active())
+                    available = false;
+                out->available = available;
+                out->callable = available && (!fixed || b.context.input != nullptr);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.profile_sample = [](void* p, const char* name, double seconds) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                c.services.record_profile(c.id, bounded(name, 128), seconds,
+                                          c.input ? c.input->tick : 0);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.ui_allow_action = [](void* p, const char* name) -> int32_t {
             try {
                 if (!p)
                     return 0;
-                static_cast<Bridge*>(p)->context.services.ui()->allow_action(bounded(name, 64));
+                auto& bridge = Bridge::get(p);
+                if (bridge.stage != Stage::Starting)
+                    return 0;
+                bridge.context.services.ui()->allow_action(bounded(name, 64));
                 return 1;
             } catch (...) {
                 return 0;
@@ -73,7 +139,7 @@ struct Bridge {
             try {
                 if (!p)
                     return 0;
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!c.input)
                     return 0;
                 c.services.ui()->publish(EntityId::parse(bounded(entity, 36)), bounded(name, 64),
@@ -89,7 +155,7 @@ struct Bridge {
                 if (!p || !entity || capacity < 37)
                     return -1;
                 entity[0] = 0;
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!c.input || !c.services.available(Capability::Ui))
                     return 0;
                 auto action = c.services.ui()->poll_action(bounded(name, 64));
@@ -111,7 +177,7 @@ struct Bridge {
             out->count = 0;
             out->status = uint32_t(NavStatus::Unavailable);
             try {
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!c.input)
                     return 0;
                 if (!c.services.available(Capability::Navigation))
@@ -140,7 +206,7 @@ struct Bridge {
         host.audio_source = [](void* p, const char* scene, const char* entity,
                                uint32_t play) -> int32_t {
             try {
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!c.input || play > 1)
                     return 0;
                 const EntityRef ref{AssetId::parse(bounded(scene, 36)),
@@ -158,9 +224,11 @@ struct Bridge {
         host.raycast = [](void* p, const double* origin, const double* displacement,
                           ForgeSdkPhysicsHitV1* out) -> int32_t {
             try {
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!origin || !displacement || !out || out->size != sizeof(*out) || !c.input)
                     return -1;
+                *out = {};
+                out->size = sizeof(*out);
                 auto hit = c.services.physics()->raycast(
                     {origin[0], origin[1], origin[2]},
                     {displacement[0], displacement[1], displacement[2]});
@@ -183,7 +251,7 @@ struct Bridge {
                                const double* position, const float* rotation, uint32_t motion,
                                uint32_t clear) -> int32_t {
             try {
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!position || !rotation || motion > 1 || clear > 1 || !c.input)
                     return 0;
                 EntityRef ref{AssetId::parse(bounded(scene, 36)),
@@ -202,9 +270,11 @@ struct Bridge {
         };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (!out || out->size != sizeof(*out) || !c.input)
                     return 0;
+                *out = {};
+                out->size = sizeof(*out);
                 auto action = ActionId::parse(bounded(id, 36));
                 const auto it = c.input->actions.find(action);
                 if (it == c.input->actions.end())
@@ -220,7 +290,7 @@ struct Bridge {
         };
         host.diagnostic = [](void* p, uint32_t severity, const char* text) -> int32_t {
             try {
-                auto& c = static_cast<Bridge*>(p)->context;
+                auto& c = Bridge::get(p).context;
                 if (severity > 4 || !c.services.available(Capability::Diagnostics))
                     return 0;
                 Diagnostic d{static_cast<Severity>(severity), "module", bounded(text, 8192), {}};
@@ -339,6 +409,8 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             }
         };
         result.start = [api](ModuleContext& c) {
+            auto& bridge = *static_cast<Bridge*>(c.state.get());
+            bridge.stage = Bridge::Stage::Starting;
             for (auto cap :
                  {Capability::Physics, Capability::Audio, Capability::Navigation, Capability::Ui})
                 if (c.services.available(cap))
@@ -347,11 +419,15 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             if (api->start &&
                 !api->start(&static_cast<Bridge*>(c.state.get())->host, error, sizeof(error))) {
                 error[1023] = 0;
+                bridge.stage = Bridge::Stage::Stopped;
                 throw std::runtime_error(std::string("Native runtime registration failed: ") +
                                          error);
             }
+            bridge.stage = Bridge::Stage::Running;
         };
         result.stop = [api](ModuleContext& c) {
+            if (c.state)
+                static_cast<Bridge*>(c.state.get())->stage = Bridge::Stage::Stopped;
             if (api->stop && c.state)
                 api->stop(&static_cast<Bridge*>(c.state.get())->host);
         };

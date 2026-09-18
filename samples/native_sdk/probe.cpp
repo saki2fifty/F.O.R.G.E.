@@ -20,6 +20,9 @@ void trace(const char* text) {
 struct LibrarySentinel {
     ~LibrarySentinel() { trace("unload"); }
 } library;
+struct HostProbe {
+    const ForgeSdkWorldV1* host;
+};
 struct Probe {
     uint64_t ticks = 0, presses = 0;
     double dt = 0;
@@ -70,6 +73,8 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char* error, uint32_
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t n) {
     try {
         flecs::world w(host->world);
+        w.component<HostProbe>("sdk.HostProbe");
+        w.entity("sdk.host").set<HostProbe>({host});
         auto marker = std::make_shared<Marker>("system_context", host);
         w.system<Probe>()
             .kind(host->fixed_phase)
@@ -118,7 +123,7 @@ const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
                               FORGE_SDK_RUNTIME | FORGE_SDK_VALIDATION,
                               FORGE_SDK_RUNTIME,
                               FORGE_SDK_DIAGNOSTICS,
-                              FORGE_SDK_DIAGNOSTICS,
+                              FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI,
                               &ecs_init,
                               &ecs_os_api,
                               schemas,

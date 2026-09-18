@@ -77,3 +77,14 @@ Packaged UI font/notices/rendering, navigation worker and official animation con
 The editor had no compatible cache and rebuilt from scratch; this successful run saved a verified cache. Build50 is archived; packages contains only Build53 ZIP and current extracted editor. Builds51/52 remain withheld historical attempts. This delivery-evidence documentation follows the packaged source commit without changing its binaries or manual.
 
 Manual acceptance: [Runtime UI](../../manual/editor/runtime-ui.md): create HUD example, assign UI Document, Play/capture input, Pause/type/Step/Resume, resize, save/reopen and prefab visibility/Revert. No C++ edits required. Physical GPU, mixed-DPI and IME desktop acceptance remains pending. **Phase6F complete; STOP before Phase6G.**
+
+
+## Phase6G — final SDK consolidation and integration (in progress)
+
+- Classified core/source, exact SDK, built-in/private, implementation and ABI1 contracts; added extension author guide and explicit process/thread/fixed-clock/recovery ownership maps.
+- Added live exact-SDK capability/version/callability queries, retained the startup bitmap for rebuilt clients, checked callback context/owner thread, named navigation statuses, and exposed bounded module CPU samples through the existing profiler. ABI1 and persistent schemas/identities are unchanged.
+- Extracted AssetRef value headers from AssetCatalog declarations; shipped the missing UUID value implementation as a small static helper with a unified Client target. Installed headers drive fingerprinting; bridge/value semantics and configuration checks participate in compatibility. Removed navigation sample's reflection-to-JSON UUID workaround.
+- Consolidated repeated typed service-slot publication checks; added retained-UI owner-thread checks and UI model/command profiling scopes.
+- Added one combined gameplay sample, live optional-provider/lifecycle regression coverage and cross-subsystem pause/step/recovery integration. Added installed-package mismatch rejection and combined relocated consumer coverage.
+- Package manifests now cover licenses and generated launch/readme files; the exact SDK archive includes regular-file hashes and contained symlink identities. Link-boundary checks prove the headless runtime excludes presentation/editor libraries.
+- Focused SDK/services/UI and combined integration passed. All29 affected regressions passed after fixing installed-test compiler selection, including the relocated SDK consumer. Format, manual3, cache invalidation and workflow lint passed. Final clean Phase6 matrix/delivery is in progress; no intermediate official package. Stop before Phase7.

@@ -1,6 +1,7 @@
 #include <bit>
 #include <forge/animation.hpp>
 #include <forge/animation_conversion.hpp>
+#include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/runtime.hpp>

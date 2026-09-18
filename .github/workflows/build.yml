@@ -200,7 +200,7 @@ jobs:
         run: python tests/preview_shader_test.py
       - name: Test editor process isolation and scaling
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "runtime_ui|ui_presenter|ui_process|editor_viewport_render|navigation|animation|audio|physics|module_lifecycle|core_services|input_protocol|authoring_|world_lifetime|structured_prefabs|persistent_identity|hierarchical_transforms|runtime_clock_and_interpolation|runtime_protocol" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "target_boundaries|phase6_integration|runtime_ui|ui_presenter|ui_process|editor_viewport_render|navigation|animation|audio|physics|module_lifecycle|core_services|input_protocol|authoring_|world_lifetime|structured_prefabs|persistent_identity|hierarchical_transforms|runtime_clock_and_interpolation|runtime_protocol" --output-on-failure
       - name: Save viewport render checks
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

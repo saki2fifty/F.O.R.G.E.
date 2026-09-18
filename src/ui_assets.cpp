@@ -3,6 +3,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <forge/assets.hpp>
 #include <forge/scene.hpp>
 #include <forge/ui_assets.hpp>
 #include <fstream>

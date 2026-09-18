@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/navigation.hpp>
 #include <forge/navigation_build.hpp>

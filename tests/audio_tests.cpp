@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/assets.hpp>
 #include <forge/audio.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>

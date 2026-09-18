@@ -1,6 +1,7 @@
 #pragma once
 #include "audio_inspector.hpp"
 #include "authoring.hpp"
+#include <forge/assets.hpp>
 #include <forge/navigation_build.hpp>
 #include <future>
 namespace forge {

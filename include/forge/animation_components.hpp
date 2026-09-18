@@ -1,5 +1,5 @@
 #pragma once
-#include <forge/assets.hpp>
+#include <forge/asset_ref.hpp>
 namespace forge {
 struct SkeletonAsset {
     static constexpr const char* type = "skeleton";

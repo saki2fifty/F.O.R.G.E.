@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cctype>
 #include <cmath>
+#include <forge/assets.hpp>
 #include <forge/audio.hpp>
 #include <forge/project_paths.hpp>
 #include <fstream>

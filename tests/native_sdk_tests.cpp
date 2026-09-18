@@ -3,8 +3,10 @@
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/runtime.hpp>
+#include <forge/sdk_client.hpp>
 #include <fstream>
 #include <iostream>
+#include <thread>
 using namespace forge;
 static void check(bool b, const char* m) {
     if (!b)
@@ -19,6 +21,24 @@ template <class F> static void reject(F f) {
     }
     check(bad, "Expected native SDK rejection");
 }
+struct StubUi : UiService {
+    void publish(EntityId, const std::string&, const Json&) override {}
+    void allow_action(const std::string&) override {}
+    std::optional<UiAction> poll_action(const std::string&) override { return {}; }
+};
+static EngineModule late_ui() {
+    EngineModule m;
+    m.id = "zz.late_ui";
+    m.runtime_roles = role_mask(WorldRole::Runtime);
+    m.allowed_services = m.provided_services = capability(Capability::Ui);
+    m.start = [](ModuleContext& c) {
+        auto service = std::make_shared<StubUi>();
+        c.state = service;
+        c.services.publish_ui(service);
+    };
+    m.stop = [](ModuleContext& c) { c.services.publish_ui({}); };
+    return m;
+}
 struct ProbeData {
     uint64_t ticks, presses;
     double dt;
@@ -29,12 +49,25 @@ static std::string read(const std::filesystem::path& p) {
 }
 int main(int argc, char** argv) {
     try {
-        if (argc != 6)
+        if (argc != 7)
             throw std::runtime_error("good bad failed trace arguments required");
         reject([&] {
             EngineContext absent(WorldRole::Runtime, false,
                                  {load_native_sdk(argv[5], "project.navigation_probe", "1")});
         });
+        {
+            EngineContext optional(WorldRole::Runtime, true,
+                                   {load_native_sdk(argv[6], "project.example", "1")});
+            Scene scene(optional.world());
+            Module legacy;
+            RuntimeSimulation sim(optional.world(), scene, legacy);
+            sim.tick(1.f / 60);
+            bool observed = false;
+            for (const auto& d : optional.services().diagnostics())
+                observed |= d.at("text").get<std::string>().find("physics=0 navigation=0 ui=0") !=
+                            std::string::npos;
+            check(observed, "Combined sample failed with optional providers omitted");
+        }
         const auto trace = std::filesystem::absolute(argv[4]);
 #ifdef _WIN32
         _putenv_s("FORGE_SDK_TRACE", trace.string().c_str());
@@ -78,7 +111,7 @@ int main(int argc, char** argv) {
         std::weak_ptr<void> lease = sdk.code;
         Module legacy;
         {
-            EngineContext engine(WorldRole::Runtime, false, {sdk});
+            EngineContext engine(WorldRole::Runtime, true, {sdk, late_ui()});
             EngineContext second(WorldRole::Validation, false, {sdk});
             sdk = {};
             check(!lease.expired(), "Library not retained by world");
@@ -92,6 +125,48 @@ int main(int argc, char** argv) {
                 return *static_cast<const ProbeData*>(
                     ecs_get_id(w.c_ptr(), entity.id(), component.id()));
             };
+            const auto* host = *static_cast<const ForgeSdkWorldV1* const*>(
+                ecs_get_id(w.c_ptr(), w.lookup("sdk.host").id(), w.lookup("sdk.HostProbe").id()));
+            sdk::Client client(host);
+            check(client.valid() && client.available(sdk::Capability::Ui) &&
+                      !(host->capabilities & FORGE_SDK_UI),
+                  "Live optional provider discovery is stale");
+            check(client.available(sdk::Capability::Input) &&
+                      !client.callable(sdk::Capability::Input),
+                  "Input availability must differ from current fixed-tick callability");
+            check(!client.available(sdk::Capability::Physics), "Missing/restricted physics leaked");
+            auto version = client.query(sdk::Capability::Ui, 99);
+            check(version.version == 1 && !version.available && !version.callable,
+                  "Wrong capability version accepted");
+            ForgeSdkCapabilityV1 unknown{sizeof(unknown), 9, 9, 9, 9};
+            check(!host->query_capability(host->context, 3, 1, &unknown) && !unknown.available,
+                  "Composite/unknown capability accepted");
+            check(!host->query_capability(nullptr, FORGE_SDK_UI, 1, &unknown),
+                  "Null query context accepted");
+            check(!host->audio_source(nullptr, nullptr, nullptr, 1) &&
+                      !host->read_action(nullptr, nullptr, nullptr) &&
+                      host->raycast(nullptr, nullptr, nullptr, nullptr) == -1 &&
+                      !host->physics_move(nullptr, nullptr, nullptr, nullptr, nullptr, 0, 0) &&
+                      !host->diagnostic(nullptr, 1, "invalid") &&
+                      !host->profile_sample(nullptr, "invalid", 0),
+                  "Null callback context was not rejected");
+            bool foreign = false;
+            std::thread worker([&] {
+                foreign = !client.available(sdk::Capability::Ui) &&
+                          !client.diagnostic(1, "wrong thread") &&
+                          !client.profile("wrong thread", 0);
+            });
+            worker.join();
+            check(foreign, "SDK allowed foreign-thread capability access");
+            check(!client.allow_action("TooLate"),
+                  "UI action registration accepted outside startup");
+            check(client.profile("SDK sample", .001), "SDK profiling sample rejected");
+#ifndef FORGE_DISABLE_PROFILING
+            check(engine.services().profiles().back()["category"] == "project.sdk_probe",
+                  "SDK profiling sample missing module context");
+#endif
+            check(!client.profile("invalid", -1) && !client.profile("invalid", NAN),
+                  "Invalid profile sample accepted");
             Scene scene(engine.world());
             RuntimeSimulation sim(engine.world(), scene, legacy);
             const auto id = ActionId::parse("12345678-1234-4234-8234-123456789abc");
@@ -118,6 +193,12 @@ int main(int argc, char** argv) {
             check(value().ticks == 5 && value().presses == 1, "Resume/catch-up repeated edge");
             check(engine.services().diagnostics().back()["context"]["tick"] == 5,
                   "SDK diagnostic tick missing");
+            engine.world().modules().stop();
+            check(!client.available(sdk::Capability::Ui) &&
+                      !client.available(sdk::Capability::Input),
+                  "Stopped SDK retains gameplay capability");
+            check(client.diagnostic(1, "safe shutdown diagnostic"),
+                  "Shutdown diagnostic bridge retired too soon");
             check(read(trace).find("unload") == std::string::npos, "Library unloaded before world");
         }
         check(lease.expired(), "Code lease leaked");

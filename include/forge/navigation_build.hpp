@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/assets.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/transform.hpp>
 #include <memory>
