@@ -221,6 +221,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip"
       - name: Verify packaged navigation worker after relocation
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: python tests/navigation_package_test.py "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip" ../AgentFiles/b/forge_navigation_tests.exe
       - name: Verify packaged animation converter after relocation
