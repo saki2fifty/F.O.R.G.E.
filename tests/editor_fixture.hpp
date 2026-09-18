@@ -1,9 +1,13 @@
 #pragma once
 // Compiled only into the automated editor fixture executable, never the shipped editor.
+// Native D3D declarations must precede the Diligent command queue interface.
+#include <d3d12.h>
+
+#include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "document.hpp"
-#include <d3d12.h>
+#include <SDL3/SDL.h>
 #include <dxgi1_4.h>
 #include <fstream>
 #include <windows.h>

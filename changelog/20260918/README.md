@@ -138,3 +138,5 @@ One final numbered package delivered. Build53 archived; packages contains only B
 - Clean static/shared sanitizer suites passed **32/32** and **40/40**; editor sanitizer **3/3** passed before this final presentation follow-up. Build55 was cancelled before packaging to include these corrections in the final delivery; it was not delivered.
 
 - Problem navigation reveals Inspector and selects the scene task so an unrelated open prefab/settings draft does not retain the active Save route after navigating to a scene issue.
+
+- Made the Windows-only screenshot fixture self-contained and preserved required native Direct3D include ordering. Build56 was cancelled before packaging after this source-review finding; no ZIP was delivered. Final portable editor and editor sanitizer runs both passed **3/3**.
