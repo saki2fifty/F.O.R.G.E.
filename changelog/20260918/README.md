@@ -153,3 +153,12 @@ One final numbered package delivered. Build53 archived; packages contains only B
 
 - Build59 passed all clean CI checks and verified12 actual-editor captures; all38 existing render fixtures remain byte-identical to Build54. A first-launch tab-selection mismatch remained: newly appearing dock tabs could steal Content focus. Apply default focus after all initial dock tabs have been created and assert the initial Content tab in the actual-editor WARP fixture. Build59 is retained as an undelivered review artifact.
 - Added a portable real-ImGui first-use docking regression, in addition to the actual Windows editor assertion, for Content focus after all primary tabs appear.
+
+### Redesign final validation and delivery — Build 260918-000060
+
+- Final clean workflow 35381763046 passed all six jobs: Windows and Linux core **32/32** and exact SDK **41/41**, Windows editor controllers **2/2** and renderer/subsystems **33/33**, shader compilation, D3D12 WARP and relocated UI/font/navigation/converter checks.
+- Fresh local core/SDK **32/32 + 41/41**, ASan/UBSan/LeakSanitizer **32/32 + 40/40**, final portable editor **3/3** and sanitized editor **3/3** passed. Manual, format and workflow checks passed.
+- Inspected all **12** actual-editor captures. First-use Content selection passes its Windows assertion; **38/38** previous viewport/runtime UI images remain byte-identical to Build 54. Automated rendering remains distinct from physical Windows usability acceptance.
+- Verified final ZIP CRC, **180** manifest hashes, compiled source/build identity, manual edition, x64 executables and bundled font/license. Verified exact SDK archives against **237 Linux / 246 Windows** file hashes. Compiled source: `f9f4b4ef7f00b15407c071269dffdd748f8a8f6a`.
+- Delivered one redesign ZIP: `260918-000060-FORGE-Windows-x64.zip`; SHA256 `3b5403243baefd265190dff48c9c08c658e4e945dccf2504b1d556aebf87425f`. Archived the prior delivery and removed verified duplicate staging. Builds 55–59 were not delivered.
+- This follow-up records validation only; it does not change the packaged source, binaries or manual. Existing custom layouts are preserved; **Window > Reset layout** shows the new defaults. Small windows at 200% need lower zoom or panel adjustment. Physical GPU/DPI, input feel and end-to-end desktop acceptance remain for user review. **Stopped before Phase 7.**
