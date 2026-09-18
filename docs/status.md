@@ -1,13 +1,18 @@
 # Implementation status
 
-## Phase 6E — navigation implementation under validation
+## Phase 6E — verified navigation foundation
 
-Pinned Recast/Detour, static primitive builds, admitted NavMesh assets, fixed-tick nonphysics agents, semantic recovery, exact SDK queries and editor controls passed local static27/sharedSDK34/editor2 and ASan/UBSan/LeakSanitizer27+33 tests. Manual3, workflow/cache/format/C17 and runtime-link checks passed. Clean Windows validation and delivery remain pending. No new Windows build is claimed yet. See [Navigation](navigation.md). Phase 6F remains unauthorized.
+**Current delivery: Build 260918-000050.** Static primitive NavMesh generation, strict admission/provenance, fixed-tick nonphysics agents, prefab intent, semantic recovery, headless queries and exact SDK callbacks are implemented. See [Navigation](navigation.md) and the [user guide](../manual/editor/navigation.md).
 
+Verified [run 35302622445](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35302622445), source `2c81647`: Windows/Linux static **27/27** and shared SDK **34/34**, Windows editor/process **2/2** and remaining navigation/runtime/viewport **25/25**, four shaders, executable build IDs and both packaged worker relocation checks passed. All **29** existing WARP fixtures match Build47 byte-for-byte. Local static27/sharedSDK34/editor2, ASan/UBSan/LeakSanitizer27+33, manual3, cache/format/workflow/C17 and runtime-link separation checks passed.
+
+ZIP CRC, every manifest hash, source/build identity, five x64 programs, **30** matching manual pages, dependency notices and both SDK archives are verified. Build47 is archived and packages contains only the new numbered ZIP and current extracted editor. Interactive navigation acceptance remains for the user.
+
+This is static small-scene navigation and basic path following. Crowd avoidance, dynamic obstacles, character controllers, moving platforms, streaming and runtime UI remain deferred. **Phase6E complete; STOP before Phase6F.**
 
 ## Phase6D — verified animation foundation
 
-**Current delivery: Build 260917-000047.** Single-clip Animator, pinned Ozz0.17 structural admission, bounded official glTF conversion, catalog provenance, fixed-clock sampling, prefab intent, recovery and debug bones are implemented. See [Animation](animation.md) and the [user guide](../manual/editor/animation.md).
+**Previous delivery: Build 260917-000047.** Single-clip Animator, pinned Ozz0.17 structural admission, bounded official glTF conversion, catalog provenance, fixed-clock sampling, prefab intent, recovery and debug bones are implemented. See [Animation](animation.md) and the [user guide](../manual/editor/animation.md).
 
 Clean [run35284333629](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35284333629), source `f4127bc`, passed Windows/Linux static **24/24** and shared SDK **30/30**, Windows editor/process **2/2** and remaining runtime/animation/viewport **22/22**, four shaders, executable IDs and packaged converter relocation without developer PATH. All **29** viewport fixtures match delivered Build44 byte-for-byte. Local core24/SDK30/editor2, ASan/UBSan/LSan24+11, manual3, C17 headers, formatting and workflow checks passed; the MSVC digest correction also passed focused normal/sanitizer tests.
 
