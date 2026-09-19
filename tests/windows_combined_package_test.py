@@ -14,12 +14,14 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     with zipfile.ZipFile(sys.argv[1]) as archive:
         archive.extractall(root)
     manifest = json.loads((root/'manifest.json').read_text())
+    if os.environ.get('FORGE_COMPILED_SOURCE'):
+        assert manifest['source_commit'] == os.environ['FORGE_COMPILED_SOURCE']
     files = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
     assert files == set(manifest['files']) | {'manifest.json'}
     for name, digest in manifest['files'].items():
         assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     env = os.environ.copy()
-    env['PATH'] = str(Path(env['SystemRoot'])/'System32')
+    env['PATH'] = str(Path(os.environ['SystemRoot'])/'System32')
     runtime = root/'NativeSdk/bin/forge_runtime.exe'
     info = json.loads(subprocess.check_output([str(runtime), '--sdk-info'], cwd=root, env=env, text=True))
     assert info['profile'] == 'shared-native-sdk'

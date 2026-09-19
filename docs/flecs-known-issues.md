@@ -95,7 +95,7 @@ A workaround is scoped to the stated consumer; it is not a general upstream fix.
 
 `on_validate`, native Meta maps and Script template declaration inheritance are **UNAVAILABLE IN PINNED STABLE VERSION**.
 They are version gaps, not defects to emulate. Their introducing commits and
-non-transactional validation semantics are recorded in [dependency policy](dependency-policy.md).
+non-transactional validation semantics are recorded in the [upgrade watchlist](flecs-upgrade-watchlist.md).
 
 ## Upgrade procedure
 

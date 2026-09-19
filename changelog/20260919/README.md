@@ -202,3 +202,11 @@
 - Added final shared-runtime/package relocation validation. One final numbered
   delivery remains pending this work package's complete clean validation; no new
   build or architecture-freeze completion is claimed by these change descriptions.
+
+### Architecture-freeze documentation verification
+
+- Corrected the pinned-issue registry's missing-capability reference to the upgrade watchlist, which records all three introducing commits.
+- Final automated validation and package evidence are recorded after the clean run; physical Windows acceptance remains separate.
+
+- Corrected Windows relocation test environment-key lookup after final assembly exposed `SystemRoot` casing in a copied dictionary. Application binaries and their source identity are unchanged.
+- Added package-only retry from a prior run only after verifying all six static/shared/editor/format jobs succeeded and checking artifact source/build/hash agreement. This avoids recompiling already-validated binaries for a test-only packaging correction.
