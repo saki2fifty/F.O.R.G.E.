@@ -1,7 +1,8 @@
 # Phase7 entry contract
 
 **Architecture proposal for approval; Phase7 is not authorized by this document.**
-The pre-Phase7 work package must finish its validation and review first. Existing
+Build260919-000063 completed automated validation; architecture approval and
+physical acceptance remain separate. Existing
 foundation implementation is distinguished from designed future work below.
 
 ## Phase7 may rely on existing implementation

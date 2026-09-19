@@ -210,3 +210,10 @@
 
 - Corrected Windows relocation test environment-key lookup after final assembly exposed `SystemRoot` casing in a copied dictionary. Application binaries and their source identity are unchanged.
 - Added package-only retry from a prior run only after verifying all six static/shared/editor/format jobs succeeded and checking artifact source/build/hash agreement. This avoids recompiling already-validated binaries for a test-only packaging correction.
+
+### Build260919-000063 — final architecture-freeze delivery
+
+- Compiled source a98be9a; clean static35/35 and shared45/45 on both Windows/Linux, Windows editor2/2+36/36, WARP/shaders/tool relocation passed. Package-only retry35464637021 after the test environment-key fix used unchanged binaries from35463391608.
+- Fresh local sanitizer clean groups34/34 static,43/43 shared passed. Editor native/input passed; the1s handshake timing assertion initially failed under concurrent load and passed in isolation. Original failure retained. Expected upstream include leaks18/4118bytes remain separately verified in both profiles without suppression.
+-55 previous rendering fixtures are byte-identical; all26 editor captures reviewed. Combined ZIP has431 verified outer hashes and246 SDK hashes; SHA256 `6b4611860777507c81c12e69536616ca1a543b2b1860b8f5b21fc161930dc214`.
+-16 ADRs and Phase7 entry contract are complete for user review. Physical Windows/DPI/audio/browser acceptance remains pending; noPhase7. Documentation-only verification follow-up does not alter the delivered binaries or offline manual.

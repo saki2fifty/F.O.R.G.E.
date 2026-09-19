@@ -1,5 +1,31 @@
 # Phase 6 complete — final consolidation
 
+## Architecture freeze package — Build260919-000063
+
+Read the [Phase7 entry contract](phase7-entry-contract.md) and [16 decisions](decisions/README.md).
+The exact Flecs4.1.6 pin is unchanged. New implemented corrections connect matching
+shared-SDK projects to isolated Editor Play, package that SDK, validate native Meta
+layout and add persistent bottom-workspace folding. Custom component authoring,
+asset/cook/resource/render contracts are defined; their future feature bodies are
+not claimed implemented. Phase7 remains stopped pending explicit user approval.
+
+Compiled source `a98be9a672394d3d91c2b9067331d0252f9b4313`: clean Windows/Linux
+static35/35 and shared SDK45/45 each; editor controllers2/2 plus remaining36/36,
+WARP/shaders and tool/package relocation passed in
+[clean source run](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35463391608).
+Its new final packaging test initially failed on Windows environment-key casing;
+[test-only correction and package retry](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35464637021)
+passed using those unchanged binaries. All431 outer hashes and246 SDK hashes passed;
+55 previous renderer fixtures are byte-identical and26 editor captures were reviewed.
+
+Fresh local sanitizer clean groups34/34 static and43/43 shared passed. Editor native
+iteration/input passed; its existing1s process-handshake assertion failed during
+concurrent load, then passed alone. The original failure is retained. The separate
+strict Flecs include regression reproduced only its approved18/4118-byte leaks in
+both profiles; there is no blanket sanitizer-clean claim. Physical acceptance remains
+pending. Older sections below record historical deliveries.
+
+
 ## Complete Flecs integration — Build 260919-000062
 
 The exact stable Flecs 4.1.6 pin is retained. Native Meta/Doc/Units/Ranges drive

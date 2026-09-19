@@ -2,7 +2,7 @@
 
 These records separate architectural commitments from delivered implementation.
 They govern future authorized work; they do not authorize Phase 7 or claim its
-features exist. The pre-Phase-7 verification package is still in progress.
+features exist. The pre-Phase-7 verification package is complete and awaits architecture approval.
 
 | Record | Decision |
 | --- | --- |

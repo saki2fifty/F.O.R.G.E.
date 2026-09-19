@@ -48,7 +48,14 @@ under `NativeSdk/`, regenerates the outer file hashes and runs its shared runtim
 a relocated path with a restricted PATH. The intermediate `FORGE-Windows-Editor-Base`
 is not the final delivery. `FORGE-Windows-x64` remains the single complete numbered ZIP.
 The download action is pinned to official v4 commit
-`d3f86a106a0bac45b974a628896c90dbdf5c8093`; its name/path inputs select only this run's
+`d3f86a106a0bac45b974a628896c90dbdf5c8093`; its name/path inputs select one validated source run's
 artifacts. Modified files, path escapes and mismatched builds fail assembly before
 replacing a usable output. Installed SDK consumer tests still verify shared linkage,
 compiler compatibility and real gameplay modules before assembly.
+
+A test-only packaging failure can use `package_source_run` to reuse that run's
+unchanged compiled artifacts. All four static/shared core jobs, editor and format
+must already have succeeded. The package job checks that run's source SHA against
+the package manifest and still executes relocation before upload. Build/source
+identity stays embedded in the binaries; the packaging workflow commit is recorded
+separately. This option does not rebuild or relabel a previous delivery.

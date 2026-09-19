@@ -1,7 +1,7 @@
 # ADR 005 — Asset and subasset identity
 
-Date: 2026-09-19. Decision adopted for foundation planning; complete package
-validation is pending. Future implementation requires its own authorized scope.
+Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
+validation is complete. Future implementation requires its own authorized scope.
 
 ## Decision
 
