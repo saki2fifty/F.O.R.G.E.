@@ -1,5 +1,17 @@
 # September 19, 2026
 
+## Dependency evidence policy
+
+- Established a permanent policy for every external dependency: exact pinned
+  source/configuration and matching tests take precedence over live documentation.
+- Require version/commit/options, feature assumptions, documentation drift,
+  compatibility implications and verification dates in dependency records.
+- Retain Flecs4.1.6 at `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`;
+  `on_validate` and native Meta maps are explicitly unavailable at this pin.
+  No backport, dependency upgrade, or automatic range-mutation veto is claimed.
+- This policy change precedes the ongoing Flecs integration; it is not a new
+  packaged build or a claim that the integration is complete.
+
 ## Editor architecture and UX refinement — implementation
 
 - Compact menu/global/Scene tools with dependency-free vector icons; Preferences under Edit, scene identity/dirty marker in its stable tab and one-row status with overflow Details.
@@ -23,3 +35,74 @@
 - Archived Build 60; removed verified duplicate download/extraction staging. Packages contains only the latest ZIP and editor folder.
 - This documentation-only follow-up corrects the prefab how-to's old **Member space / FollowStructure** labels to **Spatial binding / Follow parent**. The already-built offline page retains that old wording in step 4; it refers to the same control. Package bytes and compiled source remain unchanged.
 - **Stopped before Phase 7.** No future specialized editor, Mesh/Material pipeline or public editor-extension ABI was implemented.
+
+## Flecs integration work in progress
+
+- All built-in authored types explicitly register Flecs member entities, Doc names/help, Units and numeric ranges. Shared schema/Inspector/Add Component consumers derive their presentation from that metadata.
+- Scalar subsystem admission uses the reflected ranges while preserving cross-component validation. Advisory gain guidance does not reject supported amplification.
+- Hierarchy ordering, fixed-clock timer integration and persistent transform queries are undergoing regression validation; no new package is delivered by this entry.
+- Added dependency source-of-truth and Flecs ownership documentation. Exact 4.1.6 pin retained, with the approved unavailable stable APIs recorded explicitly.
+
+### Flecs integration — additional source changes (not yet packaged)
+
+- Added native enum-backed Primitive/PhysicsMotion choices, per-type member metadata, units, hard/advisory ranges and shared validation feedback. Preserved actual float32/float64 precision in detached edits.
+- Added ordered sibling authoring with Shift-drag, Undo/Redo and persistence. Prefab source member ordering propagates through validated candidate publication; commit permutations are prepared before the durable write. Root order uses an internal native membership parent without changing authored parent fields.
+- Added optional Tools → ECS inspection: native queries, component insertion, result selection/copy, entity/world JSON, statistics, native alerts and a read-only loopback REST/Explorer connection. Diagnostic output is kept separate from headless JSON output.
+- Added AssetId-backed Flecs Script source documents, independent Save/close ownership, search, bounded managed preview workers, project-contained includes, Script Math, errors and Problems integration. Preview evaluation does not alter the authored scene or play world.
+- Admitted native timers/rate filters beneath fixed ticks and retained owner-thread external subsystem scheduling. Script Math is part of the exact SDK fingerprint.
+- Added focused tests for metadata/validation, ordering and publication failures, native toggles/sparse storage/queries/monitors/events, fixed timers, Script grammar/includes/reload and read-only REST lifecycle. Focused core/authoring/prefab, Script, REST and manual tests pass on Linux; final profile/Windows/sanitizer/package verification is still pending.
+- Recorded measured storage/threading tradeoffs and stable query limitations. Updated the integration contract, extension documentation, editor placement guidelines and function-based user manual.
+
+- Follow-up validation corrected native JSON member-order preservation and diagnostic addon registration order across worlds. Valid isolated imports and rejected replacement preservation now pass. Native Metrics exposes all four pinned kinds with validated sources and removal; statistics history uses native buffers and reductions. Range/generation, standalone App/Frame, metric values/history and multi-world activation regressions pass. Diagnostic writes no longer invalidate transforms unless they affect spatial inputs. Final package verification remains pending.
+
+
+### Flecs validation follow-up — not packaged
+
+- Kept the exact stable dependency and permanent pin-first evidence policy. No
+  development APIs or upstream patches were imported.
+- Stopped manually reducing empty authoring pipeline statistics; the pinned
+  implementation triggers UBSan for that case. Native world/system histories
+  remain sampled, and diagnostics do not advance gameplay. Focused core/ECS
+  sanitizer regressions pass after this correction.
+- Script workers now supply the top-level source buffer through the native code
+  constructor, own an outer native log capture, and validate all included managed
+  scripts. Added malformed-include and unresolved-component include regressions.
+  Normal Script regressions pass.
+- The included-file constructor still leaks an internal source allocation on
+  failure in Flecs 4.1.6; the strict LeakSanitizer regression remains failing
+  (18 bytes in the FORGE fixture). The later upstream correction is documented in
+  `docs/flecs-integration.md`; no suppression or false clean-validation claim.
+  The integration is not complete and no new Windows package has been created.
+
+- Checkpoint verification: current normal Linux static-profile suite **34/34**
+  passed, manual checks **3/3** passed, and formatting/whitespace checks passed.
+  These do not resolve the explicitly failing native include LSan case or replace
+  the pending final Windows/shared/sanitizer/editor delivery gates.
+
+
+### Approved Flecs validation exception and final integration
+
+- Retained native managed includes and the exact stable Flecs pin. The user-approved
+  exception applies only to the known native filename-buffer cleanup path on failed
+  managed includes. The minimal fixture leaks18bytes; the buffer can be larger.
+- Added a separate strict-signature known-upstream regression, actual sanitizer
+  evidence files, small/larger sources, rejection without publication, terminated
+  workers, cleaned staging and subsequent successful evaluation. All unrelated
+  sanitizer findings and unexpected clean results fail the check. No suppression.
+- Shared the successful-preview publication boundary between editor and tests.
+  Bounded source reads now enforce the limit during reading, including editor
+  source views, and reject NULs in both candidate and prior source.
+- Added source navigation from Script diagnostics and Problems, preserving active
+  drafts and opening included files read-only. Native warning severity displays
+  consistently. Added actual-editor ECS/Script WARP capture cases and tab/source
+  navigation fixtures. Final validation/delivery is still in progress.
+- ECS statistics now distinguish the inspected world's delta and native stages
+  from the separate play clock and operating-system thread count; each status
+  has contextual help.
+- Local normal static/SDK suites passed **35/35 and 44/44**. Separate clean
+  ASan/UBSan/LSan profiles passed **34/34 and 42/42**, plus **3/3** portable
+  editor checks. The dedicated pinned-include regression produced the expected
+  **18-byte and 4118-byte** LSan findings, matched only the approved allocation
+  path, and verified rejection, worker exit, cleanup and recovery. No suppression;
+  this is not an all-sanitizers-clean claim. Final focused checks, manual,
+  formatting, workflow lint and portable main/fixture syntax checks passed.

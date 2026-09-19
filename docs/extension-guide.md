@@ -93,3 +93,13 @@ Available CPU scopes include module Registration/Startup/Shutdown, FixedSimulati
 ## Deliberately deferred
 
 Generic AssetHandle, importer/cooker/streaming, cross-document transactions/Apply, stable third-party ABI, editor/provider extension registries, world-space UI/visual designer, advanced audio/animation/navigation, networking and save games remain separately scoped. See the [contract inventory](extension-contracts.md) and subsystem docs. Phase6 ends here; Phase7 has not begun.
+
+## Pinned Flecs capabilities
+
+Follow the dependency source-of-truth policy before using an API from live documentation. The current pin is 4.1.6 at `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`. This integration enables Script Math consistently and includes that option in the SDK fingerprint; rebuild clients with the matching SDK. `on_validate` and native Meta maps are unavailable in this pin. Do not patch or emulate them.
+
+Register useful Meta/Doc/Units metadata and explicit member entities on custom types when member-targeted Metrics/Alerts are needed. Global member creation is off. Ranges describe values; validate candidates at the appropriate host boundary. A trusted native write is not automatically rejected by ranges. Query change detection requires a supported cached query and explicit `modified` after raw writes. CanToggle/Sparse/DontFragment need per-type semantics and lifecycle review.
+
+Native timers/rate filters advance underneath fixed ticks. Gameplay systems still require the supplied fixed phase and tag. Do not call `world.progress`, change the pipeline, or turn on world threading from an arbitrary module callback. Scheduling configuration belongs to the runtime composition owner. The isolated multithreading probe does not change provider call permissions. Native scene roots now have an internal membership parent for sibling ordering; use authored references rather than interpreting `parent() != 0` as an authored hierarchy test.
+
+Flecs Script editor previews own temporary worlds and do not implicitly become runtime gameplay. Native JSON and read-only REST are development inspection surfaces. The full source contract is documented in `docs/flecs-integration.md` in the source checkout.

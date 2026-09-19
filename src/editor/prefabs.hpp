@@ -332,6 +332,36 @@ class PrefabEditor {
                              "survives rename/reparent.");
                     ImGui::PopID();
                 }
+                std::vector<std::string> siblings;
+                std::string parent;
+                for (const auto& m : draft_.at("members"))
+                    if (m.at("id") == member_)
+                        parent = m.value("parent", "");
+                if (!parent.empty()) {
+                    for (const auto& m : draft_.at("members"))
+                        if (m.value("parent", "") == parent)
+                            siblings.push_back(m.at("id"));
+                    const auto found = std::find(siblings.begin(), siblings.end(), member_);
+                    const auto index = static_cast<std::size_t>(found - siblings.begin());
+                    ImGui::BeginDisabled(index == 0 || index >= siblings.size());
+                    if (ui::button("Move member up",
+                                   "Reorder this sibling in the source draft. Publish updates "
+                                   "instances; scene Undo does not reverse publication."))
+                        draft_ = PrefabDocument(draft_)
+                                     .reorder_member(PrefabMemberId::parse(member_),
+                                                     PrefabMemberId::parse(siblings.at(index - 1)))
+                                     .source;
+                    ImGui::EndDisabled();
+                    ImGui::SameLine();
+                    ImGui::BeginDisabled(index + 1 >= siblings.size());
+                    if (ui::button("Move member down",
+                                   "Move the next sibling before this source member."))
+                        draft_ = PrefabDocument(draft_)
+                                     .reorder_member(PrefabMemberId::parse(siblings.at(index + 1)),
+                                                     PrefabMemberId::parse(member_))
+                                     .source;
+                    ImGui::EndDisabled();
+                }
                 ImGui::Separator();
                 for (auto& m : draft_["members"])
                     if (m.at("id") == member_) {

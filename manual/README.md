@@ -6,6 +6,8 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Projects and authored content
 
+- [Flecs Script](editor/flecs-script.md): edit project scripts and inspect managed preview results.
+
 - [Runtime UI](editor/runtime-ui.md): create a game HUD, use buttons and text fields, and test Pause/Step.
 
 - [Navigation](editor/navigation.md): build static navmeshes and test nonphysics agents.
@@ -25,6 +27,8 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 - [Undo and redo](editor/undo-redo.md): reverse authored changes.
 
 ## Working in the editor
+
+- [ECS inspection](editor/ecs-tools.md): optional queries, native JSON, statistics, alerts and read-only Explorer access.
 
 - [Viewport](editor/viewport.md): orbit, look, fly, pan, and frame blocks.
 - [Panels and windows](editor/panels-windows.md): arrange your workspace.

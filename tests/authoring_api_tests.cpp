@@ -1,6 +1,9 @@
 #include "entity_recipe_tests.hpp"
+#include "ordered_hierarchy_tests.hpp"
 #include <forge/authoring.hpp>
+#include <forge/flecs_script.hpp>
 #include <forge/geometry.hpp>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -9,9 +12,29 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string(argv[1]) == "--script-publication") {
+            std::ifstream file(argv[2]);
+            const auto rejected = Json::parse(file);
+            std::string source, snapshot;
+            const Json good{{"ok", true}, {"entities", Json::array({{{"name", "KnownGood"}}})}};
+            check(forge::publish_flecs_script_preview(good, "KnownGood {}", source, snapshot),
+                  "Initial preview publication failed");
+            const auto before_source = source, before_snapshot = snapshot;
+            check(!forge::publish_flecs_script_preview(rejected, "Bad candidate", source, snapshot),
+                  "Failed included script was published");
+            check(source == before_source && snapshot == before_snapshot,
+                  "Failed candidate replaced previous source/output");
+            check(forge::publish_flecs_script_preview(good, "Next good {}", source, snapshot) &&
+                      source == "Next good {}",
+                  "Clean publication after failure did not succeed");
+            std::cout << "Shared editor publication: candidate rejected, prior state retained, "
+                         "recovery passed\n";
+            return 0;
+        }
         test_entity_recipes();
+        test_ordered_hierarchy();
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         scene.reset({{"version", 1}, {"entities", Json::array()}});
@@ -25,7 +48,7 @@ int main() {
         };
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
-        check(discovery["result"]["commands"].size() == 24, "Command catalog incomplete");
+        check(discovery["result"]["commands"].size() == 25, "Command catalog incomplete");
         const auto schema = discovery["result"]["schema"];
         check(schema["components"][0]["fields"][0]["property_id"] == "forge.local_translation.x",
               "Stable property identity missing");

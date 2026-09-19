@@ -1,5 +1,6 @@
 #include "animation_asset.hpp"
 #include "asset_bytes.hpp"
+#include "builtins.hpp"
 #include <cmath>
 #include <forge/animation.hpp>
 #include <forge/assets.hpp>
@@ -121,9 +122,7 @@ struct AnimationRuntime::Impl {
                 failed_configurations.at(e.id()) == config)
                 return;
             try {
-                if (!std::isfinite(config.playback_speed) || config.playback_speed < 0 ||
-                    config.playback_speed > 4)
-                    throw ArchiveError("Animator playback speed must be between 0 and 4");
+                detail::validate_reflected_value(e, config);
                 if (old != states.end() && old->second.config.skeleton == config.skeleton &&
                     old->second.config.clip == config.clip) {
                     old->second.config = config;

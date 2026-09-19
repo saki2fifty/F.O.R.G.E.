@@ -84,3 +84,7 @@ Prefab source stays open when Content is hidden. An asterisk and **Unsaved draft
 Ctrl+S publishes when Prefab source is the active task. Scene Save does not publish it, and scene Undo/Redo does not edit it. Publishing may clear scene history because existing instances reconcile to a new source revision. No Apply to Prefab or cross-document undo transaction is provided.
 
 Source members use **+ Add Component** and the same typed fields as the entity Inspector, including UI Document asset references and integer Layer. Source draft changes validate on Publish.
+
+## Member order
+
+Select a member in the prefab source document and use **Move member up** or **Move member down** to change its order among siblings. Publishing propagates the source order to instances. Identity, overrides and dynamic scene attachments remain independent. Failed publication keeps the previous order. Scene Undo does not reverse prefab-source publication.

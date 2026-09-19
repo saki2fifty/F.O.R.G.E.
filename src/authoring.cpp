@@ -240,7 +240,45 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         result["selected"] = created;
     } else if (op == "entity.rename")
         scene.rename_entity(id, a.at("name"));
-    else if (op == "entity.reparent")
+    else if (op == "entity.reorder") {
+        auto doc = scene.document();
+        const auto target = resolve_legacy_id(doc, a.at("before").get<std::string>());
+        const auto canonical = resolve_legacy_id(doc, id);
+        Json moved;
+        std::string parent;
+        for (const auto& row : doc.at("entities"))
+            if (row.at("id") == canonical) {
+                if (row.contains("prefab_member"))
+                    throw CommandError("unavailable",
+                                       "Reorder structured members in the prefab source");
+                moved = row;
+                parent = row.value("parent", std::string{});
+            }
+        if (moved.is_null())
+            throw CommandError("invalid_arguments", "Entity no longer exists");
+        if (target == canonical)
+            return result;
+        Json rows = Json::array();
+        bool inserted = false;
+        for (const auto& row : doc.at("entities")) {
+            if (row.at("id") == canonical)
+                continue;
+            if (row.at("id") == target) {
+                if (row.value("parent", std::string{}) != parent)
+                    throw CommandError("invalid_arguments",
+                                       "Reorder requires the same structural parent");
+                rows.push_back(moved);
+                inserted = true;
+            }
+            rows.push_back(row);
+        }
+        if (target.empty())
+            rows.push_back(moved);
+        else if (!inserted)
+            throw CommandError("invalid_arguments", "Sibling no longer exists");
+        doc["entities"] = std::move(rows);
+        scene.edit(doc);
+    } else if (op == "entity.reparent")
         scene.reparent_entity(id, a.at("parent"),
                               a.value("mode", std::string("preserve_world")) == "keep_local"
                                   ? ReparentMode::KeepLocal
@@ -440,6 +478,12 @@ Json authoring_commands() {
         "Follow the structural parent spatially. Default preserve_world; keep_local retains local "
         "channels. Empty parent means root.",
         parent, {"entity", "parent"});
+    auto reorder = entity_arg;
+    reorder["before"] = text_type();
+    add("entity.reorder", "Reorder sibling",
+        "Move before a sibling; empty before moves to the end. Does not reparent or change "
+        "transforms.",
+        reorder, {"entity", "before"});
     add("entity.duplicate", "Duplicate subtree",
         "Copy the selected entity and descendants, remapping internal references.", entity_arg,
         {"entity"});

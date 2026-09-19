@@ -10,6 +10,7 @@ struct PrefabDocument {
     PrefabMemberId root() const { return source.at("root").get<PrefabMemberId>(); }
     static void validate(const Json& document);
     PrefabDocument duplicate() const;
+    PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
 };
 // World-local immutable realization. Instances must die before their templates.
 class CompiledPrefab {

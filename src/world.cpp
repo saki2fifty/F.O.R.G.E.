@@ -153,6 +153,12 @@ EngineModule ui_schema_module() {
 WorldContext::WorldContext(WorldRole role, ServiceAccess services,
                            std::vector<EngineModule> modules)
     : services_(services.world_scope()), role_(role) {
+    // C addon tags retain process-global IDs. Register these in a consistent
+    // order before FORGE/content allocations in every host world; late imports
+    // can collide with entities already allocated in a different world.
+    world_.import<flecs::stats>();
+    world_.import<flecs::metrics>();
+    world_.import<flecs::alerts>();
     auto composition = built_in_modules();
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.physics"; }))
@@ -192,6 +198,14 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
         for (const auto& c :
              world_.import<UiRegistration>().get<UiRegistration>().schema.at("components"))
             schema_["components"].push_back(c);
+        local_transforms_ = world_.query_builder<const LocalTranslation>()
+                                .cache_kind(flecs::QueryCacheNone)
+                                .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                                .build();
+        derived_transforms_ = world_.query_builder<const WorldTransform>()
+                                  .cache_kind(flecs::QueryCacheAuto)
+                                  .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                                  .build();
         // Revision invalidation includes direct native writes, removal and relation edits.
         // Internal observation only: application notifications remain post-commit.
         world_.observer()
@@ -200,10 +214,22 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
             .event(flecs::OnAdd)
             .event(flecs::OnSet)
             .event(flecs::OnRemove)
-            .each([this](flecs::entity e) {
+            .each([this](flecs::iter& event, size_t row) {
                 if (evaluating_transforms_)
                     return;
-                ++transform_epoch_;
+                const auto e = event.entity(row);
+                const ecs_id_t changed = event.event_id();
+                const bool relation = ecs_id_is_pair(changed) &&
+                                      (ecs_pair_first(world_, changed) == flecs::ChildOf ||
+                                       ecs_pair_first(world_, changed) == flecs::IsA ||
+                                       ecs_pair_first(world_, changed) == world_.id<SceneMember>());
+                if (relation || changed == ecs_id(EcsParent) ||
+                    changed == world_.id<PersistentEntityId>() ||
+                    changed == world_.id<LocalTranslation>() ||
+                    changed == world_.id<LocalRotation>() || changed == world_.id<LocalScale>() ||
+                    changed == world_.id<SpatialBinding>() ||
+                    changed == world_.id<MissingStructuralParent>())
+                    ++transform_epoch_;
                 auto it = content_.find(owner_of(e));
                 if (it != content_.end())
                     ++it->second.serial;
@@ -226,10 +252,7 @@ LocalTransform WorldContext::get_local_transform(flecs::entity e) const {
 }
 std::map<std::uint64_t, TransformNode> WorldContext::collect_transforms() const {
     std::map<std::uint64_t, TransformNode> nodes;
-    auto query = world_.query_builder<const LocalTranslation>()
-                     .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
-                     .build();
-    query.each([&](flecs::entity e, const LocalTranslation&) {
+    local_transforms_.each([&](flecs::entity e, const LocalTranslation&) {
         TransformNode n{get_local_transform(e)};
         const auto b = e.has<SpatialBinding>() ? e.get<SpatialBinding>() : SpatialBinding{};
         auto p = e.target(flecs::ChildOf);
@@ -268,10 +291,7 @@ void WorldContext::evaluate_world_transforms() {
         }
         // Retire a derived value if its entity loses its effective translation.
         std::vector<flecs::entity> stale;
-        auto derived = world_.query_builder<const WorldTransform>()
-                           .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
-                           .build();
-        derived.each([&](flecs::entity e, const WorldTransform&) {
+        derived_transforms_.each([&](flecs::entity e, const WorldTransform&) {
             if (!nodes.contains(e.id()))
                 stale.push_back(e);
         });
@@ -361,7 +381,7 @@ flecs::entity_t WorldContext::owner_of(flecs::entity entity) const {
     return 0;
 }
 flecs::entity_t WorldContext::attach() {
-    auto root = world_.entity();
+    auto root = world_.entity().add(flecs::OrderedChildren);
     content_.emplace(root.id(), Content{});
     return root.id();
 }

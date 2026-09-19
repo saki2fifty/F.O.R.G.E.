@@ -43,3 +43,7 @@ Drag an entity onto another hierarchy row to reparent it. FORGE previews validat
 ## Add from Hierarchy
 
 Click the **+** beside search, or right-click and choose **Create**. The same catalog is available in Scene and Entity → Create. Empty Entity and supported component recipes are explained under [Primitives](primitives.md). The new entity is selected without changing an open draft.
+
+## Reorder siblings
+
+Hold **Shift** while dragging an entity onto another entity with the same parent to place it immediately before that sibling. This changes order without changing parent or transform. Normal dragging still reparents. Undo/Redo and scene saving preserve sibling order. Prefab member order belongs to the prefab source rather than an instance override.

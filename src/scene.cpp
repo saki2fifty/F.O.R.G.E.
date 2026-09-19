@@ -168,15 +168,39 @@ Scene::Scene(WorldContext& context)
 }
 Scene::~Scene() { context_.detach(membership_); }
 void Scene::validate_document(const Json& doc) { validate(doc); }
+std::uint64_t Scene::order_signature() const {
+    // Native set_child_order is immediate and does not emit OnSet in this pin.
+    // This derived fingerprint invalidates UI caches without owning another order.
+    std::uint64_t result = 14695981039346656037ull;
+    auto mix = [&](ecs_entity_t id) { result = (result ^ id) * 1099511628211ull; };
+    auto append = [&](ecs_entity_t parent) {
+        auto e = world().entity(parent);
+        if (!e.is_alive() || !e.has(flecs::OrderedChildren))
+            return;
+        mix(parent);
+        const auto children = ecs_get_ordered_children(world(), parent);
+        for (int32_t i = 0; i < children.count; ++i)
+            mix(children.ids[i]);
+    };
+    append(membership_);
+    for (const auto& [id, handle] : entities_) {
+        (void)id;
+        append(handle);
+    }
+    return result;
+}
 std::uint64_t Scene::revision() const {
     const auto serial = context_.content_.at(membership_).serial;
-    if (serial != observed_serial_) {
+    const auto order = order_signature();
+    if (serial != observed_serial_ || order != observed_order_) {
         observed_serial_ = serial;
+        observed_order_ = order;
         ++revision_;
     }
     return revision_;
 }
 void Scene::committed() {
+    observed_order_ = order_signature();
     observed_serial_ = context_.content_.at(membership_).serial;
     ++revision_;
 }
@@ -353,8 +377,9 @@ void Scene::replace(const Json& source) {
         if (!e || !e.is_alive())
             continue;
         const auto parent = e.target(flecs::ChildOf);
-        if (parent && parent != entity(next.parent) &&
-            !new_items.at(next.id)->contains("prefab_member"))
+        const auto desired_parent =
+            next.parent.empty() ? world().entity(membership_) : entity(next.parent);
+        if (parent && parent != desired_parent && !new_items.at(next.id)->contains("prefab_member"))
             e.remove(flecs::ChildOf, parent);
         const auto base = e.target(flecs::IsA);
         const auto desired_base =
@@ -405,7 +430,11 @@ void Scene::replace(const Json& source) {
     for (const auto& root_id : rebuild_roots) {
         auto e = entity(root_id);
         if (!e || !e.is_alive()) {
-            e = world().entity().add<SceneMember>(membership_).set<StableId>({root_id});
+            e = world()
+                    .entity()
+                    .add(flecs::OrderedChildren)
+                    .add<SceneMember>(membership_)
+                    .set<StableId>({root_id});
             entities_[root_id] = e.id();
         }
         e.is_a(structured_bases.at(root_id));
@@ -429,7 +458,11 @@ void Scene::replace(const Json& source) {
     for (const auto& next : intended) {
         auto e = entity(next.id);
         if (!e || !e.is_alive()) {
-            e = world().entity().add<SceneMember>(membership_).set<StableId>({next.id});
+            e = world()
+                    .entity()
+                    .add(flecs::OrderedChildren)
+                    .add<SceneMember>(membership_)
+                    .set<StableId>({next.id});
             entities_[next.id] = e.id();
         }
         if (inactive_members.contains(next.parent))
@@ -464,9 +497,9 @@ void Scene::replace(const Json& source) {
     }
     for (const auto& next : intended) {
         auto e = entity(next.id);
-        if (!next.parent.empty() && entity(next.parent) &&
-            e.target(flecs::ChildOf) != entity(next.parent))
-            e.child_of(entity(next.parent));
+        const auto parent = next.parent.empty() ? world().entity(membership_) : entity(next.parent);
+        if (parent && e.target(flecs::ChildOf) != parent)
+            e.child_of(parent);
     }
     // Build source child/base dependencies first, independent of file row order.
     std::set<std::string> linked;
@@ -496,6 +529,7 @@ void Scene::replace(const Json& source) {
             e.set<PersistentEntityId>({persistent});
         content.persistent.emplace(persistent, handle);
     }
+    restore_child_order(doc);
     opaque_ = std::move(opaque);
     committed();
 }
@@ -607,7 +641,9 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
         if (item.contains("prefab_member") || !next_entities.contains(id))
             continue;
         auto e = world().entity(next_entities.at(id));
-        auto p = world().entity(next_entities.contains(parent) ? next_entities.at(parent) : 0);
+        auto p = world().entity(parent.empty()                   ? membership_
+                                : next_entities.contains(parent) ? next_entities.at(parent)
+                                                                 : 0);
         if (e.parent() != p)
             attach.emplace_back(e, p);
         availability.emplace_back(e, !parent.empty() && !p);
@@ -615,6 +651,36 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
     const auto next_asset = intended.at("asset_id").get<AssetId>();
     auto next_sources = sources;
     auto next_opaque = staged.opaque_;
+    // Prepare complete native sibling permutations before the durable boundary.
+    std::map<ecs_entity_t, ecs_entity_t> final_parents;
+    std::map<ecs_entity_t, std::vector<ecs_entity_t>> final_order;
+    std::set<ecs_entity_t> retiring;
+    for (auto e : retire)
+        retiring.insert(e.id());
+    for (const auto& [id, handle] : next_entities)
+        final_parents.emplace(handle, world().entity(handle).parent().id());
+    for (const auto& [e, parent] : attach)
+        final_parents.at(e.id()) = parent.id();
+    for (const auto& item : intended.at("entities")) {
+        const auto found = next_entities.find(item.at("id").get<std::string>());
+        if (found == next_entities.end())
+            continue;
+        const auto parent = final_parents.at(found->second);
+        if (parent)
+            final_order[parent].push_back(found->second);
+    }
+    for (auto& [parent, children] : final_order) {
+        std::set<ecs_entity_t> seen(children.begin(), children.end());
+        world().entity(parent).children([&](flecs::entity child) {
+            if (retiring.contains(child.id()))
+                return;
+            const auto planned = final_parents.find(child.id());
+            if (planned != final_parents.end() && planned->second != parent)
+                return;
+            if (seen.insert(child.id()).second)
+                children.push_back(child.id());
+        });
+    }
     durable_write(); // A failed atomic replacement discards candidates only.
     for (auto e : detach)
         e.remove(flecs::ChildOf, flecs::Wildcard);
@@ -642,6 +708,9 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
     opaque_.swap(next_opaque);
     prefab_sources_.swap(next_sources);
     prefab_templates_.swap(candidate);
+    for (const auto& [parent, children] : final_order)
+        ecs_set_child_order(world(), parent, children.data(),
+                            static_cast<int32_t>(children.size()));
     if (!affected.empty()) {
         undo_.clear();
         redo_.clear();
@@ -691,6 +760,30 @@ void Scene::reset(const Json& doc) {
     replace(doc);
     undo_.clear();
     redo_.clear();
+}
+void Scene::restore_child_order(const Json& document) {
+    std::map<ecs_entity_t, std::vector<ecs_entity_t>> desired;
+    for (const auto& item : document.at("entities")) {
+        auto child = entity(item.at("id"));
+        if (!child)
+            continue;
+        auto parent = child.parent();
+        if (parent)
+            desired[parent.id()].push_back(child.id());
+    }
+    for (auto& [parent_id, children] : desired) {
+        auto parent = world().entity(parent_id);
+        parent.add(flecs::OrderedChildren);
+        std::set<ecs_entity_t> seen(children.begin(), children.end());
+        // Include generated/non-authored children: native API requires a complete
+        // permutation, even in release builds where its debug checks are absent.
+        parent.children([&](flecs::entity child) {
+            if (seen.insert(child.id()).second)
+                children.push_back(child.id());
+        });
+        ecs_set_child_order(world().c_ptr(), parent_id, children.data(),
+                            static_cast<int32_t>(children.size()));
+    }
 }
 Json Scene::serialize(bool effective) const {
     if (effective)
@@ -769,6 +862,24 @@ Json Scene::serialize(bool effective) const {
         }
         output.push_back(std::move(item));
     }
+    // Keep inter-parent row slots stable for backwards-compatible round trips;
+    // each sibling subsequence is projected from Flecs OrderedChildren, not names.
+    std::map<ecs_entity_t, std::vector<std::size_t>> slots;
+    std::map<ecs_entity_t, Json> rows;
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        auto e = entity(output[i].at("id"));
+        if (e && e.parent() && e.parent().has(flecs::OrderedChildren)) {
+            slots[e.parent().id()].push_back(i);
+            rows.emplace(e.id(), output[i]);
+        }
+    }
+    for (const auto& [parent, indices] : slots) {
+        const auto children = ecs_get_ordered_children(world().c_ptr(), parent);
+        std::size_t next = 0;
+        for (int32_t i = 0; i < children.count; ++i)
+            if (rows.contains(children.ids[i]))
+                output[indices.at(next++)] = rows.at(children.ids[i]);
+    }
     doc["entities"] = std::move(output);
     return doc;
 }
@@ -781,17 +892,23 @@ void detail::SceneDraft::edit(const Json& document) {
     Scene::validate_document(document);
     auto normalized = document;
     for (auto& item : normalized["entities"])
-        for (const auto& type : builtins()) {
-            if (!item["components"].contains(type.name))
+        for (const auto& type : schema_.at("components")) {
+            const auto name = type.at("id").get<std::string>();
+            if (!item["components"].contains(name))
                 continue;
-            auto& data = item["components"][type.name];
-            for (const auto& [field, initial] : type.defaults.items())
-                if (initial.is_number_unsigned())
-                    data[field] = data.at(field).get<std::uint32_t>();
-                else if (initial.is_number())
-                    data[field] = std::string(type.name) == "forge.local_translation"
-                                      ? data.at(field).get<double>()
-                                      : double(data.at(field).get<float>());
+            auto& data = item["components"][name];
+            for (const auto& field : type.at("fields")) {
+                const auto key = field.at("id").get<std::string>();
+                if (!data.contains(key))
+                    continue;
+                const auto storage = field.at("type").get<std::string>();
+                if (storage == "uint32")
+                    data[key] = data.at(key).get<std::uint32_t>();
+                else if (storage == "float32")
+                    data[key] = double(data.at(key).get<float>());
+                else if (storage == "float64")
+                    data[key] = data.at(key).get<double>();
+            }
         }
     document_ = std::move(normalized);
 }

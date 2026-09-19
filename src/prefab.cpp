@@ -105,6 +105,24 @@ PrefabDocument PrefabDocument::duplicate() const {
     }
     return PrefabDocument(std::move(copy));
 }
+PrefabDocument PrefabDocument::reorder_member(PrefabMemberId id, PrefabMemberId before) const {
+    if (id == before)
+        return *this;
+    const auto& moved = member(source, id.str());
+    const auto& target = member(source, before.str());
+    if (!moved.contains("parent") || moved.value("parent", "") != target.value("parent", ""))
+        throw std::runtime_error("Prefab ordering requires two members with the same parent");
+    auto copy = source;
+    auto rows = Json::array();
+    for (const auto& row : source.at("members")) {
+        if (row.at("id") == before.str())
+            rows.push_back(moved);
+        if (row.at("id") != id.str())
+            rows.push_back(row);
+    }
+    copy["members"] = std::move(rows);
+    return PrefabDocument(std::move(copy));
+}
 CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
     : document(std::move(source)), context_(context) {
     auto& world = context.world();
@@ -303,6 +321,33 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources) {
     for (const auto& [id, row] : rows)
         if (!done.contains(id))
             out.push_back(row);
+    // Structured member order follows the published source. Retain ordinary
+    // scene row slots and dynamic attachment order; no per-instance order override.
+    for (const auto& [root_id, root] : rows) {
+        if (!root.contains("prefab_instance"))
+            continue;
+        const auto& instance = root.at("prefab_instance");
+        const auto asset = instance.at("asset").get<AssetId>();
+        if (!sources.contains(asset))
+            continue;
+        std::map<std::string, std::vector<Json>> siblings;
+        for (const auto& m : sources.at(asset).at("members")) {
+            if (!m.contains("parent"))
+                continue;
+            const auto id =
+                instance.at("members").at(m.at("id").get<std::string>()).get<std::string>();
+            const auto& row = rows.at(id);
+            siblings[row.at("parent")].push_back(row);
+        }
+        std::map<std::string, std::size_t> cursor;
+        for (auto& row : out) {
+            if (!row.contains("prefab_member") || row.at("prefab_member").at("root") != root_id ||
+                row.value("missing_member", false))
+                continue;
+            const auto parent = row.at("parent").get<std::string>();
+            row = siblings.at(parent).at(cursor[parent]++);
+        }
+    }
     doc["entities"] = std::move(out);
     validate_prefab_instances(doc);
     return doc;

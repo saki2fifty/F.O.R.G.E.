@@ -1,7 +1,9 @@
 #include "builtins.hpp"
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <forge/primitive_catalog.hpp>
+#include <mutex>
 #include <stdexcept>
 namespace forge::detail {
 namespace {
@@ -158,19 +160,7 @@ template <class T> void register_asset_ref(flecs::world& w, const char* name) {
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
     if constexpr (std::is_same_v<T, LocalTranslation>) {
-        ecs_struct_desc_t meta{};
-        meta.entity = c.id();
-        meta.members[0] = {"x", w.id<double>()};
-        meta.members[1] = {"y", w.id<double>()};
-        meta.members[2] = {"z", w.id<double>()};
-        meta.create_member_entities = true;
-        if (!ecs_struct_init(w.c_ptr(), &meta))
-            throw std::runtime_error("LocalTranslation reflection registration failed");
-        for (const char* axis : {"x", "y", "z"}) {
-            const auto text =
-                std::string("LocalTranslation along the ") + axis + " axis in world units.";
-            c.lookup(axis).set_doc_brief(text.c_str());
-        }
+        c.template member<double>("x").template member<double>("y").template member<double>("z");
     } else if constexpr (std::is_same_v<T, UiDocument>) {
         register_asset_ref<UiDocumentAsset>(w, "forge.ui_document_ref");
         c.template member<AssetRef<UiDocumentAsset>>("document")
@@ -322,19 +312,16 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); })};
     return types;
 }
-Json field_options(const Builtin& type, const std::string& field) {
+Json registration_options(const Builtin& type, const std::string& field) {
     Json value = {{"description", type.description}, {"unit", type.unit}};
     if (type.minimum)
         value["minimum"] = *type.minimum;
     if (type.maximum)
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
-    if (name == "forge.primitive")
-        value["enum"] = {"Cube", "Sphere", "Cylinder", "Plane"};
     if (name == "forge.physics_body") {
         if (field == "motion") {
             value["maximum"] = 2;
-            value["enum"] = {"Static", "Kinematic", "Dynamic"};
         }
         if (field == "density") {
             value["minimum"] = .001;
@@ -448,50 +435,143 @@ Json field_options(const Builtin& type, const std::string& field) {
     }
     return value;
 }
-void validate_components(const Json& components) {
-    for (const auto& type : builtins()) {
-        if (!components.contains(type.name))
-            continue;
-        const auto& data = components.at(type.name);
-        for (const auto& [field, initial] : type.defaults.items()) {
-            const auto& value = data.at(field);
-            if (initial.is_null()) {
-                if (!value.is_null())
-                    (void)value.get<AssetId>();
-                continue;
-            }
-            if (initial.is_boolean()) {
-                if (!value.is_boolean())
-                    throw std::runtime_error("Component field requires a boolean");
-                continue;
-            }
-            const bool integral = initial.is_number_unsigned();
-            const bool wide = std::string(type.name) == "forge.local_translation";
-            if (!value.is_number() || (integral && !value.is_number_integer()))
-                throw std::runtime_error("Component field has invalid numeric type");
-            const double n = value.get<double>();
-            // Compare float fields in their actual storage precision, preserving v1 bounds.
-            const auto options = field_options(type, field);
-            const std::optional<double> minimum = options.contains("minimum")
-                                                      ? std::optional<double>(options.at("minimum"))
-                                                      : std::nullopt;
-            const std::optional<double> maximum = options.contains("maximum")
-                                                      ? std::optional<double>(options.at("maximum"))
-                                                      : std::nullopt;
-            const double low = minimum ? (integral ? *minimum : double(float(*minimum)))
-                                       : -(wide ? std::numeric_limits<double>::max()
-                                                : double(std::numeric_limits<float>::max()));
-            const double high = maximum ? *maximum
-                                        : (wide ? std::numeric_limits<double>::max()
-                                                : double(std::numeric_limits<float>::max()));
-            if (!std::isfinite(n) || ((integral || wide) ? n : double(value.get<float>())) < low ||
-                ((integral || wide) ? n : double(value.get<float>())) > high)
-                throw std::runtime_error("Component field outside supported range");
+namespace {
+std::string friendly_name(std::string text) {
+    bool initial = true;
+    for (auto& ch : text) {
+        if (ch == '_') {
+            ch = ' ';
+            initial = true;
+        } else if (initial) {
+            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+            initial = false;
         }
-        (void)type.decode(data);
+    }
+    return text;
+}
+// This is a detached, immutable projection of registered metadata, never entity state.
+// Ordinary commands do not construct validation worlds. Standalone file validators
+// can initialize the same catalog before any EngineContext exists.
+std::recursive_mutex catalog_mutex;
+std::map<std::string, Json> validation_catalog;
+ecs_entity_t field_unit(flecs::world& world, const std::string& name) {
+    if (name == "meters")
+        return EcsMeters;
+    if (name == "meters/second")
+        return EcsMetersPerSecond;
+    if (name == "kg (0 uses density)")
+        return EcsKiloGrams;
+    if (name == "kg/m^3") {
+        auto unit = world.lookup("forge.units.KilogramsPerCubicMeter");
+        if (!unit) {
+            ecs_unit_desc_t desc{};
+            desc.entity = world.entity("forge.units.KilogramsPerCubicMeter").id();
+            desc.symbol = "kg/m^3";
+            if (!ecs_unit_init(world.c_ptr(), &desc))
+                throw std::runtime_error("Density unit registration failed");
+            unit = world.entity(desc.entity);
+        }
+        return unit.id();
+    }
+    return 0; // Quaternions, scale and multipliers are dimensionless, not angles.
+}
+ecs_entity_t enum_type(flecs::world& world, bool primitive) {
+    const char* name = primitive ? "forge.PrimitiveKind" : "forge.PhysicsMotion";
+    auto type = world.lookup(name);
+    if (type)
+        return type.id();
+    const char* motions[] = {"Static", "Kinematic", "Dynamic"};
+    const unsigned count = primitive ? primitive_count : 3;
+    std::vector<std::string> names;
+    for (unsigned i = 0; i < count; ++i) {
+        names.emplace_back(primitive ? primitive_names[i] : motions[i]);
+        std::replace(names.back().begin(), names.back().end(), ' ', '_');
+    }
+    ecs_enum_desc_t desc{};
+    desc.entity = world.entity(name);
+    desc.underlying_type = world.id<std::uint32_t>();
+    for (unsigned i = 0; i < count; ++i) {
+        desc.constants[i].name = names[i].c_str();
+        desc.constants[i].value_unsigned = i;
+    }
+    if (!ecs_enum_init(world, &desc))
+        throw std::runtime_error("Native enum registration failed");
+    type = world.entity(desc.entity);
+    for (unsigned i = 0; i < count; ++i)
+        type.lookup(names[i].c_str()).set_doc_name(primitive ? primitive_names[i] : motions[i]);
+    return type;
+}
+void annotate_type(flecs::world& world, flecs::entity component, const Builtin& type) {
+    const auto* structure = ecs_get(world.c_ptr(), component.id(), EcsStruct);
+    if (!structure)
+        throw std::runtime_error("Reflection metadata is missing");
+    const int count = ecs_vec_count(&structure->members);
+    if (count > ECS_MEMBER_DESC_CACHE_SIZE)
+        throw std::runtime_error("Builtin exceeds reflection descriptor capacity");
+    // Copy names and descriptors before registration can reallocate EcsStruct storage.
+    std::vector<std::string> names;
+    std::vector<ecs_member_t> members;
+    const auto* source = ecs_vec_first_t(&structure->members, ecs_member_t);
+    for (int i = 0; i < count; ++i) {
+        names.emplace_back(source[i].name);
+        members.push_back(source[i]);
+    }
+    ecs_struct_desc_t desc{};
+    desc.entity = component.id();
+    desc.create_member_entities = true;
+    for (int i = 0; i < count; ++i) {
+        auto& m = desc.members[i];
+        m = members[i];
+        m.name = names[i].c_str();
+        m.use_offset = true;
+        const auto options = registration_options(type, m.name);
+        m.unit = field_unit(world, options.at("unit"));
+        const bool enumeration =
+            std::string(type.name) == "forge.primitive" ||
+            (std::string(type.name) == "forge.physics_body" && names[i] == "motion");
+        if (enumeration)
+            m.type = enum_type(world, std::string(type.name) == "forge.primitive");
+        // Stable Meta ranges require primitive numbers, not enums. Native enum
+        // constants define membership; no parallel numeric range is registered.
+        if (!enumeration && options.contains("minimum") && options.contains("maximum")) {
+            m.range = {options.at("minimum").get<double>(), options.at("maximum").get<double>()};
+            m.error_range = m.range;
+        }
+        // Above nominal gain is valid amplification, but warrants contextual guidance.
+        if (std::string(type.name) == "forge.audio_source" && names[i] == "gain")
+            m.warning_range = {0, 1};
+    }
+    if (!ecs_struct_init(world.c_ptr(), &desc))
+        throw std::runtime_error("Builtin member metadata registration failed");
+    const std::string id = type.name;
+    const auto display =
+        id == "forge.ui_document" ? "UI Document" : friendly_name(id.substr(id.find('.') + 1));
+    component.set_doc_name(display.c_str()).set_doc_brief(type.description);
+    for (const auto& name : names) {
+        auto member = component.lookup(name.c_str());
+        const auto options = registration_options(type, name);
+        auto help = options.at("description").get<std::string>();
+        if (id == "forge.local_translation")
+            help = "Local translation along the " + name + " axis, in meters.";
+        if (id == "forge.physics_body" && name == "mass")
+            help = "Mass in kilograms; zero computes mass from density and collider volume.";
+        member.set_doc_name(friendly_name(name).c_str()).set_doc_brief(help.c_str());
     }
 }
+Json validation_schema(const char* name) {
+    std::lock_guard lock(catalog_mutex);
+    if (!validation_catalog.contains(name)) {
+        // Standalone schema/file tools have no gameplay world to borrow. This
+        // short-lived metadata-only world contains no scene, modules or systems.
+        flecs::world metadata;
+        for (unsigned family = 0; family != 6; ++family)
+            register_builtins(metadata, family);
+    }
+    return validation_catalog.at(name);
+}
+} // namespace
 Json register_builtins(flecs::world& world, unsigned family) {
+    world.import<flecs::units>();
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
@@ -505,6 +585,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (category != family)
             continue;
         const auto c = type.register_type(world);
+        annotate_type(world, c, type);
         const auto* structure = ecs_get(world.c_ptr(), c.id(), EcsStruct);
         if (!structure)
             throw std::runtime_error("Reflection metadata is missing");
@@ -512,66 +593,172 @@ Json register_builtins(flecs::world& world, unsigned family) {
         const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
         for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
             const auto& m = members[i];
-            const bool primitive = m.type == world.id<std::uint32_t>();
+            const auto* enumeration = ecs_get(world.c_ptr(), m.type, EcsEnum);
+            const auto* primitive = ecs_get(
+                world.c_ptr(), enumeration ? enumeration->underlying_type : m.type, EcsPrimitive);
+            const bool integral = primitive && primitive->kind == EcsU32;
+            const bool boolean = primitive && primitive->kind == EcsBool;
+            const bool wide = primitive && primitive->kind == EcsF64;
+            const bool asset = ecs_has(world.c_ptr(), m.type, EcsOpaque);
+            if (!primitive && !asset)
+                throw std::runtime_error("Unsupported builtin reflected member kind");
+            const auto options = registration_options(type, m.name);
             Json f = {{"id", m.name},
                       {"property_id", std::string(type.name) + "." + m.name},
-                      {"type", type.defaults.at(m.name).is_null()      ? "asset_ref"
-                               : type.defaults.at(m.name).is_boolean() ? "bool"
-                               : primitive
-                                   ? "uint32"
-                                   : (m.type == world.id<double>() ? "float64" : "float32")},
-                      {"description", type.description},
+                      {"type", asset      ? "asset_ref"
+                               : boolean  ? "bool"
+                               : integral ? "uint32"
+                               : wide     ? "float64"
+                                          : "float32"},
+                      {"description", ecs_doc_get_brief(world.c_ptr(), m.member)},
+                      {"display_name", ecs_doc_get_name(world.c_ptr(), m.member)},
                       {"default", type.defaults.at(m.name)},
                       {"serialized", true},
                       {"read_only", false},
-                      {"animatable", !primitive && type.defaults.at(m.name).is_number()},
-                      {"unit", type.unit}};
-            f.update(field_options(type, m.name));
-            std::string label = m.name;
-            bool initial = true;
-            for (auto& ch : label) {
-                if (ch == '_') {
-                    ch = ' ';
-                    initial = true;
-                } else if (initial) {
-                    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-                    initial = false;
-                }
+                      {"animatable", primitive && !integral && !boolean},
+                      {"unit", "unitless"}};
+            // Only FORGE semantic annotations remain outside native Meta/Doc/Units.
+            for (const char* key : {"asset_type", "nullable"})
+                if (options.contains(key))
+                    f[key] = options.at(key);
+            if (m.unit) {
+                const auto* unit = ecs_get(world.c_ptr(), m.unit, EcsUnit);
+                if (!unit || !unit->symbol)
+                    throw std::runtime_error("Reflected unit has no symbol");
+                f["unit"] = unit->symbol;
             }
-            f["display_name"] = label;
-            if (name == "forge.physics_body" && std::string(m.name) == "motion")
-                f["choices"] = Json::array({{{"label", "Static"}, {"value", 0u}},
-                                            {{"label", "Kinematic"}, {"value", 1u}},
-                                            {{"label", "Dynamic"}, {"value", 2u}}});
-            if (name == "forge.primitive" && std::string(m.name) == "kind") {
+            if (const auto* ranges = ecs_get(world.c_ptr(), m.member, EcsMemberRanges)) {
+                if (ranges->value.min != ranges->value.max) {
+                    f["minimum"] = ranges->value.min;
+                    f["maximum"] = ranges->value.max;
+                }
+                for (const auto& [key, range] : {std::pair{"warning_range", ranges->warning},
+                                                 std::pair{"error_range", ranges->error}})
+                    if (range.min != range.max)
+                        f[key] = {{"minimum", range.min}, {"maximum", range.max}};
+            }
+            if (enumeration) {
+                const auto* constants = ecs_get(world.c_ptr(), m.type, EcsConstants);
+                const auto* values =
+                    ecs_vec_first_t(&constants->ordered_constants, ecs_enum_constant_t);
                 f["choices"] = Json::array();
-                for (unsigned i = 0; i < primitive_count; ++i)
-                    f["choices"].push_back({{"label", primitive_names[i]}, {"value", i}});
+                for (int i = 0; i < ecs_vec_count(&constants->ordered_constants); ++i)
+                    f["choices"].push_back(
+                        {{"label", ecs_doc_get_name(world.c_ptr(), values[i].constant)},
+                         {"value", values[i].value_unsigned}});
             }
             fields.push_back(std::move(f));
         }
-        std::string display = name.substr(name.find('.') + 1);
-        bool initial = true;
-        for (auto& ch : display) {
-            if (ch == '_') {
-                ch = ' ';
-                initial = true;
-            } else if (initial) {
-                ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-                initial = false;
-            }
-        }
-        if (name == "forge.ui_document")
-            display = "UI Document";
         const char* categories[] = {
             "Rendering / Transform", "Physics", "Audio", "Animation", "Navigation", "Runtime UI"};
         components.push_back({{"id", type.name},
-                              {"display_name", display},
+                              {"display_name", ecs_doc_get_name(world.c_ptr(), c.id())},
+                              {"description", ecs_doc_get_brief(world.c_ptr(), c.id())},
                               {"category", categories[category]},
                               {"schema_version", 1},
                               {"fields", fields},
                               {"optional", category != 0}});
+        std::lock_guard lock(catalog_mutex);
+        validation_catalog.try_emplace(type.name, components.back());
     }
     return {{"version", 1}, {"components", components}};
+}
+void validate_reflected_value(flecs::world world, ecs_entity_t type, const void* value) {
+    const auto* structure = ecs_get(world.c_ptr(), type, EcsStruct);
+    if (!structure || !value)
+        throw std::runtime_error("Missing component validation metadata/value");
+    const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
+    for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
+        const auto& m = members[i];
+        const auto* enumeration = ecs_get(world.c_ptr(), m.type, EcsEnum);
+        const auto* primitive = ecs_get(
+            world.c_ptr(), enumeration ? enumeration->underlying_type : m.type, EcsPrimitive);
+        if (!primitive || primitive->kind == EcsBool)
+            continue;
+        const auto* ptr = static_cast<const std::byte*>(value) + m.offset;
+        double number = 0;
+        bool single = false;
+        switch (primitive->kind) {
+        case EcsF32: {
+            float v;
+            std::memcpy(&v, ptr, sizeof(v));
+            number = v;
+            single = true;
+            break;
+        }
+        case EcsF64:
+            std::memcpy(&number, ptr, sizeof(number));
+            break;
+        case EcsU32: {
+            std::uint32_t v;
+            std::memcpy(&v, ptr, sizeof(v));
+            number = v;
+            break;
+        }
+        default:
+            throw std::runtime_error("Unsupported builtin validation storage");
+        }
+        if (enumeration) {
+            const auto* constants = ecs_get(world.c_ptr(), m.type, EcsConstants);
+            const auto* values =
+                ecs_vec_first_t(&constants->ordered_constants, ecs_enum_constant_t);
+            bool found = false;
+            for (int j = 0; j < ecs_vec_count(&constants->ordered_constants); ++j)
+                found |= values[j].value_unsigned == static_cast<std::uint64_t>(number);
+            if (!found)
+                throw std::runtime_error(std::string(m.name) + ": unsupported enum value");
+        }
+        const double low = single ? double(float(m.range.min)) : m.range.min;
+        if (!std::isfinite(number) ||
+            (m.range.min != m.range.max && (number < low || number > m.range.max)))
+            throw std::runtime_error(std::string(ecs_get_name(world.c_ptr(), type)) + "." + m.name +
+                                     ": component field outside supported range");
+    }
+}
+void validate_components(const Json& components) {
+    for (const auto& type : builtins()) {
+        if (!components.contains(type.name))
+            continue;
+        const auto& data = components.at(type.name);
+        const auto schema = validation_schema(type.name);
+        for (const auto& field : schema.at("fields")) {
+            const auto& value = data.at(field.at("id").get<std::string>());
+            const auto kind = field.at("type").get<std::string>();
+            if (kind == "asset_ref") {
+                if (!value.is_null())
+                    (void)value.get<AssetId>();
+                continue;
+            }
+            if (kind == "bool") {
+                if (!value.is_boolean())
+                    throw std::runtime_error("Component field requires a boolean");
+                continue;
+            }
+            const bool integral = kind == "uint32", wide = kind == "float64";
+            if (!value.is_number() || (integral && !value.is_number_integer()))
+                throw std::runtime_error("Component field has invalid numeric type");
+            if (field.contains("choices")) {
+                bool found = false;
+                for (const auto& choice : field.at("choices"))
+                    found |= choice.at("value") == value;
+                if (!found)
+                    throw std::runtime_error("Unsupported reflected enum value");
+            }
+            const double n = value.get<double>();
+            const double storage_max = integral ? double(UINT32_MAX)
+                                       : wide   ? std::numeric_limits<double>::max()
+                                                : double(std::numeric_limits<float>::max());
+            double low = field.value("minimum", integral ? 0.0 : -storage_max);
+            const double high = field.value("maximum", storage_max);
+            if (!integral && !wide)
+                low = double(float(low));
+            const double stored = integral || wide ? n : double(value.get<float>());
+            if (!std::isfinite(n) || !std::isfinite(stored) || stored < low || stored > high)
+                throw std::runtime_error(std::string(type.name) + "." +
+                                         field.at("id").get<std::string>() +
+                                         ": component field outside supported range");
+        }
+        (void)type.decode(data); // Cross-member invariants remain FORGE-owned.
+    }
 }
 } // namespace forge::detail

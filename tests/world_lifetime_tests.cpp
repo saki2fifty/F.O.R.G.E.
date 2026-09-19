@@ -143,7 +143,8 @@ void lifetime_and_failure() {
     auto replacement = fixture();
     scene.replace(replacement);
     stable();
-    require(!scene.entity("b").target(flecs::ChildOf), "Replacement kept obsolete parent");
+    require(scene.entity("b").target(flecs::ChildOf).id() == scene.membership(),
+            "Replacement kept obsolete parent");
     {
         forge::Scene other(context);
         other.reset(fixture()); // v1 IDs are scoped to membership, not global strings.

@@ -14,7 +14,9 @@
 #include "content.hpp"
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
+#include "ecs_tools.hpp"
 #include "files.hpp"
+#include "flecs_script.hpp"
 #include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
@@ -189,6 +191,7 @@ int main(int argc, char** argv) {
         };
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
+        forge::ui::EcsWorkspace ecs_workspace(scene_engine.world());
         editor.scene = &scene;
         forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
@@ -267,19 +270,22 @@ int main(int argc, char** argv) {
         } catch (const std::exception& e) {
             message = e.what();
         }
+        forge::ui::FlecsScriptEditor script_editor(std::filesystem::path(base) / "forge_tools.exe");
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
         std::string name_entity, authored_name;
         std::optional<forge::EditorFiles::Action> pending_switch;
         files.before_request = [&](const forge::EditorFiles::Action& action) {
-            if (!prefab_editor.dirty() && !project_settings.dirty())
+            if (!prefab_editor.dirty() && !project_settings.dirty() && !script_editor.dirty())
                 return true;
             pending_switch = action;
             if (prefab_editor.dirty())
                 prefab_editor.request_close();
-            else
+            else if (project_settings.dirty())
                 project_settings.request_close();
+            else
+                script_editor.request_close();
             return false;
         };
         documents.add({"scene",
@@ -325,6 +331,23 @@ int main(int argc, char** argv) {
              {},
              {},
              {}});
+        documents.add({"flecs_script",
+                       "Flecs Script",
+                       "Flecs Script###Flecs Script",
+                       true,
+                       [&] { return script_editor.is_open(); },
+                       [&] { return script_editor.dirty(); },
+                       [&] { script_editor.draw(files.document, document_locked); },
+                       [&] { script_editor.request_save(); },
+                       {},
+                       {},
+                       [&] { script_editor.request_close(); },
+                       {},
+                       {},
+                       {}});
+        asset_editors.add(
+            {"flecs_script", "Edit Flecs Script",
+             [&](const forge::AssetRecord& asset) { script_editor.open(files.document, asset); }});
         asset_editors.add({"scene", "Open scene", [&](const forge::AssetRecord& a) {
                                files.request({forge::EditorFiles::Command::OpenScene,
                                               files.document.project() / a.source,
@@ -775,6 +798,30 @@ int main(int argc, char** argv) {
                     forge::ui::style(1.5f);
                     workspace.reset = true;
                     break;
+                case 19:
+                    forge::ui::style(1);
+                    ecs_workspace.request_open();
+                    break;
+                case 20:
+                    if (auto* w = ImGui::FindWindowByName("ECS World inspection"))
+                        if (auto* bar = GImGui->TabBars.GetByKey(w->GetID("ecs-tabs")))
+                            if (auto* tab =
+                                    ImGui::TabBarFindTabByID(bar, ImHashStr("Metrics", 0, bar->ID)))
+                                ImGui::TabBarQueueFocus(bar, tab);
+                    break;
+                case 21: {
+                    ecs_workspace.request_close();
+                    forge::atomic_write(files.document.project() / "Assets/Example.flecs",
+                                        "using flecs.meta\nstruct Position { x { member: {f32} } y "
+                                        "{ member: {f32} } }\nExample { Position: {10, 20} }\n");
+                    const auto script = forge::register_flecs_script(files.document.project(),
+                                                                     "Assets/Example.flecs");
+                    script_editor.open(files.document, script);
+                    break;
+                }
+                case 22:
+                    forge::ui::style(2);
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -825,6 +872,7 @@ int main(int argc, char** argv) {
                     if (workspace.menu())
                         perform(save_preferences);
                     commands.menu([&] {
+                        ecs_workspace.menu();
                         automation.menu();
                         performance.menu();
                         project_settings.menu();
@@ -899,6 +947,7 @@ int main(int argc, char** argv) {
                 if (ImGui::IsKeyPressed(ImGuiKey_F7, false))
                     actions.invoke("step");
             }
+            ecs_workspace.draw(scene, editor.problems);
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
                           blockout.at_view_target, edit_locked);
             files.draw_dialogs();
@@ -1431,6 +1480,8 @@ int main(int argc, char** argv) {
                     files, &workspace.content,
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
+                        script_editor.content(files.document, edit_locked, editor.selection,
+                                              message);
                         animation_tools.content(files.document, edit_locked, message);
                         runtime_ui_tools.content(files.document, edit_locked, message);
                         navigation_tools.content(scene, files.document, edit_locked, message);
@@ -1438,13 +1489,24 @@ int main(int argc, char** argv) {
                     edit_locked);
                 ImGui::EndDisabled();
             }
+            script_editor.poll(files.document, editor.problems);
             documents.draw();
+            script_editor.draw_source_viewer(files.document);
             if (editor.reveal_content)
                 workspace.content = true;
             if (workspace.problems) {
                 if (auto* settings = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                     ImGui::SetNextWindowDockID(settings->DockId, ImGuiCond_FirstUseEver);
-                if (editor.problems.draw(editor.selection, &workspace.problems)) {
+                if (editor.problems.draw(editor.selection, &workspace.problems,
+                                         [&](const forge::ui::Problem& problem) {
+                                             try {
+                                                 script_editor.navigate_source(
+                                                     files.document, problem.source, problem.line,
+                                                     problem.column);
+                                             } catch (const std::exception& e) {
+                                                 message = e.what();
+                                             }
+                                         })) {
                     workspace.inspector = true;
                     editor.task.owner = forge::ui::DocumentTask::Scene;
                 }
@@ -1605,14 +1667,20 @@ int main(int argc, char** argv) {
                 ImGui::End();
             }
 
-            if (prefab_editor.close_cancelled || project_settings.close_cancelled) {
+            if (prefab_editor.close_cancelled || project_settings.close_cancelled ||
+                script_editor.close_cancelled) {
                 pending_switch.reset();
-                prefab_editor.close_cancelled = project_settings.close_cancelled = false;
+                prefab_editor.close_cancelled = project_settings.close_cancelled =
+                    script_editor.close_cancelled = false;
             }
             if (pending_switch) {
                 if (!prefab_editor.dirty() && project_settings.dirty())
                     project_settings.request_close();
-                else if (!prefab_editor.dirty() && !project_settings.dirty()) {
+                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
+                         script_editor.dirty())
+                    script_editor.request_close();
+                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
+                         !script_editor.dirty()) {
                     auto action = *pending_switch;
                     pending_switch.reset();
                     files.request(action);
@@ -1683,7 +1751,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 19) {
+                if (fixture.stage == 23) {
                     play.stop();
                     running = false;
                 }

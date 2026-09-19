@@ -193,6 +193,32 @@ void live(const char* module_path) {
     root.set<LocalTranslation>({100, 0, 0});
     simulation.reset_presentation();
     expect_near(simulation.presentation(0)["entities"][0]["world_affine"][3], 100);
+    unsigned intervals = 0, rates = 0, timeouts = 0;
+    const auto phase = scene.world().lookup("forge.runtime.Gameplay");
+    auto interval =
+        scene.world().system().kind(phase).interval(.05f).run([&](flecs::iter&) { ++intervals; });
+    auto rate = scene.world().system().kind(phase).rate(3).run([&](flecs::iter&) { ++rates; });
+    auto timeout = scene.world().system().kind(phase).run([&](flecs::iter&) { ++timeouts; });
+    ecs_set_timeout(scene.world(), timeout.id(), .03f);
+    for (auto system : {interval, rate, timeout})
+        system.add<FixedSimulation>();
+    for (int i = 0; i < 6; ++i)
+        simulation.tick(1.f / 60);
+    check(intervals == 2 && rates == 2 && timeouts == 1,
+          "Native timers/rate filters did not follow fixed pipeline");
+    RuntimeClock paused_clock;
+    const auto calls = intervals;
+    paused_clock.advance(RuntimeClock::Time{} + std::chrono::seconds(1),
+                         [&](float dt) { simulation.tick(dt); });
+    check(intervals == calls, "Paused wall time progressed ECS timers");
+    paused_clock.step([&](float dt) { simulation.tick(dt); });
+    check(rates == 2 && timeouts == 1, "Step incorrectly advanced rate or restarted one-shot");
+    ecs_stop_timer(scene.world(), interval.id());
+    for (int i = 0; i < 3; ++i)
+        simulation.tick(1.f / 60);
+    check(intervals == calls, "Stopped native timer continued ticking");
+    for (auto system : {interval, rate, timeout})
+        system.destruct();
     extra.destruct();
 }
 } // namespace

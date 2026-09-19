@@ -86,6 +86,9 @@ class WorldContext {
     // Destroy the world before state used by its observers/hooks.
     ModuleLifecycle modules_; // Code/providers must outlive world finalization.
     flecs::world world_;
+    // Queries are destroyed before their world; callback providers remain alive.
+    flecs::query<const LocalTranslation> local_transforms_;
+    flecs::query<const WorldTransform> derived_transforms_;
 };
 // Application composition root. Services/code owners are declared before this
 // object by applications, so they outlive its world. No generic service locator.

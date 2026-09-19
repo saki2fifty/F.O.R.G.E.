@@ -73,3 +73,7 @@ Runtime velocities/contact state, decoded PCM/voices, Ozz sampling buffers, Deto
 ## AssetHandle decision
 
 Still deferred. Current consumers resolve AssetIds into subsystem-owned immutable bytes/caches and private implementation handles. No cross-module loaded-resource lifetime needs a general shared handle. Adding one now would freeze Phase7 loading/streaming policy without a consumer.
+
+## Flecs integration configuration
+
+The exact pin remains 4.1.6 (`fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`). Script Math is enabled and fingerprinted. Global member-entity creation remains off; built-in authored types opt in explicitly. Native ranges are metadata, not host transaction rollback. Native root membership/ordered children and fixed Timer system admission are host semantics; modules must not replace them. `on_validate` and native Meta maps remain unavailable. See the source checkout's `docs/dependency-policy.md` and `docs/flecs-integration.md`; a richer live document is not permission to change the SDK pin or feature macros.

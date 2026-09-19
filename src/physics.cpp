@@ -2,6 +2,7 @@
 // clang-format off
 #include <Jolt/Jolt.h>
 // clang-format on
+#include "builtins.hpp"
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
@@ -103,12 +104,7 @@ struct Configuration {
 };
 Configuration configuration(flecs::entity e, LocalScale scale) {
     auto b = e.get<PhysicsBody>();
-    if (b.motion > 2 || !std::isfinite(b.density) || b.density < .001f || b.density > 1e6f ||
-        !std::isfinite(b.mass) || b.mass < 0 || b.mass > 1e6f || !std::isfinite(b.friction) ||
-        b.friction < 0 || b.friction > 10 || !std::isfinite(b.restitution) || b.restitution < 0 ||
-        b.restitution > 1 || !std::isfinite(b.gravity_factor) || b.gravity_factor < 0 ||
-        b.gravity_factor > 10)
-        throw std::runtime_error("Invalid Physics Body settings");
+    detail::validate_reflected_value(e, b);
     if (b.motion == 2 &&
         (!e.has<SpatialBinding>() || e.get<SpatialBinding>().mode != SpatialMode::World))
         throw std::runtime_error("Dynamic Physics Body requires Child space: World");
@@ -120,18 +116,18 @@ Configuration configuration(flecs::entity e, LocalScale scale) {
     Configuration c{b, 0, {}, scale};
     if (e.has<BoxCollider>()) {
         auto v = e.get<BoxCollider>();
+        detail::validate_reflected_value(e, v);
         c.dimensions = {v.x, v.y, v.z};
     } else if (e.has<SphereCollider>()) {
+        detail::validate_reflected_value(e, e.get<SphereCollider>());
         c.shape = 1;
         c.dimensions.fill(e.get<SphereCollider>().radius);
     } else {
         c.shape = 2;
         auto v = e.get<CapsuleCollider>();
+        detail::validate_reflected_value(e, v);
         c.dimensions = {v.radius, v.height, v.radius};
     }
-    for (double d : c.dimensions)
-        if (!std::isfinite(d) || d < .001 || d > 10000)
-            throw std::runtime_error("Collider dimensions must be .001..10000 meters");
     for (unsigned i = 0; i < 3; ++i) {
         const double scaled = c.dimensions[i] * std::array<float, 3>{scale.x, scale.y, scale.z}[i];
         if (!std::isfinite(scaled) || scaled < .000999999 || scaled > 10000)

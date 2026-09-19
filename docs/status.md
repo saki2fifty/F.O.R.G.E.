@@ -1,5 +1,22 @@
 # Phase 6 complete — final consolidation
 
+## Complete Flecs integration — final validation in progress
+
+The exact stable4.1.6 pin is retained. Native Meta/Doc/Units/Ranges now drive
+builtin authoring metadata and scalar validation; ordered hierarchy/prefab source
+ordering, fixed Timer scheduling, central Flecs Script preview documents and
+optional ECS inspection/metrics/alerts/readonly REST are implemented. See
+[the integration contract](flecs-integration.md), [Script guide](../manual/editor/flecs-script.md)
+and [ECS tools guide](../manual/editor/ecs-tools.md).
+
+Normal Linux static35/35 and sharedSDK44/44 suites passed. Strict static product
+sanitizer34/34 passed; the separately classified known-upstream managed-include
+regression produced only its expected buffer leak. Strict shared product sanitizer42/42 and editor sanitizer3/3 also passed; the
+shared profile separately reproduced only the approved expected native leak.
+Final Windows validation and delivery remain pending. Build260919-000061 remains the last
+delivered package. No Phase7 work.
+
+
 **Build 260918-000054** completes Phase6G and the authorized final Phase6 work package. Packaged source: `991aca3447e148cdbb903331eaf820d101674371`; [clean Windows/Linux validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35348388494). Read the [extension author guide](extension-guide.md) and [contract inventory](extension-contracts.md).
 
 Built-in modules, trusted exact-version gameplay modules and the constrained ABI1 path now have documented ownership, live capability/version discovery, checked service access, installed UUID value helpers and a combined sample. No scene/identity/ABI1 change or editor redesign. AssetHandle and a broadly stable plugin ABI remain deferred.

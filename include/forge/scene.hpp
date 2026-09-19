@@ -61,10 +61,12 @@ class Scene {
     WorldContext& context_;
     flecs::entity_t membership_;
     std::map<std::string, flecs::entity_t>& entities_;
-    mutable std::uint64_t revision_ = 0, observed_serial_ = 0;
+    mutable std::uint64_t revision_ = 0, observed_serial_ = 0, observed_order_ = 0;
     Json opaque_;
     Json serialize(bool effective) const;
     void committed();
+    std::uint64_t order_signature() const;
+    void restore_child_order(const Json& document);
     void replace_prefab_sources(const PrefabSources&, const Json&, const std::function<void()>&,
                                 bool);
     std::vector<Json> undo_, redo_;

@@ -28,10 +28,11 @@ inline void component_choices(const Json& schema, const Json& components, const 
             ImGui::BeginDisabled(present);
             if (ImGui::Selectable((label + (present ? " (Added)" : "")).c_str()))
                 add(type);
-            help(present
-                     ? "Already attached, including inherited components."
-                     : "Add this component with its registered defaults. Required asset references "
-                       "can be assigned afterward.");
+            const auto description =
+                type.value("description", std::string{}) +
+                (present ? " Already attached, including inherited components."
+                         : " Add with registered defaults, then assign any required assets.");
+            help(description.c_str());
             ImGui::EndDisabled();
         }
     }

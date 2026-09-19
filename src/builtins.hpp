@@ -28,4 +28,9 @@ struct Builtin {
 const std::array<Builtin, builtin_count>& builtins();
 Json register_builtins(flecs::world& world, unsigned family = 0);
 void validate_components(const Json& components);
+// Checks registered scalar storage/ranges only; domain validation remains with each subsystem.
+void validate_reflected_value(flecs::world world, ecs_entity_t type, const void* value);
+template <class T> void validate_reflected_value(flecs::entity entity, const T& value) {
+    validate_reflected_value(entity.world(), entity.world().id<T>(), &value);
+}
 } // namespace forge::detail

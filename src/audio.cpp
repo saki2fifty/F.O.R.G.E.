@@ -1,3 +1,4 @@
+#include "builtins.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -36,12 +37,10 @@ bool usable_pose(flecs::entity entity) {
             return false;
     return true;
 }
-void validate(const AudioSource& s) {
-    if (!std::isfinite(s.gain) || s.gain < 0 || s.gain > 4 || !std::isfinite(s.pitch) ||
-        s.pitch < .25f || s.pitch > 4 || !std::isfinite(s.minimum_distance) ||
-        !std::isfinite(s.maximum_distance) || s.minimum_distance < .001f ||
-        s.maximum_distance < s.minimum_distance || s.maximum_distance > 10000)
-        throw std::runtime_error("Invalid audio gain, pitch or distance range");
+void validate(flecs::entity entity, const AudioSource& s) {
+    detail::validate_reflected_value(entity, s);
+    if (s.maximum_distance < s.minimum_distance)
+        throw std::runtime_error("Audio maximum distance must be at least minimum distance");
 }
 } // namespace
 struct AudioRuntime::Impl {
@@ -310,7 +309,7 @@ struct AudioRuntime::Impl {
             if (failed_config.contains(e.id()) && failed_config.at(e.id()) == config_value)
                 continue;
             try {
-                validate(config_value);
+                validate(e, config_value);
                 auto found = voices.find(e.id());
                 if (found != voices.end() && found->second->authored.clip != config_value.clip) {
                     voices.erase(found);

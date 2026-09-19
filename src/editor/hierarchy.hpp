@@ -31,11 +31,6 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
     for (const auto& e : doc.at("entities"))
         if (visible.contains(e.at("id").get<std::string>()))
             children[e.value("parent", std::string{})].push_back(&e);
-    for (auto& [parent, entries] : children)
-        std::stable_sort(entries.begin(), entries.end(), [](const Json* a, const Json* b) {
-            return search_key(a->at("name").get<std::string>()) <
-                   search_key(b->at("name").get<std::string>());
-        });
     std::function<void(const std::string&)> draw = [&](const std::string& parent) {
         for (const auto* e : children[parent]) {
             const auto id = e->at("id").get<std::string>();
@@ -57,7 +52,7 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
             help("Select this authored entity. Expand the arrow to see its children.");
             if (scene && !locked && !e->contains("prefab_member") && ImGui::BeginDragDropSource()) {
                 ImGui::SetDragDropPayload("FORGE_ENTITY", id.c_str(), id.size() + 1);
-                ImGui::Text("Parent: %s", e->at("name").get_ref<const std::string&>().c_str());
+                ImGui::Text("Move: %s", e->at("name").get_ref<const std::string&>().c_str());
                 ImGui::EndDragDropSource();
             }
             if (scene && !locked && ImGui::BeginDragDropTarget()) {
@@ -65,19 +60,24 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
                         "FORGE_ENTITY", ImGuiDragDropFlags_AcceptBeforeDelivery)) {
                     if (payload->DataSize == 37) {
                         const std::string child(static_cast<const char*>(payload->Data), 36);
-                        const Json arguments = {{"entity", child}, {"parent", id}};
+                        const bool reorder = ImGui::GetIO().KeyShift;
+                        const char* operation = reorder ? "entity.reorder" : "entity.reparent";
+                        const Json arguments = reorder ? Json{{"entity", child}, {"before", id}}
+                                                       : Json{{"entity", child}, {"parent", id}};
                         try {
                             (void)preview_authoring(*scene,
-                                                    Json::array({{{"operation", "entity.reparent"},
+                                                    Json::array({{{"operation", operation},
                                                                   {"arguments", arguments}}}));
-                            ImGui::SetTooltip(
-                                "Reparent preserving world placement; space becomes Follow parent");
+                            ImGui::SetTooltip("%s", reorder
+                                                        ? "Move before this sibling (same parent)"
+                                                        : "Reparent preserving world placement. "
+                                                          "Hold Shift to reorder siblings.");
                             if (payload->IsDelivery()) {
-                                authoring_command(*scene, "entity.reparent", arguments);
+                                authoring_command(*scene, operation, arguments);
                                 selected = child;
                             }
                         } catch (const std::exception& error) {
-                            ImGui::SetTooltip("Cannot parent: %s", error.what());
+                            ImGui::SetTooltip("Cannot move: %s", error.what());
                             if (payload->IsDelivery() && editor_context)
                                 editor_context->problems.report({"hierarchy/" + child,
                                                                  "Error",

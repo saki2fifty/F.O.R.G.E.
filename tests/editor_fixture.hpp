@@ -79,7 +79,11 @@ struct EditorFixture {
                                "hierarchy-create",
                                "command-palette",
                                "scale-125",
-                               "scale-150"};
+                               "scale-150",
+                               "ecs-statistics",
+                               "ecs-metrics",
+                               "flecs-script",
+                               "flecs-script-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

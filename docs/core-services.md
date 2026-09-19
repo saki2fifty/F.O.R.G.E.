@@ -68,3 +68,7 @@ Phase6F adds a narrowed UiService capability for copied scalar publication and s
 ## Phase6 consolidated access
 
 ServiceAccess uses one typed world-slot publication policy for Physics/Audio/Navigation/UI. Availability rejects foreign threads, invalid/composite capability values and expired/denied providers. Acquired providers remain stopped after world retirement even if their C++ object is retained. Exact SDK clients use the live versioned query and bounded copied callbacks described in the [extension guide](extension-guide.md); EngineServices itself is not exported as a binary service. Intrinsic fixed input remains a ModuleContext borrow. Bounded module CPU samples use the existing profile records.
+
+## Native ECS diagnostics
+
+Flecs Stats/Metrics/Alerts own ECS measurements and query-driven alert state. FORGE Problems projects active native alerts and clears resolved ones; compiler, filesystem, worker and device errors retain the existing services. Native diagnostic sampling never advances the runtime clock. Read-only ECS REST remains distinct from the validated authoring API. See [Flecs integration](flecs-integration.md).

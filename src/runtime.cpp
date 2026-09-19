@@ -130,7 +130,17 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
 
     auto& world = context.world();
     previous_pipeline_ = world.get_pipeline();
-    input_phase_ = world.entity("forge.runtime.Input").add(flecs::Phase);
+    // The built-in timer systems consume exactly this pipeline's explicit fixed
+    // delta. They are never progressed from editor/presentation wall time.
+    for (const char* name : {"flecs.timer.ProgressTimers", "flecs.timer.ProgressRateFilters",
+                             "flecs.timer.ProgressTickSource"}) {
+        auto system = world.entity(ecs_lookup(world, name));
+        if (!system)
+            throw std::runtime_error("Pinned Flecs timer system is unavailable");
+        system.add<FixedSimulation>();
+    }
+    input_phase_ =
+        world.entity("forge.runtime.Input").add(flecs::Phase).depends_on(flecs::PreFrame);
     gameplay_phase_ =
         world.entity("forge.runtime.Gameplay").add(flecs::Phase).depends_on(input_phase_);
     input_system_ = world.system("forge.runtime.InputMonitor")
@@ -209,6 +219,9 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
 }
 RuntimeSimulation::~RuntimeSimulation() {
     context_.world().set_pipeline(previous_pipeline_);
+    for (const char* name : {"flecs.timer.ProgressTimers", "flecs.timer.ProgressRateFilters",
+                             "flecs.timer.ProgressTickSource"})
+        context_.world().entity(ecs_lookup(context_.world(), name)).remove<FixedSimulation>();
     if (navigation_)
         navigation_->bind(nullptr);
     navigation_system_.destruct();

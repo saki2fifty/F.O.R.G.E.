@@ -1,4 +1,7 @@
+#include "ecs_tools_tests.hpp"
+#include "flecs_contract_tests.hpp"
 #include "geometry_tests.hpp"
+#include "reflection_tests.hpp"
 #include <forge/module.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
@@ -10,6 +13,9 @@ void check(bool value, const char* message) {
 int main(int argc, char** argv) {
     try {
         test_geometry();
+        test_reflection();
+        test_flecs_contracts();
+        test_ecs_tools();
         check(argc == 2, "module argument");
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
@@ -29,8 +35,8 @@ int main(int argc, char** argv) {
             const auto member = scene.world().component<forge::LocalTranslation>().lookup(axis);
             check(member.is_alive(), "documented reflection member must exist");
             const auto* brief = ecs_doc_get_brief(scene.world().c_ptr(), member.id());
-            check(brief && std::string(brief) == std::string("LocalTranslation along the ") + axis +
-                                                     " axis in world units.",
+            check(brief && std::string(brief) == std::string("Local translation along the ") +
+                                                     axis + " axis, in meters.",
                   "reflection member documentation survives dependency upgrade");
         }
         const auto schema = scene.schema();

@@ -104,11 +104,11 @@ struct NavigationRuntime::Impl {
     }
     void valid_agent(flecs::entity e, const NavigationAgent& a,
                      const std::map<std::uint64_t, TransformNode>& nodes) {
-        if (!std::isfinite(a.speed) || a.speed < 0 || a.speed > 20 ||
-            !std::isfinite(a.stopping_distance) || a.stopping_distance < .01f ||
-            a.stopping_distance > 5 || !std::isfinite(a.destination_x) ||
-            !std::isfinite(a.destination_y) || !std::isfinite(a.destination_z))
-            throw NavigationFailure(NavStatus::Invalid, "Invalid NavigationAgent configuration");
+        try {
+            detail::validate_reflected_value(e, a);
+        } catch (const std::exception& error) {
+            throw NavigationFailure(NavStatus::Invalid, error.what());
+        }
         if (e.has<PhysicsBody>())
             throw NavigationFailure(NavStatus::Invalid,
                                     "NavigationAgent movement requires a nonphysics entity");

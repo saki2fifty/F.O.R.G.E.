@@ -94,6 +94,8 @@ struct ActiveTask {
 struct Problem {
     std::string key, severity, text, entity, source, property;
     AssetId asset;
+    int line = 0, column = 0;
+    bool source_navigation = false;
 };
 class Problems {
   public:
@@ -126,7 +128,8 @@ class Problems {
     void clear() { items_.clear(); }
     const auto& items() const { return items_; }
     std::size_t size() const { return items_.size(); }
-    bool draw(EditorSelection& selection, bool* open) {
+    bool draw(EditorSelection& selection, bool* open,
+              const std::function<void(const Problem&)>& open_source = {}) {
         bool navigated = false;
         const auto title = "Problems (" + std::to_string(size()) + ")###Problems";
         if (ImGui::Begin(title.c_str(), open)) {
@@ -155,8 +158,9 @@ class Problems {
                 }
                 ImGui::GetWindowDrawList()->AddText(
                     ImGui::GetFont(), ImGui::GetFontSize(), position,
-                    p.severity == "warning" ? IM_COL32(235, 197, 112, 255)
-                                            : IM_COL32(250, 164, 145, 255),
+                    (p.severity == "warning" || p.severity == "Warning")
+                        ? IM_COL32(235, 197, 112, 255)
+                        : IM_COL32(250, 164, 145, 255),
                     label.c_str(), nullptr, wrap);
                 help("Select the related entity or asset when available. Dismissing a message does "
                      "not fix its cause.");
@@ -164,6 +168,11 @@ class Problems {
                     ImGui::TextWrapped("Property: %s", p.property.c_str());
                 if (!p.source.empty())
                     ImGui::TextWrapped("Source: %s", p.source.c_str());
+                if (p.source_navigation && open_source &&
+                    button(
+                        "Open source",
+                        "Show the source of this diagnostic without discarding an unsaved draft."))
+                    open_source(p);
                 ImGui::PopID();
             }
         }

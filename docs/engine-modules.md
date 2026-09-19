@@ -97,3 +97,7 @@ Ozz stays private. See [Animation](animation.md).
 ## Runtime UI
 
 `forge.ui` registers UiDocument through the builtin schema module and supplies a runtime-only, world-scoped UiService when explicitly composed. It produces copied values and validates semantic commands. The separate reusable RmlUi presenter owns no WorldContext and does not load gameplay code. The actual experimental SDK consumer uses allow-action, numeric publication and fixed-tick action polling, without RmlUi types. ABI1 remains unchanged. See [Runtime UI](runtime-ui.md).
+
+## Flecs capability registration
+
+Stats/Metrics/Alerts register consistently before host content allocation because native C addon tags retain process-global IDs. Definitions, sampling and read-only REST are activated explicitly by ECS tools. Domain modules still register through Flecs imports beneath EngineModule; addon availability does not grant arbitrary pipeline admission or provider permissions. See [Flecs integration](flecs-integration.md) and [dependency policy](dependency-policy.md).

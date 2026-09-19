@@ -1,5 +1,9 @@
 # Dependency baselines
 
+All integration and upgrade work follows the permanent
+[dependency source-of-truth policy](dependency-policy.md). The exact pinned
+source and its selected build options take precedence over live documentation.
+
 CMake fetches immutable revisions. These selections are tested baselines, not claims that each is the latest release.
 
 | Dependency | Baseline | Used capabilities | Official reference |
@@ -10,7 +14,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
-| Flecs | v4.1.6 / `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` | Worlds, C++ components, reflection, prefab inheritance, deferred mutations | [Source/docs](https://github.com/SanderMertens/flecs/tree/v4.1.6/docs) |
+| Flecs | v4.1.6 / `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` | ECS/Meta/Doc/Units/Ranges, ordered hierarchies/prefabs, queries/timers, Script Math, optional diagnostics | [Source/docs](https://github.com/SanderMertens/flecs/tree/v4.1.6/docs) |
 | nlohmann/json | v3.12.0 / `55f93686c01528224f448c19128836e7df245f72` | Scene and IPC JSON | [Official docs](https://json.nlohmann.me/) |
 | Diligent Engine | `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06` and its submodules | D3D12 device, swapchain, textures, shaders, ImGui integration | [Source](https://github.com/DiligentGraphics/DiligentEngine/tree/a279e5fa8593cbc758ec46ea1eba0b435cbc2f06) |
 | SDL3 | release-3.4.16 / `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c` | Windows, events, preference paths, dialogs, process pipes | [Official release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16) |
@@ -22,7 +26,7 @@ Build tooling: CMake presets, Ninja incremental targets, Python 3.10+ subprocess
 
 Future selections (not fetched or integrated): GLM, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
 
-Flecs 4.1.6 compatibility: LocalTranslation registration explicitly requests member entities for attached documentation. Other reflected fields use `EcsStruct` member data. Phase5 adopts `Parent` for validated structured prefab interiors and retains dynamic `ChildOf` attachments and component-granular inheritance. Automatic C++ reflection and callback-update APIs remain deferred. Phase3 independent local TRS and derived world transforms remain the spatial authority.
+Flecs 4.1.6 compatibility: FORGE authoring types now explicitly request member entities for Doc/Units/ranges and member-based tooling. Global automatic member creation remains disabled. See the [integration contract](flecs-integration.md) for ownership, selected options and live-documentation exceptions. Phase5 uses `Parent` for validated structured prefab interiors and retains dynamic `ChildOf` attachments and component-granular inheritance. Phase3 independent local TRS and derived world transforms remain the spatial authority.
 
 ImGui 1.92.9b compatibility: the editor explicitly keeps the legacy bitmap face and enables `ImGuiItemFlags_LiveEditOnInputScalar` for its frame. Diligent supplies the renderer backend; the upstream `imgui_impl_dx12` backend is not linked. SDL3 supplies the platform backend. Docking is enabled; multi-native-window support remains deferred.
 
@@ -89,3 +93,12 @@ See [Runtime UI](runtime-ui.md) for adopted vs deferred features, source referen
 Runtime UI pins are verified together in Build260918-000053: Windows/Linux core30/SDK38, actual D3D12 WARP UI rendering, relocated bundled-font rendering and local ASan/UBSan/leak checks. RmlUi and FreeType are instrumented in local sanitizer profiles. No machine-installed font is required.
 
 Phase6G changes no dependency pins. SDK packaging now installs only the enumerated FORGE value boundary, a pure identity helper library and the matching shared Flecs runtime. No Jolt/miniaudio/Ozz/Detour/RmlUi/Diligent types enter that boundary. [SDK contracts](extension-contracts.md).
+
+
+Flecs configuration and capability review verified2026-09-19: default stable addons
+plus `FLECS_SCRIPT_MATH`; explicit per-type member entities, global
+`FLECS_CREATE_MEMBER_ENTITIES` off. Static and single-shared SDK profiles carry
+the same public flags; Script Math participates in the exact SDK fingerprint.
+See [Flecs integration](flecs-integration.md) for adopted, SDK-only, measured and
+unavailable capabilities, the approved exact-path managed-include buffer-leak
+exception, and development-documentation drift. No dependency pin changed.

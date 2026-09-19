@@ -37,3 +37,7 @@ Use the **Entity** menu or Hierarchy context menu to duplicate or delete. Transf
 Multi-selection, arbitrary plugin inspectors and material editing are not implemented.
 
 Ordinary fields read label then value; narrow panels stack the label to preserve usable field width. Transform utilities are in its **three-dot** header menu.
+
+## Metadata, units and ranges
+
+Field labels and help use the registered component metadata. Physical quantities show applicable units; local translation is in meters, while quaternion rotation components and scale are dimensionless. Enum fields use named choices. Recommended ranges produce advisory feedback; unsupported hard limits reject the edit. Cross-field rules, such as maximum audio distance being at least minimum distance, still apply.

@@ -4,6 +4,7 @@
 #include "search.hpp"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cmath>
 #include <forge/project_paths.hpp>
 #include <map>
 namespace forge {
@@ -216,6 +217,29 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
         description +=
             " Range: " + field.at("minimum").dump() + " to " + field.at("maximum").dump() + ".";
     ui::help(description.c_str());
+    if (value.is_number()) {
+        const double n = value.get<double>();
+        for (const char* key : {"error_range", "warning_range"}) {
+            if (!field.contains(key))
+                continue;
+            const auto& range = field.at(key);
+            const double low = range.at("minimum"), high = range.at("maximum");
+            const double stored_low = type == "float32" ? double(float(low)) : low;
+            if (!std::isfinite(n) || n < stored_low || n > high) {
+                const auto message =
+                    std::string(key == std::string("error_range") ? "Outside supported range: "
+                                                                  : "Outside recommended range: ") +
+                    range.at("minimum").dump() + " to " + range.at("maximum").dump();
+                if (std::string(key) == "error_range")
+                    ui::field_error(message.c_str());
+                else
+                    ImGui::TextWrapped("%s", message.c_str());
+                ui::help("Ranges come from Flecs member metadata. FORGE validates before commit; "
+                         "recommended ranges are advisory.");
+                break;
+            }
+        }
+    }
     return changed;
 }
 } // namespace forge

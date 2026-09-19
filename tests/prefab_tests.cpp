@@ -376,8 +376,49 @@ void spatial_and_validation() {
     check(scene.document().dump().find("world_affine") == std::string::npos,
           "derived transform serialized");
 }
+void source_ordering() {
+    WorldContext world;
+    Scene scene(world);
+    auto source = fixture();
+    const auto first = source["members"][1]["id"].get<PrefabMemberId>();
+    const auto second = PrefabMemberId::generate();
+    auto child = source["members"][1];
+    child["id"] = second;
+    child["name"] = "Second";
+    source["members"].push_back(child);
+    PrefabDocument initial(source);
+    scene.set_prefab_sources({{initial.asset(), source}});
+    const auto root = instance(scene, initial);
+    auto document = scene.document();
+    const auto mapping = row(document, root).at("prefab_instance").at("members");
+    const auto a = mapping.at(first.str()).get<std::string>(),
+               b = mapping.at(second.str()).get<std::string>();
+    auto order = ecs_get_ordered_children(scene.world(), scene.entity(root));
+    check(order.count == 2 && order.ids[0] == scene.entity(a), "Initial source order lost");
+    auto next = initial.reorder_member(second, first).source;
+    next["revision"] = 2u;
+    const auto before = scene.snapshot();
+    bool failed = false;
+    try {
+        scene.publish_prefab_sources({{initial.asset(), next}},
+                                     [] { throw std::runtime_error("disk failure"); });
+    } catch (const std::runtime_error&) {
+        failed = true;
+    }
+    check(failed && scene.snapshot() == before, "Failed order publication changed instances");
+    scene.publish_prefab_sources({{initial.asset(), next}}, [] {});
+    order = ecs_get_ordered_children(scene.world(), scene.entity(root));
+    check(order.count == 2 && order.ids[0] == scene.entity(b),
+          "Published source order did not propagate");
+    Scene restored(world);
+    restored.restore_snapshot(scene.snapshot());
+    order = ecs_get_ordered_children(restored.world(), restored.entity(root));
+    check(order.count == 2 && order.ids[0] == restored.entity(b),
+          "Prefab order lost on reconstruction");
+}
 int main(int argc, char** argv) {
     try {
+        source_ordering();
         check(argc == 2, "test requires scratch directory");
         files_and_publication(argv[1]);
         many_and_transforms();

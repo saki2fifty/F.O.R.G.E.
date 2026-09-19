@@ -56,7 +56,8 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
     // All variable paths use the explicit executable/cwd parameters; fixed arguments only.
     std::wstring command = kind == WorkerKind::Animation
                                ? L"gltf2ozz --file=source.gltf --config_file=config.json"
-                               : L"forge_nav_build --build-navigation";
+                           : kind == WorkerKind::Script ? L"forge_tools --script-worker"
+                                                        : L"forge_nav_build --build-navigation";
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION process{};
@@ -105,7 +106,9 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
                 _exit(125);
         if (null > 2)
             close(null);
-        if (kind == WorkerKind::Navigation)
+        if (kind == WorkerKind::Script)
+            execl(file.c_str(), "forge_tools", "--script-worker", static_cast<char*>(nullptr));
+        else if (kind == WorkerKind::Navigation)
             execl(file.c_str(), "forge_nav_build", "--build-navigation",
                   static_cast<char*>(nullptr));
         else

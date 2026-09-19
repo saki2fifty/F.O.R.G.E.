@@ -12,6 +12,11 @@ set(FLECS_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(flecs GIT_REPOSITORY https://github.com/SanderMertens/flecs.git GIT_TAG fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8) # v4.1.6
 FetchContent_Declare(json GIT_REPOSITORY https://github.com/nlohmann/json.git GIT_TAG 55f93686c01528224f448c19128836e7df245f72)
 FetchContent_MakeAvailable(flecs json)
+# Stable Script math is part of the supported language, not a local substitute.
+target_compile_definitions(${FORGE_FLECS_TARGET} PUBLIC FLECS_SCRIPT_MATH)
+if(UNIX)
+ target_link_libraries(${FORGE_FLECS_TARGET} m)
+endif()
 
 if(FORGE_ENABLE_NATIVE_SDK)
  set_target_properties(flecs PROPERTIES VERSION 4.1.6 SOVERSION 4
