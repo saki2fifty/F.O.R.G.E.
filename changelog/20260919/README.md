@@ -136,3 +136,13 @@
 - Retained Flecs `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` and the permanent
   pin-first dependency policy. Unavailable stable on_validate/Meta maps and the
   narrow known upstream defect remain explicit. **Stopped before Phase 7.**
+
+
+## Pre-Phase-7 architecture audit infrastructure
+
+- Added an explicitly dispatched Windows source-audit workflow that rebuilds a
+  selected immutable revision and runs its actual editor/WARP fixture with fresh
+  project/preferences state. Captures carry source/build provenance.
+- Audit binaries use `unassigned` and are never packaged or promoted as a release.
+  Existing Build260919-000062 remains unchanged. Cached iteration is permitted;
+  final architecture validation and any changed-product delivery remain pending.
