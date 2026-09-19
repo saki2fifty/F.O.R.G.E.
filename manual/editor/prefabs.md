@@ -39,7 +39,7 @@ Transform Revert works on a whole channel: translation, rotation or scale. Rotat
 1. Select the asset in Content and click **Edit prefab source** in Inspector, or use its context menu. Alternatively, select an instance and click **Open prefab source** in its Inspector.
 2. In **Prefab source**, select a member.
 3. Edit its name or component fields. **Parent member** changes the source hierarchy while keeping the member's local transform.
-4. **Member space** selects FollowStructure, World or an explicit source-member attachment while retaining local values. Instance-root attachment is chosen in the scene Inspector.
+4. **Spatial binding** selects Follow parent, World or Explicit attachment while retaining local values. Instance-root attachment is chosen in the scene Inspector.
 5. **Add child** creates a member with a new identity. **Remove member subtree** removes a member and its descendants from the source.
 6. Click **Publish source**.
 
