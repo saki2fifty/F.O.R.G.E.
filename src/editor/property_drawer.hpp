@@ -1,5 +1,6 @@
 #pragma once
 #include "editor_state.hpp"
+#include "icons.hpp"
 #include "search.hpp"
 #include <SDL3/SDL.h>
 #include <array>
@@ -122,14 +123,14 @@ inline bool numeric_property(const char* label, ImGuiDataType type, const char* 
 }
 inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
                            bool commit_on_enter = true) {
-    const auto visible_label = property_label(field);
+    auto visible_label = property_label(field);
+    const auto unit = field.value("unit", std::string("unitless"));
+    if (unit != "unitless" && !unit.empty())
+        visible_label += " (" + unit + ")";
     const std::string type = field.at("type");
-    const auto label = type == "bool" ? visible_label : "##" + visible_label;
-    if (type != "bool") {
-        ImGui::TextUnformatted(visible_label.c_str());
-        ui::help(field.value("description", std::string{}).c_str());
-        ImGui::SetNextItemWidth(-1);
-    }
+    const auto label = "##" + property_label(field);
+    ui::property_label_row(visible_label.c_str(),
+                           field.value("description", std::string{}).c_str());
     if (type == "asset_ref")
         return asset_ref_picker(root, value, field.at("asset_type"), label.c_str());
     bool changed = false;
@@ -215,11 +216,6 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
         description +=
             " Range: " + field.at("minimum").dump() + " to " + field.at("maximum").dump() + ".";
     ui::help(description.c_str());
-    const auto unit = field.value("unit", std::string("unitless"));
-    if (unit != "unitless" && !unit.empty()) {
-        ImGui::TextDisabled("Unit: %s", unit.c_str());
-        ui::help("Units of the preceding reflected property.");
-    }
     return changed;
 }
 } // namespace forge

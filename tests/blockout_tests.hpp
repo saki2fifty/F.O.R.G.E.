@@ -75,7 +75,7 @@ inline void test_property_drag(float scale, const char* component = "forge.rotat
     };
     frame();
     frame();
-    const ImVec2 press{begin.x + 40, (begin.y + end.y) / 2};
+    const ImVec2 press{begin.x + 40, end.y - ImGui::GetFrameHeight() * .5f};
     io.AddMousePosEvent(press.x, press.y);
     frame();
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);

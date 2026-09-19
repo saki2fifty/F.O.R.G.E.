@@ -4,7 +4,7 @@ Entities are the things you author in a scene. Hierarchy lists them in a tree; I
 
 ## Add and select an entity
 
-Select **Scene → Create → Cube** or **Entity → Create / Cube**. FORGE creates a cube with a unique authored ID, transform, and color. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
+Select **Scene Add (+) → 3D Primitive → Cube** or **Entity → Create → 3D Primitive → Cube**. FORGE creates a cube with a unique authored ID, transform, and color. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
 
 ## Rename an entity
 
@@ -14,7 +14,7 @@ Select the entity, edit **Inspector → Name**, and press Enter to commit. Renam
 
 Select an entity and choose another entity in **Inspector → Parent**. Expand the parent's row in Hierarchy to see its children. Choose **Scene root** to remove the parent relationship.
 
-Choosing a Parent preserves the object’s world placement, then makes it follow that parent’s transform. Moving, rotating or scaling the parent now affects the child. Older scenes retain **Space → World** until you explicitly change Space or reparent them. A parent cannot be placed under one of its descendants; a rejected operation leaves the hierarchy unchanged and reports the problem in Console.
+Choosing a Parent preserves the object’s world placement, then makes it follow that parent’s transform. Moving, rotating or scaling the parent now affects the child. Older scenes retain **Spatial binding → World** until you explicitly change Spatial binding or reparent them. A parent cannot be placed under one of its descendants; a rejected operation leaves the hierarchy unchanged and reports the problem in Console.
 
 ## Duplicate or delete
 
@@ -39,3 +39,7 @@ The Hierarchy marks prefab roots **[prefab]**, structured children **[member]**,
 Right-click an entity for Rename entity, Duplicate subtree, Delete subtree, Add Component and Move to scene root. F2 focuses its Name field in Inspector.
 
 Drag an entity onto another hierarchy row to reparent it. FORGE previews validation before accepting the drop. Valid reparenting preserves world placement and then follows the new parent; cycles, fixed prefab interiors and unrepresentable transforms are rejected without rewriting the hierarchy. Empty searches explain that the filter can be cleared.
+
+## Add from Hierarchy
+
+Click the **+** beside search, or right-click and choose **Create**. The same catalog is available in Scene and Entity → Create. Empty Entity and supported component recipes are explained under [Primitives](primitives.md). The new entity is selected without changing an open draft.

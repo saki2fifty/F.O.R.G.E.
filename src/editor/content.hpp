@@ -1,4 +1,5 @@
 #pragma once
+#include "document_workspace.hpp"
 #include "files.hpp"
 #include "help.hpp"
 #include "property_drawer.hpp"
@@ -65,6 +66,7 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
+    const ui::AssetEditors* editors = nullptr;
     const AssetRecord* record(AssetId id) const {
         if (!catalog_)
             return nullptr;
@@ -129,12 +131,14 @@ class ContentBrowser {
         auto resolution = catalog_->resolve(asset->id, asset->type);
         if (resolution.state != AssetState::Available)
             ui::field_error(resolution.diagnostic);
-        if (asset->type == "scene" &&
-            ui::button("Open scene", "Open through the scene and draft save guards."))
-            files.request(
-                {EditorFiles::Command::OpenScene, files.document.project() / asset->source, {}});
-        if (asset->type == "prefab" && open_prefab &&
-            ui::button("Edit prefab source", "Open this independent prefab source document."))
+        if (editors) {
+            if (const auto* editor = editors->find(asset->type);
+                editor &&
+                ui::button(editor->label.c_str(),
+                           "Open this asset through its registered editor and save guards."))
+                editors->open(*asset);
+        } else if (asset->type == "prefab" && open_prefab &&
+                   ui::button("Edit prefab source", "Open the independent prefab draft."))
             open_prefab(asset->id);
         if (ui::button("Reveal source folder",
                        "Open the containing folder in your operating system."))
@@ -301,11 +305,12 @@ class ContentBrowser {
                                 ImGuiSelectableFlags_AllowDoubleClick |
                                 ImGuiSelectableFlags_SpanAllColumns)) {
                         selection.select_asset(id);
-                        if (a.type == "scene" && ImGui::IsMouseDoubleClicked(0))
-                            files.request({EditorFiles::Command::OpenScene, root_ / a.source, {}});
+                        if (!locked && editors && ImGui::IsMouseDoubleClicked(0))
+                            editors->open(a);
                     }
                     ui::help("Select to inspect this asset. Drag to a compatible asset field; "
-                             "double-click scenes to open. Right-click for asset actions.");
+                             "double-click supported editable assets to open. Right-click for "
+                             "asset actions.");
                     if (reveal_ && selected) {
                         ImGui::SetScrollHereY();
                         reveal_ = false;
@@ -319,8 +324,11 @@ class ContentBrowser {
                     if (ImGui::BeginPopupContextItem("Asset actions")) {
                         if (ImGui::MenuItem("Inspect"))
                             selection.select_asset(id);
-                        if (a.type == "scene" && ImGui::MenuItem("Open scene"))
-                            files.request({EditorFiles::Command::OpenScene, root_ / a.source, {}});
+                        if (editors)
+                            if (const auto* editor = editors->find(a.type);
+                                editor &&
+                                ImGui::MenuItem(editor->label.c_str(), nullptr, false, !locked))
+                                editors->open(a);
                         if (ImGui::MenuItem("Reveal source folder"))
                             SDL_OpenURL(
                                 ui::local_file_url((root_ / a.source).parent_path()).c_str());

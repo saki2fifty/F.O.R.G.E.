@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <forge/authoring.hpp>
+#include <forge/entity_recipes.hpp>
 #include <forge/geometry.hpp>
 #include <functional>
 namespace forge::ui {
@@ -33,10 +34,10 @@ inline std::vector<PaletteEntry> palette_entries(const std::string& selected, fl
             {std::move(label), std::move(op), std::move(arguments), available, std::move(help)});
     };
     const Json entity = {{"entity", selected}};
-    for (unsigned kind = 0; kind < 4; ++kind) {
-        const auto p = at_target ? target : Float3{0, kind == 3 ? 0.0f : 1.0f, 0};
-        add(std::string("Create / ") + primitive_names[kind], "entity.create",
-            {{"kind", kind}, {"position", {{"x", p[0]}, {"y", p[1]}, {"z", p[2]}}}});
+    for (const auto& recipe : entity_recipes()) {
+        const auto p = at_target ? target : Float3{0, 0, 0};
+        add("Create / " + recipe.label, "entity.create",
+            {{"recipe", recipe.id}, {"position", {{"x", p[0]}, {"y", p[1]}, {"z", p[2]}}}});
     }
     add("Entity / Duplicate subtree", "entity.duplicate", entity, !selected.empty());
     add("Entity / Delete subtree", "entity.delete", entity, !selected.empty());
@@ -50,7 +51,7 @@ inline std::vector<PaletteEntry> palette_entries(const std::string& selected, fl
     add("Transform / Place on ground", "transform.ground", entity, !selected.empty());
     add("Transform / Snap position", "transform.snap", {{"entity", selected}, {"step", snap}},
         !selected.empty());
-    for (unsigned kind = 0; kind < 4; ++kind)
+    for (unsigned kind = 0; kind < primitive_count; ++kind)
         add(std::string("Shape / ") + primitive_names[kind], "appearance.shape",
             {{"entity", selected}, {"kind", kind}}, !selected.empty());
     const char* colors[] = {"Red", "Orange", "Yellow", "Green", "Blue", "Gray"};
@@ -103,6 +104,9 @@ class CommandWorkspace {
     }
     void draw(Scene& scene, std::string& selected, std::string& message, float snap, Float3 target,
               bool at_target, bool busy) {
+        (void)snap;
+        (void)target;
+        (void)at_target;
         if ((actions || !busy) && !ImGui::IsAnyItemActive() &&
             !ImGui::IsPopupOpen(nullptr,
                                 ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
@@ -143,22 +147,14 @@ class CommandWorkspace {
                 found |= entity.at("id") == selected;
             if (!found)
                 selected.clear();
-            auto all = palette_entries(selected, snap, target, at_target);
-            for (auto& entry : all) {
-                if (entry.operation == "history.undo")
-                    entry.available = scene.can_undo();
-                if (entry.operation == "history.redo")
-                    entry.available = scene.can_redo();
-            }
-            if (actions) {
-                all.clear();
+            std::vector<PaletteEntry> all;
+            if (actions)
                 for (const auto& a : actions->entries)
                     all.push_back({a.label + (a.shortcut.empty() ? "" : " (" + a.shortcut + ")"),
                                    a.id,
                                    {},
                                    a.available,
-                                   a.description});
-            }
+                                   a.help_text()});
             std::vector<PaletteEntry> matches;
             for (auto& entry : all)
                 if (command_matches(entry.label, filter_))
@@ -178,32 +174,16 @@ class CommandWorkspace {
                 ImGui::TextWrapped("No matching actions. Clear or change the search.");
             for (int i = 0; i < int(matches.size()); ++i) {
                 const auto& e = matches[i];
-                const bool inspect = e.operation == "diagnostics" || e.operation == "schema";
-                const bool enabled = e.available && (actions || !busy || inspect);
+                const bool enabled = e.available;
                 ImGui::BeginDisabled(!enabled);
                 const bool click = ImGui::Selectable(e.label.c_str(), i == index_);
-                help(enabled ? e.help.c_str()
-                             : "Select an entity and finish active editing or Play before running "
-                               "this command.");
+                help(e.help.c_str());
                 if (i == index_ && (ImGui::IsKeyPressed(ImGuiKey_DownArrow) ||
                                     ImGui::IsKeyPressed(ImGuiKey_UpArrow)))
                     ImGui::SetScrollHereY();
                 if (enabled && (click || (activate && i == index_))) {
                     try {
-                        if (actions)
-                            actions->invoke(e.operation);
-                        else if (e.operation == "diagnostics")
-                            diagnostics_open = true;
-                        else if (e.operation == "schema")
-                            schema_open = true;
-                        else if (e.operation == "history.undo")
-                            authoring_history(scene, false);
-                        else if (e.operation == "history.redo")
-                            authoring_history(scene, true);
-                        else
-                            selected = authoring_command(scene, e.operation, e.arguments)
-                                           .at("selected")
-                                           .get<std::string>();
+                        actions->invoke(e.operation);
                         message = e.label;
                         ImGui::CloseCurrentPopup();
                     } catch (const std::exception& error) {
@@ -212,8 +192,6 @@ class CommandWorkspace {
                 }
                 ImGui::EndDisabled();
             }
-            if (matches.empty())
-                ImGui::TextUnformatted("No matching commands.");
             ImGui::EndChild();
             ImGui::EndPopup();
         }

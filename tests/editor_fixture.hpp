@@ -18,6 +18,8 @@ struct EditorFixture {
     unsigned stage = 0, frames = 0;
     Uint64 started = SDL_GetTicks();
     bool prepared = false;
+    bool scene_create = false, hierarchy_create = false;
+    float scene_image_y = 0;
     AssetId prefab;
     explicit EditorFixture(int argc, char** argv) {
         if (argc != 2)
@@ -70,7 +72,14 @@ struct EditorFixture {
                                "narrow-100",
                                "narrow-200",
                                "high-scale-200",
-                               "ultrawide"};
+                               "ultrawide",
+                               "empty-editor",
+                               "selected-primitive",
+                               "scene-create",
+                               "hierarchy-create",
+                               "command-palette",
+                               "scale-125",
+                               "scale-150"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -18,6 +18,22 @@ inline void test_geometry() {
             require(std::abs(forge::geom_dot(vertex.normal, vertex.normal) - 1) < 0.00001f,
                     "Non-unit primitive normal");
         }
+    std::size_t total = 0;
+    for (unsigned kind = 4; kind < forge::primitive_count; ++kind) {
+        const auto& mesh = meshes[kind];
+        total += mesh.size();
+        require(mesh.size() % 3 == 0 && (kind == forge::no_primitive || !mesh.empty()),
+                "Expanded primitive topology invalid");
+        for (std::size_t i = 0; i < mesh.size(); i += 3) {
+            const auto area =
+                forge::geom_cross(forge::geom_sub(mesh[i + 1].position, mesh[i].position),
+                                  forge::geom_sub(mesh[i + 2].position, mesh[i].position));
+            require(forge::geom_dot(area, area) > 1e-14f, "Degenerate generated triangle");
+            require(forge::geom_dot(area, mesh[i].normal) > 0,
+                    "Generated winding disagrees with normal");
+        }
+    }
+    require(total < 100000, "Unbounded primitive geometry");
     forge::Json entity = {{"id", "mesh"},
                           {"name", "Mesh"},
                           {"components", {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 0}}}}}};
@@ -70,8 +86,8 @@ inline void test_geometry() {
         }
         require(rejected && scene.document() == unchanged, "Invalid scale replaced scene");
     }
-    for (auto kind :
-         {forge::Json(4), forge::Json(-1), forge::Json(1.5), forge::Json(4294967296ULL)}) {
+    for (auto kind : {forge::Json(forge::primitive_count), forge::Json(-1), forge::Json(1.5),
+                      forge::Json(4294967296ULL)}) {
         auto invalid = doc;
         invalid["entities"][0]["components"]["forge.primitive"]["kind"] = kind;
         bool rejected = false;

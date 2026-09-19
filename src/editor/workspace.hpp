@@ -14,7 +14,8 @@ inline std::string migrate_layout(std::string text) {
         }
     };
     for (const auto& names :
-         {std::pair{"World", "Hierarchy###World"}, std::pair{"Native", "Gameplay Code###Native"},
+         {std::pair{"Scene", "Scene###Scene"}, std::pair{"World", "Hierarchy###World"},
+          std::pair{"Native", "Gameplay Code###Native"},
           std::pair{"Prefab source", "Prefab source###Prefab source"},
           std::pair{"Project Settings", "Project Settings###Project Settings"}}) {
         replace(std::string("[Window][") + names.first + "]",

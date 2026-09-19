@@ -3,6 +3,7 @@
 #include "spatial_document.hpp"
 #include <array>
 #include <cmath>
+#include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <functional>
@@ -67,7 +68,7 @@ void validate(const Json& doc) {
                         (std::string(name) == "forge.scale" && (n < .001f || n > 10000)) ||
                         (std::string(name) == "forge.tint" && (n < 0 || n > 1)) ||
                         (std::string(name) == "forge.primitive" &&
-                         (!v.is_number_integer() || n < 0 || n > 3)))
+                         (!v.is_number_integer() || n < 0 || n >= primitive_count)))
                         throw std::runtime_error("Legacy component outside range");
                 }
             }

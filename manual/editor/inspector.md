@@ -4,19 +4,19 @@ Inspector follows one explicit selection: an authored entity, a project asset, o
 
 ## Edit an entity
 
-Select an object in **Hierarchy** or **Scene**. Inspector shows its name, parent, local transform, appearance and attached components. **Name** commits with Enter. **Details** contains the persistent entity ID.
+Select an object in **Hierarchy** or **Scene**. Inspector shows its name, parent, local transform, appearance and attached components. **Name** commits with Enter. **Details** contains the abbreviated persistent entity ID and **Copy ID** copies its full value.
 
 Position, Rotation and Scale have labeled X/Y/Z fields. Drag an axis or Ctrl-click to type; release commits one scene Undo step. Escape cancels a drag. Position uses meters, rotation uses Euler degrees, and scale is a multiplier. A move owns translation only; it does not override inherited rotation or scale.
 
-**Space** chooses Follow parent, World or an explicit attachment. **Parent** preserves world placement and then follows the chosen parent. Cycles and unrepresentable shear reject without changing the scene. See [Transforms](transforms.md) and [Hierarchy](entities-hierarchy.md).
+**Spatial binding** chooses Follow parent, World or an explicit attachment. **Parent** preserves world placement and then follows the chosen parent. Cycles and unrepresentable shear reject without changing the scene. See [Transforms](transforms.md) and [Hierarchy](entities-hierarchy.md).
 
 Inspector authoring controls are read-only during Play. Scene retains the authored view; Game displays runtime results.
 
 ## Add and find components
 
-Click **+ Add Component** and search a component name or category. The list comes from FORGE's registered schema. Already attached components are marked **Added**, including inherited components.
+Click **+ Add Component** and search a component name or category. The list comes from FORGE's registered schema. Results have category headings. Already attached components are marked **Added**, including inherited components.
 
-Attached components have collapsible headers. **Search components or properties...** filters these sections. Transform and identity stay above the filtered list. Right-click a component header for **Remove component**, or **Revert component** on a prefab instance.
+Attached components have collapsible headers. **Filter attached components...** appears when four or more optional components are attached (or a filter is active). It searches existing components; Add Component searches components to add. Transform and identity stay above the filtered list. Right-click a component header for **Remove component**, or **Revert component** on a prefab instance.
 
 ## Edit a property
 
@@ -35,3 +35,5 @@ The lower **Prefab instance** section shows revision/status and **Open prefab so
 Use the **Entity** menu or Hierarchy context menu to duplicate or delete. Transform reset, snap, ground placement, and color/shape commands are searchable in the [Command palette](commands.md). Ground placement aligns the preview mesh to Y=0; it does not query terrain.
 
 Multi-selection, arbitrary plugin inspectors and material editing are not implemented.
+
+Ordinary fields read label then value; narrow panels stack the label to preserve usable field width. Transform utilities are in its **three-dot** header menu.

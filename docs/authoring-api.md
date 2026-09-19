@@ -70,3 +70,7 @@ Discovery now includes 20 commands. `transform.position`, `transform.rotation` a
 ## Optional physics components
 
 `component.add` accepts entity and component IDs for optional reflected engine components. Existing property edit/Revert and scene transactions apply. Physics settings are described in [Physics](physics.md). No Jolt handles are exposed in the authoring API.
+
+### Entity recipes
+
+`entity.create` additionally accepts an optional `recipe` string from the internal entity creation catalog. It is mutually exclusive with `kind`. Recipes compose transform, explicit blockout geometry/None and registered optional-component defaults in the same scene candidate transaction. An unknown recipe fails without changing revision/history. Existing `kind` callers retain their behavior. Editor World Origin placement explicitly supplies `(0,0,0)`; legacy omitted-position API defaults remain unchanged. Rediscover the expanded primitive-kind bounds after upgrading.

@@ -53,7 +53,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
         throw std::runtime_error("Preview pipeline creation failed");
     static_assert(sizeof(PrimitiveVertex) == 6 * sizeof(float));
     std::vector<PrimitiveVertex> vertices;
-    for (unsigned i = 0; i < 4; ++i) {
+    for (unsigned i = 0; i < primitive_count; ++i) {
         starts_[i] = static_cast<unsigned>(vertices.size());
         const auto& mesh = primitive_meshes()[i];
         counts_[i] = static_cast<unsigned>(mesh.size());
@@ -172,7 +172,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
                forward = camera.forward();
     for (const auto& entity : scene.at("entities")) {
-        if (entity.value("prefab", false) || !entity.at("components").contains("forge.position"))
+        if (entity.value("prefab", false) || !entity.at("components").contains("forge.position") ||
+            primitive_kind(entity) == no_primitive)
             continue;
         if (!entity.value("spatial_resolved", true))
             continue;

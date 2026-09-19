@@ -7,7 +7,7 @@
 #include <set>
 namespace forge::ui {
 // Editor-only identity/scope. World/component/asset contents remain in their existing owners.
-enum class SelectionKind { None, Entity, Asset, PrefabMember };
+enum class SelectionKind { None, Entity, Asset, PrefabMember, DocumentItem };
 class EditorSelection {
   public:
     SelectionKind kind() const { return entity_.empty() ? kind_ : SelectionKind::Entity; }
@@ -20,6 +20,7 @@ class EditorSelection {
         entity_.clear();
         asset_ = {};
         member_.clear();
+        document_.clear();
     }
     void select_entity(std::string id) {
         clear();
@@ -34,6 +35,13 @@ class EditorSelection {
         select_asset(asset);
         member_ = std::move(member);
         kind_ = SelectionKind::PrefabMember;
+    }
+    const std::string& document() const { return document_; }
+    void select_document_item(std::string document, std::string local_key) {
+        clear();
+        kind_ = SelectionKind::DocumentItem;
+        document_ = std::move(document);
+        member_ = std::move(local_key);
     }
     void reconcile(const Json& document) {
         if (!entity_.empty()) {
@@ -50,18 +58,33 @@ class EditorSelection {
 
   private:
     SelectionKind kind_ = SelectionKind::None;
-    std::string entity_, member_;
+    std::string entity_, member_, document_;
     AssetId asset_;
 };
-enum class DocumentTask { Scene, Prefab, Settings };
+enum class DocumentTask { Scene, Prefab, Settings, Extension };
 enum class DraftResolution { Save, Discard, Cancel };
 struct ActiveTask {
     DocumentTask owner = DocumentTask::Scene;
+    std::string extension_id, extension_title;
+    std::string id() const {
+        return owner == DocumentTask::Prefab      ? "prefab"
+               : owner == DocumentTask::Settings  ? "settings"
+               : owner == DocumentTask::Extension ? extension_id
+                                                  : "scene";
+    }
+    void focus_document(std::string id, std::string title) {
+        owner = DocumentTask::Extension;
+        extension_id = std::move(id);
+        extension_title = std::move(title);
+    }
+
     void focus(DocumentTask task) {
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             owner = task;
     }
     const char* name() const {
+        if (owner == DocumentTask::Extension)
+            return extension_title.c_str();
         return owner == DocumentTask::Prefab     ? "Prefab source"
                : owner == DocumentTask::Settings ? "Project Settings"
                                                  : "Scene";

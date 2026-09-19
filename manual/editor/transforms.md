@@ -4,7 +4,7 @@ A transform describes an object's position, rotation, and scale. All three are s
 
 ## Position, rotation, and scale
 
-**Position** places the object relative to its spatial parent. With **Space → World**, it is a world position. One unit represents one meter. **Rotation** uses X, Y, and Z angles in degrees. **Scale** changes its size along its local axes.
+**Position** places the object relative to its spatial parent. With **Spatial binding → World**, it is a world position. One unit represents one meter. **Rotation** uses X, Y, and Z angles in degrees. **Scale** changes its size along its local axes.
 
 FORGE applies local scale, then X/Y/Z rotation, then local position, followed by the spatial parent’s transform. Rotation is saved as a quaternion, so saving does not repeatedly convert through the displayed angles. Equivalent angles may display differently after reopening.
 
@@ -37,7 +37,7 @@ Shortcuts start only over the Scene image, outside text editing and camera gestu
 
 **Copy transform** copies effective **local** position, rotation, and scale to FORGE's internal clipboard. Select another object and choose **Paste transform** to apply them as one undoable edit. Paste intentionally overrides all three local channels; quaternion rotation is copied directly without converting through Euler angles. Shape, color, hierarchy, and identity are retained. The internal clipboard lasts for the editor session and is separate from the system clipboard.
 
-**Reset transform** sets position and rotation to zero and scale to one. Right-click **Reset transform** and choose **Reset position** to change only position. Both are undoable.
+**Reset transform** sets position and rotation to zero and scale to one. Choose **Reset position** in the same menu to change only position. Both are undoable.
 
 ## Ground placement and snapping
 
@@ -49,13 +49,13 @@ Stop Play before editing objects. Inspector, menus, shortcuts, the command palet
 
 ## Choose what the object follows
 
-In **Inspector → Transform → Space**:
+In **Inspector → Transform → Spatial binding**:
 
 - **Follow parent** uses the immediate Hierarchy parent’s transform, if that parent has one. Moving, rotating or scaling that parent moves the child.
 - **World** keeps the object spatially independent while retaining its Hierarchy organization. Older scenes open in this mode so their existing behavior is preserved.
 - **Explicit attachment** chooses another transformed object in this scene to follow, independently of Hierarchy ownership.
 
-Changing Space preserves world placement when possible. Inspector’s Position/Rotation/Scale values may change to compensate. An operation that requires unsupported local shear or a singular transform is rejected; the object and history remain unchanged. The automation API also offers explicit **keep_local** behavior, which retains the local numbers and allows the object to move.
+Changing Spatial binding preserves world placement when possible. Inspector’s Position/Rotation/Scale values may change to compensate. An operation that requires unsupported local shear or a singular transform is rejected; the object and history remain unchanged. The automation API also offers explicit **keep_local** behavior, which retains the local numbers and allows the object to move.
 
 A missing attachment hides the object instead of placing it at a guessed location. Repair its target through automation, or use **Detach (keep local)** in Inspector, then set the intended position. This recovery keeps its local values and may change its placement. Cross-scene attachments are not available yet.
 

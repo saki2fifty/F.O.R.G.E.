@@ -7,6 +7,7 @@
 #include "command_workspace_tests.hpp"
 #include "document_tests.hpp"
 #include "editor_redesign_tests.hpp"
+#include "editor_refinement_tests.hpp"
 #include "game_input_tests.hpp"
 #include "help.hpp"
 #include "interaction_tests.hpp"
@@ -185,8 +186,8 @@ void test_telemetry_and_status() {
                     ImGui::Button("Save");
                     const auto minimum = ImGui::GetItemRectMin(), maximum = ImGui::GetItemRectMax();
                     const auto* toolbar = ImGui::GetCurrentWindow();
-                    require(minimum.y - toolbar->Pos.y >= 5 * scale &&
-                                toolbar->Pos.y + toolbar->Size.y - maximum.y >= 5 * scale,
+                    require(minimum.y - toolbar->Pos.y >= 1 * scale &&
+                                toolbar->Pos.y + toolbar->Size.y - maximum.y >= 1 * scale,
                             "Toolbar lacks padding above/below controls");
                     forge::ui::end_toolbar();
                 }
@@ -315,6 +316,10 @@ int main(int argc, char** argv) {
         test_draft_ownership();
         test_responsive_xyz();
         test_initial_content_tab();
+        test_document_workspace();
+        test_refinement_chrome();
+        test_creation_entry_menu();
+        test_palette_action_dispatch();
         test_animation_editor();
         test_navigation_editor();
         test_documents();

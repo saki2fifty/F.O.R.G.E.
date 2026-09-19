@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <type_traits>
@@ -56,7 +57,7 @@ inline void help(const char* text) {
 // instead of inflating every button's frame padding.
 inline bool begin_toolbar() {
     const auto& style = ImGui::GetStyle();
-    const float padding = std::max(6.0f, ImGui::GetFontSize() * 0.75f);
+    const float padding = std::max(1.0f, ImGui::GetFontSize() * 0.125f);
     ImGui::GetCurrentContext()->NextWindowData.MenuBarOffsetMinVal = {style.WindowPadding.x,
                                                                       padding};
     const auto flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar |
@@ -98,7 +99,8 @@ inline void draft_window_size(ImVec2 preferred) {
     ImGui::SetNextWindowSizeConstraints({std::min(360.f, maximum.x), std::min(260.f, maximum.y)},
                                         maximum);
 }
-inline void initialize_workspace(ImGuiID dock) {
+inline void initialize_workspace(ImGuiID dock,
+                                 const std::function<void(ImGuiID)>& dock_documents = {}) {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->WorkSize);
@@ -117,8 +119,10 @@ inline void initialize_workspace(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Problems###Problems", bottom);
     ImGui::DockBuilderDockWindow("Console", bottom);
     ImGui::DockBuilderDockWindow("Gameplay Code###Native", bottom);
-    ImGui::DockBuilderDockWindow("Scene", center);
+    ImGui::DockBuilderDockWindow("Scene###Scene", center);
     ImGui::DockBuilderDockWindow("Game", center);
+    if (dock_documents)
+        dock_documents(center);
     ImGui::DockBuilderFinish(dock);
 }
 inline float interface_scale = 1.0f;
@@ -165,8 +169,8 @@ inline void style(float scale = 1.0f) {
     s.PopupRounding = 6;
     s.TabRounding = 4;
     s.GrabRounding = 4;
-    s.WindowPadding = ImVec2(12, 12);
-    s.FramePadding = ImVec2(9, 6);
+    s.WindowPadding = ImVec2(8, 8);
+    s.FramePadding = ImVec2(7, 4);
     s.ItemSpacing = ImVec2(8, 8);
     s.WindowBorderSize = 1;
     s.FrameBorderSize = 0;

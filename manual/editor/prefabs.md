@@ -75,7 +75,7 @@ See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and
 
 Body and collider components can be inherited from prefab sources. Source changes propagate to fields without overrides; explicit instance edits remain. Revert removes that intent and is part of scene Undo. Solver objects exist only during Play and are never saved in the prefab. See [Physics](physics.md).
 
-A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Space** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.
+A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Spatial binding** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.
 
 ## Draft close and active Save
 

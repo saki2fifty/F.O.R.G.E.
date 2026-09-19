@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <forge/authoring.hpp>
+#include <forge/entity_recipes.hpp>
 #include <forge/geometry.hpp>
 #include <set>
 namespace forge {
@@ -195,12 +196,16 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     else if (op == "entity.create") {
         auto doc = scene.document();
         const auto created = free_id(doc);
-        const unsigned kind = a.value("kind", 0u);
+        const auto* recipe = a.contains("recipe") ? entity_recipe(a.at("recipe")) : nullptr;
+        if (a.contains("recipe") && (!recipe || a.contains("kind")))
+            throw CommandError("invalid_arguments",
+                               "Choose a known recipe or a primitive kind, not both");
+        const unsigned kind = recipe ? recipe->kind : a.value("kind", 0u);
         const auto p = a.value("position", Json{{"x", 0}, {"y", kind == 3 ? 0 : 1}, {"z", 0}});
         doc["entities"].push_back(
             {{"id", created},
-             {"name", a.value("name", std::string(primitive_names[kind]) + " " +
-                                          std::to_string(doc["entities"].size() + 1))},
+             {"name", a.value("name", std::string(recipe ? recipe->label : primitive_names[kind]) +
+                                          " " + std::to_string(doc["entities"].size() + 1))},
              {"components",
               {{"forge.position", p},
                {"forge.rotation", {{"x", 0}, {"y", 0}, {"z", 0}}},
@@ -213,6 +218,21 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             created_row["components"].erase(channel);
         }
         created_row["spatial"] = {{"mode", "follow_structure"}};
+        if (kind == no_primitive)
+            created_row["components"].erase("forge.tint");
+        if (recipe && !recipe->component.empty()) {
+            bool found = false;
+            const auto recipe_schema = scene.schema();
+            for (const auto& type : recipe_schema.at("components"))
+                if (type.at("id") == recipe->component) {
+                    for (const auto& f : type.at("fields"))
+                        created_row["components"][recipe->component]
+                                   [f.at("id").get<std::string>()] = f.at("default");
+                    found = true;
+                }
+            if (!found)
+                throw CommandError("unavailable", "Recipe component is not registered");
+        }
         const auto name = doc["entities"].back().at("name").get<std::string>();
         if (name.find_first_not_of(" \t\r\n") == std::string::npos)
             throw CommandError("invalid_arguments", "Entity name must not be blank");
@@ -398,9 +418,14 @@ Json authoring_commands() {
                             {"input_schema", object(properties, required)}});
     };
     const auto entity_arg = Json{{"entity", text_type()}};
-    add("entity.create", "Create primitive", "Create a cube, sphere, cylinder or plane.",
-        {{"kind", {{"type", "integer"}, {"minimum", 0}, {"maximum", 3}}},
+    auto recipe_ids = Json::array();
+    for (const auto& r : entity_recipes())
+        recipe_ids.push_back(r.id);
+    add("entity.create", "Create entity",
+        "Create an entity with built-in blockout geometry or explicit None.",
+        {{"kind", {{"type", "integer"}, {"minimum", 0}, {"maximum", primitive_count - 1}}},
          {"name", text_type()},
+         {"recipe", {{"type", "string"}, {"enum", recipe_ids}}},
          {"position", xyz()}},
         Json::array());
     auto named = entity_arg;
@@ -467,7 +492,7 @@ Json authoring_commands() {
     add("appearance.color", "Set color", "Set opaque RGB blockout tint.", color,
         {"entity", "value"});
     auto shape = entity_arg;
-    shape["kind"] = {{"type", "integer"}, {"minimum", 0}, {"maximum", 3}};
+    shape["kind"] = {{"type", "integer"}, {"minimum", 0}, {"maximum", primitive_count - 1}};
     add("appearance.shape", "Set shape", "Change primitive while preserving transform and color.",
         shape, {"entity", "kind"});
     add("transform.reset", "Reset transform", "Zero position/rotation and unit scale.", entity_arg,

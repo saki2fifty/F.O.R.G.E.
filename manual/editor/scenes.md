@@ -4,7 +4,7 @@ A scene stores your authored entities, their hierarchy, and component values. Yo
 
 ## Create a scene
 
-Choose **File → New scene**, or press Ctrl+N. The scene starts empty and is named **Untitled** until you save it. Select **Create → Cube** to begin authoring.
+Choose **File → New scene**, or press Ctrl+N. The scene starts empty and is named **Untitled** until you save it. Select **Scene Add (+) → 3D Primitive → Cube** to begin authoring.
 
 ## Open a scene
 
@@ -42,4 +42,4 @@ Use **Save As** to create an independent copy. Copying files with your operating
 
 Unknown plugin data is preserved exactly as JSON values. FORGE updates the hierarchy, prefab and explicit spatial references it understands, but does not guess at reference strings inside unavailable plugin data.
 
-Legacy scenes retain their appearance and independent parent behavior using **Space → World**. New parenting follows the parent while preserving placement. See [Transforms](transforms.md).
+Legacy scenes retain their appearance and independent parent behavior using **Spatial binding → World**. New parenting follows the parent while preserving placement. See [Transforms](transforms.md).

@@ -179,7 +179,7 @@ struct SceneTools {
             for (const auto& candidate : doc.at("entities"))
                 if (candidate.at("id") == selected)
                     entity = &candidate;
-            if (entity) {
+            if (entity && primitive_kind(*entity) != no_primitive) {
                 const ObjectTransform transform(*entity);
                 for (unsigned corner = 0; corner < 8; ++corner)
                     for (unsigned axis = 0; axis < 3; ++axis)

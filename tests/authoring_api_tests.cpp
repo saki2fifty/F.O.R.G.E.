@@ -1,3 +1,4 @@
+#include "entity_recipe_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
 #include <iostream>
@@ -10,6 +11,7 @@ void check(bool value, const char* why) {
 }
 int main() {
     try {
+        test_entity_recipes();
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         scene.reset({{"version", 1}, {"entities", Json::array()}});

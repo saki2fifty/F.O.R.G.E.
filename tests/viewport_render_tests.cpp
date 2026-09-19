@@ -405,6 +405,43 @@ int main(int argc, char** argv) {
         save(structured, width, height, images / "structured-prefab.ppm");
         require(structured == sheared,
                 "Structured Parent/IsA prefab rendering differs from authored hierarchy");
+        // New geometry must be visible and pickable through the same CPU mesh used by navigation.
+        camera.target = {0, 0, 0};
+        camera.distance = 2.5f;
+        camera.yaw = -.55f;
+        camera.pitch = -.35f;
+        for (unsigned kind = 4; kind < forge::primitive_count; ++kind) {
+            live_scene.reset({{"version", 1}, {"entities", forge::Json::array()}});
+            forge::authoring_command(
+                live_scene, "entity.create",
+                {{"kind", kind}, {"position", {{"x", 0}, {"y", 0}, {"z", 0}}}});
+            ++generation;
+            const auto doc = live_scene.effective_document();
+            auto pixels = readback(device, context,
+                                   viewport.render(context, doc, width, height, camera, generation,
+                                                   false, {false, 1}));
+            save(pixels, width, height, images / ("primitive-" + std::to_string(kind) + ".ppm"));
+            unsigned occupied = 0;
+            for (const auto& pixel : pixels)
+                occupied += pixel != pixels[0];
+            require(kind == forge::no_primitive ? occupied == 0 : occupied > 100,
+                    "Expanded primitive did not render expected geometry");
+            if (kind != forge::no_primitive) {
+                const auto& mesh = forge::primitive_meshes()[kind];
+                forge::Float3 p{};
+                for (unsigned axis = 0; axis < 3; ++axis)
+                    p[axis] =
+                        (mesh[0].position[axis] + mesh[1].position[axis] + mesh[2].position[axis]) /
+                        3.f;
+                auto ray = forge::geom_sub(p, camera.eye());
+                auto n = std::sqrt(forge::geom_dot(ray, ray));
+                for (auto& c : ray)
+                    c /= n;
+                require(forge::object_hit(doc.at("entities")[0], camera.eye(), ray, .01f, 100)
+                            .has_value(),
+                        "Generated visible geometry cannot be picked");
+            }
+        }
         context->WaitForIdle();
         std::cout << "D3D12 WARP: grid axis alignment, look/pan/orbit/fly/zoom, resize, "
                      "visibility, spacing, thin lines, horizon fade, extent and occlusion passed\n";

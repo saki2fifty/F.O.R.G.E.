@@ -4,6 +4,7 @@
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "scene_cache.hpp"
+#include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
 namespace forge {
 class Viewport {
@@ -20,7 +21,7 @@ class Viewport {
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_, grid_pipeline_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> constants_, vertices_, grid_constants_;
-    std::array<unsigned, 4> starts_{}, counts_{};
+    std::array<unsigned, primitive_count> starts_{}, counts_{};
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> resources_, grid_resources_;
 };
 } // namespace forge

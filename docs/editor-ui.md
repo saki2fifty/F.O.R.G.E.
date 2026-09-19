@@ -6,7 +6,7 @@ The editor uses the pinned Dear ImGui docking build and SDL3. Runtime libraries 
 
 - Flecs/Scene owns entities, components, relationships, prefab realization and authored history.
 - AssetCatalog owns persistent asset records. Content caches a catalog view and discovers identity-bearing scene files; browsing does not write another database or mint new scene identities.
-- EditorSelection stores only transient None/Entity/Asset/PrefabMember selection. Selecting an asset clears entity selection. Dragging an asset delays click selection so an entity field remains a drop target.
+- EditorSelection stores only transient None/Entity/Asset/PrefabMember/DocumentItem selection. Selecting an asset clears entity selection. Dragging an asset delays click selection so an entity field remains a drop target.
 - ProjectSettingsEditor and PrefabEditor each own one transient draft/baseline. ActiveTask selects the Save owner. Each owner validates before publication and retains failed drafts. Scene Undo does not claim to undo either asset publication or project settings.
 - EditorActions adapts existing authoring commands and process controllers to menu, toolbar, shortcut, palette and context routes. Availability and execution are shared for the repeated actions. File operations retain their existing EditorFiles controller and unsaved-scene guard.
 - ComponentInspector and property_drawer consume registered schema metadata. Friendly labels/categories/enum choices are additive metadata; persistent formats, identity and ABI1 do not change. There is no second authoritative component registration table.
@@ -38,3 +38,11 @@ Portable tests exercise actual ImGui component/draft drawing, integer input, con
 - [Pinned Diligent integration](https://github.com/DiligentGraphics/DiligentEngine/tree/a279e5fa8593cbc758ec46ea1eba0b435cbc2f06): separate offscreen targets and existing WARP device attachment/readback pattern.
 
 Deferred: general import/cooking, multiselection, plugin-authored inspectors, cross-document Undo, Apply to Prefab, final game camera/rendering, asset thumbnails/file management and domain editors. This package does not begin Phase 7.
+
+## Refinement boundaries
+
+The standing [editor UI guidelines](editor-ui-guidelines.md) govern placement, commands, document adapters, local inspection, tool ownership and future subsystem placement. Internal DocumentWorkspace dispatches existing Save/history/draw owners; AssetEditors opens supported scene/prefab documents from Content. No public binary extension contract or cross-document Undo was introduced.
+
+Creation recipes use UI-independent entity.create with optional recipe ID; schema-owned defaults compose the result in one candidate transaction. Explicit Primitive None preserves legacy missing-Primitive cube behavior. Kinds0–3 remain unchanged; additional procedural shapes append values. Scene format3 and identity/ABI1 contracts are unchanged; old builds reject unsupported new enum values. The renderer still consumes shared CPU triangles, not a future imported Mesh/Material pipeline.
+
+Compact FORGE-owned vector icons use pinned ImDrawList geometry and do not add a dependency. Menu/global/status padding is reduced; the status row provides a Details popup for overflow. Preferences moved to Edit. Scene title/dirty state uses a stable hidden ID with layout migration. Manual routes describe current behavior; no future editor is advertised as implemented.

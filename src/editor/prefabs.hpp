@@ -1,4 +1,5 @@
 #pragma once
+#include "component_choices.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
 #include "widgets.hpp"
@@ -283,6 +284,8 @@ class PrefabEditor {
         if (!open_)
             return;
         ui::draft_window_size({620 * ui::interface_scale, 620 * ui::interface_scale});
+        if (auto* scene_window = ImGui::FindWindowSettingsByID(ImHashStr("###Scene")))
+            ImGui::SetNextWindowDockID(scene_window->DockId, ImGuiCond_FirstUseEver);
         if (focus_requested_) {
             ImGui::SetNextWindowFocus();
             focus_requested_ = false;
@@ -334,14 +337,16 @@ class PrefabEditor {
                     if (m.at("id") == member_) {
                         char name[1024]{};
                         SDL_strlcpy(name, m.at("name").get<std::string>().c_str(), sizeof(name));
-                        if (ImGui::InputText("Member name", name, sizeof(name)))
+                        ui::property_label_row("Member name");
+                        if (ImGui::InputText("##Member name", name, sizeof(name)))
                             rename_member(name);
                         ui::help(
                             "Rename this member in every instance. Its durable member identity is "
                             "unchanged.");
                         if (member_ != draft_.at("root").get_ref<const std::string&>()) {
+                            ui::property_label_row("Parent member");
                             if (ImGui::BeginCombo(
-                                    "Parent member",
+                                    "##Parent member",
                                     prefab_member_label(draft_, m.at("parent")).c_str())) {
                                 for (const auto& target : draft_.at("members"))
                                     if (target.at("id") != member_) {
@@ -364,11 +369,19 @@ class PrefabEditor {
                         }
                         if (member_ != draft_.at("root").get_ref<const std::string&>()) {
                             auto binding = m.value("spatial", Json{{"mode", "follow_structure"}});
-                            if (ImGui::BeginCombo(
-                                    "Member space",
-                                    binding.at("mode").get_ref<const std::string&>().c_str())) {
+                            ui::property_label_row("Spatial binding");
+                            const std::string binding_mode = binding.at("mode");
+                            if (ImGui::BeginCombo("##Member binding", binding_mode == "world"
+                                                                          ? "World"
+                                                                      : binding_mode == "explicit"
+                                                                          ? "Explicit attachment"
+                                                                          : "Follow parent")) {
                                 for (const char* mode : {"follow_structure", "world", "explicit"}) {
-                                    if (ImGui::Selectable(mode, binding.at("mode") == mode)) {
+                                    if (ImGui::Selectable(std::string(mode) == "world" ? "World"
+                                                          : std::string(mode) == "explicit"
+                                                              ? "Explicit attachment"
+                                                              : "Follow parent",
+                                                          binding.at("mode") == mode)) {
                                         binding = {{"mode", mode}};
                                         if (std::string(mode) == "explicit")
                                             binding["member"] = draft_.at("root");
@@ -384,8 +397,9 @@ class PrefabEditor {
                             ui::help("Source member spatial attachment. Instances inherit this "
                                      "source-owned binding.");
                             if (binding.at("mode") == "explicit") {
+                                ui::property_label_row("Spatial target");
                                 if (ImGui::BeginCombo(
-                                        "Spatial target",
+                                        "##Spatial target",
                                         prefab_member_label(draft_, binding.at("member"))
                                             .c_str())) {
                                     for (const auto& target : draft_.at("members"))
@@ -417,25 +431,13 @@ class PrefabEditor {
                                                      "Search components...", component_filter_,
                                                      sizeof(component_filter_));
                             ui::help("Search by registered component name or category.");
-                            for (const auto& component : schema.at("components")) {
-                                const std::string key = component.at("id");
-                                if (!component.value("optional", false) ||
-                                    m["components"].contains(key))
-                                    continue;
-                                const auto label = component.value("category", std::string{}) +
-                                                   " / " + component.value("display_name", key);
-                                if (search_key(label).find(search_key(component_filter_)) ==
-                                    std::string::npos)
-                                    continue;
-                                if (ImGui::Selectable(label.c_str()))
-                                    for (const auto& field : component.at("fields"))
+                            ui::component_choices(
+                                schema, m["components"], component_filter_, [&](const Json& type) {
+                                    const std::string key = type.at("id");
+                                    for (const auto& field : type.at("fields"))
                                         m["components"][key][field.at("id").get<std::string>()] =
                                             field.at("default");
-                                ui::help(
-                                    "Add optional source defaults. Publish validates this prefab "
-                                    "candidate; runtime validates collider realization before "
-                                    "Play.");
-                            }
+                                });
                             ImGui::EndPopup();
                         }
                         ui::help(

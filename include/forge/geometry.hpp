@@ -1,9 +1,11 @@
 #pragma once
 #include <array>
 #include <cmath>
+#include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
 #include <limits>
 #include <optional>
+#include <set>
 namespace forge {
 using Float3 = std::array<float, 3>;
 inline Float3 geom_sub(Float3 a, Float3 b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
@@ -73,13 +75,12 @@ inline unsigned primitive_kind(const Json& entity) {
     const auto& c = entity.at("components");
     return c.contains("forge.primitive") ? c.at("forge.primitive").at("kind").get<unsigned>() : 0;
 }
-inline constexpr const char* primitive_names[] = {"Cube", "Sphere", "Cylinder", "Plane"};
 struct PrimitiveVertex {
     Float3 position, normal;
 };
-inline const std::array<std::vector<PrimitiveVertex>, 4>& primitive_meshes() {
+inline const std::array<std::vector<PrimitiveVertex>, primitive_count>& primitive_meshes() {
     static const auto meshes = [] {
-        std::array<std::vector<PrimitiveVertex>, 4> result;
+        std::array<std::vector<PrimitiveVertex>, primitive_count> result;
         auto triangle = [&](unsigned kind, PrimitiveVertex a, PrimitiveVertex b,
                             PrimitiveVertex c) {
             result[kind].insert(result[kind].end(), {a, b, c});
@@ -132,12 +133,180 @@ inline const std::array<std::vector<PrimitiveVertex>, 4>& primitive_meshes() {
         const Float3 up{0, 1, 0};
         triangle(3, {{-.5f, 0, -.5f}, up}, {{.5f, 0, -.5f}, up}, {{.5f, 0, .5f}, up});
         triangle(3, {{-.5f, 0, -.5f}, up}, {{.5f, 0, .5f}, up}, {{-.5f, 0, .5f}, up});
+        // Shared bounded procedural generators. Existing four meshes above stay byte-identical.
+        auto unit = [](Float3 p) {
+            const auto n = std::sqrt(geom_dot(p, p));
+            for (auto& v : p)
+                v /= n;
+            return p;
+        };
+        auto face = [&](unsigned kind, Float3 a, Float3 b, Float3 c) {
+            auto n = geom_cross(geom_sub(b, a), geom_sub(c, a));
+            if (geom_dot(n, n) < 1e-14f)
+                return;
+            n = unit(n);
+            triangle(kind, {a, n}, {b, n}, {c, n});
+        };
+        // Surfaces of revolution, with normals from their radial/vertical profile.
+        auto lathe = [&](unsigned kind, const std::vector<Float3>& profile, unsigned sides = 32) {
+            for (std::size_t j = 1; j < profile.size(); ++j)
+                for (unsigned i = 0; i < sides; ++i) {
+                    auto vertex = [&](std::size_t row, unsigned col) {
+                        float angle = 6.28318530718f * col / sides;
+                        const auto& p = profile[row];
+                        Float3 n = unit({profile[j][1] - profile[j - 1][1],
+                                         profile[j - 1][0] - profile[j][0], 0});
+                        return PrimitiveVertex{
+                            {p[0] * std::cos(angle), p[1], p[0] * std::sin(angle)},
+                            {n[0] * std::cos(angle), n[1], n[0] * std::sin(angle)}};
+                    };
+                    auto a = vertex(j - 1, i), b = vertex(j - 1, i + 1), c = vertex(j, i + 1),
+                         d = vertex(j, i);
+                    auto emit = [&](PrimitiveVertex x, PrimitiveVertex y, PrimitiveVertex z) {
+                        auto cross = geom_cross(geom_sub(y.position, x.position),
+                                                geom_sub(z.position, x.position));
+                        if (geom_dot(cross, cross) < 1e-14f)
+                            return;
+                        if (geom_dot(cross, x.normal) < 0)
+                            std::swap(y, z);
+                        triangle(kind, x, y, z);
+                    };
+                    emit(a, b, c);
+                    emit(a, c, d);
+                }
+        };
+        lathe(6, {{0, -.5f, 0}, {.5f, -.5f, 0}, {0, .5f, 0}});
+        lathe(7, {{0, -.5f, 0}, {.5f, -.5f, 0}, {.25f, .5f, 0}, {0, .5f, 0}});
+        lathe(9, {{.5f, 0, 0}, {0, 0, 0}});
+        lathe(10, {{.5f, 0, 0}, {.25f, 0, 0}});
+        lathe(20, {{.3f, -.5f, 0}, {.5f, -.5f, 0}, {.5f, .5f, 0}, {.3f, .5f, 0}, {.3f, -.5f, 0}});
+        std::vector<Float3> capsule;
+        for (int i = 0; i <= 8; ++i) {
+            float a = -1.57079632679f + i * 1.57079632679f / 8;
+            capsule.push_back({.25f * std::cos(a), -.25f + .25f * std::sin(a), 0});
+        }
+        for (int i = 0; i <= 8; ++i) {
+            float a = i * 1.57079632679f / 8;
+            capsule.push_back({.25f * std::cos(a), .25f + .25f * std::sin(a), 0});
+        }
+        lathe(5, capsule);
+        std::vector<Float3> hemi{{0, 0, 0}, {.5f, 0, 0}};
+        for (int i = 1; i <= 12; ++i) {
+            float a = i * 1.57079632679f / 12;
+            hemi.push_back({.5f * std::cos(a), .5f * std::sin(a), 0});
+        }
+        lathe(18, hemi);
+        std::vector<Float3> torus;
+        for (int i = 0; i <= 16; ++i) {
+            float a = i * 6.28318530718f / 16;
+            torus.push_back({.35f + .15f * std::cos(a), .15f * std::sin(a), 0});
+        }
+        lathe(11, torus);
+        face(8, {-.5f, -.5f, 0}, {.5f, -.5f, 0}, {.5f, .5f, 0});
+        face(8, {-.5f, -.5f, 0}, {.5f, .5f, 0}, {-.5f, .5f, 0});
+        // Convex hulls of small explicit point sets: one flat normal per supporting face.
+        auto hull = [&](unsigned kind, const std::vector<Float3>& points) {
+            std::set<std::vector<unsigned>> planes;
+            for (unsigned a = 0; a < points.size(); ++a)
+                for (unsigned b = a + 1; b < points.size(); ++b)
+                    for (unsigned c = b + 1; c < points.size(); ++c) {
+                        auto n = geom_cross(geom_sub(points[b], points[a]),
+                                            geom_sub(points[c], points[a]));
+                        if (geom_dot(n, n) < 1e-10f)
+                            continue;
+                        n = unit(n);
+                        bool plus = false, minus = false;
+                        std::vector<unsigned> coplanar;
+                        for (unsigned i = 0; i < points.size(); ++i) {
+                            float d = geom_dot(n, geom_sub(points[i], points[a]));
+                            plus |= d > 1e-5f;
+                            minus |= d < -1e-5f;
+                            if (std::abs(d) <= 1e-5f)
+                                coplanar.push_back(i);
+                        }
+                        if (plus && minus)
+                            continue;
+                        if (!planes.insert(coplanar).second)
+                            continue;
+                        if (plus)
+                            for (auto& v : n)
+                                v = -v;
+                        Float3 center{};
+                        for (auto i : coplanar)
+                            for (unsigned axis = 0; axis < 3; ++axis)
+                                center[axis] += points[i][axis] / coplanar.size();
+                        auto u = unit(geom_sub(points[coplanar[0]], center)), v = geom_cross(n, u);
+                        std::sort(coplanar.begin(), coplanar.end(), [&](unsigned i, unsigned j) {
+                            auto x = geom_sub(points[i], center), y = geom_sub(points[j], center);
+                            return std::atan2(geom_dot(x, v), geom_dot(x, u)) <
+                                   std::atan2(geom_dot(y, v), geom_dot(y, u));
+                        });
+                        for (unsigned i = 1; i + 1 < coplanar.size(); ++i)
+                            face(kind, points[coplanar[0]], points[coplanar[i]],
+                                 points[coplanar[i + 1]]);
+                    }
+        };
+        hull(12, {{-.5f, -.5f, -.5f},
+                  {.5f, -.5f, -.5f},
+                  {.5f, -.5f, .5f},
+                  {-.5f, -.5f, .5f},
+                  {0, .5f, 0}});
+        hull(13, {{.5f, .5f, .5f}, {.5f, -.5f, -.5f}, {-.5f, .5f, -.5f}, {-.5f, -.5f, .5f}});
+        hull(14, {{.5f, 0, 0}, {-.5f, 0, 0}, {0, .5f, 0}, {0, -.5f, 0}, {0, 0, .5f}, {0, 0, -.5f}});
+        for (auto [kind, sides] : {std::pair{15u, 3u}, std::pair{16u, 6u}}) {
+            std::vector<Float3> points;
+            for (int sign : {-1, 1})
+                for (unsigned i = 0; i < sides; ++i) {
+                    float a = i * 6.28318530718f / sides;
+                    points.push_back({.5f * std::cos(a), .5f * sign, .5f * std::sin(a)});
+                }
+            hull(kind, points);
+        }
+        hull(17, {{-.5f, -.5f, -.5f},
+                  {.5f, -.5f, -.5f},
+                  {-.5f, -.5f, .5f},
+                  {.5f, -.5f, .5f},
+                  {-.5f, .5f, .5f},
+                  {.5f, .5f, .5f}});
+        std::vector<Float3> ico;
+        const float phi = 1.61803398875f;
+        for (int a : {-1, 1})
+            for (int b : {-1, 1})
+                for (auto p : {Float3{0, float(a), b * phi}, Float3{float(a), b * phi, 0},
+                               Float3{b * phi, 0, float(a)}}) {
+                    p = unit(p);
+                    for (auto& v : p)
+                        v *= .5f;
+                    ico.push_back(p);
+                }
+        hull(19, ico);
+        auto low = std::move(result[19]);
+        result[19].clear();
+        auto spherical = [&](Float3 p) {
+            p = unit(p);
+            return PrimitiveVertex{{p[0] * .5f, p[1] * .5f, p[2] * .5f}, p};
+        };
+        for (std::size_t i = 0; i < low.size(); i += 3) {
+            auto a = low[i].position, b = low[i + 1].position, c = low[i + 2].position;
+            auto midpoint = [&](Float3 p, Float3 q) {
+                for (unsigned j = 0; j < 3; ++j)
+                    p[j] += q[j];
+                return spherical(p);
+            };
+            auto ab = midpoint(a, b), bc = midpoint(b, c), ca = midpoint(c, a);
+            triangle(19, spherical(a), ab, ca);
+            triangle(19, ab, spherical(b), bc);
+            triangle(19, ca, bc, spherical(c));
+            triangle(19, ab, bc, ca);
+        }
         return result;
     }();
     return meshes;
 }
 inline std::pair<Float3, Float3> object_bounds(const Json& entity) {
     ObjectTransform transform(entity);
+    if (primitive_kind(entity) == no_primitive)
+        return {transform.position, transform.position};
     Float3 lo, hi;
     lo.fill(std::numeric_limits<float>::max());
     hi.fill(std::numeric_limits<float>::lowest());

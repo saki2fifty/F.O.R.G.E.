@@ -56,6 +56,6 @@ Project [Simulation Hz](project-settings.md) sets the next Play session’s freq
 
 **Scene** always shows the authored world and editor tools. **Game** shows the snapshot from the one isolated Play process. Starting Play opens Game; switching tabs does not start another simulation. The Game camera begins from the Scene camera position. This remains the current block-preview renderer, not a finished game-camera/rendering pipeline.
 
-Global Play/Pause/Step/Stop are also in **Run**, the command palette and **More...** at narrow widths. Game labels Starting, Playing, Paused, Stopped or Crashed/Recovery available; the permanent status bar also identifies runtime state.
+Global Play/Pause/Step/Stop are also in **Run**, the command palette and the **More** (three-dot) button at narrow widths. Game labels Starting, Playing, Paused, Stopped or Crashed/Recovery available; the permanent status bar also identifies runtime state.
 
 Use **Capture gameplay input** in Game. Escape, focus loss, hiding Game, or clicking outside its image releases input. Editor buttons receive that outside click. F6 pauses/resumes, F7 steps while paused; Ctrl+Plus/Minus remains available for editor zoom. Runtime HUD and Reload UI belong to Game. Authoring stays locked during Play.

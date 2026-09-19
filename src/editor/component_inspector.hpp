@@ -1,4 +1,5 @@
 #pragma once
+#include "component_choices.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
@@ -29,30 +30,9 @@ class ComponentInspector {
                                      sizeof(search_));
             ui::help("Results come from the world's registered component schema. Existing "
                      "components are marked Added.");
-            const auto schema = scene.schema();
-            unsigned count = 0;
-            for (const auto& type : schema.at("components")) {
-                if (!type.value("optional", false))
-                    continue;
-                const std::string key = type.at("id");
-                const auto label = type.value("display_name", key);
-                const auto category = type.value("category", std::string("Components"));
-                if (search_key(category + " " + label).find(search_key(search_)) ==
-                    std::string::npos)
-                    continue;
-                ++count;
-                const bool present = effective.contains(key);
-                ImGui::BeginDisabled(present);
-                const auto text = category + " / " + label + (present ? " (Added)" : "");
-                if (ImGui::Selectable(text.c_str()))
-                    apply(scene, entity, key, "", "component.add", {});
-                ui::help(present ? "Already present on this entity, including inherited components."
-                                 : "Add the registered defaults; change properties afterward. "
-                                   "Scene Undo removes this addition.");
-                ImGui::EndDisabled();
-            }
-            if (!count)
-                ImGui::TextUnformatted("No matching components.");
+            ui::component_choices(scene.schema(), effective, search_, [&](const Json& type) {
+                apply(scene, entity, type.at("id"), "", "component.add", {});
+            });
             ImGui::EndPopup();
         }
     }
@@ -75,12 +55,18 @@ class ComponentInspector {
         ui::heading("Components", "Behavior attached to this entity. Values come from the Flecs "
                                   "world; inherited values follow their prefab.");
         add_menu(scene, entity, values);
-        ImGui::SetNextItemWidth(-1);
-        ImGui::InputTextWithHint("##property-filter", "Search components or properties...", filter_,
-                                 sizeof(filter_));
-        ui::help("Filter attached component names and property labels. Transform and identity "
-                 "remain above this list.");
         const auto schema = scene.schema();
+        unsigned optional_count = 0;
+        for (const auto& t : schema.at("components"))
+            if (t.value("optional", false) && values.contains(t.at("id").get<std::string>()))
+                ++optional_count;
+        if (optional_count >= 4 || filter_[0]) {
+            ImGui::SetNextItemWidth(-1);
+            ImGui::InputTextWithHint("##property-filter", "Filter attached components...", filter_,
+                                     sizeof(filter_));
+            ui::help("Filter components already attached to this entity. Add Component searches "
+                     "components to add.");
+        }
         const bool prefab = owned.contains("prefab_instance") || owned.contains("prefab_member") ||
                             owned.contains("base");
         const auto masks = owned.value("property_overrides", Json::object());

@@ -1,5 +1,6 @@
 #pragma once
 #include "editor_state.hpp"
+#include "icons.hpp"
 #include "scene_cache.hpp"
 #include "widgets.hpp"
 #include <forge/authoring.hpp>
@@ -188,6 +189,29 @@ class BlockoutProperties {
             ui::heading("Transform",
                         "Authored local translation, quaternion rotation shown as Euler degrees, "
                         "and scale. Spatial binding controls parent motion.");
+            ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::GetFrameHeight());
+            if (ui::icon_button("##transform-more", ui::Icon::More,
+                                "Transform utilities\nCopy, paste or reset local transform."))
+                ImGui::OpenPopup("Transform utilities");
+            if (ImGui::BeginPopup("Transform utilities")) {
+                ui::DisabledScope disabled(active());
+                if (ImGui::MenuItem("Copy transform"))
+                    copy_transform(scene, id);
+                ui::help("Copy effective local TRS into the internal clipboard.");
+                if (ImGui::MenuItem("Paste transform", nullptr, false, clipboard_.has_value()))
+                    paste_transform(scene, id);
+                ui::help("Replace all three local channels as one scene Undo step.");
+                if (ImGui::MenuItem("Reset transform"))
+                    authoring_command(scene, "transform.reset", {{"entity", id}});
+                ui::help("Reset local position and rotation to zero, scale to one. Overrides all "
+                         "three channels.");
+                if (ImGui::MenuItem("Reset position"))
+                    authoring_command(scene, "transform.position",
+                                      {{"entity", id}, {"value", {{"x", 0}, {"y", 0}, {"z", 0}}}});
+                ui::help(
+                    "Reset translation only; preserve independent rotation and scale ownership.");
+                ImGui::EndPopup();
+            }
             auto bind = [&](const Json& args) {
                 try {
                     authoring_command(scene, "transform.binding", args);
@@ -210,7 +234,8 @@ class BlockoutProperties {
                                                            : "Follow parent";
             {
                 ui::DisabledScope disabled(entity.contains("prefab_member"));
-                if (ImGui::BeginCombo("Space", space_label)) {
+                ui::property_label_row("Spatial binding");
+                if (ImGui::BeginCombo("##binding", space_label)) {
                     for (auto choice : {"follow_structure", "world"}) {
                         if (ImGui::Selectable(std::string(choice) == "world" ? "World"
                                                                              : "Follow parent",
@@ -264,54 +289,25 @@ class BlockoutProperties {
             vector_control(scene, id, "forge.position");
             vector_control(scene, id, "forge.rotation");
             vector_control(scene, id, "forge.scale");
-            {
-                ui::DisabledScope disabled(active());
-                if (ui::button("Copy transform",
-                               "Copy effective local position, quaternion rotation, and scale into "
-                               "the editor's internal clipboard.")) {
-                    copy_transform(scene, id);
-                    status = "Transform copied";
-                }
-                ImGui::SameLine();
-                {
-                    ui::DisabledScope disabled(!clipboard_);
-                    if (ui::button("Paste transform",
-                                   "Replace position, rotation, and scale as one "
-                                   "undoable edit. Color and shape are unchanged.")) {
-                        paste_transform(scene, id);
-                        status = "Transform pasted";
-                    }
-                }
-                if (ui::button("Reset transform", "Set position and rotation to zero and scale to "
-                                                  "one as one undoable edit.")) {
-                    authoring_command(scene, "transform.reset", {{"entity", id}});
-                }
-            }
-            if (ImGui::BeginPopupContextItem("##transform-actions")) {
-                ui::PopupScope popup;
-                if (ImGui::MenuItem("Reset position"))
-                    authoring_command(scene, "transform.position",
-                                      {{"entity", id}, {"value", {{"x", 0}, {"y", 0}, {"z", 0}}}});
-                ui::help("Reset position only; retain rotation and scale.");
-            }
-            ui::heading("Primitive appearance", "Built-in meshes and opaque blockout tint. This is "
-                                                "not a material or texture system.");
+            ui::heading("Blockout Geometry", "Built-in meshes and opaque blockout tint. This is "
+                                             "not a material or texture system.");
             int kind = int(primitive_kind(entity));
             {
                 ui::DisabledScope disabled(active());
-                if (ImGui::Combo("Shape", &kind, primitive_names, 4)) {
+                ui::property_label_row("Shape");
+                if (ImGui::Combo("##Shape", &kind, primitive_names, primitive_count)) {
                     authoring_command(scene, "appearance.shape", {{"entity", id}, {"kind", kind}});
                 }
-                ui::help(
-                    "Switch between Cube, Sphere, Cylinder, and Plane, retaining transform and "
-                    "color. Plane is two-sided and lies in local XZ.");
+                ui::help("Choose built-in blockout geometry or None. Preserves transform and tint. "
+                         "No material or mesh asset is created.");
                 appearance_intent(scene, id, "forge.primitive", {"kind"});
             }
             const auto color =
                 entity.at("components")
                     .value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});
             Float3 rgb{color.at("r"), color.at("g"), color.at("b")};
-            if (ImGui::ColorEdit3("Color", rgb.data(), ImGuiColorEditFlags_NoInputs))
+            ui::property_label_row("Tint");
+            if (ImGui::ColorEdit3("##Tint", rgb.data(), ImGuiColorEditFlags_NoInputs))
                 stage(scene, id, "forge.tint", {rgb[0], rgb[1], rgb[2]}, {"r", "g", "b"});
             ui::help("Choose an opaque RGB blockout color. Lighting modulates the displayed color. "
                      "Each picker drag is one undo step.");

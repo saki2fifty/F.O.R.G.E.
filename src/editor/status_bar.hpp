@@ -50,38 +50,43 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
          "Gameplay build state; details are in Gameplay Code."}};
     const auto& style = ImGui::GetStyle();
     auto* viewport = ImGui::GetMainViewport();
-    const float available = std::max(1.0f, viewport->Size.x - 2 * style.WindowPadding.x);
     const float gap = style.ItemSpacing.x * 2;
-    float used = 0;
-    int rows = 1;
-    for (const auto& field : fields) {
-        const float width = ImGui::CalcTextSize(field.text.c_str()).x;
-        if (used > 0 && used + gap + width > available) {
-            ++rows;
-            used = 0;
-        }
-        used += (used > 0 ? gap : 0) + width;
-    }
-    const float height = 2 * style.WindowPadding.y + rows * ImGui::GetTextLineHeight() +
-                         (rows - 1) * style.ItemSpacing.y;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+                        ImVec2{8 * interface_scale, 4 * interface_scale});
+    const float height = std::ceil(ImGui::GetTextLineHeight() + 8 * interface_scale);
     const auto flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
-                       ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoFocusOnAppearing |
-                       ImGuiWindowFlags_NoNav;
+                       ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoFocusOnAppearing;
     if (ImGui::BeginViewportSideBar("##FORGE-status", viewport, ImGuiDir_Down, height, flags)) {
-        used = 0;
-        for (const auto& field : fields) {
-            const float width = ImGui::CalcTextSize(field.text.c_str()).x;
-            if (used > 0 && used + gap + width <= available) {
-                ImGui::SameLine(0, gap);
-                used += gap;
-            } else {
-                used = 0;
+        const auto summary = fields[4].text + " | " + std::to_string(problems) + " problems" +
+                             (building ? " | Building" : "");
+        ImGui::TextUnformatted(summary.c_str());
+        help("Runtime state and actionable Problems count. Open Window > Problems for details.");
+        const float reserve = 80 * interface_scale;
+        float used = ImGui::CalcTextSize(summary.c_str()).x;
+        const float available = ImGui::GetContentRegionAvail().x;
+        for (unsigned i : {0u, 1u, 2u, 3u, 5u, 6u}) {
+            const auto& f = fields[i];
+            if (used + ImGui::CalcTextSize(f.text.c_str()).x + gap + reserve > available)
+                continue;
+            used += ImGui::CalcTextSize(f.text.c_str()).x + gap;
+            ImGui::SameLine(0, gap);
+            ImGui::TextUnformatted(f.text.c_str());
+            help(f.help);
+        }
+        ImGui::SameLine(0, gap);
+        if (ImGui::SmallButton("Details"))
+            ImGui::OpenPopup("Status details");
+        help(
+            "All performance, scene and build information, including fields hidden at this width.");
+        if (ImGui::BeginPopup("Status details")) {
+            for (const auto& f : fields) {
+                ImGui::TextUnformatted(f.text.c_str());
+                help(f.help);
             }
-            ImGui::TextUnformatted(field.text.c_str());
-            help(field.help);
-            used += width;
+            ImGui::EndPopup();
         }
     }
     ImGui::End();
+    ImGui::PopStyleVar();
 }
 } // namespace forge::ui

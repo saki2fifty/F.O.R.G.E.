@@ -1,6 +1,7 @@
 #include "builtins.hpp"
 #include <cctype>
 #include <cmath>
+#include <forge/primitive_catalog.hpp>
 #include <stdexcept>
 namespace forge::detail {
 namespace {
@@ -268,8 +269,9 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<Tint>("forge.tint", "Opaque blockout color, channels from 0 to 1", "unitless", 0,
                          1, [](flecs::world& w) { return register_type<Tint>(w, "forge.tint"); }),
         descriptor<Primitive>(
-            "forge.primitive", "Primitive kind: 0 cube, 1 sphere, 2 cylinder, 3 plane", "unitless",
-            0, 3, [](flecs::world& w) { return register_type<Primitive>(w, "forge.primitive"); }),
+            "forge.primitive", "Built-in blockout geometry; None disables geometry", "unitless", 0,
+            primitive_count - 1,
+            [](flecs::world& w) { return register_type<Primitive>(w, "forge.primitive"); }),
         descriptor<PhysicsBody>(
             "forge.physics_body", "Body motion: Static, Kinematic, Dynamic. Mass 0 uses density.",
             "unitless", 0, 1000000,
@@ -541,11 +543,11 @@ Json register_builtins(flecs::world& world, unsigned family) {
                 f["choices"] = Json::array({{{"label", "Static"}, {"value", 0u}},
                                             {{"label", "Kinematic"}, {"value", 1u}},
                                             {{"label", "Dynamic"}, {"value", 2u}}});
-            if (name == "forge.primitive" && std::string(m.name) == "kind")
-                f["choices"] = Json::array({{{"label", "Cube"}, {"value", 0u}},
-                                            {{"label", "Sphere"}, {"value", 1u}},
-                                            {{"label", "Cylinder"}, {"value", 2u}},
-                                            {{"label", "Plane"}, {"value", 3u}}});
+            if (name == "forge.primitive" && std::string(m.name) == "kind") {
+                f["choices"] = Json::array();
+                for (unsigned i = 0; i < primitive_count; ++i)
+                    f["choices"].push_back({{"label", primitive_names[i]}, {"value", i}});
+            }
             fields.push_back(std::move(f));
         }
         std::string display = name.substr(name.find('.') + 1);
