@@ -1,21 +1,31 @@
 # Phase 6 complete — final consolidation
 
-## Complete Flecs integration — final validation in progress
+## Complete Flecs integration — Build 260919-000062
 
-The exact stable4.1.6 pin is retained. Native Meta/Doc/Units/Ranges now drive
-builtin authoring metadata and scalar validation; ordered hierarchy/prefab source
+The exact stable Flecs 4.1.6 pin is retained. Native Meta/Doc/Units/Ranges drive
+builtin authoring metadata and scalar validation. Native hierarchy/prefab source
 ordering, fixed Timer scheduling, central Flecs Script preview documents and
-optional ECS inspection/metrics/alerts/readonly REST are implemented. See
+optional ECS inspection/metrics/alerts/read-only REST are implemented. See
 [the integration contract](flecs-integration.md), [Script guide](../manual/editor/flecs-script.md)
 and [ECS tools guide](../manual/editor/ecs-tools.md).
 
-Normal Linux static35/35 and sharedSDK44/44 suites passed. Strict static product
-sanitizer34/34 passed; the separately classified known-upstream managed-include
-regression produced only its expected buffer leak. Strict shared product sanitizer42/42 and editor sanitizer3/3 also passed; the
-shared profile separately reproduced only the approved expected native leak.
-Final Windows validation and delivery remain pending. Build260919-000061 remains the last
-delivered package. No Phase7 work.
+Source `8bfaa4057660286dd503bd9fc62265dc350a7a84` passed all six jobs in
+[clean validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35445250161).
+Windows/Linux static **35/35** and shared SDK **44/44** each; Windows editor
+controllers **2/2**, rendering/subsystems **36/36**, shaders and package relocation
+passed. All **55** previous non-editor render images are unchanged; **23** editor
+captures reviewed. ZIP integrity, **184 hashes**, identities, licenses, manual
+and both SDK manifests verified. Packages cleanup is complete.
 
+Separate clean local ASan/UBSan/LSan suites: **34/34 static, 42/42 shared,
+3/3 editor**. The dedicated known-upstream regression produces only its **EXPECTED
+pinned managed-include buffer leak** (18 and 4118 bytes for the two fixtures),
+verifies rejection, worker exit, cleanup and subsequent success, and retains actual
+LSan output. No suppression and no globally clean sanitizer claim. See the
+[approved exception](flecs-integration.md#approved-pinned-managed-include-exception-2026-09-19).
+
+Physical desktop/browser acceptance remains separate. No Phase 7 work. The
+following Phase 6 entries are historical deliveries.
 
 **Build 260918-000054** completes Phase6G and the authorized final Phase6 work package. Packaged source: `991aca3447e148cdbb903331eaf820d101674371`; [clean Windows/Linux validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35348388494). Read the [extension author guide](extension-guide.md) and [contract inventory](extension-contracts.md).
 

@@ -2,8 +2,12 @@
 
 Flecs **4.1.6**, exactly `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`, is the
 technical contract. Follow the [dependency evidence policy](dependency-policy.md).
-This integration work is in progress; the last delivered package is Build
-260919-000061. New changes below require the complete validation gate before delivery.
+Implemented and verified in **Build 260919-000062**, source
+`8bfaa4057660286dd503bd9fc62265dc350a7a84`.
+[Clean Windows/Linux validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35445250161)
+passed all six jobs. This contract records adopted capabilities, native SDK
+availability, measured non-adoption and the approved narrow upstream exception.
+It does not claim every native mechanism needs its own editor control. No Phase 7.
 
 ## Ownership
 
@@ -319,3 +323,22 @@ separately. Never describe the combined outcome as globally clean LeakSanitizer.
 When a future official stable revision contains the fix, verify that exact source,
 require this reproducer to become clean, remove the exception and move its cases
 back into the ordinary clean suite. Never carry this exception forward automatically.
+
+## Verified delivery
+
+Windows and Linux static profiles passed **35/35** each; exact shared SDK profiles
+passed **44/44** each, including installed/relocated consumers. Windows editor
+controllers passed **2/2**, and renderer/subsystem/process tests passed **36/36**.
+All **55** prior non-editor render fixtures are byte-identical to Build 61; **23**
+actual-editor captures were reviewed, including ECS tools and Script at 200%.
+
+Separate clean local ASan/UBSan/LSan suites passed **34/34 static, 42/42 shared,
+and 3/3 editor**. The dedicated managed-include regression produced its **EXPECTED
+pinned upstream LSan finding**, at 18 and 4118 bytes for the two source sizes,
+with no unrelated finding. No suppression; this is not a globally clean LSan claim.
+
+ZIP integrity, **184 file hashes**, compiled build identities, the matching manual,
+dependency licenses, relocated runtime UI/navigation/converter startup and both
+SDK manifests (**237 Linux / 246 Windows files**) were verified. Physical Windows
+GPU/DPI/input and hosted Explorer/browser acceptance remain separate. Existing
+960×640/200% layout clipping is still a documented stress limitation.

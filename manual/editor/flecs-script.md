@@ -4,7 +4,7 @@ Flecs Script creates and updates ECS content from `.flecs` source text. It is se
 
 ## Create or open a script
 
-1. In **Content**, expand **Flecs Script**.
+1. In **Content**, choose **Create / Register**, then expand **Flecs Script**.
 2. Enter a project-relative **Script path**, such as `Assets/example.flecs`.
 3. Choose **Create / Register Script**. An absent file gets a small example. An existing file is registered without being overwritten.
 4. The source opens in the central workspace. Later, double-click its asset in Content to reopen it.

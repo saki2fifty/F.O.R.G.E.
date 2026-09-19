@@ -106,3 +106,33 @@
   path, and verified rejection, worker exit, cleanup and recovery. No suppression;
   this is not an all-sanitizers-clean claim. Final focused checks, manual,
   formatting, workflow lint and portable main/fixture syntax checks passed.
+
+
+## Complete Flecs integration — verified Build 260919-000062
+
+- Source `8bfaa4057660286dd503bd9fc62265dc350a7a84`; clean workflow
+  **35445250161** passed all six jobs. Windows/Linux static **35/35** and exact
+  SDK **44/44** each; Windows editor controllers **2/2**, remaining
+  rendering/subsystem/process tests **36/36**, shaders and relocated runtime
+  UI/navigation/converter checks passed.
+- Separate local clean ASan/UBSan/LSan profiles passed **34/34 static, 42/42 shared,
+  3/3 editor**. The dedicated expected-upstream regression retained only the
+  approved native managed-include cleanup finding: **18 and 4118 bytes** for the
+  two file sizes. Rejection without publication, exited workers, cleaned staging
+  and subsequent valid evaluation verified; no suppression or global clean claim.
+- Reviewed all **23** actual-editor D3D12 WARP captures, including ECS Statistics,
+  Metrics and Flecs Script at 100%/200%. All **55** prior non-editor render fixtures
+  are byte-identical to Build 61. Existing 960×640/200% clipping remains a stress
+  limitation; physical GPU/DPI/input/browser acceptance remains separate.
+- Verified ZIP CRC, **184 file hashes**, compiled build/source identity, matching
+  offline manual, dependency licenses, and **237 Linux / 246 Windows SDK hashes**.
+  Package SHA256: `8fc01acd905f237bba712dd1989e86672a536a9a950ac64f14f675f7c98c51be`.
+- Promoted the numbered ZIP and current executable folder. Archived Build 61 and
+  removed checksum-verified duplicate downloads/extractions.
+- This documentation-only follow-up records observed validation and clarifies the
+  Script creation route: **Content → Create / Register → Flecs Script**. The
+  already-built offline guide omits the intermediate Create / Register button in
+  its first step; its package bytes and compiled source remain unchanged.
+- Retained Flecs `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` and the permanent
+  pin-first dependency policy. Unavailable stable on_validate/Meta maps and the
+  narrow known upstream defect remain explicit. **Stopped before Phase 7.**
