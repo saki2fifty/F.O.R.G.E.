@@ -312,7 +312,8 @@ class EcsWorkspace {
                         tools_->stop_rest();
                     ImGui::SameLine();
                     if (button("Open Flecs Explorer",
-                               "Open the official browser client for this loopback endpoint. "
+                               "Open the optional, unpinned official browser client. Compatibility "
+                               "with this Flecs revision is best-effort. "
                                "Browser local-network restrictions may require permission or a "
                                "locally hosted Explorer.")) {
                         const auto url = "https://www.flecs.dev/explorer/?host=127.0.0.1:" +
@@ -321,6 +322,9 @@ class EcsWorkspace {
                             error_ = SDL_GetError();
                     }
                     ImGui::EndDisabled();
+                    ImGui::TextWrapped("Hosted Explorer can change independently of FORGE. Use "
+                                       "Statistics, Query, Metrics, Entity / JSON and Alerts here "
+                                       "for inspection built against FORGE's exact Flecs version.");
                     ImGui::TextWrapped(
                         "Explorer editing, script execution and command capture are disabled on "
                         "this authoring connection. Use normal FORGE commands for scene changes.");

@@ -75,6 +75,8 @@ struct Workspace {
     bool hierarchy = true, inspector = true, scene = true, content = true, console = true,
          build = true, game = true, problems = true;
     bool reset = false;
+    bool bottom_folded = false;
+    void toggle_bottom() { bottom_folded = !bottom_folded; }
     void load(const Json& settings) {
         const auto p = settings.value("panels", Json::object());
         game = p.value("game", true);
@@ -85,15 +87,25 @@ struct Workspace {
         content = p.value("content", true);
         console = p.value("console", true);
         build = p.value("build", true);
+        bottom_folded = p.value("bottom_folded", false);
     }
     Json settings() const {
-        return {{"hierarchy", hierarchy}, {"inspector", inspector}, {"scene", scene},
-                {"content", content},     {"console", console},     {"build", build},
-                {"game", game},           {"problems", problems}};
+        return {
+            {"hierarchy", hierarchy}, {"inspector", inspector}, {"scene", scene},
+            {"content", content},     {"console", console},     {"build", build},
+            {"game", game},           {"problems", problems},   {"bottom_folded", bottom_folded}};
     }
     bool menu() {
         bool changed = false;
         if (ImGui::BeginMenu("Window")) {
+            if (ImGui::MenuItem(bottom_folded ? "Expand bottom workspace" : "Fold bottom workspace",
+                                "Ctrl+Space")) {
+                toggle_bottom();
+                changed = true;
+            }
+            help("Temporarily hide Content, Problems, Console and Gameplay Code. Their visibility "
+                 "choices and docking arrangement are retained. Ctrl+Space restores access.");
+            ImGui::Separator();
             struct Panel {
                 const char* name;
                 bool* value;
@@ -106,7 +118,15 @@ struct Workspace {
                            {"Content", &content},
                            {"Console", &console},
                            {"Gameplay Code", &build}}) {
-                changed |= ImGui::MenuItem(p.name, nullptr, p.value);
+                const bool bottom = p.value == &content || p.value == &problems ||
+                                    p.value == &console || p.value == &build;
+                bool visible = *p.value && !(bottom && bottom_folded);
+                if (ImGui::MenuItem(p.name, nullptr, &visible)) {
+                    *p.value = visible;
+                    changed = true;
+                    if (visible && bottom)
+                        bottom_folded = false;
+                }
                 help(
                     "Show or hide this panel. Dock arrangements are saved when the editor closes.");
             }

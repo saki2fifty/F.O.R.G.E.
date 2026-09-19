@@ -7,7 +7,9 @@
 namespace forge::ui {
 inline void status_bar(const Telemetry& stats, bool playing, std::size_t entities,
                        const std::string& runtime_state = {}, std::size_t problems = 0,
-                       bool selected = false, bool building = false) {
+                       bool selected = false, bool building = false,
+                       const std::function<void()>& toggle_bottom = {},
+                       bool bottom_folded = false) {
     struct Field {
         std::string text;
         const char* help;
@@ -59,10 +61,19 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
     if (ImGui::BeginViewportSideBar("##FORGE-status", viewport, ImGuiDir_Down, height, flags)) {
         const auto summary = fields[4].text + " | " + std::to_string(problems) + " problems" +
                              (building ? " | Building" : "");
+        float workspace_width = 0;
+        if (toggle_bottom) {
+            if (ImGui::SmallButton(bottom_folded ? "Workspace +" : "Workspace -"))
+                toggle_bottom();
+            help("Expand/fold Content, Problems, Console and Gameplay Code (Ctrl+Space). "
+                 "Panel visibility and dock layout are retained.");
+            workspace_width = ImGui::GetItemRectSize().x + gap;
+            ImGui::SameLine(0, gap);
+        }
         ImGui::TextUnformatted(summary.c_str());
         help("Runtime state and actionable Problems count. Open Window > Problems for details.");
         const float reserve = 80 * interface_scale;
-        float used = ImGui::CalcTextSize(summary.c_str()).x;
+        float used = ImGui::CalcTextSize(summary.c_str()).x + workspace_width;
         const float available = ImGui::GetContentRegionAvail().x;
         for (unsigned i : {0u, 1u, 2u, 3u, 5u, 6u}) {
             const auto& f = fields[i];

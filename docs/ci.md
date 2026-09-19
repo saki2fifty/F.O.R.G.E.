@@ -38,3 +38,17 @@ The `build_id` workflow input is required for Windows packaging. CMake embeds it
 End-user source pages live in `manual/`, separate from these technical documents. `python tests/manual_test.py` checks supported formatting, navigation, escaping, and identity validation. Packaging renders the current pages with `tools/build_manual.py` into a standalone offline HTML manual and includes the Markdown sources. The renderer intentionally supports headings, paragraphs, flat lists, fenced code, bold/inline code, and local page links; unsupported block forms fail validation. No web service or extra documentation dependency is required.
 
 For an unpackaged local editor build, generate the manual beside the executable with `python tools/build_manual.py --output /path/to/build/manual --build-id unassigned`. Help opens `manual/index.html` through the OS handler. A browser-launch success only confirms dispatch to that handler; desktop opening remains an interactive check.
+
+## Combined editor and exact SDK delivery
+
+The final Windows artifact is assembled only after core/static, shared SDK, editor
+and formatting jobs succeed. Editor and SDK builds run independently; a final package
+job verifies both manifests and their identical source commit/build ID, adds the SDK
+under `NativeSdk/`, regenerates the outer file hashes and runs its shared runtime from
+a relocated path with a restricted PATH. The intermediate `FORGE-Windows-Editor-Base`
+is not the final delivery. `FORGE-Windows-x64` remains the single complete numbered ZIP.
+The download action is pinned to official v4 commit
+`d3f86a106a0bac45b974a628896c90dbdf5c8093`; its name/path inputs select only this run's
+artifacts. Modified files, path escapes and mismatched builds fail assembly before
+replacing a usable output. Installed SDK consumer tests still verify shared linkage,
+compiler compatibility and real gameplay modules before assembly.

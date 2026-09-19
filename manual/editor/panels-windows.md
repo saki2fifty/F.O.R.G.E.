@@ -24,7 +24,15 @@ At crowded sizes, widen Inspector, tab it with another panel, hide panels throug
 
 Use 1440×900 or larger at 100% for the full default workspace. At 150–200%, a 1920×1080 or larger window gives more room; widen or tab the Inspector as needed. A 960×640 window is supported for reduced tasks at 100%. At 200% in that small window, use Menu/More, hide or tab panels, or reduce zoom: the complete workspace cannot fit at once. Docking remains under your control.
 
-Fresh/reset layouts show Content in the bottom workspace. Existing saved layouts keep their active tabs.
+Fresh/reset layouts show Content in the bottom workspace when there is sufficient
+height. At crowded sizes the bottom workspace starts folded. **Workspace +** in
+the status bar, **Window → Expand bottom workspace**, or **Ctrl+Space** restores it.
+**Workspace -** folds Content, Problems, Console and Gameplay Code together without
+changing which of those panels you have chosen to show. The folded state is saved
+in personal preferences. Existing saved layouts keep their active tabs.
+
+Ctrl+Space is suspended while typing, manipulating, using a popup or capturing
+Game input. The Window menu and status button remain discoverable alternatives.
 
 ## Independent tasks
 

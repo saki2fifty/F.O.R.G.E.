@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -541,8 +542,19 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         if (std::string(type.name) == "forge.audio_source" && names[i] == "gain")
             m.warning_range = {0, 1};
     }
+    // Flecs 4.1.6 member-entity helpers lose explicit zero-offset intent.
+    // Physical order avoids a later zero offset recomputing earlier members.
+    // Keep names/field semantics independent of registration order, and verify
+    // the native result before a codec can use it (see flecs-known-issues.md).
+    std::stable_sort(desc.members, desc.members + count,
+                     [](const auto& a, const auto& b) { return a.offset < b.offset; });
     if (!ecs_struct_init(world.c_ptr(), &desc))
         throw std::runtime_error("Builtin member metadata registration failed");
+    for (int i = 0; i < count; ++i) {
+        const auto* actual = ecs_struct_get_member(world.c_ptr(), component.id(), names[i].c_str());
+        if (!actual || actual->offset != members[i].offset || actual->size != members[i].size)
+            throw std::runtime_error("Native member metadata changed the typed component layout");
+    }
     const std::string id = type.name;
     const auto display =
         id == "forge.ui_document" ? "UI Document" : friendly_name(id.substr(id.find('.') + 1));

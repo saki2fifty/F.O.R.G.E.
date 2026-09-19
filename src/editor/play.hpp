@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
+#include <forge/build.hpp>
 #include <forge/input.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
@@ -40,13 +41,16 @@ class PlaySession {
         return true;
     }
     void configure(double hz, InputMap map, Double3 gravity = {0, -9.81, 0},
-                   std::filesystem::path project = {}) {
+                   std::filesystem::path project = {}, bool exact_sdk = false) {
         if (active())
             throw std::runtime_error("Stop Play before configuring input/settings");
         if (!std::isfinite(hz) || hz < 1 || hz > 240)
             throw std::runtime_error("Invalid simulation frequency");
         gravity_ = gravity;
         audio_project_ = path_utf8(project);
+        if (exact_sdk && project.empty())
+            throw std::runtime_error("Exact SDK Play requires a project root");
+        exact_sdk_ = exact_sdk;
         simulation_hz_ = hz;
         input_map_ = map.source();
     }
@@ -88,6 +92,8 @@ class PlaySession {
     }
     // Caller has executed this immutable artifact in a separate fixed-tick probe.
     void reload(const std::string& path) {
+        if (exact_sdk_)
+            throw std::runtime_error("Exact SDK registrations require Stop, rebuild, then Play");
         if (!ready())
             throw std::runtime_error("Play is not ready for reload");
         if (transaction_) {
@@ -120,6 +126,9 @@ class PlaySession {
     }
     void start(const std::string& executable, const Json& scene, const std::string& module = {},
                bool probe = false, const Json& recovery = Json()) {
+        if (exact_sdk_ && (!module.empty() || !recovery.is_null()))
+            throw std::runtime_error("Exact SDK Play starts from authored state; ABI1 reload and "
+                                     "partial custom-state recovery are unavailable");
         const auto initial = scene;
         stop();
         executable_ = executable;
@@ -194,6 +203,15 @@ class PlaySession {
                         return;
                     }
                     throw std::runtime_error(error);
+                }
+                if (stage_ == Stage::Hello && exact_sdk_) {
+                    const auto info = response.value("runtime_contract", Json::object());
+                    if (info.value("profile", "") != "shared-native-sdk" ||
+                        !info.value("sdk_project", false) ||
+                        info.value("source_commit", "") != forge::source_commit)
+                        throw std::runtime_error("SDK runtime does not match this editor source "
+                                                 "or shared SDK profile. Select the matching "
+                                                 "Native SDK installation in Gameplay Code.");
                 }
                 const auto diagnostics = response.value("diagnostics", Json::array());
                 if (diagnostics != diagnostics_) {
@@ -308,7 +326,8 @@ class PlaySession {
                     "Reload failed; restored previous module and checkpoint: " + diagnostic + ". ";
                 launch(checkpoint_, checkpoint_recovery_);
             } else {
-                const bool recover = !probe_ && !restoring_ && stage_ == Stage::Running;
+                const bool recover =
+                    !exact_sdk_ && !probe_ && !restoring_ && stage_ == Stage::Running;
                 close_process();
                 recoverable_ = recover;
                 status_ = diagnostic + ". Authored scene is safe; " +
@@ -360,7 +379,7 @@ class PlaySession {
         input_status_ = Json::object();
         std::vector<const char*> args{executable_.c_str()};
         if (!audio_project_.empty()) {
-            args.push_back("--project");
+            args.push_back(exact_sdk_ ? "--sdk-project" : "--project");
             args.push_back(audio_project_.c_str());
             args.push_back("--audio");
             args.push_back(probe_ ? "offline" : "device");
@@ -428,6 +447,7 @@ class PlaySession {
     Json diagnostics_ = Json::array();
     std::string audio_project_;
     bool transaction_ = false, restoring_ = false, probe_ = false, recoverable_ = false;
+    bool exact_sdk_ = false;
     bool prior_paused_ = false, desired_paused_ = false, waiting_ = false;
     std::uint64_t snapshot_version_ = 0, request_id_ = 0, activation_generation_ = 0;
     std::string sent_command_, outgoing_, incoming_, log_,

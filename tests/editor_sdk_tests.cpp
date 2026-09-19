@@ -1,0 +1,94 @@
+#include "play.hpp"
+#include <forge/native_sdk_identity.h>
+#include <forge/project.hpp>
+#include <iostream>
+
+namespace {
+void require(bool value, const std::string& message) {
+    if (!value)
+        throw std::runtime_error(message);
+}
+} // namespace
+int main(int argc, char** argv) {
+    if (argc != 6)
+        return 2;
+    const auto root =
+        std::filesystem::current_path() / ("sdk-editor-" + forge::AssetId::generate().str());
+    int result = 0;
+    try {
+        std::filesystem::create_directories(root);
+        forge::EngineContext engine;
+        forge::Scene authored(engine.world());
+        const auto original = authored.snapshot();
+        auto settings = forge::ProjectSettings::defaults("SDK editor test");
+        auto install = [&](const char* path) {
+            const auto library = std::filesystem::path(path).filename();
+            std::filesystem::copy_file(path, root / library,
+                                       std::filesystem::copy_options::overwrite_existing);
+            settings["modules"] =
+                forge::Json::array({{{"id", "project.sdk_probe"},
+                                     {"implementation", "1"},
+                                     {"sdk", "experimental-1"},
+                                     {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
+                                     {"library", library.string()},
+                                     {"dependencies", {"forge.input", "forge.transforms"}}}});
+            forge::atomic_write(root / "forge.project.json", settings.dump());
+        };
+        forge::PlaySession play;
+        play.configure(60, forge::InputMap{}, {0, -9.81, 0}, root, true);
+        auto wait = [&](auto done) {
+            const auto limit = SDL_GetTicks() + 10000;
+            do {
+                play.pump();
+                SDL_Delay(1);
+            } while (!done() && SDL_GetTicks() < limit);
+            require(done(), "SDK controller timeout: " + play.status() + " " + play.log());
+        };
+        install(argv[2]);
+        play.start(argv[5], original, {}, true);
+        wait([&] { return !play.active(); });
+        require(!play.can_recover() &&
+                    play.status().find("SDK runtime does not match") != std::string::npos,
+                "An incompatible runtime was accepted for SDK Editor Play: " + play.status());
+        play.start(argv[1], original, {}, true);
+        wait([&] { return !play.active() || play.ready(); });
+        require(play.ready() && play.paused(), "SDK Editor Play failed: " + play.status());
+        const auto session = play.session();
+        play.step();
+        wait([&] { return play.timing().value("tick", 0) == 1; });
+        require(play.log().find("SDK fixed tick") != std::string::npos,
+                "Project SDK system did not execute through Editor Play");
+        require(authored.snapshot() == original, "SDK Play modified authoring");
+        try {
+            play.reload("unused");
+            throw std::logic_error("Rich SDK in-place reload was accepted");
+        } catch (const std::runtime_error&) {
+        }
+        play.stop();
+        install(argv[3]);
+        play.start(argv[1], original, {}, true);
+        wait([&] { return !play.active(); });
+        require(!play.can_recover(), "Rejected SDK offered partial recovery");
+        install(argv[2]);
+        play.start(argv[1], original, {}, true);
+        wait([&] { return !play.active() || play.ready(); });
+        require(play.ready() && play.session() != session && play.timing().at("tick") == 0,
+                "SDK restart did not create a fresh paused world");
+        play.stop();
+        install(argv[4]);
+        play.start(argv[1], original, {}, true);
+        wait([&] { return !play.active() || play.ready(); });
+        require(play.ready(), "Crash fixture did not reach Play");
+        play.step();
+        wait([&] { return !play.active(); });
+        require(!play.can_recover() && authored.snapshot() == original,
+                "SDK crash offered incomplete custom-state recovery or changed authoring");
+        std::cout << "SDK Editor Play: registration, fixed Step, restart, rejection and crash "
+                     "isolation passed\n";
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        result = 1;
+    }
+    std::filesystem::remove_all(root);
+    return result;
+}

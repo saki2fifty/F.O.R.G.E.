@@ -193,6 +193,11 @@ int main(int argc, char** argv) {
                         runtime->physics()->configure(physics_config);
                         clock = forge::RuntimeClock(next_config);
                         initialized = true;
+                        response["runtime_contract"] = {
+                            {"profile", FORGE_NATIVE_SDK_PROFILE},
+                            {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
+                            {"source_commit", forge::source_commit},
+                            {"sdk_project", sdk_profile}};
                     } else if (!initialized || request.value("session", "") != session)
                         throw std::runtime_error("Stale or missing runtime session");
                     last_id = id; // Consume valid-session attempts, including rejected controls.

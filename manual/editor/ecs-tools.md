@@ -35,3 +35,5 @@ In **REST / Explorer**, choose a **Port** and **Start REST**. The endpoint binds
 **Open Flecs Explorer** launches the official browser client configured for that endpoint. Browser local-network policy may require permission or a locally hosted client. The connection permits inspection only: Explorer scene edits, script execution and command capture are blocked. Use FORGE commands to change authored data.
 
 The listener is a development tool; it is not a networked gameplay service or an alternative project writer.
+
+The hosted Explorer is optional and unpinned: its compatibility can change independently of FORGE. If it cannot connect or displays unsupported data, use this window's **Statistics**, **Query**, **Metrics**, **Entity / JSON** and **Alerts** tabs. Those use the Flecs revision compiled into FORGE and do not depend on the hosted website.

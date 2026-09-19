@@ -108,3 +108,22 @@ Only Unity, Unreal and Godot inform game-editor conventions in this pass. FORGE 
 - [Unity positioning tools](https://docs.unity.com/en-us/engine/6000.7/manual/working-with-scenes/scenes-manage-gameobjects/positioning-game-objects): transform modes have toolbar and keyboard access. FORGE preserves its own R/S bindings.
 
 Implementation APIs are checked against the exact pinned upstream sources listed in [Editor UI](editor-ui.md); reference-editor conventions do not authorize dependency or authority changes.
+
+
+## Supporting workspace and small windows
+
+Content/Problems/Console/Gameplay Code share supporting dock space. A personal
+fold state temporarily hides those panels while retaining their visibility choices
+and docking geometry. Window menu, Ctrl+Space and permanent status affordance restore
+access. Revealing an asset unfolds Content. Fresh/reset workspaces below480 logical
+pixels of available height fold support by default. Do not continually override a
+user's explicit layout choice during resize. A useful full editor layout targets at
+least1280×720 logical pixels; smaller views remain reachable through folding, hiding
+side panels and scrolling, but are stress layouts rather than a parity claim.
+
+Future workspace maximize must preserve/restore docking and active document ownership.
+Implement it with the first graph/timeline consumer, not as a second document manager.
+Property search, multi-selection and Inspector locking require shared selection/schema
+and transaction policies before enabling them; do not implement separate ad-hoc variants
+per subsystem. Every permanent row must justify its space. Prefer on-demand tools and
+central documents over a permanent panel for each library.

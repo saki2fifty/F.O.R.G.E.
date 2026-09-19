@@ -72,3 +72,9 @@ During explicit gameplay input capture, Esc releases controls, F6 pauses/resumes
 Ctrl+S saves the active Scene, Prefab source or Project Settings task. Ctrl+Shift+S is **Save scene As...** and is unavailable for an independent draft task. Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z operate on scene history; they are disabled while a prefab/settings draft owns the task.
 
 In Hierarchy, **F2** focuses Name in Inspector. **Ctrl+D** duplicates the selected subtree; **Delete** deletes the Hierarchy selection. The context menu and Entity menu use the same scene actions. Ctrl+Shift+P searches the shared action list, including Save and runtime controls.
+
+## Bottom workspace
+
+**Ctrl+Space** folds or expands Content, Problems, Console and Gameplay Code. It is
+inactive while typing or capturing Game input. The status-bar Workspace button
+and Window menu provide the same operation.

@@ -1,6 +1,6 @@
 # Native gameplay
 
-The Gameplay Code panel creates and compiles a small C++ gameplay module for the current project. The supplied sample moves entities along X. This is a constrained gameplay interface; general component/system registration is not available yet.
+The Gameplay Code panel creates and compiles a small C++ gameplay module for the current project. The supplied sample moves entities along X. This default workflow uses the constrained ABI1 interface. Projects that need direct Flecs component/system registration use the separate exact SDK workflow below.
 
 ## Prepare Windows tools
 
@@ -26,10 +26,30 @@ The current interface supports stateless movement callbacks over host-owned tran
 
 Rebuild after reopening the editor to select a validated module; previous artifacts remain cached. Wait for compilation to finish before switching scenes or projects. See [Play mode](play-mode.md).
 
-## Experimental engine SDK
+## Exact SDK projects
 
-Your existing **Create source** and **Build & Reload** workflow is unchanged. It uses the limited gameplay API described above.
+An exact SDK project declares native modules in `forge.project.json`. Those modules
+can register Flecs components and systems in the separate runtime process. They
+never load into the editor. This remains an experimental, exact-version C++ SDK;
+it is not the stable ABI1 movement interface described above.
 
-An internal engine SDK now has a separate build profile for testing direct ECS registration. It is not a new editor command or a stable public plugin SDK. Its registering code requires a fresh runtime process when changed; it does not use the ordinary gameplay reload workflow. No additional test or C++ edit is needed for normal editor use.
+1. Obtain the Native SDK built from the same FORGE source as your editor.
+2. Open **Gameplay Code**. Set **Native SDK folder** to the installation containing `bin` and `sdk`. This is a personal machine setting, not shared project data. Leave it blank when `NativeSdk` is installed beside the editor executable.
+3. Build your project modules using that installation's CMake SDK package and supported compiler/configuration. Declare the module IDs, exact fingerprint, dependencies and project-relative library files in the project manifest.
+4. Press **Play**. FORGE checks the runtime profile/source and the runtime validates module compatibility. The normal **Pause**, **Step**, **Stop**, input capture, Game view and runtime diagnostics then work through the isolated runtime.
+5. To change rich SDK registrations, **Stop**, compile a replacement in your external developer terminal, then **Play** again. Preserve the previous good library if compilation fails. This starts from authored scene state.
 
-If a project explicitly declares an experimental SDK module, editor Play reports that the separate SDK runtime is required. It does not silently skip the declared module. Ordinary ABI1 projects are unaffected.
+The ABI1 **Create source**, **Build & Reload** and **Build on save** controls do not
+operate on an exact SDK project's code. They are replaced by its SDK setup and
+restart instructions. In-place rich SDK reload is unavailable. After a rich SDK
+runtime crash, restart with Play; FORGE does not offer a partial checkpoint as if
+it could restore arbitrary custom C++ state.
+
+Custom runtime components are not automatically Inspector-editable or persisted.
+Reflected C++ registration alone does not create a supported authored component.
+The bounded custom authoring contract is architecture work; existing built-in
+components keep their normal Inspector and prefab behavior.
+
+For manifest fields, ownership and the installed sample, see the SDK installation's
+`sdk/docs/extension-guide.md`. Compiler output stays in your build terminal; runtime
+module messages appear in FORGE's diagnostics.

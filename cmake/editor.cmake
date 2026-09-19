@@ -1,7 +1,4 @@
-FetchContent_Declare(sdl GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG fa2c02bb6e21974a89ea9824bc53c9932abe5f9c) # release-3.4.16
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(sdl)
+include(cmake/sdl.cmake)
 FetchContent_Declare(imgui_source GIT_REPOSITORY https://github.com/ocornut/imgui.git GIT_TAG b48d1afbe8ee8b238e2961dc363a949dd7304e23) # v1.92.9b-docking
 FetchContent_MakeAvailable(imgui_source)
 add_library(imgui STATIC ${imgui_source_SOURCE_DIR}/imgui.cpp ${imgui_source_SOURCE_DIR}/imgui_draw.cpp ${imgui_source_SOURCE_DIR}/imgui_tables.cpp ${imgui_source_SOURCE_DIR}/imgui_widgets.cpp ${imgui_source_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp ${imgui_source_SOURCE_DIR}/backends/imgui_impl_win32.cpp)

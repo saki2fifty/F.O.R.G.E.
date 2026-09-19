@@ -149,3 +149,56 @@
 - The existing Build and test dispatch exposes this through `audit_source`, so
   branch-only workflows remain callable without changing the default branch.
   Audit selection skips the normal core/format/package jobs.
+
+### Architecture freeze work in progress
+
+- Fresh Build 62 editor captures and chrome measurements now have a focused,
+  source-pinned CI audit path; this path produces no numbered release.
+- Correcting Editor Play for exact SDK projects: separate SDK runtime selection,
+  shared-profile/source handshake, restart from authored state, and explicit refusal
+  of incomplete arbitrary-C++ checkpoint recovery. ABI1 reload remains separate.
+- Adding bottom workspace folding with persistent access and a compact-layout default.
+- Added a permanent pinned Flecs issue registry, including source-confirmed loss of
+  explicit zero-offset intent in member-entity registration and its safe admission
+  constraint. No vendor patch or dependency upgrade.
+- Validation and final delivery for this large package remain in progress. These
+  entries do not claim the architecture freeze or new Windows build is complete.
+
+### Architecture contracts and source audit
+
+- Added16permanent architecture decision records and explicit Phase7 entry,
+  asset/import/cache/resource, rendering, custom-component, persistence/scripting,
+  runtime/threading/build/project contracts. These define future authorized work;
+  they do not implement Phase7, Apply, nested prefab assets or a visual exporter.
+- Independently re-audited exact Flecs4.1.6 source before reconciling the prior
+  capability matrix. Added permanent development upgrade watchlist and issue
+  registry. Corrected template declaration inheritance as unavailable in this pin;
+  ordinary entity IsA within templates remains available. Debug exclusive-access
+  checks are distinguished from Release. No dependency changed.
+- Built-in explicit Meta members register in physical offset order and verify
+  native reflected offsets/extents, avoiding the pinned use_offset propagation defect.
+- Clarified hosted Explorer as optional best-effort tooling, with supported native
+  inspection and existing read-only authoring REST admission.
+
+### Editor Play and workspace
+
+- SDK projects can use the matching shared runtime through Editor Play while all
+  gameplay DLLs remain in the runtime process. Added runtime source/profile handshake,
+  personal SDK location, Stop/external-build/Play guidance and incompatible-host/module
+  rejection tests. Rich C++ registration remains restart-bound; incomplete arbitrary
+  C++ checkpoint recovery is not offered. Existing ABI1 Build & Reload is retained.
+- Added bottom workspace folding through Window, Ctrl+Space and permanent status
+  access, preserving panel choices/dock geometry. Asset reveal and showing a folded
+  panel restore access. Small fresh/reset workspaces fold supporting panels by default.
+- Updated native-gameplay, panels, shortcuts and ECS-tool manual pages; added folded,
+  expanded and restored Windows fixture captures for final validation.
+
+### Delivery integrity
+
+- Final Windows ZIP now combines the editor and matching exact SDK under NativeSdk
+  after all required CI jobs succeed. Assembly checks source/build identity, archive
+  paths and all input hashes, then hashes the complete output. Regression verifies
+  failed assembly leaves the previous usable ZIP unchanged.
+- Added final shared-runtime/package relocation validation. One final numbered
+  delivery remains pending this work package's complete clean validation; no new
+  build or architecture-freeze completion is claimed by these change descriptions.

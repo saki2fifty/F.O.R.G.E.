@@ -83,7 +83,10 @@ struct EditorFixture {
                                "ecs-statistics",
                                "ecs-metrics",
                                "flecs-script",
-                               "flecs-script-200"};
+                               "flecs-script-200",
+                               "workspace-folded-200",
+                               "workspace-expanded-200",
+                               "workspace-restored-100"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -3,6 +3,7 @@
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
 #include "status_bar.hpp"
+#include "workspace.hpp"
 void require(bool, const char*);
 inline void test_document_workspace() {
     using namespace forge::ui;
@@ -100,6 +101,51 @@ inline void test_refinement_chrome() {
             ImGui::Render();
         }
     style(1);
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.DisplaySize = {1440, 900};
+    Workspace workspace;
+    workspace.console = false;
+    bool initialize = true;
+    auto frame = [&] {
+        ImGui::NewFrame();
+        status_bar(
+            stats, false, 1, "EDIT", 0, true, false, [&] { workspace.toggle_bottom(); },
+            workspace.bottom_folded);
+        const auto dock = ImGui::DockSpaceOverViewport();
+        if (initialize) {
+            initialize_workspace(dock);
+            initialize = false;
+        }
+        ImGui::Begin("Scene###Scene");
+        ImGui::TextUnformatted("Primary document");
+        ImGui::End();
+        if (!workspace.bottom_folded) {
+            ImGui::Begin("Content");
+            ImGui::TextUnformatted("Assets");
+            ImGui::End();
+        }
+        ImGui::Render();
+    };
+    for (int i = 0; i < 4; ++i)
+        frame();
+    const auto scene_height = ImGui::FindWindowByName("Scene###Scene")->Size.y;
+    const auto content_height = ImGui::FindWindowByName("Content")->Size.y;
+    const auto content_dock = ImGui::FindWindowByName("Content")->DockId;
+    workspace.toggle_bottom();
+    for (int i = 0; i < 4; ++i)
+        frame();
+    require(ImGui::FindWindowByName("Scene###Scene")->Size.y > scene_height + 100,
+            "Folded bottom workspace did not return space to document");
+    Workspace restored;
+    restored.load({{"panels", workspace.settings()}});
+    require(restored.bottom_folded && restored.content && !restored.console,
+            "Folding lost personal panel visibility/persistence");
+    workspace.toggle_bottom();
+    for (int i = 0; i < 4; ++i)
+        frame();
+    require(ImGui::FindWindowByName("Content")->DockId == content_dock &&
+                std::abs(ImGui::FindWindowByName("Content")->Size.y - content_height) < 2,
+            "Restoring bottom workspace lost remembered dock/height");
     ImGui::DestroyContext();
 }
 

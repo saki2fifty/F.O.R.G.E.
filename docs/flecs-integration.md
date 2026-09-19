@@ -72,6 +72,7 @@ Pinned evidence: [struct registration](https://github.com/SanderMertens/flecs/bl
 | --- | --- | --- |
 | `ecs_type_hooks_t::on_validate` | **UNAVAILABLE IN PINNED STABLE VERSION** | [9617b0d1744da1ee117176457f051dbdda78855e](https://github.com/SanderMertens/flecs/commit/9617b0d1744da1ee117176457f051dbdda78855e) |
 | Native Meta map reflection / `EcsMapType` | **UNAVAILABLE IN PINNED STABLE VERSION** | [6791075](https://github.com/SanderMertens/flecs/commit/679107572bc46a3ccadee99265f9422797583562) |
+| Script template/struct declaration inheritance | **UNAVAILABLE IN PINNED STABLE VERSION** | [dcccf90](https://github.com/SanderMertens/flecs/commit/dcccf90f2e26065bdb02d93a57dfa64b7dc8d869) |
 
 No upgrade, backport, source patch or substitute API is included. Re-evaluate
 when an official stable release includes them. The development validation hook
@@ -342,3 +343,24 @@ dependency licenses, relocated runtime UI/navigation/converter startup and both
 SDK manifests (**237 Linux / 246 Windows files**) were verified. Physical Windows
 GPU/DPI/input and hosted Explorer/browser acceptance remain separate. Existing
 960×640/200% layout clipping is still a documented stress limitation.
+
+## Explorer compatibility contract
+
+Decision D, verified2026-09-19: the hosted official Explorer is **best-effort external
+tooling**, not a pinned shipped dependency or guaranteed4.1.6 client. Its source and
+REST expectations can drift. FORGE does not falsely version-check a mutable URL.
+The native ECS World Inspection tabs and bounded CLI inspection route use the exact
+compiled pin and remain the supported inspection path. They do not depend on browser
+network policy or the website. Local authoring REST remains opt-in, loopback-only and
+read-only; native upstream edit endpoints are not exposed as authoring transactions.
+
+## Explicit member metadata policy
+
+Keep explicit member entities for FORGE's reflected authored types. Fresh measurements
+showed lower entity/table/memory overhead than global FLECS_CREATE_MEMBER_ENTITIES,
+while native Doc/Units/MemberRanges/Metrics/Alerts behavior passed. This is selective
+adoption, not disabling those native capabilities. Member registration preserves
+physical layout and verifies offsets/extents before codecs use them; see
+[FLECS-003](flecs-known-issues.md#flecs-003--member-entities-drop-explicit-zero-offset-intent).
+Debug builds enable native FLECS_EXCLUSIVE_ACCESS automatically through FLECS_DEBUG;
+Release does not. Journal and PerfTrace remain disabled unless deliberately configured.
