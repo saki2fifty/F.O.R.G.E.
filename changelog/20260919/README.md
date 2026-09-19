@@ -146,3 +146,6 @@
 - Audit binaries use `unassigned` and are never packaged or promoted as a release.
   Existing Build260919-000062 remains unchanged. Cached iteration is permitted;
   final architecture validation and any changed-product delivery remain pending.
+- The existing Build and test dispatch exposes this through `audit_source`, so
+  branch-only workflows remain callable without changing the default branch.
+  Audit selection skips the normal core/format/package jobs.

@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      audit_source:
+        description: Optional immutable source SHA for editor-only audit (no package)
+        type: string
+        default: ""
       windows_package:
         description: Build and upload the Windows editor ZIP
         type: boolean
@@ -22,7 +26,14 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  source-audit:
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != ''
+    uses: ./.github/workflows/editor-audit.yml
+    with:
+      source_commit: ${{ inputs.audit_source }}
+      clean_build: ${{ inputs.clean_build }}
   core:
+    if: inputs.audit_source == ''
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +111,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   editor:
-    if: github.event_name == 'workflow_dispatch' && inputs.windows_package
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == ''
     runs-on: windows-2022
     timeout-minutes: 60
     env:
@@ -257,6 +268,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   format:
+    if: inputs.audit_source == ''
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

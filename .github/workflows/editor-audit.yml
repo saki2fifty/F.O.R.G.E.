@@ -1,5 +1,13 @@
 name: Editor source audit
 on:
+  workflow_call:
+    inputs:
+      source_commit:
+        required: true
+        type: string
+      clean_build:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       source_commit:
