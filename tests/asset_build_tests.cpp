@@ -302,6 +302,12 @@ int main(int argc, char** argv) {
         require(!cache.find(build, admission), "Missing cache reported hit");
         auto artifact = cache.publish(build, {{"data.bin", bytes("validated")}}, admission);
         require(cache.find(build, admission)->manifest == artifact.manifest, "Cache hit differs");
+        const auto selected_artifact = cache.load_selected(build.key(), admission);
+        require(selected_artifact.manifest == artifact.manifest,
+                "Selected cache revision differs from build-input lookup");
+        rejects([&] { cache.load_selected("../outside", admission); });
+        rejects([&] { cache.load_selected(build.key(), {}); });
+        rejects([&] { cache.load_selected(std::string(64, '0'), admission); });
         const auto cache_root = root / ".forge/cache/derived";
         rejects([&] { cache.publish(build, {{"../outside", bytes("bad")}}, admission); });
         rejects([&] { cache.publish(build, {{"data.bin", bytes("invalid")}}, admission); });
@@ -312,6 +318,9 @@ int main(int argc, char** argv) {
                 "Nondeterministic candidate replaced good output");
         rejects([&] { (void)cache.find(build, {}); });
         atomic_write(cache_root / build.key() / "data.bin", "corrupt");
+        rejects([&] { cache.load_selected(build.key(), admission); });
+        require(std::filesystem::exists(cache_root / build.key()),
+                "Read-only selected revision loader moved cache content");
         require(!cache.find(build, admission), "Corrupt bytes reached decoder");
         require(cache.statistics().quarantined == 1, "Corrupt output not quarantined");
         cache.publish(build, {{"data.bin", bytes("validated")}}, admission);

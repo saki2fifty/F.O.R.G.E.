@@ -68,3 +68,10 @@ IK, retargeting, root-motion application and skinned mesh rendering are future w
 
 See [Play mode](play-mode.md), [Prefabs](prefabs.md), and
 [Saving and recovery](saving-recovery.md).
+
+### Imported parent transforms
+
+Animation-only imports preserve a parent's matrix-authored rest transform when
+only its child has animation keys. FORGE leaves the original file unchanged.
+A malformed or unsupported matrix produces a conversion error and keeps the
+previous successful import selected.

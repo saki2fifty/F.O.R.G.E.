@@ -151,3 +151,11 @@ inputs retain their exact version1 shape. Sidecars preserve the complete build i
 and old artifacts remain immutable; changing a tool produces a new disposable key.
 Names are bounded portable identifiers and revisions must be valid content digests.
 The importer owns tool availability and before/after execution checks.
+
+Selected cooked revisions can be loaded by key through the same bounded cache
+reader and mandatory format validation used for import hits. This read path does
+not require source/import settings discovery, run converters or change catalog
+selection. Missing/corrupt selected data throws a diagnostic without moving the
+entry; the authoring import path retains its separate quarantine-and-rebuild policy.
+Returned owned bytes survive disk eviction. Runtime callers must also verify the
+selected catalog binding and own adoption through their resource lifecycle.

@@ -1,6 +1,7 @@
 #include "animation_asset.hpp"
 #include "animation_worker.hpp"
 #include "asset_bytes.hpp"
+#include "gltf_transform.hpp"
 #include <forge/animation_conversion.hpp>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
@@ -137,6 +138,13 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
              {"additive", false},
              {"optimize", true},
              {"sampling_rate", 30}});
+    }
+    // Exact Ozz0.17 fallback channels read TRS even when the skeleton reads matrix.
+    // Convert only the private input; original source/provenance remains unchanged.
+    for (auto& node : doc["nodes"]) {
+        const auto rest = canonical_ozz_rest(node);
+        node.erase("matrix");
+        node.update(rest);
     }
     write(candidate->staging / "source.gltf", bytes(doc.dump()));
     write(candidate->staging / "config.json", bytes(settings.dump()));

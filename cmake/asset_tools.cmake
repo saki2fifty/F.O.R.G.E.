@@ -39,8 +39,6 @@ target_link_libraries(forge_texture_import PUBLIC forge_texture PRIVATE PNG::PNG
 if(WIN32)
  target_compile_definitions(forge_texture_import PRIVATE NOMINMAX)
 endif()
-add_library(forge_model_pipeline STATIC src/gltf_snapshot.cpp src/model_bundle.cpp src/model_scene_values.cpp)
-target_link_libraries(forge_model_pipeline PUBLIC forge_assets forge_mesh forge_material PRIVATE forge_asset_bytes)
 add_library(forge_gltf_native STATIC src/gltf_native.cpp src/gltf_meshopt.cpp src/gltf_draco.cpp src/gltf_surfaces.cpp src/gltf_scene.cpp src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp src/mesh_processing.cpp)
 target_include_directories(forge_gltf_native PRIVATE
  "${diligent_SOURCE_DIR}/DiligentTools/ThirdParty/tinygltf" "${draco_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}")
@@ -50,9 +48,6 @@ if(WIN32)
 endif()
 add_library(forge_model_cook STATIC src/gltf_model_cook.cpp src/gltf_ozz_transport.cpp)
 target_link_libraries(forge_model_cook PUBLIC forge_model_pipeline PRIVATE forge_gltf_native forge_texture_import forge_texture_ktx forge_core)
-add_library(forge_model_animation STATIC src/model_animation.cpp src/morph_animation.cpp)
-target_link_libraries(forge_model_animation PUBLIC forge_assets PRIVATE forge_animation_admission)
-target_link_libraries(forge_model_pipeline PRIVATE forge_model_animation)
 if(BUILD_TESTING)
  set(FORGE_TEST_ANIMATION_CONVERTER "$<TARGET_FILE:gltf2ozz>" CACHE STRING "Official converter used for animation tests; unsanitized worker for bounded-process sanitizer tests")
  add_executable(forge_morph_animation_tests tests/morph_animation_tests.cpp)
@@ -170,9 +165,9 @@ target_link_libraries(forge_model_importer PUBLIC forge_model_pipeline PRIVATE f
 set(_forge_model_recipe_inputs "${_forge_texture_recipe_fingerprint}")
 foreach(source
  include/forge/gltf_source.hpp include/forge/gltf_accessors.hpp include/forge/material_asset.hpp include/forge/mesh_asset.hpp
- src/gltf_source.cpp src/gltf_accessors.cpp src/gltf_validation.hpp src/gltf_snapshot.hpp src/gltf_snapshot.cpp
+ src/gltf_source.cpp src/gltf_accessors.cpp src/gltf_transform.hpp src/gltf_transform.cpp src/ozz_rest.cpp src/gltf_validation.hpp src/gltf_snapshot.hpp src/gltf_snapshot.cpp
  src/model_scene_values.hpp src/model_scene_values.cpp src/gltf_scene.hpp src/gltf_scene.cpp
- src/model_bundle.hpp src/model_bundle.cpp src/model_importer.hpp src/model_importer.cpp src/model_worker.cpp
+ src/model_bundle.hpp src/model_bundle.cpp src/model_selection.hpp src/model_selection.cpp src/model_importer.hpp src/model_importer.cpp src/model_worker.cpp
  src/model_animation.hpp src/model_animation.cpp src/morph_animation.hpp src/morph_animation.cpp
  src/gltf_model_cook.hpp src/gltf_model_cook.cpp src/gltf_ozz_transport.hpp src/gltf_ozz_transport.cpp src/gltf_native.hpp src/gltf_native.cpp
  src/gltf_meshopt.hpp src/gltf_meshopt.cpp src/gltf_draco.hpp src/gltf_draco.cpp

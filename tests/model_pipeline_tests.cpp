@@ -2,6 +2,7 @@
 #include "asset_import_service.hpp"
 #include "model_authoring.hpp"
 #include "model_importer.hpp"
+#include "model_selection.hpp"
 #include <forge/model_asset.hpp>
 #include <fstream>
 #include <iostream>
@@ -129,6 +130,25 @@ int main(int argc, char** argv) {
                                 edge.expected_type,
                         "Model member binding type/revision mismatch");
         }
+        auto loaded_model = load_model_selection(root, first.publication->catalog, owner);
+        require(loaded_model.bindings == before &&
+                    loaded_model.revision == first.publication->artifact.key,
+                "Selected immutable model binding mismatch");
+        for (const auto& [address, id] : before) {
+            const auto& member = loaded_model.member(id);
+            require(member.identity.address == address && !loaded_model.bytes(member).empty(),
+                    "Selected model member bytes unavailable");
+        }
+        auto wrong_catalog = first.publication->catalog;
+        auto wrong_record = wrong_catalog.records().at(before.begin()->second);
+        wrong_record.metadata["forge.import"]["generation"] = 999u;
+        wrong_catalog.replace(wrong_record);
+        rejects([&] { load_model_selection(root, wrong_catalog, owner); });
+        std::stop_source load_cancel;
+        load_cancel.request_stop();
+        rejects([&] {
+            load_model_selection(root, first.publication->catalog, owner, load_cancel.get_token());
+        });
         auto repeated = run(source);
         require(repeated.published && repeated.cache_hit &&
                     bindings(repeated.publication->catalog, owner) == before,
@@ -334,6 +354,12 @@ int main(int argc, char** argv) {
                         record.dependency_edges[0].expected_type == "skeleton",
                     "Clip did not receive typed skeleton dependency");
         }
+        const auto loaded_animation =
+            load_model_selection(root, animated.publication->catalog, animated_owner);
+        require(loaded_animation.member(members.at("/rig/skeleton")).identity.type == "skeleton" &&
+                    loaded_animation.member(members.at("/animations/0")).identity.type ==
+                        "animation_clip",
+                "Selected animated family typed members missing");
         const auto cached_animation = run(animated_source);
         require(cached_animation.published && cached_animation.cache_hit &&
                     bindings(cached_animation.publication->catalog, animated_owner) == members,

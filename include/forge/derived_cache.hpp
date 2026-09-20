@@ -29,6 +29,9 @@ class DerivedDataCache {
     using Validator = std::function<void(const CachedArtifact&)>;
     explicit DerivedDataCache(std::filesystem::path project, CacheLimits limits = {});
     std::optional<CachedArtifact> find(const AssetBuildInput& input, const Validator& validate);
+    // Runtime/tool readers can load an already selected immutable revision without
+    // the importer or original source. Missing/corrupt data throws; no publication.
+    CachedArtifact load_selected(std::string_view key, const Validator& validate);
     CachedArtifact publish(const AssetBuildInput& input, std::vector<ArtifactFile> files,
                            const Validator& validate);
     CacheStatistics statistics() const;

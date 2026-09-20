@@ -617,3 +617,25 @@
   supervised-converter source audit (8cf4f51) passed 32/32 in 17.73 seconds.
 - Runtime model resource adoption, scene instantiation, skin rendering and editor
   model controls remain required Phase 7 work. No intermediate numbered ZIP issued.
+
+### Shared animation rest transforms and selected model reads
+
+- Extracted shared CPU glTF transform admission and Ozz rest-input conversion.
+  The animation-only importer now uses the same correction as model conversion:
+  a matrix-authored parent retains its transform while a child animates. Original
+  source bytes are unchanged; unsupported matrices reject before conversion.
+- Added actual legacy-runtime matrix-parent sampling and malformed-matrix retention
+  regressions. Normal animation/model checks passed 5/5 in 41.46 seconds; strict
+  ASan/UBSan/LSan converter, hierarchy and animation checks passed 3/3 in 11.36 seconds.
+- Added selected-revision loading to the common derived-cache reader. Runtime/tool
+  callers can validate cooked bytes without source discovery or conversion. A failed
+  read reports the problem without moving cache entries or changing catalog selection.
+- Added a CPU model-family reader that validates root/member ownership, exact
+  publication generation, recipe and converter provenance, hashes and typed bindings.
+  Mixed catalog revisions and cancelled loads reject. Model/animation admission now
+  builds independently of source codecs and the editor.
+- Normal selected-model and cache regressions passed 3/3 in 37.33 seconds. Strict
+  ASan/UBSan/LSan selected-reader checks passed 2/2 in 34.34 seconds. Core-only
+  animation and target-boundary checks passed 2/2 in 30.76 seconds with the
+  source codec tools disabled. These readers do not yet claim live resource
+  adoption or rendered model support.

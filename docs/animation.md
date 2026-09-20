@@ -146,3 +146,17 @@ sanitizer, conversion and numeric sampling tests before the new pin is adopted.
 
 Deferred: root motion application, blending graphs, state machines, IK, retargeting,
 skinned mesh/material rendering, full importer/cooker and Phase6E navigation.
+
+### Matrix rest transforms in the legacy bridge
+
+Both animation-only conversion and full model conversion now share the same CPU
+glTF transform admission and Ozz rest-input adapter. Matrix-authored rest transforms
+are converted to explicit TRS only in private converter input. This preserves the
+rest pose of an unanimated parent while its child animates: the pinned converter's
+fallback channels read TRS even though its skeleton loader reads matrices.
+
+Original source bytes remain unchanged. Non-affine matrices, non-TRS shear, singular
+matrix columns, and simultaneous matrix plus TRS reject before launching the
+converter. Explicit TRS still permits signed and zero scale within the animation
+archive profile. No renderer, image codec or native model-loader dependency is
+introduced into the animation-only bridge.

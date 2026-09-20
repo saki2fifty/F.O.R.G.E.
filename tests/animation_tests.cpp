@@ -80,6 +80,69 @@ int main(int argc, char** argv) {
         }
         signed_scale_animation(root / "signed", std::filesystem::absolute(argv[2]),
                                Json::parse(read(root / "Assets/source.gltf")));
+        // Pinned converter fallback channels must retain matrix-authored parent rest.
+        const auto matrix_root = root / "matrix-rest";
+        std::filesystem::create_directories(matrix_root / "Assets");
+        auto matrix_source = Json::parse(read(root / "Assets/source.gltf"));
+        matrix_source["nodes"][0]["matrix"] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 0, 0, 1};
+        const auto original_matrix_text = matrix_source.dump();
+        {
+            std::ofstream out(matrix_root / "Assets/source.gltf");
+            out << original_matrix_text;
+        }
+        const auto matrix_records = prepare_animation_conversion(matrix_root, "Assets/source.gltf",
+                                                                 std::filesystem::absolute(argv[2]))
+                                        .publish();
+        AssetId matrix_skeleton, matrix_clip;
+        for (const auto& record : matrix_records) {
+            if (record.type == SkeletonAsset::type)
+                matrix_skeleton = record.id;
+            if (record.type == AnimationClipAsset::type)
+                matrix_clip = record.id;
+        }
+        Json matrix_config = {
+            {"skeleton", matrix_skeleton}, {"clip", matrix_clip}, {"enabled", true},
+            {"play_on_start", true},       {"loop", false},       {"playback_speed", 1}};
+        Json matrix_scene = {
+            {"version", 1},
+            {"entities", Json::array({{{"id", "actor"},
+                                       {"name", "Actor"},
+                                       {"components",
+                                        {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                                         {"forge.animator", matrix_config}}}}})}};
+        Fixture matrix_runtime(matrix_root);
+        matrix_runtime.load(matrix_scene);
+        matrix_runtime.simulation.tick(.5f);
+        const auto matrix_pose = matrix_runtime.pose();
+        check(!matrix_pose.is_null() &&
+                  std::abs(matrix_pose["model"][0][12].get<double>() - 5) < .002 &&
+                  std::abs(matrix_pose["model"][1][12].get<double>() - 5) < .002 &&
+                  std::abs(matrix_pose["model"][1][13].get<double>() - 1.5) < .002,
+              "Matrix parent rest lost in legacy animation fallback");
+        check(read(matrix_root / "Assets/source.gltf") == original_matrix_text,
+              "Animation conversion rewrote matrix source");
+        const auto matrix_catalog = read(AssetCatalog::project_index(matrix_root));
+        for (int bad_case = 0; bad_case < 4; ++bad_case) {
+            auto bad = matrix_source;
+            if (bad_case == 0)
+                bad["nodes"][0]["matrix"][3] = 1;
+            if (bad_case == 1)
+                bad["nodes"][0]["matrix"][4] = .5;
+            if (bad_case == 2)
+                bad["nodes"][0]["matrix"][0] = 0;
+            if (bad_case == 3)
+                bad["nodes"][0]["translation"] = {1, 2, 3};
+            {
+                std::ofstream out(matrix_root / "Assets/source.gltf");
+                out << bad.dump();
+            }
+            reject([&] {
+                prepare_animation_conversion(matrix_root, "Assets/source.gltf",
+                                             std::filesystem::absolute(argv[2]));
+            });
+            check(read(AssetCatalog::project_index(matrix_root)) == matrix_catalog,
+                  "Invalid matrix rest changed selected animation");
+        }
         auto again = convert().publish();
         for (const auto& record : again)
             check(record.id == skeleton.id || record.id == clip.id || record.id == source.id,

@@ -231,6 +231,15 @@ void DerivedDataCache::quarantine(const std::string& key, std::string_view reaso
     diagnostic += ".txt";
     durable_file(diagnostic, std::as_bytes(std::span(message)));
 }
+CachedArtifact DerivedDataCache::load_selected(std::string_view key, const Validator& validate) {
+    validator_required(validate);
+    if (!valid_content_digest(key))
+        throw std::runtime_error("Invalid selected artifact revision");
+    CacheLock lock(root_);
+    auto artifact = read(std::string(key));
+    validate(artifact);
+    return artifact;
+}
 std::optional<CachedArtifact> DerivedDataCache::find(const AssetBuildInput& input,
                                                      const Validator& validate) {
     validator_required(validate);

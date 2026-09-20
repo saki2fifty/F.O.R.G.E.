@@ -287,3 +287,19 @@ sampling rate1–240(default30), and optimization(defaulttrue). The four-influen
 silently clamp unsupported content. Scene instantiation, resource adoption, playback
 binding, GPU skinning and editor model controls are separately tracked integration
 requirements and are not proved merely by successful family publication.
+
+## Selected cooked-family loading
+
+The CPU model-selection reader resolves the Model root and its active members from
+one copied catalog revision, then opens the selected immutable cache artifact by
+key. It reuses the common cache reader and complete model admission. It verifies
+the catalog's artifact digest, source/recipe provenance, member ownership, exact
+publication generation, file hashes and typed bindings against the cooked index.
+Mixed generations, stale bindings and missing/corrupt files reject the load.
+
+This reader needs neither the importer nor the source files or converter executable.
+It can read a previous selected revision after the source changes or disappears;
+source discovery still reports that separate condition. It does not publish,
+convert, mutate a world, or replace a live resource. Cache bytes are owned after the
+read, so eviction cannot invalidate them. Runtime resource adoption and the rendered
+model remain separate integration requirements.
