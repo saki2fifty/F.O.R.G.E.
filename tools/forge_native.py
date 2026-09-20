@@ -142,6 +142,8 @@ class Session:
         try:
             boundary = self.poll()
             representative = boundary['scene']
+            if boundary['recovery'] is None:
+                return False, 'Play needs a complete recovery snapshot. Wait for loading or resolve asset diagnostics, then retry; previous module retained.'
         except RuntimeError as error:
             return False, str(error)
         probe = Runtime(self.runtime_path)
@@ -158,13 +160,20 @@ class Session:
     def activate(self, target: Path, output=''):
         """Install an already probed artifact; first LIVE tick commits it."""
         try:
-            self.poll()
+            observed = self.poll()
+            if observed['recovery'] is None:
+                return False, 'Reload needs a complete checkpoint. Wait for loading or resolve asset diagnostics.'
             if self.pending:
                 self._rollback(resume=False)  # Supersede, never stack transactions.
             else:
                 self.prior_paused = self.paused
             boundary = self.runtime.request('pause')
             self.paused = True
+            if boundary['recovery'] is None:
+                if not self.prior_paused:
+                    self.runtime.request('resume')
+                    self.paused = False
+                return False, 'Play has no complete checkpoint at the reload boundary; previous module retained.'
             self.checkpoint = boundary['scene']
             self.recovery = boundary['recovery']
             self.pending = target
@@ -204,6 +213,8 @@ class Session:
         self.runtime.close()
         self.runtime = Runtime(self.runtime_path)
         try:
+            if self.recovery is None:
+                raise RuntimeError('No complete recovery checkpoint is available; start a fresh Play session')
             self.runtime.request('replace', scene=self.checkpoint, recovery=self.recovery, recovery_session=self.recovery['session'], recovery_tick=self.recovery['tick'])
         except RuntimeError as error:
             self.runtime.close()

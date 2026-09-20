@@ -94,8 +94,9 @@ class PlaySession {
     void reload(const std::string& path) {
         if (exact_sdk_)
             throw std::runtime_error("Exact SDK registrations require Stop, rebuild, then Play");
-        if (!ready())
-            throw std::runtime_error("Play is not ready for reload");
+        if (!ready() || recovery_.is_null())
+            throw std::runtime_error(
+                "Play is not ready for reload. Wait for asset loading or resolve Console errors.");
         if (transaction_) {
             // No candidate tick completed: discard its world before superseding.
             // Keep the original known-good artifact/checkpoint and prior run policy.
@@ -254,6 +255,16 @@ class PlaySession {
                     } else
                         begin_running();
                 } else if (stage_ == Stage::Boundary) {
+                    if (recovery_.is_null()) {
+                        requested_.clear();
+                        reload_result_ = Reload::Failed;
+                        notice_ = "Reload postponed: Play has no complete recovery snapshot. "
+                                  "Previous module retained. ";
+                        stage_ = Stage::Running;
+                        if (!prior_paused_)
+                            control_ = "resume";
+                        return;
+                    }
                     checkpoint_ = snapshot_;
                     checkpoint_recovery_ = recovery_;
                     previous_ = module_;
@@ -326,8 +337,8 @@ class PlaySession {
                     "Reload failed; restored previous module and checkpoint: " + diagnostic + ". ";
                 launch(checkpoint_, checkpoint_recovery_);
             } else {
-                const bool recover =
-                    !exact_sdk_ && !probe_ && !restoring_ && stage_ == Stage::Running;
+                const bool recover = !exact_sdk_ && !probe_ && !restoring_ &&
+                                     stage_ == Stage::Running && !recovery_.is_null();
                 close_process();
                 recoverable_ = recover;
                 status_ = diagnostic + ". Authored scene is safe; " +

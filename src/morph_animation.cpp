@@ -60,6 +60,12 @@ MorphAnimation::MorphAnimation(const Json& tracks) {
         tracks_.push_back(std::move(track));
     }
 }
+std::size_t MorphAnimation::resident_bytes() const {
+    std::size_t bytes = sizeof(*this) + tracks_.capacity() * sizeof(Track);
+    for (const auto& track : tracks_)
+        bytes += (track.times.capacity() + track.values.capacity()) * sizeof(float);
+    return bytes;
+}
 std::vector<MorphWeightsSample> MorphAnimation::sample(double seconds) const {
     require(std::isfinite(seconds), "Morph sampling time must be finite");
     std::vector<MorphWeightsSample> result;

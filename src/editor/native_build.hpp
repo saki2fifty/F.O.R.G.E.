@@ -185,6 +185,11 @@ class NativeBuild {
                     } while (!std::filesystem::create_directory(version));
                     candidate_ = std::filesystem::absolute(version / name).string();
                     std::filesystem::copy_file(work_ / "build" / name, candidate_);
+                    if (play.active() && play.recovery().is_null())
+                        throw std::runtime_error(
+                            "Play has no complete recovery snapshot. Wait for loading or resolve "
+                            "the asset error in Console, then retry; the previous module remains "
+                            "active.");
                     probe_.configure(simulation_hz, InputMap{},
                                      play.active() ? play.gravity() : gravity,
                                      source_.parent_path());

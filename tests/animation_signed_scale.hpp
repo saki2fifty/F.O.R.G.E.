@@ -66,6 +66,9 @@ void signed_scale_animation(const std::filesystem::path& root,
                   "Ozz lost reflected parent");
             check(std::abs(pose["model"][1][0].get<double>() - expected) < .002,
                   "Ozz signed/zero sampling mismatch");
+            check(std::abs(pose["local"][0]["scale"][0].get<double>() + 1) < .002 &&
+                      std::abs(pose["local"][1]["scale"][0].get<double>() + expected) < .002,
+                  "Native local signed/zero scale was decomposed or lost");
             check(std::abs(pose["model"][1][12].get<double>() + 1) < .002,
                   "Ozz hierarchy did not reflect child translation");
         };

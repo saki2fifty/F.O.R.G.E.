@@ -1,7 +1,8 @@
 # Typed runtime resources
 
 Phase7 currently implements the CPU resource pool and an actual cooked mesh
-provider. Diligent GPU realization/fence retirement, existing audio/animation/UI
+provider plus texture, material and model-animation providers. Diligent GPU
+realization/fence retirement, existing audio/UI
 provider adapters and editor resource-inspection UI remain in progress.
 
 ## Identity and access
@@ -112,3 +113,14 @@ The [material provider](material-assets.md) additionally captures named typed te
 bindings and checks a supplied layout before adoption. A newer publication generation
 replaces bindings even when its cooked content digest is unchanged; held old leases
 keep their own binding selections.
+
+## Model animation consumer
+
+The animation subsystem now uses typed Skeleton and AnimationClip pools for cooked
+model members. It prepares a complete selected family off-thread, retains native
+Ozz/morph data, and acquires matching skeleton/clip leases together before creating
+a player. The owner model is container provenance, not an extra resource dependency
+that would cycle back through its own members. The clip readiness ticket depends
+on its skeleton; the consumer owns both leases. Legacy animation-only assets keep
+their prior cache during this migration. See[animation](animation.md) for budgets,
+paused loading, local signed-scale sampling and recovery boundaries.

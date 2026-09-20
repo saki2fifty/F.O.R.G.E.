@@ -2,7 +2,8 @@
 
 An **Animator** plays one skeletal animation clip on an object during Play.
 For now, FORGE shows the joints and bones as a green-and-white overlay. It does
-not yet import or draw a skinned character mesh.
+not yet draw a skinned character mesh. Model importing is available through the
+[model import tools](models.md).
 
 ## Try the included animation
 
@@ -75,3 +76,22 @@ Animation-only imports preserve a parent's matrix-authored rest transform when
 only its child has animation keys. FORGE leaves the original file unchanged.
 A malformed or unsupported matrix produces a conversion error and keeps the
 previous successful import selected.
+
+### Clips imported with a model
+
+The [model import tools](models.md) also register Skeleton and Clip assets.
+You can assign those references to an Animator for the existing bone preview.
+Skeleton and Clip must come from the same successfully imported model revision.
+
+These cooked assets load in the background during Play. While they load, that
+Animator has no pose and a complete runtime recovery snapshot is unavailable.
+Loading also completes while paused; it does not advance animation time. If loading
+fails, the Console reports the affected asset. Restart Play after reimporting to
+select the new model revision.
+
+This addition supplies playback poses and morph weights. Drawing an imported
+skinned or morphed mesh is still being integrated.
+
+Gameplay code replacement needs a complete recovery snapshot. If model assets are
+still loading, FORGE keeps the current code and asks you to retry the build after
+loading finishes. A crash before loading completes requires a fresh Play session.

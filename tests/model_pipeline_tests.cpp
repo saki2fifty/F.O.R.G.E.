@@ -74,6 +74,7 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
     return result;
 }
 } // namespace
+#include "model_animation_runtime.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 6, "Need mode worker fixture output-root converter");
@@ -338,6 +339,11 @@ int main(int argc, char** argv) {
         };
         doc["animations"] =
             Json::array({clip(1, "translation", "Move"), clip(2, "scale", "Scale")});
+        doc["meshes"][0]["primitives"][0]["targets"] = Json::array({{{"POSITION", 0}}});
+        doc["meshes"][0]["weights"] = {0};
+        doc["animations"][0]["samplers"].push_back({{"input", 1}, {"output", 1}});
+        doc["animations"][0]["channels"].push_back(
+            {{"sampler", 1}, {"target", {{"node", 0}, {"path", "weights"}}}});
         const auto animated_source = std::filesystem::path("Assets/animated.gltf");
         save(root / animated_source, doc);
         const auto animated = run(animated_source);
@@ -360,6 +366,7 @@ int main(int argc, char** argv) {
                     loaded_animation.member(members.at("/animations/0")).identity.type ==
                         "animation_clip",
                 "Selected animated family typed members missing");
+        model_animation_runtime(root, animated.publication->catalog, members);
         const auto cached_animation = run(animated_source);
         require(cached_animation.published && cached_animation.cache_hit &&
                     bindings(cached_animation.publication->catalog, animated_owner) == members,

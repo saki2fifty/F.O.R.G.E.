@@ -11,8 +11,8 @@ publication, ECS authoring, clocks, recovery, and debug visualization.
 
 `forge.animation` registers the optional `forge.animator` schema in authoring and
 validation worlds without loading Ozz assets. Its runtime provider owns an
-AssetId cache of immutable admitted skeletons/clips. Each live Animator owns its
-sampling context and transient playback state. Per-world limits are256 players,
+legacy AssetId cache and typed cooked-model resources described below. Each live Animator owns its
+sampling context and transient playback state. The legacy bridge limits are256 players,
 8192 evaluated joints,64 cached asset identities and64MiB of admitted archive data
 (the Ozz objects/caches add bounded working memory). Bones are not Flecs entities.
 The exact native SDK exposes the engine-owned Animator component; it exposes no
@@ -53,7 +53,8 @@ morph weights and non-transform channels are rejected. Source JSON is limited to
 base64 or project-contained relative buffer files are supported, with16MiB total
 source/dependency staging. Network/absolute/escaping/percent-encoded dependencies,
 extensions and image assets are rejected. This is an animation-only bridge, not
-universal glTF import. FBX, mesh/material/image import and generic cooking are deferred.
+universal glTF import. FBX is unsupported. Model/mesh/material/image import uses the separate
+[model pipeline](model-import.md), not this legacy bridge.
 The owned fixtures cover translation and quaternion rotation on a two-joint hierarchy;
 broader DCC export compatibility requires additional fixtures.
 
@@ -145,7 +146,8 @@ sanitizer, conversion and numeric sampling tests before the new pin is adopted.
 - [SHA-256 specification, FIPS180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final)
 
 Deferred: root motion application, blending graphs, state machines, IK, retargeting,
-skinned mesh/material rendering, full importer/cooker and Phase6E navigation.
+skinned mesh/material rendering. The separate model importer/cooker is in progress;
+Phase6E navigation is already implemented.
 
 ### Matrix rest transforms in the legacy bridge
 
@@ -160,3 +162,52 @@ matrix columns, and simultaneous matrix plus TRS reject before launching the
 converter. Explicit TRS still permits signed and zero scale within the animation
 archive profile. No renderer, image codec or native model-loader dependency is
 introduced into the animation-only bridge.
+
+## Cooked model animation resources (Phase 7)
+
+The model importer publishes Skeleton and AnimationClip members in the model's
+immutable cooked family. Runtime animation now accepts these typed references as
+well as the legacy animation-only bridge. Catalog dependency edges select the
+clip's skeleton; the physical model container is not a second asset graph and is
+not acquired as a logical dependency of its own members.
+
+One subsystem-owned `ResourcePool<SkeletonAsset>` and one
+`ResourcePool<AnimationClipAsset>` load admitted cooked bytes asynchronously.
+Each has one preparation worker and bounds64 assets,64 requests and64MiB of
+retained animation allocations. The existing256-player/8192-evaluated-joint limit
+still applies. Whole-container read/validation scratch follows model admission
+limits and is separate from retained resource memory. Source conversion, source
+codecs and GPU access are absent. The original model source may be unavailable
+while its previously selected cooked revision remains usable.
+
+Resource revisions use the complete model build key and publication generation,
+not just the raw Ozz archive digest. Skeleton order, bind data or companion morph
+curves can change independently of archive bytes. The clip request depends on the
+skeleton readiness ticket; a consumer pins both matching leases before replacing
+its pair. Pending loads retry at owner synchronization boundaries, including
+paused presentation. Ordinary ticks and presentation never wait for a worker.
+Failed loads cannot substitute a mismatched pair or invalidate held prior leases.
+Removed consumers release unused selections; shutdown destroys samplers before
+closing pools. This does not yet implement source-watch adoption into active Play.
+
+Sampling exposes local TRS copied directly from Ozz's sampled SoA lanes. It does
+not decompose model matrices, so signed and zero local scale remain representable.
+Companion morph curves use the same interpolated runtime time as the Ozz sample.
+Node indices in this transient pose refer to the selected immutable model revision;
+they are not persistent EntityIds. Binding these samples to rendered model instances
+remains part of the ongoing Phase7 renderer/instantiation integration.
+
+Pending bindings yield a null recovery checkpoint instead of claiming a complete
+snapshot. The runtime response retains the `recovery` field with that null value.
+Once ready, the existing version1 animation recovery section records full family
+revisions. Candidate-world recovery may wait at its unpublished, non-ticking
+reconstruction boundary, with one30-second deadline for all model dependencies.
+It checks exact revisions before publication. Ordinary playback never uses that
+wait. No authored scene identity, Animator layout, SDK component layout or ABI1
+change is introduced.
+
+Retained memory counts the admitted native allocations and FORGE vectors, rather
+than treating serialized archive length as native memory use. Exact Ozz0.17
+`Skeleton::Allocate` supplies the skeleton layout; `Animation::size()` omits name
+storage, which FORGE adds explicitly. Allocator bookkeeping and preparation scratch
+are not presented as retained asset bytes.

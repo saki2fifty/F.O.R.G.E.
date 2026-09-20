@@ -645,3 +645,35 @@
   explicit and aligned selected-reader comparisons with the supported ordering.
   No validation predicate was removed. The rebuilt Linux model recipe passed
   in16.91seconds; corrected Windows validation is pending.
+
+### Cooked-model animation playback and resource ownership
+
+- Connected published model Skeleton/AnimationClip members to typed asynchronous
+  CPU resource pools and the existing animation runtime. Clip readiness depends on
+  the selected skeleton, and players retain both matching immutable leases.
+- Use the full model key and publication generation for compatibility. Preserve
+  held revisions through replacement, cancellation, unload and failed admission;
+  clear samplers before resource-owner shutdown. Reuse a selected catalog snapshot
+  across model member requests; no source conversion occurs in Play.
+- Copy sampled local TRS directly from native Ozz SoA values, preserving signed and
+  zero scale without matrix decomposition. Evaluate companion morph curves using
+  the same interpolated runtime time. Native memory accounting includes allocations
+  omitted by archive-length estimates and Ozz's name-excluding `Animation::size()`.
+- Allow background asset adoption while paused. Pending or invalid bindings cannot
+  advertise a complete recovery checkpoint. Gameplay replacement waits for a real
+  checkpoint; crashes before it exists require fresh Play. Candidate recovery uses
+  a bounded quiescent wait and validates every playback entry before changing any
+  player's time/sampling context.
+- Added real imported-model resource/runtime tests for coalescing, typed mismatches,
+  generation replacement, corrupt replacement retention, cancellation, shutdown,
+  absent original source, morph timing, paused loading and exact recovery. Added a
+  separate-process CLI-import/play/crash/reimport recovery regression.
+- Initial normal runtime checks3/3 passed in20.65seconds; strictASan/UBSan/LSan
+  checks3/3 passed in37.98seconds. Expanded normal checks7/7 passed in50.95seconds; strict checks4/4
+  passed in40.66seconds. The separate instrumented model-runtime process test and
+  actual editor native build/reload/watch regression also passed. Core-only
+  animation, process and target-boundary checks passed3/3 in36.34seconds. Windows
+  validation of this runtime composition is pending. Corrected test assumptions about catalog dependency projection and
+  process-specific recovery session identity; initial failures are retained in logs.
+- Updated animation/model manuals and resource/timing contracts. Model scene
+  instantiation and GPU deformation remain required Phase7 work; no numbered ZIP.

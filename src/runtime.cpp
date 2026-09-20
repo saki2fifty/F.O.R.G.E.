@@ -283,6 +283,10 @@ void RuntimeSimulation::reset_presentation() {
         animation_->reset_presentation();
 }
 Json RuntimeSimulation::presentation(double alpha) const {
+    // Owner-boundary resource adoption also proceeds while Play is paused.
+    // Synchronization does not advance the runtime clock or animation time.
+    if (animation_)
+        animation_->synchronize();
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);
     auto result = scene_.effective_document();
     const auto values = poses_.evaluate(alpha);

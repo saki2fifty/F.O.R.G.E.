@@ -126,6 +126,8 @@ int main(int argc, char** argv) {
             return std::to_string(h);
         };
         auto capture = [&] {
+            if (!forge::animation_runtime(runtime->engine.world())->checkpoint_ready())
+                return forge::Json(); // Incomplete or invalid bindings are not a checkpoint.
             forge::Json checkpoint = {{"version", 1},
                                       {"session", session},
                                       {"tick", clock.tick()},
@@ -134,6 +136,8 @@ int main(int argc, char** argv) {
                                       {"physics", runtime->physics()->checkpoint()}};
             checkpoint["animation"] =
                 forge::animation_runtime(runtime->engine.world())->checkpoint();
+            if (checkpoint["animation"].is_null())
+                return forge::Json(); // Model bindings are still pending; no partial recovery.
             checkpoint["navigation"] = std::static_pointer_cast<forge::NavigationRuntime>(
                                            runtime->engine.world().services().navigation())
                                            ->checkpoint();

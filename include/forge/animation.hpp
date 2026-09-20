@@ -11,6 +11,7 @@ class AnimationRuntime {
     void tick(float dt);
     void reset_presentation();
     Json presentation(flecs::entity_t entity, double alpha);
+    bool checkpoint_ready() const;
     Json checkpoint() const;
     void restore(const Json&);
     void shutdown() noexcept;

@@ -6,8 +6,9 @@ and animation clips together with the model.
 The original source files stay unchanged.
 
 **Current limitation:** this is a tools command workflow. Placing imported models
-in a scene, the model editor, rendering imported materials and playing imported
-model animation are still being implemented. Cameras, punctual lights, node
+in a scene, the model editor and rendering imported materials are still being
+implemented. Imported Skeleton and Clip assets can now drive the existing
+[Animator bone preview](animation.md). Cameras, punctual lights, node
 visibility/selectability and material variants are retained in imported model data;
 their viewport controls and rendering are not available yet.
 This page describes the working model preparation path only.

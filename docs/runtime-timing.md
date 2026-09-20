@@ -75,3 +75,17 @@ The fixed pipeline now includes pre-physics synchronization, Jolt Update, adopti
 ## Runtime UI presentation
 
 RmlUi uses the reusable presenter's monotonic presentation clock and can update while fixed simulation is paused. Semantic Pause/Resume/Step commands are validated in the runtime process; custom gameplay UI actions wait for the next fixed tick. No UI update cadence controls the runtime clock. See [Runtime UI](runtime-ui.md).
+
+### Pending model animation assets
+
+Cooked model skeleton/clip loading is asynchronous. Paused presentation may adopt
+ready CPU resources, but it never advances playback or simulation time. While an
+Animator binding is pending or invalid, runtime responses carry `recovery: null`;
+a partially realized world must not advertise a complete recovery snapshot.
+
+Native replacement requires a complete checkpoint both before probing and at the
+paused replacement boundary. Editor and tooling callers retain the previous module
+and report that loading must finish if the checkpoint is unavailable. A crash before
+a complete checkpoint requires fresh Play; it is not reported as recovered playback.
+Recovery of a complete checkpoint reconstructs resources in an unpublished world,
+with a bounded wait shared across its animation dependencies.

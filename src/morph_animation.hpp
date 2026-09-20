@@ -13,6 +13,7 @@ class MorphAnimation {
   public:
     explicit MorphAnimation(const nlohmann::json& tracks);
     std::vector<MorphWeightsSample> sample(double seconds) const;
+    std::size_t resident_bytes() const;
 
   private:
     struct Track {
