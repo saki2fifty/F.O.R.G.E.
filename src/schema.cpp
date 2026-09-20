@@ -91,6 +91,8 @@ SchemaRegistry core_document_schemas() {
                      throw std::runtime_error("Invalid typed asset dependency list");
                  if (r.contains("source_dependencies") && !r.at("source_dependencies").is_array())
                      throw std::runtime_error("Invalid raw source dependency list");
+                 if (r.contains("subasset") && !r.at("subasset").is_object())
+                     throw std::runtime_error("Invalid subasset identity metadata");
              }
          },
          [](const Json& j) {

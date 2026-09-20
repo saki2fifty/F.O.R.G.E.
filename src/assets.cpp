@@ -54,6 +54,18 @@ void normalize_record(AssetRecord& record, const ProjectPaths& paths) {
     }
     std::sort(record.dependency_edges.begin(), record.dependency_edges.end());
     std::sort(record.source_dependencies.begin(), record.source_dependencies.end());
+    if (record.subasset && (!record.subasset->owner || record.subasset->owner == record.id ||
+                            record.subasset->key.empty() || record.subasset->key.size() > 200 ||
+                            record.subasset->key.find('\0') != std::string::npos))
+        throw std::runtime_error("Invalid subasset owner/key for " + record.id.str());
+}
+void preserve_identity(const AssetRecord& previous, const AssetRecord& candidate) {
+    if (previous.type != candidate.type ||
+        previous.subasset.has_value() != candidate.subasset.has_value() ||
+        (previous.subasset && (previous.subasset->owner != candidate.subasset->owner ||
+                               previous.subasset->key != candidate.subasset->key)))
+        throw std::runtime_error(
+            "Asset replacement must preserve identity, type and subasset ownership");
 }
 std::vector<AssetDependency> logical_edges(const AssetRecord& record) {
     if (!record.dependency_edges.empty())
@@ -126,6 +138,16 @@ void AssetCatalog::add(AssetRecord record) {
     normalize_record(record, paths);
     if (records_.contains(record.id))
         throw std::runtime_error("Duplicate asset identity: " + record.id.str());
+    if (record.subasset || !members(record.id, true).empty()) {
+        std::vector<AssetRecord> candidate;
+        for (const auto& [id, existing] : records_) {
+            (void)id;
+            candidate.push_back(existing);
+        }
+        candidate.push_back(std::move(record));
+        replace_all(std::move(candidate));
+        return;
+    }
     for (const auto& [id, old] : records_) {
         (void)id;
         if (paths.same_locator(old.source, record.source))
@@ -155,6 +177,7 @@ void AssetCatalog::replace(AssetRecord record) {
     auto it = candidate.records_.find(record.id);
     if (it == candidate.records_.end() || it->second.type != record.type)
         throw std::runtime_error("Asset replacement must preserve identity and type");
+    preserve_identity(it->second, record);
     candidate.records_.erase(it);
     candidate.add(std::move(record));
     records_.swap(candidate.records_);
@@ -165,22 +188,62 @@ void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
         throw std::runtime_error("Asset catalog exceeds 100000 records");
     AssetCatalog candidate(project_);
     ProjectPaths paths(project_);
-    std::set<std::filesystem::path, ProjectLocatorLess> locators;
-    std::set<std::string> file_identities;
+    std::map<std::filesystem::path, AssetId, ProjectLocatorLess> locators;
+    std::map<std::string, AssetId> file_identities;
+    std::map<AssetId, std::filesystem::path> resolved;
+    std::map<std::pair<AssetId, std::string>, AssetId> member_keys;
     auto graph_records = Json::array();
     for (auto& record : records) {
         normalize_record(record, paths);
+        if (const auto previous = records_.find(record.id); previous != records_.end())
+            preserve_identity(previous->second, record);
         const auto absolute = paths.resolve(record.source);
-        if (!locators.insert(absolute).second)
+        const auto family = record.subasset ? record.subasset->owner : record.id;
+        const auto [location, fresh] = locators.emplace(absolute, family);
+        if (!fresh && location->second != family)
             throw std::runtime_error("Asset source already has a different identity");
-        if (std::filesystem::exists(absolute) &&
-            !file_identities.insert(paths.file_identity(record.source)).second)
-            throw std::runtime_error("Asset sources alias the same filesystem object");
-        graph_records.push_back({{"consumer", record.id},
-                                 {"edges", logical_edges(record)},
-                                 {"sources", source_edges(record)}});
+        if (fresh && std::filesystem::exists(absolute)) {
+            const auto [file, unique] =
+                file_identities.emplace(paths.file_identity(record.source), family);
+            if (!unique && file->second != family)
+                throw std::runtime_error("Asset sources alias the same filesystem object");
+        }
+        if (record.subasset &&
+            !member_keys.emplace(std::make_pair(family, record.subasset->key), record.id).second)
+            throw std::runtime_error(
+                "Subasset mapping key already has an identity (including tombstones)");
+        resolved.emplace(record.id, absolute);
         if (!candidate.records_.emplace(record.id, std::move(record)).second)
             throw std::runtime_error("Duplicate asset identity");
+    }
+    std::map<AssetId, std::vector<AssetDependency>> member_edges;
+    const ProjectLocatorLess less;
+    for (const auto& [id, record] : candidate.records_) {
+        if (!record.subasset)
+            continue;
+        const auto& member = *record.subasset;
+        const auto parent = candidate.records_.find(member.owner);
+        if (parent == candidate.records_.end() || parent->second.subasset)
+            throw std::runtime_error("Subasset owner must be a registered root asset container: " +
+                                     id.str() + " -> " + member.owner.str());
+        const auto& source = resolved.at(id);
+        const auto& parent_source = resolved.at(member.owner);
+        if (less(source, parent_source) || less(parent_source, source))
+            throw std::runtime_error(
+                "Subasset must share its container's canonical source locator: " + id.str());
+        if (!member.removed)
+            member_edges[member.owner].push_back({id,
+                                                  record.type,
+                                                  AssetDependencyKind::Subasset,
+                                                  "forge.subasset:" + member.key,
+                                                  {}});
+    }
+    for (const auto& [id, record] : candidate.records_) {
+        auto edges = logical_edges(record);
+        const auto& children = member_edges[id];
+        edges.insert(edges.end(), children.begin(), children.end());
+        graph_records.push_back(
+            {{"consumer", id}, {"edges", edges}, {"sources", source_edges(record)}});
     }
     candidate.graph_.restore({{"version", 2}, {"records", std::move(graph_records)}});
     for (const auto& [consumer, record] : candidate.records_) {
@@ -194,6 +257,14 @@ void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
     }
     records_.swap(candidate.records_);
     std::swap(graph_, candidate.graph_);
+}
+std::vector<AssetId> AssetCatalog::members(AssetId owner, bool include_removed) const {
+    std::vector<AssetId> result;
+    for (const auto& [id, record] : records_)
+        if (record.subasset && record.subasset->owner == owner &&
+            (include_removed || !record.subasset->removed))
+            result.push_back(id);
+    return result;
 }
 void AssetCatalog::set_dependencies(AssetId consumer, std::vector<AssetDependency> edges) {
     const auto it = records_.find(consumer);
@@ -238,6 +309,9 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
     if (record.type != expected_type)
         return {AssetState::Incompatible, record,
                 "Asset type mismatch: expected " + expected_type + ", found " + record.type};
+    if (record.subasset && record.subasset->removed)
+        return {AssetState::Removed, record,
+                "Subasset was removed from its source; identity is retained as a tombstone"};
     try {
         const auto path = locate(record.source);
         if (!std::filesystem::is_regular_file(path))
@@ -269,11 +343,19 @@ void AssetCatalog::relocate(AssetId id, const std::filesystem::path& source) {
     const auto it = candidate.records_.find(id);
     if (it == candidate.records_.end())
         throw std::runtime_error("Unknown asset identity");
-    auto record = it->second;
-    record.source = source;
-    candidate.records_.erase(it);
-    candidate.add(record);
-    const auto resolved = candidate.resolve(id, record.type);
+    if (it->second.subasset)
+        throw std::runtime_error(
+            "Move the source container rather than an individual imported subasset");
+    const auto type = it->second.type;
+    std::vector<AssetRecord> records;
+    for (const auto& [key, existing] : records_) {
+        auto record = existing;
+        if (key == id || (record.subasset && record.subasset->owner == id))
+            record.source = source;
+        records.push_back(std::move(record));
+    }
+    candidate.replace_all(std::move(records));
+    const auto resolved = candidate.resolve(id, type);
     if (resolved.state != AssetState::Available)
         throw std::runtime_error(resolved.diagnostic);
     records_.swap(candidate.records_);
@@ -290,6 +372,10 @@ void AssetCatalog::save(const std::filesystem::path& index) const {
                            {"metadata", record.metadata},
                            {"dependency_edges", record.dependency_edges},
                            {"source_dependencies", record.source_dependencies}});
+        if (record.subasset)
+            records.back()["subasset"] = {{"owner", record.subasset->owner},
+                                          {"key", record.subasset->key},
+                                          {"removed", record.subasset->removed}};
     }
     const auto document = Json{{"version", 2}, {"assets", records}}.dump(2);
     if (document.size() > max_asset_index_bytes)
@@ -326,12 +412,19 @@ void AssetCatalog::load(const std::filesystem::path& index) {
             throw std::runtime_error("Invalid asset schema version");
         auto edges = record.value("dependency_edges", std::vector<AssetDependency>{});
         auto sources = record.value("source_dependencies", std::vector<AssetSourceDependency>{});
+        std::optional<AssetSubasset> subasset;
+        if (record.contains("subasset")) {
+            const auto& value = record.at("subasset");
+            subasset =
+                AssetSubasset{value.at("owner").get<AssetId>(), value.at("key").get<std::string>(),
+                              value.value("removed", false)};
+        }
         records.push_back({record.at("id").get<AssetId>(), record.at("type").get<std::string>(),
                            std::filesystem::u8path(record.at("source").get<std::string>()),
                            record.at("schema_version").get<unsigned>(),
                            record.at("dependencies").get<std::vector<AssetId>>(),
                            record.value("metadata", Json::object()), std::move(edges),
-                           std::move(sources)});
+                           std::move(sources), std::move(subasset)});
     }
     replace_all(std::move(records));
 }

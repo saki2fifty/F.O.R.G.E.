@@ -112,3 +112,36 @@ or delegate native parsing to a bounded process; the queue does not forcibly
 terminate C++ threads or act as a security sandbox. Progress callbacks use weak
 owner/job references so late calls cannot mutate a finished or destroyed queue.
 The queue never mutates an ECS world, device or catalog selection.
+
+## Imported source containers and subassets
+
+Catalog-v2 records may carry `subasset: {owner, key, removed}`. A root logical
+asset and its declared direct subassets may share one canonical source file;
+unrelated root identities still cannot alias the same file. Every member keeps
+its own AssetId/type and a durable, owner-scoped mapping key. That key represents
+a persistent mapping entry, not its present array position or display name.
+Existing IDs cannot change type, owner or mapping key during a candidate update.
+
+Candidate validation requires a registered root owner, matching source locator,
+unique member keys including tombstones, and no containment/build cycle. The shared
+graph adds typed `Subasset` edges from the owner to active members. These generated
+edges, like primary-source edges, are distinct from the record's explicit dependency
+list. A member reads the raw source file; it must not create a build edge back to
+its container, which would form a cycle. Registering a logical type does not supply
+a decoder for it. Current Scene/Prefab resolution still verifies their authored
+source document identity; an imported document type would require its own admitted
+artifact provider before a consumer could use it.
+
+Removed members retain their record, key, AssetId and opaque metadata with
+`removed: true`. Resolution reports `Removed`; they leave the active container
+build closure but remain inspectable through `members(owner, true)`. A new ID
+cannot reuse a tombstoned key. Explicit compatible restoration can reactivate the
+same record. Catalog relocation moves the whole family's locators/primary edges;
+individual members cannot move independently. This API edits metadata only and
+does not claim a filesystem move/undo transaction.
+
+The independent [subasset identity reconciler](subasset-identity.md) supplies bounded
+versioned mapping documents, evidence matching, ambiguity diagnostics, explicit
+remapping, tombstones and duplication. Each concrete importer must still produce
+correct semantic evidence and publish the sidecar/catalog/artifact selection safely.
+No model import UI or successful rendering is claimed from these catalog tests.

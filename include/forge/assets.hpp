@@ -7,6 +7,13 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t max_asset_index_bytes = 64 * 1024 * 1024;
+struct AssetSubasset {
+    AssetId owner;
+    // Durable mapping-entry key, not the current source array index or display name.
+    std::string key;
+    bool removed = false;
+    bool operator==(const AssetSubasset&) const = default;
+};
 struct AssetRecord {
     AssetId id;
     std::string type;
@@ -18,8 +25,9 @@ struct AssetRecord {
     // their sorted target projection for existing subsystem callers.
     std::vector<AssetDependency> dependency_edges;
     std::vector<AssetSourceDependency> source_dependencies;
+    std::optional<AssetSubasset> subasset;
 };
-enum class AssetState { Available, Missing, Unresolved, Incompatible };
+enum class AssetState { Available, Missing, Unresolved, Incompatible, Removed };
 struct AssetResolution {
     AssetState state = AssetState::Unresolved;
     std::optional<AssetRecord> record;
@@ -35,6 +43,7 @@ class AssetCatalog {
     void replace_all(std::vector<AssetRecord> records);
     const std::map<AssetId, AssetRecord>& records() const { return records_; }
     const AssetDependencyGraph& dependency_graph() const { return graph_; }
+    std::vector<AssetId> members(AssetId owner, bool include_removed = false) const;
     void set_dependencies(AssetId consumer, std::vector<AssetDependency> edges);
     void set_source_dependencies(AssetId consumer, std::vector<AssetSourceDependency> sources);
     static AssetCatalog open_project(const std::filesystem::path& root);

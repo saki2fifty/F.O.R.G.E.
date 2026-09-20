@@ -69,3 +69,54 @@
 - Native Diligent document-loader research/probe confirmed headless metadata
   parsing with deferred image decode at the retained exact pin. No new dependency
   or product renderer/importer integration is claimed from that probe.
+
+### Imported source identity — continued Phase 7 implementation
+
+- Added explicit catalog subasset ownership, durable mapping keys and removed
+  member tombstones. Declared members can share their container source without
+  allowing unrelated roots to alias a source file.
+- The common graph includes active container/member edges. Candidate updates
+  reject missing/nested owners, duplicate/tombstoned keys, source mismatches,
+  identity/type reassignment and build cycles. Container relocation preserves
+  member IDs and updates the family's source locators together.
+- Added metadata roundtrip/reorder/rename/duplicate/removed-member/cycle fixtures
+  and CLI query details. Semantic glTF correspondence, source sidecars and actual
+  importer publication remain in progress; these catalog changes do not complete them.
+
+- Added a bounded, versioned subasset mapping document and candidate reconciler.
+  Unique exporter/content/semantic evidence preserves IDs across reorder/rename;
+  conflicting evidence produces an explicit ambiguity without changing old state.
+  Explicit same-type remap/create-new choices, removed-member restoration and
+  fresh-ID container duplication preserve opaque plugin metadata.
+- Portable and shared-SDK identity tests passed, including10k reordered members.
+  Strict ASan/UBSan/LeakSanitizer identity checks also passed without suppressions.
+  Filesystem publication and model-import UI remain outstanding integration work.
+
+### glTF input validation — continued Phase 7 implementation
+
+- Added glTF2.0/GLB2 bounded source capture, contained buffer/image dependencies,
+  encoded data URIs, owned source snapshots and required-extension admission.
+  Unknown optional GLB chunks are diagnosed/ignored; unsupported required glTF
+  extensions are rejected. No network fetching or image pixel decode occurs.
+- Added duplicate-key JSON rejection and accessor admission for binary bounds,
+  normalized component legality, matrix padding, interleaving, sparse indices,
+  numeric metadata and non-finite float rejection. Minimal malformed/truncated
+  fixtures exercise rejection before native loading.
+- This is internal admission infrastructure. Full glTF semantic processing,
+  importer publication, runtime resources and editor rendering remain in progress.
+- Added the native Diligent Document adapter using captured-only file callbacks
+  and deferred image decoding. Native VertexDataConverter handles admitted float
+  attributes/exact integer IDs; FORGE applies sparse patches and matrix padding.
+  Source deletion before native load, normalized bytes, uint32 precision, padded
+  matrices and sparse zero-backed conversion pass in the headless tooling profile.
+- Added an optional native asset-tools build target without a window/device
+  requirement. Windows editor builds reuse their existing Diligent targets;
+  standalone Linux tools configure required backend archives without loading a
+  driver. No dependency pin changed. Complete model/worker/UI integration remains open.
+- Broader catalog/identity/admission regressions passed44/44 portable and54/54
+  shared SDK. Native tooling's new conversion test also passed without a display
+  or usable Vulkan driver. Windows execution and final release validation remain pending.
+- Instrumented the native CPU loader/conversion boundary and FORGE adapter for
+  strict ASan/UBSan/LeakSanitizer validation; the native fixture passed without
+  suppressions. Added a build-boundary check preventing editor/ImGui/SDL linkage
+  into the native model tooling test.

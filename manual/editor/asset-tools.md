@@ -43,6 +43,11 @@ This reads `forge.assets.json` and reports logical AssetIds, types, source
 locations, metadata, and registered dependency edges. A registered asset may still
 have a missing or invalid source; this command does not certify it is ready to use.
 
+If a record belongs to an imported source container, `subasset` identifies its
+owner and stable mapping key. `removed: true` means the old identity has been
+retained to diagnose references to a removed source element. It is not an active
+output of the container.
+
 ## Find registered dependents
 
 Copy an AssetId from the query result and run:

@@ -10,6 +10,10 @@ runtime=link('forge_runtime')
 for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
  assert forbidden not in runtime,(forbidden,runtime)
 cache=(Path(build)/'CMakeCache.txt').read_text()
+if 'FORGE_BUILD_ASSET_TOOLS:BOOL=ON' in cache:
+ native=link('forge_gltf_native_tests')
+ for forbidden in ('imgui','sdl3','forge_authoring','forge_ui_presenter'):
+  assert forbidden not in native,(forbidden,native)
 if 'FORGE_BUILD_UI_PRESENTER:BOOL=ON' in cache or 'FORGE_BUILD_EDITOR:BOOL=ON' in cache:
  presenter=link('forge_ui_presenter_tests')
  for forbidden in ('imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):

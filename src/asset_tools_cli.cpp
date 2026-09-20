@@ -42,12 +42,17 @@ int asset_tools_cli(int argc, char** argv) {
         } else if (operation == "query" && argc == 4) {
             const auto catalog = AssetCatalog::open_project(project);
             result["assets"] = Json::array();
-            for (const auto& [id, record] : catalog.records())
+            for (const auto& [id, record] : catalog.records()) {
                 result["assets"].push_back({{"id", id},
                                             {"type", record.type},
                                             {"source", path_utf8(record.source)},
                                             {"schema_version", record.schema_version},
                                             {"metadata", record.metadata}});
+                if (record.subasset)
+                    result["assets"].back()["subasset"] = {{"owner", record.subasset->owner},
+                                                           {"key", record.subasset->key},
+                                                           {"removed", record.subasset->removed}};
+            }
             result["dependencies"] = catalog.dependency_graph().document();
         } else if (operation == "dependents" && argc == 5) {
             const auto catalog = AssetCatalog::open_project(project);

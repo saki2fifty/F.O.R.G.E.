@@ -45,9 +45,20 @@ The latest numbered release is 2.5.6; FORGE intentionally uses a later coordinat
 | Submodule | Revision owned by retained superproject | Enabled use |
 |---|---|---|
 | DiligentCore | `744f079f61cdbda15d371383682418fc927e4a61` | D3D12 |
-| DiligentTools | `7d1139064f36b14f911e5bca095be9c9dcfc5112` | ImGui integration |
+| DiligentTools | `7d1139064f36b14f911e5bca095be9c9dcfc5112` | ImGui integration; Phase7 native CPU glTF Document/VertexDataConverter adapter |
 | DiligentFX | `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da` | Disabled |
 | DiligentSamples | `73b08a788380b6db5aaa3274335749aaf7fc0056` | Disabled |
+
+Phase7 tooling verification2026-09-20: `FORGE_BUILD_ASSET_TOOLS` adds an optional
+headless native-loader target, defaulting on with the Windows editor. Standalone
+Linux tools compose exact native ThirdParty/TextureLoader/AssetLoader targets,
+configure the required Vulkan backend, disable GLSLang/HLSL, archiver, super
+resolution, Draco, RapidJSON, samples and FX, and never initialize a GPU for model
+admission. Editor builds reuse their D3D12/ImGui/shader profile. Native loader JSON
+uses its private `JSON_DIAGNOSTICS=1`; FORGE does not exchange JSON C++ objects
+across that implementation boundary. See [glTF admission](gltf-admission.md) for
+actual capabilities and remaining importer integration. The transitive Core
+Abseil source remains its selected `07d2ef8bd61ab88f0b81b0d8c7fb2c7e19b1d01e`.
 
 FetchContent initializes the superproject's gitlinks recursively; nested third-party revisions are owned by those pins. Do not independently update submodules. `DILIGENT_DEAR_IMGUI_PATH` directs Tools to FORGE's selected ImGui source, so its bundled ImGui revision is not the active UI dependency.
 
