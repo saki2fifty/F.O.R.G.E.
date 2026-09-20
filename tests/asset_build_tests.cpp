@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include <array>
+#include <chrono>
 #include <forge/asset_build.hpp>
 #include <forge/assets.hpp>
 #include <forge/derived_cache.hpp>
@@ -50,19 +51,31 @@ void admission(const CachedArtifact& artifact) {
 int main(int argc, char** argv) {
     try {
         if (argc == 3 && std::string(argv[1]) == "--roundtrip") {
+            auto started = std::chrono::steady_clock::now();
+            auto elapsed = [&](const char* stage) {
+                const auto now = std::chrono::steady_clock::now();
+                std::cout << stage
+                          << " seconds=" << std::chrono::duration<double>(now - started).count()
+                          << std::endl;
+                started = now;
+            };
             const auto index = std::filesystem::absolute(argv[2]);
             AssetCatalog catalog(index.parent_path());
             catalog.load(index);
+            elapsed("load");
             const auto before = catalog.dependency_graph().document();
             auto destination = index;
             destination += ".roundtrip";
             require(!std::filesystem::exists(destination), "Scale roundtrip output already exists");
             catalog.save(destination);
+            elapsed("graph snapshot and save");
             AssetCatalog reopened(index.parent_path());
             reopened.load(destination);
+            elapsed("reload");
             require(reopened.records().size() == catalog.records().size() &&
                         reopened.dependency_graph().document() == before,
                     "Scale roundtrip changed records/dependency graph");
+            elapsed("graph comparison");
             std::cout << "Saved/reopened " << catalog.records().size() << " assets in "
                       << std::filesystem::file_size(destination) << " bytes\n";
             return 0;

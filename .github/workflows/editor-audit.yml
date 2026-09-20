@@ -94,7 +94,7 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
-          key: ${{ steps.cache-key.outputs.key }}-${{ github.sha }}
+          key: ${{ steps.cache-key.outputs.key }}-${{ inputs.source_commit }}
           restore-keys: |
             ${{ steps.cache-key.outputs.key }}-
       - name: Discard an incomplete cache restore
@@ -110,10 +110,10 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build actual editor with audit fixture
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_editor_fixture forge_tools forge_viewport_tests --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_editor_fixture forge_tools forge_viewport_tests forge_asset_publication_tests forge_gltf_official_tests --parallel 2
       - name: Render fresh reset-layout evidence
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(editor_redesign_render|editor_viewport_render)$" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^(editor_redesign_render|editor_viewport_render|asset_publication|gltf_official_negative_scale)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -122,6 +122,17 @@ jobs:
           if ($actual -ne $env:FORGE_SOURCE_COMMIT) { throw 'Source mismatch' }
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
+      - name: Save validated unnumbered audit build cache
+        continue-on-error: true
+        if: ${{ !inputs.clean_build && steps.editor-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        env:
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.cache-key.outputs.key }}-${{ inputs.source_commit }}
       - name: Upload fresh audit evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

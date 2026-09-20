@@ -20,7 +20,7 @@ Json parse_index(std::span<const std::byte> bytes) {
                            return true;
                        });
 }
-void normalize_record(AssetRecord& record, const ProjectPaths& paths) {
+std::filesystem::path normalize_record(AssetRecord& record, const ProjectPaths& paths) {
     if (!record.id || record.type.empty() || record.type == "legacy-untyped" ||
         record.type.size() > 256 || !record.schema_version || !record.metadata.is_object())
         throw std::runtime_error("Invalid asset metadata");
@@ -32,7 +32,7 @@ void normalize_record(AssetRecord& record, const ProjectPaths& paths) {
         if (!dependency)
             throw std::runtime_error("Empty asset dependency identity");
     record.source = ProjectPaths::normalize(record.source);
-    (void)paths.resolve(record.source);
+    const auto resolved = paths.resolve(record.source);
     if (!record.dependency_edges.empty()) {
         std::set<AssetId> targets;
         for (const auto& edge : record.dependency_edges) {
@@ -58,6 +58,7 @@ void normalize_record(AssetRecord& record, const ProjectPaths& paths) {
                             record.subasset->key.empty() || record.subasset->key.size() > 200 ||
                             record.subasset->key.find('\0') != std::string::npos))
         throw std::runtime_error("Invalid subasset owner/key for " + record.id.str());
+    return resolved;
 }
 void preserve_identity(const AssetRecord& previous, const AssetRecord& candidate) {
     if (previous.type != candidate.type ||
@@ -194,10 +195,9 @@ void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
     std::map<std::pair<AssetId, std::string>, AssetId> member_keys;
     auto graph_records = Json::array();
     for (auto& record : records) {
-        normalize_record(record, paths);
+        const auto absolute = normalize_record(record, paths);
         if (const auto previous = records_.find(record.id); previous != records_.end())
             preserve_identity(previous->second, record);
-        const auto absolute = paths.resolve(record.source);
         const auto family = record.subasset ? record.subasset->owner : record.id;
         const auto [location, fresh] = locators.emplace(absolute, family);
         if (!fresh && location->second != family)
@@ -363,7 +363,7 @@ void AssetCatalog::relocate(AssetId id, const std::filesystem::path& source) {
     records_.swap(candidate.records_);
     std::swap(graph_, candidate.graph_);
 }
-void AssetCatalog::save(const std::filesystem::path& index) const {
+Json AssetCatalog::document() const {
     auto records = Json::array();
     for (const auto& [id, record] : records_) {
         records.push_back({{"id", id},
@@ -379,7 +379,10 @@ void AssetCatalog::save(const std::filesystem::path& index) const {
                                           {"key", record.subasset->key},
                                           {"removed", record.subasset->removed}};
     }
-    const auto document = Json{{"version", 2}, {"assets", records}}.dump(2);
+    return {{"version", 2}, {"assets", std::move(records)}};
+}
+void AssetCatalog::save(const std::filesystem::path& index) const {
+    const auto document = this->document().dump(2);
     if (document.size() > max_asset_index_bytes)
         throw std::runtime_error("Asset index exceeds 64 MiB");
     if (std::filesystem::exists(index)) {
@@ -404,7 +407,9 @@ void AssetCatalog::save(const std::filesystem::path& index) const {
 }
 void AssetCatalog::load(const std::filesystem::path& index) {
     const auto bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
-    const auto parsed = parse_index(bytes);
+    restore(parse_index(bytes));
+}
+void AssetCatalog::restore(const Json& parsed) {
     const auto doc = core_document_schemas().prepare("asset_index", parsed);
     std::vector<AssetRecord> records;
     for (const auto& record : doc.at("assets")) {

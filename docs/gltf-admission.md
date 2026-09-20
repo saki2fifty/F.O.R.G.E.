@@ -193,3 +193,12 @@ The CPU result is an admitted source track description. Ozz conversion,
 morph evaluation, runtime playback, cooked animation artifacts and visible
 skinning remain integration work. Admission tests cannot substitute for those
 end-to-end checks.
+
+## Official negative-scale fixture
+
+The unmodified Khronos NegativeScaleTest from Sample Assets revision
+`c6a6bd13ab2b3c685c7903d03561b8a9392f38b8` is retained under
+[samples/gltf/NegativeScaleTest](../samples/gltf/NegativeScaleTest/README.md), with
+CC-BY-4.0 attribution, exact hashes and source provenance. The native test checks
+real source capture, geometry, parent composition and nested determinant parity.
+CPU admission is separate from full textured/PBR WARP rendering acceptance.

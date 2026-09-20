@@ -56,6 +56,7 @@ ProjectLease::ProjectLease(const std::filesystem::path& root) : state_(std::make
     check();
 }
 ProjectLease::~ProjectLease() = default;
+std::filesystem::path ProjectLease::root() const { return state_->folder.parent_path(); }
 void ProjectLease::check() const {
     if (std::filesystem::weakly_canonical(state_->folder) != state_->folder)
         throw std::runtime_error("Project control folder moved; reopen the project before writing");

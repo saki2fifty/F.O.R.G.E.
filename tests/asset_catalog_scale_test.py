@@ -45,8 +45,13 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
         assert document['direct'] == [records[0]['id']]
         assert len(document['affected']) == count
         assert index.read_text(encoding='utf-8') == source, 'Read operation rewrote the index'
-        result = subprocess.run([str(roundtrip), '--roundtrip', str(index)],
-                                capture_output=True, text=True, timeout=90)
+        try:
+            result = subprocess.run([str(roundtrip), '--roundtrip', str(index)],
+                                    capture_output=True, text=True, timeout=90)
+        except subprocess.TimeoutExpired as error:
+            print(error.stdout, flush=True)
+            print(error.stderr, flush=True)
+            raise
         assert result.returncode == 0, result.stderr or result.stdout
         saved = index.with_name(index.name + '.roundtrip')
         assert len(json.loads(saved.read_text(encoding='utf-8'))['assets']) == count

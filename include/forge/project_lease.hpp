@@ -11,6 +11,7 @@ class ProjectLease {
     ProjectLease(const ProjectLease&) = delete;
     ProjectLease& operator=(const ProjectLease&) = delete;
     void check() const;
+    std::filesystem::path root() const;
 
   private:
     struct State;

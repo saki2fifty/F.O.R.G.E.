@@ -125,3 +125,10 @@ Streaming later adds partial residency/budgets beneath a revision; AssetId does 
 Existing synchronous private caches remain until each real consumer is migrated with tests.
 The first Phase7 mesh/texture CPU/GPU resource consumer justifies implementing the minimal
 request/lease pool. This document does not authorize blanket subsystem rewrites.
+
+## Implemented publication coordinator (Phase7 in progress)
+
+The [asset-specific publication coordinator](asset-publication.md) now connects
+validated DDC output, captured input revisions, catalog selection and durable
+sidecar recovery. Its fixtures are executable; complete production providers,
+resource adoption and editor workflows remain separate integration work.

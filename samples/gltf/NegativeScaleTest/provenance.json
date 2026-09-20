@@ -1,0 +1,31 @@
+{
+  "asset": "NegativeScaleTest",
+  "upstream": "KhronosGroup/glTF-Sample-Assets",
+  "revision": "c6a6bd13ab2b3c685c7903d03561b8a9392f38b8",
+  "license": "CC-BY-4.0",
+  "copyright": "2023 Analytical Graphics, Inc.",
+  "author": "Ed Mackey",
+  "modified": false,
+  "files": {
+    "CheckAndX.png": {
+      "sha256": "19da9a7f987b9a64684500c1de49293c0922f1840f13ce5d38505b8b5fe1c001",
+      "bytes": 9775,
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NegativeScaleTest/glTF/CheckAndX.png"
+    },
+    "NegativeScaleLabels2.png": {
+      "sha256": "71a79de243ebdd640fb90dba1ba250632de1343537ae86f7e95379fe2da50725",
+      "bytes": 18982,
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NegativeScaleTest/glTF/NegativeScaleLabels2.png"
+    },
+    "NegativeScaleTest.bin": {
+      "sha256": "671826651d22463a9d830dc1b9c0ff3d17b2812e06b43466861eac2a7c5211f1",
+      "bytes": 26664,
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NegativeScaleTest/glTF/NegativeScaleTest.bin"
+    },
+    "NegativeScaleTest.gltf": {
+      "sha256": "b534c320b19f7b9a3ddaf12db4fa1da3182ca8ddf9bc61aa7b0a5a5f3b100f18",
+      "bytes": 17797,
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NegativeScaleTest/glTF/NegativeScaleTest.gltf"
+    }
+  }
+}

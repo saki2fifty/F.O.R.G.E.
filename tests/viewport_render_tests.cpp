@@ -26,6 +26,23 @@ void require(bool value, const char* text) {
 }
 void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
 using Pixels = std::vector<std::array<unsigned char, 4>>;
+void equivalent_solid(const Pixels& candidate, const Pixels& reference) {
+    require(candidate.size() == reference.size() && !reference.empty(), "Missing solid capture");
+    unsigned maximum_delta = 0;
+    for (std::size_t i = 0; i < reference.size(); ++i) {
+        require((candidate[i] == reference[0]) == (reference[i] == reference[0]),
+                "Reflected solid silhouette/coverage changed");
+        require(candidate[i][3] == reference[i][3], "Reflected solid alpha changed");
+        for (unsigned c = 0; c < 3; ++c)
+            maximum_delta = std::max(
+                maximum_delta, unsigned(std::abs(int(candidate[i][c]) - int(reference[i][c]))));
+    }
+    // Mirroring changes a quad's diagonal/interpolation ordering. In WARP,
+    // constant ambient .3 lies exactly on the 76.5 UNORM8 rounding boundary:
+    // equivalent faces produce 76 or 77. Require identical coverage and allow
+    // only that one quantization step, never an altered normal/light direction.
+    require(maximum_delta <= 1, "Reflected solid changed outward lighting/culling");
+}
 Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* view) {
     auto* texture = view->GetTexture();
     auto desc = texture->GetDesc();
@@ -466,8 +483,7 @@ int main(int argc, char** argv) {
                 for (float z : {-1.f, 1.f}) {
                     const auto reflected =
                         signed_render("scale-parity-" + std::to_string(sign_index++), {x, y, z});
-                    require(reflected == positive,
-                            "Reflected symmetric solid changed outward lighting/culling");
+                    equivalent_solid(reflected, positive);
                 }
         for (unsigned rank_case = 0; rank_case < 3; ++rank_case) {
             const forge::LocalScale scale = rank_case == 0   ? forge::LocalScale{0, 1, 1}
@@ -497,8 +513,7 @@ int main(int argc, char** argv) {
         live_scene.entity(signed_parent).set<forge::LocalScale>({-1, 1, 1});
         const auto handle = live_scene.entity(signed_entity).id();
         live_scene.reparent_entity(signed_entity, signed_parent, forge::ReparentMode::KeepLocal);
-        require(signed_render("scale-nested-reflections", {-1, 1, 1}) == positive,
-                "Nested determinant parity did not cancel");
+        equivalent_solid(signed_render("scale-nested-reflections", {-1, 1, 1}), positive);
         require(live_scene.entity(signed_entity).id() == handle,
                 "Render parity altered entity identity");
         context->WaitForIdle();

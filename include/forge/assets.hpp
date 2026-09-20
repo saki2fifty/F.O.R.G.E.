@@ -58,6 +58,8 @@ class AssetCatalog {
     }
     void save(const std::filesystem::path& index) const;
     void load(const std::filesystem::path& index);
+    nlohmann::json document() const;
+    void restore(const nlohmann::json& document);
 
   private:
     std::filesystem::path locate(const std::filesystem::path& source) const;

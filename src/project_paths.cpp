@@ -57,7 +57,10 @@ std::filesystem::path ProjectPaths::normalize(const std::filesystem::path& sourc
     return path;
 }
 std::filesystem::path ProjectPaths::relative(const std::filesystem::path& absolute) const {
-    const auto resolved = std::filesystem::weakly_canonical(absolute);
+    return relative_canonical(std::filesystem::weakly_canonical(absolute));
+}
+std::filesystem::path
+ProjectPaths::relative_canonical(const std::filesystem::path& resolved) const {
     auto r = root_.begin(), p = resolved.begin();
     for (; r != root_.end(); ++r, ++p) {
         if (p == resolved.end())
@@ -78,7 +81,7 @@ std::filesystem::path ProjectPaths::relative(const std::filesystem::path& absolu
 }
 std::filesystem::path ProjectPaths::resolve(const std::filesystem::path& locator) const {
     const auto path = std::filesystem::weakly_canonical(root_ / normalize(locator));
-    (void)relative(path);
+    (void)relative_canonical(path);
     return path;
 }
 std::string ProjectPaths::file_identity(const std::filesystem::path& locator) const {

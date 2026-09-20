@@ -23,6 +23,7 @@ class ProjectPaths {
     std::filesystem::path build() const { return resolve(".forge/native"); }
 
   private:
+    std::filesystem::path relative_canonical(const std::filesystem::path& resolved) const;
     std::filesystem::path root_;
 };
 } // namespace forge
