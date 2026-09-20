@@ -197,3 +197,20 @@ This does not by itself wire imported materials or skinning into Scene/Game.
 Local importer/recipe regressions pass after extracting the format mapping.
 Compiler syntax checks cover the native upload adapters and GPU test code on the
 exact Linux headers; Windows byte-readback execution remains a separate gate.
+
+### Signed and singular surface frames
+
+The engine `ForgeSurface.fxh` utility transforms normals through scaled cofactors,
+removing determinant sign for ordinary reflected transforms and retaining oriented
+area normals for useful rank-two cases. Tangents are transformed and orthogonalized;
+the transformed source bitangent establishes UV/reflection handedness. Collapsed
+normal/tangent directions are explicitly marked invalid, never normalized through
+zero or replaced by an invented arbitrary axis. The normal-map adapter retains the
+base normal when tangent space is undefined. The consuming renderer still needs
+its geometric-face fallback and diagnostic policy.
+
+A native compute fixture compares these GPU frames against FORGE's double CPU
+normal transform for reflection, nonuniform scale, shear, rank-two collapse,
+complete collapse and tiny/large uniform magnitudes, with both source tangent signs.
+This is a mathematical adapter and pending native fixture, not completion evidence
+for imported skinned rendering or scene normal-map appearance.

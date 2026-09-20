@@ -3,6 +3,7 @@
 set(forge_fx_root "${diligent_SOURCE_DIR}/DiligentFX")
 file(GLOB_RECURSE forge_fx_shaders CONFIGURE_DEPENDS LIST_DIRECTORIES false
  "${forge_fx_root}/Shaders/*.*")
+list(APPEND forge_fx_shaders "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeSurface.fxh")
 set(forge_fx_generated "${CMAKE_CURRENT_BINARY_DIR}/forge-pbr-shaders")
 convert_shaders_to_headers("${forge_fx_shaders}" "${forge_fx_generated}"
  "${forge_fx_generated}/shaders_list.h" forge_fx_shader_headers)

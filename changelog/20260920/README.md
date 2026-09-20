@@ -1013,3 +1013,14 @@
 - The camera/light Windows audit exposed a missing propagated Diligent platform
   definition in the shader-worker test target. Correct the native public-header
   target dependency and retain the explicit Windows test definitions.
+
+### Signed-scale GPU surface math
+
+- Add an engine shader utility for inverse-free normal transformation and preserved
+  tangent/UV handedness, including useful planar zero-scale cases. Explicitly mark
+  collapsed directions instead of producing NaN normals.
+- Add native compute-pipeline caching and a WARP comparison against robust CPU math
+  across reflected, sheared, collapsed and extreme-magnitude cases. Windows shader
+  execution remains pending; complete scene/skinned integration is still in progress.
+- Shared texture import/recipe checks also passed strict sanitizers2/2 after the
+  final target include/definition propagation changes.

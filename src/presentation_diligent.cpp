@@ -50,6 +50,18 @@ void DiligentPresentation::graphics(const GraphicsPipelineStateCreateInfo& info,
     misses_ += !hit;
     epoch_creations_ += !hit;
 }
+void DiligentPresentation::compute(const ComputePipelineStateCreateInfo& info,
+                                   IPipelineState** result) {
+    if (!result)
+        throw std::runtime_error("Presentation output pointer is null");
+    trim();
+    const bool hit = cache_->CreateComputePipelineState(info, result);
+    if (!*result)
+        throw std::runtime_error("Diligent presentation compute pipeline creation failed");
+    hits_ += hit;
+    misses_ += !hit;
+    epoch_creations_ += !hit;
+}
 PBR_Renderer& DiligentPresentation::pbr(IDeviceContext* context) {
     if (!context)
         throw std::runtime_error("PBR initialization requires a device context");

@@ -13,6 +13,7 @@ class DiligentPresentation {
     Diligent::IRenderDevice* device() const { return device_; }
     void shader(const Diligent::ShaderCreateInfo&, Diligent::IShader**);
     void graphics(const Diligent::GraphicsPipelineStateCreateInfo&, Diligent::IPipelineState**);
+    void compute(const Diligent::ComputePipelineStateCreateInfo&, Diligent::IPipelineState**);
     void clear_cache(); // Active native objects remain valid through their strong references.
     Diligent::PBR_Renderer& pbr(Diligent::IDeviceContext*);
     std::uint64_t cache_hits() const { return hits_; }
