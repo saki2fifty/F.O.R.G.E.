@@ -392,3 +392,7 @@ occur only once across a primitive's mappings, all references must be in range,
 and missing mappings retain the ordinary primitive material. Publication must bind
 these addresses through stable subasset identity; this helper alone does not assign
 AssetIds or expose a finished variant-selection UI.
+
+The private [model candidate stages](model-import.md) now exercise these native
+mesh/material/image consumers together, with immutable source transport and
+reorder-safe identity evidence. Full model publication/rendering remains in progress.

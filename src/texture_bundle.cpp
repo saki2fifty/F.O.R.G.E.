@@ -16,8 +16,12 @@ std::string_view texture_variant_key(TextureSemantic semantic) {
     }
     throw std::runtime_error("Unknown texture variant semantic");
 }
-std::string texture_variant_file(TextureSemantic semantic) {
-    return "texture-" + std::string(texture_variant_key(semantic)) + ".ftex";
+std::string texture_variant_file(TextureSemantic semantic, std::string_view prefix) {
+    if (prefix.size() > 64 || !std::all_of(prefix.begin(), prefix.end(), [](char c) {
+            return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
+        }))
+        throw std::runtime_error("Invalid texture bundle file prefix");
+    return std::string(prefix) + "texture-" + std::string(texture_variant_key(semantic)) + ".ftex";
 }
 const TextureVariantEntry& TextureBundleIndex::find(TextureSemantic semantic) const {
     const auto found = std::find_if(variants.begin(), variants.end(),
@@ -34,8 +38,14 @@ void validate(const TextureBundleIndex& index) {
     std::set<TextureSemantic> kinds;
     std::uint64_t total = 0;
     for (const auto& entry : index.variants) {
+        const auto suffix = texture_variant_file(entry.semantic);
+        if (!entry.file.ends_with(suffix))
+            throw std::runtime_error("Invalid texture variant suffix");
+        const auto prefix =
+            std::string_view(entry.file).substr(0, entry.file.size() - suffix.size());
         if (!kinds.insert(entry.semantic).second ||
-            entry.file != texture_variant_file(entry.semantic) || entry.digest.size() != 64 ||
+            entry.file != texture_variant_file(entry.semantic, prefix) ||
+            entry.digest.size() != 64 ||
             !std::all_of(entry.digest.begin(), entry.digest.end(),
                          [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }) ||
             entry.bytes < 24 || entry.bytes > 512ull * 1024 * 1024 ||

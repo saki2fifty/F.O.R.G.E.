@@ -16,7 +16,7 @@ struct TextureBundleIndex {
     bool operator==(const TextureBundleIndex&) const = default;
 };
 std::string_view texture_variant_key(TextureSemantic semantic);
-std::string texture_variant_file(TextureSemantic semantic);
+std::string texture_variant_file(TextureSemantic semantic, std::string_view prefix = {});
 std::vector<std::byte> encode_texture_bundle_index(const TextureBundleIndex& index);
 TextureBundleIndex decode_texture_bundle_index(std::span<const std::byte> bytes);
 } // namespace forge

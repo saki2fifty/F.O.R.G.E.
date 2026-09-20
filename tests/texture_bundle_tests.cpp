@@ -29,6 +29,14 @@ int main() {
         require(encode_texture_bundle_index(read) == bytes,
                 "Texture bundle encoding not canonical");
         rejects([&] { read.find(TextureSemantic::Normal); });
+        auto grouped = index;
+        for (auto& v : grouped.variants)
+            v.file = texture_variant_file(v.semantic, "image-7-");
+        require(decode_texture_bundle_index(encode_texture_bundle_index(grouped))
+                        .find(TextureSemantic::Data) == grouped.find(TextureSemantic::Data),
+                "Shared model-artifact texture prefix lost");
+        for (const auto* prefix : {"../", "a/", "a\\", "C:", ".", "UPPER"})
+            rejects([&] { texture_variant_file(TextureSemantic::Color, prefix); });
         auto bad = index;
         bad.primary = TextureSemantic::Normal;
         rejects([&] { encode_texture_bundle_index(bad); });

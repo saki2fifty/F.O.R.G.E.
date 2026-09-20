@@ -447,3 +447,26 @@
   binding remap with unchanged bytes, held old leases and failed layout/digest
   replacement. Manual3/3, formatting and workflow checks passed. Windows validation
   of this material consumer remains pending.
+
+### Static model cooking and immutable source transport
+
+- Added a private bounded glTF snapshot transport preserving shared GLB/image
+  storage, compressed placeholders, original source descriptions and dependency
+  provenance. No project file access occurs during snapshot decoding.
+- Added native static model candidates containing separate Mesh/Material/Texture
+  members, semantic variants, reference bindings and immutable affine hierarchy.
+  Complete candidate validation rejects broken references, material slots, image
+  usage mismatches, cycles, corrupt outputs and unexpected files.
+- Stable subasset evidence is independent of array positions and display labels.
+  Official NegativeScaleTest exercises source reorder/rename and shared image
+  color/data/normal variants without adding duplicate texture identities.
+- Texture bundles can use bounded generated filename prefixes within the existing
+  flat artifact directory. Existing unprefixed bundles remain compatible.
+- Model skin/animation, camera/light, material-variant stages and editor/CLI model
+  publication remain part of ongoing Phase7 integration; this is an internal CPU
+  checkpoint, not a completed importer or renderer.
+- Validation: combined native model/snapshot/texture tests5/5 passed normally
+  (2.51s), strict ASan/UBSan/LSan4/4 passed (4.82s); actual texture worker regression
+  remains green. MIME/extension byte mismatches and missing material UV streams
+  reject. Formatting, manual3/3, workflow and whitespace checks passed. Windows
+  validation of the new model stage remains pending.
