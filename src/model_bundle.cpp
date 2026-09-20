@@ -424,7 +424,8 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
             const auto found = animation_members.find(address);
             require(found != animation_members.end() && bound.insert(address).second &&
                         found->second->identity.type == "animation_clip" &&
-                        found->second->artifact.file == meta.at("clips")[i].at("file") &&
+                        found->second->artifact.file ==
+                            meta.at("clips")[i].at("file").get<std::string>() &&
                         found->second->bindings ==
                             std::map<std::string, std::string>{{"skeleton", skeleton_address}},
                     "Model clip skeleton binding mismatch");

@@ -52,8 +52,8 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
         cancelled();
         result.index = validate_model_bundle(candidate.files);
     });
-    require(asset_build_digest(artifact.manifest.at("files")) == selected.at("artifact_digest") &&
-                result.index.source_digest == selected.at("source_digest"),
+    require(selected.at("artifact_digest") == asset_build_digest(artifact.manifest.at("files")) &&
+                selected.at("source_digest") == result.index.source_digest,
             "Selected model catalog and cooked revision disagree");
     const auto& inputs = artifact.manifest.at("inputs");
     require(inputs.at("source") == result.index.source_digest &&

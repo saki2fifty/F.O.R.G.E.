@@ -639,3 +639,9 @@
   animation and target-boundary checks passed 2/2 in 30.76 seconds with the
   source codec tools disabled. These readers do not yet claim live resource
   adoption or rendered model support.
+
+- Windows source audit of936512c found MSVC C++20 rejecting a reversed
+  string/JSON comparison in model clip admission. Made the string extraction
+  explicit and aligned selected-reader comparisons with the supported ordering.
+  No validation predicate was removed. The rebuilt Linux model recipe passed
+  in16.91seconds; corrected Windows validation is pending.
