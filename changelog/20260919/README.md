@@ -217,3 +217,31 @@
 - Fresh local sanitizer clean groups34/34 static,43/43 shared passed. Editor native/input passed; the1s handshake timing assertion initially failed under concurrent load and passed in isolation. Original failure retained. Expected upstream include leaks18/4118bytes remain separately verified in both profiles without suppression.
 -55 previous rendering fixtures are byte-identical; all26 editor captures reviewed. Combined ZIP has431 verified outer hashes and246 SDK hashes; SHA256 `6b4611860777507c81c12e69536616ca1a543b2b1860b8f5b21fc161930dc214`.
 -16 ADRs and Phase7 entry contract are complete for user review. Physical Windows/DPI/audio/browser acceptance remains pending; noPhase7. Documentation-only verification follow-up does not alter the delivered binaries or offline manual.
+
+
+## Phase 7 asset foundation — implementation in progress
+
+- Added typed source/build/runtime/optional/subasset dependency edges, reverse lookup,
+  transitive invalidation and iterative cycle-checked build ordering. Catalog-owned
+  indexes preserve the old target-list interface for existing subsystem callers.
+- Added deterministic SHA-256 build-input keys and a local immutable derived cache
+  with mandatory format admission, manifest/size/hash checks, bounded outputs,
+  corruption quarantine, concurrent publication locking, deterministic-output
+  conflict detection and protected-revision eviction. Returned bytes own their storage.
+- Asset index version 2 preserves typed edges. Version 1 opens without a disk write;
+  the first explicit save retains its original bytes in `.v1.backup`. Scene and
+  prefab formats, identities and gameplay ABI1 are unchanged.
+- New regression exercises invalid cycles/type expectations, migration, corrupted
+  manifests/files, output containment, concurrent writers and cache eviction.
+  Initial graph/cache test passed locally; full integration validation is in progress.
+  No numbered Phase 7 delivery or complete importer/renderer feature is claimed.
+
+- Added bounded asset-job scheduling with priority/FIFO, prerequisite failure
+  propagation, request coalescing, source generations, cancellation, progress,
+  completed-result memory budget and joined shutdown. Late callbacks and late
+  cancelled results cannot revive completed work. Queue validation covers these
+  paths; no importer or editor control is advertised from this infrastructure.
+
+- Recorded the user's physical acceptance of Build63 and explicit Phase7
+  authorization in the entry contract. Phase7 implementation remains in progress;
+  the approved freeze is distinct from delivered Phase7 functionality.

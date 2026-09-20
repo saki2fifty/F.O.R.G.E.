@@ -4,6 +4,7 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
+| [2026-09-20](20260920/README.md) | Phase7 asset graph, cache, catalog migration and job foundation; internal validation, no numbered delivery. |
 | [2026-09-19](20260919/README.md) | Editor architecture and UX refinement; compact controls, entity recipes, procedural shapes and document ownership. |
 | [2026-09-18](20260918/README.md) | Phase 6E static navigation assets, Recast/Detour, agents and authoring controls; validation in progress. |
 | [2026-09-17](20260917/README.md) | Phase 2 persistent entity/scene identity, safe legacy migration and minimal asset metadata. |

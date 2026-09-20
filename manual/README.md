@@ -52,5 +52,6 @@ The viewport draws transformed built-in blockout meshes. WAV audio and single-cl
 - [Command palette](editor/commands.md)
 - [Scene diagnostics and component schema](editor/diagnostics.md)
 - [Headless authoring tools](editor/automation.md)
+- [Asset inspection tools](editor/asset-tools.md): scan sources and query registered dependencies without project writes.
 
 - [Live automation](editor/live-automation.md): let a trusted local script inspect or edit the open scene.

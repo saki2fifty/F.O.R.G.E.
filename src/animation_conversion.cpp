@@ -12,7 +12,7 @@ namespace {
 using namespace animation_detail;
 using namespace asset_detail;
 std::string index_digest(const std::filesystem::path& index) {
-    return std::filesystem::exists(index) ? content_digest(read_bytes(index, 4 * 1024 * 1024))
+    return std::filesystem::exists(index) ? content_digest(read_bytes(index, max_asset_index_bytes))
                                           : "absent";
 }
 std::span<const std::byte> bytes(const std::string& text) { return std::as_bytes(std::span(text)); }

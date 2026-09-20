@@ -305,7 +305,7 @@ AssetRecord register_ui_document(const std::filesystem::path& root,
     (void)candidate.read(path_utf8(path));
     const auto index = AssetCatalog::project_index(root);
     const auto baseline = std::filesystem::exists(index)
-                              ? asset_detail::read_bytes(index, 4 * 1024 * 1024)
+                              ? asset_detail::read_bytes(index, max_asset_index_bytes)
                               : std::vector<std::byte>{};
     auto catalog = AssetCatalog::open_project(root);
     for (const auto& [id, r] : catalog.records())
@@ -316,7 +316,7 @@ AssetRecord register_ui_document(const std::filesystem::path& root,
     AssetRecord record{AssetId::generate(), UiDocumentAsset::type, path, 1, {}};
     catalog.add(record);
     const auto current = std::filesystem::exists(index)
-                             ? asset_detail::read_bytes(index, 4 * 1024 * 1024)
+                             ? asset_detail::read_bytes(index, max_asset_index_bytes)
                              : std::vector<std::byte>{};
     require(baseline == current, "Asset catalog changed; refresh and retry");
     catalog.save(index);

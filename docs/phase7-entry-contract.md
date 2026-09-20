@@ -1,8 +1,9 @@
 # Phase7 entry contract
 
-**Architecture proposal for approval; Phase7 is not authorized by this document.**
-Build260919-000063 completed automated validation; architecture approval and
-physical acceptance remain separate. Existing
+**Approved architecture baseline; Phase7 implementation is in progress.**
+The user approved Build260919-000063 physical acceptance and the frozen contracts
+on2026-09-19, and separately authorized Phase7. This document records the entry
+contract, not completion of the implementation. Existing
 foundation implementation is distinguished from designed future work below.
 
 ## Phase7 may rely on existing implementation
@@ -62,5 +63,5 @@ remains separate from automated execution.
 The [16ADRs](decisions/README.md) and linked contracts define architecture. The final
 work-package report records actual tests, commits and package identity. If evidence
 reveals a material architecture/version conflict, use the user's rebuttal gate before
-changing the contract. Completion of this document does not start Phase7: stop for
-review after the pre-Phase7 package is delivered.
+changing the contract. Phase7 is now authorized by the user; stop before Phase8 after the complete
+Phase7 delivery. Earlier freeze-package completion alone did not grant that authority.

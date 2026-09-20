@@ -1,3 +1,4 @@
+#include "asset_bytes.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/assets.hpp>
@@ -7,6 +8,67 @@
 #include <forge/schema.hpp>
 #include <fstream>
 namespace forge {
+namespace {
+Json parse_index(std::span<const std::byte> bytes) {
+    std::size_t events = 0;
+    return Json::parse(reinterpret_cast<const char*>(bytes.data()),
+                       reinterpret_cast<const char*>(bytes.data() + bytes.size()),
+                       [&](int depth, Json::parse_event_t, Json&) {
+                           if (depth > 64 || ++events > 4000000)
+                               throw std::runtime_error(
+                                   "Asset index exceeds JSON nesting/element limits");
+                           return true;
+                       });
+}
+void normalize_record(AssetRecord& record, const ProjectPaths& paths) {
+    if (!record.id || record.type.empty() || record.type == "legacy-untyped" ||
+        record.type.size() > 256 || !record.schema_version || !record.metadata.is_object())
+        throw std::runtime_error("Invalid asset metadata");
+    (void)asset_build_digest(
+        record.metadata); // Bounded depth/strings and finite values before dump.
+    if (record.metadata.dump().size() > 65536)
+        throw std::runtime_error("Asset metadata exceeds 64 KiB");
+    for (auto dependency : record.dependencies)
+        if (!dependency)
+            throw std::runtime_error("Empty asset dependency identity");
+    record.source = ProjectPaths::normalize(record.source);
+    (void)paths.resolve(record.source);
+    if (!record.dependency_edges.empty()) {
+        std::set<AssetId> targets;
+        for (const auto& edge : record.dependency_edges) {
+            if (edge.expected_type == "legacy-untyped")
+                throw std::runtime_error("Typed dependencies cannot use the legacy untyped marker");
+            targets.insert(edge.target);
+            if (edge.target == record.id && edge.expected_type != record.type)
+                throw std::runtime_error("Self reference has an incompatible asset type");
+        }
+        if (targets != std::set<AssetId>(record.dependencies.begin(), record.dependencies.end()))
+            throw std::runtime_error(
+                "Typed dependency targets disagree with compatibility projection");
+    }
+    for (auto& source : record.source_dependencies) {
+        if (source.role == "forge.primary")
+            throw std::runtime_error("Primary source dependency is supplied by the asset catalog");
+        source.source = ProjectPaths::normalize(source.source);
+        (void)paths.resolve(source.source);
+    }
+    std::sort(record.dependency_edges.begin(), record.dependency_edges.end());
+    std::sort(record.source_dependencies.begin(), record.source_dependencies.end());
+}
+std::vector<AssetDependency> logical_edges(const AssetRecord& record) {
+    if (!record.dependency_edges.empty())
+        return record.dependency_edges;
+    std::vector<AssetDependency> result;
+    for (auto target : record.dependencies)
+        result.push_back({target, "legacy-untyped", AssetDependencyKind::Runtime, "legacy", {}});
+    return result;
+}
+std::vector<AssetSourceDependency> source_edges(const AssetRecord& record) {
+    auto result = record.source_dependencies;
+    result.push_back({record.source, "forge.primary", {}});
+    return result;
+}
+} // namespace
 std::filesystem::path AssetCatalog::project_index(const std::filesystem::path& root) {
     return ProjectPaths(root).resolve("forge.assets.json");
 }
@@ -14,8 +76,8 @@ AssetCatalog AssetCatalog::open_project(const std::filesystem::path& root) {
     AssetCatalog result(root);
     const auto index = project_index(root);
     if (std::filesystem::exists(index)) {
-        if (std::filesystem::file_size(index) > 4 * 1024 * 1024)
-            throw std::runtime_error("Asset index exceeds 4 MiB");
+        if (std::filesystem::file_size(index) > max_asset_index_bytes)
+            throw std::runtime_error("Asset index exceeds 64 MiB");
         result.load(index);
     }
     return result;
@@ -34,12 +96,8 @@ AssetRecord AssetCatalog::register_audio_clip(const std::filesystem::path& root,
     auto read = [](const auto& p) {
         if (!std::filesystem::exists(p))
             return std::string{};
-        if (std::filesystem::file_size(p) > 4 * 1024 * 1024)
-            throw std::runtime_error("Asset index exceeds 4 MiB");
-        std::ifstream in(p, std::ios::binary);
-        if (!in)
-            throw std::runtime_error("Cannot read asset index");
-        return std::string(std::istreambuf_iterator<char>(in), {});
+        const auto bytes = asset_detail::read_bytes(p, max_asset_index_bytes);
+        return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     };
     const auto baseline = read(index);
     auto catalog = open_project(root);
@@ -64,22 +122,33 @@ std::filesystem::path AssetCatalog::locate(const std::filesystem::path& source) 
     return ProjectPaths(project_).resolve(source);
 }
 void AssetCatalog::add(AssetRecord record) {
-    if (!record.id || record.type.empty() || !record.schema_version ||
-        !record.metadata.is_object() || record.metadata.dump().size() > 65536)
-        throw std::runtime_error("Invalid asset metadata");
-    for (auto dependency : record.dependencies)
-        if (!dependency)
-            throw std::runtime_error("Empty asset dependency identity");
-    record.source = ProjectPaths::normalize(record.source);
-    (void)locate(record.source);
+    ProjectPaths paths(project_);
+    normalize_record(record, paths);
     if (records_.contains(record.id))
         throw std::runtime_error("Duplicate asset identity: " + record.id.str());
     for (const auto& [id, old] : records_) {
         (void)id;
-        if (ProjectPaths(project_).same_locator(old.source, record.source))
+        if (paths.same_locator(old.source, record.source))
             throw std::runtime_error("Asset source already has a different identity");
     }
+    for (const auto& edge : record.dependency_edges) {
+        const auto found = records_.find(edge.target);
+        if (found != records_.end() && found->second.type != edge.expected_type)
+            throw std::runtime_error("Asset dependency type does not match registered target");
+    }
+    // Check incoming edges too: previously missing targets cannot be realized with
+    // an incompatible type merely because their consumers were registered first.
+    for (auto consumer : graph_.referrers(record.id))
+        for (const auto& edge : graph_.dependencies(consumer))
+            if (edge.target == record.id && edge.expected_type != "legacy-untyped" &&
+                edge.expected_type != record.type)
+                throw std::runtime_error(
+                    "Asset type conflicts with existing dependency expectations");
+    auto candidate_graph = graph_;
+    candidate_graph.replace(record.id, logical_edges(record));
+    candidate_graph.replace_sources(record.id, source_edges(record));
     records_.emplace(record.id, std::move(record));
+    graph_ = std::move(candidate_graph);
 }
 void AssetCatalog::replace(AssetRecord record) {
     auto candidate = *this;
@@ -89,6 +158,63 @@ void AssetCatalog::replace(AssetRecord record) {
     candidate.records_.erase(it);
     candidate.add(std::move(record));
     records_.swap(candidate.records_);
+    std::swap(graph_, candidate.graph_);
+}
+void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
+    if (records.size() > 100000)
+        throw std::runtime_error("Asset catalog exceeds 100000 records");
+    AssetCatalog candidate(project_);
+    ProjectPaths paths(project_);
+    std::set<std::filesystem::path, ProjectLocatorLess> locators;
+    std::set<std::string> file_identities;
+    auto graph_records = Json::array();
+    for (auto& record : records) {
+        normalize_record(record, paths);
+        const auto absolute = paths.resolve(record.source);
+        if (!locators.insert(absolute).second)
+            throw std::runtime_error("Asset source already has a different identity");
+        if (std::filesystem::exists(absolute) &&
+            !file_identities.insert(paths.file_identity(record.source)).second)
+            throw std::runtime_error("Asset sources alias the same filesystem object");
+        graph_records.push_back({{"consumer", record.id},
+                                 {"edges", logical_edges(record)},
+                                 {"sources", source_edges(record)}});
+        if (!candidate.records_.emplace(record.id, std::move(record)).second)
+            throw std::runtime_error("Duplicate asset identity");
+    }
+    candidate.graph_.restore({{"version", 2}, {"records", std::move(graph_records)}});
+    for (const auto& [consumer, record] : candidate.records_) {
+        (void)record;
+        for (const auto& edge : candidate.graph_.dependencies(consumer)) {
+            const auto target = candidate.records_.find(edge.target);
+            if (target != candidate.records_.end() && edge.expected_type != "legacy-untyped" &&
+                target->second.type != edge.expected_type)
+                throw std::runtime_error("Asset dependency type does not match registered target");
+        }
+    }
+    records_.swap(candidate.records_);
+    std::swap(graph_, candidate.graph_);
+}
+void AssetCatalog::set_dependencies(AssetId consumer, std::vector<AssetDependency> edges) {
+    const auto it = records_.find(consumer);
+    if (it == records_.end())
+        throw std::runtime_error("Unknown asset dependency consumer");
+    auto record = it->second;
+    std::set<AssetId> targets;
+    for (const auto& edge : edges)
+        targets.insert(edge.target);
+    record.dependencies.assign(targets.begin(), targets.end());
+    record.dependency_edges = std::move(edges);
+    replace(std::move(record));
+}
+void AssetCatalog::set_source_dependencies(AssetId consumer,
+                                           std::vector<AssetSourceDependency> sources) {
+    const auto it = records_.find(consumer);
+    if (it == records_.end())
+        throw std::runtime_error("Unknown source dependency consumer");
+    auto record = it->second;
+    record.source_dependencies = std::move(sources);
+    replace(std::move(record));
 }
 AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
     std::ifstream stream(locate(source));
@@ -151,38 +277,62 @@ void AssetCatalog::relocate(AssetId id, const std::filesystem::path& source) {
     if (resolved.state != AssetState::Available)
         throw std::runtime_error(resolved.diagnostic);
     records_.swap(candidate.records_);
+    std::swap(graph_, candidate.graph_);
 }
 void AssetCatalog::save(const std::filesystem::path& index) const {
     auto records = Json::array();
     for (const auto& [id, record] : records_) {
-        const auto text = record.source.generic_u8string();
         records.push_back({{"id", id},
                            {"type", record.type},
-                           {"source", std::string(text.begin(), text.end())},
+                           {"source", path_utf8(record.source)},
                            {"schema_version", record.schema_version},
                            {"dependencies", record.dependencies},
-                           {"metadata", record.metadata}});
+                           {"metadata", record.metadata},
+                           {"dependency_edges", record.dependency_edges},
+                           {"source_dependencies", record.source_dependencies}});
     }
-    const auto document = Json{{"version", 1}, {"assets", records}}.dump(2);
-    if (document.size() > 4 * 1024 * 1024)
-        throw std::runtime_error("Asset index exceeds 4 MiB");
+    const auto document = Json{{"version", 2}, {"assets", records}}.dump(2);
+    if (document.size() > max_asset_index_bytes)
+        throw std::runtime_error("Asset index exceeds 64 MiB");
+    if (std::filesystem::exists(index)) {
+        const auto bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
+        const std::string original(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+        const auto previous = parse_index(bytes);
+        if (previous.at("version") == 1) {
+            auto backup = index;
+            backup += ".v1.backup";
+            if (std::filesystem::exists(backup)) {
+                if (asset_detail::read_bytes(backup, max_asset_index_bytes) != bytes)
+                    throw std::runtime_error(
+                        "Asset index migration backup conflicts with the current v1 source");
+            } else {
+                atomic_write(backup, original);
+            }
+        } else if (previous.at("version") != 2) {
+            throw std::runtime_error("Cannot overwrite an unsupported asset index version");
+        }
+    }
     atomic_write(index, document);
 }
 void AssetCatalog::load(const std::filesystem::path& index) {
-    std::ifstream stream(index);
-    const auto doc = core_document_schemas().prepare("asset_index", Json::parse(stream));
-    AssetCatalog candidate(project_);
+    const auto bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
+    const auto parsed = parse_index(bytes);
+    const auto doc = core_document_schemas().prepare("asset_index", parsed);
+    std::vector<AssetRecord> records;
     for (const auto& record : doc.at("assets")) {
         const auto& schema = record.at("schema_version");
         if (!schema.is_number_integer() || schema.get<double>() < 1 ||
             schema.get<double>() > 4294967295.0)
             throw std::runtime_error("Invalid asset schema version");
-        candidate.add({record.at("id").get<AssetId>(), record.at("type").get<std::string>(),
-                       std::filesystem::u8path(record.at("source").get<std::string>()),
-                       record.at("schema_version").get<unsigned>(),
-                       record.at("dependencies").get<std::vector<AssetId>>(),
-                       record.value("metadata", Json::object())});
+        auto edges = record.value("dependency_edges", std::vector<AssetDependency>{});
+        auto sources = record.value("source_dependencies", std::vector<AssetSourceDependency>{});
+        records.push_back({record.at("id").get<AssetId>(), record.at("type").get<std::string>(),
+                           std::filesystem::u8path(record.at("source").get<std::string>()),
+                           record.at("schema_version").get<unsigned>(),
+                           record.at("dependencies").get<std::vector<AssetId>>(),
+                           record.value("metadata", Json::object()), std::move(edges),
+                           std::move(sources)});
     }
-    records_.swap(candidate.records_);
+    replace_all(std::move(records));
 }
 } // namespace forge

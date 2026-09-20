@@ -40,4 +40,6 @@ Technical request examples and exact contracts are maintained separately in the 
 
 ## Work with the open editor
 
+For read-only project source and dependency inspection, see [Asset inspection tools](asset-tools.md).
+
 To inspect or edit a scene already open in FORGE, use [Live automation](live-automation.md). The headless process described above continues to own only its isolated in-memory scene.

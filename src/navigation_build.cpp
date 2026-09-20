@@ -11,7 +11,7 @@ using namespace navigation_detail;
 using namespace asset_detail;
 using Json = nlohmann::json;
 std::string index_digest(const std::filesystem::path& index) {
-    return std::filesystem::exists(index) ? content_digest(read_bytes(index, 4 * 1024 * 1024))
+    return std::filesystem::exists(index) ? content_digest(read_bytes(index, max_asset_index_bytes))
                                           : "absent";
 }
 void write(const std::filesystem::path& p, std::span<const std::byte> data) {

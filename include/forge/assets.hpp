@@ -1,10 +1,12 @@
 #pragma once
 #include <filesystem>
+#include <forge/asset_build.hpp>
 #include <forge/asset_ref.hpp>
 #include <map>
 #include <optional>
 #include <vector>
 namespace forge {
+inline constexpr std::size_t max_asset_index_bytes = 64 * 1024 * 1024;
 struct AssetRecord {
     AssetId id;
     std::string type;
@@ -12,6 +14,10 @@ struct AssetRecord {
     unsigned schema_version = 1;
     std::vector<AssetId> dependencies;
     nlohmann::json metadata = nlohmann::json::object();
+    // Empty for v1 records. New importers record typed edges; dependencies remains
+    // their sorted target projection for existing subsystem callers.
+    std::vector<AssetDependency> dependency_edges;
+    std::vector<AssetSourceDependency> source_dependencies;
 };
 enum class AssetState { Available, Missing, Unresolved, Incompatible };
 struct AssetResolution {
@@ -25,7 +31,12 @@ class AssetCatalog {
     explicit AssetCatalog(std::filesystem::path project);
     void add(AssetRecord record);
     void replace(AssetRecord record);
+    // Validate a complete candidate once, then swap records and both graph indexes.
+    void replace_all(std::vector<AssetRecord> records);
     const std::map<AssetId, AssetRecord>& records() const { return records_; }
+    const AssetDependencyGraph& dependency_graph() const { return graph_; }
+    void set_dependencies(AssetId consumer, std::vector<AssetDependency> edges);
+    void set_source_dependencies(AssetId consumer, std::vector<AssetSourceDependency> sources);
     static AssetCatalog open_project(const std::filesystem::path& root);
     static std::filesystem::path project_index(const std::filesystem::path& root);
     static AssetRecord register_audio_clip(const std::filesystem::path& project,
@@ -43,5 +54,6 @@ class AssetCatalog {
     std::filesystem::path locate(const std::filesystem::path& source) const;
     std::filesystem::path project_;
     std::map<AssetId, AssetRecord> records_;
+    AssetDependencyGraph graph_;
 };
 } // namespace forge

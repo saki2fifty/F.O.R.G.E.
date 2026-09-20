@@ -6,11 +6,24 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#else
+#include <sys/stat.h>
 #endif
 namespace forge {
 std::string path_utf8(const std::filesystem::path& path) {
     const auto s = path.generic_u8string();
     return {s.begin(), s.end()};
+}
+bool ProjectLocatorLess::operator()(const std::filesystem::path& a,
+                                    const std::filesystem::path& b) const {
+#ifdef _WIN32
+    const auto comparison = CompareStringOrdinal(a.c_str(), -1, b.c_str(), -1, TRUE);
+    if (!comparison)
+        throw std::runtime_error("Cannot compare project locators");
+    return comparison == CSTR_LESS_THAN;
+#else
+    return a < b;
+#endif
 }
 ProjectPaths::ProjectPaths(std::filesystem::path root)
     : root_(std::filesystem::weakly_canonical(std::filesystem::absolute(root))) {}
@@ -67,6 +80,36 @@ std::filesystem::path ProjectPaths::resolve(const std::filesystem::path& locator
     const auto path = std::filesystem::weakly_canonical(root_ / normalize(locator));
     (void)relative(path);
     return path;
+}
+std::string ProjectPaths::file_identity(const std::filesystem::path& locator) const {
+    const auto path = resolve(locator);
+#ifdef _WIN32
+    const auto handle = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                    OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (handle == INVALID_HANDLE_VALUE)
+        throw std::runtime_error("Cannot inspect source identity (OS error " +
+                                 std::to_string(GetLastError()) + ")");
+    FILE_ID_INFO info{};
+    const auto ok = GetFileInformationByHandleEx(handle, FileIdInfo, &info, sizeof(info));
+    const auto error = GetLastError();
+    CloseHandle(handle);
+    if (!ok)
+        throw std::runtime_error("Cannot inspect source identity (OS error " +
+                                 std::to_string(error) + ")");
+    auto result = std::to_string(info.VolumeSerialNumber) + ":";
+    constexpr char hex[] = "0123456789abcdef";
+    for (auto byte : info.FileId.Identifier) {
+        result += hex[byte >> 4];
+        result += hex[byte & 15];
+    }
+    return result;
+#else
+    struct stat info{};
+    if (::stat(path.c_str(), &info) != 0)
+        throw std::runtime_error("Cannot inspect source identity");
+    return std::to_string(info.st_dev) + ":" + std::to_string(info.st_ino);
+#endif
 }
 bool ProjectPaths::same_locator(const std::filesystem::path& a,
                                 const std::filesystem::path& b) const {

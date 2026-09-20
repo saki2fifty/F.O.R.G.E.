@@ -1,3 +1,4 @@
+#include "asset_tools_cli.hpp"
 #include "ecs_tools_cli.hpp"
 #include <forge/authoring.hpp>
 #include <forge/build.hpp>
@@ -6,10 +7,12 @@
 #include <forge/schema.hpp>
 #include <fstream>
 #include <iostream>
-// Deliberately memory-only: this process cannot compete with an editor for project files.
+// Authoring stdio is memory-only; asset commands inspect project files read-only.
 int main(int argc, char** argv) {
     ecs_os_set_api_defaults();
     ecs_os_api.log_out_ = stderr; // Keep native diagnostics outside the JSON protocol.
+    if (argc >= 2 && std::string(argv[1]) == "--assets")
+        return forge::asset_tools_cli(argc, argv);
     if (argc == 2 && std::string(argv[1]) == "--ecs-stdio")
         return forge::ecs_tools_stdio();
     if (argc == 4 && std::string(argv[1]) == "--script") {
@@ -49,7 +52,9 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (argc != 2 || std::string(argv[1]) != "--stdio") {
-        std::cout << "FORGE tools --stdio | --ecs-stdio | --script PROJECT SOURCE.flecs\nAuthoring "
+        std::cout << "FORGE tools --stdio | --ecs-stdio | --script PROJECT SOURCE.flecs\n"
+                     "Asset inspection: --assets scan PROJECT [ROOT] | query PROJECT | dependents "
+                     "PROJECT UUID\nAuthoring "
                      "API 1, one JSON request/response per "
                      "line.\nStart with {\"api\":1,\"method\":\"discover\"}. Memory-only; no "
                      "project writes or native execution.\n";

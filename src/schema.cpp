@@ -66,28 +66,38 @@ SchemaRegistry core_document_schemas() {
                   "on explicit save; detached v2 validation here.",
                   ProjectSettings::validate,
                   [](const Json& j) { return j; }});
-    registry.add({"asset_index",
-                  1,
-                  {1},
-                  "Metadata schema only; project-confined locators and duplicate registration "
-                  "validated by AssetCatalog.",
-                  [](const Json& j) {
-                      if (j.at("version") != 1 || !j.at("assets").is_array())
-                          throw std::runtime_error("Invalid asset index");
-                      for (const auto& r : j.at("assets")) {
-                          (void)r.at("id").get<AssetId>();
-                          if (r.at("type").get<std::string>().empty())
-                              throw std::runtime_error("Empty asset type");
-                          (void)ProjectPaths::normalize(
-                              std::filesystem::u8path(r.at("source").get<std::string>()));
-                          if (!r.at("schema_version").is_number_integer() ||
-                              r.at("schema_version").get<double>() < 1 ||
-                              r.at("schema_version").get<double>() > 4294967295.0)
-                              throw std::runtime_error("Invalid asset schema version");
-                          (void)r.at("dependencies").get<std::vector<AssetId>>();
-                      }
-                  },
-                  [](const Json& j) { return j; }});
+    registry.add(
+        {"asset_index",
+         2,
+         {1, 2},
+         "Metadata schema only; project-confined locators and duplicate registration "
+         "validated by AssetCatalog.",
+         [](const Json& j) {
+             if ((j.at("version") != 1 && j.at("version") != 2) || !j.at("assets").is_array() ||
+                 j.at("assets").size() > 100000)
+                 throw std::runtime_error("Invalid asset index");
+             for (const auto& r : j.at("assets")) {
+                 (void)r.at("id").get<AssetId>();
+                 if (r.at("type").get<std::string>().empty())
+                     throw std::runtime_error("Empty asset type");
+                 (void)ProjectPaths::normalize(
+                     std::filesystem::u8path(r.at("source").get<std::string>()));
+                 if (!r.at("schema_version").is_number_integer() ||
+                     r.at("schema_version").get<double>() < 1 ||
+                     r.at("schema_version").get<double>() > 4294967295.0)
+                     throw std::runtime_error("Invalid asset schema version");
+                 (void)r.at("dependencies").get<std::vector<AssetId>>();
+                 if (r.contains("dependency_edges") && !r.at("dependency_edges").is_array())
+                     throw std::runtime_error("Invalid typed asset dependency list");
+                 if (r.contains("source_dependencies") && !r.at("source_dependencies").is_array())
+                     throw std::runtime_error("Invalid raw source dependency list");
+             }
+         },
+         [](const Json& j) {
+             auto result = j;
+             result["version"] = 2;
+             return result;
+         }});
     return registry;
 }
 } // namespace forge

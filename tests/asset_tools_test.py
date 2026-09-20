@@ -1,0 +1,71 @@
+"""Exercise the real read-only asset CLI with a portable temporary project."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import uuid
+
+executable = Path(sys.argv[1]).resolve()
+scratch = Path(sys.argv[2]).resolve()
+scratch.mkdir(parents=True, exist_ok=True)
+with tempfile.TemporaryDirectory(dir=scratch) as temporary:
+    root = Path(temporary)
+    project = root / 'Project with spaces'
+    (project / 'Assets').mkdir(parents=True)
+    (project / 'Assets' / 'picture.PNG').write_bytes(b'bytes, not yet decoded')
+    (project / 'Assets' / '.hidden').write_bytes(b'hidden')
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    index = {
+        'version': 2,
+        'assets': [
+            dict(id=a, type='material', source='Assets/example.material.json', schema_version=1,
+                 dependencies=[b], metadata={}, dependency_edges=[
+                     dict(target=b, type='texture', kind='build', role='base_color', revision='')]),
+            dict(id=b, type='texture', source='Assets/picture.PNG', schema_version=1,
+                 dependencies=[], metadata={}, dependency_edges=[]),
+        ],
+    }
+    index_path = project / 'forge.assets.json'
+    index_path.write_text(json.dumps(index), encoding='utf-8')
+    before = {str(p.relative_to(project)): p.read_bytes()
+              for p in project.rglob('*') if p.is_file()}
+
+    def request(*arguments, success=True):
+        result = subprocess.run([str(executable), '--assets', *map(str, arguments)],
+                                cwd=root, capture_output=True, text=True, timeout=10)
+        document = json.loads(result.stdout)
+        assert document['api'] == 1
+        assert document['ok'] == success, (result.stdout, result.stderr)
+        assert (result.returncode == 0) == success, (result.stdout, result.stderr)
+        return document
+
+    scan = request('scan', project)
+    assert scan['complete'] and len(scan['files']) == 1 and scan['filtered'] == 1
+    assert scan['files'][0]['source'] == 'Assets/picture.PNG'
+    assert scan['files'][0]['digest'] == hashlib.sha256(b'bytes, not yet decoded').hexdigest()
+    assert scan['files'][0]['source_kind'] == 'image'
+    query = request('query', project)
+    assert {x['id'] for x in query['assets']} == {a, b}
+    dependents = request('dependents', project, b)
+    assert dependents['registered'] and dependents['direct'] == [a]
+    assert dependents['transitive'] == [a]
+    assert request('dependents', project, a)['direct'] == []
+    assert not request('dependents', project, str(uuid.uuid4()))['registered']
+    source_refs = request('source-dependents', project, 'Assets/picture.PNG')
+    assert source_refs['direct'] == [b] and set(source_refs['affected']) == {a, b}
+    request('source-dependents', project, '../escape', success=False)
+    request('dependents', project, 'not-a-uuid', success=False)
+    request('scan', project, '../escape', success=False)
+    request('scan', root / 'missing', success=False)
+    request('unknown', project, success=False)
+    request('query', project, 'extra', success=False)
+    request(success=False)
+    after = {str(p.relative_to(project)): p.read_bytes()
+             for p in project.rglob('*') if p.is_file()}
+    assert before == after, 'Read-only asset commands wrote project files'
+    index_path.write_text('{broken', encoding='utf-8')
+    request('query', project, success=False)
+    assert request('scan', project)['complete'], 'File scan unnecessarily depends on valid catalog'
+print('Asset scan/query/dependents CLI, framing, paths and no-write behavior passed')

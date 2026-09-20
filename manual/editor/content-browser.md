@@ -37,3 +37,12 @@ Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
 Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Other asset types do not yet have dedicated document editors.
+
+
+## Asset catalog compatibility
+
+The asset catalog can now retain typed dependency information for imported content.
+Existing version-1 catalogs still open. On the next catalog save, FORGE keeps the
+original file as `forge.assets.json.v1.backup` before writing version 2. Keep the
+catalog and its backup with the project when upgrading. Older FORGE builds cannot
+read version 2. This does not change scene or prefab identities.
