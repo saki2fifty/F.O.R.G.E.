@@ -1,5 +1,6 @@
 #include "gltf_model_cook.hpp"
 #include "asset_bytes.hpp"
+#include "gltf_scene.hpp"
 #include "gltf_surfaces.hpp"
 #include "texture_ktx.hpp"
 #include <algorithm>
@@ -82,14 +83,11 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
             "Invalid static model processing options");
     const auto& source = native.source();
     const auto& doc = source.document;
-    for (const auto* key : {"skins", "animations", "cameras"})
-        require(
-            !doc.contains(key) || doc.at(key).empty(),
-            "Static model recipe requires the separate skin/animation/camera realization stages");
-    require(!doc.contains("extensions") || !doc.at("extensions").contains("KHR_lights_punctual"),
-            "Static model recipe requires the separate light realization stage");
-    require(gltf_material_variants(source).empty(),
-            "Static model recipe requires material variant realization");
+    for (const auto* key : {"skins", "animations"})
+        require(!doc.contains(key) || doc.at(key).empty(),
+                "Model recipe requires the separate skin/animation realization stages");
+    const auto scene_values = gltf_scene_metadata(source);
+    const auto material_variants = gltf_material_variants(source);
     const auto& meshes = doc.value("meshes", Json::array());
     const auto& materials = doc.value("materials", Json::array());
     const auto& images = doc.value("images", Json::array());
@@ -150,18 +148,26 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
             label(meshes[i]),
             {"", evidence, mesh_roles[i].empty() ? std::string{} : sorted_digest(mesh_roles[i])}};
         auto processing = options.mesh;
-        for (const auto& part : raw.lods[0].parts) {
-            if (!part.material_slot)
-                continue;
-            const auto m = part.material_slot - 1;
-            member.bindings["material." + std::to_string(part.material_slot)] =
-                address("materials", m);
-            material_roles.at(m).push_back(evidence);
-            for (const auto& binding : bindings.at(m)) {
-                const auto* uv = part.find("TEXCOORD_" + std::to_string(binding.uv_set));
-                require(uv, "Model material references a missing texture-coordinate stream");
-                if (binding.role == "normalTexture")
-                    processing.tangent_uv_sets[part.material_slot] = binding.uv_set;
+        for (std::size_t p = 0; p < raw.lods[0].parts.size(); ++p) {
+            const auto& part = raw.lods[0].parts[p];
+            std::set<std::size_t> used_materials;
+            if (part.material_slot)
+                used_materials.insert(part.material_slot - 1);
+            for (const auto& variant : material_variants)
+                if (const auto at = variant.mappings.find({i, p}); at != variant.mappings.end())
+                    used_materials.insert(at->second);
+            for (const auto m : used_materials) {
+                member.bindings["material." + std::to_string(m + 1)] = address("materials", m);
+                material_roles.at(m).push_back(evidence);
+                for (const auto& binding : bindings.at(m)) {
+                    require(
+                        part.find("TEXCOORD_" + std::to_string(binding.uv_set)),
+                        "Model material or variant references a missing texture-coordinate stream");
+                    // One stored tangent stream describes the base material. Native PBR
+                    // can derive alternate frames from that material's UV gradients.
+                    if (m + 1 == part.material_slot && binding.role == "normalTexture")
+                        processing.tangent_uv_sets[part.material_slot] = binding.uv_set;
+                }
             }
         }
         auto processed = process_mesh(raw, processing, {}, stop);
@@ -266,13 +272,29 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
              {"mesh",
               node.mesh == gltf_no_index ? Json(nullptr) : Json(address("meshes", node.mesh))},
              {"local", affine},
-             {"weights", node.morph_weights}});
+             {"weights", node.morph_weights},
+             {"camera", node.camera == gltf_no_index ? Json(nullptr) : Json(node.camera)},
+             {"light", scene_values.nodes.at(i).at("light")},
+             {"visible", scene_values.nodes.at(i).at("visible")},
+             {"selectable", scene_values.nodes.at(i).at("selectable")}});
     }
     index.hierarchy = {{"nodes", nodes},
                        {"scenes", hierarchy.scenes},
                        {"default_scene", hierarchy.default_scene == gltf_no_index
                                              ? Json(nullptr)
                                              : Json(hierarchy.default_scene)}};
+    index.hierarchy["cameras"] = scene_values.cameras;
+    index.hierarchy["lights"] = scene_values.lights;
+    auto variants = Json::array();
+    for (const auto& variant : material_variants) {
+        auto mappings = Json::array();
+        for (const auto& [part, material] : variant.mappings)
+            mappings.push_back({{"mesh", address("meshes", part.first)},
+                                {"primitive", part.second},
+                                {"material", address("materials", material)}});
+        variants.push_back({{"name", variant.name}, {"mappings", mappings}});
+    }
+    index.hierarchy["material_variants"] = std::move(variants);
     files.push_back({"model.json", encode_model_bundle_index(index)});
     (void)validate_model_bundle(files);
     cancelled();

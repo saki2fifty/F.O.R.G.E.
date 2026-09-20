@@ -152,7 +152,9 @@ const std::set<std::string>& model_cook_extensions() {
         "KHR_materials_sheen",       "KHR_materials_anisotropy",
         "KHR_materials_iridescence", "KHR_materials_transmission",
         "KHR_materials_volume",      "KHR_materials_ior",
-        "KHR_materials_dispersion",  "KHR_materials_emissive_strength"};
+        "KHR_materials_dispersion",  "KHR_materials_emissive_strength",
+        "KHR_materials_variants",    "KHR_lights_punctual",
+        "KHR_node_visibility",       "KHR_node_selectability"};
     return extensions;
 }
 ImportSettingsSchema model_settings() {

@@ -39,12 +39,12 @@ target_link_libraries(forge_texture_import PUBLIC forge_texture PRIVATE PNG::PNG
 if(WIN32)
  target_compile_definitions(forge_texture_import PRIVATE NOMINMAX)
 endif()
-add_library(forge_model_pipeline STATIC src/gltf_snapshot.cpp src/model_bundle.cpp)
+add_library(forge_model_pipeline STATIC src/gltf_snapshot.cpp src/model_bundle.cpp src/model_scene_values.cpp)
 target_link_libraries(forge_model_pipeline PUBLIC forge_assets forge_mesh forge_material PRIVATE forge_asset_bytes)
-add_library(forge_gltf_native STATIC src/gltf_native.cpp src/gltf_meshopt.cpp src/gltf_draco.cpp src/gltf_surfaces.cpp src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp src/mesh_processing.cpp)
+add_library(forge_gltf_native STATIC src/gltf_native.cpp src/gltf_meshopt.cpp src/gltf_draco.cpp src/gltf_surfaces.cpp src/gltf_scene.cpp src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp src/mesh_processing.cpp)
 target_include_directories(forge_gltf_native PRIVATE
  "${diligent_SOURCE_DIR}/DiligentTools/ThirdParty/tinygltf" "${draco_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}")
-target_link_libraries(forge_gltf_native PUBLIC forge_assets forge_mesh forge_material PRIVATE meshoptimizer draco::draco Diligent-AssetLoader Diligent-GraphicsAccessories Diligent-BuildSettings)
+target_link_libraries(forge_gltf_native PUBLIC forge_assets forge_mesh forge_material PRIVATE forge_model_pipeline meshoptimizer draco::draco Diligent-AssetLoader Diligent-GraphicsAccessories Diligent-BuildSettings)
 if(WIN32)
  target_compile_definitions(forge_gltf_native PRIVATE NOMINMAX)
 endif()
@@ -156,6 +156,7 @@ set(_forge_model_recipe_inputs "${_forge_texture_recipe_fingerprint}")
 foreach(source
  include/forge/gltf_source.hpp include/forge/gltf_accessors.hpp include/forge/material_asset.hpp include/forge/mesh_asset.hpp
  src/gltf_source.cpp src/gltf_accessors.cpp src/gltf_validation.hpp src/gltf_snapshot.hpp src/gltf_snapshot.cpp
+ src/model_scene_values.hpp src/model_scene_values.cpp src/gltf_scene.hpp src/gltf_scene.cpp
  src/model_bundle.hpp src/model_bundle.cpp src/model_importer.hpp src/model_importer.cpp src/model_worker.cpp
  src/gltf_model_cook.hpp src/gltf_model_cook.cpp src/gltf_native.hpp src/gltf_native.cpp
  src/gltf_meshopt.hpp src/gltf_meshopt.cpp src/gltf_draco.hpp src/gltf_draco.cpp
@@ -246,4 +247,11 @@ target_link_libraries(forge_tools PRIVATE forge_import_authoring)
 if(BUILD_TESTING AND NOT FORGE_ENABLE_SANITIZERS)
  add_test(NAME model_tools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/model_tools_test.py $<TARGET_FILE:forge_tools> ${CMAKE_BINARY_DIR}/model-tools-tests)
  set_tests_properties(model_tools PROPERTIES TIMEOUT 180)
+endif()
+if(BUILD_TESTING)
+ add_executable(forge_model_scene_tests tests/model_scene_tests.cpp)
+ target_include_directories(forge_model_scene_tests PRIVATE src)
+ target_link_libraries(forge_model_scene_tests PRIVATE forge_model_cook forge_model_importer forge_gltf_native)
+ add_test(NAME model_scene COMMAND forge_model_scene_tests "${CMAKE_CURRENT_SOURCE_DIR}/samples/gltf/NegativeScaleTest")
+ set_tests_properties(model_scene PROPERTIES TIMEOUT 90)
 endif()

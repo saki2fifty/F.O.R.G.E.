@@ -6,8 +6,10 @@ The original source files stay unchanged.
 
 **Current limitation:** this is a tools command workflow. Placing imported models
 in a scene, the model editor, rendering imported materials, and model files containing
-skins, animation, cameras, lights or material variants are still being implemented.
-This page describes the working static import path only.
+skins or animation are still being implemented. Cameras, punctual lights, node
+visibility/selectability and material variants are retained in imported model data;
+their viewport controls and rendering are not available yet.
+This page describes the working model preparation path only.
 
 ## Prepare a model
 

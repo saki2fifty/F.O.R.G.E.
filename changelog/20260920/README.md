@@ -500,3 +500,22 @@
 - Windows evidence: prior material/resource source172bc02 passed24/24 audit tests
   in11.35s (run35509366990). Current model-worker Windows validation is pending.
   No numbered package was issued; full Phase7 remains in progress.
+
+
+### Model cameras, lights and material variants
+
+- Model cooking now preserves perspective/orthographic cameras, directional/point/
+  spot lights, node camera/light references, independent visibility/selectability
+  intent, and complete material-variant primitive mappings. These are validated
+  immutable asset values; corresponding scene controls/rendering remain in progress.
+- Shared source/cooked camera admission preserves omitted infinite far/automatic
+  aspect and valid negative orthographic magnification. Light admission enforces
+  linear color, nonnegative intensity, type-appropriate ranges and spot cones.
+- Variant materials enter the mesh dependency graph and retain duplicate display
+  labels. Parent validation checks primitive references and available texture UVs
+  for both base and variant materials. Different normal-map UV sets remain allowed;
+  the exact native PBR gradient path is recorded for later GPU integration.
+- Normal model/hierarchy/worker5/5 passed in38.21s; strictASan/UBSan/LSan4/4 passed
+  in36.80s; rebuilt model/textureCLI and worker regression4/4 passed in7.20s.
+  Manual3/3 and formatting passed. Windows validation for this increment is pending.
+  No intermediate numbered package; complete Phase7 implementation continues.

@@ -35,8 +35,7 @@ The cooked hierarchy belongs to an immutable asset. It does not replace Flecs
 ChildOf/Parent or add another authored transform authority. The scene/runtime
 consumer must resolve the selected member bindings before use.
 
-This static profile currently rejects models needing skin/animation, camera/light
-or material-variant realization. Those required stages remain active Phase7 work;
+This profile currently rejects models needing skin/animation realization. Those required stages remain active Phase7 work;
 their rejection here must not be reported as completing those features. Unreferenced
 images remain in source and receive a diagnostic instead of an unused runtime
 texture. Original material/mesh labels are preserved for display.
@@ -94,9 +93,10 @@ See[glTF admission](gltf-admission.md),[subasset identity](subasset-identity.md)
 The fixed `forge.model.gltf` recipe now runs through `forge_asset_build`, the same
 supervised executable used for textures. Its registry entry is available to the
 shared import service and headless `forge_tools --assets import` command. The
-current static recipe retains the restrictions listed above; complete skeletal,
-camera/light/variant realization, editor model documents and GPU rendering remain
-required Phase7 work.
+current recipe retains the skin/animation restriction listed above. Camera/light
+and variant data are preserved as described below; their editor/runtime realization,
+complete skeletal conversion, model documents and GPU rendering remain required
+Phase7 work.
 
 Discovery captures source and external dependencies. Before process launch, a
 second immutable capture must have the same source/settings/dependency build key.
@@ -134,3 +134,45 @@ work. Editor/runtime callers must still supply their actual compatibility prefli
 Single-writer ownership, whole-family publication, interruption recovery and unknown
 metadata preservation use the existing AssetPublisher unchanged in scope. Import
 publication is separate from scene Undo.
+
+
+## Cameras, punctual lights and variants
+
+Immutable model data now preserves camera definitions and node camera references,
+directional/point/spot light values and node references, material variants and their
+primitive mappings, and independent node visibility/selectability flags. Source and
+cooked camera/light values use the same CPU admission rules; the parent revalidates
+all counts, indices, projection/cone ranges and typed member bindings.
+
+Omitted perspective far planes and aspect ratios become explicit null values in the
+cooked index, retaining infinite-far and automatic-aspect meaning. Orthographic
+magnifications must be nonzero; negative values are valid under the exact glTF
+specification. These are asset values, not a new camera projection implementation.
+The future camera extractor must handle the specification's undefined view for
+singular, reflected or sheared camera transforms without changing authored visual TRS.
+
+Punctual light color remains linear[0,1]. Intensity is nonnegative, in lux for
+Directional and candela for Point/Spot. Point/Spot range is positive or absent/infinite;
+Directional has no range. Spot angles satisfy0<=inner<outer<=pi/2. Valid inactive
+spot parameters on another light type are admitted then omitted from the cooked active
+values; source bytes remain intact. Light properties are not multiplied by node scale.
+No rendered-light or extension-conformance claim follows from retaining these values.
+
+Visibility and selectability are distinct booleans, each intended to cascade through
+ancestors. Visibility hides visual features including lights, but does not disable
+cameras or selection. Current model data preserves local intent; ECS/render/picking
+consumers must apply the documented semantics before those workflows are available.
+
+Material variants retain display labels (which may duplicate) and candidate-local
+mesh/primitive/material mappings. Alternate materials join the same mesh dependency
+graph. Both base and variant bindings require their referenced UV streams to exist.
+The exact DiligentFX PBR implementation derives tangent frames from material UV
+position gradients, allowing alternate normal-map UV sets without rejecting the
+model because a single stored base-material tangent stream exists. GPU integration
+still must prove that native behavior in FORGE's render profile.
+
+Evidence: [glTF camera specification at the selected revision](https://github.com/KhronosGroup/glTF/blob/c18432787e6d545a1218c1926ccdcfaffd4c116b/specification/2.0/Specification.adoc#cameras),
+[punctual lights](https://github.com/KhronosGroup/glTF/tree/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Khronos/KHR_lights_punctual),
+[node visibility](https://github.com/KhronosGroup/glTF/tree/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Khronos/KHR_node_visibility),
+[node selectability](https://github.com/KhronosGroup/glTF/tree/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Khronos/KHR_node_selectability),
+and[DiligentFX PBR normal handling](https://github.com/DiligentGraphics/DiligentFX/blob/aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da/Shaders/PBR/public/PBR_Shading.fxh).

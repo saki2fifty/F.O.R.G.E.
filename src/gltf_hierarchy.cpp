@@ -1,5 +1,6 @@
 #include "gltf_native.hpp"
 #include "gltf_validation.hpp"
+#include "model_scene_values.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -79,26 +80,8 @@ std::array<double, 16> matrix(const Json& node) {
     return result;
 }
 void cameras(const Json& document) {
-    for (const auto& camera : array(document, "cameras", limit)) {
-        const auto type = camera.at("type").get<std::string>();
-        const auto& p = camera.at(type);
-        if (!p.is_object())
-            throw std::runtime_error("glTF camera projection must be an object");
-        const auto near = number(p.at("znear"));
-        if (type == "perspective") {
-            const auto fov = number(p.at("yfov"));
-            if (camera.contains("orthographic") || near <= 0 || fov <= 0 ||
-                fov >= std::numbers::pi ||
-                (p.contains("aspectRatio") && number(p.at("aspectRatio")) <= 0) ||
-                (p.contains("zfar") && number(p.at("zfar")) <= near))
-                throw std::runtime_error("glTF perspective camera parameters are invalid");
-        } else if (type == "orthographic") {
-            if (camera.contains("perspective") || near < 0 || number(p.at("zfar")) <= near ||
-                number(p.at("xmag")) == 0 || number(p.at("ymag")) == 0)
-                throw std::runtime_error("glTF orthographic camera parameters are invalid");
-        } else
-            throw std::runtime_error("glTF camera projection type is invalid");
-    }
+    for (const auto& camera : array(document, "cameras", limit))
+        (void)model_camera_value(camera);
 }
 } // namespace
 NativeGltfHierarchy validate_gltf_hierarchy(const GltfSourceBundle& source) {

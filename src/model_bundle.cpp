@@ -1,6 +1,7 @@
 #include "model_bundle.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "model_scene_values.hpp"
 #include <charconv>
 #include <cmath>
 #include <forge/material_asset.hpp>
@@ -56,6 +57,12 @@ void node_index(const Json& j, std::size_t count, bool nullable = true) {
 }
 void hierarchy(const Json& h, const std::map<std::string, const ModelImportMember*>& members) {
     const auto& nodes = array(h.at("nodes"), 100000);
+    const auto cameras = h.value("cameras", Json::array());
+    const auto lights = h.value("lights", Json::array());
+    for (const auto& camera : array(cameras, 100000))
+        require(model_camera_value(camera, true) == camera, "Noncanonical cooked camera value");
+    for (const auto& light : array(lights, 100000))
+        require(model_light_value(light, true) == light, "Noncanonical cooked light value");
     auto member = [&](const Json& value, std::string_view type) {
         if (value.is_null())
             return;
@@ -84,6 +91,11 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
             require(value.is_number() && std::isfinite(value.get<double>()),
                     "Nonfinite model transform");
         member(node.at("mesh"), "mesh");
+        node_index(node.value("camera", Json(nullptr)), cameras.size());
+        node_index(node.value("light", Json(nullptr)), lights.size());
+        require(node.value("visible", Json(true)).is_boolean() &&
+                    node.value("selectable", Json(true)).is_boolean(),
+                "Invalid model visibility/selectability flag");
         const auto& weights = array(node.at("weights"), 256);
         matrix_values += weights.size();
         require(matrix_values <= 1000000, "Model morph defaults exceed bounds");
@@ -93,6 +105,22 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
             require(std::isfinite(x) && std::abs(x) <= std::numeric_limits<float>::max() &&
                         (x == 0 || static_cast<float>(x) != 0),
                     "Invalid model morph default");
+        }
+    }
+    std::size_t variant_mappings = 0;
+    const auto material_variants = h.value("material_variants", Json::array());
+    for (const auto& variant : array(material_variants, 65536)) {
+        (void)text(variant.at("name"), 4096, true);
+        std::set<std::pair<std::string, std::uint64_t>> mapped;
+        for (const auto& mapping : array(variant.at("mappings"), 1000000)) {
+            require(++variant_mappings <= 1000000, "Model variant mappings exceed bounds");
+            require(!mapping.at("mesh").is_null() && !mapping.at("material").is_null(),
+                    "Variant mapping requires mesh and material");
+            member(mapping.at("mesh"), "mesh");
+            member(mapping.at("material"), "material");
+            const auto primitive = number(mapping.at("primitive"), 100000);
+            require(mapped.emplace(mapping.at("mesh").get<std::string>(), primitive).second,
+                    "Duplicate model variant primitive mapping");
         }
     }
     // Iterative traversal avoids recursion limits and quadratic ancestry walks.
@@ -243,11 +271,32 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
     std::map<std::string, std::map<TextureSemantic, TextureDimension>> variants;
     std::map<std::string, MaterialData> materials;
     std::map<std::string, std::size_t> morph_counts;
+    std::map<std::string, std::vector<std::set<std::string>>> primitive_streams;
+    std::map<std::string, std::set<std::string>> material_targets;
+    std::map<std::string, std::vector<std::string>> primitive_materials;
     for (const auto& m : index.members) {
         const auto& file = take(m.artifact.file, m.artifact.digest, m.artifact.bytes);
         if (m.identity.type == "mesh") {
             const auto mesh = decode_mesh(file.bytes);
             morph_counts[m.identity.address] = mesh.morph_defaults.size();
+            auto& streams = primitive_streams[m.identity.address];
+            for (const auto& part : mesh.lods.at(0).parts) {
+                std::set<std::string> names;
+                for (const auto& stream : part.streams)
+                    names.insert(stream.semantic);
+                streams.push_back(std::move(names));
+                if (part.material_slot) {
+                    const auto slot =
+                        m.bindings.find("material." + std::to_string(part.material_slot));
+                    require(slot != m.bindings.end(), "Model primitive material is not bound");
+                    primitive_materials[m.identity.address].push_back(slot->second);
+                } else
+                    primitive_materials[m.identity.address].emplace_back();
+            }
+            for (const auto& [role, target] : m.bindings) {
+                (void)role;
+                material_targets[m.identity.address].insert(target);
+            }
             for (const auto& lod : mesh.lods)
                 for (const auto& part : lod.parts)
                     require(
@@ -299,6 +348,30 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
                         morph_counts.at(node.at("mesh").get<std::string>()) ==
                             node.at("weights").size(),
                     "Model node morph defaults disagree with mesh");
+    for (const auto& [mesh, parts] : primitive_materials)
+        for (std::size_t part = 0; part < parts.size(); ++part)
+            if (!parts[part].empty())
+                for (const auto& [role, slot] : materials.at(parts[part]).textures) {
+                    (void)role;
+                    require(primitive_streams.at(mesh).at(part).contains(
+                                "TEXCOORD_" + std::to_string(slot.uv_set)),
+                            "Model material needs unavailable texture coordinates");
+                }
+    for (const auto& variant : index.hierarchy.value("material_variants", Json::array()))
+        for (const auto& mapping : variant.at("mappings")) {
+            const auto mesh = mapping.at("mesh").get<std::string>();
+            const auto material = mapping.at("material").get<std::string>();
+            const auto part = mapping.at("primitive").get<std::size_t>();
+            require(part < primitive_streams.at(mesh).size() &&
+                        material_targets[mesh].contains(material),
+                    "Model variant references absent primitive or unbound material");
+            for (const auto& [role, slot] : materials.at(material).textures) {
+                (void)role;
+                require(primitive_streams.at(mesh).at(part).contains("TEXCOORD_" +
+                                                                     std::to_string(slot.uv_set)),
+                        "Model variant needs unavailable texture coordinates");
+            }
+        }
     require(lookup.empty(), "Unexpected file in model artifact");
     return index;
 }

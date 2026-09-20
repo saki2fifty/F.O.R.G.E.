@@ -9,8 +9,8 @@ struct GltfModelCookOptions {
     bool desktop_bc = false;
     unsigned maximum_texture_size = 16384;
 };
-// Native worker stage for static model candidates. Animation/skin/camera/light
-// realization has its own required stages and is rejected by this profile.
+// Native worker stage for model geometry, material variants, camera/light values
+// and node flags. Animation/skin realization still requires its separate stages.
 std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& source,
                                                   const GltfModelCookOptions& options = {},
                                                   std::stop_token stop = {});
