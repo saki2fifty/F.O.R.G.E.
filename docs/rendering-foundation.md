@@ -175,3 +175,25 @@ Windows fixtures cover two independently moved views sharing native pipeline
 states, live rendering after cache reset, fallback texture pixels and constant
 radiance preservation across every face/mip of native IBL convolution. Validation
 of this new native subset is pending until its source-only Windows audit passes.
+
+### Cooked mesh and texture upload
+
+The same backend-private target admits cooked CPU data before creating a detached
+native GPU candidate. It keeps every mesh LOD, indexed topology, vertex channel,
+integer joint index, tangent sign, prepared palette and morph channel. Base streams
+are interleaved without numerical conversion; morph streams retain named byte
+offsets in a raw immutable buffer. Material slot numbers remain revision-local.
+No source parser, gameplay entity or catalog mutation is available to upload code.
+
+Texture upload covers every admitted FORGE format through one mapping shared with
+native import, including sRGB and block-compressed formats. Complete mip chains,
+2D/array/cube/cube-array/volume subresources use explicit row and depth strides.
+Adapter dimension, array and sampled-format capability checks precede allocation.
+Sampler binding preserves filter, wrap, comparison, anisotropy, LOD and border
+settings; it is a separate native resource so two materials may sample one texture
+differently. Unsupported capabilities diagnose rather than silently substitute.
+This does not by itself wire imported materials or skinning into Scene/Game.
+
+Local importer/recipe regressions pass after extracting the format mapping.
+Compiler syntax checks cover the native upload adapters and GPU test code on the
+exact Linux headers; Windows byte-readback execution remains a separate gate.

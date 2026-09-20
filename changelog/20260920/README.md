@@ -998,3 +998,18 @@
 - Add Windows pixel/resource regressions for independent views, cache reset and
   constant-radiance cube convolution. These native checks are pending execution;
   this is not a claim that the full imported-material renderer is complete.
+
+### Cooked resource GPU uploads
+
+- Upload validated mesh LODs, indexed topology, all vertex channels, integer skin
+  indices/palettes, tangent signs and named morph deltas without altering values.
+- Upload complete cooked texture subresources with a shared native format mapping,
+  explicit color space and device capability admission; retain separate per-binding
+  sampler state. Invalid candidates leave existing GPU resources intact.
+- Add Windows byte-readback cases for all admitted texture formats/dimensions,
+  mip/face/volume ordering, mesh stream interleaving and failed replacement.
+- Local texture import/recipe checks passed2/2 after correcting include propagation
+  for the extracted format adapter. Native GPU execution remains pending.
+- The camera/light Windows audit exposed a missing propagated Diligent platform
+  definition in the shader-worker test target. Correct the native public-header
+  target dependency and retain the explicit Windows test definitions.

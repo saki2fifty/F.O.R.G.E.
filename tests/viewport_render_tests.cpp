@@ -160,7 +160,9 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
     require(checked >= 2, "Axis fixture does not cover visible world coordinates");
 }
 } // namespace
+#include "mesh_gpu_tests.hpp"
 #include "presentation_diligent_tests.hpp"
+#include "texture_gpu_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Expected image output directory");
@@ -222,6 +224,8 @@ int main(int argc, char** argv) {
             save(pixels, w, h, images / (std::string(name) + ".ppm"));
             return pixels;
         };
+        check_mesh_upload(presentation, context);
+        check_texture_upload(presentation, context);
         check_native_pbr(presentation, context);
         auto original = render("grid");
         check_axes(original, width, height, camera);
