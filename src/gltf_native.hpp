@@ -1,4 +1,5 @@
 #pragma once
+#include "mesh_processing.hpp"
 #include <array>
 #include <forge/gltf_accessors.hpp>
 #include <forge/mesh_asset.hpp>
@@ -113,4 +114,6 @@ class NativeGltfDocument {
     std::size_t captured_reads_ = 0;
 };
 MeshData cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index);
+ProcessedMesh cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index,
+                             const MeshProcessingOptions& options);
 } // namespace forge::asset_detail

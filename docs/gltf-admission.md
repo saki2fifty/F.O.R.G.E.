@@ -251,3 +251,43 @@ Regression evidence covers actual source capture, native conversion, index modes
 and widths, filter decoding, undefined filter inputs, truncated streams, rejected
 newer formats, bounded output, cancellation and unchanged provenance. No complete
 Content model-import UI or GPU renderability is implied by these private tests.
+
+## Mesh preparation and attribute preservation
+
+Native mesh cooking now uses the private shared mesh preparation pass. The default
+recipe retains supplied normals/tangents, generates missing flat normals and
+MikkTSpace-compatible tangents when normals and the selected UV set are available,
+welds exactly identical vertices, and optimizes vertex fetch. Explicit recipes can
+preserve all streams/order or recalculate flat normals/tangents. Normal-map UV
+selection is per material slot; a selected missing UV set is an error. Automatic
+preparation without UVs does not invent a texture mapping or tangent stream.
+
+Missing normals require flat shading under glTF; existing tangents become invalid
+when those flat normals are generated. Each morph target gets its own generated
+flat normal and tangent delta where applicable. Morph tangent W remains the base
+sign, as specified by glTF; endpoint sign differences are diagnosed. A collapsed
+face has no unique normal, so it receives a finite+Y fallback and a diagnostic;
+a zero target normal uses the base direction during tangent preparation. Neither
+case claims a physically meaningful surface direction for a collapsed face.
+
+The exact meshoptimizer tangent API is **experimental within stable1.2** and stays
+behind the private tool boundary. FORGE selects its Mikk-compatible weighting.
+Positions and UVs are translated/scaled only in temporary native working copies,
+using a positive uniform scale to avoid float intermediate overflow/underflow;
+the original cooked position and UV values stay unchanged. The generated direction
+must still be finite/unit length. Unrepresentable ranges fail the candidate.
+
+Tangent output is per corner, so mirror seams may split vertices. Every base stream,
+exact integer joint index, skin-weight set, custom channel and morph stream follows
+the same remap. Native custom equality compares all channels; it is not restricted
+to the sixteen streams of meshoptimizer's Multi convenience API. Bounds are
+recomputed after unused vertices are removed. Material slots, morph labels/defaults
+and primitive topology remain intact.
+
+Primitive/corner order is retained by default. Triangle-cache reordering requires
+an explicit order-independent material-slot list; transparent materials must not
+be opted in blindly. This pass does not perform lossy simplification, manufacture
+LODs, change scene transforms or allocate logical asset identities. Corner expansion
+and output remain within configured Mesh limits, and native allocations remain
+subject to the import worker's hard memory/time limits. Failure/cancellation leaves
+the admitted input mesh unchanged.

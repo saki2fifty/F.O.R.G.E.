@@ -1,7 +1,8 @@
 #include "gltf_native.hpp"
 
 namespace forge::asset_detail {
-MeshData cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index) {
+ProcessedMesh cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index,
+                             const MeshProcessingOptions& options) {
     const auto& source = document.source().document;
     const auto& mesh = source.at("meshes").at(mesh_index);
     const auto materials = source.contains("materials") ? source.at("materials").size() : 0;
@@ -65,6 +66,9 @@ MeshData cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_ind
     }
     result.lods.push_back(std::move(lod));
     validate_mesh(result);
-    return result;
+    return process_mesh(result, options);
+}
+MeshData cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index) {
+    return cook_gltf_mesh(document, mesh_index, {}).mesh;
 }
 } // namespace forge::asset_detail

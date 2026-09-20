@@ -8,7 +8,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
-| meshoptimizer | 1.2 / `9d9890c73011d75920af614485296d1e03e95448` | Private native glTF EXT buffer decompression and filters | [Source](https://github.com/zeux/meshoptimizer/tree/9d9890c73011d75920af614485296d1e03e95448) |
+| meshoptimizer | 1.2 / `9d9890c73011d75920af614485296d1e03e95448` | Private EXT buffer decode, Mikk-compatible tangents and coherent remapping | [Source](https://github.com/zeux/meshoptimizer/tree/9d9890c73011d75920af614485296d1e03e95448) |
 | KTX Software | 4.4.2 / `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` | Private containers and Basis codecs | [Source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6) |
 | libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode and native demux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
@@ -191,9 +191,11 @@ FORGE calls native buffer decoders and filters after its bounded admission;
 no API or native type enters the gameplay SDK. No global encoder-version or allocator
 configuration is changed. Original captured sources remain immutable. Runtime
 cooked Mesh format and scene/component formats are unchanged by this addition.
-The library also provides optimization, simplification and tangent generation;
-linking those capabilities does not claim their integration. Tangent generation
-is explicitly experimental in this stable library and must remain private if used.
+The private mesh preparation pass also uses native custom equality remapping,
+vertex-fetch optimization, explicit order-independent triangle-cache optimization
+and Mikk-compatible tangent generation. Simplification and LOD creation are not
+implemented merely by linking the library. Tangent generation is explicitly
+experimental in this stable library; no such API enters the SDK.
 
 Known specification drift: the checked Khronos registry still labels
 KHR_meshopt_compression a release candidate. The ratified EXT format requires

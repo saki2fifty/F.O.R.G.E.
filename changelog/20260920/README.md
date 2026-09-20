@@ -366,3 +366,13 @@
 - Reject undefined filter inputs, malformed/truncated buffers and newer KHR-only bitstreams rather than silently decoding them as EXT. KHR remains an unenabled release candidate in the checked registry.
 - Accept required KHR_mesh_quantization attribute/morph formats through native conversion; normalize rounded directions, preserve tangent signs, compare normalized bounds and accept valid tightly packed four-byte vertex elements.
 - Local glTF regression suites pass8/8 normal and8/8 strict ASan/UBSan/LSan; added compressed-image/nonfinite cases pass both profiles. Exact upstream meshoptimizer tests also pass with assertions and strict sanitizers. Windows checks for this increment remain pending. Full Phase7 importer/rendering integration and final numbered delivery remain in progress.
+
+### Mesh preparation and morph-safe geometry optimization
+
+- Connect native mesh cooking to reusable private preparation with supplied-direction preservation, missing flat normals, Mikk-compatible tangents, selected normal-map UV sets and explicit recalculation recipes.
+- Generate each morph target's normal/tangent deltas, retain glTF base tangent handedness and report changed target signs or collapsed-direction fallbacks.
+- Split mirrored UV seams and remap all channels together, including exact integer joints, every skin-weight set, custom channels and morph deltas. Native custom equality avoids the sixteen-stream convenience API limit.
+- Keep source primitive order by default; only explicitly order-independent material slots enable triangle-cache reordering. Recompute bounds and preserve material/morph metadata.
+- Condition temporary native position/UV data to keep tangent calculation valid at tested1e-25 and1e25 scales without altering cooked source coordinates.
+- Four focused cooking/preparation regressions pass normal and strict ASan/UBSan/LSan profiles. Format, workflow and manual checks pass; Windows validation for this increment is pending. Full model-worker publication, UI and production rendering remain in progress.
+- Prior texture service/editor checkpoint2f60c02 passed all18 unnumbered Windows audit tests; normal and200% texture document screenshots inspected. No new numbered package is delivered yet.
