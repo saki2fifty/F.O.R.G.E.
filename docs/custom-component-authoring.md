@@ -175,3 +175,11 @@ admission from an arbitrary opaque type or STL layout. The const read path check
 count before iteration and requires exactly one value of the declared native type
 per element. Null typed references remain null. This exception is an explicit
 engine adapter, not generic permission to load project callbacks into the editor.
+
+An explicitly selected engine-owned `std::string` adapter now follows the pinned
+`ser_std_vector` example: native `EcsOpaque.as_type = String`, serialization and
+string assignment. Its const reader accepts exactly one native String emission,
+checks byte bounds before making the JSON copy, and rejects embedded NUL instead
+of truncating it. Arbitrary project opaque strings remain unadmitted. The same
+checked single-value serializer is reused for vector elements; missing, duplicate,
+wrong-type and unexpected named emissions fail safely.

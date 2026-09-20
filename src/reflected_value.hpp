@@ -3,10 +3,10 @@
 #include <nlohmann/json.hpp>
 #include <span>
 namespace forge::detail {
-// Explicit engine-owned reference/vector adapters only. No arbitrary project opaque types.
+// Explicit engine-owned reference/container adapters only. No arbitrary project opaque types.
 struct ReflectedAdapter {
     ecs_entity_t type;
-    const char* kind; // asset_ref, entity_ref, or vector (native EcsOpaque adapter).
+    const char* kind; // asset_ref, entity_ref, vector, or string (native EcsOpaque adapter).
     const char* asset_type = nullptr;
     nlohmann::json (*read)(const void*) = nullptr;
     void (*assign)(void*, const nlohmann::json&) = nullptr;

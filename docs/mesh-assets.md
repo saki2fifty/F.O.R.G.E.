@@ -98,3 +98,13 @@ unprepared data; a future GPU skin consumer must require a prepared palette.
 The private model cooker now supports this representation. Whole-model animated
 publication and the corresponding user-facing import setting remain integration
 work; no unused setting is exposed by the current static model recipe.
+
+## Runtime material bindings
+
+Cooked physical material ordinals are local to one mesh revision. The runtime
+[resource provider](runtime-resources.md) pairs admitted geometry with stable
+logical binding tokens and typed material references. It includes used slots in
+all LODs, supports sparse overrides and diagnoses removed bindings. Reordering or
+renaming source materials does not retarget an override. This CPU provider is an
+integration step toward scene MeshRenderer authoring and GPU draws, which remain
+under development.

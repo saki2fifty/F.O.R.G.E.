@@ -124,3 +124,45 @@ that would cycle back through its own members. The clip readiness ticket depends
 on its skeleton; the consumer owns both leases. Legacy animation-only assets keep
 their prior cache during this migration. See[animation](animation.md) for budgets,
 paused loading, local signed-scale sampling and recovery boundaries.
+
+## Model mesh and material selections
+
+The model render resource adapters load the selected cooked family on a resource
+worker, validate its hashes, catalog types, owner, revision and generation, then
+prepare a mesh or material candidate. They do not reopen the source glTF file.
+The existing resource pool adopts on its owning thread and retains leased older
+revisions. Material requests include a canonical layout digest as a variant;
+a request for an incompatible layout cannot coalesce with an already admitted one.
+This is CPU admission, not a claim of Diligent shader reflection or GPU realization.
+
+A mesh lease now contains geometry and a sparse binding table covering the physical
+slots actually used across all LODs. A source may declare65536 material slots without
+requiring65536 authored overrides. Imported slot0 has key `default`; other imported
+keys use `material:<MaterialAssetId>`. These are mesh-qualified binding tokens,
+not new globally identifiable assets. Source array positions remain revision-local.
+Future authored meshes may supply different stable local tokens through the same
+binding interface. Display labels are separate from the bounded ASCII tokens.
+
+A material override names a binding token and a typed replacement MaterialAssetId.
+An absent entry follows the mesh's current default; an explicit null replacement
+selects the built-in default material. Duplicate entries reject. Removed slots
+produce unresolved diagnostics and leave the authored entry intact, rather than
+retargeting it by source ordinal. A duplicated model family with new MaterialAssetIds
+must explicitly remap these understood imported tokens if its override assignments
+are copied; opaque plugin data remains untouched. Scene authoring and model-family
+duplication integration are still pending, so this paragraph defines their required
+behavior rather than claiming those workflows are enabled.
+
+Standalone cooked-file mesh loading accepts explicit binding descriptors. Only a
+single-default-slot mesh may synthesize the `default` assignment without catalog
+metadata. Nondefault geometry cannot silently lose its material assignments.
+The source-level helper remains outside the installed gameplay SDK.
+
+Model textures use the same selected family and a semantic variant key (color,
+normal, data or HDR). The worker reads admitted cooked variant bytes and preserves
+their semantic/format; it does not infer color space from a filename. Missing
+variants fail explicitly while existing leases remain usable. A draw consumer must
+retain compatible mesh, material and texture leases together; individual successful
+loads are not a claim of atomic GPU draw-set publication. Current preparation
+validates a bounded family per requested member; shared family preparation and
+measured production draw workloads remain integration work.

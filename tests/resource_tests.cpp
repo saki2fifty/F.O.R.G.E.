@@ -47,7 +47,8 @@ using Pool = ResourcePool<MeshAsset>;
 std::string revision(char c) { return std::string(64, c); }
 Pool::Loader load(float x = 1) {
     return [x](std::stop_token) {
-        auto data = std::make_unique<MeshData>(mesh(x));
+        auto data =
+            std::make_unique<MeshResourceData>(MeshResourceData{mesh(x), {{0, "default", {}}}});
         const auto n = data->resident_bytes();
         return ResourceCandidate<MeshAsset>{std::move(data), {n}};
     };
@@ -88,12 +89,13 @@ int main(int argc, char** argv) {
         auto first = pool.acquire(tickets[0]);
         auto weak = first.weak();
         const auto original = first.identity();
-        require(first && first->lods[0].parts[0].bounds.maximum[0] == 1, "Ready resource absent");
+        require(first && first->mesh.lods[0].parts[0].bounds.maximum[0] == 1,
+                "Ready resource absent");
         require(pool.evict_idle(0) == 0, "Evicted strong lease");
         auto newer = pool.request(asset, revision('b'), 2, load(2));
         require(pool.wait(newer, 5s), "Replacement failed");
-        require(first->lods[0].parts[0].bounds.maximum[0] == 1 &&
-                    pool.current(asset)->lods[0].parts[0].bounds.maximum[0] == 2,
+        require(first->mesh.lods[0].parts[0].bounds.maximum[0] == 1 &&
+                    pool.current(asset)->mesh.lods[0].parts[0].bounds.maximum[0] == 2,
                 "Replacement mutated previous lease");
         require(pool.statistics().retired == 1 && weak.lock().identity() == original,
                 "Old revision was not retained");
@@ -110,7 +112,7 @@ int main(int argc, char** argv) {
         require(!pool.wait(failed, 5s) && failed.inspect().state == ResourceState::Failed &&
                     failed.inspect().previous_good,
                 "Failure lost diagnostic/previous-good state");
-        require(pool.current(asset)->lods[0].parts[0].bounds.maximum[0] == 2,
+        require(pool.current(asset)->mesh.lods[0].parts[0].bounds.maximum[0] == 2,
                 "Failed reload lost last good");
         const AssetRef<MeshAsset> missing{AssetId::generate()};
         auto resolution = pool.resolve(missing, pool.current(asset));
@@ -137,7 +139,7 @@ int main(int argc, char** argv) {
         drained(pool);
         require(!pool.current(asset) && late.inspect().state == ResourceState::Stale,
                 "Unload resurrected resource");
-        require(leased->lods[0].parts[0].bounds.maximum[0] == 2,
+        require(leased->mesh.lods[0].parts[0].bounds.maximum[0] == 2,
                 "Unload invalidated active old lease");
         leased = {};
         pool.collect();
@@ -181,23 +183,23 @@ int main(int argc, char** argv) {
         pool.cancel(child);
         drained(pool);
         require(cancelled.inspect().state == ResourceState::Cancelled &&
-                    pool.current(child)->lods[0].parts[0].bounds.maximum[0] == 1,
+                    pool.current(child)->mesh.lods[0].parts[0].bounds.maximum[0] == 1,
                 "Cancel discarded last good");
         // Compatibility failure happens at owner boundary, before selection.
-        Pool compatible({}, [](const MeshData& candidate, const MeshData* prior) {
-            if (prior && candidate.lods[0].parts[0].bounds.maximum[0] !=
-                             prior->lods[0].parts[0].bounds.maximum[0])
+        Pool compatible({}, [](const MeshResourceData& candidate, const MeshResourceData* prior) {
+            if (prior && candidate.mesh.lods[0].parts[0].bounds.maximum[0] !=
+                             prior->mesh.lods[0].parts[0].bounds.maximum[0])
                 throw std::runtime_error("binding mismatch");
         });
         auto initial = compatible.request(asset, revision('a'), 1, load());
         require(compatible.wait(initial, 5s), "Initial compatible load failed");
         auto incompatible = compatible.request(asset, revision('b'), 2, load(2));
         require(!compatible.wait(incompatible, 5s) &&
-                    compatible.current(asset)->lods[0].parts[0].bounds.maximum[0] == 1,
+                    compatible.current(asset)->mesh.lods[0].parts[0].bounds.maximum[0] == 1,
                 "Incompatible replacement adopted");
         // Completed/live/retired bytes share one budget; strong references pin it.
         ResourcePoolLimits limits;
-        limits.bytes = mesh().resident_bytes();
+        limits.bytes = load()(std::stop_token{}).value->resident_bytes();
         Pool budget(limits);
         auto one = budget.request(asset, revision('a'), 1, load());
         require(budget.wait(one, 5s), "Budget fixture failed");
@@ -247,13 +249,13 @@ int main(int argc, char** argv) {
             require(variants.wait(color, 5s) && variants.wait(linear, 5s),
                     "Variants displaced each other");
             auto old_color = variants.acquire(color);
-            require(variants.acquire(linear)->lods[0].parts[0].bounds.maximum[0] == 2 &&
+            require(variants.acquire(linear)->mesh.lods[0].parts[0].bounds.maximum[0] == 2 &&
                         old_color.identity().asset == asset.id &&
                         old_color.identity().variant == "d3d12.srgb" && !variants.current(asset),
                     "Variant identity/default lookup incorrect");
             auto changed = variants.request(asset, revision('c'), 2, load(3), {}, 0, "d3d12.srgb");
             require(variants.wait(changed, 5s) && linear.inspect().state == ResourceState::Ready &&
-                        old_color->lods[0].parts[0].bounds.maximum[0] == 1,
+                        old_color->mesh.lods[0].parts[0].bounds.maximum[0] == 1,
                     "Variant reload crossed selection/lifetime");
             rejects(
                 [&] { variants.request(asset, revision('d'), 1, load(), {}, 0, "d3d12.srgb"); });
@@ -264,6 +266,47 @@ int main(int argc, char** argv) {
                         variants.current(asset, "d3d12.linear") &&
                         variants.statistics().selected == 1,
                     "Variant unload crossed selection");
+        }
+        // Sparse bindings cover used slots in every LOD, never all source slots.
+        auto bound_mesh = MeshResourceData{mesh(), {{0, "default", {}}}};
+        bound_mesh.mesh.material_slots = 65536;
+        auto second_lod = bound_mesh.mesh.lods[0];
+        second_lod.screen_coverage = .5f;
+        second_lod.parts[0].material_slot = 65000;
+        bound_mesh.mesh.lods.push_back(second_lod);
+        const AssetRef<MaterialAsset> source_material{AssetId::generate()},
+            replacement_material{AssetId::generate()};
+        bound_mesh.materials.push_back({65000, "surface:paint", source_material});
+        validate_mesh_material_bindings(bound_mesh);
+        std::vector<MaterialSlotOverride> overrides{{"surface:paint", replacement_material},
+                                                    {"removed", source_material}};
+        const auto resolved = select_mesh_materials(bound_mesh, overrides);
+        require(resolved.bindings.size() == 2 &&
+                    resolved.bindings[1].material == replacement_material &&
+                    resolved.unresolved == std::vector<std::string>{"removed"} &&
+                    overrides.size() == 2,
+                "Sparse/removed material override retargeted or discarded");
+        overrides[0].material = {};
+        require(!select_mesh_materials(bound_mesh, overrides).bindings[1].material.id,
+                "Explicit default assignment ignored");
+        overrides.clear();
+        require(select_mesh_materials(bound_mesh, overrides).bindings[1].material ==
+                    source_material,
+                "Absent override did not follow mesh material");
+        overrides = {{"surface:paint", {}}, {"surface:paint", replacement_material}};
+        rejects([&] { select_mesh_materials(bound_mesh, overrides); });
+        auto invalid_binding = bound_mesh;
+        invalid_binding.materials.pop_back();
+        rejects([&] { validate_mesh_material_bindings(invalid_binding); });
+        invalid_binding = bound_mesh;
+        invalid_binding.materials[1].key = "default";
+        rejects([&] { validate_mesh_material_bindings(invalid_binding); });
+        invalid_binding = bound_mesh;
+        invalid_binding.materials[1].physical_slot = 1;
+        rejects([&] { validate_mesh_material_bindings(invalid_binding); });
+        for (const auto& key : {std::string{}, std::string(256, 'a'), std::string("bad/key")}) {
+            overrides = {{key, {}}};
+            rejects([&] { select_mesh_materials(bound_mesh, overrides); });
         }
         // Actual cooked-file provider validates content before runtime adoption.
         const auto bytes = encode_mesh(mesh());
@@ -276,7 +319,7 @@ int main(int argc, char** argv) {
         }
         Pool actual;
         auto actual_ticket = actual.request(asset, digest, 1, mesh_resource_loader(path, digest));
-        require(actual.wait(actual_ticket, 5s) && actual.current(asset)->byte_size() == 48,
+        require(actual.wait(actual_ticket, 5s) && actual.current(asset)->mesh.byte_size() == 48,
                 "Actual cooked mesh provider failed");
         auto corrupt =
             actual.request(asset, revision('a'), 2, mesh_resource_loader(path, revision('a')));

@@ -1,4 +1,5 @@
 #pragma once
+#include "../src/reflected_string.hpp"
 #include "../src/reflected_value.hpp"
 #include "../src/reflected_vector.hpp"
 #include <forge/asset_ref.hpp>
@@ -159,6 +160,51 @@ inline void test_reflected_native() {
     }
     native_adapter->serialize_element = good_element;
     require(refused, "Opaque vector callback changed the admitted element type");
+    auto owned_string = world.component<std::string>("EngineString");
+    owned_string.opaque(reflected_string);
+    auto string_vector = world.component<std::vector<std::string>>("EngineStringVector");
+    string_vector.opaque(reflected_vector<std::string>);
+    const ReflectedAdapter string_adapters[] = {{owned_string.id(), "string"},
+                                                {string_vector.id(), "vector"}};
+    const auto text_values = Json::array({"slot:paint", "UTF-8 \xc3\xa9", ""});
+    ReflectedCandidate text_candidate(world, string_vector, text_values, string_adapters);
+    require(read_reflected_native(world, string_vector, text_candidate.data(), string_adapters) ==
+                text_values,
+            "Explicit engine string/vector adapter failed");
+    std::string oversized(65536, 'a');
+    refused = false;
+    try {
+        (void)read_reflected_native(world, owned_string, &oversized, string_adapters);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    require(refused, "Native opaque string allocation was not bounded");
+    std::string embedded_zero("a\0b", 3);
+    refused = false;
+    try {
+        (void)read_reflected_native(world, owned_string, &embedded_zero, string_adapters);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    require(refused, "Native string silently truncated an embedded zero");
+    refused = false;
+    try {
+        (void)reflected_type_schema(world, owned_string);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    require(refused, "String opaque was admitted without explicit adapter");
+    auto* string_opaque = ecs_get_mut(world.c_ptr(), owned_string.id(), EcsOpaque);
+    const auto good_string = string_opaque->serialize;
+    string_opaque->serialize = [](const ecs_serializer_t*, const void*) { return 0; };
+    refused = false;
+    try {
+        (void)read_reflected_native(world, owned_string, &oversized, string_adapters);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    string_opaque->serialize = good_string;
+    require(refused, "String opaque silently omitted the value");
     auto moved = std::move(source);
     require(!source.data() && read_reflected_native(world, type_a, moved.data()) == value,
             "Detached native value move lost ownership");

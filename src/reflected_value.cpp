@@ -253,6 +253,16 @@ struct Projection {
                 stack.pop_back();
                 return vector;
             }
+            if (kind == "string") {
+                const auto* opaque = ecs_get(world, id, EcsOpaque);
+                const auto* primitive_type =
+                    opaque ? ecs_get(world, opaque->as_type, EcsPrimitive) : nullptr;
+                if (!primitive_type || primitive_type->kind != EcsString || !opaque->serialize ||
+                    !opaque->assign_string)
+                    fail("reflection", "Engine string adapter needs native String callbacks");
+                result = {{"type", "string"}};
+                break;
+            }
             if (kind != "asset_ref" && kind != "entity_ref")
                 fail("reflection", "Unknown reference adapter");
             result = {{"type", kind}, {"nullable", true}};

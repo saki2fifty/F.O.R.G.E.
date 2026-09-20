@@ -812,3 +812,29 @@
   and under strict ASan/UBSan/LSan(0.92s). Formatting and whitespace checks passed.
 - The earlier shared-schema checkpointb176f15 passed Windows source audit35524753435,
   33/33 tests(22.97s). The later native-value Windows audit remains separate.
+
+### Model render resource bindings (Phase7 integration in progress)
+
+- Mesh leases carry immutable geometry plus sparse logical material bindings for
+  used slots across every LOD. Imported binding tokens follow MaterialAssetIds,
+  independently of source material ordering and display names.
+- Override resolution distinguishes inherited mesh defaults, explicit default
+  material assignments and unresolved removed slots. Duplicate/invalid bindings
+  reject; unknown slot entries remain intact for diagnostics.
+- Model mesh/material workers validate the complete selected cooked family and
+  prepare candidates through the existing typed resource pools. Material layout
+  digests separate incompatible requests; source files, live worlds and graphics
+  devices are not accessed by these adapters.
+- Scene MeshRenderer authoring, GPU rendering and final Windows delivery remain
+  in progress. This checkpoint does not claim those features are complete.
+- Model textures now prepare through the same selected-family resource adapter,
+  with separate semantic variants and explicit missing-variant errors.
+- Added explicitly admitted native Flecs string adapters for engine-owned values;
+  bounded const reads reject embedded NUL and invalid serializer emissions. They
+  do not authorize loading arbitrary project callbacks into the editor.
+- Validation for the combined resource/string changes: local normal core, resource
+  lifetime, direct model recipe and supervised model pipeline4/4 passed in58.90s;
+  strict ASan/UBSan/LSan core, resource lifetime and direct model recipe3/3 passed
+  in61.86s. Manual3/3, formatting and whitespace checks passed. Windows validation
+  for this combined change is pending; the preceding native-value checkpoint
+  independently passed its33-test Windows editor/model audit.

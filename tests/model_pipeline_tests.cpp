@@ -2,6 +2,7 @@
 #include "asset_import_service.hpp"
 #include "model_authoring.hpp"
 #include "model_importer.hpp"
+#include "model_render_resource.hpp"
 #include "model_selection.hpp"
 #include <forge/model_asset.hpp>
 #include <fstream>
@@ -149,6 +150,67 @@ int main(int argc, char** argv) {
                 require(!loaded_model.bytes(member).empty(),
                         "Selected model member bytes unavailable");
         }
+        ResourcePool<MeshAsset> mesh_resources({1, 64, 64, 128 * 1024 * 1024});
+        ResourcePool<MaterialAsset> material_resources({1, 64, 64, 16 * 1024 * 1024});
+        const AssetRef<MeshAsset> selected_mesh{before.at("/meshes/0")};
+        auto first_catalog = std::make_shared<const AssetCatalog>(first.publication->catalog);
+        auto mesh_request = request_model_mesh(mesh_resources, root, first_catalog, selected_mesh);
+        auto coalesced = request_model_mesh(mesh_resources, root, first_catalog, selected_mesh);
+        require(mesh_request.inspect().identity == coalesced.inspect().identity,
+                "Identical model mesh requests did not coalesce");
+        require(mesh_resources.wait(mesh_request, 10s), "Model mesh resource failed");
+        auto mesh_lease = mesh_resources.acquire(mesh_request);
+        require(mesh_lease && mesh_lease->materials.size() == 1 &&
+                    mesh_lease->materials[0].material.id == before.at("/materials/0"),
+                "Model mesh lost logical material binding");
+        const auto first_slot = mesh_lease->materials[0];
+        const auto cooked_material =
+            decode_material(loaded_model.bytes(loaded_model.member(first_slot.material.id)));
+        MaterialLayout material_layout;
+        material_layout.model = cooked_material.model;
+        for (const auto& [key, field] : cooked_material.parameters)
+            material_layout.parameters[key] = field.type;
+        for (const auto& [key, field] : cooked_material.textures)
+            material_layout.textures[key] = {field.semantic, field.dimension, true};
+        auto material_request = request_model_material(material_resources, root, first_catalog,
+                                                       first_slot.material, material_layout);
+        require(material_resources.wait(material_request, 10s), "Model material resource failed");
+        auto material_lease = material_resources.acquire(material_request);
+        require(material_lease && material_lease->values == cooked_material &&
+                    material_lease->textures.size() == cooked_material.textures.size(),
+                "Model material values or typed texture bindings differ");
+        ResourcePool<TextureAsset> texture_resources({1, 64, 64, 64 * 1024 * 1024});
+        require(!material_lease->textures.empty(), "Official material lost texture fixture");
+        const auto& [texture_role, texture_ref] = *material_lease->textures.begin();
+        const auto texture_semantic = material_lease->values.textures.at(texture_role).semantic;
+        auto texture_request = request_model_texture(texture_resources, root, first_catalog,
+                                                     texture_ref, texture_semantic);
+        require(texture_resources.wait(texture_request, 10s), "Model texture resource failed");
+        auto texture_lease = texture_resources.acquire(texture_request);
+        require(texture_lease && texture_lease->semantic == texture_semantic &&
+                    texture_lease.identity().revision == material_lease.identity().revision &&
+                    texture_lease.identity().revision == mesh_lease.identity().revision,
+                "Model render resource family mixed revisions or color semantics");
+        const auto image_bytes = texture_lease->byte_size();
+        auto missing_variant = request_model_texture(texture_resources, root, first_catalog,
+                                                     texture_ref, TextureSemantic::HdrColor);
+        require(!texture_resources.wait(missing_variant, 10s) &&
+                    texture_lease->byte_size() == image_bytes,
+                "Unavailable texture variant replaced valid color data");
+        auto wrong_layout = material_layout;
+        wrong_layout.model = "incompatible.model";
+        auto rejected_layout = request_model_material(material_resources, root, first_catalog,
+                                                      first_slot.material, wrong_layout);
+        require(rejected_layout.inspect().identity.variant !=
+                        material_request.inspect().identity.variant &&
+                    !material_resources.wait(rejected_layout, 10s) && material_lease,
+                "Incompatible layout coalesced or invalidated good material");
+        std::vector<MaterialSlotOverride> material_overrides{
+            {first_slot.key, {before.at("/materials/1")}}};
+        const auto overridden = select_mesh_materials(*mesh_lease.operator->(), material_overrides);
+        require(overridden.unresolved.empty() &&
+                    overridden.bindings[0].material == material_overrides[0].material,
+                "Material override not resolved through stable binding key");
         auto wrong_catalog = first.publication->catalog;
         auto wrong_record = wrong_catalog.records().at(before.begin()->second);
         wrong_record.metadata["forge.import"]["generation"] = 999u;
@@ -205,6 +267,47 @@ int main(int argc, char** argv) {
                                                 : reordered.at(group).size() - 1 - index)) == id,
                     "Reorder/rename retargeted logical subasset");
         }
+        auto new_catalog = std::make_shared<const AssetCatalog>(shuffled.publication->catalog);
+        auto mesh_reimport = request_model_mesh(mesh_resources, root, new_catalog, selected_mesh);
+        require(mesh_resources.wait(mesh_reimport, 10s), "Reordered model mesh resource failed");
+        auto new_mesh_lease = mesh_resources.acquire(mesh_reimport);
+        const auto remapped_materials =
+            select_mesh_materials(*new_mesh_lease.operator->(), material_overrides);
+        require(new_mesh_lease->materials[0].key == first_slot.key &&
+                    new_mesh_lease->materials[0].physical_slot != first_slot.physical_slot &&
+                    remapped_materials.unresolved.empty() &&
+                    remapped_materials.bindings[0].material == material_overrides[0].material &&
+                    mesh_lease->materials[0] == first_slot,
+                "Source reorder retargeted override or mutated a pinned old mesh");
+        auto invalid_catalog = std::make_shared<AssetCatalog>(shuffled.publication->catalog);
+        auto bad_mesh_record = invalid_catalog->records().at(selected_mesh.id);
+        bad_mesh_record.metadata["forge.model"]["sha256"] = std::string(64, '0');
+        invalid_catalog->replace(bad_mesh_record);
+        // A different pool forces verification instead of reusing an admitted revision.
+        ResourcePool<MeshAsset> invalid_pool;
+        auto bad_mesh_request =
+            request_model_mesh(invalid_pool, root, invalid_catalog, selected_mesh);
+        require(!invalid_pool.wait(bad_mesh_request, 10s) && new_mesh_lease && mesh_lease,
+                "Bad model metadata accepted or existing mesh leases invalidated");
+        auto bad_replacement = std::make_shared<AssetCatalog>(shuffled.publication->catalog);
+        std::vector<AssetRecord> next_records;
+        for (const auto& [id, record] : bad_replacement->records()) {
+            (void)id;
+            if (record.metadata.contains("forge.import")) {
+                auto next = record;
+                next.metadata["forge.import"]["generation"] =
+                    next.metadata["forge.import"]["generation"].get<std::uint64_t>() + 1;
+                next.metadata["forge.import"]["artifact_digest"] = std::string(64, '0');
+                next_records.push_back(std::move(next));
+            }
+        }
+        for (auto& record : next_records)
+            bad_replacement->replace(record);
+        auto bad_replacement_request =
+            request_model_mesh(mesh_resources, root, bad_replacement, selected_mesh);
+        require(!mesh_resources.wait(bad_replacement_request, 10s) &&
+                    mesh_resources.current(selected_mesh).identity() == new_mesh_lease.identity(),
+                "Invalid next model family replaced previous good mesh");
         // Reorder all source nodes without changing their graph, then rename them.
         // Address changes must not become persistent provenance changes.
         const auto old_node_count = reordered.at("nodes").size();

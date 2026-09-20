@@ -86,6 +86,47 @@ struct Reader {
                 type, schema, static_cast<const std::byte*>(data) + i * std::size_t(layout->size)));
         return result;
     }
+    template <class Emit> Json emitted(ecs_entity_t type, const Json& schema, Emit emit) {
+        struct Element {
+            Reader* reader;
+            ecs_entity_t type;
+            const Json* schema;
+            Json value;
+            std::exception_ptr error;
+            bool called = false;
+        } element{this, type, &schema, {}, {}, false};
+        ecs_serializer_t serializer{};
+        serializer.world = world;
+        serializer.ctx = &element;
+        serializer.value_ = [](const ecs_serializer_t* ser, ecs_entity_t element_type,
+                               const void* ptr) -> int {
+            auto& e = *static_cast<Element*>(ser->ctx);
+            try {
+                if (e.called || element_type != e.type)
+                    throw std::runtime_error(
+                        "Native value adapter emitted wrong/duplicate element");
+                e.called = true;
+                e.value = e.reader->read(element_type, *e.schema, ptr);
+                return 0;
+            } catch (...) {
+                e.error = std::current_exception();
+                return -1;
+            }
+        };
+        serializer.member_ = [](const ecs_serializer_t* ser, const char*) -> int {
+            auto& e = *static_cast<Element*>(ser->ctx);
+            e.error = std::make_exception_ptr(
+                std::runtime_error("Native value adapter emitted an unexpected named member"));
+            return -1;
+        };
+        const auto status = emit(&serializer);
+        if (element.error)
+            std::rethrow_exception(element.error);
+        checked(status);
+        if (!element.called)
+            throw std::runtime_error("Native value adapter omitted an element");
+        return std::move(element.value);
+    }
     Json read(ecs_entity_t type, const Json& schema, const void* value) {
         if (!value)
             throw std::runtime_error("Missing native reflected value");
@@ -127,45 +168,10 @@ struct Reader {
                 consume(count);
                 Json result = Json::array();
                 for (std::size_t i = 0; i < count; ++i) {
-                    struct Element {
-                        Reader* reader;
-                        ecs_entity_t type;
-                        const Json* schema;
-                        Json value;
-                        std::exception_ptr error;
-                        bool called = false;
-                    } element{this, vector.type, &schema.at("element"), {}, {}, false};
-                    ecs_serializer_t serializer{};
-                    serializer.world = world;
-                    serializer.ctx = &element;
-                    serializer.value_ = [](const ecs_serializer_t* ser, ecs_entity_t element_type,
-                                           const void* ptr) -> int {
-                        auto& e = *static_cast<Element*>(ser->ctx);
-                        try {
-                            if (e.called || element_type != e.type)
-                                throw std::runtime_error(
-                                    "Native vector adapter emitted wrong/duplicate element");
-                            e.called = true;
-                            e.value = e.reader->read(element_type, *e.schema, ptr);
-                            return 0;
-                        } catch (...) {
-                            e.error = std::current_exception();
-                            return -1;
-                        }
-                    };
-                    serializer.member_ = [](const ecs_serializer_t* ser, const char*) -> int {
-                        auto& e = *static_cast<Element*>(ser->ctx);
-                        e.error = std::make_exception_ptr(std::runtime_error(
-                            "Native vector adapter emitted an unexpected named member"));
-                        return -1;
-                    };
-                    const auto status = opaque->serialize_element(&serializer, value, i);
-                    if (element.error)
-                        std::rethrow_exception(element.error);
-                    checked(status);
-                    if (!element.called)
-                        throw std::runtime_error("Native vector adapter omitted an element");
-                    result.push_back(std::move(element.value));
+                    result.push_back(
+                        emitted(vector.type, schema.at("element"), [&](const auto* serializer) {
+                            return opaque->serialize_element(serializer, value, i);
+                        }));
                 }
                 return result;
             }
@@ -181,6 +187,14 @@ struct Reader {
             if (!ref.read)
                 throw std::runtime_error("Reference adapter has no native reader");
             return ref.read(value);
+        }
+        if (kind == "string") {
+            if (const auto* opaque = ecs_get(world, type, EcsOpaque)) {
+                (void)adapter_for(references, type);
+                return emitted(opaque->as_type, schema, [&](const auto* serializer) {
+                    return opaque->serialize(serializer, value);
+                });
+            }
         }
         // Pinned enum cursor getters read i32, independently of underlying_kind.
         // Use the enum's native primitive metadata at the same local pointer.

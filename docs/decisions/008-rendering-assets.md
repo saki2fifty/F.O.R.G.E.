@@ -30,3 +30,17 @@ Phase 7 may implement the authorized first asset/rendering slice. Lighting, VFX,
 graphs, LOD streaming and production export remain separately gated. Their extension
 slots are defined in the contract, not shipped placeholder components. No parallel
 permanent cube-only rendering path is approved.
+
+## Phase7 material binding clarification — 2026-09-20
+
+"Indexed Material AssetRefs" refers to resolving a cooked mesh's physical draw
+slots. It must not make a source array index the durable identity of an authored
+assignment. FORGE's actual glTF cooker uses source material index+1 for physical
+slots, and its subasset reconciliation preserves MaterialAssetIds across reorder.
+Persisting those raw slot numbers would therefore retarget overrides after a valid
+source edit. The resource adapter now projects stable mesh-qualified binding tokens
+from the resolved logical material IDs and retains physical indices only in the
+current immutable revision. Sparse overrides use those tokens; removed bindings
+remain unresolved instead of being reassigned. This preserves the original single
+Mesh/Material path and ID families. It is a source-backed representation correction,
+not a change to Flecs scene authority or authorization for a separate material graph.
