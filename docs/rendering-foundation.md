@@ -236,3 +236,22 @@ has25% vertical screen coverage. This library is tested with large origins and
 singular transforms; connecting selected draw parts and deformed bounds to the
 production renderer remains part of Phase7. Static bounds must not cull animated
 geometry until the deformation consumer supplies conservative updated bounds.
+
+### Built-in material model admission
+
+`prepare_pbr_material` validates the three existing glTF-derived material models
+against model-owned parameter declarations and texture roles before a selected
+model material becomes a CPU resource. It checks names, exact scalar/color types,
+ranges, workflow compatibility,2D texture semantics and ordinary surface samplers.
+Generic custom Shader materials retain their independent reflected-layout boundary.
+The selected exact MaterialLayout comes from these declarations after validation;
+copying arbitrary input names/types into a layout is not compatibility evidence.
+
+Default expansion creates a derived copy and never creates authored overrides.
+Absent attenuation distance stays absent. The adapter retains negative normal-map
+strength, alpha cutoffs above one, HDR specular-color factors, IOR zero or at least
+one, and arbitrary preserved UV-set numbers. Iridescence thickness endpoints may
+be reversed, explicitly permitted by the exact Khronos extension. Double evaluation
+of the IOR reflectance ratio avoids unnecessary intermediate float overflow.
+Native shading and complete refraction/dispersion consumers remain in progress;
+admitting a material parameter does not prove that it is rendered.

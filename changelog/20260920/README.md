@@ -1055,3 +1055,18 @@
 - Native production draw/deformation integration remains in progress.
 - Focused bounds regressions passed normally and under strict ASan/UBSan/LSan
   (1/1 each); source formatting, manual3/3, workflow lint and whitespace checks pass.
+
+### Built-in material compatibility
+
+- Validate imported metallic/roughness, legacy specular/glossiness and unlit material
+  parameters against independent model declarations before resource adoption. Check
+  texture color space, dimension and sampling kind; retain binding UV transforms.
+- Expand defaults only in derived copies. Preserve valid negative normal strength,
+  reversed iridescence thickness endpoints and IOR edge cases; reject unknown,
+  wrongly typed or incompatible model fields without replacing selected resources.
+- Normal material/model scene/import-recipe regressions passed3/3 in35.36s. Strict
+  ASan/UBSan/LSan material/model checks also passed3/3 in72.05s; complete shaded material rendering remains
+  part of the active Phase7 package.
+- Source6aa4eaf Windows native audit passed36/36 in48.34s, including isolated shader
+  worker, GPU mesh/texture readback, viewport cache isolation and native constant-cube
+  IBL filtering. The later signed-surface/spotlight GPU fixtures require their own run.

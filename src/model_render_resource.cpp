@@ -1,4 +1,5 @@
 #include "model_render_resource.hpp"
+#include "pbr_material.hpp"
 #include <forge/model_asset.hpp>
 #include <forge/texture_bundle.hpp>
 #include <set>
@@ -70,6 +71,7 @@ MaterialResourceData model_material_resource(const ModelSelection& selected,
     require(member.identity.type == MaterialAsset::type, "Selected resource is not a material");
     MaterialResourceData result;
     result.values = decode_material(selected.bytes(member));
+    (void)prepare_pbr_material(result.values);
     for (const auto& [role, address] : member.bindings) {
         const auto texture = selected.bindings.at(address);
         require(selected.member(texture).identity.type == TextureAsset::type,

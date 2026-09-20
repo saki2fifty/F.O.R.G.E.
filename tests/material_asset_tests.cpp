@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "cooked_envelope.hpp"
+#include "pbr_material_tests.hpp"
 #include <chrono>
 #include <forge/material_resource.hpp>
 #include <fstream>
@@ -63,6 +64,7 @@ std::vector<std::byte> changed(const std::vector<std::byte>& bytes,
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material scratch directory");
+        test_pbr_material_profile();
         const auto m = material();
         const auto bytes = encode_material(m);
         const auto decoded = decode_material(bytes);
