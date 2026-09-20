@@ -154,6 +154,8 @@ template <class T> NativeGltfValues<T> convert(const tinygltf::Model& model, std
 } // namespace
 NativeGltfDocument::NativeGltfDocument(GltfSourceBundle captured) : source_(std::move(captured)) {
     (void)validate_gltf_accessors(source_);
+    validate_gltf_mesh_containers(source_);
+    hierarchy_ = validate_gltf_hierarchy(source_);
     auto transport = source_.document;
     std::map<std::string, std::span<const std::byte>> files;
     const std::string root = "/forge-captured/";

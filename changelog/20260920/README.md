@@ -120,3 +120,35 @@
   strict ASan/UBSan/LeakSanitizer validation; the native fixture passed without
   suppressions. Added a build-boundary check preventing editor/ImGui/SDL linkage
   into the native model tooling test.
+
+### CPU mesh processing — continued Phase 7 implementation
+
+- Added native CPU primitive extraction for core attributes, multiple UV/color
+  sets, exact joint streams and additional influence inputs, with format/count/
+  direction/material/index validation and computed position bounds.
+- Preserved point/line/triangle distinctions; normalized line loops/strips and
+  triangle strips/fans deterministically. All source index widths and nonindexed
+  geometry have fixtures. Cooked index-width selection remains separate work.
+- Added morph stream/base checks, per-document target-count validation and custom
+  attribute preservation. Native mesh and loader tests passed under strict
+  sanitizers. Renderer, generated normals/tangents, model publication and editor
+  import UI remain in progress; subsequent skin preparation is detailed below.
+
+
+### Model hierarchy, skin and animation admission — continued Phase 7
+
+- Added bounded iterative hierarchy validation,100k-deep-tree regression, scene
+  root/membership checks, source TRS/matrix preservation, camera-parameter checks,
+  and node/mesh morph defaults. Current authored positive-scale policy is unchanged;
+  admitted mirrored/zero source transforms are not yet publishable ECS support.
+- Validated ordered skin joint roots/scene membership, inverse-bind layout and
+  affine values, default identity binds, all joint indices and weight semantics.
+  Added explicit reject/top-four-reduction policy, deterministic tie handling,
+  normalization diagnostics, and a256-entry draw palette with explicit overflow.
+- Added core TRS/morph animation admission for LINEAR/STEP/CUBICSPLINE, including
+  shared payload ownership, time/bounds/count validation, cubic tangent preservation,
+  duplicate-target rejection and matrix-authored TRS protection.
+- Four focused native model suites passed strict ASan/UBSan/LeakSanitizer checks
+  in1.99s without display/device. After shared validation scans and bounded
+  influence work were added, the final focused rerun passed4/4 in2.23s.
+  No completed renderer/Ozz publication claim or intermediate numbered package.
