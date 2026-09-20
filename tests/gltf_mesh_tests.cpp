@@ -73,14 +73,15 @@ struct Fixture {
         doc["accessors"][id]["min"] = Json::array({-100, -100, -100});
         doc["accessors"][id]["max"] = Json::array({100, 100, 100});
     }
-    NativeMeshPrimitive result() const {
+    GltfSourceBundle bundle() const {
         GltfSourceBundle source;
         source.document = doc;
         source.document["buffers"] = Json::array({{{"byteLength", bytes.size()}}});
         auto storage = std::make_shared<const std::vector<std::byte>>(bytes);
         source.buffers.push_back({storage, 0, bytes.size()});
-        return NativeGltfDocument(std::move(source)).primitive(0, 0);
+        return source;
     }
+    NativeMeshPrimitive result() const { return NativeGltfDocument(bundle()).primitive(0, 0); }
 };
 Fixture triangle() {
     Fixture result;
@@ -214,6 +215,52 @@ int main() {
         require(skin.palette == std::vector<std::uint32_t>{0, 4} &&
                     skin.vertices[0].weights[0] == 0.5f && skin.vertices[0].joints[1] == 1,
                 "Draw palette or multi-set influences changed");
+        auto bound = streams;
+        bound.doc["nodes"] = Json::array({{{"children", {1, 2, 3, 4, 5, 6, 7}}},
+                                          Json::object(),
+                                          Json::object(),
+                                          Json::object(),
+                                          Json::object(),
+                                          Json::object(),
+                                          Json::object(),
+                                          Json::object(),
+                                          {{"mesh", 0}, {"skin", 0}}});
+        bound.doc["skins"] = Json::array({{{"joints", {0, 1, 2, 3, 4, 5, 6, 7}}}});
+        bound.doc["scenes"] = Json::array({{{"nodes", {0, 8}}}});
+        bound.doc["scene"] = 0;
+        auto cooked = cook_gltf_mesh(NativeGltfDocument(bound.bundle()), 0);
+        const auto& part = cooked.lods[0].parts[0];
+        require(part.joint_palette == std::vector<std::uint32_t>{0, 4} && !part.find("JOINTS_1") &&
+                    !part.find("WEIGHTS_1"),
+                "Cooked draw did not normalize source influence sets");
+        require(decode_mesh(encode_mesh(cooked)).lods[0].parts[0].joint_palette ==
+                    part.joint_palette,
+                "Cooked source joint palette was lost");
+        auto unbound = cook_gltf_mesh(NativeGltfDocument(streams.bundle()), 0);
+        require(unbound.lods[0].parts[0].joint_palette.empty() &&
+                    unbound.lods[0].parts[0].find("JOINTS_1"),
+                "Unused glTF skin attributes were changed or dropped");
+        auto too_small = bound;
+        too_small.doc["skins"][0]["joints"] = {0, 1};
+        rejects([&] { cook_gltf_mesh(NativeGltfDocument(too_small.bundle()), 0); }, "skin.joints");
+        auto large_weights = bound;
+        for (const auto* name : {"WEIGHTS_0", "WEIGHTS_1"})
+            large_weights.primitive()["attributes"][name] =
+                large_weights.add({2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0}, 4);
+        const auto normalized = cook_gltf_mesh(NativeGltfDocument(large_weights.bundle()), 0, {});
+        require(!normalized.diagnostics.empty() &&
+                    std::get<std::vector<float>>(
+                        normalized.mesh.lods[0].parts[0].find("WEIGHTS_0")->values)[0] == .5f,
+                "Valid positive float weights above one were not normalized");
+        large_weights.doc.erase("skins");
+        large_weights.doc.erase("nodes");
+        large_weights.doc.erase("scenes");
+        large_weights.doc.erase("scene");
+        const auto unused = cook_gltf_mesh(NativeGltfDocument(large_weights.bundle()), 0);
+        require(unused.lods[0].parts[0].joint_palette.empty() &&
+                    std::get<std::vector<float>>(
+                        unused.lods[0].parts[0].find("WEIGHTS_0")->values)[0] == 2,
+                "Unused positive source skin weights were clamped");
         auto many = decoded;
         auto& weights0 = many.attributes.at("WEIGHTS_0").values;
         auto& weights1 = many.attributes.at("WEIGHTS_1").values;

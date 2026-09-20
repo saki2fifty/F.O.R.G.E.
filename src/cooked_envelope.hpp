@@ -19,14 +19,17 @@ inline std::uint32_t cooked_read32(std::span<const std::byte> bytes, std::size_t
 struct CookedEnvelope {
     nlohmann::json metadata;
     std::span<const std::byte> payload;
+    std::uint32_t version = 1;
 };
 inline CookedEnvelope decode_envelope(std::span<const std::byte> bytes,
                                       const std::array<std::byte, 8>& magic,
-                                      std::size_t metadata_limit, std::size_t payload_limit) {
+                                      std::size_t metadata_limit, std::size_t payload_limit,
+                                      std::uint32_t maximum_version = 1) {
     if (bytes.size() < 24 || !std::equal(magic.begin(), magic.end(), bytes.begin()))
         throw std::runtime_error("Invalid cooked asset magic/header");
     std::size_t at = 8;
-    if (cooked_read32(bytes, at) != 1)
+    const auto version = cooked_read32(bytes, at);
+    if (!version || version > maximum_version)
         throw std::runtime_error("Unsupported cooked asset version");
     const auto json_size = cooked_read32(bytes, at), payload_size = cooked_read32(bytes, at);
     if (cooked_read32(bytes, at) != 0 || json_size > metadata_limit ||
@@ -34,17 +37,20 @@ inline CookedEnvelope decode_envelope(std::span<const std::byte> bytes,
         bytes.size() - 24 - json_size != payload_size)
         throw std::runtime_error("Invalid cooked asset lengths/reserved field");
     return {parse_bounded_json(bytes.subspan(24, json_size), metadata_limit),
-            bytes.subspan(24 + json_size)};
+            bytes.subspan(24 + json_size), version};
 }
 inline std::vector<std::byte> encode_envelope(const nlohmann::json& metadata,
                                               std::span<const std::byte> payload,
                                               const std::array<std::byte, 8>& magic,
-                                              std::size_t metadata_limit) {
+                                              std::size_t metadata_limit,
+                                              std::uint32_t version = 1) {
+    if (!version)
+        throw std::runtime_error("Invalid cooked asset version");
     const auto json = metadata.dump();
     if (json.size() > metadata_limit || json.size() > UINT32_MAX || payload.size() > UINT32_MAX)
         throw std::runtime_error("Cooked asset exceeds envelope");
     std::vector<std::byte> out(magic.begin(), magic.end());
-    cooked_write32(out, 1);
+    cooked_write32(out, version);
     cooked_write32(out, static_cast<std::uint32_t>(json.size()));
     cooked_write32(out, static_cast<std::uint32_t>(payload.size()));
     cooked_write32(out, 0);

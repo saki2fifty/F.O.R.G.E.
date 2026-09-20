@@ -139,7 +139,10 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
         MeshProcessingOptions preserve;
         preserve.normals = preserve.tangents = MeshDirections::Preserve;
         preserve.weld_exact = preserve.optimize_vertex_fetch = false;
-        auto raw = cook_gltf_mesh(native, i, preserve).mesh;
+        auto prepared = cook_gltf_mesh(native, i, preserve, options.skin_influences);
+        index.diagnostics.insert(index.diagnostics.end(), prepared.diagnostics.begin(),
+                                 prepared.diagnostics.end());
+        auto raw = std::move(prepared.mesh);
         const auto evidence = mesh_evidence(raw);
         ModelImportMember member;
         member.identity = {

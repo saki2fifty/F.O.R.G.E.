@@ -77,8 +77,8 @@ NativeSkinInfluences prepare_gltf_skin_influences(const NativeMeshPrimitive& pri
                 if (joint >= joint_count)
                     throw std::runtime_error(
                         "glTF skin joint index exceeds skin.joints, including zero-weight slots");
-                if (!std::isfinite(weight) || weight < 0 || weight > 1)
-                    throw std::runtime_error("glTF skin weight is outside finite [0,1]");
+                if (!std::isfinite(weight) || weight < 0)
+                    throw std::runtime_error("glTF skin weight must be finite and nonnegative");
                 if (weight > 0) {
                     active.push_back({joint, weight});
                     sum += weight;

@@ -200,8 +200,8 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
                 value = std::clamp(value, 0.f, 1.f);
         } else if (kind == Semantic::Weights) {
             for (auto value : values.values)
-                if (value < 0 || value > 1)
-                    throw std::runtime_error("glTF skin weight must be in [0,1]");
+                if (value < 0)
+                    throw std::runtime_error("glTF skin weight must be nonnegative");
         } else if (kind == Semantic::Custom) {
             result.diagnostics.push_back("Preserved application-specific vertex attribute " + name);
         }

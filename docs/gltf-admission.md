@@ -168,7 +168,10 @@ joints. Source skin binding admits up to65536 joints; that is not the draw limit
 
 A private CPU preparation operation validates all joint indices, including unused
 zero-weight slots, rejects duplicate positive influences/zero-total weights, and
-normalizes renormalizable float weights with an affected-vertex count. Pure
+normalizes renormalizable float weights with an affected-vertex count. Finite
+positive float weights above1 are accepted: the exact specification requires
+nonnegative values, while a float sum of1 is a recommendation. Prepared render
+weights must still be normalized. Pure
 quantized weight sets must sum exactly to one before further processing. Source
 influences are not silently removed: `Reject` refuses more than four positive
 influences, while explicit `ReduceToFour` chooses highest weights, breaks ties by

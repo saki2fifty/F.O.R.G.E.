@@ -62,7 +62,7 @@ void validate_streams(const std::vector<MeshStream>& streams, std::size_t vertic
         if (named_set(s.semantic, "WEIGHTS_")) {
             require(!morph && values && s.components == 4, "Weights require float4");
             for (float x : *values)
-                require(x >= 0 && x <= 1, "Invalid skin weight");
+                require(x >= 0, "Invalid skin weight");
         }
         if (!morph && (s.semantic == "NORMAL" || s.semantic == "TANGENT"))
             for (std::size_t i = 0; i < vertices; ++i) {
@@ -137,6 +137,9 @@ std::size_t MeshData::byte_size() const {
         for (const auto& part : lod.parts) {
             require(part.indices.size() <= SIZE_MAX / 4, "Mesh index size overflow");
             add(bytes, part.indices.size() * 4, SIZE_MAX);
+            require(part.joint_palette.size() <= SIZE_MAX / sizeof(std::uint32_t),
+                    "Mesh palette size overflow");
+            add(bytes, part.joint_palette.size() * sizeof(std::uint32_t), SIZE_MAX);
             streams(part.streams);
             for (const auto& morph : part.morph_targets)
                 streams(morph);
@@ -161,6 +164,7 @@ std::size_t MeshData::resident_bytes() const {
         storage(lod.parts.capacity(), sizeof(MeshPart));
         for (const auto& part : lod.parts) {
             storage(part.indices.capacity(), 4);
+            storage(part.joint_palette.capacity(), 4);
             streams(part.streams);
             storage(part.morph_targets.capacity(), sizeof(std::vector<MeshStream>));
             for (const auto& target : part.morph_targets)
@@ -218,6 +222,40 @@ void validate_mesh(const MeshData& mesh, MeshLimits limits) {
                     "Invalid mesh part");
             add(vertices, part.vertices, limits.vertices);
             validate_streams(part.streams, part.vertices, false, limits, bytes);
+            require(part.joint_palette.size() <= 256, "Mesh joint palette exceeds draw profile");
+            if (!part.joint_palette.empty()) {
+                std::set<std::uint32_t> joints;
+                for (const auto joint : part.joint_palette)
+                    require(joint < 65536 && joints.insert(joint).second,
+                            "Invalid/duplicate mesh palette joint");
+                add(bytes, part.joint_palette.size() * sizeof(std::uint32_t), limits.bytes);
+                const auto* indices = part.find("JOINTS_0");
+                const auto* weights = part.find("WEIGHTS_0");
+                require(indices && weights, "Prepared skin needs joint/weight streams");
+                for (const auto& stream : part.streams)
+                    if (named_set(stream.semantic, "JOINTS_") ||
+                        named_set(stream.semantic, "WEIGHTS_"))
+                        require(stream.semantic == "JOINTS_0" || stream.semantic == "WEIGHTS_0",
+                                "Prepared skin contains additional influence streams");
+                const auto& j = std::get<std::vector<std::uint32_t>>(indices->values);
+                const auto& w = std::get<std::vector<float>>(weights->values);
+                for (std::size_t vertex = 0; vertex < part.vertices; ++vertex) {
+                    double sum = 0;
+                    for (unsigned slot = 0; slot < 4; ++slot) {
+                        const auto at = vertex * 4 + slot;
+                        require(w[at] <= 1, "Prepared skin weight exceeds one");
+                        require(j[at] < part.joint_palette.size(),
+                                "Prepared skin joint exceeds palette");
+                        if (w[at] > 0)
+                            for (unsigned prior = 0; prior < slot; ++prior)
+                                require(w[vertex * 4 + prior] == 0 ||
+                                            j[vertex * 4 + prior] != j[at],
+                                        "Duplicate active prepared skin joint");
+                        sum += w[at];
+                    }
+                    require(std::abs(sum - 1) <= 1e-5, "Prepared skin weights are not normalized");
+                }
+            }
             for (const auto& target : part.morph_targets) {
                 validate_streams(target, part.vertices, true, limits, bytes);
                 for (const auto& delta : target) {
@@ -279,6 +317,7 @@ std::vector<std::byte> encode_mesh(const MeshData& mesh, MeshLimits limits) {
                   {"morph_names", mesh.morph_names},
                   {"morph_defaults", mesh.morph_defaults},
                   {"lods", Json::array()}};
+    bool prepared_skin = false;
     for (const auto& lod : mesh.lods) {
         Json parts = Json::array();
         for (const auto& p : lod.parts) {
@@ -286,6 +325,10 @@ std::vector<std::byte> encode_mesh(const MeshData& mesh, MeshLimits limits) {
                       {"topology", unsigned(p.topology)}, {"minimum", p.bounds.minimum},
                       {"maximum", p.bounds.maximum},      {"streams", stream_json(p.streams)},
                       {"morph_targets", Json::array()}};
+            if (!p.joint_palette.empty()) {
+                part["joint_palette"] = p.joint_palette;
+                prepared_skin = true;
+            }
             for (const auto& target : p.morph_targets)
                 part["morph_targets"].push_back(stream_json(target));
             part["indices"] = {{"offset", payload.size()}, {"count", p.indices.size()}};
@@ -296,11 +339,13 @@ std::vector<std::byte> encode_mesh(const MeshData& mesh, MeshLimits limits) {
         metadata["lods"].push_back(
             {{"coverage", lod.screen_coverage}, {"parts", std::move(parts)}});
     }
-    return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit);
+    return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit,
+                                         prepared_skin ? 2 : 1);
 }
 
 MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
-    const auto envelope = asset_detail::decode_envelope(bytes, magic, metadata_limit, limits.bytes);
+    const auto envelope =
+        asset_detail::decode_envelope(bytes, magic, metadata_limit, limits.bytes, 2);
     const auto& metadata = envelope.metadata;
     const auto payload = envelope.payload;
     std::size_t at = 0;
@@ -341,6 +386,7 @@ MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
     for (const auto& value : array(metadata.at("morph_defaults"), limits.morph_targets))
         result.morph_defaults.push_back(scalar(value));
     std::size_t vertices = 0, indices = 0, parts = 0;
+    bool prepared_skin = false;
     for (const auto& l : array(metadata.at("lods"), limits.lods)) {
         MeshLod lod;
         lod.screen_coverage = scalar(l.at("coverage"));
@@ -359,6 +405,13 @@ MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
             };
             bounds(p.at("minimum"), part.bounds.minimum);
             bounds(p.at("maximum"), part.bounds.maximum);
+            if (p.contains("joint_palette")) {
+                require(envelope.version == 2 && !p.at("joint_palette").empty(),
+                        "Joint palette requires cooked mesh version2");
+                for (const auto& joint : array(p.at("joint_palette"), 256))
+                    part.joint_palette.push_back(static_cast<std::uint32_t>(count(joint, 65535)));
+                prepared_skin = true;
+            }
             part.streams = streams(p.at("streams"), part.vertices);
             for (const auto& target : array(p.at("morph_targets"), limits.morph_targets))
                 part.morph_targets.push_back(streams(target, part.vertices));
@@ -376,6 +429,8 @@ MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
         result.lods.push_back(std::move(lod));
     }
     require(at == payload.size(), "Unexpected trailing cooked mesh bytes");
+    require(envelope.version == (prepared_skin ? 2u : 1u),
+            "Cooked mesh version does not match its skin features");
     validate_mesh(result, limits);
     return result;
 }

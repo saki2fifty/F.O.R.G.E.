@@ -23,9 +23,11 @@ before cooking. Source material index i becomes slot i+1; slot0 is the engine
 default, with logical material bindings supplied by the model container.
 
 Morph deltas remain separate from base streams. Bounds describe the base geometry;
-an animated/deformed consumer must compute its effective bounds. Skeleton identity,
-joint-layout compatibility, palette limits and influence processing remain binding
-admission responsibilities. A successfully decoded CPU mesh alone does not establish
+an animated/deformed consumer must compute its effective bounds. Skeleton identity and joint-layout compatibility remain binding
+admission responsibilities. Prepared draw palettes carry at most256 entries and
+normalized four-influence streams; source influence processing is explicit.
+Unprepared positive float weights may exceed1 and require normalization before
+a skin draw; this follows the source specification rather than clamping values. A successfully decoded CPU mesh alone does not establish
 GPU skinning compatibility.
 
 This is compiled geometry for runtime consumers. Future modeling topology and
@@ -33,11 +35,13 @@ editable vertex/edge/face identities have their own authored-document semantics.
 Node transforms remain separate; negative/zero node scale is never baked away by
 the mesh cook adapter.
 
-## Artifact version1
+## Artifact versions
 
 The24-byte header contains eight-byte `FRGMESH\0` magic, four little-endian uint32
 fields (version, JSON metadata length, scalar payload length, reserved zero), then
-bounded JSON metadata and a contiguous little-endian scalar payload. No native
+bounded JSON metadata and a contiguous little-endian scalar payload. Version1
+retains ordinary/unprepared CPU meshes. Version2 adds explicit prepared skin
+palettes; an old version1 reader rejects these artifacts. No native
 pointer, compiler structure layout or host endianness is serialized.
 
 Every stream/index span must begin exactly at the next payload byte. Admission
@@ -71,3 +75,26 @@ to the sample. Strict sanitizer and platform outcomes are in the daily changelog
 The CPU artifact is ready for subsequent provider integration. Model-container
 publication, built-in primitive migration, GPU realization, full material/skin
 bindings, Content workflows and packaged runtime integration are still being built.
+
+
+## Prepared skin draws
+
+Each prepared `MeshPart::joint_palette` maps a draw-local joint index to an ordered
+source skin-joint index. It contains1–256 unique entries. `JOINTS_0` indexes that
+palette; `WEIGHTS_0` contains four finite nonnegative weights per vertex with a
+normalized sum. Additional influence sets, duplicate positive joints and out-of-
+palette indices reject. The actual Skeleton AssetId, mapping to admitted Ozz joint
+order and inverse-bind matrices belong to the model skin binding, allowing one Mesh
+to be used by several skins without baking asset identity into its geometry.
+
+Cooking validates every skin using a mesh. The existing explicit Reject or
+ReduceToFour policy handles more than four positive influences; reduction keeps
+the strongest weights with deterministic joint-index tie breaking and reports
+which vertices changed. It never silently drops influences. Normal/tangent
+preparation, exact welding and vertex-fetch remapping retain the prepared streams
+and palette. Unused skin attributes on a source mesh with no skin binding remain
+unprepared data; a future GPU skin consumer must require a prepared palette.
+
+The private model cooker now supports this representation. Whole-model animated
+publication and the corresponding user-facing import setting remain integration
+work; no unused setting is exposed by the current static model recipe.

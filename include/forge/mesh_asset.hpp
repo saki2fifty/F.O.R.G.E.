@@ -28,6 +28,10 @@ struct MeshPart {
     std::vector<std::uint32_t> indices;
     std::vector<std::vector<MeshStream>> morph_targets;
     MeshBounds bounds;
+    // Prepared skin draw palette -> ordered skin binding joint index. Empty
+    // means unprepared/no skin. A GPU skin consumer requires a nonempty palette.
+    // Actual Skeleton identity and inverse binds belong to the skin binding.
+    std::vector<std::uint32_t> joint_palette;
     const MeshStream* find(std::string_view semantic) const;
 };
 struct MeshLod {

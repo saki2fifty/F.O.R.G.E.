@@ -5,6 +5,7 @@
 namespace forge::asset_detail {
 struct GltfModelCookOptions {
     MeshProcessingOptions mesh;
+    ExcessSkinInfluences skin_influences = ExcessSkinInfluences::Reject;
     TextureCompression compression = TextureCompression::None;
     bool desktop_bc = false;
     unsigned maximum_texture_size = 16384;

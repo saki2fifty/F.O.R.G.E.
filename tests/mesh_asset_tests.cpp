@@ -63,6 +63,38 @@ int main() {
                 "Integer vertex data lost precision");
         std::reverse(mesh.lods[0].parts[0].streams.begin(), mesh.lods[0].parts[0].streams.end());
         require(encode_mesh(mesh) == bytes, "Stream input ordering changed canonical cook");
+        auto skinned = triangle();
+        auto& skin_part = skinned.lods[0].parts[0];
+        skin_part.joint_palette = {4, 100};
+        skin_part.streams.push_back(
+            {"JOINTS_0", 4, std::vector<std::uint32_t>{0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0}});
+        skin_part.streams.push_back(
+            {"WEIGHTS_0", 4,
+             std::vector<float>{.25f, .75f, 0, 0, .25f, .75f, 0, 0, .25f, .75f, 0, 0}});
+        const auto skin_bytes = encode_mesh(skinned);
+        require(read(skin_bytes, 8) == 2 && read(bytes, 8) == 1,
+                "Cooked mesh feature version incorrect");
+        require(decode_mesh(skin_bytes).lods[0].parts[0].joint_palette == skin_part.joint_palette &&
+                    encode_mesh(decode_mesh(skin_bytes)) == skin_bytes,
+                "Prepared skin roundtrip changed binding");
+        auto downgraded = skin_bytes;
+        write(downgraded, 8, 1);
+        rejects([&] { decode_mesh(downgraded); });
+        for (unsigned kind = 0; kind < 5; ++kind) {
+            auto bad_skin = skinned;
+            auto& p = bad_skin.lods[0].parts[0];
+            if (kind == 0)
+                p.joint_palette[1] = 4;
+            if (kind == 1)
+                p.joint_palette.resize(257);
+            if (kind == 2)
+                std::get<std::vector<std::uint32_t>>(p.streams[p.streams.size() - 2].values)[0] = 2;
+            if (kind == 3)
+                std::get<std::vector<float>>(p.streams.back().values)[0] = 0;
+            if (kind == 4)
+                p.streams.pop_back();
+            rejects([&] { encode_mesh(bad_skin); });
+        }
         auto bad = [&](auto fn) {
             auto copy = triangle();
             fn(copy);

@@ -116,5 +116,6 @@ class NativeGltfDocument {
 };
 MeshData cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index);
 ProcessedMesh cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index,
-                             const MeshProcessingOptions& options);
+                             const MeshProcessingOptions& options,
+                             ExcessSkinInfluences skin_policy = ExcessSkinInfluences::Reject);
 } // namespace forge::asset_detail

@@ -562,3 +562,28 @@
   strictASan/UBSan/LSan4/4 passed in32.77s. Manual3/3, formatting, workflow syntax
   and whitespace checks passed. The earlier canonical-stage Windows audit is
   still running; no numbered package has been produced.
+
+### Prepared mesh skin palettes
+
+- Added explicit per-draw palettes mapping up to256 draw joints to the source
+  skin's ordered joints. Bound meshes now prepare four normalized influences using
+  the existing explicit Reject/ReduceToFour policy, with reduction/normalization
+  diagnostics and validation against every skin using that mesh.
+- Prepared palettes use cooked mesh version2; ordinary/unprepared meshes retain
+  version1. Older readers reject the new feature rather than misreading its joint
+  indices. Palette bounds, duplicate joints, normalized weights and feature/version
+  agreement are checked on encoding and decoding. CPU resident-size accounting
+  includes palette storage; remapping preserves all prepared streams.
+- Corrected an overly strict source-weight check using the exact glTF specification:
+  finite float weights must be nonnegative, but summing to1 is a recommendation.
+  Renormalizable weights above1 are now accepted. Prepared draw weights still must
+  be normalized; quantized source sums retain their exact requirement. Unused skin
+  attributes on an unbound mesh remain raw data, without forced reduction/clamping.
+- Normal mesh/material/texture/model checks7/7 passed in42.85s; strictASan/UBSan/LSan
+  checks6/6 passed in35.98s. Tests include source2+2 normalization, raw unused weights,
+  shared-skin joint bounds, palette round trips and invalid prepared data. Final
+  review removed per-vertex heap allocation from duplicate-joint checks and added
+  palette byte-count overflow checking. Manual3/3 and formatting passed.
+- The user-facing skin import option is introduced with the complete animated-model
+  recipe, not exposed as an unused setting in the current static recipe. Whole-model
+  skin/skeleton/clip publication and GPU application remain ongoing Phase7 work.
