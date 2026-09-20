@@ -281,7 +281,7 @@ int main(int argc, char** argv) {
                                        expected.at("sidecar").get<std::string>()},
                     "Interrupted precommit did not restore last-good metadata");
         else
-            require(after == before && after.first != expected.at("catalog"),
+            require(after == before && after.first != expected.at("catalog").get<std::string>(),
                     "Postcommit recovery rolled back successful selection");
         require(!f.publisher.recover(), "Recovery is not idempotent");
         std::cout << "Process interruption recovery passed at stage " << stage << "\n";
