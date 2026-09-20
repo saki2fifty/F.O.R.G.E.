@@ -360,24 +360,37 @@ Json AssetBuildInput::document() const {
     for (const auto& [name, digest] : source_dependencies)
         if (name.empty() || !valid_content_digest(digest))
             throw std::runtime_error("Invalid source dependency digest");
+    if (tool_revisions.size() > 64)
+        throw std::runtime_error("Too many asset build tool revisions");
+    for (const auto& [name, revision] : tool_revisions) {
+        if (name.empty() || name.size() > 128 || !valid_content_digest(revision) ||
+            !std::all_of(name.begin(), name.end(), [](char c) {
+                return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                       c == '.' || c == '_' || c == '-';
+            }))
+            throw std::runtime_error("Invalid asset build tool revision");
+    }
     auto ordered = dependencies;
     std::sort(ordered.begin(), ordered.end());
     Json revisions = Json::array();
     for (const auto& edge : ordered)
         revisions.push_back(edge_document(edge));
-    return {{"key_version", 1},
-            {"source", source_digest},
-            {"importer", importer},
-            {"importer_revision", importer_revision},
-            {"settings_version", settings_version},
-            {"settings", settings},
-            {"source_dependencies", source_dependencies},
-            {"dependencies", std::move(revisions)},
-            {"output_format", output_format},
-            {"output_version", output_version},
-            {"platform", platform},
-            {"backend", backend},
-            {"profile", profile}};
+    Json result{{"key_version", tool_revisions.empty() ? 1 : 2},
+                {"source", source_digest},
+                {"importer", importer},
+                {"importer_revision", importer_revision},
+                {"settings_version", settings_version},
+                {"settings", settings},
+                {"source_dependencies", source_dependencies},
+                {"dependencies", std::move(revisions)},
+                {"output_format", output_format},
+                {"output_version", output_version},
+                {"platform", platform},
+                {"backend", backend},
+                {"profile", profile}};
+    if (!tool_revisions.empty())
+        result["tool_revisions"] = tool_revisions;
+    return result;
 }
 std::string AssetBuildInput::key() const { return asset_build_digest(document()); }
 } // namespace forge

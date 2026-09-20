@@ -193,6 +193,28 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
         return converted["accessors"].size() - 1;
     };
     std::size_t morph_numbers_left = byte_limit / 32;
+    // Source semantic evidence does not use candidate array addresses or display
+    // labels as durable identity. Duplicate evidence stays ambiguous at publication.
+    std::map<std::size_t, std::string> node_context;
+    for (const auto original : result.joint_nodes) {
+        const auto& node = hierarchy.nodes[original];
+        node_context[original] = asset_build_digest(
+            {{"name", source.at("nodes").at(original).value("name", std::string{})},
+             {"local", node.matrix},
+             {"parent",
+              node.parent == gltf_no_index ? std::string{} : node_context.at(node.parent)}});
+    }
+    std::map<const std::vector<float>*, std::string> curve_values;
+    const auto curve_digest = [&](const std::shared_ptr<const std::vector<float>>& values) {
+        const auto [entry, added] = curve_values.emplace(values.get(), std::string{});
+        if (added)
+            entry->second = content_digest(std::as_bytes(std::span(*values)));
+        return entry->second;
+    };
+    const auto digest_sorted = [](std::vector<std::string> values) {
+        std::sort(values.begin(), values.end());
+        return asset_build_digest(values);
+    };
     Json config{{"skeleton", {{"filename", "skeleton.ozz"}}}, {"animations", Json::array()}};
     auto clip_metadata = Json::array();
     for (std::size_t c = 0; c < clips.size(); ++c) {
@@ -202,6 +224,7 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
         const auto duration = clip.duration > 0 ? clip.duration : options.constant_duration;
         Json animation{{"name", name}, {"samplers", Json::array()}, {"channels", Json::array()}};
         Json morphs = Json::array();
+        std::vector<std::string> content_evidence, semantic_evidence;
         std::set<std::pair<std::size_t, NativeAnimationPath>> bound;
         double trs_duration = 0;
         auto add = [&](std::size_t node, NativeAnimationPath path,
@@ -226,6 +249,15 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
                                                                      : "scale"}}}});
         };
         for (const auto& track : clip.tracks) {
+            content_evidence.push_back(
+                asset_build_digest({{"path", static_cast<unsigned>(track.path)},
+                                    {"components", track.components},
+                                    {"interpolation", static_cast<unsigned>(track.interpolation)},
+                                    {"times", curve_digest(track.times)},
+                                    {"values", curve_digest(track.values)}}));
+            semantic_evidence.push_back(
+                asset_build_digest({{"node", node_context.at(track.node)},
+                                    {"path", static_cast<unsigned>(track.path)}}));
             if (track.path == NativeAnimationPath::Weights) {
                 // Reserve a conservative serialized-number budget before JSON expansion.
                 require(track.times->size() <= morph_numbers_left,
@@ -309,6 +341,8 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
                                  {"name", animations[c].value("name", std::string{})},
                                  {"duration", duration},
                                  {"morph_tracks", std::move(morphs)},
+                                 {"content_evidence", digest_sorted(std::move(content_evidence))},
+                                 {"semantic_evidence", digest_sorted(std::move(semantic_evidence))},
                                  {"diagnostics", clip.diagnostics}});
     }
     if (!data.empty())
@@ -347,11 +381,51 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
         joint_index.emplace(original, rest_models.size());
         rest_models.push_back(world);
     }
+    Json skins = Json::array(), node_skins = Json::array();
+    std::size_t skin_joint_budget = 32768;
+    std::map<std::pair<std::size_t, std::size_t>, std::vector<std::array<float, 16>>> inverse_binds;
+    for (std::size_t i = 0; i < hierarchy.skins.size(); ++i) {
+        cancelled();
+        const auto& skin = hierarchy.skins[i];
+        require(skin.joints.size() <= skin_joint_budget,
+                "Model skin binding metadata exceeds budget");
+        skin_joint_budget -= skin.joints.size();
+        std::vector<std::size_t> joints;
+        for (const auto node : skin.joints)
+            joints.push_back(joint_index.at(node));
+        const auto [bind, added] =
+            inverse_binds.emplace(std::pair{skin.inverse_bind_accessor, skin.joints.size()},
+                                  std::vector<std::array<float, 16>>{});
+        if (added)
+            bind->second = native.inverse_bind_matrices(i);
+        skins.push_back({{"joints", joints}, {"inverse_bind_matrices", bind->second}});
+    }
+    for (const auto& node : hierarchy.nodes)
+        node_skins.push_back(node.skin == gltf_no_index ? Json(nullptr) : Json(node.skin));
+    std::map<std::size_t, std::string> subtree;
+    std::vector<std::string> rig_roots;
+    for (auto it = result.joint_nodes.rbegin(); it != result.joint_nodes.rend(); ++it) {
+        const auto original = *it;
+        std::vector<std::string> children;
+        for (const auto& child : source.at("nodes").at(original).value("children", Json::array())) {
+            const auto node = child.get<std::size_t>();
+            if (needed.contains(node))
+                children.push_back(subtree.at(node));
+        }
+        subtree[original] = asset_build_digest({{"local", hierarchy.nodes[original].matrix},
+                                                {"children", digest_sorted(std::move(children))}});
+        if (hierarchy.nodes[original].parent == gltf_no_index)
+            rig_roots.push_back(subtree.at(original));
+    }
     result.metadata = {{"version", 1},
                        {"nodes", result.nodes},
                        {"joint_nodes", result.joint_nodes},
                        {"joint_parents", parents},
                        {"joint_rest_models", models},
+                       {"skins", skins},
+                       {"node_skins", node_skins},
+                       {"content_evidence", digest_sorted(std::move(rig_roots))},
+                       {"semantic_evidence", asset_build_digest({{"role", "combined-model-rig"}})},
                        {"rest_nodes", nodes},
                        {"clips", std::move(clip_metadata)},
                        {"config", std::move(config)}};

@@ -1,4 +1,6 @@
 #include "model_importer.hpp"
+#include "asset_bytes.hpp"
+#include "bounded_json.hpp"
 #include "model_bundle.hpp"
 #include <algorithm>
 namespace forge::asset_detail {
@@ -23,7 +25,7 @@ AssetImporterDescriptor descriptor() {
     d.description = "Prepare a complete validated glTF model asset family in an isolated worker.";
     d.extensions = {".gltf", ".glb"};
     d.source_kinds = {"gltf", "glb"};
-    d.output_types = {"model", "mesh", "material", "texture"};
+    d.output_types = {"model", "mesh", "material", "texture", "skeleton", "animation_clip"};
     d.output_format = "forge.model-bundle";
     const auto limits = model_worker_limits();
     d.limits.memory_bytes = limits.memory_bytes;
@@ -34,7 +36,7 @@ AssetImporterDescriptor descriptor() {
     return d;
 }
 class ModelImporter final : public AssetImporter {
-    std::filesystem::path worker_;
+    std::filesystem::path worker_, converter_;
     GltfSourceBundle capture(const AssetImportRequest& request, std::stop_token stop) const {
         const auto ext = extension(request.source);
         require(ext == ".gltf" || ext == ".glb", "Model source requires .gltf or .glb extension");
@@ -65,13 +67,27 @@ class ModelImporter final : public AssetImporter {
                     "Conflicting captured source dependency revisions");
         }
         result.sources = source.dependencies;
-        result.data = {{"version", 1}, {"binary", source.binary_container}};
+        const bool animated = !source.document.value("skins", Json::array()).empty() ||
+                              !source.document.value("animations", Json::array()).empty();
+        const auto converter_digest =
+            animated ? content_digest(read_bytes(converter_, 64 * 1024 * 1024)) : std::string{};
+        if (animated)
+            input.tool_revisions.emplace("gltf2ozz", converter_digest);
+        result.data = {{"version", 1},
+                       {"binary", source.binary_container},
+                       {"animation", animated},
+                       {"converter_sha256", converter_digest}};
         return result;
     }
 
   public:
-    explicit ModelImporter(std::filesystem::path worker)
-        : AssetImporter(asset_detail::descriptor(), model_settings()), worker_(std::move(worker)) {}
+    ModelImporter(std::filesystem::path worker, std::filesystem::path converter)
+        : AssetImporter(asset_detail::descriptor(), model_settings()), worker_(std::move(worker)),
+          converter_(std::move(converter)) {
+        if (converter_.empty())
+            converter_ =
+                worker_.parent_path() / "tools" / ("gltf2ozz" + worker_.extension().string());
+    }
     ImportProbeResult probe(const ImportProbe& p) const override {
         const auto ext = extension(p.source);
         if (ext != ".gltf" && ext != ".glb")
@@ -115,6 +131,11 @@ class ModelImporter final : public AssetImporter {
         source = {};
         auto files = run_import_process(worker_, request.project, std::move(transport),
                                         model_worker_limits(), stop);
+        if (progress && prepared.data.at("animation").get<bool>())
+            progress(.65, "Converting and validating model skeleton and clips");
+        files = finish_model_recipe(std::move(files), converter_, request.project,
+                                    prepared.input.source_digest,
+                                    prepared.data.at("converter_sha256").get<std::string>(), stop);
         validate({{}, Json::object(), files});
         if (progress)
             progress(1., "Model family validated");
@@ -188,9 +209,67 @@ ImportSettingsSchema model_settings() {
     maximum.minimum = 1;
     maximum.maximum = 16384;
     rules.push_back(maximum);
+    choice("skin_influences", "Extra skin influences",
+           "Reject more than four positive influences, or explicitly keep the strongest four and "
+           "renormalize.",
+           "reject", {"reject", "reduce-to-four"});
+    ImportSettingRule rate{
+        "animation_sampling_rate", "Animation sampling rate",
+        "Official Ozz converter rate for curves requiring resampling, in samples per second.",
+        ImportSettingType::Integer, 30};
+    rate.minimum = 1;
+    rate.maximum = 240;
+    rules.push_back(rate);
+    rules.push_back({"animation_optimize", "Optimize animation",
+                     "Use the pinned official converter's animation optimization.",
+                     ImportSettingType::Boolean, true});
     return ImportSettingsSchema("forge.model.gltf", 1, std::move(rules));
 }
-std::shared_ptr<const AssetImporter> model_importer(std::filesystem::path worker) {
-    return std::make_shared<ModelImporter>(std::move(worker));
+std::shared_ptr<const AssetImporter> model_importer(std::filesystem::path worker,
+                                                    std::filesystem::path converter) {
+    return std::make_shared<ModelImporter>(std::move(worker), std::move(converter));
+}
+std::vector<ArtifactFile>
+finish_model_recipe(std::vector<ArtifactFile> files, const std::filesystem::path& converter,
+                    const std::filesystem::path& project, std::string_view source_digest,
+                    std::string_view converter_digest, std::stop_token stop) {
+    require(!stop.stop_requested(), "Model completion cancelled");
+    if (converter_digest.empty()) {
+        const auto index = validate_model_bundle(files);
+        require(!index.hierarchy.contains("animation") && index.source_digest == source_digest,
+                "Unexpected animation/source in static model candidate");
+        return files;
+    }
+    require(valid_content_digest(converter_digest) &&
+                content_digest(read_bytes(converter, 64 * 1024 * 1024)) == converter_digest,
+            "Model animation converter changed after discovery");
+    Json metadata;
+    std::vector<ArtifactFile> geometry, inputs;
+    for (auto& file : files) {
+        if (file.name == "rig-plan.json") {
+            require(metadata.is_null(), "Duplicate model animation plan");
+            metadata = parse_bounded_json(file.bytes, 16 * 1024 * 1024);
+        } else if (file.name == "rig-source.gltf" || file.name == "rig-config.json" ||
+                   file.name == "rig-animation.bin") {
+            file.name.erase(0, 4);
+            inputs.push_back(std::move(file));
+        } else
+            geometry.push_back(std::move(file));
+    }
+    require(metadata.is_object(), "Native model stage omitted required animation plan");
+    const auto index = validate_model_bundle(geometry, ModelValidation::GeometryStage);
+    require(index.source_digest == source_digest &&
+                index.hierarchy.value("animation_pending", false),
+            "Model animation stage belongs to another source or is not pending");
+    auto archives = run_model_animation_process(converter, project, inputs, stop);
+    require(content_digest(read_bytes(converter, 64 * 1024 * 1024)) == converter_digest,
+            "Model animation converter changed during conversion");
+    require(!stop.stop_requested(), "Model completion cancelled");
+    return complete_model_animation(
+        std::move(geometry), metadata, std::move(archives),
+        {{"converter", "gltf2ozz"},
+         {"converter_revision", "744eb9d99f606eda849acb0b1204f7a3dc20bca1"},
+         {"converter_sha256", converter_digest},
+         {"source_digest", source_digest}});
 }
 } // namespace forge::asset_detail

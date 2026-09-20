@@ -139,3 +139,15 @@ The [typed resource pool](runtime-resources.md) and [cooked mesh artifacts](mesh
 now have executable asynchronous loading/lifetime consumers. CPU leases, last-good
 retention and bounded mesh admission are implemented; GPU retirement, complete
 production providers and editor/cook integration remain in progress.
+
+### External build-tool revisions
+
+`AssetBuildInput.tool_revisions` records up to64 named external-tool SHA-256 digests.
+These are build inputs, distinct from source locators and logical asset dependencies.
+For example, model animation includes the actual `gltf2ozz` executable digest. The
+registered importer revision continues to identify the FORGE recipe and must match
+at publication. Build documents with tool revisions use key version2; tool-free
+inputs retain their exact version1 shape. Sidecars preserve the complete build input
+and old artifacts remain immutable; changing a tool produces a new disposable key.
+Names are bounded portable identifiers and revisions must be valid content digests.
+The importer owns tool availability and before/after execution checks.

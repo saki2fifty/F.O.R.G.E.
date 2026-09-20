@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "gltf_model_cook.hpp"
 #include "gltf_ozz_transport.hpp"
 #include "import_process.hpp"
 #include "model_animation.hpp"
@@ -33,6 +34,27 @@ int main(int argc, char** argv) {
             NativeGltfDocument source(std::move(captured));
             auto prepared = prepare_gltf_ozz_transport(source, {30, false, 1.f});
             require(source.source().document == original, "Transport rewrote source");
+            if (root.filename() == "matrix") {
+                auto two = source.source();
+                auto second = two.document["animations"][0];
+                second["channels"][0]["target"]["path"] = "scale";
+                two.document["animations"].push_back(second);
+                const auto first = prepare_gltf_ozz_transport(NativeGltfDocument(two));
+                std::reverse(two.document["animations"].begin(), two.document["animations"].end());
+                two.document["animations"][0]["name"] = "Renamed clip";
+                two.document["animations"][1]["name"] = "Renamed clip";
+                const auto reordered = prepare_gltf_ozz_transport(NativeGltfDocument(two));
+                for (unsigned i = 0; i < 2; ++i) {
+                    require(first.metadata["clips"][i]["content_evidence"] ==
+                                    reordered.metadata["clips"][1 - i]["content_evidence"] &&
+                                first.metadata["clips"][i]["semantic_evidence"] ==
+                                    reordered.metadata["clips"][1 - i]["semantic_evidence"],
+                            "Clip reorder/rename changed semantic correspondence evidence");
+                }
+                require(first.metadata["content_evidence"] ==
+                            reordered.metadata["content_evidence"],
+                        "Clip order changed rig content identity evidence");
+            }
             for (const auto& file : prepared.converter_inputs) {
                 std::ofstream out(root / file.name, std::ios::binary);
                 out.write(reinterpret_cast<const char*>(file.bytes.data()),
@@ -126,6 +148,70 @@ int main(int argc, char** argv) {
                 }
                 require(rejected, "Invalid model animation candidate accepted");
             };
+            if (!meta.at("skins").empty()) {
+                auto bad_skin = meta;
+                bad_skin["skins"][0]["joints"][0] = 99999;
+                reject(bad_skin, files);
+                bad_skin = meta;
+                bad_skin["skins"][0]["inverse_bind_matrices"][0][15] = 0;
+                reject(bad_skin, files);
+                bad_skin = meta;
+                bad_skin["skins"][0]["inverse_bind_matrices"] = Json::array();
+                reject(bad_skin, files);
+            }
+            // Whole-family binding: geometry alone is deliberately unpublishable.
+            const auto geometry = cook_gltf_geometry_bundle(
+                NativeGltfDocument(capture_gltf_source(root, "input.gltf")));
+            bool incomplete = false;
+            try {
+                (void)validate_model_bundle(geometry);
+            } catch (const std::exception&) {
+                incomplete = true;
+            }
+            require(incomplete, "Incomplete rig geometry was publishable");
+            const auto geometry_index =
+                validate_model_bundle(geometry, ModelValidation::GeometryStage);
+            const Json provenance{
+                {"converter", "gltf2ozz"},
+                {"converter_revision", "744eb9d99f606eda849acb0b1204f7a3dc20bca1"},
+                {"converter_sha256", std::string(64, 'a')},
+                {"source_digest", geometry_index.source_digest}};
+            const auto complete = complete_model_animation(geometry, meta, files, provenance);
+            const auto complete_index = validate_model_bundle(complete);
+            require(complete_index.hierarchy.at("animation").at("clips").size() ==
+                        meta.at("clips").size(),
+                    "Complete family lost clips");
+            auto reject_bundle = [&](auto candidate) {
+                bool rejected = false;
+                try {
+                    (void)validate_model_bundle(candidate);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                require(rejected, "Invalid complete model family accepted");
+            };
+            auto corrupt_index = [&](auto mutate) {
+                auto candidate = complete;
+                auto index = complete_index;
+                mutate(index);
+                for (auto& file : candidate)
+                    if (file.name == "model.json")
+                        file.bytes = encode_model_bundle_index(index);
+                reject_bundle(std::move(candidate));
+            };
+            corrupt_index([](auto& index) {
+                index.hierarchy["animation"]["provenance"]["source_digest"] = std::string(64, 'f');
+            });
+            corrupt_index([&](auto& index) {
+                index.hierarchy["nodes"][meta["joint_nodes"][0].template get<std::size_t>()]
+                               ["local"][3] = 12345.;
+            });
+            if (!meta.at("clips").empty())
+                corrupt_index(
+                    [](auto& index) { index.hierarchy["animation"]["clips"][0] = "/missing"; });
+            auto missing = complete;
+            missing.pop_back();
+            reject_bundle(std::move(missing));
             auto bad = meta;
             bad["joint_rest_models"][0][12] = 123.;
             reject(bad, files);

@@ -587,3 +587,33 @@
 - The user-facing skin import option is introduced with the complete animated-model
   recipe, not exposed as an unused setting in the current static recipe. Whole-model
   skin/skeleton/clip publication and GPU application remain ongoing Phase7 work.
+
+### Complete model skeleton and clip families
+
+- Joined native geometry preparation and the supervised official Ozz converter in
+  the shared model import service. The converter runs after the geometry worker
+  exits. An incomplete animation stage cannot enter the selected asset catalog.
+- Publish Model, Mesh, Material, Texture, Skeleton and AnimationClip members as one
+  validated family. Clip-to-skeleton references use typed catalog dependencies;
+  original model source paths and the existing durable identity service remain.
+- Preserve ordered skin-to-Ozz joint mappings and inverse-bind matrices. Validate
+  every skin-bound draw palette, model/rig ancestry and rest agreement, morph target
+  counts, archive files and source/converter provenance before publication.
+- Added source-array-independent rig/clip matching evidence and tests for node/clip
+  reordering and clip renaming. Removed clips retain tombstone records. Invalid skin
+  candidates leave the previous complete catalog family selected.
+- Added effective import settings for excess skin influences, animation sampling
+  rate and optimization. Updated the model tools manual and technical contract.
+- Added bounded named external-tool revisions to common build inputs. Inputs with
+  tools use key version 2; tool-free inputs retain their exact version 1 shape.
+  The converter executable digest changes the cache key without changing the
+  registered importer revision or inventing a source-file/AssetId dependency.
+- Validation caught the initial importer-revision mismatch before publication; the
+  existing guard was preserved. Corrected normal publication, model, texture, CLI
+  and build-key regressions passed 9/9 in 53.05 seconds. Strict ASan/UBSan/LSan
+  checks passed 6/6 in 57.86 seconds; the additional animated CLI and missing-tool
+  regression passed in 2.88 seconds. Manual, formatting and workflow lint pass.
+  Windows validation for this composition is pending. The preceding palette and
+  supervised-converter source audit (8cf4f51) passed 32/32 in 17.73 seconds.
+- Runtime model resource adoption, scene instantiation, skin rendering and editor
+  model controls remain required Phase 7 work. No intermediate numbered ZIP issued.

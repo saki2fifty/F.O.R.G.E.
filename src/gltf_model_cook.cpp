@@ -70,9 +70,9 @@ void image_binding(const GltfTextureBinding& binding, const GltfEncodedImage& im
             "glTF image MIME does not match encoded bytes");
 }
 } // namespace
-std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& native,
-                                                  const GltfModelCookOptions& options,
-                                                  std::stop_token stop) {
+std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& native,
+                                                    const GltfModelCookOptions& options,
+                                                    std::stop_token stop) {
     auto cancelled = [&] { require(!stop.stop_requested(), "Model cooking cancelled"); };
     cancelled();
     require(options.maximum_texture_size && options.maximum_texture_size <= 16384 &&
@@ -83,9 +83,8 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
             "Invalid static model processing options");
     const auto& source = native.source();
     const auto& doc = source.document;
-    for (const auto* key : {"skins", "animations"})
-        require(!doc.contains(key) || doc.at(key).empty(),
-                "Model recipe requires the separate skin/animation realization stages");
+    const bool animated = !doc.value("skins", Json::array()).empty() ||
+                          !doc.value("animations", Json::array()).empty();
     const auto scene_values = gltf_scene_metadata(source);
     const auto material_variants = gltf_material_variants(source);
     const auto& meshes = doc.value("meshes", Json::array());
@@ -298,9 +297,19 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
         variants.push_back({{"name", variant.name}, {"mappings", mappings}});
     }
     index.hierarchy["material_variants"] = std::move(variants);
+    if (animated)
+        index.hierarchy["animation_pending"] = true;
     files.push_back({"model.json", encode_model_bundle_index(index)});
-    (void)validate_model_bundle(files);
+    (void)validate_model_bundle(files, ModelValidation::GeometryStage);
     cancelled();
     return files;
+}
+std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& native,
+                                                  const GltfModelCookOptions& options,
+                                                  std::stop_token stop) {
+    for (const auto* key : {"skins", "animations"})
+        require(!native.source().document.contains(key) || native.source().document.at(key).empty(),
+                "Static model cooking cannot discard skin/animation stages");
+    return cook_gltf_geometry_bundle(native, options, stop);
 }
 } // namespace forge::asset_detail

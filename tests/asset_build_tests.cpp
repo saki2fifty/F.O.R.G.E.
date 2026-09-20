@@ -249,6 +249,7 @@ int main(int argc, char** argv) {
             [](auto& value) { ++value.settings_version; },
             [](auto& value) { value.settings["quality"] = 4; },
             [&](auto& value) { value.source_dependencies["include"] = digest; },
+            [&](auto& value) { value.tool_revisions["converter"] = digest; },
             [&](auto& value) {
                 value.dependencies.push_back(
                     {b, "texture", AssetDependencyKind::Build, "input", digest});
@@ -263,6 +264,24 @@ int main(int argc, char** argv) {
             mutate(altered);
             require(altered.key() != original, "Build input absent from key");
         }
+        require(settings.document().at("key_version") == 1 &&
+                    !settings.document().contains("tool_revisions"),
+                "Tool-free build keys changed format");
+        auto tool_input = settings;
+        tool_input.tool_revisions["converter"] = digest;
+        require(tool_input.document().at("key_version") == 2, "Tool build key lacks version");
+        const auto first_tool_key = tool_input.key();
+        tool_input.tool_revisions["converter"] = std::string(64, 'a');
+        require(tool_input.key() != first_tool_key, "Tool binary revision absent from key");
+        rejects([&] {
+            tool_input.tool_revisions["../tool"] = digest;
+            (void)tool_input.key();
+        });
+        tool_input.tool_revisions.clear();
+        rejects([&] {
+            tool_input.tool_revisions["tool"] = "bad";
+            (void)tool_input.key();
+        });
         settings.dependencies = {{b, "texture", AssetDependencyKind::Build, "b", digest},
                                  {a, "texture", AssetDependencyKind::Build, "a", digest}};
         auto reordered = settings;

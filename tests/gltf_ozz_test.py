@@ -11,11 +11,11 @@ converter, test, root = map(Path, sys.argv[1:])
 root.mkdir(parents=True, exist_ok=True)
 
 
-def run(name, nodes, channels, expected, skins=None):
+def run(name, nodes, channels, expected, skins=None, roots=None):
     work = root / name
     work.mkdir(exist_ok=True)
     data = bytearray()
-    doc = dict(asset=dict(version="2.0"), nodes=nodes, scenes=[dict(nodes=[0])], scene=0,
+    doc = dict(asset=dict(version="2.0"), nodes=nodes, scenes=[dict(nodes=[0] if roots is None else roots)], scene=0,
                bufferViews=[], accessors=[])
 
     def accessor(values, width, times=False):
@@ -39,9 +39,9 @@ def run(name, nodes, channels, expected, skins=None):
     if skins:
         doc["skins"] = skins
     if any(path == "weights" for _, path, *_ in channels):
-        pos = accessor([0, 0, 0], 3)
-        doc["accessors"][pos].update(min=[0, 0, 0], max=[0, 0, 0])
-        doc["meshes"] = [dict(primitives=[dict(mode=0, attributes=dict(POSITION=pos), targets=[dict(POSITION=pos)])])]
+        pos = accessor([0, 0, 0, 1, 0, 0, 0, 1, 0], 3)
+        doc["accessors"][pos].update(min=[0, 0, 0], max=[1, 1, 0])
+        doc["meshes"] = [dict(primitives=[dict(attributes=dict(POSITION=pos), targets=[dict(POSITION=pos)])])]
     if data:
         doc["buffers"] = [dict(byteLength=len(data), uri="data:application/octet-stream;base64," + base64.b64encode(data).decode())]
     (work / "input.gltf").write_text(json.dumps(doc))
@@ -58,6 +58,15 @@ base = dict(rest=[[0, 12, 5], [1, 12, 5], [1, 13, 1]], parents=[-1, 0],
             samples=[dict(ratio=.5, values=[[0, 12, 5], [1, 12, 5.5], [1, 13, 1.5]])])
 meta = run("matrix", nodes, [(2, "translation", "LINEAR", [0, 1], [0, 1, 0, 1, 2, 0])], base)
 assert meta["joint_nodes"] == [0, 2]  # unrelated source node omitted, identity still source index
+reordered_nodes = [copy.deepcopy(nodes[2]), copy.deepcopy(nodes[0]), copy.deepcopy(nodes[1])]
+reordered_nodes[1]["children"] = [0, 2]
+reordered = run("node-reorder", reordered_nodes, [(0, "translation", "LINEAR", [0, 1], [0, 1, 0, 1, 2, 0])], base, roots=[1])
+assert reordered["joint_nodes"] == [1, 0]
+assert reordered["content_evidence"] == meta["content_evidence"]
+assert reordered["semantic_evidence"] == meta["semantic_evidence"]
+for evidence in ("content_evidence", "semantic_evidence"):
+    assert reordered["clips"][0][evidence] == meta["clips"][0][evidence]
+
 # Explicit signed/zero TRS remains explicit, including animation through zero.
 run("signed", [dict(scale=[-1, 2, 0], children=[1]), dict(translation=[0, 1, 0])],
     [(0, "scale", "LINEAR", [0, 1], [-1, 2, 0, 1, 2, 0]), (1, "translation", "LINEAR", [0, 1], [0, 1, 0, 0, 1, 0])],

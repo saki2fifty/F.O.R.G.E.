@@ -1,12 +1,13 @@
 # Importing models with the tools command
 
-The current Phase7 source can prepare static glTF models from `.gltf` or `.glb`
-files. It registers the model, meshes, materials and referenced textures together.
+The current Phase7 source can prepare glTF models from `.gltf` or `.glb` files.
+It registers meshes, materials, referenced textures and, when present, a skeleton
+and animation clips together with the model.
 The original source files stay unchanged.
 
 **Current limitation:** this is a tools command workflow. Placing imported models
-in a scene, the model editor, rendering imported materials, and model files containing
-skins or animation are still being implemented. Cameras, punctual lights, node
+in a scene, the model editor, rendering imported materials and playing imported
+model animation are still being implemented. Cameras, punctual lights, node
 visibility/selectability and material variants are retained in imported model data;
 their viewport controls and rendering are not available yet.
 This page describes the working model preparation path only.
@@ -40,6 +41,13 @@ An optional JSON object after the source path changes these settings:
 - **vertex_fetch:** `true` / `false`. Optimize vertex storage while retaining triangle order.
 - **compression:** `none`, `bc`, or `bc-high-quality`. Compress ordinary images; Basis images use the selected platform's transcode profile.
 - **max_texture_size:**1–16384. Maximum texture dimension.
+- **skin_influences:** `reject` or `reduce-to-four`. Reject vertices using more than four bones, or explicitly keep the four strongest influences and rebalance their weights.
+- **animation_sampling_rate:**1–240. Samples per second when the official converter resamples animation curves; default30.
+- **animation_optimize:** `true` / `false`. Use the official converter's animation optimization; default `true`.
+
+Animated models require the packaged `tools/gltf2ozz.exe` converter. If conversion
+fails, the previous complete model import remains selected. Importing a skeleton
+and clips does not yet place or play the model in a scene.
 
 The default normal/tangent choice is `missing`. Exact merging and vertex-fetch
 optimization default to `true`. Compression defaults to `none`; maximum size is16384.

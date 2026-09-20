@@ -58,6 +58,44 @@ void validate_model_animation(const Json& meta, std::span<const ArtifactFile> fi
             require(x.is_number() && std::isfinite(x.get<double>()),
                     "Nonfinite expected model rest matrix");
     }
+    require(valid_content_digest(meta.at("content_evidence").get<std::string>()) &&
+                valid_content_digest(meta.at("semantic_evidence").get<std::string>()),
+            "Invalid rig identity evidence");
+    const auto& skins = meta.at("skins");
+    const auto& node_skins = meta.at("node_skins");
+    require(skins.is_array() && skins.size() <= 32768 && node_skins.is_array() &&
+                node_skins.size() <= 100000,
+            "Model skin binding counts exceed profile");
+    for (const auto node : node_set)
+        require(node < node_skins.size(), "Rig node exceeds model source nodes");
+    for (const auto& skin : node_skins)
+        if (!skin.is_null())
+            (void)index(skin, skins.size());
+    std::size_t skin_joint_budget = 32768;
+    for (const auto& skin : skins) {
+        const auto& mapped = skin.at("joints");
+        const auto& inverse = skin.at("inverse_bind_matrices");
+        require(mapped.is_array() && !mapped.empty() && mapped.size() <= joints.size() &&
+                    mapped.size() <= skin_joint_budget && inverse.is_array() &&
+                    inverse.size() == mapped.size(),
+                "Invalid model skin joint/inverse-bind counts");
+        skin_joint_budget -= mapped.size();
+        std::set<std::size_t> unique;
+        for (const auto& joint : mapped)
+            require(unique.insert(index(joint, joints.size())).second,
+                    "Duplicate model skin joint");
+        for (const auto& matrix : inverse) {
+            require(matrix.is_array() && matrix.size() == 16, "Invalid model inverse bind matrix");
+            for (const auto& value : matrix)
+                require(
+                    value.is_number() && std::isfinite(value.get<double>()) &&
+                        std::abs(value.get<double>()) <= std::numeric_limits<float>::max() &&
+                        (value.get<double>() == 0 || static_cast<float>(value.get<double>()) != 0),
+                    "Model inverse bind value cannot be stored as finite float");
+            require(matrix[3] == 0 && matrix[7] == 0 && matrix[11] == 0 && matrix[15] == 1,
+                    "Model inverse bind is not affine");
+        }
+    }
     std::map<std::string, std::span<const std::byte>> available;
     std::size_t budget = 256 * 1024 * 1024;
     for (const auto& file : files) {
@@ -96,6 +134,9 @@ void validate_model_animation(const Json& meta, std::span<const ArtifactFile> fi
         const auto filename = "clip-" + std::to_string(i) + ".ozz";
         require(entry.at("file") == filename && index(entry.at("source_index"), clips.size()) == i,
                 "Invalid model animation clip mapping");
+        require(valid_content_digest(entry.at("content_evidence").get<std::string>()) &&
+                    valid_content_digest(entry.at("semantic_evidence").get<std::string>()),
+                "Invalid clip identity evidence");
         const auto duration = entry.at("duration").get<double>();
         require(std::isfinite(duration) && duration >= double(.0001f) && duration <= 3600,
                 "Invalid model clip duration");

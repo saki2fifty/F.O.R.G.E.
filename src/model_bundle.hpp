@@ -23,5 +23,13 @@ struct ModelBundleIndex {
 std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index);
 ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes);
 // CPU cooked validation only: no source codecs, world mutation or device creation.
-ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files);
+enum class ModelValidation { Complete, GeometryStage };
+ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files,
+                                       ModelValidation stage = ModelValidation::Complete);
+// Joins already cooked geometry with admitted official converter outputs. No disk
+// publication or durable identity assignment occurs until the entire family passes.
+std::vector<ArtifactFile> complete_model_animation(std::vector<ArtifactFile> geometry,
+                                                   const nlohmann::json& metadata,
+                                                   std::vector<ArtifactFile> archives,
+                                                   const nlohmann::json& provenance);
 } // namespace forge::asset_detail

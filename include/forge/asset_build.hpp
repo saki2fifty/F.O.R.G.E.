@@ -66,6 +66,9 @@ struct AssetBuildInput {
     std::string platform;
     std::string backend;
     std::string profile;
+    // Named external build tools are neither source locators nor logical assets.
+    // Include exact executable/profile digests without changing importer identity.
+    std::map<std::string, std::string> tool_revisions;
     nlohmann::json document() const;
     std::string key() const;
 };

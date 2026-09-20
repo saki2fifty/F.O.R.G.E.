@@ -36,10 +36,12 @@ void save(const std::filesystem::path& path, const Json& doc) {
 }
 class DirectImporter final : public AssetImporter {
     std::shared_ptr<const AssetImporter> delegate_;
+    std::filesystem::path converter_;
 
   public:
-    explicit DirectImporter(std::shared_ptr<const AssetImporter> d)
-        : AssetImporter(d->descriptor(), d->settings()), delegate_(std::move(d)) {}
+    DirectImporter(std::shared_ptr<const AssetImporter> d, std::filesystem::path converter)
+        : AssetImporter(d->descriptor(), d->settings()), delegate_(std::move(d)),
+          converter_(std::move(converter)) {}
     ImportProbeResult probe(const ImportProbe& p) const override { return delegate_->probe(p); }
     AssetImportPlan discover(const AssetImportRequest& r, std::stop_token s) const override {
         return delegate_->discover(r, s);
@@ -50,7 +52,7 @@ class DirectImporter final : public AssetImporter {
                     const std::function<void(double, std::string)>&) const override {
         const auto current = discover(r, s);
         require(current.input.document() == p.input.document(), "Direct fixture input stale");
-        return execute_model_recipe(
+        auto files = execute_model_recipe(
             {{{"recipe", descriptor().id},
               {"revision", model_recipe_revision()},
               {"settings", r.settings},
@@ -59,6 +61,8 @@ class DirectImporter final : public AssetImporter {
              encode_gltf_snapshot(
                  capture_gltf_source(r.project, r.source, model_cook_extensions(), {}, s), {}, s)},
             s);
+        return finish_model_recipe(std::move(files), converter_, r.project, p.input.source_digest,
+                                   p.data.at("converter_sha256").get<std::string>(), s);
     }
 };
 std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId root) {
@@ -71,16 +75,17 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 5, "Need mode worker fixture output-root");
+        require(argc == 6, "Need mode worker fixture output-root converter");
         const bool direct = std::string_view(argv[1]) == "--direct";
         require(direct || std::string_view(argv[1]) == "--worker", "Invalid model test mode");
         const auto root = std::filesystem::absolute(argv[4]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         std::filesystem::copy(argv[3], root / "Assets/Model",
                               std::filesystem::copy_options::recursive);
-        auto importer = model_importer(std::filesystem::absolute(argv[2]));
+        const auto converter = std::filesystem::absolute(argv[5]);
+        auto importer = model_importer(std::filesystem::absolute(argv[2]), converter);
         if (direct)
-            importer = std::make_shared<DirectImporter>(importer);
+            importer = std::make_shared<DirectImporter>(importer, converter);
         auto registry = std::make_shared<AssetImporterRegistry>();
         registry->add(importer);
         registry->seal();
@@ -262,6 +267,104 @@ int main(int argc, char** argv) {
         auto large_hit = run(many);
         require(large_hit.published && large_hit.cache_hit,
                 "Large model family cache reimport failed");
+        // One complete animated family through the same service/publication path.
+        // Skin-bound geometry exercises ordered skin.joints -> Ozz palette binding.
+        std::vector<float> animation_data{0, 1, 0, 0, 0, 1, 2, 3};
+        const auto animation_bytes = std::as_bytes(std::span(animation_data));
+        std::vector<std::byte> binary(animation_bytes.begin(), animation_bytes.end());
+        const auto joint_offset = binary.size();
+        for (unsigned vertex = 0; vertex < 3; ++vertex)
+            for (unsigned joint : {0u, 1u, 0u, 0u})
+                binary.push_back(std::byte(joint));
+        const auto weight_offset = binary.size();
+        const std::array<float, 12> weights{.5f, .5f, 0, 0, .5f, .5f, 0, 0, .5f, .5f, 0, 0};
+        const auto wb = std::as_bytes(std::span(weights));
+        binary.insert(binary.end(), wb.begin(), wb.end());
+        write(root / "Assets/animation.bin", binary);
+        doc["meshes"] = Json::array({mesh});
+        doc["buffers"].push_back({{"uri", "animation.bin"}, {"byteLength", binary.size()}});
+        doc["bufferViews"].push_back({{"buffer", 1}, {"byteOffset", 0}, {"byteLength", 8}});
+        doc["bufferViews"].push_back({{"buffer", 1}, {"byteOffset", 8}, {"byteLength", 24}});
+        doc["bufferViews"].push_back(
+            {{"buffer", 1}, {"byteOffset", joint_offset}, {"byteLength", 12}});
+        doc["bufferViews"].push_back(
+            {{"buffer", 1}, {"byteOffset", weight_offset}, {"byteLength", 48}});
+        doc["accessors"].push_back({{"bufferView", 1},
+                                    {"componentType", 5126},
+                                    {"type", "SCALAR"},
+                                    {"count", 2},
+                                    {"min", {0}},
+                                    {"max", {1}}});
+        doc["accessors"].push_back(
+            {{"bufferView", 2}, {"componentType", 5126}, {"type", "VEC3"}, {"count", 2}});
+        doc["accessors"].push_back(
+            {{"bufferView", 3}, {"componentType", 5121}, {"type", "VEC4"}, {"count", 3}});
+        doc["accessors"].push_back(
+            {{"bufferView", 4}, {"componentType", 5126}, {"type", "VEC4"}, {"count", 3}});
+        doc["meshes"][0]["primitives"][0]["attributes"]["JOINTS_0"] = 3;
+        doc["meshes"][0]["primitives"][0]["attributes"]["WEIGHTS_0"] = 4;
+        doc["nodes"] =
+            Json::array({{{"name", "Mesh"}, {"mesh", 0}, {"skin", 0}, {"children", {1, 2}}},
+                         {{"name", "Joint A"}},
+                         {{"name", "Joint B"}}});
+        doc["skins"] = Json::array({{{"joints", {1, 2}}}});
+        doc["scenes"][0]["nodes"] = {0};
+        auto clip = [&](unsigned node, std::string path, std::string label) {
+            return Json{
+                {"name", label},
+                {"samplers", Json::array({{{"input", 1}, {"output", 2}}})},
+                {"channels",
+                 Json::array({{{"sampler", 0}, {"target", {{"node", node}, {"path", path}}}}})}};
+        };
+        doc["animations"] =
+            Json::array({clip(1, "translation", "Move"), clip(2, "scale", "Scale")});
+        const auto animated_source = std::filesystem::path("Assets/animated.gltf");
+        save(root / animated_source, doc);
+        const auto animated = run(animated_source);
+        require(animated.published, animated.diagnostic.c_str());
+        const auto animated_owner = service.prepare(animated_source).request.asset;
+        const auto members = bindings(animated.publication->catalog, animated_owner);
+        require(members.size() == 4 && members.contains("/rig/skeleton") &&
+                    members.contains("/animations/0") && members.contains("/animations/1"),
+                "Animated family not published completely");
+        for (const auto* address : {"/animations/0", "/animations/1"}) {
+            const auto& record = animated.publication->catalog.records().at(members.at(address));
+            require(record.type == "animation_clip" && record.dependency_edges.size() == 1 &&
+                        record.dependency_edges[0].target == members.at("/rig/skeleton") &&
+                        record.dependency_edges[0].expected_type == "skeleton",
+                    "Clip did not receive typed skeleton dependency");
+        }
+        const auto cached_animation = run(animated_source);
+        require(cached_animation.published && cached_animation.cache_hit &&
+                    bindings(cached_animation.publication->catalog, animated_owner) == members,
+                "Animated cache hit changed identities");
+        std::reverse(doc["animations"].begin(), doc["animations"].end());
+        for (auto& animation : doc["animations"])
+            animation["name"] = "Same renamed label";
+        save(root / animated_source, doc);
+        const auto renamed = run(animated_source);
+        require(renamed.published, renamed.diagnostic.c_str());
+        const auto remapped = bindings(renamed.publication->catalog, animated_owner);
+        require(remapped.at("/animations/0") == members.at("/animations/1") &&
+                    remapped.at("/animations/1") == members.at("/animations/0") &&
+                    remapped.at("/rig/skeleton") == members.at("/rig/skeleton"),
+                "Animation reorder/rename changed durable identity");
+        const auto selected_animation =
+            read_bytes(root / "forge.assets.json", max_asset_index_bytes);
+        auto wrong = doc;
+        wrong["skins"][0]["joints"] = {1}; // prepared geometry still references skin joint 1
+        save(root / animated_source, wrong);
+        const auto bad_skin = run(animated_source);
+        require(!bad_skin.published && read_bytes(root / "forge.assets.json",
+                                                  max_asset_index_bytes) == selected_animation,
+                "Incompatible skin replaced previous complete family");
+        doc["animations"].erase(doc["animations"].begin());
+        save(root / animated_source, doc);
+        const auto removed_clip = run(animated_source);
+        require(removed_clip.published && removed_clip.publication->catalog.records()
+                                              .at(members.at("/animations/1"))
+                                              .subasset->removed,
+                "Removed clip did not preserve tombstone");
         if (std::filesystem::exists(root / ".forge/jobs"))
             require(std::filesystem::is_empty(root / ".forge/jobs"),
                     "Finished model staging remains");

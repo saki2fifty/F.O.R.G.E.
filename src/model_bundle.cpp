@@ -1,7 +1,9 @@
 #include "model_bundle.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "model_animation.hpp"
 #include "model_scene_values.hpp"
+#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <forge/material_asset.hpp>
@@ -164,7 +166,8 @@ void validate(const ModelBundleIndex& index) {
         (void)text(id.address, 4096);
         (void)text(id.display_name, 4096, true);
         (void)text(id.evidence.exporter_key, 1024, true);
-        require(id.type == "mesh" || id.type == "material" || id.type == "texture",
+        require(id.type == "mesh" || id.type == "material" || id.type == "texture" ||
+                    id.type == "skeleton" || id.type == "animation_clip",
                 "Unsupported model bundle member type");
         for (const auto& digest : {id.evidence.content_digest, id.evidence.semantic_digest})
             require(digest.empty() || valid_content_digest(digest),
@@ -183,7 +186,9 @@ void validate(const ModelBundleIndex& index) {
             require(found != members.end(), "Missing model binding target");
             require(
                 (m.identity.type == "mesh" && found->second->identity.type == "material") ||
-                    (m.identity.type == "material" && found->second->identity.type == "texture"),
+                    (m.identity.type == "material" && found->second->identity.type == "texture") ||
+                    (m.identity.type == "animation_clip" && role == "skeleton" &&
+                     found->second->identity.type == "skeleton"),
                 "Invalid model binding type/direction");
         }
     }
@@ -245,7 +250,7 @@ ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
     validate(result);
     return result;
 }
-ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
+ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, ModelValidation stage) {
     require(files.size() <= 8192, "Model output file count exceeds bounds");
     std::map<std::string, const ArtifactFile*> lookup;
     std::uint64_t size = 0;
@@ -268,6 +273,13 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
     require(model != lookup.end(), "Model index missing");
     auto index = decode_model_bundle_index(model->second->bytes);
     lookup.erase(model);
+    const bool pending = index.hierarchy.value("animation_pending", false);
+    require(!pending ||
+                (stage == ModelValidation::GeometryStage && !index.hierarchy.contains("animation")),
+            "Incomplete model animation stage cannot be published");
+    std::vector<ArtifactFile> archives;
+    std::map<std::string, const ModelImportMember*> animation_members;
+    std::map<std::string, std::vector<std::uint32_t>> mesh_palettes;
     std::map<std::string, std::map<TextureSemantic, TextureDimension>> variants;
     std::map<std::string, MaterialData> materials;
     std::map<std::string, std::size_t> morph_counts;
@@ -278,6 +290,15 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
         const auto& file = take(m.artifact.file, m.artifact.digest, m.artifact.bytes);
         if (m.identity.type == "mesh") {
             const auto mesh = decode_mesh(file.bytes);
+            auto& palette = mesh_palettes[m.identity.address];
+            for (const auto& lod : mesh.lods)
+                for (const auto& part : lod.parts) {
+                    // A skin-bound node must have prepared influence streams on every draw.
+                    palette.push_back(part.joint_palette.empty()
+                                          ? UINT32_MAX
+                                          : *std::max_element(part.joint_palette.begin(),
+                                                              part.joint_palette.end()));
+                }
             morph_counts[m.identity.address] = mesh.morph_defaults.size();
             auto& streams = primitive_streams[m.identity.address];
             for (const auto& part : mesh.lods.at(0).parts) {
@@ -323,6 +344,9 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
                 require(material.textures.contains(role), "Unknown model material texture slot");
             }
             materials.emplace(m.identity.address, std::move(material));
+        } else if (m.identity.type == "skeleton" || m.identity.type == "animation_clip") {
+            archives.push_back(file);
+            animation_members.emplace(m.identity.address, &m);
         } else {
             const auto bundle = decode_texture_bundle_index(file.bytes);
             for (const auto& entry : bundle.variants) {
@@ -372,7 +396,138 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files) {
                         "Model variant needs unavailable texture coordinates");
             }
         }
+    if (index.hierarchy.contains("animation")) {
+        const auto& animation = index.hierarchy.at("animation");
+        const auto& meta = animation.at("plan");
+        const auto& provenance = animation.at("provenance");
+        require(provenance.at("converter") == "gltf2ozz" &&
+                    provenance.at("converter_revision") ==
+                        "744eb9d99f606eda849acb0b1204f7a3dc20bca1" &&
+                    valid_content_digest(provenance.at("converter_sha256").get<std::string>()) &&
+                    provenance.at("source_digest") == index.source_digest,
+                "Model animation provenance is invalid");
+        validate_model_animation(meta, archives);
+        const auto skeleton_address = animation.at("skeleton").get<std::string>();
+        const auto skeleton = animation_members.find(skeleton_address);
+        require(skeleton != animation_members.end() &&
+                    skeleton->second->identity.type == "skeleton" &&
+                    skeleton->second->artifact.file == "skeleton.ozz" &&
+                    skeleton->second->bindings.empty(),
+                "Missing model skeleton binding");
+        const auto& clip_addresses = animation.at("clips");
+        require(clip_addresses.is_array() && clip_addresses.size() == meta.at("clips").size() &&
+                    animation_members.size() == clip_addresses.size() + 1,
+                "Model animation member count mismatch");
+        std::set<std::string> bound;
+        for (std::size_t i = 0; i < clip_addresses.size(); ++i) {
+            const auto address = clip_addresses[i].get<std::string>();
+            const auto found = animation_members.find(address);
+            require(found != animation_members.end() && bound.insert(address).second &&
+                        found->second->identity.type == "animation_clip" &&
+                        found->second->artifact.file == meta.at("clips")[i].at("file") &&
+                        found->second->bindings ==
+                            std::map<std::string, std::string>{{"skeleton", skeleton_address}},
+                    "Model clip skeleton binding mismatch");
+        }
+        const auto& nodes = index.hierarchy.at("nodes");
+        require(meta.at("node_skins").size() == nodes.size(), "Model skin node count mismatch");
+        std::map<std::size_t, std::size_t> joints;
+        for (std::size_t i = 0; i < meta.at("joint_nodes").size(); ++i)
+            joints.emplace(meta.at("joint_nodes")[i].get<std::size_t>(), i);
+        std::vector<AffineTransform> world(joints.size());
+        for (std::size_t i = 0; i < world.size(); ++i) {
+            const auto node_index = meta.at("joint_nodes")[i].get<std::size_t>();
+            const auto& node = nodes.at(node_index);
+            const auto parent = meta.at("joint_parents")[i].get<int>();
+            require(node.at("parent").is_null()
+                        ? parent == -1
+                        : (joints.contains(node.at("parent").get<std::size_t>()) && parent >= 0 &&
+                           joints.at(node.at("parent").get<std::size_t>()) == std::size_t(parent)),
+                    "Rig ancestry differs from model geometry");
+            world[i].m = node.at("local").get<std::array<double, 12>>();
+            if (parent >= 0)
+                world[i] = world[std::size_t(parent)] * world[i];
+            for (unsigned col = 0; col < 4; ++col) {
+                double magnitude = 1;
+                for (unsigned row = 0; row < 3; ++row)
+                    magnitude = std::max(magnitude, std::abs(world[i].m[row * 4 + col]));
+                for (unsigned row = 0; row < 3; ++row)
+                    require(
+                        std::abs(world[i].m[row * 4 + col] -
+                                 meta.at("joint_rest_models")[i][col * 4 + row].get<double>()) <=
+                            magnitude * 5e-5,
+                        "Rig rest pose differs from model geometry");
+            }
+        }
+        for (std::size_t i = 0; i < nodes.size(); ++i) {
+            const auto& skin_index = meta.at("node_skins")[i];
+            if (skin_index.is_null())
+                continue;
+            require(!nodes[i].at("mesh").is_null(), "Skin bound to model node without mesh");
+            const auto count =
+                meta.at("skins").at(skin_index.get<std::size_t>()).at("joints").size();
+            for (auto joint : mesh_palettes.at(nodes[i].at("mesh").get<std::string>()))
+                require(joint < count,
+                        "Model skin requires prepared palette within skin joint bounds");
+        }
+        for (const auto& clip : meta.at("clips"))
+            for (const auto& track : clip.at("morph_tracks")) {
+                const auto& node = nodes.at(track.at("node").get<std::size_t>());
+                require(!node.at("mesh").is_null() &&
+                            morph_counts.at(node.at("mesh").get<std::string>()) ==
+                                track.at("components").get<std::size_t>(),
+                        "Model morph animation target count differs from mesh");
+            }
+    } else
+        require(archives.empty(), "Animation archives without complete model binding");
     require(lookup.empty(), "Unexpected file in model artifact");
     return index;
+}
+std::vector<ArtifactFile> complete_model_animation(std::vector<ArtifactFile> geometry,
+                                                   const Json& metadata,
+                                                   std::vector<ArtifactFile> archives,
+                                                   const Json& provenance) {
+    auto index = validate_model_bundle(geometry, ModelValidation::GeometryStage);
+    require(index.hierarchy.value("animation_pending", false),
+            "Model animation completion requires an incomplete geometry candidate");
+    validate_model_animation(metadata, archives);
+    const std::string skeleton_address = "/rig/skeleton";
+    Json clips = Json::array();
+    auto add = [&](std::string address, std::string type, std::string name, const Json& evidence,
+                   const std::string& filename) {
+        const auto found = std::find_if(archives.begin(), archives.end(),
+                                        [&](const auto& f) { return f.name == filename; });
+        require(found != archives.end(), "Missing admitted model animation archive");
+        ModelImportMember member;
+        member.identity = {std::move(address),
+                           std::move(type),
+                           std::move(name),
+                           {"", evidence.at("content_evidence").get<std::string>(),
+                            evidence.at("semantic_evidence").get<std::string>()}};
+        member.artifact = {filename, content_digest(found->bytes), found->bytes.size()};
+        if (member.identity.type == "animation_clip")
+            member.bindings.emplace("skeleton", skeleton_address);
+        index.members.push_back(std::move(member));
+    };
+    add(skeleton_address, "skeleton", "Model skeleton", metadata, "skeleton.ozz");
+    for (std::size_t i = 0; i < metadata.at("clips").size(); ++i) {
+        const auto& clip = metadata.at("clips")[i];
+        const auto address = "/animations/" + std::to_string(i);
+        clips.push_back(address);
+        add(address, "animation_clip", clip.at("name").get<std::string>(), clip,
+            clip.at("file").get<std::string>());
+    }
+    index.hierarchy.erase("animation_pending");
+    index.hierarchy["animation"] = {{"plan", metadata},
+                                    {"provenance", provenance},
+                                    {"skeleton", skeleton_address},
+                                    {"clips", clips}};
+    for (auto& file : geometry)
+        if (file.name == "model.json")
+            file.bytes = encode_model_bundle_index(index);
+    for (auto& file : archives)
+        geometry.push_back(std::move(file));
+    (void)validate_model_bundle(geometry);
+    return geometry;
 }
 } // namespace forge::asset_detail

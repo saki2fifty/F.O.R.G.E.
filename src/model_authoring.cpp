@@ -1,6 +1,7 @@
 #include "model_authoring.hpp"
 #include "asset_bytes.hpp"
 #include "model_bundle.hpp"
+#include "model_importer.hpp"
 #include <forge/model_asset.hpp>
 namespace forge {
 void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPlan& plan,
@@ -11,6 +12,16 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
     const auto bundle = asset_detail::validate_model_bundle(c.files);
     if (bundle.source_digest != c.input.source_digest)
         throw std::runtime_error("Model candidate belongs to another source revision");
+    if (bundle.hierarchy.contains("animation")) {
+        const auto digest =
+            bundle.hierarchy.at("animation").at("provenance").at("converter_sha256");
+        if (c.input.importer_revision != asset_detail::model_recipe_revision() ||
+            !c.input.tool_revisions.contains("gltf2ozz") ||
+            c.input.tool_revisions.at("gltf2ozz") != digest ||
+            !plan.data.at("animation").get<bool>() || digest != plan.data.at("converter_sha256"))
+            throw std::runtime_error("Model animation provenance differs from prepared recipe");
+    } else if (plan.data.at("animation").get<bool>())
+        throw std::runtime_error("Animated source cannot publish a static-only family");
     auto previous = c.sidecar.identity;
     if (!previous.owner) {
         previous.owner = c.ticket.owner;

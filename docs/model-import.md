@@ -1,9 +1,8 @@
 # Model import stages
 
-Phase7 model integration is in progress. The native static-model cooking and
-validation stages below feed a supervised worker and the shared headless import
-service/CLI. Animation conversion, rendering and the model-document UI remain
-required work.
+Phase7 model integration is in progress. Native geometry preparation and official
+Ozz conversion feed one validated family through the shared import service/CLI.
+Runtime model binding, rendering and the model-document UI remain required work.
 
 ## Immutable source transport
 
@@ -19,7 +18,7 @@ JSON structure, resource counts, image/view agreement and cancellation. Unknown
 files and duplicate names reject. This transport is not a persistent asset format
 or a native extension ABI. Source JSON and original files remain unchanged.
 
-## Static model candidates
+## Geometry candidates
 
 The private native stage prepares a single candidate containing:
 
@@ -35,8 +34,9 @@ The cooked hierarchy belongs to an immutable asset. It does not replace Flecs
 ChildOf/Parent or add another authored transform authority. The scene/runtime
 consumer must resolve the selected member bindings before use.
 
-This profile currently rejects models needing skin/animation realization. Those required stages remain active Phase7 work;
-their rejection here must not be reported as completing those features. Unreferenced
+A geometry candidate with skin or animation data is explicitly incomplete. The
+complete validator refuses publication until the following animation stage succeeds.
+Unreferenced
 images remain in source and receive a diagnostic instead of an unused runtime
 texture. Original material/mesh labels are preserved for display.
 
@@ -93,10 +93,9 @@ See[glTF admission](gltf-admission.md),[subasset identity](subasset-identity.md)
 The fixed `forge.model.gltf` recipe now runs through `forge_asset_build`, the same
 supervised executable used for textures. Its registry entry is available to the
 shared import service and headless `forge_tools --assets import` command. The
-current recipe retains the skin/animation restriction listed above. Camera/light
-and variant data are preserved as described below; their editor/runtime realization,
-complete skeletal conversion, model documents and GPU rendering remain required
-Phase7 work.
+recipe includes skin/animation conversion when needed. Camera/light and variant
+data are preserved as described below; their editor/runtime realization, model
+documents and GPU rendering remain required Phase7 work.
 
 Discovery captures source and external dependencies. Before process launch, a
 second immutable capture must have the same source/settings/dependency build key.
@@ -215,8 +214,8 @@ before allocating its JSON arrays. Existing archive limits remain16MiB each with
 bounded joints, keys and numerical values. Output validation allows at most256MiB
 for a rig and its clips, rejects unexpected/duplicate/missing files, and admits
 archives before calling the runtime. These internal stages are tested with the
-actual pinned converter; whole-model worker composition and runtime skinning are
-still required integration work, not completed by these adapter tests.
+actual pinned converter. Whole-family publication now composes these stages;
+runtime skinning remains required integration work.
 
 Evidence: [Ozz converter at the selected pin](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/gltf/gltf2ozz.cc),
 [skeleton builder](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/skeleton_builder.cc).
@@ -236,7 +235,8 @@ This stage allows1GiB process memory,16MiB per file,320MiB aggregate staging,
 68files and240seconds wall/220seconds CPU. Collected archive outputs remain capped
 at256MiB. It is intended to run **after** the native model worker has exited, never
 nested inside it, so cancellation retains ownership of every child process. The
-current tests exercise this runner directly; importer composition remains ongoing.
+importer executes this sequence and validates the combined result before returning
+it to the existing publisher.
 
 `MorphAnimation` is immutable companion curve data. It owns no clock, gameplay
 entities or playback state. Evaluation receives seconds from its caller, clamps
@@ -247,3 +247,43 @@ malformed/nonfinite curves and arithmetic overflow are explicit failures. A clip
 cannot target a node outside its admitted rig or extend beyond its declared duration.
 The evaluator is separate from skeletal Ozz sampling; scene/runtime application
 and rendered morph proof remain ongoing work.
+
+## Complete animated family
+
+One combined Skeleton member holds the union of skin joints, animation targets and
+required ancestors. Multiple skins retain separate ordered joint mappings and
+inverse-bind matrices. Prepared mesh palettes address `skin.joints`; each skin then
+maps to the actual admitted Ozz joint order. Every skin-bound draw must have a
+prepared palette within that skin's bounds. An unused unbound mesh can retain its
+source influence streams without pretending they are GPU-ready.
+
+Geometry alone carries `animation_pending` and fails complete validation. After the
+native worker exits, the parent runs the official converter with bounded private
+inputs, verifies names/parents/rest/duration, and joins raw Skeleton/AnimationClip
+archives with the geometry. The combined validator additionally checks model-node
+ancestry/rest agreement, morph target counts, archive hashes, typed clip/skeleton
+bindings, source provenance and all existing material/texture references. No stage
+writes a selected catalog revision. Only the complete candidate reaches the existing
+single publication transaction.
+
+Converter provenance records the exact Ozz revision, executable digest and source
+digest. The executable digest joins the common build input as `tool_revisions`;
+it does not impersonate an importer revision, project source file or logical AssetId.
+Discovery and conversion check executable bytes before/after use. A missing or
+changed converter rejects an animated candidate; static models do not require it.
+The packaged executable is `tools/gltf2ozz` (`.exe` on Windows).
+
+Rig correspondence uses rest/topology content plus the unique combined-rig role.
+Clip correspondence uses decoded curves and target context, excluding clip display
+names and source array positions. Node/clip reorder and clip rename preserve this
+evidence. Indistinguishable members still use the existing explicit correspondence
+workflow. Catalog Runtime edges bind clips to Skeleton AssetIds; cache metadata
+contains revision-local addresses only. Source locators remain the original model,
+not fabricated legacy `animation_source` records or generated archive paths.
+
+Settings expose reject/explicit top-four influence reduction, official converter
+sampling rate1–240(default30), and optimization(defaulttrue). The four-influence and
+256joint draw limits remain; requested reduction emits diagnostics and does not
+silently clamp unsupported content. Scene instantiation, resource adoption, playback
+binding, GPU skinning and editor model controls are separately tracked integration
+requirements and are not proved merely by successful family publication.

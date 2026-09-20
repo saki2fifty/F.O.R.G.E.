@@ -1,4 +1,5 @@
 #include "gltf_model_cook.hpp"
+#include "gltf_ozz_transport.hpp"
 #include "model_importer.hpp"
 namespace forge::asset_detail {
 std::vector<ArtifactFile> execute_model_recipe(ImportProcessRequest request, std::stop_token stop) {
@@ -38,6 +39,26 @@ std::vector<ArtifactFile> execute_model_recipe(ImportProcessRequest request, std
                               : TextureCompression::None;
     options.maximum_texture_size = settings.at("max_texture_size").get<unsigned>();
     options.desktop_bc = backend == "d3d12";
-    return cook_static_gltf_bundle(NativeGltfDocument(std::move(source)), options, stop);
+    options.skin_influences = settings.at("skin_influences") == "reduce-to-four"
+                                  ? ExcessSkinInfluences::ReduceToFour
+                                  : ExcessSkinInfluences::Reject;
+    NativeGltfDocument native(std::move(source));
+    auto files = cook_gltf_geometry_bundle(native, options, stop);
+    const auto& doc = native.source().document;
+    if (!doc.value("skins", nlohmann::json::array()).empty() ||
+        !doc.value("animations", nlohmann::json::array()).empty()) {
+        GltfOzzOptions animation;
+        animation.sampling_rate = settings.at("animation_sampling_rate").get<unsigned>();
+        animation.optimize = settings.at("animation_optimize").get<bool>();
+        auto transport = prepare_gltf_ozz_transport(native, animation, stop);
+        const auto text = transport.metadata.dump();
+        const auto bytes = std::as_bytes(std::span(text));
+        files.push_back({"rig-plan.json", {bytes.begin(), bytes.end()}});
+        for (auto& file : transport.converter_inputs) {
+            file.name = "rig-" + file.name;
+            files.push_back(std::move(file));
+        }
+    }
+    return files;
 }
 } // namespace forge::asset_detail
