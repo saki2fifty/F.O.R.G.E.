@@ -1148,3 +1148,15 @@
   during replacement, retirement/readback, off-thread rejection, failed candidate
   accounting and shutdown. Native execution is pending; draw-set/editor integration
   remains in progress. Payload counters are not presented as total driver VRAM.
+
+- Correct prepared-draw base winding to match the existing FORGE positive-Z view
+  and D3D12 render-target convention. Reflection/image-flip parity still toggles
+  that base; the native coverage fixture remains unchanged.
+
+### Built-in material resource requests
+
+- Add a worker-prepared built-in PBR material request using model-owned declarations,
+  so presentation does not parse a model to discover its material layout.
+- Preserve separate explicit-layout requests and variant coalescing. Regression
+  verifies unchanged authored values and texture bindings. Normal model recipe
+  passed1/1 in29.01s; ASan/UBSan/LSan passed1/1 in72.99s.

@@ -92,7 +92,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, const GpuMeshPart& mesh,
     for (unsigned parity = 0; parity < 3; ++parity) {
         g.RasterizerDesc.CullMode =
             source.double_sided || parity == 2 ? CULL_MODE_NONE : CULL_MODE_BACK;
-        g.RasterizerDesc.FrontCounterClockwise = parity == 0;
+        g.RasterizerDesc.FrontCounterClockwise = parity == 1;
         presentation.graphics(ci, &pipelines_[parity]);
         pipelines_[parity]->CreateShaderResourceBinding(&bindings_[parity], true);
         auto bind = [&](SHADER_TYPE stage, const char* name, IDeviceObject* value,

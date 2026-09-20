@@ -64,9 +64,8 @@ MeshResourceData model_mesh_resource(const ModelSelection& selected, AssetRef<Me
     validate_mesh_material_bindings(result);
     return result;
 }
-MaterialResourceData model_material_resource(const ModelSelection& selected,
-                                             AssetRef<MaterialAsset> material,
-                                             const MaterialLayout& layout) {
+MaterialResourceData model_pbr_material_resource(const ModelSelection& selected,
+                                                 AssetRef<MaterialAsset> material) {
     const auto& member = selected.member(material.id);
     require(member.identity.type == MaterialAsset::type, "Selected resource is not a material");
     MaterialResourceData result;
@@ -79,6 +78,12 @@ MaterialResourceData model_material_resource(const ModelSelection& selected,
         result.textures.emplace(role, AssetRef<TextureAsset>{texture});
     }
     validate_material_bindings(result.values, result.textures);
+    return result;
+}
+MaterialResourceData model_material_resource(const ModelSelection& selected,
+                                             AssetRef<MaterialAsset> material,
+                                             const MaterialLayout& layout) {
+    auto result = model_pbr_material_resource(selected, material);
     validate_material_layout(result.values, layout);
     return result;
 }
@@ -132,6 +137,25 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem
                             const auto bytes = data->resident_bytes();
                             return ResourceCandidate<MeshAsset>{std::move(data), {bytes}};
                         });
+}
+ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>& pool,
+                                          std::filesystem::path project,
+                                          std::shared_ptr<const AssetCatalog> catalog,
+                                          AssetRef<MaterialAsset> material) {
+    require(bool(catalog), "Model PBR material requires a selected catalog");
+    const auto selected = selected_member(*catalog, material.id, MaterialAsset::type);
+    return pool.request(
+        material, selected.revision, selected.generation,
+        [project = std::move(project), catalog = std::move(catalog), selected,
+         material](std::stop_token stop) {
+            const auto family = load_selected(project, *catalog, selected, stop);
+            auto data = std::make_unique<MaterialResourceData>(
+                model_pbr_material_resource(family, material));
+            require(!stop.stop_requested(), "Model PBR material preparation cancelled");
+            const auto bytes = data->resident_bytes();
+            return ResourceCandidate<MaterialAsset>{std::move(data), {bytes}};
+        },
+        {}, 0, "builtin:gltf-pbr-v1");
 }
 ResourceTicket request_model_material(ResourcePool<MaterialAsset>& pool,
                                       std::filesystem::path project,

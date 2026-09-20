@@ -196,3 +196,10 @@ revokes held leases at shutdown, and injects failure after an actual native buff
 allocation. Mesh payload accounting and thread-affinity rejection are also covered.
 Native execution is pending. Complete draw-set adoption and editor resource-inspection
 UI are still required; this checkpoint alone does not integrate Scene/Game rendering.
+
+The built-in model PBR request path selects the material model's authoritative
+declarations on its CPU worker. A presentation caller no longer needs to decode
+the model to discover a layout first. Its explicit `builtin:gltf-pbr-v1` resource
+variant is separate from requests made against an externally supplied reflected
+layout. Both preserve original material values and typed texture bindings and
+validate the same selected model family; custom shader compatibility is not bypassed.

@@ -183,6 +183,20 @@ int main(int argc, char** argv) {
         require(material_lease && material_lease->values == cooked_material &&
                     material_lease->textures.size() == cooked_material.textures.size(),
                 "Model material values or typed texture bindings differ");
+        auto builtin_request = request_model_pbr_material(material_resources, root, first_catalog,
+                                                          first_slot.material);
+        auto builtin_coalesced = request_model_pbr_material(material_resources, root, first_catalog,
+                                                            first_slot.material);
+        require(
+            builtin_request.inspect().identity == builtin_coalesced.inspect().identity &&
+                builtin_request.inspect().identity.variant !=
+                    material_request.inspect().identity.variant &&
+                material_resources.wait(builtin_request, 10s),
+            "Built-in material request did not validate/coalesce independently of explicit layout");
+        auto builtin_lease = material_resources.acquire(builtin_request);
+        require(builtin_lease->values == material_lease->values &&
+                    builtin_lease->textures == material_lease->textures,
+                "Built-in material preparation changed authored values or bindings");
         ResourcePool<TextureAsset> texture_resources({1, 64, 64, 64 * 1024 * 1024});
         require(!material_lease->textures.empty(), "Official material lost texture fixture");
         const auto& [texture_role, texture_ref] = *material_lease->textures.begin();
