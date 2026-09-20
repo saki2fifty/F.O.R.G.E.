@@ -283,3 +283,28 @@
 - Optional zlib-supercompressed KTX is explicitly rejected after strict testing
   exposed the pinned miniz typed-alignment path. The selected glTF Basis formats
   remain ETC1S/UASTC with no supercompression or Zstandard where applicable.
+
+## Additional texture formats and source admission (Phase7 in progress)
+
+- Added private native DDS preparation for legacy/DX10 normalized, floating and
+  BC formats, supplied mip chains, arrays, cubes/cube arrays and volume slices.
+  Pre-load bounds and aligned ownership precede Diligent parsing. BGRA/BGRX and
+  color luminance conversion use native utilities. Preserve DDS custom-channel
+  metadata; Basis encoding rejects it instead of silently treating it as opacity.
+- Added BMP preparation through the existing pinned stb decoder, with complete
+  row/palette checks, mask validation, top-down orientation and explicit alpha.
+  Unsupported native header/profile variants receive conversion diagnostics.
+- Added official stable libwebp1.6.0 at4fa2191 for bounded lossy/lossless still
+  images. Native demux/decode, RGBA ownership, dimensions, file/chunk lengths and
+  whole-file admission precede image processing. Animation/ICC conversion remain
+  separate unsupported capabilities. Packaged notices now include PATENTS/AUTHORS.
+- Added HDR/RGBE flat/RLE pre-load extent validation after exact-source review
+  found unchecked native short reads. No vendor patch or sanitizer suppression.
+- Set KTX's official archive version override to4.4.2, independent of Git tags.
+- Fully instrumented ASan/UBSan/LeakSanitizer texture tests passed6/6 in0.45s,
+  including BMP/DDS/WebP, malformed/truncated inputs and native compression.
+  Windows validation of this new bundle is pending. Previous e7da1b8 Windows
+  audit passed9/9 in12.07s including KTX and actual editor/viewport rendering;
+  its Linux/Windows core and shared-SDK CI profiles also passed.
+- These remain private preparation APIs. Publication, Content/editor integration,
+  GPU realization and complete Phase7 acceptance continue; no new numbered package.

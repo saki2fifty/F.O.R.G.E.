@@ -40,14 +40,14 @@ def package(build, dependencies, output):
         check_pe64(image)
     converter = build/'tools/gltf2ozz.exe'
     check_pe64(converter)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src', 'ktx-src')
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'diligent-src', 'jolt-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src', 'ktx-src', 'webp-src')
     notices = []
     for name in source_names:
         source = dependencies/name
         if not source.is_dir():
             raise ValueError(f'Dependency sources required for notices: {source}')
         matches = [p for p in source.rglob('*') if p.is_file() and '.git' not in p.parts
-                   and ('license' in p.name.lower() or p.name.lower().startswith('copying') or p.name.lower() == 'ftl.txt' or p.name.lower().startswith('notice') or 'LICENSES' in p.relative_to(source).parts)]
+                   and ('license' in p.name.lower() or p.name.lower().startswith('copying') or p.name.lower() == 'ftl.txt' or p.name.lower().startswith('notice') or p.name.lower() in ('patents', 'authors') or 'LICENSES' in p.relative_to(source).parts)]
         if not matches:
             raise ValueError(f'No license notice found in {source}')
         notices.extend((p, 'licenses/'+name+'/'+p.relative_to(source).as_posix()) for p in matches)

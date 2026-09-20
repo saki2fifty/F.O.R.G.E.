@@ -14,7 +14,12 @@ int forge_png_decode(const void* bytes, size_t size, unsigned dimension_limit, s
                      int header_only, ForgeImagePixels* result);
 int forge_jpeg_decode(const void* bytes, size_t size, unsigned dimension_limit, size_t byte_limit,
                       int header_only, ForgeImagePixels* result);
+// Caller first performs the private BMP extent/profile admission.
+int forge_bmp_decode(const void* bytes, size_t size, unsigned dimension_limit, size_t byte_limit,
+                     int header_only, ForgeImagePixels* result);
 void forge_image_pixels_free(ForgeImagePixels* result);
+int forge_webp_decode(const void* bytes, size_t size, unsigned dimension_limit, size_t byte_limit,
+                      int header_only, ForgeImagePixels* result);
 #ifdef __cplusplus
 }
 #endif

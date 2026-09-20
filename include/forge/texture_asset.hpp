@@ -38,7 +38,7 @@ enum class TextureFormat {
     BC7Srgb
 };
 enum class TextureSemantic { Color, Data, Normal, HdrColor };
-enum class TextureAlpha { Opaque, Straight, Premultiplied, Unknown };
+enum class TextureAlpha { Opaque, Straight, Premultiplied, Unknown, Custom };
 enum class TextureFilter { Nearest, Linear };
 enum class TextureWrap { Repeat, MirroredRepeat, ClampEdge, ClampBorder };
 enum class TextureCompare {

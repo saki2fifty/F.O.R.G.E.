@@ -7,6 +7,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
 #define STBI_ONLY_JPEG
+#define STBI_ONLY_BMP
 #define STBI_NO_STDIO
 #define STBI_NO_HDR
 #define STBI_NO_LINEAR
@@ -59,6 +60,46 @@ int forge_jpeg_decode(const void* bytes, size_t size, unsigned dimension_limit, 
             (unsigned)channels != result->channels) {
             forge_image_pixels_free(result);
             strcpy(result->error, "JPEG decode/header mismatch");
+            return 0;
+        }
+    }
+    return 1;
+}
+int forge_bmp_decode(const void* bytes, size_t size, unsigned dimension_limit, size_t byte_limit,
+                     int header_only, ForgeImagePixels* result) {
+    if (!result)
+        return 0;
+    memset(result, 0, sizeof(*result));
+    int width = 0, height = 0, channels = 0;
+    const unsigned char* source = (const unsigned char*)bytes;
+    if (!source || size < 26 || size > INT_MAX || source[0] != 'B' || source[1] != 'M' ||
+        !stbi_info_from_memory(source, (int)size, &width, &height, &channels) ||
+        height == INT_MIN || width <= 0 || !height || channels < 3 || channels > 4) {
+        strcpy(result->error, "Unsupported BMP header");
+        return 0;
+    }
+    // Native info preserves the top-down sign; decode returns its absolute extent.
+    height = abs(height);
+    if ((unsigned)width > dimension_limit || (unsigned)height > dimension_limit ||
+        (size_t)width * 4 > byte_limit / (unsigned)height) {
+        strcpy(result->error, "BMP pixels exceed dimension/byte budget");
+        return 0;
+    }
+    result->width = (unsigned)width;
+    result->height = (unsigned)height;
+    result->channels = 4;
+    result->component_bytes = 1;
+    result->stride = (size_t)width * 4;
+    result->size = result->stride * (unsigned)height;
+    if (!header_only) {
+        result->pixels = stbi_load_from_memory(source, (int)size, &width, &height, &channels, 4);
+        if (!result->pixels) {
+            strcpy(result->error, "Native BMP decode failed");
+            return 0;
+        }
+        if ((unsigned)width != result->width || (unsigned)height != result->height) {
+            forge_image_pixels_free(result);
+            strcpy(result->error, "BMP decode/header mismatch");
             return 0;
         }
     }

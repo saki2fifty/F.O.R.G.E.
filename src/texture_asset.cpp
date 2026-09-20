@@ -48,7 +48,7 @@ unsigned surfaces(const TextureData& t) {
 void validate_header(const TextureData& t, TextureLimits l) {
     require(unsigned(t.dimension) <= unsigned(TextureDimension::D3) &&
                 unsigned(t.semantic) <= unsigned(TextureSemantic::HdrColor) &&
-                unsigned(t.alpha) <= unsigned(TextureAlpha::Unknown),
+                unsigned(t.alpha) <= unsigned(TextureAlpha::Custom),
             "Unknown texture metadata enum");
     const auto f = texture_format_info(t.format);
     require(t.width && t.height && t.depth && t.layers && t.mips && t.width <= l.dimension &&
@@ -233,7 +233,7 @@ TextureData decode_texture(std::span<const std::byte> bytes, TextureLimits l) {
     t.dimension = TextureDimension(number(j.at("dimension"), 4));
     t.format = TextureFormat(number(j.at("format"), 26));
     t.semantic = TextureSemantic(number(j.at("semantic"), 3));
-    t.alpha = TextureAlpha(number(j.at("alpha"), 3));
+    t.alpha = TextureAlpha(number(j.at("alpha"), unsigned(TextureAlpha::Custom)));
     t.width = unsigned(number(j.at("width"), l.dimension));
     t.height = unsigned(number(j.at("height"), l.dimension));
     t.depth = unsigned(number(j.at("depth"), l.depth));

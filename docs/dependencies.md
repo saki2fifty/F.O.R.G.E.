@@ -8,6 +8,8 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| KTX Software | 4.4.2 / `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` | Private containers and Basis codecs | [Source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6) |
+| libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode and native demux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation and private Detour queries | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
@@ -154,3 +156,24 @@ before upgrading. No public ABI1 or persistent identity change is involved.
 
 The upstream CMake project requires Bash for version generation; build hosts need
 Bash (Git for Windows supplies it). It is not required to run a packaged editor.
+
+Archive builds set the official `KTX_GIT_VERSION_FULL=v4.4.2` override so generated
+metadata does not depend on a parent checkout's tags or an absent Git database.
+
+## Phase7 WebP selection —2026-09-20
+
+Official stable libwebp1.6.0, released2025-06-30, exact peeled tag
+`4fa21912338357f89e4fd51cf2368325b59e9bd9`. Official tag listing was checked on
+2026-09-20;1.6.0 is the newest stable tag. Immutable official-mirror archive SHA256
+`923f3382a47a2af185c3240c954cf004428b237bd7317413a95146d01eb4b94b`.
+Read exact NEWS, CMake, decode/demux/encode declarations and native implementation;
+no live-only API assumptions.1.6 adds `WebPValidateDecoderConfig`;1.5/1.4 improve
+hardening/optimizations and follow1.3.2's lossless decoder security fix.
+
+BSD3-Clause plus PATENTS grant; package COPYING, PATENTS and AUTHORS. Private
+static worker codec with native SIMD dispatch, threading disabled. CLI tools,
+image-library discovery, animation utilities, mux, extras, JavaScript and fuzztest
+builds are off. Demux's native CMake link includes the codec/SharpYUV libraries;
+FORGE does not patch that graph. Previous pins and runtime/SDK boundaries remain
+unchanged. Lossy/lossless still RGBA is selected; animation, ICC conversion and
+WebP export are not delivered. See[texture contracts](texture-assets.md).

@@ -165,16 +165,29 @@ TextureData import_texture_image(std::span<const std::byte> bytes, std::string_v
             "Premultiplication requires color semantic");
     validate_sampler(settings.sampler);
     const std::string hint(name_hint);
-    const auto format = Diligent::Image::GetFileFormat(
-        reinterpret_cast<const Diligent::Uint8*>(bytes.data()), bytes.size(), hint.c_str());
-    require(
-        format == Diligent::IMAGE_FILE_FORMAT_PNG || format == Diligent::IMAGE_FILE_FORMAT_JPEG ||
-            format == Diligent::IMAGE_FILE_FORMAT_TGA || format == Diligent::IMAGE_FILE_FORMAT_HDR,
-        "Source format needs a supported image decoder or the container importer");
+    const bool webp = bytes.size() >= 12 && std::memcmp(bytes.data(), "RIFF", 4) == 0 &&
+                      std::memcmp(bytes.data() + 8, "WEBP", 4) == 0;
+    const bool bmp = bytes.size() >= 2 && bytes[0] == std::byte{'B'} && bytes[1] == std::byte{'M'};
+    const auto format =
+        (bmp || webp)
+            ? Diligent::IMAGE_FILE_FORMAT_UNKNOWN
+            : Diligent::Image::GetFileFormat(reinterpret_cast<const Diligent::Uint8*>(bytes.data()),
+                                             bytes.size(), hint.c_str());
+    require(bmp || webp || format == Diligent::IMAGE_FILE_FORMAT_PNG ||
+                format == Diligent::IMAGE_FILE_FORMAT_JPEG ||
+                format == Diligent::IMAGE_FILE_FORMAT_TGA ||
+                format == Diligent::IMAGE_FILE_FORMAT_HDR,
+            "Source format needs a supported image decoder or the container importer");
     if (format == Diligent::IMAGE_FILE_FORMAT_TGA)
         validate_tga_extent(bytes, limits.dimension);
+    if (bmp)
+        validate_bmp_extent(bytes, limits.dimension);
+    if (format == Diligent::IMAGE_FILE_FORMAT_HDR)
+        validate_hdr_extent(bytes, limits.dimension);
     Diligent::ImageDesc desc;
-    const auto bounded_decoder = format == Diligent::IMAGE_FILE_FORMAT_PNG    ? forge_png_decode
+    const auto bounded_decoder = webp                                         ? forge_webp_decode
+                                 : bmp                                        ? forge_bmp_decode
+                                 : format == Diligent::IMAGE_FILE_FORMAT_PNG  ? forge_png_decode
                                  : format == Diligent::IMAGE_FILE_FORMAT_JPEG ? forge_jpeg_decode
                                                                               : nullptr;
     if (bounded_decoder) {

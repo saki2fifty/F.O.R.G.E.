@@ -51,3 +51,28 @@ x86 read policy; unlike the Basis transcoder switch, miniz overwrites an externa
 macro value. FORGE rejects KTX2 supercompression scheme3 before native parsing.
 This optional KTX path is not required by the glTF Basis extension. No supported
 zlib KTX writer/reader claim, patch or sanitizer suppression is introduced.
+
+## BMP source profile
+
+Pinned stb2.29 at46fcb303, `stb_image.h::stbi__bmp_parse_header/bmp_load/bmp_info`:
+CORE palette count uses a different header-size offset;56-byte BITFIELDS consumes
+both in-header bytes and extra masks; non-paletted gaps are skipped in two places.
+The importer admits24-bit CORE,40/108/124-byte headers and zero non-paletted gap.
+These are explicit conversion diagnostics, not claims that those BMP variants
+are universally invalid. Native parsing also ignores embedded color profiles and
+uses zero bytes on exhausted reads; FORGE checks color-profile policy and full
+pixel/palette extents before native decoding. Palette indices must address a
+present entry. `INT_MIN` height rejects before native `abs`; masks are bounded,
+contiguous and disjoint. No source patch, replacement decoder or suppression.
+
+[Microsoft BMP fields](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapv5header)
+and[INFO stride/palette semantics](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapinfoheader)
+were checked against the exact source on2026-09-20.
+
+### RGBE extent admission
+
+The same pinned stb `stbi__hdr_load` ignores the return from `stbi__getn` in
+flat mode and `stbi__get8` supplies zero at EOF in RLE mode. Mixed late flat/RLE
+rows also enter its fallback that resets row indices. FORGE now checks complete
+flat/RLE extents and consistent row encoding before that native entrypoint.
+Old repeat encoding is diagnosed rather than interpreted as literal pixels.

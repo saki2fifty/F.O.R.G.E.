@@ -10,6 +10,8 @@ set(KTX_FEATURE_KTX1 ON CACHE BOOL "Admitted KTX1 container support" FORCE)
 set(KTX_FEATURE_KTX2 ON CACHE BOOL "Admitted KTX2/Basis support" FORCE)
 set(KTX_FEATURE_LOADTEST_APPS OFF CACHE STRING "No KTX graphics host" FORCE)
 set(ASTCENC_ISA_NONE ON CACHE BOOL "Portable scalar codec; no AVX2 requirement" FORCE)
+# Official archive-build override: an archive has no upstream Git tag database.
+set(KTX_GIT_VERSION_FULL "v4.4.2")
 set(_forge_shared_before_ktx "${BUILD_SHARED_LIBS}")
 set(BUILD_SHARED_LIBS OFF)
 FetchContent_Declare(ktx

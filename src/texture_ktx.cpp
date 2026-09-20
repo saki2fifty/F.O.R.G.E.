@@ -506,8 +506,8 @@ std::vector<std::byte> encode_texture_basis(const TextureData& t, BasisEncoding 
     require(t.dimension == TextureDimension::D2 &&
                 (t.format == TextureFormat::RGBA8 || t.format == TextureFormat::RGBA8Srgb),
             "Basis encoding requires prepared RGBA8 2D mips");
-    require(t.alpha != TextureAlpha::Premultiplied,
-            "Basis encoding does not silently remove premultiplied alpha metadata");
+    require(t.alpha != TextureAlpha::Premultiplied && t.alpha != TextureAlpha::Custom,
+            "Basis encoding needs an explicit premultiplied/custom alpha metadata policy");
     // Upstream initialization/global codec state is serialized within the worker.
     static std::mutex mutex;
     std::lock_guard lock(mutex);

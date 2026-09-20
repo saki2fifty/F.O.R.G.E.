@@ -2,7 +2,7 @@
 
 Phase7 currently implements bounded CPU texture artifacts, a cooked-file resource
 provider and private image preparation. These are internal integration APIs.
-Container/Basis integration, publication/editor workflows and GPU realization are
+Publication/editor workflows and GPU realization are
 still being implemented. A format having a data representation is not evidence
 that its encoder, viewer or renderer has been delivered.
 
@@ -34,7 +34,8 @@ color; normal/data/HDR maps reject sRGB interpretation. Normal maps use +Y tange
 space, with an explicit green-channel flip during import. Imported normalized
 normal vectors are renormalized at every prepared mip; two-channel normals
 reconstruct positive Z. Alpha metadata distinguishes opaque, straight,
-premultiplied and unknown. Material alpha testing/blending remains material intent.
+premultiplied, unknown and custom data. DDS custom alpha means the fourth channel
+is data, not opacity; encoding must not silently replace that intent. Material alpha testing/blending remains material intent.
 
 Sampler state includes independent min/mag/mip filters, wrap U/V/W, anisotropy,
 comparison, LOD bias/range and border color. Validation uses finite values and the
@@ -44,7 +45,7 @@ filters. GPU sampler deduplication is not yet provided by the CPU structure.
 
 ## Image preparation
 
-The private worker adapter admits PNG, JPEG, TGA and HDR/RGBE. It uses exact pinned
+The private worker adapter admits PNG, JPEG, TGA, BMP, WebP and HDR/RGBE. It uses exact pinned
 Diligent processing for mip generation and BC1/3/4/5 encoding, and the pinned image
 codecs where their input boundary is suitable. JPEG uses the private, bounded JPEG entry points in Diligent's already pinned
 stb_image2.29 source at46fcb30365c5f35425751d275eecd8e5f8efc786. Its symbols
@@ -71,9 +72,8 @@ below. No decoder runs in a runtime-resource loader.
 - Cooperative cancellation is checked between codec operations; actual worker
   process CPU/memory/time containment remains the outer importer responsibility.
 
-KTX/Basis use the separate container adapter below. DDS, BMP/WebP/EXR and
-optional TIFF/SGI still need their own audited admission paths; the image
-adapter does not advertise them.
+KTX/Basis use the separate container adapter below. DDS uses the separate native container path. EXR and optional TIFF/SGI
+are not advertised by these adapters.
 
 ## Exact-source correction
 
@@ -146,7 +146,7 @@ Encoding uses the official bundled Basis encoder's own KTX2 output for prepared
 RGBA8 2D mip chains. It does not call the defective ETC1S `CompressBasisEx` wrapper.
 Both ETC1S and UASTC use one thread, no OpenCL/SSE and no UASTC RDO; ETC1S quality128,
 compression level2. Prepared normals disable ETC1S endpoint/selector RDO. Native KTX
-metadata APIs set unspecified color primaries for data/normals. Premultiplied input
+metadata APIs set unspecified color primaries for data/normals. Premultiplied and custom-alpha input
 is rejected by this encoder instead of losing its alpha metadata. Other dimensions,
 HDR encoding and arbitrary channel layouts are not advertised as encoder features.
 
@@ -167,3 +167,64 @@ path uses unaligned typed access on x86, exposed by strict codec testing. It
 has no external override equivalent to the Basis byte-read switch. This path
 is not needed by `KHR_texture_basisu`, which permits BasisLZ/UASTC with optional
 Zstandard. No native zlib KTX encode/decode capability is advertised.
+
+## DDS container preparation
+
+The private adapter checks legacy and DX10 DDS headers, exact tight payloads,
+format masks, dimensions, mip chains, arrays, all six cube faces and volume
+slices before calling pinned Diligent's native DDS loader. It requests an owned
+aligned source copy before the native reader's typed header access. Supplied
+mips remain intact. DX10 transfer and alpha metadata are authoritative; legacy
+DDS has no declared sRGB transfer. Common normalized/float/BC formats use the
+existing texture representation, including BC6H and BC7 passthrough.
+
+Native pixel utilities convert BGRA/BGRX to RGBA and expand legacy luminance
+for color usage; data usage retains R/RG channels. Typeless formats, incomplete
+cubes, unsupported packed layouts, padded payloads and trailing bytes reject.
+The native profile caps mip count at15, total array faces at2048 and volume
+width/height at2048, alongside the shared texture budgets. This is container
+preparation, not an editor import workflow or proof of device support.
+
+`TextureAlpha::Custom` is appended as value4; previous values retain their
+numbers. The not-yet-released Phase7 cooked format accepts this explicit metadata;
+earlier readers reject an unknown enum instead of misreading its channels.
+
+## BMP preparation
+
+BMP reuses the exact existing private stb2.29 instance. Admission precedes native
+parsing: dimensions and signed-height bounds, complete padded rows, palette
+indices, bitfield masks and color-profile requirements. INFO/V4/V5 support
+1/4/8-bit palettes and16/24/32-bit pixels, with applicable uncompressed/bitfield
+layouts. CORE support is24-bit only. Top-down and bottom-up storage both produce
+top-first pixels. Explicit bitfield alpha is retained, including all-zero alpha;
+legacy32-bit BI_RGB follows native stb behavior, treating an entirely zero fourth
+channel as unused/opaque.
+
+RLE, embedded JPEG/PNG,56-byte headers, non-paletted header gaps and custom/ICC
+color profiles require conversion. Exact-source reasons for native-specific
+limits are recorded in[known issues](dependency-known-issues.md#bmp-source-profile).
+V4/V5 requires declared sRGB; older headers use the chosen import semantics.
+
+## WebP preparation
+
+Official libwebp1.6.0 owns lossy/lossless decode and RIFF demux. FORGE admits full
+RIFF files with bounded chunk extents/counts and complete file length, checks
+native features/dimensions before allocating pixels, verifies a single still
+frame and decodes into an explicitly bounded RGBA buffer. Native output is
+straight alpha; shared image processing handles subsequent semantics/mips.
+Animated WebP and ICC conversion are not texture-decoder capabilities: these
+inputs reject clearly. EXIF/XMP and other ancillary metadata stay in the original
+source; pixel preparation does not apply EXIF orientation or edit metadata.
+
+The codec is private to asset tools, single-threaded, with official runtime SIMD
+dispatch. Its native demux CMake target links the full upstream codec library;
+only the importer uses it, and tests use its encoder to generate owned fixtures.
+This does not expose a WebP export or runtime decoder API. Source/output budgets
+and cooperative boundaries complement the isolated import worker's CPU/memory
+limits; codec-internal peak allocations are not bounded by the output buffer alone.
+
+HDR/RGBE admission validates bounded header lines, canonical -Y/+X orientation,
+positive dimensions, complete flat pixels or all four RLE channels per row.
+It rejects truncated packets, changed row widths, mixed flat/RLE rows and old
+repeat markers the native decoder does not implement. RGBE conversion stays in
+pinned stb/Diligent; metadata exposure is not applied by this pixel adapter.

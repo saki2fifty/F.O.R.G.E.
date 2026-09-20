@@ -162,6 +162,32 @@ int main() {
         require(decoded_hdr.format == TextureFormat::RGBA32Float &&
                     decoded_hdr.alpha == TextureAlpha::Opaque,
                 "HDR range was quantized to LDR");
+        for (std::size_t n = 0; n < hdr.size(); ++n) {
+            const std::vector<std::byte> short_file(hdr.begin(), hdr.begin() + n);
+            rejects([&] { import_texture_image(short_file, "bad.hdr", settings); });
+        }
+        const std::string rle_header = "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 8\n";
+        std::vector<std::byte> rle(
+            reinterpret_cast<const std::byte*>(rle_header.data()),
+            reinterpret_cast<const std::byte*>(rle_header.data() + rle_header.size()));
+        for (unsigned row = 0; row < 2; ++row) {
+            for (auto v : {2, 2, 0, 8, 136, 128, 136, 64, 136, 32, 136, 130})
+                rle.push_back(std::byte(v));
+        }
+        auto rle_texture = import_texture_image(rle, "rle.hdr", settings);
+        require(rle_texture.width == 8 && rle_texture.height == 2 &&
+                    rle_texture.format == TextureFormat::RGBA32Float,
+                "RGBE scanline RLE preparation failed");
+        for (std::size_t n = 0; n < rle.size(); ++n) {
+            const std::vector<std::byte> short_file(rle.begin(), rle.begin() + n);
+            rejects([&] { import_texture_image(short_file, "bad.hdr", settings); });
+        }
+        auto bad_rle = rle;
+        bad_rle[rle_header.size() + 4] = std::byte{137};
+        rejects([&] { import_texture_image(bad_rle, "bad.hdr", settings); });
+        bad_rle = rle;
+        bad_rle[rle_header.size() + 12] = std::byte{3};
+        rejects([&] { import_texture_image(bad_rle, "mixed.hdr", settings); });
         settings.compression = TextureCompression::NativeBc;
         rejects([&] { import_texture_image(hdr, "fixture.hdr", settings); });
         settings = {};
