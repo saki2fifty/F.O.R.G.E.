@@ -87,8 +87,8 @@ RWStructuredBuffer<Output> Destination;
 [numthreads(1,1,1)]
 void main(uint id:SV_DispatchThreadID) {
     Input value=Source[id];
-    float3x3 linear=float3x3(value.Row0.xyz,value.Row1.xyz,value.Row2.xyz);
-    ForgeSurfaceFrame f=ForgeMakeSurfaceFrame(linear,value.Normal.xyz,value.Tangent);
+    float3x3 basis=float3x3(value.Row0.xyz,value.Row1.xyz,value.Row2.xyz);
+    ForgeSurfaceFrame f=ForgeMakeSurfaceFrame(basis,value.Normal.xyz,value.Tangent);
     Output o;
     o.Normal=float4(f.Normal,0);o.Tangent=float4(f.Tangent,0);o.Bitangent=float4(f.Bitangent,0);
     o.Mapped=float4(ForgePerturbNormal(f,float3(.3,.4,.8660254)),0);

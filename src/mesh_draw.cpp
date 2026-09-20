@@ -90,8 +90,8 @@ ForgeVarying main(uint id:SV_VertexID) {
     ForgeMeshVertex v=ForgeLoadMeshVertex(id);
     ForgeVarying o=(ForgeVarying)0;
     o.World=ForgePoint(v.Position);o.Position=ForgeProject(o.World);o.Color=v.Color;
-    float3x3 linear=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_Object[5].xyz);
-    o.Normal=ForgeMakeSurfaceFrame(linear,v.Normal,v.Tangent).Normal;
+    float3x3 basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_Object[5].xyz);
+    o.Normal=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent).Normal;
     )" + "[unroll]for(uint i=0;i<" +
                            std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
     std::string ps = "#define USE_IBL 0\n#define TEX_COLOR_CONVERSION_MODE 0\n"

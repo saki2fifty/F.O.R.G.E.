@@ -1122,3 +1122,13 @@
   material effects, skin/morph draws and Scene/Game integration remain in progress.
 - Source4a59c6f core CI now passes all Windows/Linux core and SDK profiles,
   including the previously timing-out large runtime response fixture.
+
+### Native shader validation correction
+
+- Windows source4a59c6f passed36/37 targeted tests. The viewport fixture stopped
+  because `linear` is an HLSL interpolation keyword, used incorrectly as a local
+  matrix name in the surface adapter and its fixture. Rename it in the shared
+  shader, compute fixture and new prepared mesh vertex shader.
+- Cancel the superseded source26c1fda graphics run containing that same error.
+  The updated native source needs a fresh graphics run; C++ syntax checks alone
+  do not validate shader language syntax or execution.

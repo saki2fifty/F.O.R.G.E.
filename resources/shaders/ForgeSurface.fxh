@@ -18,18 +18,18 @@ struct ForgeSurfaceFrame
     bool NormalValid;
     bool TangentValid;
 };
-ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 linear, float3 normal, float4 tangent)
+ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 basis, float3 normal, float4 tangent)
 {
     ForgeSurfaceFrame result = (ForgeSurfaceFrame)0;
-    float3 row_max = max(abs(linear[0]), max(abs(linear[1]), abs(linear[2])));
+    float3 row_max = max(abs(basis[0]), max(abs(basis[1]), abs(basis[2])));
     float largest = max(row_max.x, max(row_max.y, row_max.z));
-    if (!(largest > 0) || !all(isfinite(linear[0])) ||
-        !all(isfinite(linear[1])) || !all(isfinite(linear[2])))
+    if (!(largest > 0) || !all(isfinite(basis[0])) ||
+        !all(isfinite(basis[1])) || !all(isfinite(basis[2])))
         return result;
-    linear /= largest;
-    float3 c0 = float3(linear[0][0], linear[1][0], linear[2][0]);
-    float3 c1 = float3(linear[0][1], linear[1][1], linear[2][1]);
-    float3 c2 = float3(linear[0][2], linear[1][2], linear[2][2]);
+    basis /= largest;
+    float3 c0 = float3(basis[0][0], basis[1][0], basis[2][0]);
+    float3 c1 = float3(basis[0][1], basis[1][1], basis[2][1]);
+    float3 c2 = float3(basis[0][2], basis[1][2], basis[2][2]);
     float3 k0 = cross(c1, c2), k1 = cross(c2, c0), k2 = cross(c0, c1);
     float determinant = dot(c0, k0);
     float error_scale = dot(abs(c0), abs(c1.yzx * c2.zxy) + abs(c1.zxy * c2.yzx));
@@ -40,11 +40,11 @@ ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 linear, float3 normal, float4 t
     result.NormalValid = any(result.Normal != 0);
     if (!result.NormalValid)
         return result;
-    float3 t = mul(linear, tangent.xyz);
+    float3 t = mul(basis, tangent.xyz);
     result.Tangent = ForgeUnit(t - result.Normal * dot(result.Normal, t));
     // Transform the source bitangent too. Its orientation includes both source
     // UV handedness and reflections, and remains defined on surviving rank-2 faces.
-    float3 b = ForgeUnit(mul(linear, cross(normal, tangent.xyz) * tangent.w));
+    float3 b = ForgeUnit(mul(basis, cross(normal, tangent.xyz) * tangent.w));
     float orientation = dot(cross(result.Normal, result.Tangent), b);
     result.TangentValid = abs(orientation) > 1e-6;
     if (result.TangentValid)
