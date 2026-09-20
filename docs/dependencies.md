@@ -113,3 +113,16 @@ the same public flags; Script Math participates in the exact SDK fingerprint.
 See [Flecs integration](flecs-integration.md) for adopted, SDK-only, measured and
 unavailable capabilities, the approved exact-path managed-include buffer-leak
 exception, and development-documentation drift. No dependency pin changed.
+
+## Phase7 image-boundary corrections (2026-09-20)
+
+The[texture contract](texture-assets.md#exact-source-correction) records source-
+verified limitations in pinned Diligent PNG/TIFF callbacks and IJG libjpeg integer
+DCT shifts. Keep all pins. Texture imports use the existing pinned libpng1.6.55
+(65bc84e803c0ccbf7aa1023e91b5808586ea1b66) with an official bounded-read adapter;
+JPEG uses the existing pinned stb2.29 JPEG decoder (46fcb30365c5f35425751d275eecd8e5f8efc786),
+with private symbols and no SIMD. The libjpeg float-DCT experiment still exposed
+Huffman encoder signed-shift errors and was not selected. Native Diligent still provides pixel,
+mip and basic BC processing. These corrections do not claim the old callback or
+integer path has been fixed upstream. New KTX4.4.2 selection remains under
+source/build/license evaluation and is not yet a product dependency.

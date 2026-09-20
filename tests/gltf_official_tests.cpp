@@ -26,9 +26,10 @@ int main(int argc, char** argv) {
         const auto provenance = nlohmann::json::parse(provenance_bytes);
         for (const auto& [name, record] : provenance.at("files").items()) {
             const auto bytes = read_bytes(root / name, 1024 * 1024);
-            require(bytes.size() == record.at("bytes").get<std::size_t>() &&
-                        content_digest(bytes) == record.at("sha256").get<std::string>(),
-                    "Official sample differs from recorded upstream bytes");
+            if (bytes.size() != record.at("bytes").get<std::size_t>() ||
+                content_digest(bytes) != record.at("sha256").get<std::string>())
+                throw std::runtime_error("Official sample differs from recorded upstream bytes: " +
+                                         name);
         }
         NativeGltfDocument model(capture_gltf_source(root, "NegativeScaleTest.gltf"));
         for (std::size_t m = 0; m < model.source().document.at("meshes").size(); ++m) {

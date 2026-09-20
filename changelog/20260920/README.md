@@ -223,3 +223,37 @@
 - Mesh/resource shared-SDK profile also passed2/2 in0.03s; the fully instrumented official NegativeScaleTest cook/runtime reload passed0.11s. Format/manual/workflow checks passed. GPU retirement source audit confirms native Diligent queue/fence support; actual provider/render integration remains pending.
 - The Windows editor source audit found the same MSVC C++20 string/JSON comparison ambiguity in the official sample's provenance test. Both expected digest and byte count are now extracted to their actual types; the remaining glTF source/tests were inspected for that comparison pattern. This run stopped during compilation and supplied no new rendering result.
 - Unnumbered source audits also retain compatible partial compilation after a configured build/test failure, under a distinct partial-cache key. This avoids discarding compiled dependency objects after a small test-source correction. Restores still reconfigure, rebuild every selected target and rerun tests; cached objects never count as validation or a deliverable.
+
+### Texture preparation and explicit resource variants (Phase7 in progress)
+
+- Added bounded cooked CPU texture data for2D/arrays/cubemaps/volumes, mip/block
+  layouts, normalized/float/BC formats, color/normal/HDR/alpha metadata and sampler
+  validation. Meshes and textures share the checked cooked-file envelope.
+- Added actual cooked texture loading with content verification and previous-good
+  resource preservation. One AssetId can have simultaneous named semantic/backend
+  variants; replacement/unload remains scoped to its variant and lease revision.
+- Added private PNG/JPEG/TGA/HDR preparation through pinned codecs and Diligent mip
+  processing/BC encoding. Explicit no-mip handling, max-size mip selection, normal
+  orientation/normalization, linear-light sRGB filtering and alpha premultiplication.
+- Exact-source review found Diligent's PNG read callback ignores supplied size.
+  Use its existing libpng dependency through a bounded C adapter with strict CRC,
+  complete-input and error-cleanup checks. No vendor patch or dependency upgrade.
+  The similarly unchecked native TIFF route is not selected for texture imports.
+- Portable and shared-SDK mesh/texture/resource tests3/3 pass; fully instrumented
+  ASan/UBSan/LSan3/3 pass0.29s. Native image fixture passes including truncated PNG
+  rejection; expanded codec-instrumentation rerun and Windows tests pending.
+- GPU textures/viewers/container import/publication integration and full Phase7
+  acceptance remain in progress. No new numbered Windows build has been created.
+
+- Expanded codec sanitizers exposed IJG libjpeg integer DCT and Huffman signed
+  shifts. The image adapter uses JPEG decoding from Diligent's existing pinned stb
+  source; private symbols, bounded input and no vendor patch/suppression.
+- Unnumbered Windows audit35496082128 passed viewport1.14s and editor10.25s.
+  Its remaining official-model hash failure was reproduced as Git CRLF conversion;
+  fixture-specific attributes now preserve the exact upstream bytes. Full rerun
+  remains required, with failure diagnostics identifying the affected file.
+
+- Final channel review preserves grayscale alpha for color, R/RG channel intent
+  for data, and opaque HDR/RGBE alpha. Uses native pixel swizzles/premultiplication.
+  Strict native codec/official-model2/2 passed0.22s, CPU3/3 passed0.29s,
+  shared-SDK3/3 passed0.03s; Windows texture validation remains pending.

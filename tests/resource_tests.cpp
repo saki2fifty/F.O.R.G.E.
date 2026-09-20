@@ -239,6 +239,32 @@ int main(int argc, char** argv) {
             require(destroyed && !wrong_thread && ticket.inspect().state == ResourceState::Unloaded,
                     "Weak promotion changed owner destruction or retained unloaded readiness");
         }
+        // One logical asset may have simultaneous semantic/backend variants.
+        {
+            Pool variants;
+            auto color = variants.request(asset, revision('a'), 1, load(1), {}, 0, "d3d12.srgb");
+            auto linear = variants.request(asset, revision('b'), 1, load(2), {}, 0, "d3d12.linear");
+            require(variants.wait(color, 5s) && variants.wait(linear, 5s),
+                    "Variants displaced each other");
+            auto old_color = variants.acquire(color);
+            require(variants.acquire(linear)->lods[0].parts[0].bounds.maximum[0] == 2 &&
+                        old_color.identity().asset == asset.id &&
+                        old_color.identity().variant == "d3d12.srgb" && !variants.current(asset),
+                    "Variant identity/default lookup incorrect");
+            auto changed = variants.request(asset, revision('c'), 2, load(3), {}, 0, "d3d12.srgb");
+            require(variants.wait(changed, 5s) && linear.inspect().state == ResourceState::Ready &&
+                        old_color->lods[0].parts[0].bounds.maximum[0] == 1,
+                    "Variant reload crossed selection/lifetime");
+            rejects(
+                [&] { variants.request(asset, revision('d'), 1, load(), {}, 0, "d3d12.srgb"); });
+            rejects([&] { variants.request(asset, revision('a'), 1, load(), {}, 0, "bad/key"); });
+            variants.unload(asset, "d3d12.srgb");
+            variants.collect();
+            require(!variants.current(asset, "d3d12.srgb") &&
+                        variants.current(asset, "d3d12.linear") &&
+                        variants.statistics().selected == 1,
+                    "Variant unload crossed selection");
+        }
         // Actual cooked-file provider validates content before runtime adoption.
         const auto bytes = encode_mesh(mesh());
         const auto digest = asset_detail::content_digest(bytes);

@@ -74,6 +74,13 @@ bool terminal(ResourceState state) {
            state == ResourceState::Cancelled || state == ResourceState::Stale ||
            state == ResourceState::Retiring;
 }
+void valid_variant(std::string_view value) {
+    if (value.size() > 256 || !std::all_of(value.begin(), value.end(), [](unsigned char c) {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                   c == '.' || c == '-' || c == '_' || c == ':';
+        }))
+        throw std::runtime_error("Invalid resource variant key");
+}
 void valid_revision(std::string_view value) {
     if (value.size() != 64 || !std::all_of(value.begin(), value.end(), [](char c) {
             return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');

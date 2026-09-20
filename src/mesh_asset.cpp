@@ -1,4 +1,4 @@
-#include "bounded_json.hpp"
+#include "cooked_envelope.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -287,32 +287,14 @@ std::vector<std::byte> encode_mesh(const MeshData& mesh, MeshLimits limits) {
         metadata["lods"].push_back(
             {{"coverage", lod.screen_coverage}, {"parts", std::move(parts)}});
     }
-    const auto json = metadata.dump();
-    require(json.size() <= metadata_limit && payload.size() <= UINT32_MAX,
-            "Cooked mesh exceeds envelope");
-    std::vector<std::byte> result(magic.begin(), magic.end());
-    write32(result, 1);
-    write32(result, static_cast<std::uint32_t>(json.size()));
-    write32(result, static_cast<std::uint32_t>(payload.size()));
-    write32(result, 0); // Reserved, must be zero in version1.
-    result.insert(result.end(), reinterpret_cast<const std::byte*>(json.data()),
-                  reinterpret_cast<const std::byte*>(json.data() + json.size()));
-    result.insert(result.end(), payload.begin(), payload.end());
-    return result;
+    return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit);
 }
+
 MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
-    require(bytes.size() >= 24 && std::equal(magic.begin(), magic.end(), bytes.begin()),
-            "Invalid mesh magic/header");
-    std::size_t at = 8;
-    require(read32(bytes, at) == 1, "Unsupported cooked mesh version");
-    const auto json_size = read32(bytes, at), payload_size = read32(bytes, at);
-    require(read32(bytes, at) == 0 && json_size <= metadata_limit && payload_size <= limits.bytes &&
-                json_size <= bytes.size() - 24 && bytes.size() - 24 - json_size == payload_size,
-            "Invalid cooked mesh lengths/reserved field");
-    const auto metadata =
-        asset_detail::parse_bounded_json(bytes.subspan(24, json_size), metadata_limit);
-    const auto payload = bytes.subspan(24 + json_size);
-    at = 0;
+    const auto envelope = asset_detail::decode_envelope(bytes, magic, metadata_limit, limits.bytes);
+    const auto& metadata = envelope.metadata;
+    const auto payload = envelope.payload;
+    std::size_t at = 0;
     auto streams = [&](const Json& list, std::size_t vertices) {
         std::vector<MeshStream> result;
         for (const auto& j : array(list, limits.streams)) {

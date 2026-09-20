@@ -36,7 +36,7 @@ struct ResourceIdentity {
     std::array<std::uint8_t, 16> owner{};
     std::uint64_t slot = 0, generation = 0;
     AssetId asset;
-    std::string type, revision;
+    std::string type, revision, variant;
     auto operator<=>(const ResourceIdentity&) const = default;
 };
 struct ResourceInfo {
@@ -62,6 +62,9 @@ struct Scope {
 std::array<std::uint8_t, 16> next_scope();
 bool terminal(ResourceState state);
 void valid_revision(std::string_view value);
+void valid_variant(std::string_view value);
+using Key = std::pair<AssetId, std::string>;
+inline Key key(const ResourceIdentity& id) { return {id.asset, id.variant}; }
 } // namespace resource_detail
 // A copied observation of one coalesced load, not a lease or a persisted handle.
 // Explicit pool cancel/unload cancels that asset's shared request for all observers.
@@ -191,17 +194,19 @@ template <class T> class ResourcePool {
     ResourcePool& operator=(const ResourcePool&) = delete;
     ResourceTicket request(AssetRef<T> asset, std::string revision, std::uint64_t source_generation,
                            Loader loader, std::vector<ResourceTicket> dependencies = {},
-                           int priority = 0) {
+                           int priority = 0, std::string variant = {}) {
         if (!asset.id || !loader || !source_generation || dependencies.size() > 64)
             throw std::runtime_error("Invalid resource request");
         resource_detail::valid_revision(revision);
+        resource_detail::valid_variant(variant);
+        const resource_detail::Key key{asset.id, variant};
         for (const auto& d : dependencies)
             if (!d)
                 throw std::runtime_error("Empty resource dependency");
         std::lock_guard lock(state_->mutex);
         if (state_->shutdown)
             throw std::runtime_error("Resource owner is closed");
-        auto found = state_->slots.find(asset.id);
+        auto found = state_->slots.find({asset.id, std::string(variant)});
         if (found != state_->slots.end() && found->second.request) {
             const auto info = ResourceTicket(found->second.request).inspect();
             if (source_generation < info.source_generation ||
@@ -216,7 +221,7 @@ template <class T> class ResourcePool {
             throw std::runtime_error("Resource request/asset capacity exhausted");
         if (state_->next == UINT64_MAX)
             throw std::runtime_error("Resource generation exhausted");
-        auto& slot = state_->slots[asset.id];
+        auto& slot = state_->slots[key];
         if (!slot.slot)
             slot.slot = state_->next;
         if (slot.request) {
@@ -232,13 +237,13 @@ template <class T> class ResourcePool {
         job->dependencies = std::move(dependencies);
         job->priority = priority;
         job->ticket = std::make_shared<resource_detail::TicketState>();
-        job->ticket->info = {
-            {state_->scope->id, slot.slot, state_->next++, asset.id, T::type, std::move(revision)},
-            source_generation,
-            ResourceState::Queued,
-            {},
-            bool(slot.current),
-            {}};
+        job->ticket->info = {{state_->scope->id, slot.slot, state_->next++, asset.id, T::type,
+                              std::move(revision), std::move(variant)},
+                             source_generation,
+                             ResourceState::Queued,
+                             {},
+                             bool(slot.current),
+                             {}};
         slot.request = job->ticket;
         state_->jobs.push_back(job);
         state_->changed.notify_all();
@@ -265,7 +270,8 @@ template <class T> class ResourcePool {
                 if (it == state_->jobs.end())
                     break;
                 job = *it;
-                const auto id = ResourceTicket(job->ticket).inspect().identity.asset;
+                const auto id =
+                    resource_detail::key(ResourceTicket(job->ticket).inspect().identity);
                 prior = state_->slots.at(id).current;
             }
             std::string failure;
@@ -282,7 +288,7 @@ template <class T> class ResourcePool {
             }
             std::lock_guard lock(state_->mutex);
             const auto info = ResourceTicket(job->ticket).inspect();
-            auto& slot = state_->slots.at(info.identity.asset);
+            auto& slot = state_->slots.at(resource_detail::key(info.identity));
             bool dependency_failed = false;
             for (const auto& dependency : job->dependencies) {
                 const auto value = dependency.inspect();
@@ -328,10 +334,11 @@ template <class T> class ResourcePool {
         collect();
         return adopted;
     }
-    ResourceLease<T> current(AssetRef<T> asset) {
+    ResourceLease<T> current(AssetRef<T> asset, std::string_view variant = {}) {
+        resource_detail::valid_variant(variant);
         state_->scope->check();
         std::lock_guard lock(state_->mutex);
-        const auto found = state_->slots.find(asset.id);
+        const auto found = state_->slots.find({asset.id, std::string(variant)});
         if (found == state_->slots.end() || !found->second.current)
             return {};
         found->second.last_use = ++state_->clock;
@@ -342,23 +349,26 @@ template <class T> class ResourcePool {
         const auto info = request.inspect();
         if (info.identity.owner != state_->scope->id || info.identity.type != T::type)
             throw std::runtime_error("Resource request belongs to another owner/type");
-        auto lease = current({info.identity.asset});
+        auto lease = current({info.identity.asset}, info.identity.variant);
         return lease && lease.identity() == info.identity ? lease : ResourceLease<T>{};
     }
-    ResourceInfo inspect(AssetRef<T> asset) const {
+    ResourceInfo inspect(AssetRef<T> asset, std::string_view variant = {}) const {
+        resource_detail::valid_variant(variant);
         state_->scope->check();
         std::lock_guard lock(state_->mutex);
-        const auto found = state_->slots.find(asset.id);
+        const auto found = state_->slots.find({asset.id, std::string(variant)});
         if (found != state_->slots.end() && found->second.request)
             return ResourceTicket(found->second.request).inspect();
         ResourceInfo info;
         info.identity.asset = asset.id;
         info.identity.type = T::type;
+        info.identity.variant = variant;
         info.identity.owner = state_->scope->id;
         return info;
     }
-    ResourceResolution<T> resolve(AssetRef<T> asset, ResourceLease<T> fallback = {}) {
-        ResourceResolution<T> result{current(asset), false, inspect(asset)};
+    ResourceResolution<T> resolve(AssetRef<T> asset, ResourceLease<T> fallback = {},
+                                  std::string_view variant = {}) {
+        ResourceResolution<T> result{current(asset, variant), false, inspect(asset, variant)};
         if (!result.lease && fallback) {
             (void)fallback.get();
             result.lease = std::move(fallback);
@@ -400,20 +410,22 @@ template <class T> class ResourcePool {
                                                                     std::chrono::milliseconds(10)));
         }
     }
-    void cancel(AssetRef<T> asset) {
+    void cancel(AssetRef<T> asset, std::string_view variant = {}) {
+        resource_detail::valid_variant(variant);
         state_->scope->check();
         std::lock_guard lock(state_->mutex);
         for (auto& job : state_->jobs)
-            if (ResourceTicket(job->ticket).inspect().identity.asset == asset.id) {
+            if (resource_detail::key(ResourceTicket(job->ticket).inspect().identity) ==
+                resource_detail::Key{asset.id, std::string(variant)}) {
                 job->stop.request_stop();
                 state_->status(*job, ResourceState::Cancelled, "Resource request cancelled");
             }
         state_->changed.notify_all();
     }
-    void unload(AssetRef<T> asset) {
-        cancel(asset);
+    void unload(AssetRef<T> asset, std::string_view variant = {}) {
+        cancel(asset, variant);
         std::lock_guard lock(state_->mutex);
-        const auto found = state_->slots.find(asset.id);
+        const auto found = state_->slots.find({asset.id, std::string(variant)});
         if (found == state_->slots.end())
             return;
         auto& slot = found->second;
@@ -445,7 +457,8 @@ template <class T> class ResourcePool {
                  ResourceTicket(entry.second.request).inspect().state != ResourceState::Unloaded))
                 return false;
             return std::none_of(state_->jobs.begin(), state_->jobs.end(), [&](const auto& job) {
-                return ResourceTicket(job->ticket).inspect().identity.asset == entry.first;
+                return resource_detail::key(ResourceTicket(job->ticket).inspect().identity) ==
+                       entry.first;
             });
         });
     }
@@ -535,7 +548,7 @@ template <class T> class ResourcePool {
         std::shared_ptr<resource_detail::Scope> scope;
         mutable std::mutex mutex;
         std::condition_variable changed;
-        std::map<AssetId, Slot> slots;
+        std::map<resource_detail::Key, Slot> slots;
         std::vector<std::shared_ptr<Job>> jobs;
         std::vector<std::shared_ptr<resource_detail::Revision<T>>> retired;
         std::uint64_t next = 1, clock = 0, high_water = 0;

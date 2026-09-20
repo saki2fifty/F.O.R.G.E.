@@ -86,3 +86,7 @@ one-candidate worker lifetime and all resource limits. Preserve a separate
 signature-checked regression and its actual LSan output. All other sanitizer
 findings remain failures. No suppression, vendor patch or automatic extension to
 another path/revision is authorized. A future stable fix must remove the exception.
+
+Other exact-source findings and their selected FORGE boundaries are recorded in
+[dependency known issues](dependency-known-issues.md). A boundary change that
+avoids an affected API is distinct from fixing or suppressing its upstream defect.

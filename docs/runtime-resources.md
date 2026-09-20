@@ -58,7 +58,7 @@ Runtime consumers normally request asynchronously and pump at their safe boundar
 
 ## Budgets and ownership
 
-The pool bounds workers, pending requests, indexed assets and retained bytes.
+The pool bounds workers, pending requests, indexed asset/variant selections and retained bytes.
 Statistics include selected, completed-candidate and retired revisions plus a
 high-water count. Memory categories distinguish CPU asset data, GPU textures,
 GPU buffers, shader/pipeline data and animation data; current mesh providers report
@@ -92,3 +92,18 @@ replacement and shutdown fixtures remain required before claiming GPU retirement
 The source-level interfaces are internal integration APIs and are not yet part of
 the installed gameplay SDK. Their eventual SDK/render providers must be verified
 through the exact installed SDK boundary and the full Phase7 acceptance suite.
+
+## Explicit variants
+
+A logical image may be used as both sRGB color and linear data, or have different
+backend artifacts. Pool selections therefore use `(AssetId, variant)` rather than
+AssetId alone. The bounded variant key is an explicit provider recipe/profile key;
+it is not a new persistent asset identity. It participates in the process-local
+revision identity. The empty variant remains the ordinary default.
+
+Requests coalesce and source generations conflict within one variant. Independent
+variants share the same owner budget and can coexist. `current`, `inspect`,
+`resolve`, `cancel` and `unload` take an optional variant; omitting it addresses only
+the default selection. Acquiring a ticket always addresses its exact variant. A
+reload/unload of the color selection cannot silently change the data selection.
+The concrete texture provider verifies cooked bytes before adopting a variant.

@@ -1,0 +1,2 @@
+# Preserve unmodified upstream fixture bytes and their recorded content hashes.
+/samples/gltf/NegativeScaleTest/* -text

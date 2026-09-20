@@ -105,3 +105,6 @@ must not restart the editor or reinterpret stale handles as new resources.
 are implemented and tested through the pinned native glTF decoder. Full production
 GPU mesh/material/skin realization remains in progress. This does not alter the
 separate authored TRS or presentation ownership contract.
+
+The in-progress[texture data/import contract](texture-assets.md) records actual CPU
+capabilities and pending GPU/editor work.
