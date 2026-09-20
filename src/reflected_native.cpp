@@ -1,6 +1,7 @@
 #include "reflected_value.hpp"
 #include <algorithm>
 #include <cstddef>
+#include <exception>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -11,14 +12,14 @@ void checked(int result) {
     if (result)
         throw std::runtime_error("Native Meta value assignment failed");
 }
-const ReflectedReference& reference(std::span<const ReflectedReference> refs, ecs_entity_t type) {
-    const auto it = std::ranges::find(refs, type, &ReflectedReference::type);
+const ReflectedAdapter& adapter_for(std::span<const ReflectedAdapter> refs, ecs_entity_t type) {
+    const auto it = std::ranges::find(refs, type, &ReflectedAdapter::type);
     if (it == refs.end())
         throw std::runtime_error("Missing explicit native reference adapter");
     return *it;
 }
 void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
-           std::span<const ReflectedReference> references) {
+           std::span<const ReflectedAdapter> references) {
     const auto kind = schema.at("type").get<std::string>();
     if (kind == "struct") {
         checked(ecs_meta_push(&cursor));
@@ -37,7 +38,7 @@ void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
         }
         checked(ecs_meta_pop(&cursor));
     } else if (kind == "asset_ref" || kind == "entity_ref") {
-        const auto& ref = reference(references, ecs_meta_get_type(&cursor));
+        const auto& ref = adapter_for(references, ecs_meta_get_type(&cursor));
         if (!ref.assign)
             throw std::runtime_error("Reference adapter has no native assignment");
         ref.assign(ecs_meta_get_ptr(&cursor), value);
@@ -56,7 +57,7 @@ void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
 }
 struct Reader {
     ecs_world_t* world;
-    std::span<const ReflectedReference> references;
+    std::span<const ReflectedAdapter> references;
     std::size_t elements = 0, bytes = 0;
     void consume(std::size_t count) {
         if (count > 4096 - elements)
@@ -118,6 +119,56 @@ struct Reader {
             return sequence(array.type, schema.at("element"), value, std::size_t(array.count));
         }
         if (kind == "vector") {
+            if (const auto* opaque = ecs_get(world, type, EcsOpaque)) {
+                (void)adapter_for(references,
+                                  type); // Projection admitted this exact engine adapter.
+                const auto& vector = *ecs_get(world, opaque->as_type, EcsVector);
+                const auto count = opaque->count(value);
+                consume(count);
+                Json result = Json::array();
+                for (std::size_t i = 0; i < count; ++i) {
+                    struct Element {
+                        Reader* reader;
+                        ecs_entity_t type;
+                        const Json* schema;
+                        Json value;
+                        std::exception_ptr error;
+                        bool called = false;
+                    } element{this, vector.type, &schema.at("element"), {}, {}, false};
+                    ecs_serializer_t serializer{};
+                    serializer.world = world;
+                    serializer.ctx = &element;
+                    serializer.value_ = [](const ecs_serializer_t* ser, ecs_entity_t element_type,
+                                           const void* ptr) -> int {
+                        auto& e = *static_cast<Element*>(ser->ctx);
+                        try {
+                            if (e.called || element_type != e.type)
+                                throw std::runtime_error(
+                                    "Native vector adapter emitted wrong/duplicate element");
+                            e.called = true;
+                            e.value = e.reader->read(element_type, *e.schema, ptr);
+                            return 0;
+                        } catch (...) {
+                            e.error = std::current_exception();
+                            return -1;
+                        }
+                    };
+                    serializer.member_ = [](const ecs_serializer_t* ser, const char*) -> int {
+                        auto& e = *static_cast<Element*>(ser->ctx);
+                        e.error = std::make_exception_ptr(std::runtime_error(
+                            "Native vector adapter emitted an unexpected named member"));
+                        return -1;
+                    };
+                    const auto status = opaque->serialize_element(&serializer, value, i);
+                    if (element.error)
+                        std::rethrow_exception(element.error);
+                    checked(status);
+                    if (!element.called)
+                        throw std::runtime_error("Native vector adapter omitted an element");
+                    result.push_back(std::move(element.value));
+                }
+                return result;
+            }
             const auto& vector = *ecs_get(world, type, EcsVector);
             const auto& storage = *static_cast<const ecs_vec_t*>(value);
             if (storage.count < 0 || storage.size < storage.count)
@@ -126,7 +177,7 @@ struct Reader {
                             std::size_t(ecs_vec_count(&storage)));
         }
         if (kind == "asset_ref" || kind == "entity_ref") {
-            const auto& ref = reference(references, type);
+            const auto& ref = adapter_for(references, type);
             if (!ref.read)
                 throw std::runtime_error("Reference adapter has no native reader");
             return ref.read(value);
@@ -153,7 +204,7 @@ struct Reader {
 };
 } // namespace
 ReflectedCandidate::ReflectedCandidate(flecs::world world, ecs_entity_t type, const Json& value,
-                                       std::span<const ReflectedReference> references)
+                                       std::span<const ReflectedAdapter> references)
     : world_(world.c_ptr()), type_(type) {
     const auto schema = reflected_type_schema(world, type, references);
     validate_reflected_json(schema, value);
@@ -191,7 +242,7 @@ ReflectedCandidate& ReflectedCandidate::operator=(ReflectedCandidate&& other) no
     return *this;
 }
 Json read_reflected_native(flecs::world world, ecs_entity_t type, const void* value,
-                           std::span<const ReflectedReference> references) {
+                           std::span<const ReflectedAdapter> references) {
     const auto schema = reflected_type_schema(world, type, references);
     Reader reader{world.c_ptr(), references};
     auto result = reader.read(type, schema, value);

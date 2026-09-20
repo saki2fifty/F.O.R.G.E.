@@ -32,7 +32,7 @@ void presentation(ecs_world_t* world, ecs_entity_t id, Json& result) {
 }
 struct Projection {
     ecs_world_t* world;
-    std::span<const ReflectedReference> references;
+    std::span<const ReflectedAdapter> references;
     std::vector<ecs_entity_t> stack;
     unsigned leaves = 0;
     const EcsComponent& storage(ecs_entity_t id) const {
@@ -238,11 +238,21 @@ struct Projection {
             break;
         }
         case EcsOpaqueType: {
-            auto adapter = std::ranges::find(references, id, &ReflectedReference::type);
+            auto adapter = std::ranges::find(references, id, &ReflectedAdapter::type);
             if (adapter == references.end() || !adapter->kind)
-                fail("reflection",
-                     "Opaque type requires an explicit engine-owned reference adapter");
+                fail("reflection", "Opaque type requires an explicit engine-owned adapter");
             const std::string kind = adapter->kind;
+            if (kind == "vector") {
+                const auto* opaque = ecs_get(world, id, EcsOpaque);
+                if (!opaque || !ecs_has(world, opaque->as_type, EcsVector) || !opaque->count ||
+                    !opaque->serialize_element || !opaque->resize || !opaque->ensure_element)
+                    fail("reflection",
+                         "Engine vector adapter needs complete native Meta callbacks");
+                // Structure comes from native as_type, never from a second type graph.
+                auto vector = describe(opaque->as_type, depth);
+                stack.pop_back();
+                return vector;
+            }
             if (kind != "asset_ref" && kind != "entity_ref")
                 fail("reflection", "Unknown reference adapter");
             result = {{"type", kind}, {"nullable", true}};
@@ -396,7 +406,7 @@ void validate(const Json& field, const Json& value, const std::string& path) {
 }
 } // namespace
 nlohmann::json reflected_type_schema(flecs::world world, ecs_entity_t type,
-                                     std::span<const ReflectedReference> references) {
+                                     std::span<const ReflectedAdapter> references) {
     Projection projection{world.c_ptr(), references, {}, 0};
     auto result = projection.describe(type, 0);
     if (result.dump().size() > maximum_bytes)

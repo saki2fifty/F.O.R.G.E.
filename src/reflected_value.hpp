@@ -3,10 +3,10 @@
 #include <nlohmann/json.hpp>
 #include <span>
 namespace forge::detail {
-// Explicit, engine-owned adapters only. An arbitrary EcsOpaque is not an AssetRef.
-struct ReflectedReference {
+// Explicit engine-owned reference/vector adapters only. No arbitrary project opaque types.
+struct ReflectedAdapter {
     ecs_entity_t type;
-    const char* kind;
+    const char* kind; // asset_ref, entity_ref, or vector (native EcsOpaque adapter).
     const char* asset_type = nullptr;
     nlohmann::json (*read)(const void*) = nullptr;
     void (*assign)(void*, const nlohmann::json&) = nullptr;
@@ -14,7 +14,7 @@ struct ReflectedReference {
 // A bounded copied projection of native Meta/Doc/Units; no process-local IDs,
 // offsets, hooks or object bytes cross this interface. Not an SDK opt-in by itself.
 nlohmann::json reflected_type_schema(flecs::world world, ecs_entity_t type,
-                                     std::span<const ReflectedReference> references = {});
+                                     std::span<const ReflectedAdapter> references = {});
 // Validates detached values. Unknown fields remain intact, subject to the same
 // bounded JSON envelope. Native ranges do not veto mutation; callers commit later.
 void validate_reflected_json(const nlohmann::json& schema, const nlohmann::json& value);
@@ -23,7 +23,7 @@ void validate_reflected_json(const nlohmann::json& schema, const nlohmann::json&
 class ReflectedCandidate {
   public:
     ReflectedCandidate(flecs::world world, ecs_entity_t type, const nlohmann::json& value,
-                       std::span<const ReflectedReference> references = {});
+                       std::span<const ReflectedAdapter> references = {});
     ~ReflectedCandidate();
     ReflectedCandidate(const ReflectedCandidate&) = delete;
     ReflectedCandidate& operator=(const ReflectedCandidate&) = delete;
@@ -39,5 +39,5 @@ class ReflectedCandidate {
 // Reads named native Meta fields into the existing FORGE value representation.
 // It never writes to/shrinks native vectors and never copies native layouts to JSON.
 nlohmann::json read_reflected_native(flecs::world world, ecs_entity_t type, const void* value,
-                                     std::span<const ReflectedReference> references = {});
+                                     std::span<const ReflectedAdapter> references = {});
 } // namespace forge::detail

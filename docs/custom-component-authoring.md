@@ -166,3 +166,12 @@ native primitive type, avoiding the pinned getter issue FLECS-006. Cross-layout
 round trips, nested owned strings/vectors, failure cleanup and reader immutability
 are covered by core tests. SDK extraction/admission and authoring integration remain
 separate work; these helpers alone do not enable custom Add Component entries.
+
+Engine-owned `std::vector<T>` adapters may be explicitly admitted through native
+`EcsOpaque.as_type` pointing to an `EcsVector`. The complete native count,
+serialize-element, resize and ensure-element callbacks are required. The shared
+projection derives element structure from that native type; it does not infer
+admission from an arbitrary opaque type or STL layout. The const read path checks
+count before iteration and requires exactly one value of the declared native type
+per element. Null typed references remain null. This exception is an explicit
+engine adapter, not generic permission to load project callbacks into the editor.

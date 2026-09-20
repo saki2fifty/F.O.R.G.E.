@@ -85,14 +85,14 @@ inline void test_reflected_values() {
     auto opaque = world.component<Reference>("TestReference");
     opaque.opaque(flecs::String);
     reject([&] { schema(opaque); });
-    const ReflectedReference asset[] = {{opaque.id(), "asset_ref", "mesh"}};
+    const ReflectedAdapter asset[] = {{opaque.id(), "asset_ref", "mesh"}};
     auto ref = reflected_type_schema(world, opaque.id(), asset);
     const auto asset_id = AssetId::generate();
     valid(ref, asset_id);
     valid(ref, nullptr);
     invalid(ref, "not-a-uuid");
     require(ref.at("asset_type") == "mesh", "Typed reference adapter lost target type");
-    const ReflectedReference entity[] = {{opaque.id(), "entity_ref"}};
+    const ReflectedAdapter entity[] = {{opaque.id(), "entity_ref"}};
     auto entity_ref = reflected_type_schema(world, opaque.id(), entity);
     valid(entity_ref, EntityRef{asset_id, EntityId::generate()});
     invalid(entity_ref, {{"entity", EntityId::generate()}});

@@ -606,7 +606,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
-        std::vector<ReflectedReference> references;
+        std::vector<ReflectedAdapter> references;
         // Only explicitly registered FORGE references cross the opaque boundary.
         for (const auto& [path, asset] :
              {std::pair{"forge.audio_clip_ref", AudioClipAsset::type},

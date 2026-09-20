@@ -798,3 +798,17 @@
 - Normal core/authoring/prefab3/3 passed(1.79s), strict ASan/UBSan/LSan3/3
   passed(15.41s); manual3/3, format and whitespace checks passed. No SDK opt-in,
   custom-component UI or persistent schema migration is claimed complete here.
+
+### Explicit engine container adapters
+
+- Engine-owned vectors can now use the pinned Flecs opaque-vector adapter through
+  the same bounded reflection/value path. Native Meta still supplies the element
+  type; arbitrary opaque project types remain rejected.
+- Readback checks count before visiting elements, verifies exactly one value of
+  the declared type, propagates callback errors, and leaves the container storage
+  unchanged. Native lifecycle/cursors own construction, resize and cleanup.
+- Nullable typed-reference vectors, empty values, oversized collections, incomplete
+  callbacks and incorrect element types passed core regressions normally(0.20s)
+  and under strict ASan/UBSan/LSan(0.92s). Formatting and whitespace checks passed.
+- The earlier shared-schema checkpointb176f15 passed Windows source audit35524753435,
+  33/33 tests(22.97s). The later native-value Windows audit remains separate.

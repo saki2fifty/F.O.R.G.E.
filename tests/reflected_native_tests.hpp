@@ -1,5 +1,6 @@
 #pragma once
 #include "../src/reflected_value.hpp"
+#include "../src/reflected_vector.hpp"
 #include <forge/asset_ref.hpp>
 #include <limits>
 #include <stdexcept>
@@ -87,15 +88,15 @@ inline void test_reflected_native() {
     using Ref = AssetRef<SceneAsset>;
     auto reference = world.component<Ref>("TestSceneRef");
     reference.opaque(flecs::String);
-    const ReflectedReference adapter[] = {{reference.id(), "asset_ref", "scene",
-                                           [](const void* ptr) -> Json {
-                                               const auto& v = *static_cast<const Ref*>(ptr);
-                                               return v.id ? Json(v.id) : Json();
-                                           },
-                                           [](void* ptr, const Json& v) {
-                                               static_cast<Ref*>(ptr)->id =
-                                                   v.is_null() ? AssetId{} : v.get<AssetId>();
-                                           }}};
+    const ReflectedAdapter adapter[] = {{reference.id(), "asset_ref", "scene",
+                                         [](const void* ptr) -> Json {
+                                             const auto& v = *static_cast<const Ref*>(ptr);
+                                             return v.id ? Json(v.id) : Json();
+                                         },
+                                         [](void* ptr, const Json& v) {
+                                             static_cast<Ref*>(ptr)->id =
+                                                 v.is_null() ? AssetId{} : v.get<AssetId>();
+                                         }}};
     const auto id = AssetId::generate();
     ReflectedCandidate asset(world, reference, id, adapter);
     require(read_reflected_native(world, reference, asset.data(), adapter) == Json(id),
@@ -103,6 +104,61 @@ inline void test_reflected_native() {
     ReflectedCandidate empty(world, reference, nullptr, adapter);
     require(read_reflected_native(world, reference, empty.data(), adapter).is_null(),
             "Null reference transport failed");
+    auto ref_vector = world.component<std::vector<Ref>>("TestSceneRefVector");
+    ref_vector.opaque(reflected_vector<Ref>);
+    const ReflectedAdapter vector_adapters[] = {adapter[0], {ref_vector.id(), "vector"}};
+    const Json slot_values = Json::array({id, nullptr, AssetId::generate()});
+    ReflectedCandidate slots(world, ref_vector, slot_values, vector_adapters);
+    const auto& native_slots = *static_cast<const std::vector<Ref>*>(slots.data());
+    const auto* slot_pointer = native_slots.data();
+    const auto slot_capacity = native_slots.capacity();
+    require(read_reflected_native(world, ref_vector, slots.data(), vector_adapters) ==
+                    slot_values &&
+                native_slots.data() == slot_pointer && native_slots.capacity() == slot_capacity,
+            "Engine-owned opaque vector adapter lost refs or mutated storage");
+    ReflectedCandidate no_slots(world, ref_vector, Json::array(), vector_adapters);
+    require(read_reflected_native(world, ref_vector, no_slots.data(), vector_adapters).empty(),
+            "Empty engine vector roundtrip failed");
+    bool refused = false;
+    try {
+        (void)reflected_type_schema(world, ref_vector, adapter);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    require(refused, "Opaque vector was admitted without its explicit engine adapter");
+    std::vector<Ref> excessive(4097);
+    refused = false;
+    try {
+        (void)read_reflected_native(world, ref_vector, &excessive, vector_adapters);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    require(refused, "Opaque vector count was not bounded before reading elements");
+    // Deliberately incomplete/wrong native callbacks are rejected, even when a
+    // consumer accidentally puts such a type on its engine adapter allowlist.
+    auto* native_adapter = ecs_get_mut(world.c_ptr(), ref_vector.id(), EcsOpaque);
+    const auto good_element = native_adapter->serialize_element;
+    native_adapter->serialize_element = nullptr;
+    refused = false;
+    try {
+        (void)reflected_type_schema(world, ref_vector, vector_adapters);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    native_adapter->serialize_element = good_element;
+    require(refused, "Incomplete opaque vector adapter admitted");
+    native_adapter->serialize_element = [](const ecs_serializer_t* s, const void*, std::size_t) {
+        const std::uint64_t wrong = 0;
+        return s->value(flecs::U64, &wrong);
+    };
+    refused = false;
+    try {
+        (void)read_reflected_native(world, ref_vector, slots.data(), vector_adapters);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    native_adapter->serialize_element = good_element;
+    require(refused, "Opaque vector callback changed the admitted element type");
     auto moved = std::move(source);
     require(!source.data() && read_reflected_native(world, type_a, moved.data()) == value,
             "Detached native value move lost ownership");
