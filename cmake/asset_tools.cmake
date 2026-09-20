@@ -97,3 +97,46 @@ if(BUILD_TESTING)
  add_test(NAME gltf_native_capture COMMAND forge_gltf_native_tests "${CMAKE_BINARY_DIR}/gltf-native-tests")
  set_tests_properties(gltf_native_capture PROPERTIES TIMEOUT 45)
 endif()
+
+# Parent import orchestration has no image codec/device dependency. Native decode
+# is linked only by this dedicated worker and the direct codec tests above.
+add_library(forge_texture_pipeline STATIC src/texture_importer.cpp src/import_process.cpp)
+target_link_libraries(forge_texture_pipeline PUBLIC forge_assets forge_texture PRIVATE forge_asset_worker forge_asset_bytes)
+set(_forge_texture_recipe_inputs "${FORGE_ENABLE_SANITIZERS};${CMAKE_C_FLAGS_DEBUG};${CMAKE_CXX_FLAGS_DEBUG};${CMAKE_C_FLAGS_RELWITHDEBINFO};${CMAKE_CXX_FLAGS_RELWITHDEBINFO};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_VERSION};${CMAKE_SYSTEM_NAME};${CMAKE_SYSTEM_PROCESSOR};${CMAKE_C_FLAGS};${CMAKE_CXX_FLAGS};${CMAKE_C_FLAGS_RELEASE};${CMAKE_CXX_FLAGS_RELEASE};${CMAKE_MSVC_RUNTIME_LIBRARY}")
+foreach(source include/forge/texture_asset.hpp include/forge/texture_bundle.hpp src/texture_import.hpp src/texture_ktx.hpp src/texture_diligent.hpp src/texture_decode.h src/import_process.hpp src/texture_importer.hpp src/asset_worker.hpp src/texture_bundle.cpp src/texture_importer.cpp src/texture_worker.cpp src/import_worker_main.cpp src/import_process.cpp src/texture_asset.cpp src/texture_import.cpp src/texture_diligent.cpp src/texture_png.c src/texture_jpeg.c src/texture_bmp.cpp src/texture_dds.cpp src/texture_hdr.cpp src/texture_webp.c src/texture_ktx.cpp cmake/asset_tools.cmake cmake/texture_codecs.cmake cmake/webp.cmake cmake/diligent_source.cmake)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)
+ string(APPEND _forge_texture_recipe_inputs ";${source}:${digest}")
+endforeach()
+string(SHA256 _forge_texture_recipe_fingerprint "${_forge_texture_recipe_inputs}")
+target_compile_definitions(forge_texture_pipeline PRIVATE
+ FORGE_TEXTURE_RECIPE_FINGERPRINT="${_forge_texture_recipe_fingerprint}"
+ FORGE_TEXTURE_RECIPE_CONFIGURATION="$<CONFIG>")
+add_executable(forge_asset_build_worker src/import_worker_main.cpp src/texture_worker.cpp)
+set_target_properties(forge_asset_build_worker PROPERTIES OUTPUT_NAME forge_asset_build)
+target_link_libraries(forge_asset_build_worker PRIVATE forge_texture_pipeline forge_texture_import forge_texture_ktx)
+if(BUILD_TESTING)
+ add_executable(forge_texture_pipeline_tests tests/texture_pipeline_tests.cpp src/texture_worker.cpp)
+ target_include_directories(forge_texture_pipeline_tests PRIVATE src)
+ target_link_libraries(forge_texture_pipeline_tests PRIVATE forge_texture_pipeline forge_texture_import forge_texture_ktx forge_texture_resources forge_authoring)
+ add_test(NAME texture_recipe COMMAND forge_texture_pipeline_tests --direct "${CMAKE_BINARY_DIR}/texture-recipe-tests")
+ set_tests_properties(texture_recipe PROPERTIES TIMEOUT 90)
+ # ASan shadow allocation cannot initialize under production RLIMIT_AS. Direct
+ # native recipe tests are instrumented; actual supervisor tests use normal builds.
+ if(NOT FORGE_ENABLE_SANITIZERS)
+  add_dependencies(forge_texture_pipeline_tests forge_asset_build_worker)
+  add_test(NAME texture_pipeline COMMAND forge_texture_pipeline_tests --worker $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/texture-pipeline-tests")
+  set_tests_properties(texture_pipeline PROPERTIES TIMEOUT 90)
+ endif()
+endif()
+
+if(BUILD_TESTING)
+ add_executable(forge_texture_bundle_tests tests/texture_bundle_tests.cpp)
+ target_link_libraries(forge_texture_bundle_tests PRIVATE forge_texture)
+ add_test(NAME texture_bundle COMMAND forge_texture_bundle_tests)
+endif()
+
+install(TARGETS forge_asset_build_worker RUNTIME DESTINATION bin COMPONENT Tools)
+if(TARGET forge_editor)
+ add_dependencies(forge_editor forge_asset_build_worker)
+endif()

@@ -103,7 +103,8 @@ replacement test. Observed platform results belong in the daily changelog.
 
 ## Remaining integration
 
-The generic coordinator is tested with a small admitted fixture. This is not yet
+The coordinator is tested with generic failure/recovery fixtures and actual isolated
+texture recipes, including simultaneous color/data resources. This is not yet
 proof of a complete production importer, cooked package, resource manager or GPU
 retirement path. Concrete providers must supply actual format/compatibility
 validation and sidecar bindings. The editor's import commands must invoke recovery

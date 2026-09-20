@@ -1,0 +1,21 @@
+#pragma once
+#include "asset_worker.hpp"
+#include <forge/derived_cache.hpp>
+namespace forge::asset_detail {
+struct ImportProcessRequest {
+    nlohmann::json payload;
+    std::vector<ArtifactFile> inputs;
+};
+// Private versioned process transport, not an SDK/plugin protocol. The executable
+// is the packaged fixed-command worker; all inputs are immutable owned snapshots.
+std::vector<ArtifactFile> run_import_process(const std::filesystem::path& executable,
+                                             const std::filesystem::path& project,
+                                             ImportProcessRequest request, WorkerLimits limits,
+                                             std::stop_token stop = {});
+ImportProcessRequest read_import_process_request(const std::filesystem::path& staging,
+                                                 WorkerLimits limits);
+void write_import_process_result(const std::filesystem::path& staging,
+                                 const std::vector<ArtifactFile>& files, WorkerLimits limits);
+void write_import_process_error(const std::filesystem::path& staging, std::string_view code,
+                                std::string_view message) noexcept;
+} // namespace forge::asset_detail

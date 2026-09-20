@@ -131,6 +131,15 @@ int main() {
         mesh.lods.back().screen_coverage = 0;
         const auto animated = encode_mesh(mesh);
         require(encode_mesh(decode_mesh(animated)) == animated, "LOD/morph roundtrip changed");
+        auto orphan_delta = mesh;
+        std::erase_if(orphan_delta.lods[0].parts[0].streams,
+                      [](const auto& stream) { return stream.semantic == "NORMAL"; });
+        orphan_delta.lods[0].parts[0].morph_targets[0].push_back(
+            {"NORMAL", 3, std::vector<float>(9, 0.f)});
+        rejects([&] { encode_mesh(orphan_delta); });
+        orphan_delta.lods[0].parts[0].streams.push_back(
+            {"NORMAL", 3, std::vector<float>{0, 0, 1, 0, 0, 1, 0, 0, 1}});
+        require(!encode_mesh(orphan_delta).empty(), "Supported normal morph was rejected");
         for (auto topology : {MeshTopology::Points, MeshTopology::Lines}) {
             auto simple = triangle();
             auto& p = simple.lods[0].parts[0];

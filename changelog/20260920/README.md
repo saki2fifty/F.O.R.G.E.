@@ -308,3 +308,25 @@
   its Linux/Windows core and shared-SDK CI profiles also passed.
 - These remain private preparation APIs. Publication, Content/editor integration,
   GPU realization and complete Phase7 acceptance continue; no new numbered package.
+
+## Isolated texture imports and simultaneous usages (Phase7 in progress)
+
+- Added the bounded `forge_asset_build` worker and private image/container recipes.
+  Owned snapshots, manifest hashes, portable filename checks, process budgets,
+  cancellation, completion markers and parent-side validation precede publication.
+  Windows packaging/install targets include the worker; editor workflows continue.
+- A texture now publishes a bounded index and independent color/data/normal/HDR
+  files under one AssetId. Additional usages publish together; color/data runtime
+  selections coexist and preserve distinct linear-light mip results.
+- Import revision keys include source, codec configuration, compiler and build
+  profile. Container settings preserve supplied mips; no ignored resize controls.
+- Actual normal-process recipe/cache/publication/resource regressions passed4/4
+  in1.60s. Strict ASan/UBSan/LeakSanitizer direct recipe/bundle/mesh checks passed3/3
+  in1.14s. Covered malformed manifests, wrong hashes, missing/duplicate files,
+  stale/corrupt inputs, cancellation, DDS supplied mips, failed publication and
+  prior-good resource retention. Production process limits remain unchanged.
+- Mesh morph deltas now require matching base streams and compatible layouts;
+  regression rejects an orphan normal delta and accepts the valid counterpart.
+- Formatting, manual links and workflow syntax checks passed. New Windows worker
+  validation is pending. Previous c2e3fb8 Windows audit passed12/12 in10.72s and
+  all four core/SDK push profiles passed. No numbered build was allocated.

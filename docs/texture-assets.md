@@ -2,7 +2,7 @@
 
 Phase7 currently implements bounded CPU texture artifacts, a cooked-file resource
 provider and private image preparation. These are internal integration APIs.
-Publication/editor workflows and GPU realization are
+Concrete texture publication is tested; editor workflows and GPU realization are
 still being implemented. A format having a data representation is not evidence
 that its encoder, viewer or renderer has been delivered.
 
@@ -228,3 +228,55 @@ positive dimensions, complete flat pixels or all four RLE channels per row.
 It rejects truncated packets, changed row widths, mixed flat/RLE rows and old
 repeat markers the native decoder does not implement. RGBE conversion stays in
 pinned stb/Diligent; metadata exposure is not applied by this pixel adapter.
+
+## Isolated recipes and semantic bundles
+
+The private `forge.texture.image` and `forge.texture.container` importers now
+connect discovery, a supervised `forge_asset_build` process, parent-side cooked
+validation, immutable cache publication and CPU resource loading. The worker
+receives owned input snapshots; it never receives a project writer lease, ECS
+world or graphics device. These factories are being connected to editor commands;
+they are not yet a complete Content import workflow.
+
+An imported texture publishes one `forge.texture-bundle` version1 index named
+`texture.json`, plus canonical `texture-color.ftex`, `texture-data.ftex`,
+`texture-normal.ftex` or `texture-hdr.ftex` files. Each entry records its semantic,
+byte count and SHA256. All selected variants are validated and published together
+under **one Texture AssetId**. Additional usages do not allocate new logical IDs.
+Color and data variants can be loaded simultaneously; the runtime pool's variant
+key keeps their interpretation and leases independent. A failed replacement
+preserves the previous selected revision.
+
+Primary usage defaults to automatic color/HDR detection. Up to three distinct
+additional usages can be requested. Raster color filtering uses the selected
+transfer; data/normals/HDR always use linear storage. Green-channel flipping affects
+normal variants only; alpha premultiplication affects color/HDR variants only.
+Container variants preserve declared transfer and supplied mip chains; a request
+that contradicts container metadata rejects instead of reinterpreting bytes.
+Sampler wrap/filter/anisotropy settings apply to every variant. Container schemas
+do not expose raster resizing, mip regeneration or pixel-edit settings.
+
+The recipe revision hashes its source and relevant build configuration, compiler
+identity/version, platform, configuration and codec pin/options. Cached output is
+repeatable within that exact profile; the same numeric library version alone is
+not sufficient evidence of identical output. This private worker protocol is not
+a stable extension ABI.
+
+### Staging and bounds
+
+Each attempt uses a fresh `.forge/jobs/<UUID>` directory. Request/output manifests
+bind generated portable filenames to exact byte counts and hashes. Admission
+rejects duplicate names, missing/extra files, traversal, symlink redirection,
+Windows device names, changed bytes and unsupported protocol versions. The output
+completion manifest is written only after all output streams close. Existing
+staging files are never overwritten. Normal completion, failure and cancellation
+remove only that job's created directory.
+
+Current limits:256MiB source/per file,512MiB aggregate output,16 files,1GiB process
+memory,120seconds wall time and110seconds CPU time. Texture payload and aggregate
+variant preparation reserve space for envelopes/manifests. Diagnostics are bounded;
+parent-side format validation remains mandatory even after worker success.
+Production process limits are not weakened for sanitizer tests. Direct recipes and
+codecs run with ASan/UBSan/LeakSanitizer; ordinary builds separately exercise actual
+supervised processes because ASan's shadow reservation exceeds the production
+virtual-memory limit on Linux.

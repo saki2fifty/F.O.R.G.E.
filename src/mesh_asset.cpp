@@ -218,8 +218,17 @@ void validate_mesh(const MeshData& mesh, MeshLimits limits) {
                     "Invalid mesh part");
             add(vertices, part.vertices, limits.vertices);
             validate_streams(part.streams, part.vertices, false, limits, bytes);
-            for (const auto& target : part.morph_targets)
+            for (const auto& target : part.morph_targets) {
                 validate_streams(target, part.vertices, true, limits, bytes);
+                for (const auto& delta : target) {
+                    const auto* base = part.find(delta.semantic);
+                    require(base != nullptr, "Morph delta requires a matching base vertex stream");
+                    require(
+                        base->values.index() == delta.values.index() &&
+                            (delta.semantic == "TANGENT" || base->components == delta.components),
+                        "Morph delta scalar/layout disagrees with its base stream");
+                }
+            }
             const auto width = part.topology == MeshTopology::Points      ? 1u
                                : part.topology == MeshTopology::Lines     ? 2u
                                : part.topology == MeshTopology::Triangles ? 3u
