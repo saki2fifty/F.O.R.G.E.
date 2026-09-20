@@ -23,9 +23,10 @@ inline void test_relationship_depth() {
     };
     EngineContext engine;
     Scene scene(engine.world());
-    auto valid = chain(FLECS_DAG_DEPTH_MAX);
+    constexpr auto structural_limit = FLECS_DAG_DEPTH_MAX - 1;
+    auto valid = chain(structural_limit);
     scene.reset(valid);
-    require(scene.entity_count() == FLECS_DAG_DEPTH_MAX,
+    require(scene.entity_count() == structural_limit,
             "Native supported hierarchy boundary was rejected");
     const auto before = scene.document();
     auto invalid = before;
@@ -66,12 +67,12 @@ inline void test_relationship_depth() {
     scene.reset(empty_scene());
     scene.publish_prefab_sources({{prefab.asset(), prefab.source}}, [] {});
     const auto instance = instantiate_prefab(scene, prefab.asset());
-    require(scene.entity_count() == FLECS_DAG_DEPTH_MAX && scene.entity(instance).is_alive(),
+    require(scene.entity_count() == structural_limit && scene.entity(instance).is_alive(),
             "Supported structured Parent / IsA boundary did not instantiate");
     scene.undo();
     require(scene.entity_count() == 0, "Deep instance Undo did not retire its members");
     scene.redo();
-    require(scene.entity_count() == FLECS_DAG_DEPTH_MAX,
+    require(scene.entity_count() == structural_limit,
             "Deep instance Redo did not restore its members");
     scene.reset(empty_scene());
     scene.publish_prefab_sources({}, [] {});
@@ -101,7 +102,7 @@ inline void test_relationship_depth() {
             "Over-depth IsA chain changed native state or history");
     // An instance's IsA link does not add another structural level. Native
     // instantiation starts at depth zero for the base (observable.c1447).
-    auto legacy = chain(FLECS_DAG_DEPTH_MAX);
+    auto legacy = chain(structural_limit);
     for (auto& row : legacy["entities"])
         row["prefab"] = true;
     const auto legacy_root = legacy["entities"][0].at("id");

@@ -412,7 +412,7 @@ bindings, then uses one validated Scene::edit/history step. Failure
 leaves the scene unchanged; import publication is still outside Scene Undo. A model
 with several scenes and no default requires a selection; a sceneless model uses
 its root forest. The existing10,000-entity/8MiB scene-command limits also apply.
-The placed wrapper counts toward the pinned Flecs128-level structural-depth limit;
+The placed wrapper counts toward the pinned 127-level authored structural-depth limit;
 an over-depth candidate rejects before creating entities. Every placed node also
 explicitly selects the legacy `no_primitive` value, so the compatibility
 blockout path cannot mistake a mesh node or empty transform node for a cube.

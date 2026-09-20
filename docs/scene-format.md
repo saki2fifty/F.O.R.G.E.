@@ -19,9 +19,12 @@
 
 AssetId is the scene's durable authored-document identity. EntityId and AssetId are distinct UUIDv4 types serialized as canonical lowercase strings. No DocumentId or persistent runtime-instance identity is introduced. `parent` and `base` are scene-local EntityId strings; base must identify a prefab. Names need not be unique. Structural, inheritance and effective spatial graphs must be acyclic.
 
-Scene structural and inheritance paths, admit at most128 authored entities per path. Combined prefab expansion admits
-at most128 structural levels; its IsA source link does not add a structural level. Structured prefab member trees use the same
-limit. This follows the exact pinned Flecs4.1.6 `FLECS_DAG_DEPTH_MAX`, rather than
+Scene structural paths admit at most127 authored entities per path. Flecs has128
+native levels; FORGE reserves one for its scene-owner root, including the child
+records allocated by OrderedChildren on authored leaves. Inheritance paths admit128
+entities independently. Combined prefab expansion and structured prefab member trees
+admit127 structural levels; an IsA source link does not add a structural level.
+This follows the exact pinned Flecs4.1.6 `FLECS_DAG_DEPTH_MAX`, rather than
 relying on native assertions that may be disabled in Release. An iterative graph
 check rejects missing targets, cycles and excessive depth before native realization
 or history changes. It does not clamp or restructure content. The independent

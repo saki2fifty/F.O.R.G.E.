@@ -3,7 +3,11 @@
 #include <flecs.h>
 #include <stdexcept>
 namespace forge::detail {
-void validate_relationship_graph(const RelationshipGraph& graph, const char* relationship) {
+void validate_relationship_graph(const RelationshipGraph& graph, const char* relationship,
+                                 unsigned reserved_depth) {
+    if (reserved_depth >= FLECS_DAG_DEPTH_MAX)
+        throw std::runtime_error("Invalid internal relationship depth reservation");
+    const auto limit = FLECS_DAG_DEPTH_MAX - reserved_depth;
     struct Node {
         std::size_t incoming = 0, depth = 1;
     };
@@ -30,10 +34,10 @@ void validate_relationship_graph(const RelationshipGraph& graph, const char* rel
     for (std::size_t i = 0; i < ready.size(); ++i) {
         const auto& id = ready[i];
         const auto depth = state.at(id).depth;
-        if (depth > FLECS_DAG_DEPTH_MAX)
+        if (depth > limit)
             throw std::runtime_error(std::string(relationship) +
                                      " hierarchy exceeds the pinned Flecs limit of " +
-                                     std::to_string(FLECS_DAG_DEPTH_MAX) + " levels at " + id);
+                                     std::to_string(limit) + " authored levels at " + id);
         for (const auto& edge : graph.at(id)) {
             auto& child = state.at(edge.target);
             child.depth = std::max(child.depth, depth + (edge.advances_depth ? 1 : 0));

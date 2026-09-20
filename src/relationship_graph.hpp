@@ -14,5 +14,6 @@ using RelationshipGraph = std::map<std::string, std::vector<RelationshipEdge>>;
 // Validate before any native relationship realization. Iterative topology/depth
 // checks avoid recursion on untrusted documents and respect the pinned Flecs DAG
 // profile even when upstream assertions are compiled out in Release builds.
-void validate_relationship_graph(const RelationshipGraph&, const char* relationship);
+void validate_relationship_graph(const RelationshipGraph&, const char* relationship,
+                                 unsigned reserved_depth = 0);
 } // namespace forge::detail

@@ -146,3 +146,6 @@ unknown fragments never retain copies of known native field values. Native value
 win on serialization; removing an entry does not transfer its opaque fields to a
 new key. Other reflected collections without a declared key use positional unknown
 fragments and make no semantic identity claim.
+
+The in-progress[shader asset contract](shader-assets.md) records the current
+source/permutation/cooked reflection boundary and outstanding production integration.

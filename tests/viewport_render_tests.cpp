@@ -12,6 +12,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
+#include "shader_diligent_tests.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
 #include <cstring>
@@ -182,10 +183,22 @@ int main(int argc, char** argv) {
         require(bool(queue), "Diligent queue attachment failed");
         ICommandQueueD3D12* queues[] = {queue};
         EngineD3D12CreateInfo engine;
+        engine.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
+        engine.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
+        engine.Features.Tessellation = DEVICE_FEATURE_STATE_ENABLED;
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         factory->AttachToD3D12Device(native.Get(), 1, queues, engine, &device, &context);
         require(device && context, "Diligent device attachment failed");
+        forge::test::diligent_shaders(
+            device, context, [&](ITextureView* view, const std::string& name) {
+                const auto pixels = readback(device, context, view);
+                unsigned colored = 0;
+                for (const auto& pixel : pixels)
+                    colored += pixel[0] > 250 && pixel[1] >= 63 && pixel[1] <= 65 && pixel[2] == 0;
+                require(colored > 1000, "Shader asset stage fixture produced incorrect pixels");
+                save(pixels, 64, 64, images / (name + ".ppm"));
+            });
         check_imgui(device, context, images);
         forge::Viewport viewport(device);
         forge::EngineContext scene_engine;

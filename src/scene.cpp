@@ -92,7 +92,10 @@ void validate(const Json& doc) {
                 throw std::runtime_error("Base must be a prefab");
             edges.push_back({target});
         }
-        detail::validate_relationship_graph(graph, relation);
+        // Scene ownership adds one native structural level. OrderedChildren
+        // allocates a child record even for leaves, so that reserved level must
+        // count before realizing or reparenting the deepest authored entity.
+        detail::validate_relationship_graph(graph, relation, std::string(relation) == "parent");
     }
     for (const auto& [id, row] : entities)
         if (row->contains("prefab_instance")) {
@@ -115,7 +118,7 @@ void validate(const Json& doc) {
         if (e->contains("parent"))
             expansion[e->at("parent").get<std::string>()].push_back({id});
     }
-    detail::validate_relationship_graph(expansion, "Prefab expansion");
+    detail::validate_relationship_graph(expansion, "Prefab expansion", 1);
     if (doc.at("version") >= 3)
         detail::validate_spatial(doc);
 }

@@ -899,3 +899,30 @@
   passed3/3 in1.60s. The final strict boundary run passed3/3 in10.40s. Manual3/3, formatting,
   workflow syntax and whitespace checks passed; latest-source Windows checks follow
   separately without allocating a numbered build.
+
+### Ordered hierarchy admission correction
+
+- Debug CI exposed an incomplete boundary probe: FORGE adds OrderedChildren to
+  authored leaves as well as its hidden scene owner. The pinned Flecs limit is
+  still128, but FORGE must reserve one level, admitting127 authored structural or
+  expanded prefab levels. Independent IsA chains retain their128-level limit.
+- Corrected validation and tests before native scene/prefab realization. No authored
+  hierarchy is rewritten and no dependency limit or assertion is changed. Exact
+  Debug authoring regression passed1/1 in3.02s. Normal core, authoring, prefab and
+  shader tests passed4/4 in1.64s; strict ASan/UBSan/LeakSanitizer passed4/4 in10.16s.
+
+## Shader assets — internal compiler integration
+
+- Added bounded shader source documents, selected defines/permutations, stage and
+  entry-point admission, content/compiler build identity, copied reflection and
+  immutable cooked shader envelopes. Unknown source document fields remain intact.
+- Added a private Diligent FXC5.1 adapter using native captured-source includes and
+  native member reflection. Official D3D12 reflection supplies dimensions, thread
+  groups and compiled-version checks. Cooked realization compares actual reflection
+  before returning a detached candidate; failed candidates retain the caller's
+  previous program. Exact dependency pins and ABI1 remain unchanged.
+- Added CPU rejection/round-trip tests and Windows fixtures for ordinary/cooked,
+  geometry, tessellation and compute use, invalid replacements and include escape.
+  CPU checks passed locally as recorded above. Native Windows compilation and GPU
+  execution are pending; worker, publication and editor/render consumers are still
+  required before the complete Phase7 delivery. No numbered build is allocated.

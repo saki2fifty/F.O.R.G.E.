@@ -71,7 +71,8 @@ void PrefabDocument::validate(const Json& doc) {
         if (item.contains("parent"))
             edges.push_back({item.at("parent").get<std::string>()});
     }
-    detail::validate_relationship_graph(hierarchy, "Prefab member");
+    // Source members must fit a scene-owned instance, including its owner root.
+    detail::validate_relationship_graph(hierarchy, "Prefab member", 1);
     std::map<std::uint64_t, TransformNode> nodes;
     std::map<std::string, std::uint64_t> handles;
     for (const auto& id : ids)

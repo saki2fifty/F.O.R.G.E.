@@ -233,3 +233,14 @@ link options to upstream's compiler-flag probe, which otherwise links instrument
 probe objects without the sanitizer runtime. This is build configuration, with no
 vendor patch or sanitizer suppression. No live-documentation drift is relied on.
 Windows validation and complete model-pipeline adoption remain release gates.
+
+## Shader compiler adapter — verified source 2026-09-20
+
+The selected Core744f079 revision supplies FXC shader-model5.1 compilation, native
+memory source factories and constant-buffer member reflection. FORGE selects that
+explicit D3D12 profile and records the actual loaded D3DCompiler47 DLL digest,
+packing, optimization and compiler Debug setting in build identity. Supplementary
+Windows SDK reflection supplies dimensions, groups and bytecode version checks.
+No dependency pin changes or DXC/DXIL support are implied. CPU admission tests pass;
+the native Windows adapter is undergoing execution validation. See
+[shader asset contracts and remaining integration](shader-assets.md).
