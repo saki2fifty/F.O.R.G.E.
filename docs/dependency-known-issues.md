@@ -77,3 +77,24 @@ flat mode and `stbi__get8` supplies zero at EOF in RLE mode. Mixed late flat/RLE
 rows also enter its fallback that resets row indices. FORGE now checks complete
 flat/RLE extents and consistent row encoding before that native entrypoint.
 Old repeat encoding is diagnosed rather than interpreted as literal pixels.
+
+## DiligentFX punctual-light adapter
+
+Exact FX`aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
+`Shaders/PBR/public/PBR_Shading.fxh::ApplyPunctualLight`, inspected2026-09-20:
+its spot path uses linear cosine falloff and retains the spotlight cone axis as
+the BRDF light direction; only the point path switches to the position-derived
+ray. The pinned Khronos KHR_lights_punctual reference squares the cone factor.
+FORGE's shader adapter applies that factor, then invokes the native point-light
+path with the original position/range/shadow data. Native BRDF/IBL/shadow algorithms
+remain upstream; there is no vendor patch or version upgrade.
+
+Native punctual distance normalization and half-vector normalization also have
+undefined zero inputs. The wrapper rejects those contributions, stages native
+lighting output, and retains existing lighting if the candidate produces nonfinite
+HDR values. The return flag distinguishes numerical rejection for its consumer.
+This does not silently restrict authored LocalScale or claim that the full scene
+renderer's diagnostics are already connected. A WARP compute reproduction compares
+the corrected spotlight to the position-derived native point BRDF multiplied by
+the squared cone factor, and covers coincident/opposite/overflow cases. Native
+execution of this newly added fixture is pending.

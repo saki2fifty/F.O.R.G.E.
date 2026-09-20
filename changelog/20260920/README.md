@@ -1024,3 +1024,13 @@
   execution remains pending; complete scene/skinned integration is still in progress.
 - Shared texture import/recipe checks also passed strict sanitizers2/2 after the
   final target include/definition propagation changes.
+
+### Native spotlight correctness boundary
+
+- Preserve positional spotlight BRDF direction and the glTF squared cosine falloff
+  through a FORGE call adapter around the pinned native lighting routine.
+- Reject undefined/nonfinite punctual contributions before adding them to existing
+  HDR lighting. Record the exact upstream discrepancy and pending consumer work.
+- Add a Windows compute reproduction comparing spot output with native point-light
+  output and testing coincident, opposite-vector and overflowing cases. GPU results
+  remain pending; dependency source and revision are unchanged.

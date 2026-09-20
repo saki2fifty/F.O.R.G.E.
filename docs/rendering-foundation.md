@@ -214,3 +214,8 @@ normal transform for reflection, nonuniform scale, shear, rank-two collapse,
 complete collapse and tiny/large uniform magnitudes, with both source tangent signs.
 This is a mathematical adapter and pending native fixture, not completion evidence
 for imported skinned rendering or scene normal-map appearance.
+
+The punctual shader adapter composes native PBR with a source-verified spotlight
+correction and a finite-output boundary; see[the dependency issue](dependency-known-issues.md).
+Its boolean result must feed the eventual renderer's numeric diagnostics, rather
+than silently claiming an unrepresentable contribution rendered correctly.

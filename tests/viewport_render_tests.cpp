@@ -162,6 +162,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 } // namespace
 #include "mesh_gpu_tests.hpp"
 #include "presentation_diligent_tests.hpp"
+#include "punctual_light_tests.hpp"
 #include "surface_frame_tests.hpp"
 #include "texture_gpu_tests.hpp"
 int main(int argc, char** argv) {
@@ -225,6 +226,7 @@ int main(int argc, char** argv) {
             save(pixels, w, h, images / (std::string(name) + ".ppm"));
             return pixels;
         };
+        check_punctual_lights(presentation, context);
         check_surface_frames(presentation, context);
         check_mesh_upload(presentation, context);
         check_texture_upload(presentation, context);
