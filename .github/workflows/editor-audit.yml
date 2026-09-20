@@ -106,7 +106,8 @@ jobs:
             $cachePath = Join-Path $env:RUNNER_TEMP "forge-work/AgentFiles/$directory"
             if (Test-Path $cachePath) { Remove-Item -LiteralPath $cachePath -Recurse -Force }
           }
-      - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
+      - id: configure
+        run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build actual editor with audit fixture
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -133,6 +134,19 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
           key: ${{ steps.cache-key.outputs.key }}-${{ inputs.source_commit }}
+      - name: Preserve partial compilation for the next corrected-source audit
+        # Cached object files are never validation evidence. Every restore still
+        # reconfigures, builds all selected targets and executes their tests.
+        continue-on-error: true
+        if: ${{ failure() && !inputs.clean_build && steps.configure.outcome == 'success' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        env:
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.cache-key.outputs.key }}-partial-${{ inputs.source_commit }}
       - name: Upload fresh audit evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
