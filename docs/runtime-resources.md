@@ -107,3 +107,8 @@ variants share the same owner budget and can coexist. `current`, `inspect`,
 the default selection. Acquiring a ticket always addresses its exact variant. A
 reload/unload of the color selection cannot silently change the data selection.
 The concrete texture provider verifies cooked bytes before adopting a variant.
+
+The [material provider](material-assets.md) additionally captures named typed texture
+bindings and checks a supplied layout before adoption. A newer publication generation
+replaces bindings even when its cooked content digest is unchanged; held old leases
+keep their own binding selections.

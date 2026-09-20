@@ -429,3 +429,21 @@
   remains pending. No numbered package allocated.
 - These are import-side capabilities. Stable family publication, material authoring,
   production GPU effects and the remaining Phase7 integrations are still in progress.
+
+### Cooked material values and resource safety
+
+- Added bounded identity-neutral cooked Material values: typed scalar/vector/linear
+  colors, alpha/depth/culling intent, texture semantic/dimension, binding-specific
+  sampler and UV transforms. Existing Texture sampler serialization is reused.
+- Native admitted glTF material factors now cook into the same material format;
+  texture identities remain publication-owned rather than source-index identities.
+- CPU material loaders validate digest, exact typed binding selections and layout
+  compatibility. Existing resource generations support binding changes with unchanged
+  cooked bytes, preserve held old leases and retain last good values on failure.
+- This is material data/resource infrastructure; model publication, shader reflection,
+  GPU effects and end-user material editing remain in the active Phase7 work package.
+- Validation: normal material/texture integration6/6 passed, strict sanitizer5/5
+  passed, including every truncated material envelope, invalid typed fields,
+  binding remap with unchanged bytes, held old leases and failed layout/digest
+  replacement. Manual3/3, formatting and workflow checks passed. Windows validation
+  of this material consumer remains pending.

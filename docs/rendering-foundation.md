@@ -108,3 +108,7 @@ separate authored TRS or presentation ownership contract.
 
 The in-progress[texture data/import contract](texture-assets.md) records actual CPU
 capabilities and pending GPU/editor work.
+
+[Cooked material values](material-assets.md) and immutable typed CPU material
+selections are now implemented. Their layout checks do not replace the pending
+Diligent reflection adapter or GPU material implementation.

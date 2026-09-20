@@ -91,6 +91,8 @@ struct TextureLimits {
 TextureFormatInfo texture_format_info(TextureFormat format);
 TextureLayout texture_layout(const TextureData& texture, unsigned mip);
 void validate_sampler(const SamplerState& sampler);
+void to_json(nlohmann::json& document, const SamplerState& sampler);
+void from_json(const nlohmann::json& document, SamplerState& sampler);
 // Validates dimensions, semantics and the complete storage budget before payload allocation.
 void validate_texture_metadata(const TextureData& texture, TextureLimits limits = {});
 void validate_texture(const TextureData& texture, TextureLimits limits = {});

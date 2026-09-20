@@ -159,6 +159,41 @@ void validate_sampler(const SamplerState& s) {
                                   s.mag == TextureFilter::Linear && s.mip == TextureFilter::Linear),
             "Anisotropy requires linear filters");
 }
+void to_json(nlohmann::json& j, const SamplerState& s) {
+    validate_sampler(s);
+    j = {{"min", unsigned(s.min)},
+         {"mag", unsigned(s.mag)},
+         {"mip", unsigned(s.mip)},
+         {"u", unsigned(s.u)},
+         {"v", unsigned(s.v)},
+         {"w", unsigned(s.w)},
+         {"compare", unsigned(s.compare)},
+         {"anisotropy", s.anisotropy},
+         {"lod_bias", s.lod_bias},
+         {"min_lod", s.min_lod},
+         {"max_lod", s.max_lod},
+         {"border", s.border}};
+}
+void from_json(const nlohmann::json& sj, SamplerState& result) {
+    SamplerState s;
+    s.min = TextureFilter(number(sj.at("min"), 1));
+    s.mag = TextureFilter(number(sj.at("mag"), 1));
+    s.mip = TextureFilter(number(sj.at("mip"), 1));
+    s.u = TextureWrap(number(sj.at("u"), 3));
+    s.v = TextureWrap(number(sj.at("v"), 3));
+    s.w = TextureWrap(number(sj.at("w"), 3));
+    s.compare = TextureCompare(number(sj.at("compare"), 8));
+    s.anisotropy = unsigned(number(sj.at("anisotropy"), 16));
+    s.lod_bias = scalar(sj.at("lod_bias"));
+    s.min_lod = scalar(sj.at("min_lod"));
+    s.max_lod = scalar(sj.at("max_lod"));
+    const auto& border = sj.at("border");
+    require(border.is_array() && border.size() == 4, "Invalid sampler border shape");
+    for (unsigned i = 0; i < 4; ++i)
+        s.border[i] = scalar(border[i]);
+    validate_sampler(s);
+    result = s;
+}
 std::size_t TextureData::byte_size() const {
     std::size_t n = 0;
     for (const auto& s : subresources)
@@ -197,7 +232,6 @@ void validate_texture(const TextureData& t, TextureLimits l) {
 }
 std::vector<std::byte> encode_texture(const TextureData& t, TextureLimits l) {
     validate_texture(t, l);
-    const auto& s = t.sampler;
     Json metadata{{"dimension", unsigned(t.dimension)},
                   {"format", unsigned(t.format)},
                   {"semantic", unsigned(t.semantic)},
@@ -207,19 +241,7 @@ std::vector<std::byte> encode_texture(const TextureData& t, TextureLimits l) {
                   {"depth", t.depth},
                   {"layers", t.layers},
                   {"mips", t.mips},
-                  {"sampler",
-                   {{"min", unsigned(s.min)},
-                    {"mag", unsigned(s.mag)},
-                    {"mip", unsigned(s.mip)},
-                    {"u", unsigned(s.u)},
-                    {"v", unsigned(s.v)},
-                    {"w", unsigned(s.w)},
-                    {"compare", unsigned(s.compare)},
-                    {"anisotropy", s.anisotropy},
-                    {"lod_bias", s.lod_bias},
-                    {"min_lod", s.min_lod},
-                    {"max_lod", s.max_lod},
-                    {"border", s.border}}}};
+                  {"sampler", t.sampler}};
     std::vector<std::byte> payload;
     payload.reserve(t.byte_size());
     for (const auto& bytes : t.subresources)
@@ -239,23 +261,7 @@ TextureData decode_texture(std::span<const std::byte> bytes, TextureLimits l) {
     t.depth = unsigned(number(j.at("depth"), l.depth));
     t.layers = unsigned(number(j.at("layers"), l.layers));
     t.mips = unsigned(number(j.at("mips"), 32));
-    auto& s = t.sampler;
-    const auto& sj = j.at("sampler");
-    s.min = TextureFilter(number(sj.at("min"), 1));
-    s.mag = TextureFilter(number(sj.at("mag"), 1));
-    s.mip = TextureFilter(number(sj.at("mip"), 1));
-    s.u = TextureWrap(number(sj.at("u"), 3));
-    s.v = TextureWrap(number(sj.at("v"), 3));
-    s.w = TextureWrap(number(sj.at("w"), 3));
-    s.compare = TextureCompare(number(sj.at("compare"), 8));
-    s.anisotropy = unsigned(number(sj.at("anisotropy"), 16));
-    s.lod_bias = scalar(sj.at("lod_bias"));
-    s.min_lod = scalar(sj.at("min_lod"));
-    s.max_lod = scalar(sj.at("max_lod"));
-    const auto& border = sj.at("border");
-    require(border.is_array() && border.size() == 4, "Invalid sampler border shape");
-    for (unsigned i = 0; i < 4; ++i)
-        s.border[i] = scalar(border[i]);
+    t.sampler = j.at("sampler").get<SamplerState>();
     validate_header(t, l);
     std::size_t expected = 0;
     for (unsigned mip = 0; mip < t.mips; ++mip)

@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <forge/gltf_source.hpp>
+#include <forge/material_asset.hpp>
 #include <forge/texture_asset.hpp>
 #include <map>
 #include <variant>
@@ -13,6 +14,8 @@ struct GltfMaterialFactors {
     std::map<std::string, GltfMaterialValue> values;
 };
 GltfMaterialFactors gltf_material_factors(const NativeGltfDocument& source, std::size_t material);
+// Texture AssetRefs are assigned later by owner-thread family reconciliation.
+MaterialData cook_gltf_material(const NativeGltfDocument& source, std::size_t material);
 
 struct GltfTextureBinding {
     std::string role;

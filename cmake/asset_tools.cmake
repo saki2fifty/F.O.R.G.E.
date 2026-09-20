@@ -42,7 +42,7 @@ endif()
 add_library(forge_gltf_native STATIC src/gltf_native.cpp src/gltf_meshopt.cpp src/gltf_draco.cpp src/gltf_surfaces.cpp src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp src/mesh_processing.cpp)
 target_include_directories(forge_gltf_native PRIVATE
  "${diligent_SOURCE_DIR}/DiligentTools/ThirdParty/tinygltf" "${draco_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}")
-target_link_libraries(forge_gltf_native PUBLIC forge_assets forge_mesh PRIVATE forge_texture meshoptimizer draco::draco Diligent-AssetLoader Diligent-GraphicsAccessories Diligent-BuildSettings)
+target_link_libraries(forge_gltf_native PUBLIC forge_assets forge_mesh forge_material PRIVATE meshoptimizer draco::draco Diligent-AssetLoader Diligent-GraphicsAccessories Diligent-BuildSettings)
 if(WIN32)
  target_compile_definitions(forge_gltf_native PRIVATE NOMINMAX)
 endif()

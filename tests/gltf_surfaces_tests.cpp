@@ -65,6 +65,15 @@ int main() {
                     bindings[2].semantic == TextureSemantic::Normal,
                 "One image lost distinct material usages");
         require(source.document == original, "Surface processing changed source");
+        const auto cooked = cook_gltf_material(native, 0);
+        require(decode_material(encode_material(cooked)) == cooked &&
+                    cooked.model == "forge.gltf.metallic-roughness.v1" &&
+                    cooked.parameters.at("baseColorFactor").type ==
+                        MaterialParameterType::LinearColor4 &&
+                    cooked.parameters.at("normalScale").value[0] == -2 &&
+                    cooked.textures.at("baseColorTexture").semantic == TextureSemantic::Color &&
+                    cooked.textures.at("normalTexture").semantic == TextureSemantic::Normal,
+                "Cooked material lost typed values/texture usages");
         for (const auto filter : {9728, 9729, 9984, 9985, 9986, 9987}) {
             auto s = source;
             s.document["samplers"][0] = {
@@ -93,6 +102,10 @@ int main() {
                     transformed.scale[0] == -1 && transformed.scale[1] == 0,
                 "UV transform/index clamped to native selector bits");
         (void)gltf_material_factors(NativeGltfDocument(changed), 0);
+        const auto uv_cooked = cook_gltf_material(NativeGltfDocument(changed), 0);
+        require(uv_cooked.textures.at("baseColorTexture").uv_set == 27 &&
+                    uv_cooked.textures.at("baseColorTexture").scale == std::array<float, 2>{-1, 0},
+                "Cooked material clamped source UV binding");
         changed = source;
         extension(changed, "KHR_materials_ior", {{"ior", 0}});
         extension(changed, "KHR_materials_transmission", {{"transmissionFactor", 0.8}});
@@ -106,6 +119,15 @@ int main() {
         require(std::get<std::array<float, 3>>(factors.values.at("emissiveFactor"))[0] == 0.5f &&
                     scalar(factors, "emissiveStrength") == 4,
                 "Emission channels combined");
+        const auto transmission_cooked = cook_gltf_material(NativeGltfDocument(changed), 0);
+        require(transmission_cooked.alpha == MaterialAlpha::Opaque &&
+                    transmission_cooked.depth_write &&
+                    transmission_cooked.parameters.at("ior").value[0] == 0 &&
+                    transmission_cooked.parameters.at("emissiveStrength").value[0] == 4,
+                "Cooked transmission rewrote independent factors/alpha state");
+        changed.document["materials"][0]["alphaMode"] = "BLEND";
+        require(!cook_gltf_material(NativeGltfDocument(changed), 0).depth_write,
+                "Blended material default writes depth");
         changed = source;
         extension(changed, "KHR_materials_specular",
                   {{"specularFactor", 0.3}, {"specularColorFactor", {2, 3, 4}}});
@@ -148,6 +170,11 @@ int main() {
         require(factors.workflow == "specular-glossiness" &&
                     std::get<std::array<float, 4>>(factors.values.at("baseColorFactor"))[0] == 1.f,
                 "Legacy material inherited core fallback factor");
+        const auto legacy_cooked = cook_gltf_material(NativeGltfDocument(changed), 0);
+        require(legacy_cooked.model == "forge.gltf.specular-glossiness.v1" &&
+                    legacy_cooked.parameters.at("specularFactor").type ==
+                        MaterialParameterType::LinearColor3,
+                "Legacy specular vector was treated as scalar");
         const auto legacy_bindings = gltf_texture_bindings(changed, 0);
         require(std::none_of(legacy_bindings.begin(), legacy_bindings.end(),
                              [](const auto& b) {

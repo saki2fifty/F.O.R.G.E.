@@ -434,4 +434,47 @@ GltfMaterialFactors gltf_material_factors(const NativeGltfDocument& source, std:
     }
     return result;
 }
+MaterialData cook_gltf_material(const NativeGltfDocument& source, std::size_t index) {
+    const auto factors = gltf_material_factors(source, index);
+    MaterialData result;
+    result.model = "forge.gltf." + factors.workflow + ".v1";
+    result.alpha = factors.alpha_mode == "MASK"    ? MaterialAlpha::Mask
+                   : factors.alpha_mode == "BLEND" ? MaterialAlpha::Blend
+                                                   : MaterialAlpha::Opaque;
+    result.alpha_cutoff = std::get<float>(factors.values.at("alphaCutoff"));
+    result.double_sided = factors.double_sided;
+    result.depth_write = result.alpha != MaterialAlpha::Blend;
+    for (const auto& [name, value] : factors.values) {
+        if (name == "alphaCutoff")
+            continue;
+        MaterialParameter parameter;
+        std::visit(
+            [&](const auto& v) {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, float>)
+                    parameter.value[0] = v;
+                else {
+                    std::copy(v.begin(), v.end(), parameter.value.begin());
+                    // The vector-valued factors in this exact glTF material adapter
+                    // are linear colors, including legacy specularFactor.
+                    parameter.type = v.size() == 3 ? MaterialParameterType::LinearColor3
+                                                   : MaterialParameterType::LinearColor4;
+                }
+            },
+            value);
+        result.parameters.emplace(name, parameter);
+    }
+    for (const auto& binding : gltf_texture_bindings(source.source(), index)) {
+        MaterialTextureSlot slot;
+        slot.semantic = binding.semantic;
+        slot.sampler = binding.sampler;
+        slot.uv_set = binding.uv_set;
+        slot.offset = binding.offset;
+        slot.scale = binding.scale;
+        slot.rotation = binding.rotation;
+        result.textures.emplace(binding.role, slot);
+    }
+    validate_material(result);
+    return result;
+}
 } // namespace forge::asset_detail
