@@ -124,5 +124,33 @@ JPEG uses the existing pinned stb2.29 JPEG decoder (46fcb30365c5f35425751d275eec
 with private symbols and no SIMD. The libjpeg float-DCT experiment still exposed
 Huffman encoder signed-shift errors and was not selected. Native Diligent still provides pixel,
 mip and basic BC processing. These corrections do not claim the old callback or
-integer path has been fixed upstream. New KTX4.4.2 selection remains under
-source/build/license evaluation and is not yet a product dependency.
+integer path has been fixed upstream. KTX4.4.2 is selected below for the private
+container/Basis adapter; production asset/editor integration remains in progress.
+
+## Phase7 KTX/Basis selection —2026-09-20
+
+Official stable **KTX Software4.4.2**, immutable
+`4d6fc70eaf62ad0558e63e8d97eb9766118327a6`; official latest stable release rechecked
+on2026-09-20. Codeload archive SHA256
+`4d0a3c4470c67e0f1544d2a92f379dc919c9627a5c3fa5c4fcaf4c22324827f5`.
+[Release](https://github.com/KhronosGroup/KTX-Software/releases/tag/v4.4.2) /
+[exact source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6).
+
+Private static worker codec; KTX1/2 read/write, bundled Basis ETC1S/UASTC and
+Zstandard container handling (zlib-supercompressed KTX is explicitly excluded). Disable graphics upload, tools/tests/bindings,
+OpenCL/SSE and optional Ericsson ETC unpacker. ASTC library uses its scalar target;
+no new AVX2 requirement. Select the native byte-wise Basis read path explicitly.
+KTX is fetched only for asset tools/editor; runtime and installed gameplay SDK do
+not depend on its headers or API. Existing Flecs shared/static profile is restored
+around the upstream CMake subdirectory. All previous pins remain unchanged.
+
+Apache2.0 with bundled permissive notices; the non-open-source `lib/etcdec.cxx`
+is excluded. Package the upstream LICENSES directory, license files and NOTICE.
+No live/main-only HDR Basis features are assumed. Current assumptions and selected
+API boundaries are in [textures](texture-assets.md) and
+[known issues](dependency-known-issues.md#ktx-software442-selection).
+Source layout/private Basis headers are coupled to this exact revision; re-audit
+before upgrading. No public ABI1 or persistent identity change is involved.
+
+The upstream CMake project requires Bash for version generation; build hosts need
+Bash (Git for Windows supplies it). It is not required to run a packaged editor.

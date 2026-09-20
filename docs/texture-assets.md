@@ -71,8 +71,9 @@ below. No decoder runs in a runtime-resource loader.
 - Cooperative cancellation is checked between codec operations; actual worker
   process CPU/memory/time containment remains the outer importer responsibility.
 
-DDS/KTX/Basis, BMP/WebP/EXR and optional TIFF/SGI need their own audited admission
-paths; this adapter rejects them rather than advertising untested support.
+KTX/Basis use the separate container adapter below. DDS, BMP/WebP/EXR and
+optional TIFF/SGI still need their own audited admission paths; the image
+adapter does not advertise them.
 
 ## Exact-source correction
 
@@ -115,3 +116,54 @@ uncompressed and RLE pixels cannot request more data than the source supplies.
 Extension/developer data may follow the image. All current native CPU adapters
 require little-endian hosts explicitly; unsupported byte order fails compilation
 instead of creating an incorrectly labeled cooked artifact.
+
+## KTX and Basis worker adapter
+
+The private asset-tool adapter reads bounded KTX1/KTX2 containers using official
+KTX Software4.4.2. It preserves supplied mip chains, array layers, cube faces and
+supported volume slices. Raw formats map to the existing27-format texture
+contract, including BC6H passthrough. KTX2 supports native Zstandard inflation
+and ETC1S/BasisLZ or UASTC transcoding. There is no BC6H encoder in this selection.
+
+Admission checks the complete header, native-format descriptor, sizes, nonoverlapping
+ranges, mip ordering, metadata, dimensions and ETC1S image/codebook extents before
+native parsing. File and decoded byte budgets are checked independently. KTX1 GL
+format/type fields, padded rows and endian metadata are checked before native
+conversion to KTX2. One-dimensional textures and compressed volumes are outside the
+current texture contract. Orientation must be right/down/in; nonidentity channel
+swizzles and other color primaries/transfer functions require explicit conversion.
+They receive diagnostics rather than silently displaying incorrectly.
+
+Basis desktop selection uses BC7 for RGB/RGBA, BC4 for red, and BC5 for packed
+red/green. UASTC's unpacked RG layout falls back to linear RG8. The CPU RGBA target
+retains red/RG channel meaning, including ETC1S/UASTC packed red-in-RGB, green-in-alpha
+layouts. Texture semantics reject sRGB data/normal maps. The glTF admission option
+also checks the extension's dimension, mip, orientation, channel, transfer,
+primaries and alpha restrictions; it does not itself connect an imported model
+to renderer materials.
+
+Encoding uses the official bundled Basis encoder's own KTX2 output for prepared
+RGBA8 2D mip chains. It does not call the defective ETC1S `CompressBasisEx` wrapper.
+Both ETC1S and UASTC use one thread, no OpenCL/SSE and no UASTC RDO; ETC1S quality128,
+compression level2. Prepared normals disable ETC1S endpoint/selector RDO. Native KTX
+metadata APIs set unspecified color primaries for data/normals. Premultiplied input
+is rejected by this encoder instead of losing its alpha metadata. Other dimensions,
+HDR encoding and arbitrary channel layouts are not advertised as encoder features.
+
+Repeatability applies to an identical source/settings/platform/toolchain profile.
+The upstream release explicitly does not promise bit-identical Basis results across
+platforms. Record that profile in build inputs. Calls are worker-only, use bounded
+source/payload allocations and cooperative cancellation between native operations;
+whole-process peak memory/time containment remains the worker supervisor's job.
+This adapter is not yet connected to Content import or GPU resource publication.
+
+KTX2 rows are tightly packed; KTX1 has four-byte row alignment. Do not use the
+pinned `ktxTexture_GetRowPitch` as a general KTX2 layout oracle: it applies legacy
+padding and floor block counts. FORGE uses its checked format layout, tested with
+3×5 R8 and7×5 BC7 fixtures. This is an adapter correction, not a vendor patch.
+
+Zlib-supercompressed KTX2 is explicitly rejected. The pinned optional miniz
+path uses unaligned typed access on x86, exposed by strict codec testing. It
+has no external override equivalent to the Basis byte-read switch. This path
+is not needed by `KHR_texture_basisu`, which permits BasisLZ/UASTC with optional
+Zstandard. No native zlib KTX encode/decode capability is advertised.

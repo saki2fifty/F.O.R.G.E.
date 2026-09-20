@@ -91,6 +91,8 @@ struct TextureLimits {
 TextureFormatInfo texture_format_info(TextureFormat format);
 TextureLayout texture_layout(const TextureData& texture, unsigned mip);
 void validate_sampler(const SamplerState& sampler);
+// Validates dimensions, semantics and the complete storage budget before payload allocation.
+void validate_texture_metadata(const TextureData& texture, TextureLimits limits = {});
 void validate_texture(const TextureData& texture, TextureLimits limits = {});
 std::vector<std::byte> encode_texture(const TextureData& texture, TextureLimits limits = {});
 TextureData decode_texture(std::span<const std::byte> bytes, TextureLimits limits = {});

@@ -257,3 +257,29 @@
   for data, and opaque HDR/RGBE alpha. Uses native pixel swizzles/premultiplication.
   Strict native codec/official-model2/2 passed0.22s, CPU3/3 passed0.29s,
   shared-SDK3/3 passed0.03s; Windows texture validation remains pending.
+
+## Texture containers and Basis compression
+
+- Added bounded private KTX1/KTX2 asset-tool adapters: supplied mip chains,
+  arrays/cubes/volumes, supported raw/BC formats, native container inflation,
+  ETC1S/UASTC transcoding and prepared RGBA8 Basis encoding.
+- Added explicit color/normal/data metadata checks, glTF Basis admission mode,
+  packed/unpacked RG preservation and BC4/BC5/BC7 or CPU targets. KTX1 row padding
+  and endian conversion use the native converter; KTX2 uses tight checked layout.
+- Selected exact official stable KTX4.4.2 with no graphics uploader, no OpenCL/SSE,
+  scalar codec configuration and disabled non-open-source ETC unpacker. Packaging
+  collects its license directory and notices. Existing dependency pins are retained.
+- Recorded observed upstream encoding-allocation, typed-alignment and metadata
+  cleanup issues. Selected existing official codec and lifetime APIs that avoid
+  those paths; no source patches, defect exceptions or sanitizer suppressions.
+- Strict rebuilt artifact/KTX/image tests3/3 passed0.27s, including separately
+  allocated truncated inputs, invalid extents/descriptors, channel semantics,
+  arrays/cube/volume ordering, odd dimensions, cancellation and byte budgets.
+  This is worker adapter infrastructure; Content import/GPU integration remains
+  part of the active Phase7 package. Windows KTX validation is pending.
+- Previous texture/resource bundle73e2a54 passed all four core CI profiles and the
+  unnumbered Windows audit8/8 in11.85s, including viewport/editor render and exact
+  official glTF provenance. No numbered delivery was created.
+- Optional zlib-supercompressed KTX is explicitly rejected after strict testing
+  exposed the pinned miniz typed-alignment path. The selected glTF Basis formats
+  remain ETC1S/UASTC with no supercompression or Zstandard where applicable.

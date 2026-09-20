@@ -172,6 +172,7 @@ std::size_t TextureData::resident_bytes() const {
         add(n, s.capacity());
     return n;
 }
+void validate_texture_metadata(const TextureData& t, TextureLimits l) { validate_header(t, l); }
 void validate_texture(const TextureData& t, TextureLimits l) {
     validate_header(t, l);
     require(t.subresources.size() == multiply(surfaces(t), t.mips),
