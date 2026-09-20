@@ -1,4 +1,5 @@
 #include "gltf_native.hpp"
+#include "gltf_meshopt.hpp"
 #include <GLTFDocument.hpp>
 #include <GLTFVertexDataConverter.hpp>
 #include <algorithm>
@@ -153,26 +154,27 @@ template <class T> NativeGltfValues<T> convert(const tinygltf::Model& model, std
 }
 } // namespace
 NativeGltfDocument::NativeGltfDocument(GltfSourceBundle captured) : source_(std::move(captured)) {
-    (void)validate_gltf_accessors(source_);
-    validate_gltf_mesh_containers(source_);
-    hierarchy_ = validate_gltf_hierarchy(source_);
-    auto transport = source_.document;
+    auto admitted = decode_gltf_meshopt(source_);
+    (void)validate_gltf_accessors(admitted);
+    validate_gltf_mesh_containers(admitted);
+    hierarchy_ = validate_gltf_hierarchy(admitted);
+    auto transport = std::move(admitted.document);
     std::map<std::string, std::span<const std::byte>> files;
     const std::string root = "/forge-captured/";
-    for (std::size_t i = 0; i < source_.buffers.size(); ++i) {
+    for (std::size_t i = 0; i < admitted.buffers.size(); ++i) {
         const auto name = "buffer-" + std::to_string(i) + ".bin";
         transport.at("buffers").at(i)["uri"] = name;
-        files.emplace(root + name, source_.buffers[i].bytes());
+        files.emplace(root + name, admitted.buffers[i].bytes());
     }
     // Native image metadata loading must not revisit source paths, including
     // its DecodeImages=false shortcut for recognized image filename extensions.
     // Encoded bytes and real MIME/provenance remain in source_.images by index.
-    for (std::size_t i = 0; i < source_.images.size(); ++i) {
+    for (std::size_t i = 0; i < admitted.images.size(); ++i) {
         const auto name = "image-" + std::to_string(i) + ".forge-encoded";
         auto& image = transport.at("images").at(i);
         image.erase("bufferView");
         image["uri"] = name;
-        files.emplace(root + name, source_.images[i].encoded.bytes());
+        files.emplace(root + name, admitted.images[i].encoded.bytes());
     }
     const auto encoded = transport.dump();
     files.emplace(root + "model.gltf", std::as_bytes(std::span(encoded)));
@@ -203,9 +205,10 @@ NativeGltfDocument::NativeGltfDocument(GltfSourceBundle captured) : source_(std:
     // The native constructor completes synchronously; no callbacks or borrowed
     // transport buffers escape. Never call its default filesystem fallback.
     native_ = std::make_unique<Diligent::GLTF::Document>(info);
-    if (native_->GetModel().buffers.size() != source_.buffers.size() ||
-        native_->GetModel().images.size() != source_.images.size())
+    if (native_->GetModel().buffers.size() != admitted.buffers.size() ||
+        native_->GetModel().images.size() != admitted.images.size())
         throw std::runtime_error("Native glTF source cardinality changed during parsing");
+    images_ = std::move(admitted.images);
 }
 NativeGltfDocument::~NativeGltfDocument() = default;
 const tinygltf::Model& NativeGltfDocument::model() const { return native_->GetModel(); }

@@ -8,6 +8,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| meshoptimizer | 1.2 / `9d9890c73011d75920af614485296d1e03e95448` | Private native glTF EXT buffer decompression and filters | [Source](https://github.com/zeux/meshoptimizer/tree/9d9890c73011d75920af614485296d1e03e95448) |
 | KTX Software | 4.4.2 / `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` | Private containers and Basis codecs | [Source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6) |
 | libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode and native demux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
@@ -177,3 +178,24 @@ builds are off. Demux's native CMake link includes the codec/SharpYUV libraries;
 FORGE does not patch that graph. Previous pins and runtime/SDK boundaries remain
 unchanged. Lossy/lossless still RGBA is selected; animation, ICC conversion and
 WebP export are not delivered. See[texture contracts](texture-assets.md).
+
+## Meshoptimizer geometry tooling — verified2026-09-20
+
+Official stable1.2 is pinned at`9d9890c73011d75920af614485296d1e03e95448`.
+The MIT license is included in Windows notices. Static tooling only;
+MESHOPT_BUILD_DEMO, MESHOPT_BUILD_GLTFPACK, MESHOPT_BUILD_SHARED_LIBS,
+MESHOPT_INSTALL and MESHOPT_WERROR are disabled. Upstream default CPU dispatch
+remains enabled. Strict profiles instrument the native library as well as FORGE.
+
+FORGE calls native buffer decoders and filters after its bounded admission;
+no API or native type enters the gameplay SDK. No global encoder-version or allocator
+configuration is changed. Original captured sources remain immutable. Runtime
+cooked Mesh format and scene/component formats are unchanged by this addition.
+The library also provides optimization, simplification and tangent generation;
+linking those capabilities does not claim their integration. Tangent generation
+is explicitly experimental in this stable library and must remain private if used.
+
+Known specification drift: the checked Khronos registry still labels
+KHR_meshopt_compression a release candidate. The ratified EXT format requires
+attribute bitstream0, index bitstream1 and its existing four filters, despite the
+library supporting newer variants. See[glTF admission](gltf-admission.md).

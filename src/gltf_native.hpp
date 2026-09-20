@@ -92,6 +92,8 @@ class NativeGltfDocument {
     NativeGltfDocument& operator=(const NativeGltfDocument&) = delete;
     const tinygltf::Model& model() const;
     const GltfSourceBundle& source() const { return source_; }
+    // Encoded image bytes after buffer-view decompression, before image decoding.
+    const std::vector<GltfEncodedImage>& encoded_images() const { return images_; }
     const NativeGltfHierarchy& hierarchy() const { return hierarchy_; }
     std::size_t captured_reads() const { return captured_reads_; }
     // Uses the pinned native VertexDataConverter after admission. Sparse patches
@@ -105,6 +107,7 @@ class NativeGltfDocument {
 
   private:
     GltfSourceBundle source_;
+    std::vector<GltfEncodedImage> images_;
     NativeGltfHierarchy hierarchy_;
     std::unique_ptr<Diligent::GLTF::Document> native_;
     std::size_t captured_reads_ = 0;

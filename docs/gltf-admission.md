@@ -2,7 +2,8 @@
 
 Phase7's admission helpers validate captured inputs before native Diligent parsing
 and conversion. These checks are functioning internal code; they do not yet expose
-a completed model importer, decoded image loader, renderer or extension support.
+a completed model-import workflow or production renderer. Texture decoding has its
+own implemented pipeline; the glTF extension support below is private admission.
 
 ## Exact source contract
 
@@ -11,7 +12,8 @@ The Khronos glTF2 specification at
 defines the container, URI, buffer-view and accessor rules used here. Native parsing
 continues to target retained Diligent Tools
 `7d1139064f36b14f911e5bca095be9c9dcfc5112`, including its vendored TinyGLTF2.8.10;
-no dependency pin or vendor source was changed. Verified2026-09-20.
+existing dependency pins and vendor source remain unchanged. Meshoptimizer1.2 is
+added privately for the ratified compression extension below. Verified2026-09-20.
 
 `GLTF::Document` can retain image metadata with `DecodeImages=false`, but at this
 pin recognized external images bypass its file-read callbacks in that mode. FORGE
@@ -102,7 +104,13 @@ joint/weight sets and application-specific underscore attributes retain their
 actual component counts. JOINTS use exact integer streams. Extra joint/weight
 sets remain import inputs for the explicit skin processing policy below.
 Unsupported core formats are diagnosed;
-quantization-extension admission remains separate work.
+`KHR_mesh_quantization` adds its signed/unsigned8/16-bit position and UV formats,
+signed normalized normal/tangent formats and signed morph deltas. It must be
+declared required. Native conversion preserves integer-versus-normalized meaning;
+normal/tangent directions are normalized after quantization, tangent W is retained,
+and bounds are recomputed from decoded values. Quantized declared bounds are
+normalized before comparison. No hidden extra dequantization transform is added: the
+source node/inverse-bind/texture transforms retain that responsibility.
 
 Indexed byte/short/int and nonindexed sources are supported. Index references,
 forbidden source restart values, attribute counts, normalized directions, tangent
@@ -202,3 +210,44 @@ The unmodified Khronos NegativeScaleTest from Sample Assets revision
 CC-BY-4.0 attribution, exact hashes and source provenance. The native test checks
 real source capture, geometry, parent composition and nested determinant parity.
 CPU admission is separate from full textured/PBR WARP rendering acceptance.
+
+## Ratified meshopt compression — private native import
+
+The exact official [EXT specification](https://github.com/KhronosGroup/glTF/blob/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Vendor/EXT_meshopt_compression/README.md)
+and meshoptimizer1.2 source define this path. `EXT_meshopt_compression` supports
+ATTRIBUTES, TRIANGLES and INDICES, plus NONE, OCTAHEDRAL, QUATERNION and
+EXPONENTIAL filters. It can decompress ordinary attributes, indices, morph data,
+animation data or other valid buffer-view contents before normal accessor checks.
+
+Source capture represents required URI-less fallback buffers without allocating
+those declared bytes. Native admission validates every fallback reference, compressed
+range, count, stride, mode, filter and EXT bitstream header. An additional aggregate
+512MiB decoded-view budget bounds output allocation; original source capture and
+worker/process budgets remain independent. Cancellation is checked between views
+and during filter admission. Native codec calls themselves complete synchronously
+inside the disposable import worker.
+
+FORGE rejects filter inputs for which the specification leaves decoding undefined:
+octahedral/quaternion precision markers and component ranges, and exponential
+exponents outside[-100,+100]. Native filtering follows admission. No codec is
+reimplemented or patched. Subsequent accessor checks reject nonfinite data;
+primitive checks reject invalid indices, topology, weights and semantic formats.
+Successful native decompression alone is not asset validation.
+
+Decoded views use a separate temporary native transport. Original source JSON,
+compressed bytes and dependency digests remain unchanged. `encoded_images()`
+exposes admitted encoded image bytes even when their buffer view was compressed;
+`source()` remains captured provenance. Runtime resources consume cooked Mesh and
+Texture artifacts, not compressed glTF or meshoptimizer objects.
+
+`KHR_meshopt_compression` is a **release candidate** in the checked registry;
+it is not enabled as a required extension. Its vertex bitstream v1 and COLOR
+filter are not silently admitted under the ratified EXT name. Required KHR files
+are rejected. An optional extension may use its ordinary, valid uncompressed
+fallback. This distinction is a registry/version boundary, not absence of a decoder
+in meshoptimizer1.2. Re-evaluate when the official extension is ratified.
+
+Regression evidence covers actual source capture, native conversion, index modes
+and widths, filter decoding, undefined filter inputs, truncated streams, rejected
+newer formats, bounded output, cancellation and unchanged provenance. No complete
+Content model-import UI or GPU renderability is implied by these private tests.

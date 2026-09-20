@@ -358,3 +358,11 @@
 - Previous worker checkpoint27e2cfb passed Windows audit15/15 in13.27s. No numbered
   package was created. Model/material/shader/GPU/skinning/custom authoring and full
   Phase7 validation remain open; a registered texture is not a GPU preview.
+
+### Native model compression and quantized geometry (in progress)
+
+- Add exact stable meshoptimizer1.2 privately to offline asset tooling, with license packaging and strict native instrumentation.
+- Admit ratified EXT compressed attribute/index buffers with native filters, bounded output, fallback-reference checks and original-source provenance retention.
+- Reject undefined filter inputs, malformed/truncated buffers and newer KHR-only bitstreams rather than silently decoding them as EXT. KHR remains an unenabled release candidate in the checked registry.
+- Accept required KHR_mesh_quantization attribute/morph formats through native conversion; normalize rounded directions, preserve tangent signs, compare normalized bounds and accept valid tightly packed four-byte vertex elements.
+- Local glTF regression suites pass8/8 normal and8/8 strict ASan/UBSan/LSan; added compressed-image/nonfinite cases pass both profiles. Exact upstream meshoptimizer tests also pass with assertions and strict sanitizers. Windows checks for this increment remain pending. Full Phase7 importer/rendering integration and final numbered delivery remain in progress.

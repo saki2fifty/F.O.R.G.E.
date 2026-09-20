@@ -262,9 +262,13 @@ GltfSourceBundle capture_gltf_source(const std::filesystem::path& project,
             if (!mime.empty() && mime != "application/octet-stream" &&
                 mime != "application/gltf-buffer")
                 throw std::runtime_error("Invalid glTF buffer data URI media type");
-        } else {
-            if (i != 0 || !bin)
+        } else if (i != 0 || !bin) {
+            if (!required.contains(meshopt_extension))
                 throw std::runtime_error("glTF buffer has no admitted byte source");
+            // EXT_meshopt permits a URI-less fallback placeholder. Do not allocate
+            // its declared length; the worker must replace every referencing view.
+            bytes.length = length;
+        } else {
             bytes = *bin;
             if (length > bytes.length || bytes.length - length > 3)
                 throw std::runtime_error("GLB buffer length differs from BIN beyond padding");
@@ -286,6 +290,8 @@ GltfSourceBundle capture_gltf_source(const std::filesystem::path& project,
         if (index >= result.buffers.size() || !length || offset > result.buffers[index].length ||
             length > result.buffers[index].length - offset)
             throw std::runtime_error("glTF bufferView lies outside declared buffer");
+        if (!result.buffers[index].storage && !extension(view, meshopt_extension))
+            throw std::runtime_error("glTF meshopt placeholder has an uncompressed view");
         if (view.contains("byteStride")) {
             const auto stride = size_value(view.at("byteStride"));
             if (stride < 4 || stride > 252 || stride % 4)

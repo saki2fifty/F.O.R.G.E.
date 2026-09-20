@@ -4,6 +4,20 @@
 
 namespace forge::gltf_detail {
 using Json = nlohmann::json;
+inline constexpr const char* meshopt_extension = "EXT_meshopt_compression";
+inline const Json* extension(const Json& object, const char* name) {
+    if (!object.contains("extensions"))
+        return nullptr;
+    const auto& extensions = object.at("extensions");
+    if (!extensions.is_object())
+        throw std::runtime_error("glTF extensions must be an object");
+    const auto found = extensions.find(name);
+    if (found == extensions.end())
+        return nullptr;
+    if (!found->is_object())
+        throw std::runtime_error("glTF extension payload must be an object");
+    return &*found;
+}
 inline std::size_t size_value(const Json& value) {
     if ((!value.is_number_unsigned() && !value.is_number_integer()) ||
         (value.is_number_integer() && !value.is_number_unsigned() && value.get<std::int64_t>() < 0))

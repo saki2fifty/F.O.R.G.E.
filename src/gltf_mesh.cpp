@@ -38,7 +38,8 @@ std::pair<Semantic, unsigned> semantic(const std::string& name) {
     throw std::runtime_error(
         "Unknown glTF attribute requires application-specific underscore prefix: " + name);
 }
-void attribute_format(const tinygltf::Accessor& accessor, Semantic kind, bool morph) {
+void attribute_format(const tinygltf::Accessor& accessor, Semantic kind, bool morph,
+                      bool quantization) {
     const bool fp = accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT;
     const bool unorm =
         accessor.normalized && (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE ||
@@ -46,17 +47,26 @@ void attribute_format(const tinygltf::Accessor& accessor, Semantic kind, bool mo
     const bool snorm =
         accessor.normalized && (accessor.componentType == TINYGLTF_COMPONENT_TYPE_BYTE ||
                                 accessor.componentType == TINYGLTF_COMPONENT_TYPE_SHORT);
+    const bool sint = accessor.componentType == TINYGLTF_COMPONENT_TYPE_BYTE ||
+                      accessor.componentType == TINYGLTF_COMPONENT_TYPE_SHORT;
+    const bool uint = accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE ||
+                      accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT;
     bool valid = false;
     switch (kind) {
     case Semantic::Position:
+        valid = (fp || (quantization && (sint || (!morph && uint)))) &&
+                accessor.type == TINYGLTF_TYPE_VEC3;
+        break;
     case Semantic::Normal:
-        valid = fp && accessor.type == TINYGLTF_TYPE_VEC3;
+        valid = (fp || (quantization && snorm)) && accessor.type == TINYGLTF_TYPE_VEC3;
         break;
     case Semantic::Tangent:
-        valid = fp && accessor.type == (morph ? TINYGLTF_TYPE_VEC3 : TINYGLTF_TYPE_VEC4);
+        valid = (fp || (quantization && snorm)) &&
+                accessor.type == (morph ? TINYGLTF_TYPE_VEC3 : TINYGLTF_TYPE_VEC4);
         break;
     case Semantic::Uv:
-        valid = (fp || unorm || (morph && snorm)) && accessor.type == TINYGLTF_TYPE_VEC2;
+        valid = (fp || unorm || (morph && snorm) || (quantization && (sint || (!morph && uint)))) &&
+                accessor.type == TINYGLTF_TYPE_VEC2;
         break;
     case Semantic::Color:
         valid = (fp || unorm || (morph && snorm)) &&
@@ -117,6 +127,13 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
     if (!attrs.is_object() || attrs.empty() || attrs.size() > 64 || !attrs.contains("POSITION"))
         throw std::runtime_error("glTF primitive requires POSITION and at most 64 attributes");
     const auto& native = model();
+    const auto& used = array(source_.document, "extensionsUsed", 256);
+    const auto& required = array(source_.document, "extensionsRequired", 256);
+    const bool quantization =
+        std::find(used.begin(), used.end(), "KHR_mesh_quantization") != used.end();
+    if (quantization &&
+        std::find(required.begin(), required.end(), "KHR_mesh_quantization") == required.end())
+        throw std::runtime_error("KHR_mesh_quantization must be a required extension");
     auto accessor = [&](const Json& index) -> const tinygltf::Accessor& {
         const auto value = size_value(index);
         if (value >= native.accessors.size())
@@ -136,7 +153,7 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
     auto decode = [&](const std::string& name, const Json& index, bool morph) {
         const auto& input = accessor(index);
         const auto [kind, set] = semantic(name);
-        attribute_format(input, kind, morph);
+        attribute_format(input, kind, morph, quantization);
         if (input.count != result.vertex_count)
             throw std::runtime_error("glTF primitive/morph attribute counts disagree");
         if (!morph && kind != Semantic::Custom)
@@ -148,7 +165,7 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
         if (input.bufferView >= 0) {
             const auto& view = native.bufferViews.at(static_cast<std::size_t>(input.bufferView));
             const auto size = tinygltf::GetComponentSizeInBytes(input.componentType);
-            if (input.byteOffset % 4 || (size % 4 && !view.byteStride))
+            if (input.byteOffset % 4 || ((size * components) % 4 && !view.byteStride))
                 throw std::runtime_error(
                     "glTF vertex attribute elements must be aligned to 4 bytes");
             if (view.target && view.target != TINYGLTF_TARGET_ARRAY_BUFFER)
@@ -169,8 +186,12 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
                 const double length =
                     std::hypot(double(values.values[offset]), double(values.values[offset + 1]),
                                double(values.values[offset + 2]));
-                if (std::abs(length - 1.0) > 0.001)
+                const bool quantized = accessor(index).componentType != 5126;
+                if (!length || (!quantized && std::abs(length - 1.0) > 0.001))
                     throw std::runtime_error("glTF normal/tangent direction must be normalized");
+                if (quantized)
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        values.values[offset + axis] = float(values.values[offset + axis] / length);
                 if (kind == Semantic::Tangent && std::abs(values.values[offset + 3]) != 1.f)
                     throw std::runtime_error("glTF tangent handedness must be +1 or -1");
             }
@@ -222,13 +243,30 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
             result.maximum[axis] = std::max(result.maximum[axis], position[i * 3 + axis]);
         }
     const auto& source_bounds = accessor(attrs.at("POSITION"));
+    const auto bound_value = [&](double value) {
+        if (!source_bounds.normalized)
+            return value;
+        switch (source_bounds.componentType) {
+        case 5120:
+            return std::max(value / 127.0, -1.0);
+        case 5121:
+            return value / 255.0;
+        case 5122:
+            return std::max(value / 32767.0, -1.0);
+        case 5123:
+            return value / 65535.0;
+        default:
+            return value;
+        }
+    };
     bool bounds_changed = false;
     for (unsigned axis = 0; axis < 3; ++axis) {
         const auto tolerance = 0.000001 * std::max({1.0, std::abs(double(result.minimum[axis])),
                                                     std::abs(double(result.maximum[axis]))});
         bounds_changed |=
-            std::abs(source_bounds.minValues[axis] - result.minimum[axis]) > tolerance ||
-            std::abs(source_bounds.maxValues[axis] - result.maximum[axis]) > tolerance;
+            std::abs(bound_value(source_bounds.minValues[axis]) - result.minimum[axis]) >
+                tolerance ||
+            std::abs(bound_value(source_bounds.maxValues[axis]) - result.maximum[axis]) > tolerance;
     }
     if (bounds_changed)
         result.diagnostics.push_back(

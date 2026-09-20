@@ -1,5 +1,6 @@
 #include "gltf_native.hpp"
 #include <bit>
+#include <cmath>
 #include <iostream>
 
 using namespace forge;
@@ -96,6 +97,61 @@ int main() {
                     mesh.maximum == std::array<float, 3>{2, 3, 0},
                 "Nonindexed triangle or computed bounds are incorrect");
         require(!mesh.diagnostics.empty(), "Recomputed source bounds were not diagnosed");
+        for (unsigned type : {5120u, 5121u, 5122u, 5123u}) {
+            for (bool normalized : {false, true}) {
+                Fixture f;
+                f.doc["extensionsUsed"] = {"KHR_mesh_quantization"};
+                f.doc["extensionsRequired"] = {"KHR_mesh_quantization"};
+                const auto id = f.add({0, 0, 0, 100, 0, 0, 0, 100, 0}, 3, type, normalized);
+                f.primitive()["attributes"]["POSITION"] = id;
+                f.doc["accessors"][id]["min"] = {0, 0, 0};
+                f.doc["accessors"][id]["max"] = {100, 100, 0};
+                const double divisor = !normalized    ? 1
+                                       : type == 5120 ? 127
+                                       : type == 5121 ? 255
+                                       : type == 5122 ? 32767
+                                                      : 65535;
+                const auto result = f.result();
+                require(std::abs(result.maximum[0] - 100.0 / divisor) < 0.000001 &&
+                            result.diagnostics.empty(),
+                        "Quantized positions or normalized bounds changed semantics");
+                auto missing = f;
+                missing.doc.erase("extensionsUsed");
+                missing.doc.erase("extensionsRequired");
+                rejects([&] { (void)missing.result(); }, "unsupported core shape");
+                missing = f;
+                missing.doc.erase("extensionsRequired");
+                rejects([&] { (void)missing.result(); }, "must be a required");
+                if (type == 5120 || type == 5122) {
+                    const auto delta = f.add({-1, 0, 0, 0, -1, 0, 0, 0, 1}, 3, type, normalized);
+                    f.doc["accessors"][delta]["min"] = {-1, -1, 0};
+                    f.doc["accessors"][delta]["max"] = {0, 0, 1};
+                    f.primitive()["targets"] = Json::array({{{"POSITION", delta}}});
+                    require(f.result().morph_targets.size() == 1,
+                            "Signed quantized morph rejected");
+                }
+            }
+        }
+        auto rounded = base;
+        rounded.doc["extensionsUsed"] = {"KHR_mesh_quantization"};
+        rounded.doc["extensionsRequired"] = {"KHR_mesh_quantization"};
+        rounded.primitive()["attributes"]["NORMAL"] =
+            rounded.add({73, 73, 73, 73, 73, 73, 73, 73, 73}, 3, 5120, true);
+        rounded.primitive()["attributes"]["TANGENT"] =
+            rounded.add({73, 73, 73, 127, 73, 73, 73, -127, 73, 73, 73, 127}, 4, 5120, true);
+        rounded.primitive()["attributes"]["TEXCOORD_0"] = rounded.add({-2, 0, 2, 0, 0, 2}, 2, 5122);
+        const auto rounded_mesh = rounded.result();
+        require(std::abs(rounded_mesh.attributes.at("NORMAL").values[0] - 1.f / std::sqrt(3.f)) <
+                        0.000001f &&
+                    rounded_mesh.attributes.at("TANGENT").values[7] == -1 &&
+                    rounded_mesh.attributes.at("TEXCOORD_0").values[0] == -2,
+                "Quantized direction normalization, tangent sign or unnormalized UV changed");
+        auto tight = rounded;
+        // Four signed byte components already satisfy the four-byte vertex alignment.
+        tight.doc["bufferViews"][2].erase("byteStride");
+        require(tight.result().attributes.at("TANGENT").values ==
+                    rounded_mesh.attributes.at("TANGENT").values,
+                "Valid tightly packed quantized VEC4 rejected");
         for (unsigned width : {5121u, 5123u, 5125u}) {
             auto indexed = base;
             indexed.primitive()["indices"] = indexed.add({2, 0, 1}, 1, width, false, false);

@@ -12,6 +12,8 @@ struct GltfSourceLimits {
     std::size_t array_entries = 100000;
 };
 struct GltfByteRange {
+    // A null buffer storage is only a declared meshopt fallback placeholder;
+    // bytes() rejects it. It is replaced in the private native worker transport.
     std::shared_ptr<const std::vector<std::byte>> storage;
     std::size_t offset = 0, length = 0;
     std::span<const std::byte> bytes() const;
