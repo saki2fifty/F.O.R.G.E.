@@ -73,6 +73,7 @@ Output main(uint id:SV_VertexID) {
     graphics.PrimitiveTopology = uploaded.topology;
     graphics.RasterizerDesc.CullMode = CULL_MODE_NONE;
     graphics.DepthStencilDesc.DepthEnable = false;
+    graphics.DepthStencilDesc.DepthWriteEnable = false;
     RefCntAutoPtr<IPipelineState> pipeline;
     presentation.graphics(pso, &pipeline);
     require(bool(pipeline), "Vertex-fetch pipeline failed");

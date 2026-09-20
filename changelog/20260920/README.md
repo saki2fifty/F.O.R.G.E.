@@ -1169,3 +1169,14 @@
 - Add a constant-UV native draw fixture with opposite tangent signs, so ignoring
   authored tangent space cannot pass through an equivalent derivative result.
   Local14-stage shader compilation passes; new fixture GPU execution is pending.
+
+### Native rendering validation diagnostics
+
+- The 2b820c9 Windows source audit built successfully and passed36/37 tests; the
+  viewport test failed creating its indexed raw-fetch pipeline. Surface-frame
+  and punctual-light checks reached completion before that failure.
+- Explicitly disable depth writes in the color-only raw-fetch fixture, matching
+  its absent depth attachment and existing shader acceptance fixtures.
+- Enable the native D3D12 debug layer when installed and print bounded native
+  messages on viewport-test failure, so pipeline failures retain device evidence.
+  The revised fixture has not yet passed Windows execution.

@@ -4,6 +4,7 @@
 
 // Native declarations must precede Diligent's native command queue interface.
 #include <d3d12.h>
+#include <d3d12sdklayers.h>
 #include <dxgi1_4.h>
 #include <wrl/client.h>
 
@@ -169,10 +170,16 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "surface_frame_tests.hpp"
 #include "texture_gpu_tests.hpp"
 int main(int argc, char** argv) {
+    ComPtr<ID3D12InfoQueue> diagnostics;
     try {
         require(argc == 2, "Expected image output directory");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
+        ComPtr<ID3D12Debug> debug;
+        if (SUCCEEDED(::D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
+            debug->EnableDebugLayer();
+        else
+            std::cout << "D3D12 debug layer is unavailable; native diagnostics are limited\n";
         ComPtr<IDXGIFactory4> dxgi;
         check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)), "DXGI factory failed");
         ComPtr<IDXGIAdapter> warp;
@@ -180,6 +187,7 @@ int main(int argc, char** argv) {
         ComPtr<ID3D12Device> native;
         check(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&native)),
               "WARP D3D12 device failed");
+        (void)native.As(&diagnostics);
         ComPtr<ID3D12CommandQueue> native_queue;
         D3D12_COMMAND_QUEUE_DESC queue_desc{};
         check(native->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&native_queue)),
@@ -577,6 +585,19 @@ int main(int argc, char** argv) {
         return 0;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
+        if (diagnostics) {
+            const auto count = diagnostics->GetNumStoredMessagesAllowedByRetrievalFilter();
+            for (UINT64 i = count > 128 ? count - 128 : 0; i < count; ++i) {
+                SIZE_T size = 0;
+                if (FAILED(diagnostics->GetMessage(i, nullptr, &size)))
+                    continue;
+                std::vector<std::byte> storage(size);
+                auto* message = reinterpret_cast<D3D12_MESSAGE*>(storage.data());
+                if (SUCCEEDED(diagnostics->GetMessage(i, message, &size)))
+                    std::cerr << "D3D12 message " << message->ID << ": " << message->pDescription
+                              << '\n';
+            }
+        }
         return 1;
     }
 }
