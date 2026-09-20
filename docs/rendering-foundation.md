@@ -47,8 +47,9 @@ FORGE camera controls remain its own convention. Source names are not unique IDs
 so importer subasset reconciliation cannot rely on names alone.
 
 Before enabling imported rendering, an asymmetric basis/winding/UV/normal-map/color
-fixture must verify Diligent, Jolt, Ozz and Recast adapter consistency. Existing
-blockout uses culling disabled and therefore cannot prove imported face winding.
+fixture must verify Diligent, Jolt, Ozz and Recast adapter consistency. The signed-scale blockout revision uses parity-specific culling and an explicit
+double-sided singular/planar path. It cannot alone prove imported face winding,
+normal-map handedness or skeletal rendering.
 Do not label an untested conversion as supported.
 
 ## Cameras, lighting and effects
@@ -97,3 +98,10 @@ reflection changes that invalidate a material block publication of that candidat
 set. Old resources remain alive through CPU leases and GPU fences. Render extraction
 reads a stable presentation snapshot, never editor draft memory. Rendering hot reload
 must not restart the editor or reinterpret stale handles as new resources.
+
+## Phase7 CPU geometry checkpoint
+
+[Cooked meshes](mesh-assets.md) and their [typed runtime CPU leases](runtime-resources.md)
+are implemented and tested through the pinned native glTF decoder. Full production
+GPU mesh/material/skin realization remains in progress. This does not alter the
+separate authored TRS or presentation ownership contract.

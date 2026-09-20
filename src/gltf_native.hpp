@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <forge/gltf_accessors.hpp>
+#include <forge/mesh_asset.hpp>
 #include <limits>
 
 namespace Diligent::GLTF {
@@ -108,4 +109,5 @@ class NativeGltfDocument {
     std::unique_ptr<Diligent::GLTF::Document> native_;
     std::size_t captured_reads_ = 0;
 };
+MeshData cook_gltf_mesh(const NativeGltfDocument& document, std::size_t mesh_index);
 } // namespace forge::asset_detail

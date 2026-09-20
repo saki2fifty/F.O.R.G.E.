@@ -31,6 +31,13 @@ int main(int argc, char** argv) {
                     "Official sample differs from recorded upstream bytes");
         }
         NativeGltfDocument model(capture_gltf_source(root, "NegativeScaleTest.gltf"));
+        for (std::size_t m = 0; m < model.source().document.at("meshes").size(); ++m) {
+            const auto cooked = cook_gltf_mesh(model, m);
+            const auto bytes = encode_mesh(cooked);
+            const auto loaded = decode_mesh(bytes);
+            require(encode_mesh(loaded) == bytes && loaded.byte_size() == cooked.byte_size(),
+                    "Official geometry changed during cooked runtime loading");
+        }
         const auto& hierarchy = model.hierarchy();
         require(hierarchy.nodes.size() == 14 && model.source().images.size() == 2,
                 "Official sample hierarchy/images changed");

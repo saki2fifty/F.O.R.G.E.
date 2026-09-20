@@ -132,3 +132,10 @@ The [asset-specific publication coordinator](asset-publication.md) now connects
 validated DDC output, captured input revisions, catalog selection and durable
 sidecar recovery. Its fixtures are executable; complete production providers,
 resource adoption and editor workflows remain separate integration work.
+
+## CPU resource and mesh implementation checkpoint
+
+The [typed resource pool](runtime-resources.md) and [cooked mesh artifacts](mesh-assets.md)
+now have executable asynchronous loading/lifetime consumers. CPU leases, last-good
+retention and bounded mesh admission are implemented; GPU retirement, complete
+production providers and editor/cook integration remain in progress.
