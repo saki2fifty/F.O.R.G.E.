@@ -8,6 +8,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| Draco | 1.5.7 / `8786740086a9f4d83f44aa83badfbea4dce7a1b5` | Private glTF mesh decompression | [Source](https://github.com/google/draco/tree/8786740086a9f4d83f44aa83badfbea4dce7a1b5) |
 | meshoptimizer | 1.2 / `9d9890c73011d75920af614485296d1e03e95448` | Private EXT buffer decode, Mikk-compatible tangents and coherent remapping | [Source](https://github.com/zeux/meshoptimizer/tree/9d9890c73011d75920af614485296d1e03e95448) |
 | KTX Software | 4.4.2 / `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` | Private containers and Basis codecs | [Source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6) |
 | libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode and native demux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
@@ -201,3 +202,34 @@ Known specification drift: the checked Khronos registry still labels
 KHR_meshopt_compression a release candidate. The ratified EXT format requires
 attribute bitstream0, index bitstream1 and its existing four filters, despite the
 library supporting newer variants. See[glTF admission](gltf-admission.md).
+
+## Draco private glTF codec — verified2026-09-20
+
+Official stable1.5.7, exact commit
+`8786740086a9f4d83f44aa83badfbea4dce7a1b5`, archiveSHA256
+`b9c2392dbfcf454aaec68823d832de9d62614054b33807b7c9776799b8e0bbca`.
+[Official release](https://github.com/google/draco/releases/tag/1.5.7).
+Apache-2.0 license/notices are included by Windows dependency packaging.
+
+Static private asset tooling selects `DRACO_GLTF_BITSTREAM`, mesh compression and
+standard Edgebreaker. Point-cloud, backward compatibility, predictive Edgebreaker,
+transcoder, animation, plugin/binding/test/install options are disabled; native CLI
+tools are not built.
+Upstream CMake still compiles some feature-guarded translation units into the static
+archive; that does not enable their unavailable entry points. Native encoding is
+used by regression fixtures; production uses decode. No second glTF parser is
+introduced through Draco's optional transcoder or its own TinyGLTF dependency.
+
+FORGE creates Draco's target after Diligent AssetLoader so the latter's optional
+TinyGLTF bridge stays disabled. See [admission](gltf-admission.md#draco-compressed-primitives)
+for exact-source reasons and the checked boundary. Native codec objects, declarations
+and the experimental asset-tool adapter do not cross the gameplay SDK. No authored
+scene, prefab or identity format changes. The authoritative extension is ratified
+KHR bitstream2.2; older bitstreams are outside this selected glTF-only profile.
+
+Strict profiles use upstream `DRACO_SANITIZE=address,undefined` for native object
+libraries and retain LeakSanitizer. CMake's check-state supplies matching sanitizer
+link options to upstream's compiler-flag probe, which otherwise links instrumented
+probe objects without the sanitizer runtime. This is build configuration, with no
+vendor patch or sanitizer suppression. No live-documentation drift is relied on.
+Windows validation and complete model-pipeline adoption remain release gates.

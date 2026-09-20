@@ -108,6 +108,7 @@ class NativeGltfDocument {
 
   private:
     GltfSourceBundle source_;
+    nlohmann::json meshes_; // Admitted private primitive/accessor routing, not source identity.
     std::vector<GltfEncodedImage> images_;
     NativeGltfHierarchy hierarchy_;
     std::unique_ptr<Diligent::GLTF::Document> native_;

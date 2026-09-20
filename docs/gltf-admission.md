@@ -272,9 +272,11 @@ case claims a physically meaningful surface direction for a collapsed face.
 
 The exact meshoptimizer tangent API is **experimental within stable1.2** and stays
 behind the private tool boundary. FORGE selects its Mikk-compatible weighting.
-Positions and UVs are translated/scaled only in temporary native working copies,
-using a positive uniform scale to avoid float intermediate overflow/underflow;
-the original cooked position and UV values stay unchanged. The generated direction
+Positions and UVs are scaled only in temporary native working copies,
+using a positive uniform power-of-two scale to avoid float intermediate overflow/underflow.
+The inverse scale must reproduce each source float exactly; it cannot silently
+collapse distinct source coordinates or lose tiny nonzero values.
+The original cooked position and UV values stay unchanged. The generated direction
 must still be finite/unit length. Unrepresentable ranges fail the candidate.
 
 Tangent output is per corner, so mirror seams may split vertices. Every base stream,
@@ -291,3 +293,48 @@ LODs, change scene transforms or allocate logical asset identities. Corner expan
 and output remain within configured Mesh limits, and native allocations remain
 subject to the import worker's hard memory/time limits. Failure/cancellation leaves
 the admitted input mesh unchanged.
+
+## Draco compressed primitives
+
+The private model tool uses official Draco1.5.7
+[`8786740086a9f4d83f44aa83badfbea4dce7a1b5`](https://github.com/google/draco/tree/8786740086a9f4d83f44aa83badfbea4dce7a1b5)
+for ratified `KHR_draco_mesh_compression`, using the glTF bitstream2.2 build
+profile. Native Draco owns compression decoding; FORGE owns source bounds,
+accessor/mapping admission and the decoded transport. No codec objects enter
+runtime resources, persistent identities or the gameplay SDK.
+
+The retained Diligent TinyGLTF Draco bridge is disabled. At that exact revision
+its optional bridge dereferences a unique-ID lookup without checking for a missing
+attribute and uses a four-element conversion array without first admitting the
+decoded component count. FORGE instead calls the official Draco decoder privately,
+checks its result, and supplies ordinary admitted buffers to Diligent. This changes
+no vendor source or pin.
+
+Checks cover declared extension use, compressed view ranges, scalar/vector layouts,
+exact component types and normalized flags, matching vertex counts, unique attribute
+IDs, mapped-value bounds, decoded face indices and representability in the declared
+index width. Output is limited to512MiB with at most16million vertices and16million
+triangles per decoded primitive. Native intermediate allocations are additionally
+subject to the disposable worker's hard memory/time limits; the output limit alone
+is not a claim of prevalidating every native allocation. Upstream writer alignment padding (at most three zero bytes to a four-byte boundary)
+is accepted; other trailing compressed data, invalid decoder results and cancelled candidates are rejected.
+
+Attributes outside the compressed map, sparse attribute patches and morph targets
+continue through ordinary glTF admission. Reused accessors must have identical
+decoded values; conflicting declarations are rejected. Compressed accessors ignore
+their old buffer-view/offset as required by the extension. The original captured
+JSON, buffers and dependency provenance remain unchanged.
+
+Draco returns triangle connectivity. The private transport normalizes both source
+TRIANGLES and TRIANGLE_STRIP to that triangle list, including an explicit index
+accessor when the source omitted one. It does not interpret decoded face triples
+as a strip. Indexed triangles must match their declared index count; a strip must
+have sufficient declared corners for its decoded faces, allowing degenerate strip
+connectors. Sparse strip-index replacement is rejected because a patch indexed
+into the discarded strip sequence cannot be applied reliably to native face order.
+This limitation has an explicit diagnostic; no replacement strip or guessed patch
+is silently invented. It does not affect sparse vertex-attribute patches.
+
+This is private import admission, not yet a completed Content model workflow or
+GPU preview. Full model-worker integration and publication validation remain
+Phase7 completion requirements.

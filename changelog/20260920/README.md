@@ -376,3 +376,31 @@
 - Condition temporary native position/UV data to keep tangent calculation valid at tested1e-25 and1e25 scales without altering cooked source coordinates.
 - Four focused cooking/preparation regressions pass normal and strict ASan/UBSan/LSan profiles. Format, workflow and manual checks pass; Windows validation for this increment is pending. Full model-worker publication, UI and production rendering remain in progress.
 - Prior texture service/editor checkpoint2f60c02 passed all18 unnumbered Windows audit tests; normal and200% texture document screenshots inspected. No new numbered package is delivered yet.
+
+### Draco admission and exact tangent conditioning
+
+- Add official Draco1.5.7 at immutable8786740 privately to native model tooling,
+  with glTF bitstream2.2 options, native object sanitizer coverage and packaged
+  licenses. Diligent's optional TinyGLTF Draco bridge stays disabled; FORGE validates
+  official decoder output before building ordinary Diligent input buffers.
+- Check compressed ranges, declarations, unique attribute mappings, exact layouts,
+  normalized flags, counts, index widths, source immutability, output budgets and
+  cancellation. Retain ordinary extra attributes, sparse attribute overrides and
+  morph data. Shared decoded accessors must agree.
+- Preserve decoded triangle connectivity for source triangle lists, strips and
+  nonindexed primitives. Diagnose unsupported sparse strip-index remapping rather
+  than guessing a discarded source sequence.
+- Source/test evidence corrected an overly strict trailing-data rule: the pinned
+  Draco writer includes up to three zero alignment bytes in compressed views.
+  Accept that padding while rejecting other trailing data. Official upstream Box,
+  generated geometry and minimal malformed/truncated fixtures cover this boundary.
+- Tangent preparation now uses an exactly reversible power-of-two working scale;
+  a coordinate range that would lose small values rejects instead of silently
+  collapsing them. Original cooked positions/UVs are unchanged.
+- Normal glTF/preparation10/10 passed in0.47s; strict ASan/UBSan/LeakSanitizer10/10
+  passed in3.53s. Native standalone roundtrip also passed strict sanitizers. Format,
+  manual links and workflow syntax passed. Windows validation for this increment
+  remains pending; CI explicitly builds/runs the new fixture.
+- Previous0fa1422 Windows source audit passed20/20 in13.61s. No numbered build was
+  allocated. Complete model publication, production rendering and the rest of the
+  authorized Phase7 package remain in progress.

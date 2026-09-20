@@ -167,6 +167,13 @@ int main() {
                 require(std::abs(ts[i] - 1) < 0.000001 && ts[i + 3] == 1,
                         "Native tangent preparation lost scale/UV invariance");
         }
+        auto wide_range = fixture(true, false);
+        auto& wide_part = wide_range.lods[0].parts[0];
+        auto& wide_positions = std::get<std::vector<float>>(wide_part.streams[0].values);
+        wide_positions[0] = 1e-35f;
+        wide_positions[3] = 1e35f;
+        wide_part.bounds = mesh_bounds(wide_part);
+        rejects([&] { (void)process_mesh(wide_range, uv1); }, "dynamic range");
         MeshProcessingOptions preserve;
         preserve.normals = preserve.tangents = MeshDirections::Preserve;
         preserve.weld_exact = preserve.optimize_vertex_fetch = false;

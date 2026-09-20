@@ -1,4 +1,5 @@
 #include "gltf_native.hpp"
+#include "gltf_draco.hpp"
 #include "gltf_meshopt.hpp"
 #include <GLTFDocument.hpp>
 #include <GLTFVertexDataConverter.hpp>
@@ -154,7 +155,8 @@ template <class T> NativeGltfValues<T> convert(const tinygltf::Model& model, std
 }
 } // namespace
 NativeGltfDocument::NativeGltfDocument(GltfSourceBundle captured) : source_(std::move(captured)) {
-    auto admitted = decode_gltf_meshopt(source_);
+    auto admitted = decode_gltf_draco(decode_gltf_meshopt(source_));
+    meshes_ = admitted.document.value("meshes", nlohmann::json::array());
     (void)validate_gltf_accessors(admitted);
     validate_gltf_mesh_containers(admitted);
     hierarchy_ = validate_gltf_hierarchy(admitted);

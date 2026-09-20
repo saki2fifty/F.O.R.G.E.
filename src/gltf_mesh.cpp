@@ -116,7 +116,7 @@ void validate_gltf_mesh_containers(const GltfSourceBundle& source) {
 }
 NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
                                                   std::size_t primitive_index) const {
-    const auto& meshes = array(source_.document, "meshes", 1000000);
+    const auto& meshes = meshes_;
     if (mesh_index >= meshes.size())
         throw std::runtime_error("glTF mesh index is invalid");
     const auto& primitives = array(meshes[mesh_index], "primitives", 100000);

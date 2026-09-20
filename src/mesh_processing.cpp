@@ -127,25 +127,19 @@ void normalize_normals(std::vector<float>& normals, const std::vector<float>& fa
         }
     }
 }
-// Tangent direction is invariant under a common translation and positive uniform
-// scale of positions/UVs. Condition in double before the native float arithmetic
-// to avoid overflow/underflow on otherwise valid large/small source geometry.
-std::vector<float> conditioned(const std::vector<float>& source, unsigned components) {
-    std::vector<double> low(components), high(components);
-    for (unsigned a = 0; a < components; ++a)
-        low[a] = high[a] = source[a];
-    for (std::size_t i = 0; i < source.size(); ++i) {
-        low[i % components] = std::min(low[i % components], double(source[i]));
-        high[i % components] = std::max(high[i % components], double(source[i]));
-    }
-    double extent = 0;
-    for (unsigned a = 0; a < components; ++a)
-        extent = std::max(extent, high[a] - low[a]);
+// Tangent direction is invariant under a positive uniform position/UV scale.
+// A power-of-two scale preserves source float bits while avoiding intermediate
+// overflow/underflow; reject a dynamic range that would lose input information.
+std::vector<float> conditioned(const std::vector<float>& source) {
+    double magnitude = 0;
+    for (float value : source)
+        magnitude = std::max(magnitude, std::abs(double(value)));
+    int exponent = 0;
+    (void)std::frexp(magnitude, &exponent);
     std::vector<float> result(source.size());
     for (std::size_t i = 0; i < source.size(); ++i) {
-        const double value = extent ? (double(source[i]) - low[i % components]) / extent : 0;
-        result[i] = static_cast<float>(value);
-        require(value == 0 || result[i] != 0,
+        result[i] = static_cast<float>(std::ldexp(double(source[i]), -exponent));
+        require(std::ldexp(double(result[i]), exponent) == double(source[i]),
                 "Tangent geometry/UV dynamic range exceeds native float precision");
     }
     return result;
@@ -154,8 +148,8 @@ std::vector<float> tangents(const std::vector<float>& positions, const std::vect
                             const std::vector<float>& uv) {
     const auto count = positions.size() / 3;
     std::vector<float> result(count * 4);
-    const auto native_positions = conditioned(positions, 3);
-    const auto native_uv = conditioned(uv, 2);
+    const auto native_positions = conditioned(positions);
+    const auto native_uv = conditioned(uv);
     meshopt_generateTangents(result.data(), nullptr, count, native_positions.data(), count, 12,
                              normals.data(), 12, native_uv.data(), 8, meshopt_TangentCompatible);
     for (std::size_t i = 0; i < count; ++i) {
