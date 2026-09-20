@@ -1087,3 +1087,15 @@
   bounded converter. Launching an ASan converter under the production512-MiB
   address-space limit fails at sanitizer shadow reservation, reproduced separately;
   no worker limit or sanitizer suppression was changed.
+
+### Mesh shader input preservation
+
+- Add validated native raw-buffer vertex reads for the built-in material path,
+  preserving arbitrary selected UV-set numbers, tangent signs, integer joints and
+  wide unrelated custom channels without truncating input layouts.
+- Retain ordinary vertex-buffer use alongside the native shader-resource view.
+- Add an indexed draw fixture for UV19, wide strides and exact channel interpretation,
+  plus rejection of missing UVs and invalid byte offsets. Windows execution is pending.
+- Correct the punctual-light fixture's missing native shader-factory include after
+  Windows source4e96a13 compilation exposed an accidental include-order dependency.
+  The local syntax fixture now uses the same header order; GPU execution remains pending.

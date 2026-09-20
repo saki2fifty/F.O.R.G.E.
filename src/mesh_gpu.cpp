@@ -29,7 +29,7 @@ GpuMesh upload_mesh(IRenderDevice* device, const MeshData& input) {
         desc.Size = bytes;
         desc.BindFlags = bind;
         desc.Usage = USAGE_IMMUTABLE;
-        if (bind == BIND_SHADER_RESOURCE)
+        if (bind & BIND_SHADER_RESOURCE)
             desc.Mode = BUFFER_MODE_RAW;
         BufferData initial{data, bytes};
         RefCntAutoPtr<IBuffer> result;
@@ -78,8 +78,9 @@ GpuMesh upload_mesh(IRenderDevice* device, const MeshData& input) {
                     std::memcpy(packed.data() + vertex * part.stride + part.attributes[i].offset,
                                 data + vertex * width, width);
             }
-            part.vertices = buffer(packed.data(), packed.size(), BIND_VERTEX_BUFFER,
-                                   "FORGE immutable cooked vertices");
+            part.vertices =
+                buffer(packed.data(), packed.size(), BIND_VERTEX_BUFFER | BIND_SHADER_RESOURCE,
+                       "FORGE immutable cooked vertices");
             if (!source.indices.empty())
                 part.indices = buffer(source.indices.data(), source.indices.size() * sizeof(Uint32),
                                       BIND_INDEX_BUFFER, "FORGE immutable cooked indices");

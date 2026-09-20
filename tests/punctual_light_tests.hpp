@@ -1,4 +1,5 @@
 #pragma once
+#include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 // Requires the native presentation test helpers from the same WARP fixture.
 void check_punctual_lights(forge::DiligentPresentation& presentation,
                            Diligent::IDeviceContext* context) {

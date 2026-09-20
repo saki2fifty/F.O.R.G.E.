@@ -255,3 +255,20 @@ be reversed, explicitly permitted by the exact Khronos extension. Double evaluat
 of the IOR reflectance ratio avoids unnecessary intermediate float overflow.
 Native shading and complete refraction/dispersion consumers remain in progress;
 admitting a material parameter does not prove that it is rendered.
+
+### Built-in vertex fetch
+
+The native input-layout contract declares16 elements, while cooked meshes preserve
+up to64 streams and material bindings can address higher UV-set numbers. The
+built-in shader adapter uses Diligent raw shader-resource views of immutable vertex
+buffers with native indexed draws. It reads only the selected named channels,
+preserves integer joints and tangent handedness, and maps requested UV-set numbers
+to transient shader slots without substituting UV0. Ordinary vertex-buffer binding
+remains available to other shader consumers. This adds no source parser or second
+renderer API. Missing channels and invalid byte ranges reject before shader use.
+
+The generated record contains position, optional normal/tangent/color, optional
+four-influence skin inputs and the material's used UV sets. Reading skin inputs is
+not yet the deformation operation. An indexed Windows draw fixture checks UV19,
+uint joint values, tangent.w and color3-to-color4 defaults with a vertex stride above
+2048 bytes. Native GPU execution of this new adapter remains pending.
