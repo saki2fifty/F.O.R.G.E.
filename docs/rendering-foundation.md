@@ -311,3 +311,9 @@ PBR, deformation, GPU resource adoption and Scene/Game/standalone integration re
 Phase7 work. This is an internal implementation checkpoint, not a shipped renderer
 completion claim. Native fixtures cover reflection, singular planes, projection
 flips, large origins, explicit light/no-light behavior; execution is pending.
+
+Mesh draw shader source and binding preparation are separate from native device
+allocation. This permits local compilation of the actual generated programs before
+Windows execution, including all three workflows with and without textures. Local
+DXC shader-model6 checks are supplementary; selected FXC5.1/D3D12 acceptance still
+requires Windows and is not inferred from another compiler's success.

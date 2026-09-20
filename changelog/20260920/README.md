@@ -1132,3 +1132,19 @@
 - Cancel the superseded source26c1fda graphics run containing that same error.
   The updated native source needs a fresh graphics run; C++ syntax checks alone
   do not validate shader language syntax or execution.
+
+- Separate actual mesh shader generation from GPU allocation. Local Microsoft DXC
+  checks pass14 stages across three material workflows, textured/untextured cases
+  and surface/punctual compute adapters. These shader-model6 syntax checks supplement
+  the required Windows FXC5.1 and D3D12 execution; they do not replace it.
+
+### GPU resource lifetime preparation
+
+- Add primary-context mesh/texture residency keyed by existing typed CPU revision
+  identities, with shared realization, owner-thread access and scope revocation.
+- Track requested payload and count budgets through replacement, native fence
+  completion and failed partial uploads. Preserve leased older revisions on failure.
+- Add native fixtures for repeated acquisition, budget rejection, old-texture copy
+  during replacement, retirement/readback, off-thread rejection, failed candidate
+  accounting and shutdown. Native execution is pending; draw-set/editor integration
+  remains in progress. Payload counters are not presented as total driver VRAM.

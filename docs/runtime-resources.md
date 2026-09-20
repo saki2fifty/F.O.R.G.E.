@@ -166,3 +166,33 @@ retain compatible mesh, material and texture leases together; individual success
 loads are not a claim of atomic GPU draw-set publication. Current preparation
 validates a bounded family per requested member; shared family preparation and
 measured production draw workloads remain integration work.
+
+## Physical GPU residency checkpoint
+
+The backend-private `GpuResidency<T>` realizes existing immutable Mesh/Texture CPU
+leases on the primary immediate graphics context. Its key is the complete CPU
+revision identity, including owner and variant. It provides no second AssetId
+resolver, import graph or persistent identity. Repeated acquisition shares the
+same realization; different revisions coexist while old draw bindings hold leases.
+
+A device-thread lease validates its scope on access and marks use for submission.
+Native binding bundles must retain that lease until their SRBs and native resource
+references are destroyed, validate it for each use, and close before the residency
+owner. CPU artifact data can retire independently after upload. Owner close flushes
+and waits for the native fence, revokes leases, and destroys retained payloads on
+the owning thread. Deferred/other immediate contexts are rejected by this initial
+single-queue provider; existing multiple views share the primary graphics context.
+
+Byte and resource-count budgets include leased resources, pending submissions and
+retiring revisions. Idle eviction requires no external lease and a completed native
+fence. Failed partial uploads conservatively reserve the entire candidate payload
+until their submitted fence completes. No frame-count or CPU-time approximation
+stands in for GPU completion. Statistics report **requested payload bytes**, not
+VRAM: driver padding, descriptors and shared allocation pages are separate costs.
+
+The Windows fixture replaces textures, rejects an over-budget candidate, copies
+from the old texture before dropping it, checks native-fence retirement/readback,
+revokes held leases at shutdown, and injects failure after an actual native buffer
+allocation. Mesh payload accounting and thread-affinity rejection are also covered.
+Native execution is pending. Complete draw-set adoption and editor resource-inspection
+UI are still required; this checkpoint alone does not integrate Scene/Game rendering.
