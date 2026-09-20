@@ -1,7 +1,13 @@
 import json
+import atexit
+import faulthandler
 import subprocess
 import sys
 from pathlib import Path
+# A blocked Windows pipe must identify the exact operation, rather than leaving
+# only the process banner when CTest's outer deadline expires.
+faulthandler.dump_traceback_later(20, repeat=True)
+atexit.register(faulthandler.cancel_dump_traceback_later)
 runtime, module = map(str, map(Path, sys.argv[1:]))
 p = subprocess.Popen([runtime], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 session=''
@@ -11,9 +17,11 @@ def request(command, **fields):
     sequence+=1
     data=dict(protocol=2,id=sequence,session=session,command=command)
     data.update(fields)
+    print(f"Protocol request {sequence}: {command}", flush=True)
     p.stdin.write(json.dumps(data)+'\n')
     p.stdin.flush()
     result=json.loads(p.stdout.readline())
+    print(f"Protocol reply {sequence}: {command}", flush=True)
     if command=='hello': session=result['session']
     return result
 try:

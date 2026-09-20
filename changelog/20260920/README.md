@@ -1034,3 +1034,11 @@
 - Add a Windows compute reproduction comparing spot output with native point-light
   output and testing coincident, opposite-vector and overflowing cases. GPU results
   remain pending; dependency source and revision are unchanged.
+
+### Runtime regression diagnostics
+
+- The6aa4eaf Windows core run passed54/55 checks but timed out in runtime_protocol;
+  the unchanged protocol implementation passed in the previous64aa5ec checkpoint.
+  Add request/reply markers and timed Python stack dumps so another stall identifies
+  the exact blocked operation. Do not treat the failed run as a clean validation or
+  change runtime behavior based on an unlocalized timeout.
