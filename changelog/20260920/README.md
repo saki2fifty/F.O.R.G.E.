@@ -724,3 +724,31 @@
   whitespace checks passed. Windows validation and complete Phase7 remain in progress.
 - Rebuilt the asset-tools-disabled core/runtime profile; legacy animation,
   separate-process animation and target-boundary checks3/3 passed(34.60s).
+
+### Stable source-node assets inside imported models
+
+- New cooked model format3 gives each immutable source node a typed `model_node`
+  AssetId through the existing sidecar resolver and catalog graph. Revision-local
+  selectors address the existing hierarchy; no per-node files, new persistent ID
+  type, runtime-instance identity or hidden mutable object tree were introduced.
+- Node evidence includes geometry/material content, transform-independent hierarchy
+  roles and animation channel kinds. Reorder, rename and uniquely evidenced transform
+  changes preserve IDs. Identical changed nodes still require explicit decisions;
+  removing distinguishing animation evidence can also require confirmation. Existing
+  indistinguishable mesh allocations may need their own choices after usage renames.
+  Exact unchanged imports retain their validated selections.
+- Inline selector coverage, bounds, typed mesh bindings, selected catalog metadata
+  and ownership/revision are checked before use. Older format1/2 outputs remain
+  readable without silently inventing node identities. The16MiB index and64MiB
+  project catalog bounds remain; logical members use the existing100000 ceiling,
+  independently of the unchanged4096 physical-member file limit.
+- Final normal bundle/direct recipe/actual worker3/3 passed(58.78s); unchanged-source
+  CLI, separate-process animation and official Ozz conversion also passed in the
+  preceding run. Strict bundle/Ozz/complete recipe3/3 passed(75.32s). Tests cover
+  explicit ambiguity resolution, node reorder/rename, transform edits, removed-clip
+  tombstones and invalid selectors. Earlier identity-evidence/fixture failures are
+  recorded; they were not treated as passing validation. Manual3/3 and formatting
+  passed. Scene model instantiation and complete rendering remain ongoing Phase7 work.
+- Windows source audit35520758551 onbafdd608 passed33/33(28.11s), validating the earlier
+  model-runtime bridge and MSVC corrections. Later d1dd1fb push checks also passed.
+  The current node changes require their own Windows audit; no numbered build here.

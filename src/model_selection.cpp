@@ -21,6 +21,7 @@ const ModelImportMember& ModelSelection::member(AssetId id) const {
     throw std::runtime_error("Asset is not an active member of this model revision");
 }
 std::span<const std::byte> ModelSelection::bytes(const ModelImportMember& member) const {
+    require(!member.node, "Inline model nodes have no standalone artifact bytes");
     for (const auto& file : artifact->files)
         if (file.name == member.artifact.file)
             return file.bytes;
@@ -38,7 +39,8 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     const auto& record = owner->second;
     const auto& selected = record.metadata.at("forge.import");
     require(selected.at("version") == 1 && selected.at("output_format") == "forge.model-bundle" &&
-                (selected.at("output_version") == 1 || selected.at("output_version") == 2),
+                (selected.at("output_version") == 1 || selected.at("output_version") == 2 ||
+                 selected.at("output_version") == 3),
             "Unsupported selected model artifact profile");
     ModelSelection result;
     result.owner = model;
@@ -98,7 +100,14 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
                 "Selected model member ownership or type differs");
         const auto& imported = child.metadata.at("forge.import");
         require(imported == selected, "Selected model family mixes publication revisions");
-        check_file(child.metadata.at("forge.model"), member.artifact);
+        if (member.node) {
+            const auto& metadata = child.metadata.at("forge.model");
+            require(metadata.at("version") == 2 && metadata.at("node") == *member.node &&
+                        !metadata.contains("file") && !metadata.contains("sha256") &&
+                        !metadata.contains("bytes"),
+                    "Selected inline model node differs from immutable hierarchy");
+        } else
+            check_file(child.metadata.at("forge.model"), member.artifact);
         require(child.dependency_edges.size() == member.bindings.size(),
                 "Selected model member binding count differs");
         for (const auto& edge : child.dependency_edges) {

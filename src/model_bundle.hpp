@@ -1,6 +1,7 @@
 #pragma once
 #include <forge/derived_cache.hpp>
 #include <forge/subasset_identity.hpp>
+#include <optional>
 namespace forge::asset_detail {
 struct ModelMemberFile {
     std::string file, digest;
@@ -9,14 +10,17 @@ struct ModelMemberFile {
 struct ModelImportMember {
     SubassetObservation identity;
     ModelMemberFile artifact;
+    // Inline immutable hierarchy selector, mutually exclusive with an artifact.
+    // The owning model.json authenticates the bytes; no per-node marker files.
+    std::optional<std::uint32_t> node;
     // Named cooked slot -> candidate-local member address. Owner-thread
     // reconciliation binds these to durable AssetIds in catalog dependency edges.
     std::map<std::string, std::string> bindings;
 };
 struct ModelBundleIndex {
-    // Version1 remains readable for existing animation/resource selections, but
-    // lacks recoverable authored TRS. New cooks use version2.
-    unsigned version = 2;
+    // Version1 lacks explicit TRS; version2 lacks durable node-member bindings.
+    // Both remain readable for their existing consumers. New cooks use version3.
+    unsigned version = 3;
     std::string source_digest;
     std::vector<ModelImportMember> members;
     // Immutable asset hierarchy, never a second mutable gameplay hierarchy.

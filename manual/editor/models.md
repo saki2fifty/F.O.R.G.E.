@@ -57,7 +57,7 @@ Shell quoting for JSON depends on the terminal you use.
 ## When a reimport cannot identify a member
 
 Renaming and reordering can preserve identity when the model contains enough distinct
-geometry or usage information. Two indistinguishable meshes may require a decision.
+geometry or usage information. Indistinguishable meshes or source nodes may require a decision.
 FORGE stops with `subasset.identity-ambiguous` and leaves the previous import usable.
 Its `identity_conflicts` list shows candidate addresses and previous same-type IDs.
 
@@ -98,3 +98,26 @@ Older development imports remain readable; reimport them to prepare the addition
 transform information needed for model placement. Import validation and placement
 validation are separate: a value may be valid model data but exceed the scene or
 animation consumer's supported range.
+
+
+## Source node identities
+
+Each node in a newly imported model has its own source identity. The import keeps
+that identity when reordering or renaming nodes can be matched reliably. A scene
+object created from the model will have its own separate entity identity.
+
+Identical nodes remain distinct. An unchanged reimport preserves their selected
+identities; changed source content can require a correspondence decision when FORGE
+cannot tell which old node matches which new node. The conflict reports
+`model_node` and addresses such as `/nodes/2`. Use the same explicit-decision argument
+as for meshes. Deleting a source node retains a removed-member record so references
+can report it missing instead of silently switching to another node.
+
+Renaming objects can also change the information used to distinguish identical mesh
+assets. In that case, the conflict asks for mesh correspondence even when the source
+nodes can still be identified. Read the reported type before choosing a previous ID.
+
+Animation channels can distinguish nodes whose rest transforms are identical.
+Removing those channels can remove that evidence; a later import may then ask you
+to confirm which previous source node to keep. This leaves the earlier model usable
+until you resolve the conflict.

@@ -312,7 +312,7 @@ model remain separate integration requirements.
 
 ## Imported local transforms and cooked format compatibility
 
-New model bundles use private format2. Every node stores explicit translation,
+New model bundles use private format3 (explicit TRS was added in format2). Every node stores explicit translation,
 normalized XYZW quaternion and signed scale in `trs`, alongside a checked derived
 `local` affine3x4. Explicit source TRS never passes through matrix decomposition:
 zero scale would lose the original rotation, and reflections can have several
@@ -330,7 +330,46 @@ unit-sized epsilon cannot hide a corrupted tiny-scale transform.
 Existing format1 bundles remain readable for their existing mesh/animation resource
 consumers and retain version1 when decoded/re-encoded. They have no guaranteed
 recoverable original TRS and must be reimported before a workflow requiring that
-information. The importer declares output version2 in the full build key; new cooks
-cannot reuse version1 outputs as version2. Selected catalog, cache manifest and
+information. Format2 bundles also remain readable with their explicit TRS, but have no durable
+node-member identities. The importer declares output version3 in the full build key;
+new cooks cannot reinterpret older outputs as version3. Selected catalog, cache manifest and
 bundle version must agree. Catalog metadata envelope version1 is independent of
 this cooked format version. No scene format, identity or module ABI changes here.
+
+
+## Stable imported node provenance
+
+Format3 adds a typed `model_node` logical AssetId for every immutable source node,
+using the existing sidecar reconciliation and selected catalog graph. A node member
+contains only a revision-local selector into `hierarchy.nodes`; the owning model
+index digest authenticates that data. It creates no separate node file or mutable
+object tree. File-backed Mesh/Material/Texture/Skeleton/Clip members retain their
+existing encoding. A node's optional Mesh binding is a checked typed Runtime edge.
+
+Node evidence combines admitted local content, geometry/material content and
+order-independent hierarchy context. Animation channel kinds provide independent
+role evidence for otherwise identical rest nodes without using clip order or names. Independent structural/geometry evidence allows uniquely matched
+nodes to keep identity after a transform edit. Display labels and source array
+indices are not persistent keys. Renaming/reordering does not imply a new identity;
+indistinguishable changed nodes require explicit correspondence decisions. Exact
+unchanged reimports reuse the validated selected mapping. Removed entries retain
+normal tombstones. These AssetIds identify source nodes, not placed scene EntityIds
+or process-local loaded instances.
+
+The immutable index still has a16MiB byte limit; total logical members are bounded
+by100000, matching the existing hierarchy/identity admission ceiling. At most4096
+members may have physical artifact files, with the existing worker/cache file and
+aggregate-byte limits unchanged. Inline identities must not be counted as invented
+files. Project catalog64MiB/100000record limits still apply. Read-only catalog query
+measurements for node-shaped metadata observed approximately1.43MB/0.16s at1000nodes,
+5.88MB/0.79s at4096, and14.37MB/1.74s at10000 on the Linux development host. These
+include JSON output/graph traversal; they are not publication, memory or frame-time
+benchmarks. Actual scene instantiation/reconciliation remains separate ongoing work.
+
+
+The existing mesh correspondence algorithm also uses source-node usage context.
+Renaming all uses of several identical mesh allocations may therefore report a
+**mesh** ambiguity even when the new node identities themselves remain matchable.
+The official negative-scale fixture exercises explicit resolution of that real
+conflict before verifying node identity preservation. FORGE does not silently map
+those meshes by their old array positions.

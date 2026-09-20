@@ -12,9 +12,9 @@ using namespace forge::asset_detail;
 using namespace std::chrono_literals;
 namespace {
 using Json = nlohmann::json;
-void require(bool ok, const char* why) {
+void require(bool ok, const char* why, std::source_location at = std::source_location::current()) {
     if (!ok)
-        throw std::runtime_error(why);
+        throw std::runtime_error(std::string(why) + " at " + std::to_string(at.line()));
 }
 template <class F> void rejects(F fn, std::source_location at = std::source_location::current()) {
     try {
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
                     AssetState::Available,
                 "Model root unavailable");
         auto before = bindings(first.publication->catalog, owner);
-        require(before.size() == 16, "Complete model family missing");
+        require(before.size() == 30, "Complete model family missing");
         for (const auto& [address, id] : before) {
             (void)address;
             const auto& record = first.publication->catalog.records().at(id);
@@ -139,8 +139,15 @@ int main(int argc, char** argv) {
                 "Selected immutable model binding mismatch");
         for (const auto& [address, id] : before) {
             const auto& member = loaded_model.member(id);
-            require(member.identity.address == address && !loaded_model.bytes(member).empty(),
-                    "Selected model member bytes unavailable");
+            require(member.identity.address == address, "Selected model member address changed");
+            if (member.node) {
+                require(member.identity.type == ModelNodeAsset::type &&
+                            *member.node < loaded_model.index.hierarchy.at("nodes").size(),
+                        "Selected model node provenance unavailable");
+                rejects([&] { loaded_model.bytes(member); });
+            } else
+                require(!loaded_model.bytes(member).empty(),
+                        "Selected model member bytes unavailable");
         }
         auto wrong_catalog = first.publication->catalog;
         auto wrong_record = wrong_catalog.records().at(before.begin()->second);
@@ -193,9 +200,52 @@ int main(int argc, char** argv) {
             const auto group = address.substr(1, split - 1);
             const auto index = std::stoul(address.substr(split + 1));
             require(after.at("/" + group + "/" +
-                             std::to_string(reordered.at(group).size() - 1 - index)) == id,
+                             std::to_string(group == "nodes"
+                                                ? index
+                                                : reordered.at(group).size() - 1 - index)) == id,
                     "Reorder/rename retargeted logical subasset");
         }
+        // Reorder all source nodes without changing their graph, then rename them.
+        // Address changes must not become persistent provenance changes.
+        const auto old_node_count = reordered.at("nodes").size();
+        std::reverse(reordered["nodes"].begin(), reordered["nodes"].end());
+        for (auto& node : reordered["nodes"]) {
+            node["name"] = "Renamed source node";
+            if (node.contains("children"))
+                for (auto& child : node["children"])
+                    child = old_node_count - 1 - child.template get<std::size_t>();
+        }
+        for (auto& scene : reordered["scenes"])
+            for (auto& node : scene["nodes"])
+                node = old_node_count - 1 - node.template get<std::size_t>();
+        save(root / source, reordered);
+        auto nodes_reordered = run(source);
+        if (!nodes_reordered.published) {
+            // This sample has identical geometry allocated to separate meshes.
+            // Renaming every usage also changes their prior semantic evidence.
+            // Resolve those actual reported mesh conflicts explicitly; this is
+            // fixture-known correspondence, never a production index heuristic.
+            require(!nodes_reordered.identity_conflicts.empty(),
+                    nodes_reordered.diagnostic.c_str());
+            std::vector<SubassetIdentityDecision> mesh_choices;
+            for (const auto& conflict : nodes_reordered.identity_conflicts) {
+                require(conflict.type == "mesh", "Unexpected node identity conflict");
+                for (const auto& address : conflict.observations)
+                    mesh_choices.push_back({address, after.at(address)});
+            }
+            nodes_reordered = run(source, mesh_choices);
+        }
+        require(nodes_reordered.published, nodes_reordered.diagnostic.c_str());
+        const auto node_bindings = bindings(nodes_reordered.publication->catalog, owner);
+        for (std::size_t i = 0; i < old_node_count; ++i)
+            require(node_bindings.at("/nodes/" + std::to_string(old_node_count - 1 - i)) ==
+                        after.at("/nodes/" + std::to_string(i)),
+                    "Source node reorder/rename retargeted durable provenance");
+        auto wrong_node_catalog = nodes_reordered.publication->catalog;
+        auto wrong_node = wrong_node_catalog.records().at(node_bindings.at("/nodes/0"));
+        wrong_node.metadata["forge.model"]["node"] = 99999;
+        wrong_node_catalog.replace(wrong_node);
+        rejects([&] { load_model_selection(root, wrong_node_catalog, owner); });
         // Stale external image edits cannot use an old prepared plan.
         auto draft = service.prepare(source);
         const auto plan = importer->discover(draft.request, {});
@@ -243,6 +293,16 @@ int main(int argc, char** argv) {
         require(one.published, one.diagnostic.c_str());
         const auto small_owner = service.prepare(small).request.asset;
         const auto first_id = bindings(one.publication->catalog, small_owner).at("/meshes/0");
+        const auto first_node = bindings(one.publication->catalog, small_owner).at("/nodes/0");
+        doc["nodes"][0]["name"] = "Renamed uniquely used node";
+        doc["nodes"][0]["translation"] = {3, 2, 1};
+        doc["nodes"][0]["scale"] = {-2, 0, .5};
+        save(root / small, doc);
+        auto moved_node = run(small);
+        require(moved_node.published &&
+                    bindings(moved_node.publication->catalog, small_owner).at("/nodes/0") ==
+                        first_node,
+                "Source transform edit lost uniquely evidenced node identity");
         auto mesh = doc["meshes"][0];
         doc["meshes"].push_back(mesh);
         doc["meshes"].push_back(mesh);
@@ -250,7 +310,7 @@ int main(int argc, char** argv) {
         auto three = run(small);
         require(three.published, three.diagnostic.c_str());
         const auto ids = bindings(three.publication->catalog, small_owner);
-        require(ids.size() == 3 && ids.at("/meshes/0") == first_id,
+        require(ids.size() == 4 && ids.at("/meshes/0") == first_id,
                 "New members replaced known identity");
         auto unchanged = run(small);
         require(unchanged.published && unchanged.cache_hit &&
@@ -323,10 +383,44 @@ int main(int argc, char** argv) {
         auto removed = run(small);
         require(removed.published, removed.diagnostic.c_str());
         require(
-            bindings(removed.publication->catalog, small_owner).size() == 1 &&
+            bindings(removed.publication->catalog, small_owner).size() == 2 &&
                 removed.publication->catalog.records().at(ids.at("/meshes/1")).subasset->removed &&
                 removed.publication->catalog.records().at(ids.at("/meshes/2")).subasset->removed,
             "Removed model members did not become tombstones");
+        // Indistinguishable nodes may keep an exact revision, but changing source
+        // requires decisions. Never use their source indices as persistent IDs.
+        auto duplicates = doc;
+        duplicates["nodes"] = Json::array({{{"mesh", 0}}, {{"mesh", 0}}});
+        duplicates["scenes"][0]["nodes"] = {0, 1};
+        const auto duplicate_source = std::filesystem::path("Assets/duplicate-nodes.gltf");
+        save(root / duplicate_source, duplicates);
+        auto duplicate_first = run(duplicate_source);
+        require(duplicate_first.published, duplicate_first.diagnostic.c_str());
+        const auto duplicate_owner = service.prepare(duplicate_source).request.asset;
+        const auto duplicate_ids = bindings(duplicate_first.publication->catalog, duplicate_owner);
+        const auto duplicate_repeat = run(duplicate_source);
+        require(duplicate_repeat.published && duplicate_repeat.cache_hit &&
+                    bindings(duplicate_repeat.publication->catalog, duplicate_owner) ==
+                        duplicate_ids,
+                "Unchanged duplicate nodes lost their selected identities");
+        duplicates["asset"]["generator"] = "Different input with indistinguishable nodes";
+        save(root / duplicate_source, duplicates);
+        const auto duplicate_baseline =
+            read_bytes(root / "forge.assets.json", max_asset_index_bytes);
+        auto node_conflict = run(duplicate_source);
+        require(!node_conflict.published && node_conflict.identity_conflicts.size() == 1 &&
+                    node_conflict.identity_conflicts[0].type == "model_node" &&
+                    node_conflict.identity_conflicts[0].observations.size() == 2 &&
+                    read_bytes(root / "forge.assets.json", max_asset_index_bytes) ==
+                        duplicate_baseline,
+                "Changed duplicate nodes were guessed or changed selected state");
+        const auto node_resolved =
+            run(duplicate_source, {{"/nodes/0", duplicate_ids.at("/nodes/1")},
+                                   {"/nodes/1", duplicate_ids.at("/nodes/0")}});
+        require(node_resolved.published &&
+                    bindings(node_resolved.publication->catalog, duplicate_owner).at("/nodes/0") ==
+                        duplicate_ids.at("/nodes/1"),
+                "Explicit node correspondence was ignored");
         // Complete families larger than the old 256-file cache default must work.
         doc["meshes"] = Json::array();
         doc["nodes"] = Json::array();
@@ -406,7 +500,7 @@ int main(int argc, char** argv) {
         require(animated.published, animated.diagnostic.c_str());
         const auto animated_owner = service.prepare(animated_source).request.asset;
         const auto members = bindings(animated.publication->catalog, animated_owner);
-        require(members.size() == 4 && members.contains("/rig/skeleton") &&
+        require(members.size() == 7 && members.contains("/rig/skeleton") &&
                     members.contains("/animations/0") && members.contains("/animations/1"),
                 "Animated family not published completely");
         for (const auto* address : {"/animations/0", "/animations/1"}) {
@@ -449,7 +543,20 @@ int main(int argc, char** argv) {
                 "Incompatible skin replaced previous complete family");
         doc["animations"].erase(doc["animations"].begin());
         save(root / animated_source, doc);
-        const auto removed_clip = run(animated_source);
+        auto removed_clip = run(animated_source);
+        if (!removed_clip.published) {
+            // Removing the only scale clip removes the evidence distinguishing
+            // two otherwise identical rest joints. Choose the known source joint
+            // explicitly rather than treating its old source index as identity.
+            require(!removed_clip.identity_conflicts.empty(), removed_clip.diagnostic.c_str());
+            std::vector<SubassetIdentityDecision> node_choices;
+            for (const auto& conflict : removed_clip.identity_conflicts) {
+                require(conflict.type == "model_node", "Unexpected clip-removal conflict");
+                for (const auto& address : conflict.observations)
+                    node_choices.push_back({address, remapped.at(address)});
+            }
+            removed_clip = run(animated_source, node_choices);
+        }
         require(removed_clip.published && removed_clip.publication->catalog.records()
                                               .at(members.at("/animations/1"))
                                               .subasset->removed,

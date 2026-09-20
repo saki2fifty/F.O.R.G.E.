@@ -176,37 +176,58 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
     }
 }
 void validate(const ModelBundleIndex& index) {
-    require(index.version == 1 || index.version == 2, "Unsupported model bundle version");
-    require(valid_content_digest(index.source_digest) && index.members.size() <= 4096 &&
+    require(index.version >= 1 && index.version <= 3, "Unsupported model bundle version");
+    require(valid_content_digest(index.source_digest) && index.members.size() <= 100000 &&
                 index.diagnostics.size() <= 4096,
             "Invalid model index source/counts");
     std::map<std::string, const ModelImportMember*> members;
     std::set<std::string> names;
+    std::set<std::uint32_t> node_members;
+    const auto& nodes = array(index.hierarchy.at("nodes"), 100000);
     for (const auto& m : index.members) {
         const auto& id = m.identity;
         (void)text(id.address, 4096);
         (void)text(id.display_name, 4096, true);
         (void)text(id.evidence.exporter_key, 1024, true);
         require(id.type == "mesh" || id.type == "material" || id.type == "texture" ||
-                    id.type == "skeleton" || id.type == "animation_clip",
+                    id.type == "skeleton" || id.type == "animation_clip" || id.type == "model_node",
                 "Unsupported model bundle member type");
         for (const auto& digest : {id.evidence.content_digest, id.evidence.semantic_digest})
             require(digest.empty() || valid_content_digest(digest),
                     "Invalid model identity evidence");
-        require(members.emplace(id.address, &m).second && names.insert(m.artifact.file).second,
-                "Duplicate model member address/artifact");
-        filename(m.artifact.file);
-        require(valid_content_digest(m.artifact.digest) && m.artifact.bytes &&
-                    m.artifact.bytes <= total_bytes && m.bindings.size() <= 65536,
-                "Invalid model member artifact/bindings");
+        require(members.emplace(id.address, &m).second, "Duplicate model member address");
+        require(m.bindings.size() <= 65536, "Model member binding count exceeds bounds");
+        if (m.node) {
+            require(index.version >= 3 && id.type == "model_node" && *m.node < nodes.size() &&
+                        node_members.insert(*m.node).second && m.artifact.file.empty() &&
+                        m.artifact.digest.empty() && m.artifact.bytes == 0,
+                    "Invalid or duplicate inline model node selector");
+            const auto& mesh = nodes[*m.node].at("mesh");
+            require(mesh.is_null() ? m.bindings.empty()
+                                   : (m.bindings.size() == 1 && m.bindings.contains("mesh") &&
+                                      mesh == m.bindings.at("mesh")),
+                    "Model node mesh binding differs from immutable hierarchy");
+        } else {
+            require(id.type != "model_node" && names.insert(m.artifact.file).second &&
+                        names.size() <= 4096,
+                    "Duplicate or excessive model file member");
+            filename(m.artifact.file);
+            require(valid_content_digest(m.artifact.digest) && m.artifact.bytes &&
+                        m.artifact.bytes <= total_bytes,
+                    "Invalid model member artifact");
+        }
     }
+    require(index.version < 3 || node_members.size() == nodes.size(),
+            "Model node identity coverage is incomplete");
     for (const auto& m : index.members) {
         for (const auto& [role, target] : m.bindings) {
             (void)text(role, 256);
             const auto found = members.find(target);
             require(found != members.end(), "Missing model binding target");
             require(
-                (m.identity.type == "mesh" && found->second->identity.type == "material") ||
+                (m.identity.type == "model_node" && role == "mesh" &&
+                 found->second->identity.type == "mesh") ||
+                    (m.identity.type == "mesh" && found->second->identity.type == "material") ||
                     (m.identity.type == "material" && found->second->identity.type == "texture") ||
                     (m.identity.type == "animation_clip" && role == "skeleton" &&
                      found->second->identity.type == "skeleton"),
@@ -223,16 +244,20 @@ std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index) 
     Json members = Json::array();
     for (const auto& m : index.members) {
         const auto& id = m.identity;
-        members.push_back({{"address", id.address},
-                           {"type", id.type},
-                           {"name", id.display_name},
-                           {"exporter_key", id.evidence.exporter_key},
-                           {"content_digest", id.evidence.content_digest},
-                           {"semantic_digest", id.evidence.semantic_digest},
-                           {"file", m.artifact.file},
-                           {"sha256", m.artifact.digest},
-                           {"bytes", m.artifact.bytes},
-                           {"bindings", m.bindings}});
+        Json row{{"address", id.address},
+                 {"type", id.type},
+                 {"name", id.display_name},
+                 {"exporter_key", id.evidence.exporter_key},
+                 {"content_digest", id.evidence.content_digest},
+                 {"semantic_digest", id.evidence.semantic_digest},
+                 {"bindings", m.bindings}};
+        if (m.node)
+            row["node"] = *m.node;
+        else
+            row.update({{"file", m.artifact.file},
+                        {"sha256", m.artifact.digest},
+                        {"bytes", m.artifact.bytes}});
+        members.push_back(std::move(row));
     }
     const auto text =
         Json{{"format", "forge.model-bundle"},       {"version", index.version},
@@ -247,9 +272,9 @@ ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
     const auto j = parse_bounded_json(bytes, index_bytes);
     require(j.at("format") == "forge.model-bundle", "Unsupported model bundle format");
     ModelBundleIndex result;
-    result.version = unsigned(number(j.at("version"), 2));
+    result.version = unsigned(number(j.at("version"), 3));
     result.source_digest = text(j.at("source_digest"), 64);
-    for (const auto& m : array(j.at("members"), 4096)) {
+    for (const auto& m : array(j.at("members"), 100000)) {
         ModelImportMember member;
         member.identity = {text(m.at("address"), 4096),
                            text(m.at("type"), 256),
@@ -257,8 +282,13 @@ ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
                            {text(m.at("exporter_key"), 1024, true),
                             text(m.at("content_digest"), 64, true),
                             text(m.at("semantic_digest"), 64, true)}};
-        member.artifact = {text(m.at("file"), 128), text(m.at("sha256"), 64),
-                           number(m.at("bytes"), total_bytes)};
+        if (m.contains("node")) {
+            require(!m.contains("file") && !m.contains("sha256") && !m.contains("bytes"),
+                    "Inline model node cannot also name an artifact");
+            member.node = static_cast<std::uint32_t>(number(m.at("node"), 99999));
+        } else
+            member.artifact = {text(m.at("file"), 128), text(m.at("sha256"), 64),
+                               number(m.at("bytes"), total_bytes)};
         const auto& b = m.at("bindings");
         require(b.is_object() && b.size() <= 65536, "Invalid model member bindings");
         for (const auto& [key, target] : b.items())
@@ -308,6 +338,8 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
     std::map<std::string, std::set<std::string>> material_targets;
     std::map<std::string, std::vector<std::string>> primitive_materials;
     for (const auto& m : index.members) {
+        if (m.node)
+            continue;
         const auto& file = take(m.artifact.file, m.artifact.digest, m.artifact.bytes);
         if (m.identity.type == "mesh") {
             const auto mesh = decode_mesh(file.bytes);

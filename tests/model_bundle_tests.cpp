@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
         const auto original_doc = source.document;
         const auto files = cook_static_gltf_bundle(NativeGltfDocument(source));
         const auto index = validate_model_bundle(files);
-        require(index.members.size() == 16 && index.hierarchy.at("nodes").size() == 14,
+        require(index.members.size() == 30 && index.hierarchy.at("nodes").size() == 14,
                 "Official static model family lost members/hierarchy");
         const auto again = cook_static_gltf_bundle(
             NativeGltfDocument(decode_gltf_snapshot(encode_gltf_snapshot(source))));
@@ -93,6 +93,12 @@ int main(int argc, char** argv) {
                                 observations(changed_index));
         require(reconciled.document.has_value(), "Reordered/renamed model became ambiguous");
         for (const auto& m : index.members) {
+            if (m.node) {
+                require(first.assignments.at(m.identity.address) ==
+                            reconciled.assignments.at(m.identity.address),
+                        "Mesh reorder changed source-node identity");
+                continue;
+            }
             const auto split = m.identity.address.find_last_of('/');
             const auto group = m.identity.address.substr(0, split + 1);
             const auto at = std::stoul(m.identity.address.substr(split + 1));
@@ -147,9 +153,33 @@ int main(int argc, char** argv) {
         invalid([](auto& j) { j["hierarchy"]["nodes"][0].erase("trs"); });
         invalid([](auto& j) { j["hierarchy"]["nodes"][0]["trs"]["translation"][0] = 999.0; });
         invalid([](auto& j) { j["hierarchy"]["nodes"][0]["trs"]["rotation"] = {0, 0, 0, 0}; });
+        invalid([](auto& j) { j["members"].back()["node"] = 99999; });
+        invalid([](auto& j) {
+            j["members"].back()["node"] = j["members"][j["members"].size() - 2]["node"];
+        });
+        invalid([](auto& j) { j["members"].back()["file"] = "node.bin"; });
+        invalid([](auto& j) { j["members"].erase(j["members"].end() - 1); });
+        auto version2 = files;
+        change(version2, [](auto& j) {
+            j["version"] = 2;
+            auto& members = j["members"];
+            members.erase(
+                std::remove_if(members.begin(), members.end(),
+                               [](const auto& m) { return m.at("type") == "model_node"; }),
+                members.end());
+        });
+        const auto legacy2 = validate_model_bundle(version2);
+        require(legacy2.version == 2 && legacy2.hierarchy.at("nodes")[0].contains("trs") &&
+                    decode_model_bundle_index(encode_model_bundle_index(legacy2)).version == 2,
+                "Legacy format2 lost TRS or silently gained node identities");
         auto legacy = files;
         change(legacy, [](auto& j) {
             j["version"] = 1;
+            auto& members = j["members"];
+            members.erase(
+                std::remove_if(members.begin(), members.end(),
+                               [](const auto& m) { return m.at("type") == "model_node"; }),
+                members.end());
             for (auto& node : j["hierarchy"]["nodes"])
                 node.erase("trs");
         });
@@ -168,7 +198,7 @@ int main(int argc, char** argv) {
         zero_source.source_digest = asset_build_digest(zero_source.document);
         const auto zero_files = cook_static_gltf_bundle(NativeGltfDocument(zero_source));
         const auto zero_index = validate_model_bundle(zero_files);
-        require(zero_index.version == 2 &&
+        require(zero_index.version == 3 &&
                     zero_index.hierarchy.at("nodes")[0].at("trs") == canonical_gltf_trs(zero_node),
                 "Cooked model lost original singular signed/tiny TRS");
         auto damaged_zero = zero_files;

@@ -3,6 +3,7 @@
 #include "gltf_scene.hpp"
 #include "gltf_surfaces.hpp"
 #include "gltf_transform.hpp"
+#include "gltf_validation.hpp"
 #include "texture_ktx.hpp"
 #include <algorithm>
 #include <cstring>
@@ -299,6 +300,98 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         variants.push_back({{"name", variant.name}, {"mappings", mappings}});
     }
     index.hierarchy["material_variants"] = std::move(variants);
+    // One immutable logical member per source node. Evidence excludes array
+    // positions and display labels; identical content may require an explicit
+    // correspondence choice after source changes. Parent-first traversal is
+    // already validated and bounds this work without recursion.
+    // Target channel kinds are source-node role evidence, independent of clip
+    // order/names. Full sampler/curve/skin validation still belongs to the native
+    // animation stage before Complete publication; this only reads bounded roles.
+    std::vector<unsigned> animation_roles(nodes.size());
+    std::size_t channel_budget = 1000000;
+    for (const auto& animation : gltf_detail::array(doc, "animations", 64)) {
+        cancelled();
+        const auto& channels = gltf_detail::array(animation, "channels", channel_budget);
+        channel_budget -= channels.size();
+        for (const auto& channel : channels) {
+            const auto& target = channel.at("target");
+            const auto at = gltf_detail::size_value(target.at("node"));
+            const auto& path = target.at("path").get_ref<const std::string&>();
+            const unsigned bit = path == "translation" ? 1u
+                                 : path == "rotation"  ? 2u
+                                 : path == "scale"     ? 4u
+                                 : path == "weights"   ? 8u
+                                                       : 0u;
+            require(at < nodes.size() && bit != 0, "Invalid model node animation role");
+            animation_roles[at] |= bit;
+        }
+    }
+    std::vector<std::string> own(nodes.size()), role(nodes.size()), subtree(nodes.size()),
+        role_subtree(nodes.size()), context(nodes.size());
+    std::vector<std::vector<std::size_t>> children(nodes.size());
+    std::map<std::string, std::string> member_content;
+    for (const auto& member : index.members)
+        member_content.emplace(member.identity.address, member.identity.evidence.content_digest);
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const auto& node = hierarchy.nodes[i];
+        Json value = nodes[i];
+        value.erase("name");
+        value.erase("parent");
+        value.erase("local");
+        value["skin_bound"] = node.skin != gltf_no_index;
+        value["mesh"] = node.mesh == gltf_no_index
+                            ? Json(nullptr)
+                            : Json(index.members.at(node.mesh).identity.evidence.content_digest);
+        value["camera"] =
+            node.camera == gltf_no_index ? Json(nullptr) : scene_values.cameras.at(node.camera);
+        value["light"] = nodes[i].at("light").is_null()
+                             ? Json(nullptr)
+                             : scene_values.lights.at(nodes[i].at("light").get<std::size_t>());
+        std::vector<std::string> material_content;
+        if (node.mesh != gltf_no_index)
+            for (const auto& [binding, target] : index.members.at(node.mesh).bindings) {
+                (void)binding;
+                material_content.push_back(member_content.at(target));
+            }
+        value["materials"] = sorted_digest(std::move(material_content));
+        own[i] = asset_build_digest(value);
+        value["animation_roles"] = animation_roles[i];
+        // A transform/visibility edit must not remove all correspondence evidence.
+        // Geometry plus hierarchy role remains independent from local TRS/labels.
+        for (const auto* key : {"trs", "visible", "selectable", "weights", "materials"})
+            value.erase(key);
+        role[i] = asset_build_digest(value);
+        if (node.parent != gltf_no_index)
+            children[node.parent].push_back(i);
+    }
+    for (auto at = hierarchy.parent_first.rbegin(); at != hierarchy.parent_first.rend(); ++at) {
+        std::vector<std::string> child_content, child_roles;
+        for (auto child : children[*at]) {
+            child_content.push_back(subtree[child]);
+            child_roles.push_back(role_subtree[child]);
+        }
+        role_subtree[*at] = asset_build_digest(
+            {{"own", role[*at]}, {"children", sorted_digest(std::move(child_roles))}});
+        subtree[*at] = asset_build_digest(
+            {{"own", own[*at]}, {"children", sorted_digest(std::move(child_content))}});
+    }
+    for (auto i : hierarchy.parent_first) {
+        const auto parent = hierarchy.nodes[i].parent;
+        context[i] = asset_build_digest(
+            {{"role", role_subtree[i]},
+             {"parent", parent == gltf_no_index ? std::string{} : context[parent]}});
+    }
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        ModelImportMember member;
+        member.identity = {address("nodes", i),
+                           "model_node",
+                           nodes[i].at("name").get<std::string>(),
+                           {"", subtree[i], context[i]}};
+        member.node = static_cast<std::uint32_t>(i);
+        if (!nodes[i].at("mesh").is_null())
+            member.bindings.emplace("mesh", nodes[i].at("mesh").get<std::string>());
+        index.members.push_back(std::move(member));
+    }
     if (animated)
         index.hierarchy["animation_pending"] = true;
     files.push_back({"model.json", encode_model_bundle_index(index)});
