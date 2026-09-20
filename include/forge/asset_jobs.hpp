@@ -34,6 +34,8 @@ class AssetBuildQueue {
     ~AssetBuildQueue();
     AssetBuildQueue(const AssetBuildQueue&) = delete;
     AssetBuildQueue& operator=(const AssetBuildQueue&) = delete;
+    // Empty build_key defers discovery/hash computation to this job. Such jobs
+    // are never coalesced by key; successful results must provide a valid key.
     AssetJobId submit(AssetId asset, std::uint64_t generation, std::string build_key, int priority,
                       std::vector<AssetJobId> dependencies, Task task);
     void cancel(AssetJobId id);

@@ -134,6 +134,16 @@ int main() {
         definitions = rules();
         definitions[0].help.clear();
         rejects([&] { ImportSettingsSchema bad("forge.fixture", 1, definitions); });
+        ImportSettingRule usages{"usages", "Usages", "Choose distinct supported usages",
+                                 ImportSettingType::StringList, Json::array()};
+        usages.choices = {"color", "data", "normal"};
+        ImportSettingsSchema multi("forge.multi", 1, {usages});
+        ImportSettingsDocument multi_value{"forge.multi"};
+        multi_value = multi.edit(multi_value, "usages", Json::array({"color", "data"}));
+        require(multi.effective(multi_value).at("usages").size() == 2,
+                "Typed multi-choice values were lost");
+        rejects([&] { multi.edit(multi_value, "usages", Json::array({"unknown"})); });
+        rejects([&] { multi.edit(multi_value, "usages", Json::array({"color", "color"})); });
         std::cout << "Typed importer settings, explicit intent, migration, limits and build "
                      "identity passed\n";
         return 0;

@@ -109,3 +109,37 @@ proof of a complete production importer, cooked package, resource manager or GPU
 retirement path. Concrete providers must supply actual format/compatibility
 validation and sidecar bindings. The editor's import commands must invoke recovery
 before accepting new jobs and expose conflicts with their actual paths.
+
+## Shared application service
+
+`AssetImportService` supplies the concrete UI/headless orchestration boundary.
+It retains the project writer lease, recovers interrupted publication before new
+work, captures a source/settings draft and submits source hashing/discovery,
+cache lookup and supervised cooking to the existing bounded `AssetBuildQueue`.
+Probe prefixes are limited to64KiB; full source hashes/decoding do not run in the
+UI draw path. The owner drains prepared candidates and invokes importer-specific
+family preparation plus the mandatory compatibility callback before publication.
+
+Jobs may defer their content key until discovery finishes. Unkeyed jobs never
+coalesce by an unknown key; a successful result must supply a valid content digest.
+Existing keyed jobs retain exact-key verification/coalescing. New generations
+supersede older candidates, cancellation after cooking still prevents publication,
+and service shutdown cancels/joins jobs before releasing writer ownership.
+The service's status distinguishes a cooked candidate waiting for publication from
+an imported asset; publication failures are retained in its bounded job receipts.
+
+Unrelated catalog changes may be accepted while a candidate builds. The service
+compares this owner's complete root/member records and exact sidecar against its
+captured baseline before refreshing the publisher's whole-catalog ticket. It also
+checks source ownership. Changed owner records, conflicting copied sidecar IDs and
+changed settings reject. The publisher then rechecks every source/dependency and
+its exact new ticket around compatibility validation. This permits independent
+queued imports without treating an unrelated asset publication as permission to
+overwrite the selected asset.
+
+The texture provider supplies its existing single-root mapping and typed validator.
+The CLI has no live world/device, so its compatibility preflight has no live resource
+to replace. The current editor texture workflow likewise does not yet expose GPU
+texture/material consumers; those consumers must add their compatibility preflight
+when wired. No cross-document scene Undo, arbitrary native rollback or general
+plugin ABI is implied.

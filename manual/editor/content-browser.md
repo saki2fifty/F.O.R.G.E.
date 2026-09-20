@@ -1,6 +1,6 @@
 # Content browser
 
-Content is the project's asset browser. It lists registered scenes, prefabs, audio, animation, navigation and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
+Content is the project's asset browser. It lists registered scenes, prefabs, audio, animation, navigation, texture and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
 
 ## Find and inspect an asset
 
@@ -21,6 +21,7 @@ Alternatively open the field's picker, search, and choose a compatible asset. **
 
 Open **Create / Register**:
 
+- **Import texture...** opens the [Texture import](textures.md) document for image/container settings and safe reimport.
 - **New scene** creates an untitled scene through the save guard.
 - **Audio / Register WAV** registers a WAV already copied into this project. Enter its project-relative path and choose **Register WAV**.
 - **Prefabs** contains Create from selection, Instantiate, Edit source and Duplicate asset.
@@ -30,13 +31,13 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 ## Current limits
 
-This is a catalog browser, not a general importer or file manager. Arbitrary file importing, thumbnails, file rename/delete, asset placement into the Scene, and cooking are not implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+This is a catalog browser, not a general importer or file manager. Texture sources have a supported import/cook workflow. General file management, thumbnails and asset placement into the Scene are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 16 directory levels, 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
-Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Other asset types do not yet have dedicated document editors.
+Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their import settings document; this does not yet provide a GPU texture preview.
 
 
 ## Asset catalog compatibility

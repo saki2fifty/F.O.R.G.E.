@@ -199,6 +199,7 @@ ImportSettingsSchema texture_settings(bool container) {
         "additional_usages", "Additional usages",
         "Cook additional color/data/normal/HDR variants under the same Texture AssetId.",
         ImportSettingType::StringList, Json::array()};
+    additional.choices = {"color", "data", "normal", "hdr"};
     additional.max_entries = 3;
     additional.max_length = 16;
     rules.push_back(additional);

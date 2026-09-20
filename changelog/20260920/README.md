@@ -330,3 +330,31 @@
 - Formatting, manual links and workflow syntax checks passed. New Windows worker
   validation is pending. Previous c2e3fb8 Windows audit passed12/12 in10.72s and
   all four core/SDK push profiles passed. No numbered build was allocated.
+
+## Shared import commands and texture settings document (Phase7 in progress)
+
+- Connected source discovery/hashing, verified cache hits and supervised cooking
+  to the existing bounded asset queue. Owner-thread publication retains the project
+  writer lease and rejects changed sources, settings or selected asset families.
+  Independent queued imports can publish without clobbering unrelated catalog rows.
+- Added `forge_tools --assets import` through that shared service, typed override
+  validation and structured results. Worker lookup uses the actual executable
+  directory, including PATH launches. Relocation can rebuild from sources/sidecars
+  without the disposable cache and retains AssetId/build identity.
+- Added Content's Texture import document and texture asset open handler. It uses
+  importer-owned typed fields, multi-choice usages, defaults, cancellation, progress,
+  Save focus and Apply/Discard/Keep Editing guards. Asset import stays outside scene
+  Undo. New text-button wrapping and modal bounds preserve narrow/high-DPI access.
+- Added explicit StringList choices with duplicate/unsupported-value admission;
+  unconstrained string lists retain prior semantics. Initial UI testing exposed
+  and corrected the schema mismatch before accepting the workflow.
+- Normal actual worker/CLI/service/queue/settings checks passed7/7 in6.41s; strict
+  ASan/UBSan/LeakSanitizer checks5/5 in3.78s; shared-SDK service checks4/4 in2.27s.
+  Actual ImGui editor adapter imported/reimported through the worker, retained its
+  AssetId/history boundary and closed its modal correctly:1/1 in0.80s on Linux.
+- Added two Windows editor render captures for texture settings at100% and200%.
+  Their execution/review is pending. Manual links, formatting and workflow syntax
+  are checked; the offline manual's supported Markdown subset is retained.
+- Previous worker checkpoint27e2cfb passed Windows audit15/15 in13.27s. No numbered
+  package was created. Model/material/shader/GPU/skinning/custom authoring and full
+  Phase7 validation remain open; a registered texture is not a GPU preview.

@@ -1,3 +1,6 @@
+if(NOT FORGE_BUILD_ASSET_TOOLS)
+ message(FATAL_ERROR "The editor requires FORGE_BUILD_ASSET_TOOLS for its import workflows")
+endif()
 include(cmake/sdl.cmake)
 FetchContent_Declare(imgui_source GIT_REPOSITORY https://github.com/ocornut/imgui.git GIT_TAG b48d1afbe8ee8b238e2961dc363a949dd7304e23) # v1.92.9b-docking
 FetchContent_MakeAvailable(imgui_source)

@@ -7,7 +7,7 @@
 #include <forge/schema.hpp>
 #include <fstream>
 #include <iostream>
-// Authoring stdio is memory-only; asset commands inspect project files read-only.
+// Authoring stdio is memory-only. Asset writes require the project writer lease.
 int main(int argc, char** argv) {
     ecs_os_set_api_defaults();
     ecs_os_api.log_out_ = stderr; // Keep native diagnostics outside the JSON protocol.

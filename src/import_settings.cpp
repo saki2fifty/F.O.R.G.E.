@@ -86,7 +86,9 @@ ImportSettingsSchema::ImportSettingsSchema(std::string importer, unsigned versio
                 throw std::runtime_error("Invalid import setting choices: " + rule.key);
             text_bytes += choice.size();
         }
-        if ((rule.type == ImportSettingType::Choice) != !rule.choices.empty())
+        if ((rule.type == ImportSettingType::Choice && rule.choices.empty()) ||
+            (rule.type != ImportSettingType::Choice && rule.type != ImportSettingType::StringList &&
+             !rule.choices.empty()))
             throw std::runtime_error("Choice values do not match import setting kind: " + rule.key);
         text_bytes += rule.key.size() + rule.label.size() + rule.help.size();
         if (text_bytes > 1024 * 1024)
@@ -138,12 +140,22 @@ void ImportSettingsSchema::validate_value(const ImportSettingRule& rule, const J
             rule.choices.end())
             fail();
         break;
-    case ImportSettingType::StringList:
+    case ImportSettingType::StringList: {
         if (!value.is_array() || value.size() > rule.max_entries)
             fail();
-        for (const auto& item : value)
+        std::set<std::string> selected;
+        for (const auto& item : value) {
             text(item);
+            if (!rule.choices.empty()) {
+                const auto& choice = item.get_ref<const std::string&>();
+                if (std::find(rule.choices.begin(), rule.choices.end(), choice) ==
+                        rule.choices.end() ||
+                    !selected.insert(choice).second)
+                    fail();
+            }
+        }
         break;
+    }
     case ImportSettingType::StringMap:
         if (!value.is_object() || value.size() > rule.max_entries)
             fail();

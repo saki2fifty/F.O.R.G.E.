@@ -68,3 +68,19 @@ protocol remains memory-only and unchanged.
 `--assets source-dependents PROJECT LOCATOR` queries primary and additional raw
 source edges in the same graph, returning direct consumers and their affected
 transitive dependents. Missing source files remain queryable by their locator.
+
+## Texture import command
+
+Asset-tool builds add `forge_tools --assets import PROJECT SOURCE [OVERRIDES_JSON]`.
+SOURCE is a project-relative supported texture source. The optional JSON object
+supplies explicit typed setting overrides; unspecified settings retain their saved
+intent. The command acquires the existing project writer lease and uses the same
+import service/provider as the editor. An editor already owning the project prevents
+an unsynchronized CLI write. The authoring stdio protocol remains memory-only.
+
+Success returns the Texture AssetId, build key, verified-cache-hit flag and any
+post-commit cleanup diagnostic. Failure returns the existing structured JSON error
+and nonzero exit code; prior catalog/sidecar selections remain intact. The process
+wait is bounded. The packaged worker is resolved beside the actual running executable,
+including PATH launches from other working directories. Projects can be relocated
+and rebuilt from sources/sidecars/catalog with an empty disposable cache.

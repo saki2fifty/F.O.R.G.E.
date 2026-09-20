@@ -32,6 +32,7 @@
 #include "scene_cache.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
+#include "texture_imports.hpp"
 #include "transform_gesture.hpp"
 #include "view_state.hpp"
 #include "viewport.hpp"
@@ -275,21 +276,26 @@ int main(int argc, char** argv) {
             message = e.what();
         }
         forge::ui::FlecsScriptEditor script_editor(std::filesystem::path(base) / "forge_tools.exe");
+        forge::TextureImportEditor texture_imports(std::filesystem::path(base) /
+                                                   "forge_asset_build.exe");
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
         std::string name_entity, authored_name;
         std::optional<forge::EditorFiles::Action> pending_switch;
         files.before_request = [&](const forge::EditorFiles::Action& action) {
-            if (!prefab_editor.dirty() && !project_settings.dirty() && !script_editor.dirty())
+            if (!prefab_editor.dirty() && !project_settings.dirty() && !script_editor.dirty() &&
+                !texture_imports.dirty())
                 return true;
             pending_switch = action;
             if (prefab_editor.dirty())
                 prefab_editor.request_close();
             else if (project_settings.dirty())
                 project_settings.request_close();
-            else
+            else if (script_editor.dirty())
                 script_editor.request_close();
+            else
+                texture_imports.request_close();
             return false;
         };
         documents.add({"scene",
@@ -359,6 +365,23 @@ int main(int argc, char** argv) {
                            }});
         asset_editors.add({"prefab", "Edit prefab source", [&](const forge::AssetRecord& a) {
                                prefab_editor.edit_source(files.document, a.id);
+                           }});
+        documents.add({"texture_import",
+                       "Texture import",
+                       "Texture import###Texture import",
+                       true,
+                       [&] { return texture_imports.is_open(); },
+                       [&] { return texture_imports.dirty(); },
+                       [&] { texture_imports.draw(files.document, document_locked); },
+                       [&] { texture_imports.request_save(); },
+                       {},
+                       {},
+                       [&] { texture_imports.request_close(); },
+                       {},
+                       {},
+                       {}});
+        asset_editors.add({"texture", "Import settings", [&](const forge::AssetRecord& asset) {
+                               texture_imports.open(files.document, asset.source);
                            }});
         files.save_active = [&] {
             if (!documents.save(editor.task.id()))
@@ -858,6 +881,22 @@ int main(int argc, char** argv) {
                     SDL_SetWindowSize(window.get(), 1440, 900);
                     workspace.reset = true;
                     break;
+                case 26: {
+                    std::string image(18, '\0');
+                    image[2] = 2;
+                    image[12] = 2;
+                    image[14] = 2;
+                    image[16] = 24;
+                    image[17] = 32;
+                    image.append(12, char(255));
+                    forge::atomic_write(files.document.project() / "Assets/texture.tga", image);
+                    texture_imports.open(files.document, "Assets/texture.tga");
+                    break;
+                }
+                case 27:
+                    forge::ui::style(2);
+                    SDL_SetWindowSize(window.get(), 960, 640);
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -993,6 +1032,12 @@ int main(int argc, char** argv) {
                           blockout.at_view_target, edit_locked);
             files.draw_dialogs();
             animation_tools.poll(files.document, message);
+            try {
+                texture_imports.poll(files.document, message);
+            } catch (const std::exception& e) {
+                message = e.what();
+                forge::ui::report_error("texture_import", message);
+            }
             navigation_tools.poll(scene, files.document, play.active(), message);
             automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +
@@ -1521,6 +1566,7 @@ int main(int argc, char** argv) {
                     files, &workspace.content,
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
+                        texture_imports.content(files.document, edit_locked);
                         script_editor.content(files.document, edit_locked, editor.selection,
                                               message);
                         animation_tools.content(files.document, edit_locked, message);
@@ -1743,10 +1789,10 @@ int main(int argc, char** argv) {
             }
 
             if (prefab_editor.close_cancelled || project_settings.close_cancelled ||
-                script_editor.close_cancelled) {
+                script_editor.close_cancelled || texture_imports.close_cancelled) {
                 pending_switch.reset();
                 prefab_editor.close_cancelled = project_settings.close_cancelled =
-                    script_editor.close_cancelled = false;
+                    script_editor.close_cancelled = texture_imports.close_cancelled = false;
             }
             if (pending_switch) {
                 if (!prefab_editor.dirty() && project_settings.dirty())
@@ -1755,7 +1801,10 @@ int main(int argc, char** argv) {
                          script_editor.dirty())
                     script_editor.request_close();
                 else if (!prefab_editor.dirty() && !project_settings.dirty() &&
-                         !script_editor.dirty()) {
+                         !script_editor.dirty() && texture_imports.dirty())
+                    texture_imports.request_close();
+                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
+                         !script_editor.dirty() && !texture_imports.dirty()) {
                     auto action = *pending_switch;
                     pending_switch.reset();
                     files.request(action);
@@ -1826,7 +1875,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 26) {
+                if (fixture.stage == 28) {
                     play.stop();
                     running = false;
                 }

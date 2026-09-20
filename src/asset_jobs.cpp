@@ -107,7 +107,8 @@ struct AssetBuildQueue::State : std::enable_shared_from_this<AssetBuildQueue::St
                             active->info.stage = std::move(stage);
                         }
                     });
-                if (result.key != job->info.build_key)
+                if (!valid_content_digest(result.key) ||
+                    (!job->info.build_key.empty() && result.key != job->info.build_key))
                     throw std::runtime_error(
                         "Worker returned an artifact for different build inputs");
                 artifact = std::make_shared<const CachedArtifact>(std::move(result));
@@ -147,6 +148,7 @@ struct AssetBuildQueue::State : std::enable_shared_from_this<AssetBuildQueue::St
                             "Completed asset memory budget exhausted; drain results and retry";
                     } else {
                         job->info.state = AssetJobState::Ready;
+                        job->info.build_key = artifact->key;
                         job->info.progress = 1;
                         retained_bytes += artifact->byte_size();
                         job->artifact = std::move(artifact);
@@ -195,7 +197,7 @@ AssetBuildQueue::~AssetBuildQueue() {
 }
 AssetJobId AssetBuildQueue::submit(AssetId asset, std::uint64_t generation, std::string key,
                                    int priority, std::vector<AssetJobId> dependencies, Task task) {
-    if (!asset || !generation || !valid_content_digest(key) || !task)
+    if (!asset || !generation || (!key.empty() && !valid_content_digest(key)) || !task)
         throw std::runtime_error("Invalid asset build request");
     std::unique_lock lock(state_->mutex);
     if (state_->shutdown)
@@ -212,7 +214,7 @@ AssetJobId AssetBuildQueue::submit(AssetId asset, std::uint64_t generation, std:
         if (!state_->jobs.contains(dependency))
             throw std::runtime_error("Unknown asset job dependency");
     for (auto& [id, job] : state_->jobs)
-        if (job->info.asset == asset && job->info.generation == generation &&
+        if (!key.empty() && job->info.asset == asset && job->info.generation == generation &&
             job->info.build_key == key && !finished(job->info.state)) {
             if (job->info.dependencies != dependencies)
                 throw std::runtime_error("Coalesced job dependencies disagree");

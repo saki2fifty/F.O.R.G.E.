@@ -87,8 +87,11 @@ Portable tests cover rejection, enum/range/type/size constraints, default and
 cross-field validity, equal-value intent, reset/repair, unknown retention,
 version migration, failed-parse preservation, canonical digest behavior,
 registration ambiguity/order, sealed lifecycle and shared provider lifetime.
-Production importer selection, settings UI/persistence, actual worker execution,
-DDC publication and end-to-end reimport are still integration work.
+Texture import now uses these settings through the shared application service,
+actual isolated workers and a central editor document. Other production providers
+and broader Phase7 integration remain in progress. StringList rules can declare
+bounded choices; such lists validate distinct members and use multi-select widgets.
+Unrestricted StringList rules retain their previous bounded-string behavior.
 
 ## Shared worker supervision
 

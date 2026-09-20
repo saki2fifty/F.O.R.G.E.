@@ -82,6 +82,13 @@ inline bool button(const char* label, const char* description) {
     help(description);
     return result;
 }
+inline void next_text_button(const char* label) {
+    const auto& style = ImGui::GetStyle();
+    const float width = ImGui::CalcTextSize(label, nullptr, true).x + 2 * style.FramePadding.x;
+    if (ImGui::GetItemRectMax().x + style.ItemSpacing.x + width <=
+        ImGui::GetCurrentWindow()->WorkRect.Max.x)
+        ImGui::SameLine();
+}
 inline void heading(const char* label, const char* description) {
     ImGui::SeparatorText(label);
     help(description);
