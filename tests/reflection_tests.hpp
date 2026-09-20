@@ -59,6 +59,19 @@ inline void test_reflection() {
                                            {"components", {{"forge.audio_source", audio}}}}})}};
     doc["entities"][0]["components"]["forge.audio_source"]["gain"] = 2;
     scene.reset(doc); // Warning is advisory; supported amplification remains usable.
+    // Existing builtin extension payloads keep their scene-envelope contract;
+    // the new custom reflected-value budget must not truncate unknown data.
+    doc["entities"][0]["components"]["forge.audio_source"]["future_extension"] =
+        std::string(70000, 'x');
+    scene.reset(doc);
+    require(scene.document()
+                    .at("entities")[0]
+                    .at("components")
+                    .at("forge.audio_source")
+                    .at("future_extension")
+                    .get<std::string>()
+                    .size() == 70000,
+            "Reflected admission discarded an existing opaque extension");
     const auto before = scene.document();
     auto reject = [&](Json invalid) {
         bool caught = false;

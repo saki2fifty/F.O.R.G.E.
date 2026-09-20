@@ -108,3 +108,36 @@ integer/enum/string/container bounds, unknown preservation, scene and prefab rou
 trips, equal-value intent, Revert/Undo, source propagation, failed migration rollback,
 module lifetime and rich Editor Play. A standalone SDK registration example does not
 satisfy this gate. Phase 7 asset code may not assume this implementation already exists.
+
+## Phase 7 implementation checkpoint: native metadata and value admission
+
+`src/reflected_value.cpp` now supplies the common bounded Meta projection used by
+built-in component schemas and their detached JSON validation. It traverses native
+primitive, enum, bitmask, struct, inline/fixed array and vector metadata. Reference
+adapters are explicitly selected by engine-owned native type identity; being opaque
+alone does not make a type an AssetRef. No native IDs, offsets, pointers or hooks
+appear in the copied result. This is a projection of Flecs metadata, not a second
+registration authority.
+
+Admission checks member alignment, extents, overlap, partial metadata, recursion,
+depth and leaf limits. Integer storage/ranges are checked without converting the
+integer to double, including uint64 values above 2^53. Strings must be valid UTF-8
+without embedded NUL; nonfinite numbers and unknown enum/bitmask values fail.
+The 64KiB canonical value envelope and aggregate 4096 container-entry budget include
+unknown fields. Validation preserves their values. Existing builtin opaque extension
+payloads retain their older scene-envelope limits; only known builtin fields enter
+this new bounded reflected-value validator.
+
+These checks do **not** prove that arbitrary C++ padding contains no unreflected
+members, authorize project hooks, or load project code into the editor. Explicit
+SDK opt-in, isolated extraction, schema digest/admission, reconstructed Meta storage,
+value transport, containers in the Inspector, custom persistence/migrations and
+matching SDK Play remain required before project types are advertised as authorable.
+No dependency pin or scene/identity/ABI1 format changed in this checkpoint.
+
+Source evidence: exact Flecs4.1.6 `include/flecs/addons/meta.h`,
+`src/addons/meta/type_support/{struct_ts,enum_ts,array_ts}.c`, and
+`test/meta/src/RuntimeTypes.c`. Native vectors use `ecs_vec_t` and native lifecycle;
+arbitrary STL opaque containers are not implicitly admitted. Native bitmasks use
+u32 storage at this pin. Pointer-sized integers and process-local entity IDs are
+not durable authored reference types.

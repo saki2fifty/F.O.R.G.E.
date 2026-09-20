@@ -752,3 +752,27 @@
 - Windows source audit35520758551 onbafdd608 passed33/33(28.11s), validating the earlier
   model-runtime bridge and MSVC corrections. Later d1dd1fb push checks also passed.
   The current node changes require their own Windows audit; no numbered build here.
+
+### Shared reflected component value admission
+
+- Built-in schema export and detached value validation now share a bounded projection
+  of native Flecs Meta/Doc/Units. Opaque types require explicitly selected engine
+  reference adapters instead of being assumed to be AssetRefs.
+- The reusable boundary covers fixed-width integers, finite floats, UTF-8 strings,
+  native enums/bitmasks, nested structs, fixed/inline arrays and native vectors.
+  It rejects invalid member layouts, partial/cyclic/deep metadata, overflow,
+  malformed values and excessive payload/container sizes. Integer range checks
+  preserve exact64-bit values, including adjacent integers above2^53.
+- Existing built-in fields and cross-component/domain validators remain active;
+  existing unknown extension payloads retain their scene-envelope contract and
+  survive unchanged. This is a prerequisite for custom component authoring, not a
+  claim that isolated SDK schema transport, custom Inspector/persistence or Play
+  are already available.
+- Normal core/authoring/prefab3/3 passed(2.15s); strict ASan/UBSan/LSan3/3
+  passed(17.25s), including boundary values, reference adapters, nested collections,
+  malformed layouts and preservation of a70KiB unknown builtin extension.
+  Manual3/3 and format checks passed. Initial test compilation needed correcting
+  the exact Flecs `Uptr` spelling and retaining the component handle separately
+  from its opaque builder; no dependency API was patched.
+- Previous model-node commitfb8d79d passed Windows source audit35523602035:
+ 33/33 tests(28.63s). No numbered package was allocated.

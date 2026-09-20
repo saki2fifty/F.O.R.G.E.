@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "reflected_value.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -605,68 +606,22 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
-        const auto* structure = ecs_get(world.c_ptr(), c.id(), EcsStruct);
-        if (!structure)
-            throw std::runtime_error("Reflection metadata is missing");
-        Json fields = Json::array();
-        const auto* members = ecs_vec_first_t(&structure->members, ecs_member_t);
-        for (int i = 0; i < ecs_vec_count(&structure->members); ++i) {
-            const auto& m = members[i];
-            const auto* enumeration = ecs_get(world.c_ptr(), m.type, EcsEnum);
-            const auto* primitive = ecs_get(
-                world.c_ptr(), enumeration ? enumeration->underlying_type : m.type, EcsPrimitive);
-            const bool integral = primitive && primitive->kind == EcsU32;
-            const bool boolean = primitive && primitive->kind == EcsBool;
-            const bool wide = primitive && primitive->kind == EcsF64;
-            const bool asset = ecs_has(world.c_ptr(), m.type, EcsOpaque);
-            if (!primitive && !asset)
-                throw std::runtime_error("Unsupported builtin reflected member kind");
-            const auto options = registration_options(type, m.name);
-            Json f = {{"id", m.name},
-                      {"property_id", std::string(type.name) + "." + m.name},
-                      {"type", asset      ? "asset_ref"
-                               : boolean  ? "bool"
-                               : integral ? "uint32"
-                               : wide     ? "float64"
-                                          : "float32"},
-                      {"description", ecs_doc_get_brief(world.c_ptr(), m.member)},
-                      {"display_name", ecs_doc_get_name(world.c_ptr(), m.member)},
-                      {"default", type.defaults.at(m.name)},
-                      {"serialized", true},
-                      {"read_only", false},
-                      {"animatable", primitive && !integral && !boolean},
-                      {"unit", "unitless"}};
-            // Only FORGE semantic annotations remain outside native Meta/Doc/Units.
-            for (const char* key : {"asset_type", "nullable"})
-                if (options.contains(key))
-                    f[key] = options.at(key);
-            if (m.unit) {
-                const auto* unit = ecs_get(world.c_ptr(), m.unit, EcsUnit);
-                if (!unit || !unit->symbol)
-                    throw std::runtime_error("Reflected unit has no symbol");
-                f["unit"] = unit->symbol;
-            }
-            if (const auto* ranges = ecs_get(world.c_ptr(), m.member, EcsMemberRanges)) {
-                if (ranges->value.min != ranges->value.max) {
-                    f["minimum"] = ranges->value.min;
-                    f["maximum"] = ranges->value.max;
-                }
-                for (const auto& [key, range] : {std::pair{"warning_range", ranges->warning},
-                                                 std::pair{"error_range", ranges->error}})
-                    if (range.min != range.max)
-                        f[key] = {{"minimum", range.min}, {"maximum", range.max}};
-            }
-            if (enumeration) {
-                const auto* constants = ecs_get(world.c_ptr(), m.type, EcsConstants);
-                const auto* values =
-                    ecs_vec_first_t(&constants->ordered_constants, ecs_enum_constant_t);
-                f["choices"] = Json::array();
-                for (int i = 0; i < ecs_vec_count(&constants->ordered_constants); ++i)
-                    f["choices"].push_back(
-                        {{"label", ecs_doc_get_name(world.c_ptr(), values[i].constant)},
-                         {"value", values[i].value_unsigned}});
-            }
-            fields.push_back(std::move(f));
+        std::vector<ReflectedReference> references;
+        // Only explicitly registered FORGE references cross the opaque boundary.
+        for (const auto& [path, asset] :
+             {std::pair{"forge.audio_clip_ref", AudioClipAsset::type},
+              std::pair{"forge.skeleton_ref", SkeletonAsset::type},
+              std::pair{"forge.animation_clip_ref", AnimationClipAsset::type},
+              std::pair{"forge.navmesh_ref", NavMeshAsset::type},
+              std::pair{"forge.ui_document_ref", UiDocumentAsset::type}}) {
+            if (auto ref = world.lookup(path))
+                references.push_back({ref.id(), "asset_ref", asset});
+        }
+        auto fields = reflected_type_schema(world, c.id(), references).at("fields");
+        for (auto& field : fields) {
+            const auto member = field.at("id").get<std::string>();
+            field["property_id"] = name + "." + member;
+            field["default"] = type.defaults.at(member);
         }
         const char* categories[] = {
             "Rendering / Transform", "Physics", "Audio", "Animation", "Navigation", "Runtime UI"};
@@ -740,43 +695,15 @@ void validate_components(const Json& components) {
             continue;
         const auto& data = components.at(type.name);
         const auto schema = validation_schema(type.name);
+        // Preserve the legacy opaque extension envelope. The bounded reflected
+        // payload contains only this builtin's known fields, never unknown data.
+        Json known = Json::object();
         for (const auto& field : schema.at("fields")) {
-            const auto& value = data.at(field.at("id").get<std::string>());
-            const auto kind = field.at("type").get<std::string>();
-            if (kind == "asset_ref") {
-                if (!value.is_null())
-                    (void)value.get<AssetId>();
-                continue;
-            }
-            if (kind == "bool") {
-                if (!value.is_boolean())
-                    throw std::runtime_error("Component field requires a boolean");
-                continue;
-            }
-            const bool integral = kind == "uint32", wide = kind == "float64";
-            if (!value.is_number() || (integral && !value.is_number_integer()))
-                throw std::runtime_error("Component field has invalid numeric type");
-            if (field.contains("choices")) {
-                bool found = false;
-                for (const auto& choice : field.at("choices"))
-                    found |= choice.at("value") == value;
-                if (!found)
-                    throw std::runtime_error("Unsupported reflected enum value");
-            }
-            const double n = value.get<double>();
-            const double storage_max = integral ? double(UINT32_MAX)
-                                       : wide   ? std::numeric_limits<double>::max()
-                                                : double(std::numeric_limits<float>::max());
-            double low = field.value("minimum", integral ? 0.0 : -storage_max);
-            const double high = field.value("maximum", storage_max);
-            if (!integral && !wide)
-                low = double(float(low));
-            const double stored = integral || wide ? n : double(value.get<float>());
-            if (!std::isfinite(n) || !std::isfinite(stored) || stored < low || stored > high)
-                throw std::runtime_error(std::string(type.name) + "." +
-                                         field.at("id").get<std::string>() +
-                                         ": component field outside supported range");
+            const auto key = field.at("id").get<std::string>();
+            known[key] = data.at(key);
         }
+        validate_reflected_json(
+            {{"type", "struct"}, {"id", type.name}, {"fields", schema.at("fields")}}, known);
         (void)type.decode(data); // Cross-member invariants remain FORGE-owned.
     }
 }

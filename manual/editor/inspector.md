@@ -41,3 +41,8 @@ Ordinary fields read label then value; narrow panels stack the label to preserve
 ## Metadata, units and ranges
 
 Field labels and help use the registered component metadata. Physical quantities show applicable units; local translation is in meters, while quaternion rotation components and scale are dimensionless. Enum fields use named choices. Recommended ranges produce advisory feedback; unsupported hard limits reject the edit. Cross-field rules, such as maximum audio distance being at least minimum distance, still apply.
+
+Integer properties reject fractional values and numbers outside their storage range.
+Rejected edits keep the previous value and do not add an Undo step. Unrecognized
+extension data already saved with a component is retained when known properties
+are edited; it does not become an editable field merely because it was preserved.
