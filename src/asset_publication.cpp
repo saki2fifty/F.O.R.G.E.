@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "import_cache_limits.hpp"
 #include <algorithm>
 #include <forge/asset_publication.hpp>
 #include <fstream>
@@ -427,7 +428,7 @@ AssetPublicationResult AssetPublisher::publish(AssetPublicationCandidate candida
                 throw std::runtime_error(
                     "External output dependency is absent from captured build inputs");
     }
-    DerivedDataCache cache(paths_.root());
+    DerivedDataCache cache(paths_.root(), asset_detail::import_cache_limits(descriptor));
     auto artifact = cache.publish(candidate.input, std::move(candidate.files),
                                   [&](const CachedArtifact& value) { importer.validate(value); });
     const auto artifact_digest = asset_build_digest(artifact.manifest.at("files"));

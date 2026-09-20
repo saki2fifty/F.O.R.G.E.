@@ -470,3 +470,33 @@
   remains green. MIME/extension byte mismatches and missing material UV streams
   reject. Formatting, manual3/3, workflow and whitespace checks passed. Windows
   validation of the new model stage remains pending.
+
+
+### Model worker, whole-family publication and tools
+
+- Added a fixed glTF model recipe to the isolated asset worker, with immutable
+  source/dependency capture, exact recipe/toolchain fingerprints and bounded
+  memory, time, staging and output limits. The current recipe supports static
+  Mesh/Material/Texture families; required remaining model stages are documented.
+- Connected model candidates to the shared import service and atomic catalog/
+  sidecar publisher. Typed graph bindings resolve candidate-local slots to durable
+  AssetIds; removed members become tombstones. Ambiguous correspondence returns
+  structured alternatives and requires an explicit same-type/new-asset decision.
+- Extended `forge_tools --assets import` with model selection and optional identity
+  decisions, retaining the same project writer ownership and last-good behavior.
+  Added an end-user model tools page and exact current limitations.
+- Aligned service and publisher cache admission with bounded importer output limits,
+  allowing complete model families beyond the previous256-file default. A260-mesh
+  fixture verifies initial publication and cache reimport.
+- Corrected member dependency compatibility projections after the first end-to-end
+  test rejected an incomplete record before publication. Normal8/8 checks passed
+  in44.59s; strict ASan/UBSan/LSan4/4 passed in34.04s. Coverage includes real worker/
+  CLI, source reorder/rename, ambiguity/explicit choices, removal, relocation,
+  corrupt/stale/cancelled candidates, compatibility rejection and texture regression.
+- Recorded an exact Ozz0.17.0 converter finding: matrix-authored static parent rest
+  channels disappear in an animated clip unless represented as explicitTRS.
+  The official-converter reproduction measured0/0.499878 versus5/5.49988 for the
+  equivalentTRS fixture. The model-animation correction remains pending.
+- Windows evidence: prior material/resource source172bc02 passed24/24 audit tests
+  in11.35s (run35509366990). Current model-worker Windows validation is pending.
+  No numbered package was issued; full Phase7 remains in progress.

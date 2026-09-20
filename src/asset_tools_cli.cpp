@@ -1,6 +1,7 @@
 #include "asset_tools_cli.hpp"
 #ifdef FORGE_ASSET_TOOLS
 #include "bounded_json.hpp"
+#include "import_authoring.hpp"
 #include "self_executable.hpp"
 #include "texture_authoring.hpp"
 #endif
@@ -12,10 +13,10 @@ namespace forge {
 int asset_tools_cli(int argc, char** argv) {
     using Json = nlohmann::json;
     try {
-        if (argc < 4 || argc > 6)
-            throw std::runtime_error(
-                "Usage: forge_tools --assets scan PROJECT [ROOT] | query "
-                "PROJECT | dependents PROJECT UUID | import PROJECT SOURCE [OVERRIDES_JSON]");
+        if (argc < 4 || argc > 7)
+            throw std::runtime_error("Usage: forge_tools --assets scan PROJECT [ROOT] | query "
+                                     "PROJECT | dependents PROJECT UUID | import PROJECT SOURCE "
+                                     "[OVERRIDES_JSON [IDENTITY_DECISIONS_JSON]]");
         const std::string operation = argv[2];
         const auto project = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
         if (!std::filesystem::is_directory(project))
@@ -75,17 +76,17 @@ int asset_tools_cli(int argc, char** argv) {
             result["direct"] = catalog.dependency_graph().source_referrers(source);
             result["affected"] = catalog.dependency_graph().invalidated_by_source(source);
 #ifdef FORGE_ASSET_TOOLS
-        } else if (operation == "import" && (argc == 5 || argc == 6)) {
+        } else if (operation == "import" && (argc >= 5 && argc <= 7)) {
             const auto executable = self_executable();
             auto worker = executable.parent_path() / "forge_asset_build";
 #ifdef _WIN32
             worker += ".exe";
 #endif
-            auto registry = texture_import_registry(worker);
+            auto registry = asset_import_registry(worker);
             auto lease = std::make_shared<ProjectLease>(project);
             AssetImportService service(lease, registry, desktop_texture_target());
             auto draft = service.prepare(std::filesystem::u8path(argv[4]));
-            if (argc == 6) {
+            if (argc >= 6) {
                 const std::string_view text(argv[5]);
                 const auto overrides = asset_detail::parse_bounded_json(
                     std::as_bytes(std::span(text)), 65536, 4096, 16);
@@ -95,16 +96,54 @@ int asset_tools_cli(int argc, char** argv) {
                     draft.request.settings =
                         draft.importer->settings().edit(draft.request.settings, key, value);
             }
+            std::vector<SubassetIdentityDecision> decisions;
+            if (argc == 7) {
+                const std::string_view text(argv[6]);
+                const auto choices = asset_detail::parse_bounded_json(
+                    std::as_bytes(std::span(text)), 1024 * 1024, 32768, 8);
+                if (!choices.is_array() || choices.size() > 4096)
+                    throw std::runtime_error("Identity decisions must be a bounded array");
+                for (const auto& choice : choices) {
+                    if (!choice.is_object() || choice.size() != 2 || !choice.contains("address") ||
+                        !choice.contains("previous"))
+                        throw std::runtime_error("Identity decision requires address and previous "
+                                                 "(UUID or null for new asset)");
+                    decisions.push_back(
+                        {choice.at("address").get<std::string>(),
+                         choice.at("previous").is_null()
+                             ? std::nullopt
+                             : std::optional(choice.at("previous").get<AssetId>())});
+                }
+            }
+            const auto timeout =
+                std::chrono::seconds(draft.importer->descriptor().limits.seconds + 30);
             const auto asset = draft.request.asset;
-            service.submit(std::move(draft), prepare_texture_publication,
-                           [](const auto&, const auto&) {});
+            service.submit(
+                std::move(draft),
+                [decisions](auto& candidate, const auto& plan) {
+                    prepare_asset_publication(candidate, plan, decisions);
+                },
+                [](const auto&, const auto&) {});
             // CLI owns no live world/device. Importer format validation remains mandatory.
-            if (!service.wait_idle(std::chrono::seconds(150)))
+            if (!service.wait_idle(timeout))
                 throw std::runtime_error("Asset import exceeded command time budget");
             auto completed = service.poll();
-            if (completed.size() != 1 || !completed[0].published)
-                throw std::runtime_error(completed.empty() ? "No import completion"
-                                                           : completed[0].diagnostic);
+            if (completed.size() != 1)
+                throw std::runtime_error("No import completion");
+            if (!completed[0].published) {
+                result["ok"] = false;
+                result["error"] = {{"code", completed[0].identity_conflicts.empty()
+                                                ? "asset_tool_failed"
+                                                : "subasset.identity-ambiguous"},
+                                   {"message", completed[0].diagnostic}};
+                result["identity_conflicts"] = Json::array();
+                for (const auto& conflict : completed[0].identity_conflicts)
+                    result["identity_conflicts"].push_back({{"code", conflict.code},
+                                                            {"type", conflict.type},
+                                                            {"observations", conflict.observations},
+                                                            {"previous", conflict.previous},
+                                                            {"diagnostic", conflict.diagnostic}});
+            }
             result["asset"] = asset;
             result["build_key"] = completed[0].job.build_key;
             result["cache_hit"] = completed[0].cache_hit;

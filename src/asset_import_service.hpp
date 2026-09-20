@@ -15,6 +15,8 @@ struct AssetImportOutcome {
     bool cache_hit = false;
     std::string diagnostic;
     std::optional<AssetPublicationResult> publication;
+    // Structured owner-thread reconciliation failure; no assets were published.
+    std::vector<SubassetIdentityConflict> identity_conflicts;
 };
 class AssetImportService {
   public:

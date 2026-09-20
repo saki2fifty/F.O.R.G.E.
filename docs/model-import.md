@@ -1,8 +1,9 @@
 # Model import stages
 
 Phase7 model integration is in progress. The native static-model cooking and
-validation stages below are implemented internally. They are not yet a complete
-editor/CLI model importer, animation converter, renderer or model-document UI.
+validation stages below feed a supervised worker and the shared headless import
+service/CLI. Animation conversion, rendering and the model-document UI remain
+required work.
 
 ## Immutable source transport
 
@@ -59,9 +60,9 @@ material slots, texture semantic/dimension compatibility, morph-default counts,
 acyclic node hierarchy, finite composed transforms, file digests and total budget.
 Unexpected or missing output files reject the whole candidate. The native stage
 caps each cooked file at252MiB, reserves16MiB for index data, and bounds members and
-outputs; its eventual process supervisor must also enforce native memory/time limits.
-These checks do not substitute for the existing catalog publisher's atomic commit
-and stale-source checks, whose model integration remains required.
+outputs. The process supervisor enforces native memory/time limits as described
+below. These checks precede the catalog publisher's atomic commit and stale-source
+checks.
 
 Multiple texture bundles share the same flat model artifact directory. Their
 existing semantic filenames may now have a bounded lowercase/digit/hyphen/underscore
@@ -87,3 +88,49 @@ hierarchical TRS composition; no approximation is introduced by this stage.
 See[glTF admission](gltf-admission.md),[subasset identity](subasset-identity.md),
 [publication](asset-publication.md),[materials](material-assets.md) and
 [textures](texture-assets.md).
+
+## Model worker and publication
+
+The fixed `forge.model.gltf` recipe now runs through `forge_asset_build`, the same
+supervised executable used for textures. Its registry entry is available to the
+shared import service and headless `forge_tools --assets import` command. The
+current static recipe retains the restrictions listed above; complete skeletal,
+camera/light/variant realization, editor model documents and GPU rendering remain
+required Phase7 work.
+
+Discovery captures source and external dependencies. Before process launch, a
+second immutable capture must have the same source/settings/dependency build key.
+The child reads only generated staging files, selects a compiled-in recipe, and
+cannot choose its own limits or mutate the project catalog. Model limits are4GiB
+process memory,512MiB per staged file,2GiB aggregate staging,16384staged files,
+240seconds wall/220seconds CPU. Staging includes both input and output files; cooked
+candidates remain bounded to4096files/512MiB total and256MiB per cache file. The
+static cooker leaves further envelope headroom. Texture process limits stay smaller.
+Both the cache lookup and publisher use the same descriptor-bounded cache policy.
+
+Recipe fingerprints cover exact codec selection/options, source/admission/processing
+code and compiler/configuration. Changes invalidate disposable artifacts rather than
+reinterpreting previous bytes. Required extensions are admitted only by implemented
+CPU preservation/codec paths. This is not a declaration of corresponding GPU shader
+support; rendering must validate its own feature profile before use.
+
+On the owner thread, complete bundle validation precedes subasset correspondence.
+The Model root and active members use typed catalog Runtime edges for revision-local
+bindings; the catalog adds Subasset ownership edges. The legacy dependency projection
+contains the same unique target IDs. Cooked slot addresses never become durable IDs.
+Mesh slots bind Material assets, and material texture roles bind Texture assets.
+Removed members remain tombstones, preserving their identities and diagnostics.
+There is no second member-reference map stored as arbitrary metadata.
+
+Ambiguous correspondence returns structured same-type candidate addresses and prior
+AssetIds. Publication leaves both catalog and sidecar unchanged until explicit choices
+resolve it. A choice may retain a previous same-type member or deliberately allocate
+a new one. Even a cache hit still performs correspondence, stale-input checks and
+compatibility preflight. Identical unkeyed members may require an explicit decision
+again on reimport; cache equality by itself does not currently bypass reconciliation.
+
+The CLI owns no live renderer or world; its compatibility callback has no live-resource
+work. Editor/runtime callers must still supply their actual compatibility preflight.
+Single-writer ownership, whole-family publication, interruption recovery and unknown
+metadata preservation use the existing AssetPublisher unchanged in scope. Import
+publication is separate from scene Undo.

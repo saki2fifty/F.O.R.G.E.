@@ -1,5 +1,6 @@
 #include "asset_import_service.hpp"
 #include "bounded_json.hpp"
+#include "import_cache_limits.hpp"
 #include <algorithm>
 #include <fstream>
 #include <limits>
@@ -163,7 +164,8 @@ AssetJobId AssetImportService::submit(AssetImportDraft draft, PreparePublication
             progress(0, "Reading source and dependencies");
             pending->plan = importer.discover(request, stop);
             require(!stop.stop_requested(), "Import cancelled after discovery");
-            DerivedDataCache cache(request.project);
+            DerivedDataCache cache(request.project,
+                                   asset_detail::import_cache_limits(importer.descriptor()));
             auto validator = [&](const auto& artifact) { importer.validate(artifact); };
             if (auto hit = cache.find(pending->plan.input, validator)) {
                 pending->cache_hit = true;
@@ -243,6 +245,8 @@ std::vector<AssetImportOutcome> AssetImportService::poll() {
                 outcome.job.state = AssetJobState::Failed;
                 outcome.diagnostic = std::string(e.what()).substr(0, 8192);
                 outcome.job.diagnostic = outcome.diagnostic;
+                if (const auto* identity = dynamic_cast<const SubassetIdentityFailure*>(&e))
+                    outcome.identity_conflicts = identity->conflicts;
             }
         }
         receipts_[outcome.job.id] = outcome.job;

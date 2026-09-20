@@ -177,6 +177,15 @@ ImportProcessRequest read_import_process_request(const std::filesystem::path& st
     return {request.at("payload"),
             read_files(staging / "input", request.at("inputs"), limits, false)};
 }
+std::string read_import_process_recipe(const std::filesystem::path& staging) {
+    const auto request = read_json(staging / "request.json");
+    require(request.at("format") == "forge.import-worker" && request.at("version") == 1 &&
+                request.at("payload").is_object(),
+            "Unsupported import worker request");
+    auto recipe = request.at("payload").at("recipe").get<std::string>();
+    require(!recipe.empty() && recipe.size() <= 256, "Invalid import recipe identifier");
+    return recipe;
+}
 void write_import_process_result(const std::filesystem::path& staging,
                                  const std::vector<ArtifactFile>& files, WorkerLimits limits) {
     auto manifest = files_manifest(files, limits);

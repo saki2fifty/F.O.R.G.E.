@@ -14,6 +14,9 @@ std::vector<ArtifactFile> run_import_process(const std::filesystem::path& execut
                                              std::stop_token stop = {});
 ImportProcessRequest read_import_process_request(const std::filesystem::path& staging,
                                                  WorkerLimits limits);
+// Bounded header inspection selects one of the executable's fixed recipes before
+// allocating input buffers. The request cannot choose its own resource limits.
+std::string read_import_process_recipe(const std::filesystem::path& staging);
 void write_import_process_result(const std::filesystem::path& staging,
                                  const std::vector<ArtifactFile>& files, WorkerLimits limits);
 void write_import_process_error(const std::filesystem::path& staging, std::string_view code,

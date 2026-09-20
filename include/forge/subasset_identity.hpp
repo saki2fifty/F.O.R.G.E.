@@ -53,6 +53,14 @@ struct SubassetIdentityConflict {
     std::vector<AssetId> previous;
     std::string diagnostic;
 };
+class SubassetIdentityFailure : public std::runtime_error {
+  public:
+    explicit SubassetIdentityFailure(std::vector<SubassetIdentityConflict> values)
+        : std::runtime_error("Subasset correspondence is ambiguous; choose an existing member or "
+                             "explicitly create a new asset."),
+          conflicts(std::move(values)) {}
+    std::vector<SubassetIdentityConflict> conflicts;
+};
 struct SubassetIdentityCandidate {
     // Absent on ANY ambiguity. Neither the input nor the catalog is mutated.
     std::optional<SubassetIdentityDocument> document;

@@ -148,9 +148,34 @@ string(SHA256 _forge_texture_recipe_fingerprint "${_forge_texture_recipe_inputs}
 target_compile_definitions(forge_texture_pipeline PRIVATE
  FORGE_TEXTURE_RECIPE_FINGERPRINT="${_forge_texture_recipe_fingerprint}"
  FORGE_TEXTURE_RECIPE_CONFIGURATION="$<CONFIG>")
-add_executable(forge_asset_build_worker src/import_worker_main.cpp src/texture_worker.cpp)
+add_library(forge_model_importer STATIC src/model_importer.cpp)
+target_link_libraries(forge_model_importer PUBLIC forge_model_pipeline PRIVATE forge_texture_pipeline)
+# Recipe identity includes the native mesh/material adapters, source admission,
+# codecs/options, compiler profile and exact dependency selection files.
+set(_forge_model_recipe_inputs "${_forge_texture_recipe_fingerprint}")
+foreach(source
+ include/forge/gltf_source.hpp include/forge/gltf_accessors.hpp include/forge/material_asset.hpp include/forge/mesh_asset.hpp
+ src/gltf_source.cpp src/gltf_accessors.cpp src/gltf_validation.hpp src/gltf_snapshot.hpp src/gltf_snapshot.cpp
+ src/model_bundle.hpp src/model_bundle.cpp src/model_importer.hpp src/model_importer.cpp src/model_worker.cpp
+ src/gltf_model_cook.hpp src/gltf_model_cook.cpp src/gltf_native.hpp src/gltf_native.cpp
+ src/gltf_meshopt.hpp src/gltf_meshopt.cpp src/gltf_draco.hpp src/gltf_draco.cpp
+ src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp
+ src/gltf_surfaces.hpp src/gltf_surfaces.cpp src/mesh_processing.hpp src/mesh_processing.cpp
+ src/material_asset.cpp src/mesh_asset.cpp src/asset_bytes.hpp src/asset_bytes.cpp
+ cmake/meshoptimizer.cmake cmake/draco.cmake)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)
+ string(APPEND _forge_model_recipe_inputs ";${source}:${digest}")
+endforeach()
+string(SHA256 _forge_model_recipe_fingerprint "${_forge_model_recipe_inputs}")
+target_compile_definitions(forge_model_importer PRIVATE
+ FORGE_MODEL_RECIPE_FINGERPRINT="${_forge_model_recipe_fingerprint}"
+ FORGE_MODEL_RECIPE_CONFIGURATION="$<CONFIG>")
+add_library(forge_model_authoring STATIC src/model_authoring.cpp)
+target_link_libraries(forge_model_authoring PUBLIC forge_authoring forge_model_importer)
+add_executable(forge_asset_build_worker src/import_worker_main.cpp src/texture_worker.cpp src/model_worker.cpp)
 set_target_properties(forge_asset_build_worker PROPERTIES OUTPUT_NAME forge_asset_build)
-target_link_libraries(forge_asset_build_worker PRIVATE forge_texture_pipeline forge_texture_import forge_texture_ktx)
+target_link_libraries(forge_asset_build_worker PRIVATE forge_texture_pipeline forge_texture_import forge_texture_ktx forge_model_importer forge_model_cook)
 if(BUILD_TESTING)
  add_executable(forge_texture_pipeline_tests tests/texture_pipeline_tests.cpp src/texture_worker.cpp)
  target_include_directories(forge_texture_pipeline_tests PRIVATE src)
@@ -200,4 +225,25 @@ if(BUILD_TESTING AND TARGET imgui AND TARGET SDL3::SDL3)
  add_dependencies(forge_texture_editor_tests forge_asset_build_worker)
  add_test(NAME texture_editor COMMAND forge_texture_editor_tests $<TARGET_FILE:forge_asset_build_worker> ${CMAKE_BINARY_DIR}/texture-editor-tests)
  set_tests_properties(texture_editor PROPERTIES TIMEOUT 90)
+endif()
+
+if(BUILD_TESTING)
+ add_executable(forge_model_pipeline_tests tests/model_pipeline_tests.cpp src/model_worker.cpp)
+ target_include_directories(forge_model_pipeline_tests PRIVATE src)
+ target_link_libraries(forge_model_pipeline_tests PRIVATE forge_model_authoring forge_model_cook)
+ add_test(NAME model_recipe COMMAND forge_model_pipeline_tests --direct unused "${CMAKE_CURRENT_SOURCE_DIR}/samples/gltf/NegativeScaleTest" "${CMAKE_BINARY_DIR}/model-recipe-tests")
+ set_tests_properties(model_recipe PROPERTIES TIMEOUT 120)
+ if(NOT FORGE_ENABLE_SANITIZERS)
+  add_dependencies(forge_model_pipeline_tests forge_asset_build_worker)
+  add_test(NAME model_pipeline COMMAND forge_model_pipeline_tests --worker $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_SOURCE_DIR}/samples/gltf/NegativeScaleTest" "${CMAKE_BINARY_DIR}/model-pipeline-tests")
+  set_tests_properties(model_pipeline PROPERTIES TIMEOUT 120)
+ endif()
+endif()
+
+add_library(forge_import_authoring STATIC src/import_authoring.cpp)
+target_link_libraries(forge_import_authoring PUBLIC forge_model_authoring forge_texture_authoring)
+target_link_libraries(forge_tools PRIVATE forge_import_authoring)
+if(BUILD_TESTING AND NOT FORGE_ENABLE_SANITIZERS)
+ add_test(NAME model_tools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/model_tools_test.py $<TARGET_FILE:forge_tools> ${CMAKE_BINARY_DIR}/model-tools-tests)
+ set_tests_properties(model_tools PROPERTIES TIMEOUT 180)
 endif()
