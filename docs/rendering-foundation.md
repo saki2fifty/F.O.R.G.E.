@@ -317,3 +317,11 @@ allocation. This permits local compilation of the actual generated programs befo
 Windows execution, including all three workflows with and without textures. Local
 DXC shader-model6 checks are supplementary; selected FXC5.1/D3D12 acceptance still
 requires Windows and is not inferred from another compiler's success.
+
+The prepared draw carries the authored tangent and bitangent through its signed
+surface frame into the pixel stage. Normal mapping prefers that explicit basis,
+including tangent.w. It reconstructs from selected UV derivatives only when the
+authored frame is absent or collapsed; supplied tangents are ignored when source
+normals are absent. Double-sided shading reverses the complete perturbed normal.
+A constant-UV native fixture uses opposite tangent signs under directional light
+to expose an implementation that silently substitutes screen-space derivatives.

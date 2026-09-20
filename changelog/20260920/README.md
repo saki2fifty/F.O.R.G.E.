@@ -1160,3 +1160,12 @@
 - Preserve separate explicit-layout requests and variant coalescing. Regression
   verifies unchanged authored values and texture bindings. Normal model recipe
   passed1/1 in29.01s; ASan/UBSan/LSan passed1/1 in72.99s.
+
+### Authored normal-map tangent frames
+
+- Carry authored tangent/bitangent frames into material shading, preserving tangent.w
+  through signed transforms. Use derivative reconstruction when that frame is absent
+  or collapsed, and reverse the full perturbed normal for back faces.
+- Add a constant-UV native draw fixture with opposite tangent signs, so ignoring
+  authored tangent space cannot pass through an equivalent derivative result.
+  Local14-stage shader compilation passes; new fixture GPU execution is pending.

@@ -47,8 +47,9 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string varyings =
         "struct ForgeVarying {float4 Position:SV_Position;float3 World:TEXCOORD0;"
-        "float3 Normal:TEXCOORD1;float4 Color:COLOR0;float2 UV[" +
-        std::to_string(uv_count) + "]:TEXCOORD2;};\n";
+        "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
+        "float4 Color:COLOR0;float2 UV[" +
+        std::to_string(uv_count) + "]:TEXCOORD4;};\n";
     const std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source +
                            fetch.source + varyings + R"(
 ForgeVarying main(uint id:SV_VertexID) {
@@ -56,7 +57,8 @@ ForgeVarying main(uint id:SV_VertexID) {
     ForgeVarying o=(ForgeVarying)0;
     o.World=ForgePoint(v.Position);o.Position=ForgeProject(o.World);o.Color=v.Color;
     float3x3 basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_Object[5].xyz);
-    o.Normal=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent).Normal;
+    ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
+    o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
     )" + "[unroll]for(uint i=0;i<" +
                            std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
     std::string ps = "#define USE_IBL 0\n#define TEX_COLOR_CONVERSION_MODE 0\n"
@@ -98,32 +100,40 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         ps += R"(
     SurfaceShadingInfo s=(SurfaceShadingInfo)0;
     s.Pos=input.World;s.View=ForgeUnit(-input.World);
+    float face=front?1:-1;
     float3 n=ForgeUnit(input.Normal);
     if(!any(n!=0)) {
         n=ForgeUnit(cross(dpdx,dpdy));
         if(dot(n,s.View)<0)n=-n;
-    } else if(!front)n=-n;
+        n*=face;
+    }
     if(!any(n!=0)||!any(s.View!=0))return float4(1,0,1,1);
 )";
         if (profile.values.textures.contains("normalTexture")) {
             ps += R"(
-    float det=dx.x*dy.y-dx.y*dy.x;
-    float3 p=dpdx,q=dpdy;
-    if(isfinite(det)&&abs(det)>0) {
-        float3 t=ForgeUnit((p*dy.y-q*dx.y)*(det<0?-1:1));
-        t=ForgeUnit(t-n*dot(n,t));
-        float3 b=ForgeUnit((q*dx.x-p*dy.x)*(det<0?-1:1));
-        float sign=dot(cross(n,t),b);
-        if(abs(sign)>1e-6) {
-            float3 sampled=sample_normalTexture.xyz*2-1;
-            sampled.xy*=ForgeParameter_normalScale();
-            float3 candidate=ForgeUnit(t*sampled.x+cross(n,t)*(sign<0?-1:1)*sampled.y+n*sampled.z);
-            if(any(candidate!=0))n=candidate;
+    float3 t=ForgeUnit(input.Tangent-n*dot(n,input.Tangent));
+    float3 b=ForgeUnit(input.Bitangent);
+    float handedness=dot(cross(n,t),b);
+    // Explicit authored tangent space wins, including tangent.w. Missing or
+    // collapsed frames use the selected normal UV derivatives without an inverse.
+    if(abs(handedness)<=1e-6) {
+        float det=dx.x*dy.y-dx.y*dy.x;
+        if(isfinite(det)&&abs(det)>0) {
+            t=ForgeUnit((dpdx*dy.y-dpdy*dx.y)*(det<0?-1:1));
+            t=ForgeUnit(t-n*dot(n,t));
+            b=ForgeUnit((dpdy*dx.x-dpdx*dy.x)*(det<0?-1:1));
+            handedness=dot(cross(n,t),b);
         }
+    }
+    if(abs(handedness)>1e-6) {
+        float3 sampled=sample_normalTexture.xyz*2-1;
+        sampled.xy*=ForgeParameter_normalScale();
+        float3 candidate=ForgeUnit(t*sampled.x+cross(n,t)*(handedness<0?-1:1)*sampled.y+n*sampled.z);
+        if(any(candidate!=0))n=candidate;
     }
 )";
         }
-        ps += "s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
+        ps += "n*=face;s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
         if (profile.workflow == PbrWorkflow::MetallicRoughness) {
             ps += "float "
                   "rough=ForgeParameter_roughnessFactor(),metal=ForgeParameter_metallicFactor();\n"
