@@ -8,7 +8,7 @@ void prepare_shader_publication(AssetPublicationCandidate& candidate, const Asse
         candidate.files.front().name != "program.shader")
         throw std::runtime_error("Shader publication identity/file set mismatch");
     const auto shader = decode_shader(candidate.files.front().bytes);
-    if (shader.build_key != plan.data.at("compiler_input_key"))
+    if (shader.build_key != plan.data.at("compiler_input_key").get<std::string>())
         throw std::runtime_error("Shader candidate disagrees with captured compiler inputs");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;

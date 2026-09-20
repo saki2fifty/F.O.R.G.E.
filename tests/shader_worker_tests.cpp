@@ -3,6 +3,7 @@
 #include "shader_authoring.hpp"
 #include "shader_diligent.hpp"
 #include "shader_pipeline.hpp"
+#include <forge/shader_resource.hpp>
 #include <fstream>
 #include <iostream>
 using namespace forge;
@@ -78,6 +79,12 @@ float4 ps():SV_TARGET {return color();}
                 "Initial shader worker import failed: " + outcome.diagnostic);
         catalog = AssetCatalog::open_project(root);
         active_layout = catalog.records().at(id).metadata.at("forge.shader").at("layout");
+        ResourcePool<ShaderAsset> resources;
+        const AssetRef<ShaderAsset> reference{id};
+        const auto first = request_shader(resources, root, catalog, reference);
+        require(resources.wait(first, 5s), "Compiled shader resource could not load");
+        const auto old = resources.acquire(first);
+        require(old && old->stages.size() == 2, "Compiled shader resource lost stages");
         const auto first_key = catalog.records().at(id).metadata.at("forge.import").at("key");
         submit();
         outcome = finish(service);
@@ -124,6 +131,10 @@ float4 ps():SV_TARGET {return color();}
         require(outcome.published && !outcome.cache_hit,
                 "Valid shader replacement failed: " + outcome.diagnostic);
         catalog = AssetCatalog::open_project(root);
+        const auto replacement = request_shader(resources, root, catalog, reference);
+        require(resources.wait(replacement, 5s) &&
+                    resources.acquire(replacement)->build_key != old->build_key,
+                "Cooked shader replacement lost old lease or new code");
         require(catalog.records().at(id).metadata.at("forge.import").at("key") != first_key &&
                     catalog.dependency_graph().invalidated_by_source("Shaders/color.hlsli") ==
                         std::vector<AssetId>{id},

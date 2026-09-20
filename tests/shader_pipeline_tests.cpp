@@ -1,6 +1,8 @@
 #include "asset_bytes.hpp"
 #include "shader_authoring.hpp"
 #include "shader_pipeline.hpp"
+#include <forge/project_lease.hpp>
+#include <forge/shader_resource.hpp>
 #include <fstream>
 #include <iostream>
 #include <source_location>
@@ -133,6 +135,42 @@ int main(int argc, char** argv) {
         auto wrong = plan;
         wrong.data["compiler_input_key"] = std::string(64, 'b');
         rejects([&] { prepare_shader_publication(candidate, wrong); });
+        // Exercise the real shared publisher and source-free runtime CPU loader.
+        // Fixture bytecode remains opaque CPU test data, never supplied to a device.
+        {
+            AssetCatalog catalog(root);
+            catalog.add({id, "shader", import.source, 1, {}});
+            catalog.save(AssetCatalog::project_index(root));
+            ProjectLease lease(root);
+            AssetPublisher publisher(lease);
+            candidate.ticket = publisher.capture(id, import.source);
+            candidate.sidecar.settings = import.settings;
+            candidate.sidecar.build_inputs = input.document();
+            publisher.publish(candidate, *importer, [](const auto&, const auto&) {});
+            catalog = AssetCatalog::open_project(root);
+            std::filesystem::rename(root / "Shaders", root / "HiddenSources");
+            std::filesystem::rename(root / "surface.shader.json", root / "source.hidden");
+            ResourcePool<ShaderAsset> pool;
+            const AssetRef<ShaderAsset> reference{id};
+            const auto ticket = request_shader(pool, root, catalog, reference);
+            require(pool.wait(ticket, std::chrono::seconds(5)),
+                    "Cooked shader required source files");
+            const auto old = pool.acquire(ticket);
+            require(old && old->build_key == decoded.build_key,
+                    "Shader resource lost compiler identity");
+            auto broken_catalog = catalog;
+            auto broken_record = broken_catalog.records().at(id);
+            broken_record.metadata["forge.import"]["generation"] = 2;
+            broken_record.metadata["forge.shader"]["layout"] = std::string(64, 'f');
+            broken_catalog.replace(broken_record);
+            const auto failure = request_shader(pool, root, broken_catalog, reference);
+            require(!pool.wait(failure, std::chrono::seconds(5)) &&
+                        pool.current(reference).identity() == old.identity(),
+                    "Mismatched shader layout replaced last-good resource");
+            rejects([&] { request_shader(pool, root, catalog, {AssetId::generate()}); });
+            std::filesystem::rename(root / "HiddenSources", root / "Shaders");
+            std::filesystem::rename(root / "source.hidden", root / "surface.shader.json");
+        }
         auto bad = doc;
         bad["source_root"] = "../Shaders";
         write(root / "surface.shader.json", bad.dump());

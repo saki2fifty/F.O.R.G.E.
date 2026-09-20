@@ -97,7 +97,7 @@ class ShaderImporter final : public AssetImporter {
                                         shader_worker_limits(), stop);
         validate({{}, Json::object(), files});
         const auto data = decode_shader(files.front().bytes);
-        require(data.build_key == plan.data.at("compiler_input_key"),
+        require(data.build_key == plan.data.at("compiler_input_key").get<std::string>(),
                 "Shader worker returned another compiler candidate");
         if (progress)
             progress(1., "Shader candidate validated");

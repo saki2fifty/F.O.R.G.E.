@@ -947,3 +947,13 @@
   cache reuse, incompatible layouts, stale includes, cancellation and last-good
   preservation. Those Windows tests have not yet run. Release packaging now requires
   the dedicated shader worker; no numbered package is produced by this checkpoint.
+
+### Cooked shader resource loading
+
+- Load selected shader revisions through the shared typed resource pool, without
+  requiring source documents or shader include files at runtime.
+- Recheck cooked layout/compiler provenance; failed replacements preserve previous
+  leases. CPU fixtures cover real catalog publication and removed source files.
+- Correct explicit string extraction in shader publication/compiler-key comparisons
+  after MSVC rejected a mixed string/JSON C++20 comparison. Windows revalidation is
+  pending; the prior native shader draw/dispatch fixtures passed at source577e6e3.

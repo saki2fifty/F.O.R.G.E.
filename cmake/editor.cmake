@@ -51,7 +51,7 @@ add_custom_command(TARGET forge_editor POST_BUILD
 if(BUILD_TESTING)
  add_executable(forge_shader_worker_tests tests/shader_worker_tests.cpp)
  target_include_directories(forge_shader_worker_tests PRIVATE src)
- target_link_libraries(forge_shader_worker_tests PRIVATE forge_shader_authoring forge_shader_diligent forge_asset_bytes)
+ target_link_libraries(forge_shader_worker_tests PRIVATE forge_shader_authoring forge_shader_diligent forge_shader_resources forge_asset_bytes)
  add_dependencies(forge_shader_worker_tests forge_shader_build_worker)
  copy_required_dlls(forge_shader_worker_tests)
  add_test(NAME shader_worker COMMAND forge_shader_worker_tests $<TARGET_FILE:forge_shader_build_worker> "${CMAKE_BINARY_DIR}/shader-worker-tests")

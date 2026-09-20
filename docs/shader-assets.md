@@ -110,3 +110,13 @@ cancellation, stale include or rejected consumer compatibility leaves the previo
 catalog selection intact. Compatibility remains an explicit caller preflight; this
 foundation does not yet connect production material pipelines to shader publication.
 Shader asset history remains separate from scene Undo.
+
+## Selected CPU resources
+
+`request_shader` copies the typed catalog selection and loads its validated DDC
+artifact through the existing ResourcePool. Source documents and HLSL includes are
+not consulted at runtime. Publication generation, compiler input key and reflection
+layout must agree with the copied selection. A bad replacement fails its ticket
+and preserves existing leases. This CPU resource path does not create Diligent
+objects; native realization and material/pipeline compatibility remain separate
+render-owner checks.
