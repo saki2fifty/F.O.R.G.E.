@@ -1,5 +1,7 @@
 #pragma once
+#include "material_shader.hpp"
 #include "mesh_vertex_fetch.hpp"
+#include "texture_gpu.hpp"
 void check_mesh_vertex_fetch(forge::DiligentPresentation& presentation,
                              Diligent::IDeviceContext* context) {
     using namespace Diligent;
@@ -107,6 +109,88 @@ Output main(uint id:SV_VertexID) {
     require(std::abs(int(pixel[0]) - 51) <= 1 && std::abs(int(pixel[1]) - 102) <= 1 &&
                 std::abs(int(pixel[2]) - 128) <= 1 && pixel[3] == 255,
             "Indexed raw fetch changed UV19, tangent sign, integer joints or color width");
+    material.parameters["baseColorFactor"] = {forge::MaterialParameterType::LinearColor4,
+                                              {.5f, .5f, .5f, 1}};
+    texture.offset = {1, 0};
+    texture.sampler.min = texture.sampler.mag = texture.sampler.mip = forge::TextureFilter::Nearest;
+    forge::TextureData image;
+    image.width = image.height = 2;
+    image.format = forge::TextureFormat::RGBA8Srgb;
+    image.subresources.emplace_back();
+    for (unsigned value : {128, 0, 0, 255, 0, 128, 0, 255, 0, 0, 128, 255, 128, 128, 128, 255})
+        image.subresources.back().push_back(std::byte(value));
+    const auto gpu_texture = forge::upload_texture(presentation.device(), image);
+    std::string first_source;
+    RefCntAutoPtr<IPipelineState> first_pipeline;
+    for (unsigned pass = 0; pass < 3; ++pass) {
+        texture.sampler.u = pass == 0 ? forge::TextureWrap::Repeat : forge::TextureWrap::ClampEdge;
+        if (pass == 2) {
+            texture.offset = {std::numeric_limits<float>::max(), 0};
+            texture.scale = {std::numeric_limits<float>::max(), 1};
+        }
+        const auto program =
+            forge::material_shader(forge::prepare_pbr_material(material), fetch.uv_sets);
+        if (pass == 0)
+            first_source = program.source;
+        require(program.source == first_source,
+                "Material value or sampler edit changed shader layout");
+        auto material_ps = shader(SHADER_TYPE_PIXEL, program.source + R"(
+float4 main(float4 color:COLOR0):SV_Target0 {
+    bool valid;
+    float4 value=ForgeSample_baseColorTexture(color.xy,valid);
+    return valid ? value*ForgeParameter_baseColorFactor() : float4(1,0,1,1);
+})");
+        pso.pPS = material_ps;
+        RefCntAutoPtr<IPipelineState> material_pipeline;
+        presentation.graphics(pso, &material_pipeline);
+        require(bool(material_pipeline), "Material sampling pipeline failed");
+        if (pass == 0)
+            first_pipeline = material_pipeline;
+        else
+            require(first_pipeline == material_pipeline,
+                    "Uniform edit did not reuse native pipeline cache");
+        RefCntAutoPtr<IShaderResourceBinding> material_binding;
+        material_pipeline->CreateShaderResourceBinding(&material_binding, true);
+        auto* vertex_var =
+            material_binding->GetVariableByName(SHADER_TYPE_VERTEX, "g_MeshVertices");
+        auto* texture_var = material_binding->GetVariableByName(
+            SHADER_TYPE_PIXEL, program.textures[0].texture_variable.c_str());
+        auto* sampler_var = material_binding->GetVariableByName(
+            SHADER_TYPE_PIXEL, program.textures[0].sampler_variable.c_str());
+        auto* values_var =
+            material_binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeMaterialValues");
+        require(vertex_var && texture_var && sampler_var && values_var,
+                "Material shader binding absent");
+        BufferDesc values_desc;
+        values_desc.Name = "FORGE material sampling values";
+        values_desc.Size = program.uniforms.size() * sizeof(program.uniforms[0]);
+        values_desc.Usage = USAGE_IMMUTABLE;
+        values_desc.BindFlags = BIND_UNIFORM_BUFFER;
+        BufferData values_data{program.uniforms.data(), values_desc.Size};
+        RefCntAutoPtr<IBuffer> values_buffer;
+        presentation.device()->CreateBuffer(values_desc, &values_data, &values_buffer);
+        require(bool(values_buffer), "Material uniform upload failed");
+        const auto gpu_sampler = forge::upload_sampler(presentation.device(), texture.sampler);
+        vertex_var->Set(uploaded.vertices->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+        texture_var->Set(gpu_texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+        sampler_var->Set(gpu_sampler);
+        values_var->Set(values_buffer);
+        context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->SetPipelineState(material_pipeline);
+        context->CommitShaderResources(material_binding, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->DrawIndexed(draw);
+        const auto result = readback(presentation.device(), context, rtv).at(16 * 32 + 16);
+        if (pass < 2) {
+            require(
+                std::abs(int(result[pass]) - 28) <= 1 && result[1 - pass] == 0 && result[2] == 0 &&
+                    result[3] == 255,
+                "UV transform, per-binding wrap or single hardware sRGB conversion is incorrect");
+        } else {
+            require(result[0] == 255 && result[1] == 0 && result[2] == 255 && result[3] == 255,
+                    "Non-finite transformed material UV did not report failure before sampling");
+        }
+    }
     material.textures["baseColorTexture"].uv_set = 17;
     bool rejected = false;
     try {

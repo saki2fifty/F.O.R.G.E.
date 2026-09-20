@@ -272,3 +272,42 @@ four-influence skin inputs and the material's used UV sets. Reading skin inputs 
 not yet the deformation operation. An indexed Windows draw fixture checks UV19,
 uint joint values, tangent.w and color3-to-color4 defaults with a vertex stride above
 2048 bytes. Native GPU execution of this new adapter remains pending.
+
+### Material shader bindings
+
+The built-in adapter generates a uniform block for validated parameter values and
+UV transforms, with separate native textures and samplers for each role. Changing
+factors, UV offsets/scales/rotation or sampler settings preserves the shader source
+and native pipeline cache key. Texture transforms follow offset + rotation * scale
+* UV. Native sRGB views perform color conversion exactly once. Explicit texture
+gradients are evaluated before conditional failure handling. Nonfinite UVs,
+gradients or texels report failure to the consuming shader, which must present its
+numeric diagnostic rather than treating zero as a successful sample.
+
+CPU tests cover layout stability, transformed UV rows and invalid slot maps. The
+Windows indexed sampling fixture checks UV19, repeat versus clamp on a shared
+sRGB texture, native pipeline reuse and finite diagnostic output for UV overflow.
+This fixture's execution is pending; production material draws are still in progress.
+
+### Prepared mesh draw integration
+
+The backend-private `MeshDraw` composes cooked vertex access and material sampling
+with camera-relative transforms, depth/alpha state and the pinned native PBR BRDF.
+Native MR inputs adapt the admitted IOR reflectance through the five-argument
+reflectance function; FORGE does not copy that BRDF. Its initial punctual pass
+accepts an explicitly bounded light list and diagnoses unrepresentable light
+packing. A draw list/pass owner must perform visibility, layer selection and
+transparent sorting before calling it. No implicit game light is added.
+
+Culling combines authored affine parity with camera projection orientation;
+rank-deficient surfaces use the explicit two-sided path. Normals use the existing
+cofactor adapter and a geometric-face fallback. Texture-space derivatives are
+evaluated before fragment rejection. Per-material texture views/samplers and
+mutable draw constants remain scoped to their prepared native bindings.
+
+The initial adapter deliberately rejects skin/morph bindings and extended material
+effects whose consumers are not yet wired. Environment/shadows, complete extended
+PBR, deformation, GPU resource adoption and Scene/Game/standalone integration remain
+Phase7 work. This is an internal implementation checkpoint, not a shipped renderer
+completion claim. Native fixtures cover reflection, singular planes, projection
+flips, large origins, explicit light/no-light behavior; execution is pending.

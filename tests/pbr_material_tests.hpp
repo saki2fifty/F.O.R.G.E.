@@ -1,4 +1,5 @@
 #pragma once
+#include "material_shader.hpp"
 #include "pbr_material.hpp"
 #include <cmath>
 #include <limits>
@@ -53,6 +54,29 @@ inline void test_pbr_material_profile() {
         check(std::abs(prepared.dielectric_f0 - ratio * ratio) < 1e-7,
               "IOR reflectance calculation overflowed or used fixed 1.5");
     }
+    source.parameters["ior"].value[0] = 1.5f;
+    prepared = prepare_pbr_material(source);
+    const std::array<unsigned, 2> uv_sets{0, 19};
+    const auto shader = material_shader(prepared, uv_sets);
+    check(shader.textures.size() == 1 && shader.textures[0].uv_slot == 1 &&
+              shader.textures[0].settings == slot,
+          "Material shader lost UV routing or binding settings");
+    auto changed = source;
+    changed.parameters["normalScale"].value[0] = 3;
+    changed.textures["normalTexture"].offset = {1, 2};
+    changed.textures["normalTexture"].sampler.u = TextureWrap::ClampEdge;
+    const auto changed_shader = material_shader(prepare_pbr_material(changed), uv_sets);
+    check(shader.source == changed_shader.source && shader.uniforms != changed_shader.uniforms &&
+              shader.textures[0].settings != changed_shader.textures[0].settings,
+          "Value-only material change recompiled shader or discarded independent sampler");
+    const auto row = shader.uniforms.size() - 2;
+    check(std::abs(shader.uniforms[row][0] - (-2 * std::cos(.7f))) < 1e-6 &&
+              shader.uniforms[row][1] == 0 && shader.uniforms[row][2] == 3 &&
+              std::abs(shader.uniforms[row + 1][0] - (-2 * std::sin(.7f))) < 1e-6 &&
+              shader.uniforms[row + 1][2] == -4,
+          "Texture transform used the wrong scale/rotation/offset order");
+    rejects([&] { material_shader(prepared, std::array<unsigned, 1>{0}); });
+    rejects([&] { material_shader(prepared, std::array<unsigned, 2>{19, 19}); });
     const auto valid = source;
     const auto invalid = [&](auto mutate) {
         auto candidate = valid;

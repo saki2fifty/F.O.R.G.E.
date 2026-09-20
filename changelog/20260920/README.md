@@ -1099,3 +1099,26 @@
 - Correct the punctual-light fixture's missing native shader-factory include after
   Windows source4e96a13 compilation exposed an accidental include-order dependency.
   The local syntax fixture now uses the same header order; GPU execution remains pending.
+
+### Material shader binding preparation
+
+- Generate model-validated uniform blocks, named texture bindings and independent
+  samplers without creating shader variants for ordinary value edits.
+- Preserve exact texture transform order and native single sRGB decoding. Check
+  UV/gradient/texel finiteness and return explicit failure before invalid sampling.
+- Add CPU layout/default/UV checks and a Windows indexed texture-sampling fixture
+  covering repeat/clamp, UV19, sRGB, pipeline reuse and overflow diagnostics.
+  CPU normal and sanitizer validation passed; native sampling execution is pending.
+
+### Prepared native mesh draw
+
+- Compose camera-relative mesh transforms, material sampling, depth/alpha state
+  and native punctual PBR in a reusable backend-private draw object.
+- Combine camera orientation and transform parity for culling; retain useful
+  rank-two surfaces and inverse-free surface normals. Add geometric-face fallback.
+- Adapt variable material IOR to the pinned native MR reflectance input.
+- Add native draw fixtures for large origins, signed/zero scales, camera flips,
+  unlit values and explicit lighting. GPU execution is pending; complete extended
+  material effects, skin/morph draws and Scene/Game integration remain in progress.
+- Source4a59c6f core CI now passes all Windows/Linux core and SDK profiles,
+  including the previously timing-out large runtime response fixture.

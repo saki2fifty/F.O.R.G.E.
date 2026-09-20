@@ -160,6 +160,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
     require(checked >= 2, "Axis fixture does not cover visible world coordinates");
 }
 } // namespace
+#include "mesh_draw_tests.hpp"
 #include "mesh_gpu_tests.hpp"
 #include "mesh_vertex_fetch_tests.hpp"
 #include "presentation_diligent_tests.hpp"
@@ -231,6 +232,7 @@ int main(int argc, char** argv) {
         check_surface_frames(presentation, context);
         check_mesh_upload(presentation, context);
         check_mesh_vertex_fetch(presentation, context);
+        check_mesh_draw(presentation, context);
         check_texture_upload(presentation, context);
         check_native_pbr(presentation, context);
         auto original = render("grid");
