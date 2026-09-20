@@ -141,3 +141,28 @@ Source evidence: exact Flecs4.1.6 `include/flecs/addons/meta.h`,
 arbitrary STL opaque containers are not implicitly admitted. Native bitmasks use
 u32 storage at this pin. Pointer-sized integers and process-local entity IDs are
 not durable authored reference types.
+
+### Detached native values
+
+`ReflectedCandidate` constructs detached native storage through `ecs_value_new`,
+assigns only validated named fields with native Meta cursors, then checks the
+stored values before making the candidate available to its caller. Native lifecycle
+hooks release strings/vectors on normal destruction, moves and assignment failure.
+The registering world and native module code must outlive the candidate. The editor
+may use this only with its reconstructed engine-owned types; worker-local project
+types and callbacks remain isolated. Construction alone does not publish an entity.
+
+The reader uses native member/array/vector metadata and primitive cursors to copy
+values. It does not open mutable vector cursors, shrink collections, serialize native
+bytes or reinterpret process-local IDs as durable refs. Engine-owned reference
+adapters supply explicit read/assign functions; those functions are never part of
+the copied schema. Unknown properties remain in the surrounding authored envelope,
+not in native storage for fields the type does not define.
+
+The transport preserves FORGE's numeric enum/bitmask/integer representation rather
+than treating Flecs JSON output as an identical wire format: native JSON emits enum
+names and quotes large unsigned integers. Full-width enum reads use their declared
+native primitive type, avoiding the pinned getter issue FLECS-006. Cross-layout
+round trips, nested owned strings/vectors, failure cleanup and reader immutability
+are covered by core tests. SDK extraction/admission and authoring integration remain
+separate work; these helpers alone do not enable custom Add Component entries.

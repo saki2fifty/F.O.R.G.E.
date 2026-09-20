@@ -1,3 +1,4 @@
+#include "reflected_value.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
@@ -150,22 +151,10 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
         }
         for (const auto& [field, value] : values.items()) {
             auto schema = property_schema(scene, canonical, field);
-            if (schema.at("type") == "asset_ref") {
-                if (!value.is_null())
-                    (void)value.get<AssetId>();
-            } else if (schema.at("type") == "bool") {
-                if (!value.is_boolean())
-                    throw CommandError("invalid_arguments", "Boolean required");
-            } else {
-                if (!value.is_number() ||
-                    (schema.at("type") == "uint32" && !value.is_number_integer()))
-                    throw CommandError("invalid_arguments",
-                                       "Property requires its declared numeric type");
-                double n = value.get<double>();
-                if (!std::isfinite(n) ||
-                    (schema.contains("minimum") && n < schema.at("minimum").get<double>()) ||
-                    (schema.contains("maximum") && n > schema.at("maximum").get<double>()))
-                    throw CommandError("invalid_arguments", "Property outside declared range");
+            try {
+                detail::validate_reflected_json(schema, value);
+            } catch (const std::exception& error) {
+                throw CommandError("invalid_arguments", error.what());
             }
             if (property_intent)
                 e["property_overrides"][canonical][field] = value;

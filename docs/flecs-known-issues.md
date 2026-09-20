@@ -91,6 +91,26 @@ A workaround is scoped to the stated consumer; it is not a general upstream fix.
 - **Removal:** a future stable and explicit interleaved-import reproducer prove safe;
   keep deterministic module startup ordering regardless.
 
+## FLECS-006 — numeric enum cursor getters assume 32-bit storage
+
+Verified2026-09-20 at the same exact pin.
+
+- **Source:** `src/addons/meta/cursor.c`, `ecs_meta_get_int` and
+  `ecs_meta_get_uint` read `EcsOpEnum` through `ecs_i32_t`, unlike the enum setter
+  and JSON serializer, which inspect the declared underlying kind.
+- **Reproduction:** a native i64 enum holding9223372036854775807 reads as-1
+  through `ecs_meta_get_int`. A new native cursor using its `EcsEnum.underlying_type`
+  at the same process-local value pointer returns9223372036854775807.
+- **FORGE boundary:** the reflected native reader uses that declared primitive
+  cursor. It never uses a generic enum getter to read a different-width enum.
+  The schema and value validator still enforce declared enum constants.
+- **Regression:** core tests round-trip i64 and u8 enums through detached native
+  candidates and the FORGE reader; strict sanitizer validation applies. The small
+  direct discrepancy probe is retained in external source-audit evidence.
+- **Upstream fix:** not verified. No local patch, pin change or defect acceptance.
+- **Removal:** re-evaluate the exact getter implementation in a future stable
+  release, retaining full-width enum round-trip and invalid-value tests.
+
 ## Capabilities absent from this pin
 
 `on_validate`, native Meta maps and Script template declaration inheritance are **UNAVAILABLE IN PINNED STABLE VERSION**.

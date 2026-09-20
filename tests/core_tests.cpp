@@ -1,6 +1,7 @@
 #include "ecs_tools_tests.hpp"
 #include "flecs_contract_tests.hpp"
 #include "geometry_tests.hpp"
+#include "reflected_native_tests.hpp"
 #include "reflected_value_tests.hpp"
 #include "reflection_tests.hpp"
 #include <forge/module.hpp>
@@ -16,6 +17,7 @@ int main(int argc, char** argv) {
         test_geometry();
         test_reflection();
         test_reflected_values();
+        test_reflected_native();
         test_flecs_contracts();
         test_ecs_tools();
         check(argc == 2, "module argument");

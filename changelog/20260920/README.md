@@ -776,3 +776,25 @@
   from its opaque builder; no dependency API was patched.
 - Previous model-node commitfb8d79d passed Windows source audit35523602035:
  33/33 tests(28.63s). No numbered package was allocated.
+
+### Detached native reflected values and shared command validation
+
+- Added detached native value candidates using Flecs allocation, lifecycle and
+  cursor assignment. Values are validated before allocation and again after native
+  conversion. Candidate construction does not publish entities; move/destruction
+  and late assignment failure release owned strings and vectors.
+- Added copied value reads using native member/container metadata and primitive
+  cursors. Reads leave native vector pointers/counts/capacity unchanged. Tests
+  transfer named values between different physical member orders, including nested
+  strings/vectors, inline arrays, full-width integers, enums and explicit references.
+- Recorded FLECS-006: pinned generic enum getters assume i32 even for a declared
+  i64 enum. A direct probe reproduced the mismatch. FORGE uses the declared native
+  primitive cursor, preserving the value without a dependency patch or upgrade.
+  Native JSON's enum names and quoted large integers are not treated as FORGE's
+  typed value representation.
+- Shared property commands now use the same bounded validator as scene admission,
+  replacing their duplicate scalar-only validation. Cross-component validation,
+  explicit prefab intent and detached scene transactions remain in place.
+- Normal core/authoring/prefab3/3 passed(1.79s), strict ASan/UBSan/LSan3/3
+  passed(15.41s); manual3/3, format and whitespace checks passed. No SDK opt-in,
+  custom-component UI or persistent schema migration is claimed complete here.

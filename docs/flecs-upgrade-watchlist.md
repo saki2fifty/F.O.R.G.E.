@@ -72,3 +72,10 @@ this audit. Preserve mitigations until exact reproductions establish otherwise.
 Explorer is a separately evolving web client, not versioned by the native library
 commit. Recheck its protocol and browser behavior if a future release decides to
 ship a compatible local client; native inspection must remain available.
+
+### Phase7 enum cursor read check
+
+Recheck FLECS-006 from the [issue registry](flecs-known-issues.md) on a future
+stable release. Generic enum getters in4.1.6 assume i32 storage. FORGE's bounded
+value reader uses the declared primitive cursor; wide/narrow enum tests must pass
+before changing that adapter. No later fixing revision has been verified.
