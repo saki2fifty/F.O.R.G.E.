@@ -1,4 +1,6 @@
 #include "model_placement.hpp"
+#include "model_view_components.hpp"
+#include "render_values.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
 #include <forge/model_asset.hpp>
@@ -82,10 +84,9 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
             "Animated model placement requires its instance animation binding consumer");
     for (const auto index : order) {
         const auto& node = nodes[index];
-        require(node.at("camera").is_null() && node.at("light").is_null() &&
-                    node.value("visible", true) && node.value("selectable", true) &&
+        require(node.value("visible", true) && node.value("selectable", true) &&
                     node.at("weights").empty(),
-                "Model placement requires camera/light/visibility/morph scene consumers");
+                "Model placement requires visibility/morph scene consumers");
     }
     ModelPlacementCandidate result;
     result.scene = scene;
@@ -128,6 +129,12 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
                                              {"cast_shadows", true}, {"receive_shadows", true},
                                              {"layers", UINT32_MAX}};
         }
+        if (!source.at("camera").is_null())
+            values["forge.camera"] = detail::render_value(model_camera_component(
+                hierarchy.at("cameras").at(source.at("camera").get<std::size_t>())));
+        if (!source.at("light").is_null())
+            values["forge.light"] = detail::render_value(model_light_component(
+                hierarchy.at("lights").at(source.at("light").get<std::size_t>())));
         auto parent = result.root;
         if (!source.at("parent").is_null()) {
             const auto found = ids.find(source.at("parent").get<std::size_t>());

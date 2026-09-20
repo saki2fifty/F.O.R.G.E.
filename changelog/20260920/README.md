@@ -957,3 +957,31 @@
 - Correct explicit string extraction in shader publication/compiler-key comparisons
   after MSVC rejected a mixed string/JSON C++20 comparison. Windows revalidation is
   pending; the prior native shader draw/dispatch fixtures passed at source577e6e3.
+
+### Camera/light data and copied presentation
+
+- Add native reflected Camera and Light components with independent transform
+  authority, contextual metadata, numerical/cross-field admission and existing
+  prefab property overrides/Revert. Unknown fields and scene history are preserved.
+- Implement perspective/orthographic projection, infinite perspective far planes,
+  aspect fitting, viewport rectangles and deterministic ordered camera selection.
+  Invalid/collapsed/reflected/sheared camera frames diagnose before GPU conversion.
+- Preserve glTF camera/light node TRS with an explicit source-basis adapter; support
+  negative orthographic magnifications, physical punctual-light units, and light
+  scale independence through model publication and one-step scene placement.
+- Copy validated camera/light/mesh state from the existing presentation transport,
+  preserving interpolated world poses and limiting contextual diagnostic retention.
+  Missing Game cameras diagnose explicitly; no editor-camera substitution occurs
+  in this new preparation path.
+- CPU authoring, direct/worker model import, core, runtime clock/process and strict
+  sanitizer regressions passed as recorded in the associated source validation.
+  Windows validation of this bundle remains pending. Production viewport rendering,
+  shadows, imported GPU skinning and exposed camera/light controls remain work in
+  progress; these data-path changes do not claim their completion.
+- Correct shader-worker inclusion of the concrete pinned Diligent command-queue
+  interface after Windows compilation exposed an incomplete type. Core/SDK shader
+  checkpoint25035ec passed55/65 tests on both Windows and Linux; its dedicated
+  native worker audit failed compilation and must be rerun after this correction.
+- Reject nonzero GPU subnormal projection/light values that Direct3D flushes to
+  zero; authored visual LocalScale admission is unchanged. Targeted authoring
+  regression passed normally and with strict ASan/UBSan/LSan (1/1 each).

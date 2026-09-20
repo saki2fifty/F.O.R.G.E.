@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
 #include <stdexcept>
@@ -176,6 +177,11 @@ void live(const char* module_path) {
                         {"components", {{"forge.position", {{"x", 2}, {"y", 0}, {"z", 0}}}}}}})}});
     auto root = scene.entity(scene.canonical_id("root")),
          child = scene.entity(scene.canonical_id("child"));
+    root.set<Camera>({});
+    child.set<Light>({});
+    MeshRenderer mesh;
+    mesh.mesh.id = AssetId::generate();
+    child.set<MeshRenderer>(mesh);
     child.set<SpatialBinding>({SpatialMode::FollowStructure, {}});
     module.load(std::filesystem::absolute(module_path));
     RuntimeSimulation simulation(engine.world(), scene, module);
@@ -202,6 +208,16 @@ void live(const char* module_path) {
     expect_near(half["entities"][0]["world_affine"][3], 1. / 120, 1e-9);
     expect_near(after["entities"][0]["world_affine"][3], 1. / 60, 1e-9);
     expect_near(half["entities"][1]["world_affine"][3], 2 + 1. / 120, 1e-9);
+    const auto rendered = extract_render_scene(Json::parse(half.dump()));
+    check(rendered.cameras.size() == 1 && rendered.lights.size() == 1 &&
+              rendered.meshes.size() == 1 && rendered.diagnostics.empty(),
+          "Runtime copied render components missing");
+    const auto cameras = prepare_game_cameras(rendered, 800, 600);
+    check(cameras.cameras.size() == 1 && cameras.diagnostics.empty(),
+          "Runtime camera selection failed");
+    expect_near(cameras.cameras[0].view.position[0], 1. / 120, 1e-9);
+    expect_near(rendered.lights[0].light.position[0], 2 + 1. / 120, 1e-9);
+    expect_near(rendered.meshes[0].world.m[3], 2 + 1. / 120, 1e-9);
     check(scene.document() == current && scene.revision() == revision,
           "presentation mutated simulation");
     child.set<SpatialBinding>({SpatialMode::Explicit, scene.reference(scene.canonical_id("root"))});

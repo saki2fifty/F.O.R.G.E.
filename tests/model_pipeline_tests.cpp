@@ -76,7 +76,9 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
 }
 } // namespace
 #include "model_animation_runtime.hpp"
+#include "model_placement.hpp"
 #include "model_placement_tests.hpp"
+#include <forge/render_view.hpp>
 int main(int argc, char** argv) {
     try {
         require(argc == 6, "Need mode worker fixture output-root converter");
@@ -666,6 +668,76 @@ int main(int argc, char** argv) {
                                               .at(members.at("/animations/1"))
                                               .subasset->removed,
                 "Removed clip did not preserve tombstone");
+        // A real camera/light-only glTF travels through the selected direct or
+        // isolated recipe, publication, cooked selection and ordinary scene edit.
+        const auto view_source = std::filesystem::path("Assets/views.gltf");
+        const auto view_doc = Json::parse(R"({
+          "asset":{"version":"2.0"},"extensionsUsed":["KHR_lights_punctual"],
+          "extensions":{"KHR_lights_punctual":{"lights":[
+            {"type":"spot","intensity":50,"range":10,"spot":{}},
+            {"type":"point","intensity":12}, {"type":"directional","intensity":3}]}},
+          "cameras":[
+            {"type":"perspective","perspective":{"yfov":1,"znear":0.1}},
+            {"type":"orthographic","orthographic":{"xmag":-4,"ymag":2,"znear":0,"zfar":100}}],
+          "nodes":[
+            {"name":"Perspective","camera":0,"translation":[0,1,6]},
+            {"name":"Orthographic","camera":1},
+            {"name":"Spot","scale":[-2,0,3],"extensions":{"KHR_lights_punctual":{"light":0}}},
+            {"name":"Point","scale":[0,0,0],"extensions":{"KHR_lights_punctual":{"light":1}}},
+            {"name":"Directional","extensions":{"KHR_lights_punctual":{"light":2}}}],
+          "scenes":[{"nodes":[0,1,2,3,4]}],"scene":0
+        })");
+        save(root / view_source, view_doc);
+        const auto views = run(view_source);
+        require(views.published, views.diagnostic.c_str());
+        const auto view_owner = service.prepare(view_source).request.asset;
+        const auto view_model = load_model_selection(root, views.publication->catalog, view_owner);
+        EngineContext view_engine;
+        Scene view_scene(view_engine.world());
+        view_scene.reset(empty_scene());
+        const auto empty_views = view_scene.document();
+        const auto placement =
+            prepare_model_placement(view_model, view_scene.asset_id(), view_scene.revision());
+        instantiate_model(view_scene, views.publication->catalog, placement);
+        view_engine.world().evaluate_world_transforms();
+        unsigned cameras = 0, lights = 0;
+        const auto placed_views = view_scene.document();
+        for (const auto& row : placed_views.at("entities")) {
+            const auto entity = view_scene.entity(row.at("id"));
+            const auto& world = entity.get<WorldTransform>().affine;
+            if (entity.has<Camera>()) {
+                const auto& camera = entity.get<Camera>();
+                const auto frame = camera_view(camera, world, 800, 600);
+                require(camera.basis == std::uint32_t(ViewBasis::GltfNegativeZ) &&
+                            frame.forward == Double3{0, 0, -1},
+                        "Model camera lost source basis or rewrote node orientation");
+                if (camera.projection == 0)
+                    require(camera.infinite_far, "Imported infinite camera became finite");
+                else
+                    require(camera.flip_x && !camera.flip_y && camera.orthographic_width == 8 &&
+                                camera.orthographic_height == 4,
+                            "Imported negative orthographic magnification lost semantics");
+                ++cameras;
+            }
+            if (entity.has<Light>()) {
+                const auto& light = entity.get<Light>();
+                const auto frame = light_view(light, world);
+                if (light.kind == 2)
+                    require(frame.range == 10 && frame.intensity == 50 &&
+                                frame.direction == Double3{0, 0, -1},
+                            "Imported spot light changed physical quantities or direction");
+                ++lights;
+            }
+        }
+        require(cameras == 2 && lights == 3 && view_scene.entity_count() == 6,
+                "Model camera/light placement lost nodes");
+        const auto authored_views = view_scene.document();
+        view_scene.undo();
+        require(view_scene.document() == empty_views,
+                "Camera/light placement undo left nodes behind");
+        view_scene.redo();
+        require(view_scene.document() == authored_views,
+                "Camera/light placement redo changed identity");
         if (std::filesystem::exists(root / ".forge/jobs"))
             require(std::filesystem::is_empty(root / ".forge/jobs"),
                     "Finished model staging remains");

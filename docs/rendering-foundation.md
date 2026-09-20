@@ -54,19 +54,16 @@ Do not label an untested conversion as supported.
 
 ## Cameras, lighting and effects
 
-Camera is future authored data: perspective/orthographic projection, vertical FOV or
-orthographic size, finite positive near/far range, aspect policy, viewport/target,
-clear policy and deterministic priority. A runtime camera-selection system chooses
-active cameras; multiple targets/cameras use explicit ordered composition. No active
-camera produces a diagnostic/fallback view, not a silent substitution of Scene camera.
-Editor navigation cameras remain personal transient state. Current Game camera is a
-preview convenience copied at Play start, not this production camera system.
+Native reflected Camera and Light components and their validated CPU adapters are
+implemented during Phase7. See[cameras and lights](cameras-lights.md) for projection,
+units, imported basis, numerical admission and history ownership. This is not yet
+production rendering: Game still uses the preview camera until that consumer is
+connected. Scene's editor navigation camera remains personal transient state.
 
-Directional, point and spot lights become ECS data with units, color/intensity,
-range/cone/shadow intent. Area lights extend the same typed lighting interface after
-renderer support exists. Environment/sky is an asset plus scene-level ambient/exposure
-settings; skybox and image-based lighting are renderer resources. Shadow formats,
-passes and budgets belong to renderer profiles. No fake lights are exposed now.
+Directional, point and spot lights provide authored intent. Environment/sky is an
+asset plus scene-level settings; skybox and image-based lighting remain renderer
+resources. Shadow formats, passes and budgets belong to renderer profiles. The CPU
+components alone do not establish rendered shadows or lighting capability.
 
 VFX is a logical asset with dependencies; an emitter component references it and
 contains instance parameters. Its editor is a central document with local graph

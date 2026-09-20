@@ -417,8 +417,18 @@ an over-depth candidate rejects before creating entities. Every placed node also
 explicitly selects the legacy `no_primitive` value, so the compatibility
 blockout path cannot mistake a mesh node or empty transform node for a cube.
 
-This internal checkpoint supports static mesh hierarchies only. It deliberately
-rejects camera/light, special visibility, morph and animated placement until their
+This internal checkpoint supports static mesh hierarchies with camera/light components.
+It deliberately rejects special visibility, morph and animated placement until their
 ECS consumers are connected in the same Phase7 package. No placement UI is exposed
 yet, and no complete model-placement or rendering claim follows from these helpers.
 Those consumers remain required Phase7 work, not deferred delivery scope.
+
+
+### Camera and light placement
+
+Camera/light source nodes now instantiate native reflected Camera/Light components
+through the same detached placement and scene history path. The importer retains
+source node TRS and uses an explicit glTF -Z camera/light basis. Infinite perspective,
+negative orthographic magnification and punctual-light units retain their specified
+semantics. See[camera and light contracts](cameras-lights.md). Rendering consumption
+and editor creation controls are still being connected; this is CPU/authoring evidence.

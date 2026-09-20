@@ -17,10 +17,18 @@ def request(command, **fields):
     if command=='hello': session=result['session']
     return result
 try:
-    assert request('hello')['ok']
+    greeting=request('hello')
+    assert greeting['ok']
     assert request('ping')['ok']
     assert not request('unknown')['ok']
     example=json.loads((Path(__file__).resolve().parents[1]/'samples/projects/Blockout/main.scene.json').read_text())
+    # Native render properties cross the existing copied presentation boundary.
+    schema={c['id']:c for c in greeting['schema']['components']}
+    for component in ('forge.camera','forge.light'):
+        values={f['id']:f['default'] for f in schema[component]['fields']}
+        values['basis']=1  # glTF -Z; does not change the node's TRS.
+        values['future_extension']={'retain':'opaque'}
+        example['entities'][0]['components'][component]=values
     loaded=request('replace', scene=example)
     assert loaded['ok']
     assert 'effective_scene' in loaded
@@ -51,6 +59,13 @@ try:
             cx,sx,cy,sy,cz,sz=math.cos(x),math.sin(x),math.cos(y),math.sin(y),math.cos(z),math.sin(z)
             c['forge.local_rotation']=dict(x=sx*cy*cz-cx*sy*sz,y=cx*sy*cz+sx*cy*sz,z=cx*cy*sz-sx*sy*cz,w=cx*cy*cz+sx*sy*sz)
     assert equivalent(expected, migrated)
+    for component in ('forge.camera','forge.light'):
+        assert equivalent(loaded['effective_scene']['entities'][0]['components'][component],
+                          expected['entities'][0]['components'][component])
+    import copy
+    invalid_camera=copy.deepcopy(migrated)
+    invalid_camera['entities'][0]['components']['forge.camera']['near_plane']=0
+    assert not request('replace',scene=invalid_camera)['ok']
     assert request('snapshot')['scene']==loaded['scene']
     assert request('load_module', path=module)['ok']
     stepped = request('step')

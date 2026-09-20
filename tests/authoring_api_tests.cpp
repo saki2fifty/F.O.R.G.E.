@@ -2,6 +2,8 @@
 #include "mesh_component_tests.hpp"
 #include "ordered_hierarchy_tests.hpp"
 #include "relationship_tests.hpp"
+#include "render_scene_tests.hpp"
+#include "render_view_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/flecs_script.hpp>
 #include <forge/geometry.hpp>
@@ -36,6 +38,8 @@ int main(int argc, char** argv) {
             return 0;
         }
         test_mesh_component();
+        test_render_views();
+        test_render_scene();
         test_relationship_depth();
         test_entity_recipes();
         test_ordered_hierarchy();

@@ -1,9 +1,12 @@
-#include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
-#include "shader_diligent.hpp"
-#include "shader_pipeline.hpp"
+// Native types must precede Diligent's concrete command-queue interface.
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <wrl/client.h>
+
+#include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
+#include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
+#include "shader_diligent.hpp"
+#include "shader_pipeline.hpp"
 int main(int argc, char** argv) {
     if (argc != 2 || std::string_view(argv[1]) != "--build-asset")
         return 2;

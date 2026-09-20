@@ -4,17 +4,24 @@
 #include "reflected_string.hpp"
 #include "reflected_value.hpp"
 #include "reflected_vector.hpp"
+#include "render_values.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>
 #include <forge/primitive_catalog.hpp>
+#include <forge/render_view.hpp>
 #include <mutex>
+#include <numbers>
 #include <stdexcept>
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, ModelSource>) {
+    if constexpr (std::is_same_v<T, Camera>)
+        return render_value(p);
+    else if constexpr (std::is_same_v<T, Light>)
+        return render_value(p);
+    else if constexpr (std::is_same_v<T, ModelSource>) {
         return {{"model", p.model.id ? Json(p.model.id) : Json()},
                 {"node", p.node.id ? Json(p.node.id) : Json()}};
     } else if constexpr (std::is_same_v<T, MeshRenderer>) {
@@ -88,7 +95,11 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, ModelSource>) {
+    if constexpr (std::is_same_v<T, Camera>)
+        return camera_value(p);
+    else if constexpr (std::is_same_v<T, Light>)
+        return light_value(p);
+    else if constexpr (std::is_same_v<T, ModelSource>) {
         ModelSource value;
         if (!p.at("model").is_null())
             value.model.id = p.at("model").get<AssetId>();
@@ -212,7 +223,94 @@ template <class T> void register_asset_ref(flecs::world& w, const char* name) {
 }
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
-    if constexpr (std::is_same_v<T, ModelSource>) {
+    if constexpr (std::is_same_v<T, Camera>) {
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("projection")
+            .template member<std::uint32_t>("basis")
+            .template member<double>("vertical_fov")
+            .template member<double>("orthographic_height")
+            .template member<double>("orthographic_width")
+            .template member<double>("near_plane")
+            .template member<double>("far_plane")
+            .template member<bool>("infinite_far")
+            .template member<double>("aspect")
+            .template member<bool>("flip_x")
+            .template member<bool>("flip_y")
+            .template member<double>("viewport_x")
+            .template member<double>("viewport_y")
+            .template member<double>("viewport_width")
+            .template member<double>("viewport_height")
+            .template member<std::int32_t>("order")
+            .template member<std::uint32_t>("layers")
+            .template member<bool>("clear_color")
+            .template member<bool>("clear_depth")
+            .template member<float>("background_r")
+            .template member<float>("background_g")
+            .template member<float>("background_b")
+            .template member<float>("background_a");
+        for (const auto& [field, offset] :
+             {std::pair{"enabled", offsetof(Camera, enabled)},
+              std::pair{"projection", offsetof(Camera, projection)},
+              std::pair{"basis", offsetof(Camera, basis)},
+              std::pair{"vertical_fov", offsetof(Camera, vertical_fov)},
+              std::pair{"orthographic_height", offsetof(Camera, orthographic_height)},
+              std::pair{"orthographic_width", offsetof(Camera, orthographic_width)},
+              std::pair{"near_plane", offsetof(Camera, near_plane)},
+              std::pair{"far_plane", offsetof(Camera, far_plane)},
+              std::pair{"infinite_far", offsetof(Camera, infinite_far)},
+              std::pair{"aspect", offsetof(Camera, aspect)},
+              std::pair{"flip_x", offsetof(Camera, flip_x)},
+              std::pair{"flip_y", offsetof(Camera, flip_y)},
+              std::pair{"viewport_x", offsetof(Camera, viewport_x)},
+              std::pair{"viewport_y", offsetof(Camera, viewport_y)},
+              std::pair{"viewport_width", offsetof(Camera, viewport_width)},
+              std::pair{"viewport_height", offsetof(Camera, viewport_height)},
+              std::pair{"order", offsetof(Camera, order)},
+              std::pair{"layers", offsetof(Camera, layers)},
+              std::pair{"clear_color", offsetof(Camera, clear_color)},
+              std::pair{"clear_depth", offsetof(Camera, clear_depth)},
+              std::pair{"background_r", offsetof(Camera, background_r)},
+              std::pair{"background_g", offsetof(Camera, background_g)},
+              std::pair{"background_b", offsetof(Camera, background_b)},
+              std::pair{"background_a", offsetof(Camera, background_a)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Camera native Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, Light>) {
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("kind")
+            .template member<std::uint32_t>("basis")
+            .template member<float>("color_r")
+            .template member<float>("color_g")
+            .template member<float>("color_b")
+            .template member<double>("intensity")
+            .template member<double>("range")
+            .template member<double>("inner_cone")
+            .template member<double>("outer_cone")
+            .template member<bool>("cast_shadows")
+            .template member<float>("shadow_bias")
+            .template member<float>("shadow_normal_bias")
+            .template member<std::uint32_t>("layers");
+        for (const auto& [field, offset] :
+             {std::pair{"enabled", offsetof(Light, enabled)},
+              std::pair{"kind", offsetof(Light, kind)}, std::pair{"basis", offsetof(Light, basis)},
+              std::pair{"color_r", offsetof(Light, color_r)},
+              std::pair{"color_g", offsetof(Light, color_g)},
+              std::pair{"color_b", offsetof(Light, color_b)},
+              std::pair{"intensity", offsetof(Light, intensity)},
+              std::pair{"range", offsetof(Light, range)},
+              std::pair{"inner_cone", offsetof(Light, inner_cone)},
+              std::pair{"outer_cone", offsetof(Light, outer_cone)},
+              std::pair{"cast_shadows", offsetof(Light, cast_shadows)},
+              std::pair{"shadow_bias", offsetof(Light, shadow_bias)},
+              std::pair{"shadow_normal_bias", offsetof(Light, shadow_normal_bias)},
+              std::pair{"layers", offsetof(Light, layers)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Light native Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, ModelSource>) {
         register_asset_ref<ModelAsset>(w, "forge.model_ref");
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         c.template member<AssetRef<ModelAsset>>("model").template member<AssetRef<ModelNodeAsset>>(
@@ -419,7 +517,14 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
         descriptor<ModelSource>(
             "forge.model_source", "Imported model and source-node provenance", "unitless", {}, {},
-            [](flecs::world& w) { return register_type<ModelSource>(w, "forge.model_source"); })};
+            [](flecs::world& w) { return register_type<ModelSource>(w, "forge.model_source"); }),
+        descriptor<Camera>(
+            "forge.camera", "Authored game camera; world pose is derived from independent TRS",
+            "unitless", {}, {},
+            [](flecs::world& w) { return register_type<Camera>(w, "forge.camera"); }),
+        descriptor<Light>("forge.light", "Directional, point or spot light with physical intensity",
+                          "unitless", {}, {},
+                          [](flecs::world& w) { return register_type<Light>(w, "forge.light"); })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -429,6 +534,91 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (type.maximum)
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
+    if (name == "forge.camera") {
+        static const std::map<std::string, const char*> help = {
+            {"enabled", "Include this camera in ordered Game view composition"},
+            {"projection", "Perspective or orthographic projection"},
+            {"basis", "FORGE looks along local +Z; imported glTF looks along local -Z without "
+                      "changing node transforms"},
+            {"vertical_fov",
+             "Full vertical perspective field of view in radians, strictly between zero and pi"},
+            {"orthographic_height", "Full orthographic view height in meters; must be positive"},
+            {"orthographic_width", "Full orthographic width in meters; zero follows aspect, "
+                                   "positive fits width/height without stretching"},
+            {"near_plane", "Near clip distance in meters; perspective requires positive, "
+                           "orthographic permits zero"},
+            {"far_plane",
+             "Far clip distance in meters, greater than near; ignored by infinite perspective"},
+            {"infinite_far", "Perspective projection with no finite far clipping plane"},
+            {"aspect", "Positive width/height ratio fits inside viewport; zero follows target. "
+                       "Explicit orthographic width takes precedence"},
+            {"flip_x", "Mirror projected horizontal image, including imported negative "
+                       "orthographic magnification"},
+            {"flip_y", "Mirror projected vertical image, including imported negative orthographic "
+                       "magnification"},
+            {"viewport_x", "Left edge as a fraction of target width"},
+            {"viewport_y", "Top edge as a fraction of target height"},
+            {"viewport_width",
+             "Positive fraction of target width; rectangle must stay inside target"},
+            {"viewport_height",
+             "Positive fraction of target height; rectangle must stay inside target"},
+            {"order",
+             "Compose enabled cameras in ascending order; stable entity identity breaks ties"},
+            {"layers", "Visible render layer bit mask"},
+            {"clear_color", "Clear this camera viewport to its linear background color"},
+            {"clear_depth",
+             "Clear depth before this camera; disable only for deliberate composition"},
+            {"background_r", "Linear background red channel"},
+            {"background_g", "Linear background green channel"},
+            {"background_b", "Linear background blue channel"},
+            {"background_a", "Background alpha channel"}};
+        value["description"] = help.at(field);
+        if (field == "vertical_fov") {
+            value["minimum"] = 0;
+            value["maximum"] = std::numbers::pi;
+            value["unit"] = "radians";
+        }
+        if (field.starts_with("orthographic_") || field.ends_with("_plane"))
+            value["unit"] = "meters";
+        if (field.starts_with("background_") || field.starts_with("viewport_")) {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+        }
+    }
+    if (name == "forge.light") {
+        static const std::map<std::string, const char*> help = {
+            {"enabled", "Include this light in rendering"},
+            {"kind", "Directional, point or spot light"},
+            {"basis", "FORGE directional/spot forward is +Z; imported glTF forward is -Z"},
+            {"color_r", "Linear light red multiplier from zero to one"},
+            {"color_g", "Linear light green multiplier from zero to one"},
+            {"color_b", "Linear light blue multiplier from zero to one"},
+            {"intensity", "Nonnegative lux for directional lights or candela for point/spot "
+                          "lights; unaffected by node scale"},
+            {"range",
+             "Point/spot distance cutoff in meters; zero is unbounded, independent of node scale"},
+            {"inner_cone",
+             "Spot half angle in radians where attenuation starts; less than outer angle"},
+            {"outer_cone", "Spot half angle in radians where illumination ends; at most pi/2"},
+            {"cast_shadows", "Request shadows; supported light types and budgets are renderer "
+                             "profile capabilities"},
+            {"shadow_bias", "Nonnegative shadow depth bias in normalized depth units"},
+            {"shadow_normal_bias",
+             "Nonnegative normal offset in world meters for shadow evaluation"},
+            {"layers", "Affected render layer bit mask"}};
+        value["description"] = help.at(field);
+        if (field.starts_with("color_")) {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+        }
+        if (field.ends_with("_cone")) {
+            value["minimum"] = 0;
+            value["maximum"] = std::numbers::pi / 2;
+            value["unit"] = "radians";
+        }
+        if (field == "range" || field == "shadow_normal_bias")
+            value["unit"] = "meters";
+    }
     if (name == "forge.physics_body") {
         if (field == "motion") {
             value["maximum"] = 2;
@@ -565,6 +755,8 @@ std::string friendly_name(std::string text) {
 std::recursive_mutex catalog_mutex;
 std::map<std::string, Json> validation_catalog;
 ecs_entity_t field_unit(flecs::world& world, const std::string& name) {
+    if (name == "radians")
+        return EcsRadians;
     if (name == "meters")
         return EcsMeters;
     if (name == "meters/second")
@@ -611,6 +803,34 @@ ecs_entity_t enum_type(flecs::world& world, bool primitive) {
         type.lookup(names[i].c_str()).set_doc_name(primitive ? primitive_names[i] : motions[i]);
     return type;
 }
+ecs_entity_t render_enum(flecs::world& world, const std::string& component,
+                         const std::string& field) {
+    const char* type = nullptr;
+    std::vector<const char*> names;
+    if ((component == "forge.camera" || component == "forge.light") && field == "basis") {
+        type = "forge.ViewBasis";
+        names = {"ForgePositiveZ", "GltfNegativeZ"};
+    } else if (component == "forge.camera" && field == "projection") {
+        type = "forge.CameraProjection";
+        names = {"Perspective", "Orthographic"};
+    } else if (component == "forge.light" && field == "kind") {
+        type = "forge.LightKind";
+        names = {"Directional", "Point", "Spot"};
+    } else
+        return 0;
+    if (auto existing = world.lookup(type))
+        return existing;
+    ecs_enum_desc_t desc{};
+    desc.entity = world.entity(type);
+    desc.underlying_type = world.id<std::uint32_t>();
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        desc.constants[i].name = names[i];
+        desc.constants[i].value_unsigned = i;
+    }
+    if (!ecs_enum_init(world, &desc))
+        throw std::runtime_error("Render enum registration failed");
+    return desc.entity;
+}
 void annotate_type(flecs::world& world, flecs::entity component, const Builtin& type) {
     const auto* structure = ecs_get(world.c_ptr(), component.id(), EcsStruct);
     if (!structure)
@@ -636,11 +856,13 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         m.use_offset = true;
         const auto options = registration_options(type, m.name);
         m.unit = field_unit(world, options.at("unit"));
+        const auto render_kind = render_enum(world, type.name, names[i]);
         const bool enumeration =
-            std::string(type.name) == "forge.primitive" ||
+            render_kind || std::string(type.name) == "forge.primitive" ||
             (std::string(type.name) == "forge.physics_body" && names[i] == "motion");
         if (enumeration)
-            m.type = enum_type(world, std::string(type.name) == "forge.primitive");
+            m.type = render_kind ? render_kind
+                                 : enum_type(world, std::string(type.name) == "forge.primitive");
         // Stable Meta ranges require primitive numbers, not enums. Native enum
         // constants define membership; no parallel numeric range is registered.
         if (!enumeration && options.contains("minimum") && options.contains("maximum")) {
@@ -777,6 +999,12 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
         case EcsF64:
             std::memcpy(&number, ptr, sizeof(number));
             break;
+        case EcsI32: {
+            std::int32_t v;
+            std::memcpy(&v, ptr, sizeof(v));
+            number = v;
+            break;
+        }
         case EcsU32: {
             std::uint32_t v;
             std::memcpy(&v, ptr, sizeof(v));

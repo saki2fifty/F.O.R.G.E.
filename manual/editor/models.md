@@ -121,3 +121,15 @@ Animation channels can distinguish nodes whose rest transforms are identical.
 Removing those channels can remove that evidence; a later import may then ask you
 to confirm which previous source node to keep. This leaves the earlier model usable
 until you resolve the conflict.
+
+
+## Imported cameras and lights
+
+Model preparation preserves perspective and orthographic camera settings, including
+an omitted far clipping plane, and directional, point and spot lights. Source node
+transforms remain unchanged. Camera and light directions follow glTF's local minus-Z
+convention when the internal placement path creates their scene components.
+
+These components do not yet drive the current Game preview. Camera/light creation
+controls and the production renderer are still being connected. Importing a model
+successfully does not mean those rendered workflows are ready for use.
