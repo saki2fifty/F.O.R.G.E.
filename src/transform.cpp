@@ -2,6 +2,7 @@
 #include <cmath>
 #include <forge/transform.hpp>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 namespace forge {
@@ -27,12 +28,27 @@ Double3 AffineTransform::point(Double3 p) const {
         r[i] += m[4 * i + 3];
     return r;
 }
+LocalScale checked_local_scale(Double3 value) {
+    float result[3];
+    for (unsigned i = 0; i < 3; ++i) {
+        if (!std::isfinite(value[i]) || std::abs(value[i]) > max_local_scale)
+            throw std::runtime_error(
+                "Visual LocalScale must be finite and within -10000 to +10000");
+        result[i] = float(value[i]);
+        if (value[i] != 0 && result[i] == 0)
+            throw std::runtime_error(
+                "LocalScale underflows float storage; no zero substitution was made");
+        if (result[i] == 0)
+            result[i] = 0;
+    }
+    return {result[0], result[1], result[2]};
+}
 LocalRotation normalized(LocalRotation q) {
     const double length =
         std::sqrt(double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z + double(q.w) * q.w);
     if (!std::isfinite(length) || length < 1e-12)
         throw std::runtime_error("Invalid rotation quaternion");
-    const double factor = (q.w < 0 ? -1.0 : 1.0) / length;
+    const double factor = 1.0 / length;
     return {float(q.x * factor), float(q.y * factor), float(q.z * factor), float(q.w * factor)};
 }
 LocalRotation rotation_from_euler(Double3 d) {
@@ -65,8 +81,9 @@ AffineTransform affine_transform(const LocalTransform& t) {
                        s * (y * z + x * w), 1 - s * (x * x + y * y), t.translation.z}};
     const double scales[] = {t.scale.x, t.scale.y, t.scale.z};
     for (unsigned col = 0; col < 3; ++col) {
-        if (!std::isfinite(scales[col]) || scales[col] < double(.001f) || scales[col] > 10000)
-            throw std::runtime_error("Local scale outside 0.001 to 10000");
+        if (!std::isfinite(scales[col]) || std::abs(scales[col]) > max_local_scale)
+            throw std::runtime_error(
+                "Visual LocalScale must be finite and within -10000 to +10000");
         for (unsigned row = 0; row < 3; ++row)
             r.m[row * 4 + col] *= scales[col];
     }
@@ -84,47 +101,51 @@ AffineTransform operator*(const AffineTransform& a, const AffineTransform& b) {
     finite(r);
     return r;
 }
-AffineTransform inverse(const AffineTransform& a) {
+namespace {
+struct LinearAnalysis {
+    Double3 columns[3]{};
+    Double3 cofactors[3]{};
+    double magnitude{}, determinant{}, rcond{};
+};
+LinearAnalysis analyze_linear(const AffineTransform& a) {
     finite(a);
-    Double3 c[3];
+    LinearAnalysis result;
     for (unsigned i = 0; i < 3; ++i)
-        c[i] = {a.m[i], a.m[4 + i], a.m[8 + i]};
-    auto x = cross(c[1], c[2]), y = cross(c[2], c[0]), z = cross(c[0], c[1]);
-    const auto determinant = dot(c[0], x);
-    const double magnitude = std::sqrt(dot(c[0], c[0]) * dot(c[1], c[1]) * dot(c[2], c[2]));
-    if (!std::isfinite(determinant) || magnitude == 0 || std::abs(determinant) <= 1e-12 * magnitude)
-        throw std::runtime_error("Spatial parent is singular or ill-conditioned");
-    AffineTransform r;
+        for (unsigned j = 0; j < 3; ++j)
+            result.magnitude = std::max(result.magnitude, std::abs(a.m[4 * i + j]));
+    if (result.magnitude == 0)
+        return result;
+    for (unsigned i = 0; i < 3; ++i)
+        for (unsigned j = 0; j < 3; ++j)
+            result.columns[i][j] = a.m[4 * j + i] / result.magnitude;
+    for (unsigned i = 0; i < 3; ++i)
+        result.cofactors[i] = cross(result.columns[(i + 1) % 3], result.columns[(i + 2) % 3]);
+    result.determinant = dot(result.columns[0], result.cofactors[0]);
+    double determinant_sum = 0;
     for (unsigned i = 0; i < 3; ++i) {
-        r.m[i] = x[i] / determinant;
-        r.m[4 + i] = y[i] / determinant;
-        r.m[8 + i] = z[i] / determinant;
+        const auto j = (i + 1) % 3, k = (i + 2) % 3;
+        determinant_sum += std::abs(result.columns[0][i]) *
+                           (std::abs(result.columns[1][j] * result.columns[2][k]) +
+                            std::abs(result.columns[1][k] * result.columns[2][j]));
     }
-    auto t = r.vector({-a.m[3], -a.m[7], -a.m[11]});
-    for (unsigned i = 0; i < 3; ++i)
-        r.m[4 * i + 3] = t[i];
-    finite(r);
-    return r;
+    // A forward-composed rank-two matrix can acquire a tiny determinant through
+    // cancellation. Do not randomly alternate its normal orientation each frame.
+    if (std::abs(result.determinant) <=
+        16 * std::numeric_limits<double>::epsilon() * determinant_sum)
+        result.determinant = 0;
+    double norm = 0, adjugate_norm = 0;
+    for (unsigned i = 0; i < 3; ++i) {
+        norm = std::max(norm, std::abs(result.columns[0][i]) + std::abs(result.columns[1][i]) +
+                                  std::abs(result.columns[2][i]));
+        adjugate_norm = std::max(adjugate_norm, std::abs(result.cofactors[i][0]) +
+                                                    std::abs(result.cofactors[i][1]) +
+                                                    std::abs(result.cofactors[i][2]));
+    }
+    if (adjugate_norm != 0)
+        result.rcond = std::abs(result.determinant) / (norm * adjugate_norm);
+    return result;
 }
-LocalTransform decompose(const AffineTransform& a) {
-    finite(a);
-    Double3 c[3];
-    double lengths[3];
-    for (unsigned i = 0; i < 3; ++i) {
-        c[i] = {a.m[i], a.m[4 + i], a.m[8 + i]};
-        lengths[i] = std::sqrt(dot(c[i], c[i]));
-        if (!std::isfinite(lengths[i]) || lengths[i] < double(.001f) * (1 - 1e-6) ||
-            lengths[i] > 10000 * (1 + 1e-6))
-            throw std::runtime_error("Required local scale is outside supported bounds");
-        for (auto& n : c[i])
-            n /= lengths[i];
-    }
-    if (std::abs(dot(c[0], c[1])) > 1e-6 || std::abs(dot(c[0], c[2])) > 1e-6 ||
-        std::abs(dot(c[1], c[2])) > 1e-6)
-        throw std::runtime_error(
-            "Operation requires local shear; authored TRS cannot represent it");
-    if (dot(c[0], cross(c[1], c[2])) < 0)
-        throw std::runtime_error("Operation requires negative local scale");
+LocalRotation basis_rotation(const Double3* c) {
     double m[3][3];
     for (unsigned i = 0; i < 3; ++i)
         for (unsigned j = 0; j < 3; ++j)
@@ -148,15 +169,157 @@ LocalTransform decompose(const AffineTransform& a) {
         q[j] = (m[j][i] + m[i][j]) / s;
         q[k] = (m[k][i] + m[i][k]) / s;
     }
-    LocalTransform result{{a.m[3], a.m[7], a.m[11]},
-                          normalized({float(q[0]), float(q[1]), float(q[2]), float(q[3])}),
-                          {float(std::clamp(lengths[0], double(.001f), 10000.0)),
-                           float(std::clamp(lengths[1], double(.001f), 10000.0)),
-                           float(std::clamp(lengths[2], double(.001f), 10000.0))}};
+    return normalized({float(q[0]), float(q[1]), float(q[2]), float(q[3])});
+}
+} // namespace
+
+double inverse_reciprocal_condition(const AffineTransform& value) {
+    return analyze_linear(value).rcond;
+}
+TransformParity transform_parity(const AffineTransform& value) {
+    const auto determinant = analyze_linear(value).determinant;
+    return determinant == 0  ? TransformParity::Singular
+           : determinant < 0 ? TransformParity::Negative
+                             : TransformParity::Positive;
+}
+AffineTransform inverse(const AffineTransform& a) {
+    const auto linear = analyze_linear(a);
+    if (linear.rcond < min_inverse_rcond)
+        throw std::runtime_error(
+            "Transform inverse unavailable: singular or ill-conditioned linear transform");
+    AffineTransform r;
+    for (unsigned i = 0; i < 3; ++i)
+        for (unsigned j = 0; j < 3; ++j)
+            r.m[4 * i + j] = (linear.cofactors[i][j] / linear.determinant) / linear.magnitude;
+    auto t = r.vector({-a.m[3], -a.m[7], -a.m[11]});
+    for (unsigned i = 0; i < 3; ++i)
+        r.m[4 * i + 3] = t[i];
+    finite(r);
+    return r;
+}
+AffineTransform normal_transform(const AffineTransform& a) {
+    const auto linear = analyze_linear(a);
+    AffineTransform r;
+    r.m.fill(0);
+    double magnitude = 0;
+    for (const auto& c : linear.cofactors)
+        for (auto v : c)
+            magnitude = std::max(magnitude, std::abs(v));
+    if (magnitude == 0)
+        return r;
+    // Cofactor(A) = det(A) * inverse-transpose(A). Removing the negative
+    // determinant sign preserves outward normal direction for mirrored draws.
+    // Rank-two transforms have an oriented area normal but no inverse.
+    const auto sign = linear.determinant < 0 ? -1.0 : 1.0;
+    for (unsigned i = 0; i < 3; ++i)
+        for (unsigned j = 0; j < 3; ++j)
+            r.m[4 * j + i] = sign * linear.cofactors[i][j] / magnitude;
+    return r;
+}
+LocalTransform decompose(const AffineTransform& a, const LocalTransform* previous) {
+    finite(a);
+    const auto preferred = previous ? *previous : LocalTransform{};
+    const auto preferred_basis = affine_transform({{}, preferred.rotation, {}});
+    const double preferred_scale[] = {preferred.scale.x, preferred.scale.y, preferred.scale.z};
+    Double3 c[3];
+    double lengths[3];
+    unsigned rank = 0, nonzero = 0, missing = 0;
+    for (unsigned i = 0; i < 3; ++i) {
+        c[i] = {a.m[i], a.m[4 + i], a.m[8 + i]};
+        lengths[i] = std::hypot(c[i][0], c[i][1], c[i][2]);
+        if (!std::isfinite(lengths[i]) || lengths[i] > max_local_scale * (1 + 1e-6))
+            throw std::runtime_error("Required local scale is outside supported bounds");
+        if (lengths[i] != 0) {
+            ++rank;
+            nonzero = i;
+            for (auto& n : c[i])
+                n /= lengths[i];
+        } else
+            missing = i;
+    }
+    if (std::abs(dot(c[0], c[1])) > 1e-6 || std::abs(dot(c[0], c[2])) > 1e-6 ||
+        std::abs(dot(c[1], c[2])) > 1e-6)
+        throw std::runtime_error(
+            "Operation requires local shear; authored TRS cannot represent it");
+    if (rank == 3) {
+        if (dot(c[0], cross(c[1], c[2])) < 0) {
+            lengths[0] = -lengths[0];
+            for (auto& v : c[0])
+                v = -v;
+        }
+    } else if (rank == 2) {
+        c[missing] = cross(c[(missing + 1) % 3], c[(missing + 2) % 3]);
+    } else if (rank == 1) {
+        // Preserve the previous twist by projecting its next axis into the
+        // available perpendicular plane. At a parallel pole choose deterministically.
+        const unsigned next = (nonzero + 1) % 3, last = (nonzero + 2) % 3;
+        Double3 reference{preferred_basis.m[next], preferred_basis.m[4 + next],
+                          preferred_basis.m[8 + next]};
+        auto perpendicular = [&](Double3 ref) {
+            const auto along = dot(ref, c[nonzero]);
+            for (unsigned j = 0; j < 3; ++j)
+                ref[j] -= along * c[nonzero][j];
+            return ref;
+        };
+        c[next] = perpendicular(reference);
+        double length = std::hypot(c[next][0], c[next][1], c[next][2]);
+        if (length < 1e-8) {
+            unsigned axis = 0;
+            for (unsigned j = 1; j < 3; ++j)
+                if (std::abs(c[nonzero][j]) < std::abs(c[nonzero][axis]))
+                    axis = j;
+            reference = {};
+            reference[axis] = 1;
+            c[next] = perpendicular(reference);
+            length = std::hypot(c[next][0], c[next][1], c[next][2]);
+        }
+        for (auto& v : c[next])
+            v /= length;
+        c[last] = cross(c[nonzero], c[next]);
+    } else {
+        for (unsigned i = 0; i < 3; ++i)
+            c[i] = {preferred_basis.m[i], preferred_basis.m[4 + i], preferred_basis.m[8 + i]};
+    }
+    LocalTransform result;
+    unsigned best_mismatches = 4;
+    double best_distance = std::numeric_limits<double>::infinity();
+    // Four proper bases for a given orthogonal linear transform. Sign continuity
+    // wins, then closest quaternion; fixed iteration order settles exact ties.
+    for (auto signs :
+         {Double3{1, 1, 1}, Double3{1, -1, -1}, Double3{-1, 1, -1}, Double3{-1, -1, 1}}) {
+        Double3 basis[3];
+        float scales[3];
+        unsigned mismatches = 0;
+        for (unsigned i = 0; i < 3; ++i) {
+            for (unsigned j = 0; j < 3; ++j)
+                basis[i][j] = c[i][j] * signs[i];
+            const double signed_length = lengths[i] * signs[i];
+            // Only roundoff at the existing maximum boundary is tolerated.
+            scales[i] = signed_length == 0
+                            ? 0
+                            : float(std::clamp(signed_length, -double(max_local_scale),
+                                               double(max_local_scale)));
+            if (scales[i] != 0 && (std::signbit(scales[i]) != std::signbit(preferred_scale[i])))
+                ++mismatches;
+        }
+        auto q = basis_rotation(basis);
+        auto p = normalized(preferred.rotation);
+        double cosine =
+            double(q.x) * p.x + double(q.y) * p.y + double(q.z) * p.z + double(q.w) * p.w;
+        if (cosine < 0)
+            q = {-q.x, -q.y, -q.z, -q.w};
+        const double distance = 1 - std::abs(cosine);
+        if (mismatches < best_mismatches ||
+            (mismatches == best_mismatches && distance < best_distance)) {
+            best_mismatches = mismatches;
+            best_distance = distance;
+            result = {{a.m[3], a.m[7], a.m[11]}, q, {scales[0], scales[1], scales[2]}};
+        }
+    }
     const auto check = affine_transform(result);
     for (unsigned i = 0; i < 3; ++i)
         for (unsigned j = 0; j < 3; ++j)
-            if (std::abs(check.m[4 * i + j] - a.m[4 * i + j]) > 2e-6 * lengths[j])
+            if (std::abs(check.m[4 * i + j] - a.m[4 * i + j]) > 2e-6 * std::abs(lengths[j]))
                 throw std::runtime_error("Local TRS reconstruction exceeds tolerance");
     return result;
 }
@@ -182,9 +345,9 @@ bool equivalent(LocalRotation a, LocalRotation b) {
     return 1 - std::abs(d) / std::sqrt(aa * bb) < 1e-13;
 }
 bool equivalent(LocalScale a, LocalScale b) {
-    return std::abs(a.x - b.x) <= 2e-6 * std::max(a.x, b.x) &&
-           std::abs(a.y - b.y) <= 2e-6 * std::max(a.y, b.y) &&
-           std::abs(a.z - b.z) <= 2e-6 * std::max(a.z, b.z);
+    return std::abs(a.x - b.x) <= 2e-6 * std::max(std::abs(a.x), std::abs(b.x)) &&
+           std::abs(a.y - b.y) <= 2e-6 * std::max(std::abs(a.y), std::abs(b.y)) &&
+           std::abs(a.z - b.z) <= 2e-6 * std::max(std::abs(a.z), std::abs(b.z));
 }
 const std::map<std::uint64_t, EvaluatedTransform>&
 TransformEvaluator::evaluate(const std::map<std::uint64_t, TransformNode>& nodes) {

@@ -84,8 +84,8 @@ Geometry geometry(const nlohmann::json& doc) {
             node = entities.at(parent);
         }
         AffineTransform transform{e.at("world_affine").get<std::array<double, 12>>()};
-        // Reject singular/reflected/sheared geometry consistently with the current spatial
-        // contract.
+        // Keep TRS representability validation; signed/zero visual scales are valid.
+        // Forward geometry handles their winding and skips collapsed triangles.
         (void)decompose(transform);
         auto kind = primitive_kind(e);
         if (kind >= primitive_meshes().size())
@@ -99,17 +99,29 @@ Geometry geometry(const nlohmann::json& doc) {
                 continue;
             if (geom_dot(cross, mesh[t].normal) < 0)
                 std::swap(b, d);
-            if (g.indices.size() / 3 >= 16384)
-                throw std::runtime_error("Navigation geometry exceeds 16384 triangles");
+            if (transform_parity(transform) == TransformParity::Negative)
+                std::swap(b, d);
+            std::array<Float3, 3> points;
+            unsigned next = 0;
             for (auto p : {a, b, d}) {
-                auto world = transform.point({p[0], p[1], p[2]});
-                g.indices.push_back(int(g.indices.size()));
-                for (double v : world) {
-                    if (!std::isfinite(v) || std::abs(v) > 4090)
+                const auto world = transform.point({p[0], p[1], p[2]});
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    if (!std::isfinite(world[axis]) || std::abs(world[axis]) > 4090)
                         throw std::runtime_error(
                             "Navigation geometry must lie within +/-4090 metres");
-                    g.vertices.push_back(float(v));
+                    points[next][axis] = float(world[axis]);
                 }
+                ++next;
+            }
+            const auto area =
+                geom_cross(geom_sub(points[1], points[0]), geom_sub(points[2], points[0]));
+            if (geom_dot(area, area) < 1e-14f)
+                continue;
+            if (g.indices.size() / 3 >= 16384)
+                throw std::runtime_error("Navigation geometry exceeds 16384 triangles");
+            for (auto p : points) {
+                g.indices.push_back(int(g.indices.size()));
+                g.vertices.insert(g.vertices.end(), p.begin(), p.end());
             }
         }
     }

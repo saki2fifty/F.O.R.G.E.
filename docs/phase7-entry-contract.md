@@ -65,3 +65,13 @@ work-package report records actual tests, commits and package identity. If evide
 reveals a material architecture/version conflict, use the user's rebuttal gate before
 changing the contract. Phase7 is now authorized by the user; stop before Phase8 after the complete
 Phase7 delivery. Earlier freeze-package completion alone did not grant that authority.
+
+## Approved in-phase scale correction
+
+On2026-09-20 the user approved expanding the existing visual LocalScale domain
+to[-10000,+10000], including zero/tiny values, preserving independent TRS ownership
+and derived WorldTransform. This supersedes the entry baseline's positive-only
+numerical restriction. ADR009 and[transforms](transforms.md) record the single
+authoritative contract. Exact dependency pins, ABI1 and identity layouts stay
+unchanged; scene5/prefab2 and the SDK fingerprint express numerical compatibility.
+Full rendering/skinning/Windows acceptance remains required before Phase7 completion.

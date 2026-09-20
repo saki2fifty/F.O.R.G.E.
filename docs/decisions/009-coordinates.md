@@ -15,7 +15,8 @@ matrix memcpy contract.
 
 include/forge/transform.hpp, transform.cpp, editor/camera.hpp and viewport shaders
 state/implement these conventions. Current preview uses positive view depth and
-D3D[0,1] clip depth with culling disabled. That does not prove a production winding
+D3D[0,1] clip depth. The Phase7 primitive preview now selects front-face state by
+reflection parity, with explicit two-sided planar/singular draws. That does not prove a production winding
 or skinned-import convention already exists.
 
 ## Consequences
@@ -32,3 +33,17 @@ Before first imported rendering, test a labeled asymmetric basis model, winding,
 mirrored UVs, normal map, skin bind pose and color swatches across boundaries. Jolt,
 Ozz and Recast conversions stay in their adapters; never scatter sign fixes through
 gameplay. No claim that these future rendering checks already passed.
+
+## Approved Phase7 numerical-domain extension —2026-09-20
+
+LocalScale remains the same independent authored component and now admits finite
+[-10000,+10000], including signed/zero/tiny values. WorldTransform remains derived
+forward parent×local state; no second hierarchy or matrix-authored entity.
+Inverse availability is an operation-specific condition check, not visual
+validity. Signed decomposition uses local sign/rotation continuity and verified
+recomposition. Rendering distinguishes reflection parity and singular normals;
+physics validates each actual shape separately. See[the transform contract](../transforms.md).
+Existing version gates distinguish scene5/prefab2 expanded scale from earlier
+positive-only documents. Exact SDK numerical-contract fingerprint changes; ABI1
+and component identities/layouts do not. Full Phase7 rendered/imported/skinned
+acceptance is still pending and cannot be inferred from this decision.

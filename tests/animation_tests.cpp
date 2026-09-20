@@ -41,6 +41,7 @@ struct Fixture {
         return animation->presentation(scene.entity("actor").id(), alpha);
     }
 };
+#include "animation_signed_scale.hpp"
 int main(int argc, char** argv) {
     try {
         check((argc == 4 || argc == 5), "Need project, converter and source paths");
@@ -77,6 +78,8 @@ int main(int argc, char** argv) {
             std::cout << root.string() << "\n";
             return 0;
         }
+        signed_scale_animation(root / "signed", std::filesystem::absolute(argv[2]),
+                               Json::parse(read(root / "Assets/source.gltf")));
         auto again = convert().publish();
         for (const auto& record : again)
             check(record.id == skeleton.id || record.id == clip.id || record.id == source.id,

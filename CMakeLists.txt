@@ -178,6 +178,11 @@ if(BUILD_TESTING)
  target_link_libraries(forge_animation_tests PRIVATE forge_simulation forge_animation_conversion forge_authoring)
  add_test(NAME animation COMMAND forge_animation_tests ${CMAKE_BINARY_DIR}/animation-test-data ${FORGE_TEST_ANIMATION_CONVERTER} ${CMAKE_CURRENT_SOURCE_DIR}/samples/animation/two-joints.gltf)
  set_tests_properties(animation PROPERTIES TIMEOUT 60)
+ if(FORGE_ENABLE_SANITIZERS)
+  # Includes real STEP/LINEAR/CUBICSPLINE conversions and converter-byte hashing.
+  # The instrumented Debug suite takes about 61 seconds on the reference host.
+  set_tests_properties(animation PROPERTIES TIMEOUT 180)
+ endif()
  add_executable(forge_audio_tests tests/audio_tests.cpp)
  target_link_libraries(forge_audio_tests PRIVATE forge_simulation forge_authoring)
  add_test(NAME audio COMMAND forge_audio_tests ${CMAKE_BINARY_DIR}/audio-test-data)

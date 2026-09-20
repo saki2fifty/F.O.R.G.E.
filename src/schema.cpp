@@ -41,18 +41,19 @@ Json SchemaRegistry::prepare(const std::string& kind, const Json& source) const 
 SchemaRegistry core_document_schemas() {
     SchemaRegistry registry;
     registry.add({"scene",
-                  4,
-                  {1, 2, 3, 4},
-                  "Detached migration of 1/2 to3; preserve3/4. Disk identity journals/backups "
+                  5,
+                  {1, 2, 3, 4, 5},
+                  "Detached migration of 1/2 to3; signed/zero/tiny scales require5. Disk identity "
+                  "journals/backups "
                   "remain read_scene_file/save_scene_file owned.",
                   Scene::validate_document,
                   [](const Json& j) { return migrate_scene(j); }});
     registry.add({"prefab",
-                  1,
-                  {1},
-                  "No historical migration; immutable source candidate validation.",
+                  2,
+                  {1, 2},
+                  "Version2 admits signed/zero/tiny scale; immutable source candidate validation.",
                   PrefabDocument::validate,
-                  [](const Json& j) { return j; }});
+                  [](const Json& j) { return PrefabDocument(j).source; }});
     registry.add({"input",
                   1,
                   {1},

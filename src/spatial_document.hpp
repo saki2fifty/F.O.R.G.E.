@@ -10,6 +10,9 @@ SpatialBinding read_binding(const Json& entity);
 Json encode(LocalTranslation value);
 Json encode(LocalRotation value);
 Json encode(LocalScale value);
+// Existing version gates protect extended numerical values from older editors.
+// Positive-only documents keep their version. Never traverses opaque payloads.
+void promote_scale_format(Json& document, const char* rows, unsigned required_version);
 Json project_spatial(Json effective);
 void validate_spatial(const Json& authored);
 // Only writes specified channels. changed_only is for reparent compensation.

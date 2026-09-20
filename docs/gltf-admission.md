@@ -138,10 +138,10 @@ joint and scene-membership work entries; the100k-deep fixture is tested.
 Both column-major source matrices and TRS are admitted. Matrix/TRS coexistence,
 non-affine matrices, matrix shear/singular columns, nonfinite values and invalid
 quaternions are rejected. Source TRS reflection and zero scale remain intact in
-private CPU data. This does **not** authorize those values in current FORGE ECS:
-its existing positive0.001–10000 LocalScale contract remains unchanged. Model
-publication/animation integration must resolve that representability boundary
-before exposing support; clamping or taking absolute scale is not a conversion.
+private CPU data. Phase7 approval expands the existing LocalScale numerical domain
+to[-10000,+10000], including zero/tiny magnitudes, with independent inverse and
+physics admission. Model publication, runtime skinning and full rendering acceptance
+remain integration work; clamping or taking absolute visual scale is not a conversion.
 
 Perspective camera source parameters include optional infinite far plane/aspect;
 orthographic parameters preserve signed nonzero magnification. Invalid clipping,

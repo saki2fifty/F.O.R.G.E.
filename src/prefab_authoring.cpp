@@ -12,8 +12,7 @@ Json read_prefab(const std::filesystem::path& path) {
         throw std::runtime_error("Prefab source exceeds 8 MiB");
     std::ifstream input(path);
     auto source = Json::parse(input);
-    PrefabDocument::validate(source);
-    return source;
+    return PrefabDocument(std::move(source)).source;
 }
 } // namespace
 PrefabDocument create_prefab_source(const Scene& scene, const std::string& selected) {
@@ -115,7 +114,8 @@ PrefabSources PrefabLibrary::scan(AssetCatalog& candidate,
             throw std::runtime_error("Prefab scan exceeds 64 MiB");
         auto source = read_prefab(it->path());
         const PrefabDocument p(source);
-        AssetRecord record{p.asset(), PrefabAsset::type, it->path().lexically_relative(project_), 1,
+        AssetRecord record{p.asset(), PrefabAsset::type, it->path().lexically_relative(project_),
+                           source.at("version").get<unsigned>(),
                            source.value("dependencies", std::vector<AssetId>{})};
         candidate.add(record);
         records.emplace(p.asset(), record);
@@ -169,7 +169,8 @@ AssetId PrefabLibrary::create(Scene& scene, PrefabDocument document,
         throw std::runtime_error("New prefab assets start at revision 1");
     auto candidate = catalog_;
     auto records = records_;
-    AssetRecord record{document.asset(), PrefabAsset::type, relative, 1,
+    AssetRecord record{document.asset(), PrefabAsset::type, relative,
+                       document.source.at("version").get<unsigned>(),
                        document.source.value("dependencies", std::vector<AssetId>{})};
     candidate.add(record);
     records.emplace(record.id, record);
@@ -198,12 +199,14 @@ void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate) 
         throw std::runtime_error("Prefab revision exhausted");
     candidate["revision"] = old.revision() + 1;
     const PrefabDocument parsed(candidate);
+    candidate = parsed.source;
     const auto path = locate(records_.at(old.asset()).source);
     if (source(old.asset()) != expected)
         throw std::runtime_error("Prefab changed on disk; reopen its source before publishing");
     auto sources = scene.prefab_sources();
     sources[old.asset()] = candidate;
     auto records = records_;
+    records.at(old.asset()).schema_version = candidate.at("version").get<unsigned>();
     records.at(old.asset()).dependencies = candidate.value("dependencies", std::vector<AssetId>{});
     AssetCatalog catalog(project_);
     for (const auto& [id, record] : records) {

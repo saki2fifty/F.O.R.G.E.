@@ -110,10 +110,10 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build actual editor with audit fixture
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_editor_fixture forge_tools --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_editor_fixture forge_tools forge_viewport_tests --parallel 2
       - name: Render fresh reset-layout evidence
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^editor_redesign_render$" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^(editor_redesign_render|editor_viewport_render)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -128,7 +128,7 @@ jobs:
         with:
           name: FORGE-Editor-Source-Audit
           path: |
-            ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images/editor
+            ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
           if-no-files-found: error
           retention-days: 14

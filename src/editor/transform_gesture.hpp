@@ -89,8 +89,6 @@ class TransformGesture {
     Json command() const {
         Json args = {{"entity", entity_}};
         if (mode_ == Mode::Scale) {
-            if (amount_ <= 0)
-                throw std::runtime_error("Scale must be positive");
             auto value = read_xyz(original_.at("components"), "forge.scale", {1, 1, 1});
             for (unsigned i = 0; i < 3; ++i)
                 if (axis_ < 0 || axis_ == int(i))
@@ -191,10 +189,8 @@ struct ModalTransform {
                 typed.pop_back();
         }
         const bool scale = gesture.mode() == TransformGesture::Mode::Scale;
-        float amount =
-            scale ? std::exp(std::clamp((io.MousePos.x - start.x) / (120 * interface_scale), -12.0f,
-                                        12.0f))
-                  : (io.MousePos.x - start.x) * .5f / interface_scale;
+        float amount = scale ? 1.0f + (io.MousePos.x - start.x) / (120 * interface_scale)
+                             : (io.MousePos.x - start.x) * .5f / interface_scale;
         bool valid = true;
         if (!typed.empty()) {
             std::istringstream input(typed);

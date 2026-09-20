@@ -111,7 +111,7 @@ void lifetime_and_failure() {
     const Json bad = {
         {"operation", "property.set"},
         {"arguments",
-         {{"entity", "a"}, {"component", "forge.scale"}, {"field", "x"}, {"value", 0}}}};
+         {{"entity", "a"}, {"component", "forge.scale"}, {"field", "x"}, {"value", 10001}}}};
     for (const auto& commands :
          {Json::array({rename, bad}),
           Json::array({rename,

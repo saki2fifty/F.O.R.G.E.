@@ -71,10 +71,12 @@ int main(int argc, char** argv) {
         const auto rev = scene.revision();
         const Json rename = {{"operation", "entity.rename"},
                              {"arguments", {{"entity", first_id}, {"name", "Changed"}}}};
-        const Json bad = {
-            {"operation", "property.set"},
-            {"arguments",
-             {{"entity", first_id}, {"component", "forge.scale"}, {"field", "x"}, {"value", 0}}}};
+        const Json bad = {{"operation", "property.set"},
+                          {"arguments",
+                           {{"entity", first_id},
+                            {"component", "forge.scale"},
+                            {"field", "x"},
+                            {"value", 10001}}}};
         r = invoke("scene.apply", {{"commands", Json::array({rename, bad})}});
         check(!r.at("ok") && scene.document() == before && scene.revision() == rev && !scene.undo(),
               "Failed batch mutated scene/history");

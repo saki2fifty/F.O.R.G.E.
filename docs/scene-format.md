@@ -21,7 +21,7 @@ AssetId is the scene's durable authored-document identity. EntityId and AssetId 
 
 ## Authored local channels
 
-Only owned components are serialized. Missing local channels can inherit independently from `base`: owning translation never materializes inherited rotation or scale. Effective translation makes an entity transform-capable; missing rotation/scale default to identity/unit scale. Local translation is finite double XYZ; rotation is normalized float XYZW (squared-length tolerance 2e-6); scale remains positive float XYZ, 0.001–10000. Tint and Primitive are unchanged. Rotation display/edit adapters use Euler degrees; ordinary saves preserve canonical quaternion fields directly.
+Only owned components are serialized. Missing local channels can inherit independently from `base`: owning translation never materializes inherited rotation or scale. Effective translation makes an entity transform-capable; missing rotation/scale default to identity/unit scale. Local translation is finite double XYZ; rotation is normalized float XYZW (squared-length tolerance 2e-6); visual scale is finite signed float XYZ, -10000–+10000, including zero and tiny magnitudes (extended values require scene5 on output). Tint and Primitive are unchanged. Rotation display/edit adapters use Euler degrees; ordinary saves preserve canonical quaternion fields directly.
 
 `spatial.mode` is `follow_structure`, `world` or `explicit`; absence means follow_structure. Explicit requires `target: {"scene": "<AssetId>", "entity": "<EntityId>"}`. Other modes cannot contain target. Missing/non-transform/cross-scene targets remain unresolved in Phase 3. See [transform semantics](transforms.md).
 
@@ -54,3 +54,11 @@ Undo/redo patches authored channels and bindings inside the long-lived Flecs wor
 ## Scene 4 structured instances
 
 Scenes containing first-class prefab instances use version 4, with stable instance-member maps and explicit override intent. Ordinary new scenes remain version 3; legacy versions retain their prior migration/compatibility behavior. See [Prefab architecture](prefabs.md) for the independent prefab schema, member provenance, missing states and runtime snapshot envelope.
+
+## Scene5 numerical compatibility
+
+Scene5 keeps the scene4 structure and identities while permitting signed, zero and
+sub-0.001 LocalScale values. Documents only promote when owned scale needs that
+range; positive-only scene3/4 remains unchanged. Older editors reject version5.
+Known negative-zero scale is written as positive zero; opaque values are untouched.
+See[transform semantics](transforms.md#numerical-compatibility).

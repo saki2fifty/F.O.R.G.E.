@@ -20,11 +20,15 @@ void remap_member_fields(Json& item, const std::map<std::string, std::string>& i
         item["spatial"]["member"] = ids.at(item["spatial"].at("member"));
 }
 } // namespace
-PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) { validate(source); }
+PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
+    validate(source);
+    detail::promote_scale_format(source, "members", 2);
+}
 void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
-        !doc.at("version").is_number_integer() || doc.at("version") != 1)
-        throw std::runtime_error("Expected FORGE prefab schema 1");
+        !doc.at("version").is_number_integer() ||
+        (doc.at("version") != 1 && doc.at("version") != 2))
+        throw std::runtime_error("Expected FORGE prefab schema 1 or 2");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
@@ -204,8 +208,8 @@ void validate_prefab_instances(const Json& scene) {
         (void)id;
         if ((e->contains("prefab_member") || e->contains("prefab_instance") ||
              e->contains("property_overrides")) &&
-            scene.at("version") != 4)
-            throw std::runtime_error("Reserved structured prefab fields require scene4");
+            (scene.at("version") != 4 && scene.at("version") != 5))
+            throw std::runtime_error("Reserved structured prefab fields require scene4/5");
         if (e->contains("property_overrides") &&
             (!e->at("property_overrides").is_object() ||
              (!e->contains("prefab_member") && !e->contains("prefab_instance"))))
@@ -214,8 +218,8 @@ void validate_prefab_instances(const Json& scene) {
     }
     for (const auto& [id, e] : rows)
         if (e->contains("prefab_instance")) {
-            if (scene.at("version") != 4)
-                throw std::runtime_error("Structured prefabs require scene4");
+            if ((scene.at("version") != 4 && scene.at("version") != 5))
+                throw std::runtime_error("Structured prefabs require scene4/5");
             if (e->contains("base") || e->value("prefab", false))
                 throw std::runtime_error(
                     "An instance cannot also be a legacy prefab or derive from another base");

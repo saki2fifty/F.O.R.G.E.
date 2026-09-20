@@ -46,6 +46,59 @@ std::string instance(Scene& s, const PrefabDocument& p) {
     s.edit(reconcile_prefab_intent(d, s.prefab_sources()));
     return id;
 }
+void signed_scale_prefabs() {
+    WorldContext world;
+    Scene scene(world);
+    auto input = fixture();
+    const auto asset = input.at("asset_id").get<AssetId>();
+    input["members"][0]["components"]["forge.local_scale"] = {{"x", -1}, {"y", 0}, {"z", .0001}};
+    PrefabDocument source(input);
+    check(source.source.at("version") == 2, "Signed prefab lacked version gate");
+    scene.publish_prefab_sources({{asset, source.source}}, [] {});
+    const auto id = instance(scene, source);
+    auto e = scene.entity(id);
+    check(!e.owns<LocalScale>() && e.get<LocalScale>().x == -1 && e.get<LocalScale>().y == 0,
+          "Signed inheritance lost");
+    const auto before = scene.document();
+    authoring_command(
+        scene, "transform.scale",
+        {{"entity", id},
+         {"value", source.source.at("members")[0].at("components").at("forge.local_scale")}});
+    check(e.owns<LocalScale>() && !e.owns<LocalRotation>() && !e.owns<LocalTranslation>(),
+          "Equal signed override intent / channel ownership lost");
+    const auto owned = scene.document();
+    check(owned.at("version") == 5, "Signed scene lacked version gate");
+    scene.undo();
+    check(scene.document() == before && !e.owns<LocalScale>(),
+          "Signed prefab undo lost inheritance");
+    scene.redo();
+    check(scene.document() == owned && e.owns<LocalScale>(), "Signed prefab redo lost override");
+    auto updated = source.source;
+    updated["revision"] = 2;
+    updated["members"][0]["components"]["forge.local_scale"] = {{"x", -2}, {"y", 3}, {"z", 0}};
+    updated["members"][1]["components"]["forge.local_scale"] = {{"x", 0}, {"y", -.0001}, {"z", 1}};
+    scene.publish_prefab_sources({{asset, updated}}, [] {});
+    e = scene.entity(id);
+    check(e.get<LocalScale>().x == -1 && e.get<LocalScale>().y == 0,
+          "Source publish erased explicit signed override");
+    authoring_command(scene, "component.revert",
+                      {{"entity", id}, {"component", "forge.local_scale"}});
+    check(!e.owns<LocalScale>() && e.get<LocalScale>() == LocalScale{-2, 3, 0},
+          "Signed prefab Revert failed");
+    const auto reverted = scene.document();
+    scene.undo();
+    check(e.owns<LocalScale>() && e.get<LocalScale>().x == -1, "Signed Revert undo failed");
+    scene.redo();
+    check(scene.document() == reverted && !e.owns<LocalScale>(), "Signed Revert redo failed");
+    const auto effective = scene.effective_document();
+    for (const auto& row : effective.at("entities"))
+        check(row.value("spatial_resolved", true), "Structured singular descendant unresolved");
+    Scene loaded(world);
+    loaded.restore_snapshot(scene.snapshot());
+    check(loaded.entity(id).get<LocalScale>() == e.get<LocalScale>() &&
+              !loaded.entity(id).owns<LocalScale>(),
+          "Signed prefab snapshot changed inheritance");
+}
 void files_and_publication(const std::filesystem::path& base) {
     const auto folder = base / AssetId::generate().str();
     std::filesystem::create_directories(folder);
@@ -119,7 +172,7 @@ void files_and_publication(const std::filesystem::path& base) {
           "failed writer changed live state/history/handles");
     auto source_before = library.source(asset);
     auto invalid = source_before;
-    invalid["members"][0]["components"]["forge.local_scale"] = {{"x", 0}, {"y", 1}, {"z", 1}};
+    invalid["members"][0]["components"]["forge.local_scale"] = {{"x", 10001}, {"y", 1}, {"z", 1}};
     rejected = false;
     try {
         library.publish(scene, source_before, invalid);
@@ -418,6 +471,7 @@ void source_ordering() {
 }
 int main(int argc, char** argv) {
     try {
+        signed_scale_prefabs();
         source_ordering();
         check(argc == 2, "test requires scratch directory");
         files_and_publication(argv[1]);

@@ -101,3 +101,13 @@ Ozz stays private. See [Animation](animation.md).
 ## Flecs capability registration
 
 Stats/Metrics/Alerts register consistently before host content allocation because native C addon tags retain process-global IDs. Definitions, sampling and read-only REST are activated explicitly by ECS tools. Domain modules still register through Flecs imports beneath EngineModule; addon availability does not grant arbitrary pipeline admission or provider permissions. See [Flecs integration](flecs-integration.md) and [dependency policy](dependency-policy.md).
+
+### Phase7 LocalScale numerical contract
+
+The exact SDK fingerprint now includes `visual-scale=signed-zero-v1`. LocalScale
+layout and identity are unchanged; its finite numerical domain is[-10000,+10000],
+including zero and float-representable tiny values. Nonzero JSON/API values that
+would underflow to zero are rejected. Native code must not assume positivity or
+an available inverse. Rebuild modules against the matching SDK and revalidate
+installed consumer/Editor Play behavior. See[transforms](transforms.md); ABI1 layout
+is unchanged. Actual Windows SDK validation remains part of the Phase7 delivery gate.

@@ -18,6 +18,10 @@ struct LocalScale {
     float x{1}, y{1}, z{1};
     bool operator==(const LocalScale&) const = default;
 };
+inline constexpr float max_local_scale = 10000;
+// Numerical inversion policy, independent of authored scale validity. At this
+// condition limit, 64 double epsilons of rounding amplify to less than 2e-6.
+inline constexpr double min_inverse_rcond = 1e-8;
 // Assembled value ONLY. Never registered as an ECS component. Reads do not own channels.
 struct LocalTransform {
     LocalTranslation translation;
@@ -48,14 +52,22 @@ struct WorldTransform {
 enum class TransformChannel : unsigned { Translation = 1, Rotation = 2, Scale = 4, All = 7 };
 enum class ReparentMode { PreserveWorld, KeepLocal };
 LocalRotation normalized(LocalRotation value);
+LocalScale checked_local_scale(Double3 value);
 LocalRotation rotation_from_euler(Double3 degrees);
 Double3 rotation_to_euler(LocalRotation value);
 LocalRotation rotation_about_axis(Double3 axis, double degrees);
 AffineTransform affine_transform(const LocalTransform& value);
 AffineTransform operator*(const AffineTransform& a, const AffineTransform& b);
 AffineTransform inverse(const AffineTransform& value);
-// Rejects singularity, reflection/negative scale, out-of-range scale and shear.
-LocalTransform decompose(const AffineTransform& value);
+double inverse_reciprocal_condition(const AffineTransform& value);
+enum class TransformParity { Singular, Positive, Negative };
+TransformParity transform_parity(const AffineTransform& value);
+// Direction-equivalent inverse transpose for nonsingular matrices; area/cofactor
+// transform at singularity. A zero output normal is explicitly degenerate.
+AffineTransform normal_transform(const AffineTransform& value);
+// Rejects shear / unrepresentable scale, not reflection or zero. The optional
+// previous local value selects continuous scale signs and quaternion hemisphere.
+LocalTransform decompose(const AffineTransform& value, const LocalTransform* previous = nullptr);
 bool equivalent(LocalTranslation a, LocalTranslation b);
 bool equivalent(LocalRotation a, LocalRotation b);
 bool equivalent(LocalScale a, LocalScale b);

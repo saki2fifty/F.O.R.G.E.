@@ -36,7 +36,10 @@ inline void test_transforms() {
     g.constrain(1);
     require(g.update(2), "Local scale failed");
     require(g.value() == forge::Float3{1, 2, 1}, "Constrained scale changed other axes");
-    require(!g.update(0) && !g.update(-1) && !g.update(10001), "Unsupported scale accepted");
+    require(g.update(0) && g.value() == forge::Float3{1, 0, 1}, "Zero scale gesture rejected");
+    require(g.update(-1) && g.value() == forge::Float3{1, -1, 1},
+            "Mirrored scale gesture rejected");
+    require(!g.update(10001), "Out-of-range scale accepted");
     g.constrain(2);
     require(g.update(3) && g.value() == forge::Float3{1, 1, 3},
             "Axis switch accumulated old preview");

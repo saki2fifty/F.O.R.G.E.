@@ -31,7 +31,7 @@ Optional reflected components use existing scene-v3/v4 and prefab-v1 containers.
 
 Input → Gameplay → PrePhysics (transform evaluation / realization / targets) → Physics (one Jolt Update with fixed dt) → PhysicsAdoption → PostPhysics consumers → final Transforms → existing presentation capture.
 
-Static placement comes from evaluated world transforms. Kinematic targets use upstream `MoveKinematic` with fixed dt, not per-render-frame teleportation. Dynamic bodies require spatial World and write only local simulation translation/rotation after Update. WorldTransform remains exclusively derived by the transform module. Scale is folded into shape geometry. Decomposition rejects shear/reflection/singularity; sphere/capsule world scale must be uniform. Scaled collider dimensions must remain .001..10000 meters to bound mass/inertia calculations. Physics requires unambiguous scene/entity references within its world; repeated simultaneous instances of the same scene asset need a future runtime instance scope. Coordinates are bounded to ±1 billion meters with double Jolt positions; this is an input bound, not a large-world quality claim.
+Static placement comes from evaluated world transforms. Kinematic targets use upstream `MoveKinematic` with fixed dt, not per-render-frame teleportation. Dynamic bodies require spatial World and write only local simulation translation/rotation after Update. WorldTransform remains exclusively derived by the transform module. Scale is folded into shape geometry. Physics rejects shear and zero or Jolt-invalid world scale; sphere/capsule world scale magnitudes must be uniform. Signed box/sphere/capsule scales describe symmetric solids: magnitudes are baked into dimensions without changing authored scale signs. Scaled collider dimensions must remain .001..10000 meters to bound mass/inertia calculations. Physics requires unambiguous scene/entity references within its world; repeated simultaneous instances of the same scene asset need a future runtime instance scope. Coordinates are bounded to ±1 billion meters with double Jolt positions; this is an input bound, not a large-world quality claim.
 
 Config changes are compared against realized settings at a safe boundary. Compatible motion-type rebuilds preserve linear/angular velocity and activation. Motion-type changes initialize new state. Unchanged bodies are not recreated or reactivated. Invalid realization is diagnosed; no approximation discards shear. Dynamic direct transform writes are rejected; gameplay must use explicit teleport. Teleport writes supported local channels and resets existing presentation history after the tick.
 
@@ -62,3 +62,18 @@ The exact fingerprint covers the callback table plus FORGE physics component def
 ## Deferred
 
 Compound authoring, mesh/heightfield collision, character/vehicle/joint/soft-body/cloth systems, authored named collision filters, advanced material assets, collider visualization, broad physics query families, and durable savegames. Physics does not authorize the audio/animation/navigation/game-UI phases.
+
+### Signed visual scale versus collider admission
+
+Verified against Jolt5.6.0/e77f175595e64cb44218cc9d9d56fc365ad0e36a:
+`Shape::IsValidScale` rejects axes with magnitude below1e-6; `BoxShape` uses
+absolute dimensions; `SphereShape` and `CapsuleShape` also require uniform absolute
+scale. FORGE calls the actual shape-specific validator and retains its stricter
+1e-5 absolute uniform-magnitude difference and .001–10000meter dimension bounds.
+No `MakeScaleValid` or hidden hierarchy/local-scale write is used. All eight sign
+combinations represent the same centered symmetric solid with the selected proper
+rotation. Mesh/compound/asymmetric colliders are not covered by this conversion.
+Zero remains valid visual data but invalid physics configuration; failed candidate
+synchronization leaves previously realized bodies intact. Recovery uses the same
+admission. Existing World-bound Dynamic policy and effective-spatial Dynamic
+ancestry restrictions remain unchanged.

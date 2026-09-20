@@ -38,6 +38,16 @@ Json scene(bool obstacle = true) {
 }
 int main() {
     try {
+        for (const auto scale : {LocalScale{-20, 1, 20}, LocalScale{20, 0, 20}}) {
+            auto signed_floor = scene(false);
+            signed_floor["entities"][0]["world_affine"] = affine_transform({{}, {}, scale}).m;
+            Query navigation(std::make_shared<Mesh>(build_tile(geometry(signed_floor), {})));
+            check(navigation.path({-8, .1, 0}, {8, .1, 0}).status == NavStatus::Success,
+                  "Mirrored/collapsed-height navigation plane lost winding");
+        }
+        auto collapsed = scene(false);
+        collapsed["entities"][0]["world_affine"] = affine_transform({{}, {}, {0, 0, 0}}).m;
+        rejects([&] { geometry(collapsed); });
         auto doc = scene();
         auto g = geometry(doc);
         auto tile = build_tile(g, {});

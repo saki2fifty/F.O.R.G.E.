@@ -442,6 +442,65 @@ int main(int argc, char** argv) {
                         "Generated visible geometry cannot be picked");
             }
         }
+        // Signed/zero preview acceptance. A centered reflected cube is the same
+        // solid, so image equality catches both wrong culling and flipped normals.
+        live_scene.reset(forge::empty_scene());
+        const std::string signed_entity =
+            forge::authoring_command(live_scene, "entity.create",
+                                     {{"kind", 0}, {"position", {{"x", 0}, {"y", 0}, {"z", 0}}}})
+                .at("selected");
+        live_scene.entity(signed_entity).set<forge::Tint>({1, 1, 1});
+        auto signed_render = [&](const std::string& name, forge::LocalScale scale) {
+            live_scene.entity(signed_entity).set<forge::LocalScale>(scale);
+            const auto doc = live_scene.effective_document();
+            auto pixels = readback(device, context,
+                                   viewport.render(context, doc, width, height, camera,
+                                                   ++generation, false, {false, 1}));
+            save(pixels, width, height, images / (name + ".ppm"));
+            return pixels;
+        };
+        const auto positive = signed_render("scale-positive", {1, 1, 1});
+        unsigned sign_index = 0;
+        for (float x : {-1.f, 1.f})
+            for (float y : {-1.f, 1.f})
+                for (float z : {-1.f, 1.f}) {
+                    const auto reflected =
+                        signed_render("scale-parity-" + std::to_string(sign_index++), {x, y, z});
+                    require(reflected == positive,
+                            "Reflected symmetric solid changed outward lighting/culling");
+                }
+        for (unsigned rank_case = 0; rank_case < 3; ++rank_case) {
+            const forge::LocalScale scale = rank_case == 0   ? forge::LocalScale{0, 1, 1}
+                                            : rank_case == 1 ? forge::LocalScale{0, 0, 1}
+                                                             : forge::LocalScale{0, 0, 0};
+            const auto pixels = signed_render("scale-zero-" + std::to_string(rank_case), scale);
+            const auto occupied =
+                std::count_if(pixels.begin(), pixels.end(), [&](auto p) { return p != pixels[0]; });
+            require(rank_case == 0 ? occupied > 100 : occupied == 0,
+                    "Collapsed geometry rasterization mismatch");
+        }
+        live_scene.entity(signed_entity).set<forge::Primitive>({17});
+        sign_index = 0;
+        for (float x : {1.f, .5f, 0.f, -.5f, -1.f}) {
+            const auto pixels =
+                signed_render("scale-ramp-crossing-" + std::to_string(sign_index++), {x, 1, 1});
+            require(std::count_if(pixels.begin(), pixels.end(),
+                                  [&](auto p) { return p != pixels[0]; }) > 100,
+                    "Asymmetric reflected/collapsed ramp disappeared");
+        }
+        live_scene.entity(signed_entity).set<forge::Primitive>({0});
+        const std::string signed_parent =
+            forge::authoring_command(
+                live_scene, "entity.create",
+                {{"kind", forge::no_primitive}, {"position", {{"x", 0}, {"y", 0}, {"z", 0}}}})
+                .at("selected");
+        live_scene.entity(signed_parent).set<forge::LocalScale>({-1, 1, 1});
+        const auto handle = live_scene.entity(signed_entity).id();
+        live_scene.reparent_entity(signed_entity, signed_parent, forge::ReparentMode::KeepLocal);
+        require(signed_render("scale-nested-reflections", {-1, 1, 1}) == positive,
+                "Nested determinant parity did not cancel");
+        require(live_scene.entity(signed_entity).id() == handle,
+                "Render parity altered entity identity");
         context->WaitForIdle();
         std::cout << "D3D12 WARP: grid axis alignment, look/pan/orbit/fly/zoom, resize, "
                      "visibility, spacing, thin lines, horizon fade, extent and occlusion passed\n";

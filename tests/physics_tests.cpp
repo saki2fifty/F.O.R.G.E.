@@ -54,10 +54,67 @@ Json source() {
 double y(Fixture& f, const char* id = "cube") {
     return f.scene.entity(id).get<LocalTranslation>().y;
 }
+void signed_scale_physics() {
+    for (unsigned shape = 0; shape < 3; ++shape) {
+        Fixture f;
+        auto input = source();
+        auto& components = input["entities"][1]["components"];
+        if (shape != 0) {
+            components.erase("forge.box_collider");
+            if (shape == 1)
+                components["forge.sphere_collider"] = {{"radius", .5}};
+            else
+                components["forge.capsule_collider"] = {{"radius", .5}, {"height", 1}};
+        }
+        f.load(input);
+        auto entity = f.scene.entity("cube");
+        for (float x : {-1.f, 1.f})
+            for (float y : {-1.f, 1.f})
+                for (float z : {-1.f, 1.f}) {
+                    const LocalScale scale{x, y, z};
+                    entity.set<LocalScale>(scale);
+                    f.physics->synchronize(0);
+                    auto hit = f.physics->raycast({0, 5, -10}, {0, 0, 20});
+                    check(hit.has_value(), "Signed collider ray miss");
+                    f.tick();
+                    check(entity.get<LocalScale>() == scale,
+                          "Physics changed authored scale signs");
+                    check(equivalent(entity.get<LocalRotation>(), LocalRotation{}),
+                          "Physics reflected rotation jumped");
+                }
+        entity.set<LocalScale>({-1, 1, 1});
+        f.physics->synchronize(0);
+        const auto snapshot = f.scene.snapshot(), checkpoint = f.physics->checkpoint();
+        Fixture recovered;
+        recovered.scene.restore_snapshot(snapshot);
+        recovered.physics->restore(checkpoint);
+        check(recovered.scene.entity("cube").get<LocalScale>() == LocalScale{-1, 1, 1},
+              "Signed checkpoint scale lost");
+        const auto count = f.physics->status().at("bodies");
+        for (auto bad : {LocalScale{0, 1, 1}, LocalScale{1, 0, 1}, LocalScale{1, 1, 0},
+                         LocalScale{0, 0, 0}, LocalScale{-1e-7f, 1, 1}}) {
+            entity.set<LocalScale>(bad);
+            check(entity.get<LocalScale>() == bad,
+                  "Visual scale was rejected by physics authority");
+            reject([&] { f.physics->synchronize(0); });
+            check(f.physics->status().at("bodies") == count,
+                  "Failed scale destroyed last-good bodies");
+        }
+        entity.set<LocalScale>({-2, 1, 1});
+        if (shape == 0)
+            f.physics->synchronize(0);
+        else
+            reject([&] { f.physics->synchronize(0); });
+        entity.set<LocalScale>({-1, 1, 1});
+        f.physics->synchronize(0);
+        f.tick();
+    }
+}
 #include "physics_hierarchy.hpp"
 int main() {
     try {
         physics_hierarchy_tests();
+        signed_scale_physics();
         {
             EngineContext authoring;
             check(!authoring.services().available(Capability::Physics), "Authoring created solver");

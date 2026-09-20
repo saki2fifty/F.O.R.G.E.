@@ -62,13 +62,24 @@ struct ObjectTransform {
                 value[j] += axes[i][j] * scale[i] * p[i];
         return value;
     }
-    Float3 inverse_vector(Float3 p) const {
-        if (derived) {
-            auto p2 = inverse(affine).vector({p[0], p[1], p[2]});
-            return {float(p2[0]), float(p2[1]), float(p2[2])};
+    AffineTransform matrix() const {
+        if (derived)
+            return affine;
+        AffineTransform result;
+        for (unsigned row = 0; row < 3; ++row) {
+            result.m[4 * row + 3] = position[row];
+            for (unsigned column = 0; column < 3; ++column)
+                result.m[4 * row + column] = double(axes[column][row]) * scale[column];
         }
-        return {geom_dot(axes[0], p) / scale[0], geom_dot(axes[1], p) / scale[1],
-                geom_dot(axes[2], p) / scale[2]};
+        return result;
+    }
+    Float3 inverse_vector(Float3 p) const {
+        auto result = inverse(matrix()).vector({p[0], p[1], p[2]});
+        Float3 value{float(result[0]), float(result[1]), float(result[2])};
+        for (auto v : value)
+            if (!std::isfinite(v))
+                throw std::runtime_error("Inverse vector exceeds float presentation range");
+        return value;
     }
 };
 inline unsigned primitive_kind(const Json& entity) {
@@ -322,15 +333,34 @@ inline std::pair<Float3, Float3> object_bounds(const Json& entity) {
 inline std::optional<float> object_hit(const Json& entity, Float3 eye, Float3 ray, float clip_near,
                                        float limit) {
     const ObjectTransform transform(entity);
-    eye = transform.inverse_vector(geom_sub(eye, transform.position));
-    ray = transform.inverse_vector(ray);
-    float enter = clip_near, leave = limit;
+    AffineTransform inv;
+    try {
+        inv = inverse(transform.matrix());
+    } catch (const std::runtime_error&) {
+        // Geometry picking needs an inverse; singular/ill-conditioned objects
+        // remain visible where nondegenerate and selectable in Hierarchy.
+        return {};
+    }
+    const auto local_eye = inv.point({eye[0], eye[1], eye[2]});
+    const auto local_ray = inv.vector({ray[0], ray[1], ray[2]});
+    for (unsigned i = 0; i < 3; ++i)
+        if (!std::isfinite(local_eye[i]) || !std::isfinite(local_ray[i]))
+            return {};
+    auto sub = [](Double3 a, Double3 b) { return Double3{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
+    auto dot = [](Double3 a, Double3 b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+    auto cross = [](Double3 a, Double3 b) {
+        return Double3{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+                       a[0] * b[1] - a[1] * b[0]};
+    };
+    auto as_double = [](Float3 p) { return Double3{p[0], p[1], p[2]}; };
+    double enter = clip_near, leave = limit;
     for (unsigned axis = 0; axis < 3; ++axis) {
-        if (std::abs(ray[axis]) < 1e-12f) {
-            if (std::abs(eye[axis]) > .5f)
+        if (local_ray[axis] == 0) {
+            if (std::abs(local_eye[axis]) > .5f)
                 return {};
         } else {
-            float a = (-.5f - eye[axis]) / ray[axis], b = (.5f - eye[axis]) / ray[axis];
+            double a = (-.5f - local_eye[axis]) / local_ray[axis],
+                   b = (.5f - local_eye[axis]) / local_ray[axis];
             if (a > b)
                 std::swap(a, b);
             enter = std::max(enter, a);
@@ -342,24 +372,26 @@ inline std::optional<float> object_hit(const Json& entity, Float3 eye, Float3 ra
     std::optional<float> result;
     const auto& mesh = primitive_meshes().at(primitive_kind(entity));
     for (std::size_t i = 0; i < mesh.size(); i += 3) {
-        const auto edge1 = geom_sub(mesh[i + 1].position, mesh[i].position),
-                   edge2 = geom_sub(mesh[i + 2].position, mesh[i].position);
-        const auto p = geom_cross(ray, edge2);
-        const float determinant = geom_dot(edge1, p);
-        if (std::abs(determinant) < 1e-12f)
+        const auto edge1 = sub(as_double(mesh[i + 1].position), as_double(mesh[i].position)),
+                   edge2 = sub(as_double(mesh[i + 2].position), as_double(mesh[i].position));
+        const auto p = cross(local_ray, edge2);
+        const double determinant = dot(edge1, p);
+        if (std::abs(determinant) <= 64 * std::numeric_limits<double>::epsilon() *
+                                         std::hypot(edge1[0], edge1[1], edge1[2]) *
+                                         std::hypot(p[0], p[1], p[2]))
             continue;
-        const auto delta = geom_sub(eye, mesh[i].position);
-        const float u = geom_dot(delta, p) / determinant;
+        const auto delta = sub(local_eye, as_double(mesh[i].position));
+        const double u = dot(delta, p) / determinant;
         if (u < -1e-5f || u > 1.00001f)
             continue;
-        const auto q = geom_cross(delta, edge1);
-        const float v = geom_dot(ray, q) / determinant;
+        const auto q = cross(delta, edge1);
+        const double v = dot(local_ray, q) / determinant;
         if (v < -1e-5f || u + v > 1.00001f)
             continue;
-        const float t = geom_dot(edge2, q) / determinant;
-        if (t >= clip_near && t < limit) {
-            limit = t;
-            result = t;
+        const double t = dot(edge2, q) / determinant;
+        if (std::isfinite(t) && t >= clip_near && t < limit) {
+            limit = float(t);
+            result = float(t);
         }
     }
     return result;

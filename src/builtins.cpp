@@ -58,13 +58,19 @@ template <class T> Json encode(const T& p) {
         return {{"kind", p.kind}};
     else if constexpr (std::is_same_v<T, Tint>)
         return {{"r", p.r}, {"g", p.g}, {"b", p.b}};
+    else if constexpr (std::is_same_v<T, LocalScale>)
+        return {{"x", p.x == 0 ? 0.0f : p.x},
+                {"y", p.y == 0 ? 0.0f : p.y},
+                {"z", p.z == 0 ? 0.0f : p.z}};
     else if constexpr (std::is_same_v<T, LocalRotation>)
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}, {"w", p.w}};
     else
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, UiDocument>) {
+    if constexpr (std::is_same_v<T, LocalScale>) {
+        return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
+    } else if constexpr (std::is_same_v<T, UiDocument>) {
         UiDocument v;
         if (!p.at("document").is_null())
             v.document.id = p.at("document").get<AssetId>();
@@ -254,8 +260,9 @@ const std::array<Builtin, builtin_count>& builtins() {
                 return register_type<LocalRotation>(w, "forge.local_rotation");
             }),
         descriptor<LocalScale>(
-            "forge.local_scale", "Positive local-axis scale, from 0.001 to 10000", "unitless",
-            0.001, 10000,
+            "forge.local_scale",
+            "Signed visual local-axis scale, from -10000 to +10000; zero is valid", "unitless",
+            -10000, 10000,
             [](flecs::world& w) { return register_type<LocalScale>(w, "forge.local_scale"); }),
         descriptor<Tint>("forge.tint", "Opaque blockout color, channels from 0 to 1", "unitless", 0,
                          1, [](flecs::world& w) { return register_type<Tint>(w, "forge.tint"); }),

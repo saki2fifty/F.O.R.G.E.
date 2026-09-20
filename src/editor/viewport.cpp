@@ -15,7 +15,11 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     float depthScale=upFar.w/(upFar.w-eyeNear.w);
     Out o; o.position=float4(p.x*rightFocal.w/centerAspect.w,p.y*rightFocal.w,
                              (p.z-eyeNear.w)*depthScale,p.z);
-    float3 n=normalize(normalX.xyz*normal.x + normalY.xyz*normal.y + normalZ.xyz*normal.z);
+    float3 n=normalX.xyz*normal.x + normalY.xyz*normal.y + normalZ.xyz*normal.z;
+    float largest=max(abs(n.x),max(abs(n.y),abs(n.z)));
+    n /= largest > 0 ? largest : 1;
+    float n2=dot(n,n);
+    n *= rsqrt(n2 > 0 ? n2 : 1);
     float light=0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5))));
     o.color=tint.rgb*light; return o;
 })";
@@ -48,16 +52,30 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     pso.GraphicsPipeline.InputLayout.NumElements = 2;
     pso.pVS = vertex;
     pso.pPS = pixel;
-    device_->CreateGraphicsPipelineState(pso, &pipeline_);
-    if (!pipeline_)
-        throw std::runtime_error("Preview pipeline creation failed");
+    for (unsigned parity = 0; parity < pipelines_.size(); ++parity) {
+        pso.GraphicsPipeline.RasterizerDesc.CullMode =
+            parity == 2 ? CULL_MODE_NONE : CULL_MODE_BACK;
+        pso.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = parity == 1 ? True : False;
+        device_->CreateGraphicsPipelineState(pso, &pipelines_[parity]);
+        if (!pipelines_[parity])
+            throw std::runtime_error("Preview parity pipeline creation failed");
+    }
     static_assert(sizeof(PrimitiveVertex) == 6 * sizeof(float));
     std::vector<PrimitiveVertex> vertices;
     for (unsigned i = 0; i < primitive_count; ++i) {
         starts_[i] = static_cast<unsigned>(vertices.size());
         const auto& mesh = primitive_meshes()[i];
         counts_[i] = static_cast<unsigned>(mesh.size());
-        vertices.insert(vertices.end(), mesh.begin(), mesh.end());
+        for (std::size_t triangle = 0; triangle < mesh.size(); triangle += 3) {
+            auto a = mesh[triangle], b = mesh[triangle + 1], c = mesh[triangle + 2];
+            // Older procedural meshes mixed winding while culling was disabled.
+            // Match the declared outward normal before enabling per-draw culling.
+            const auto area =
+                geom_cross(geom_sub(b.position, a.position), geom_sub(c.position, a.position));
+            if (geom_dot(area, a.normal) < 0)
+                std::swap(b, c);
+            vertices.insert(vertices.end(), {a, b, c});
+        }
     }
     BufferDesc vertex_buffer;
     vertex_buffer.Name = "FORGE immutable blockout meshes";
@@ -79,11 +97,14 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     device_->CreateBuffer(buffer, nullptr, &constants_);
     if (!constants_)
         throw std::runtime_error("Preview constant buffer creation failed");
-    auto* variable = pipeline_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "ObjectData");
-    if (!variable)
-        throw std::runtime_error("Preview shader constants missing");
-    variable->Set(constants_);
-    pipeline_->CreateShaderResourceBinding(&resources_, true);
+    for (unsigned parity = 0; parity < pipelines_.size(); ++parity) {
+        auto* variable =
+            pipelines_[parity]->GetStaticVariableByName(SHADER_TYPE_VERTEX, "ObjectData");
+        if (!variable)
+            throw std::runtime_error("Preview shader constants missing");
+        variable->Set(constants_);
+        pipelines_[parity]->CreateShaderResourceBinding(&resources_[parity], true);
+    }
     shader.Desc.Name = "FORGE grid VS";
     shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
     shader.Source = grid_vertex_shader;
@@ -123,7 +144,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     device_->CreateBuffer(buffer, nullptr, &grid_constants_);
     if (!grid_constants_)
         throw std::runtime_error("Grid camera buffer creation failed");
-    variable = grid_pipeline_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "GridView");
+    auto* variable = grid_pipeline_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "GridView");
     if (!variable)
         throw std::runtime_error("Grid shader camera binding missing");
     variable->Set(grid_constants_);
@@ -164,7 +185,6 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetPipelineState(pipeline_);
     IBuffer* buffers[] = {vertices_};
     Uint64 offset = 0;
     context->SetVertexBuffers(0, 1, buffers, &offset, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
@@ -178,6 +198,14 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         if (!entity.value("spatial_resolved", true))
             continue;
         const ObjectTransform world_transform(entity);
+        const auto draw_affine = world_transform.matrix();
+        const auto parity = transform_parity(draw_affine);
+        const auto primitive = primitive_kind(entity);
+        // Planar primitives and rank-deficient surfaces are explicitly two-sided.
+        const bool two_sided = parity == TransformParity::Singular || primitive == 3 ||
+                               primitive == 8 || primitive == 9 || primitive == 10;
+        const unsigned pipeline = two_sided ? 2 : parity == TransformParity::Negative ? 1 : 0;
+        context->SetPipelineState(pipelines_[pipeline]);
         {
             MapHelper<float> data(context, constants_, MAP_WRITE, MAP_FLAG_DISCARD);
             data[0] = world_transform.position[0];
@@ -199,22 +227,13 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                 for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
                     data[20 + axis * 4 + coordinate] =
                         transform.axes[axis][coordinate] * transform.scale[axis];
-                data[23 + axis * 4] = 1.0f / (transform.scale[axis] * transform.scale[axis]);
+                data[23 + axis * 4] = 0;
             }
-            if (transform.derived) {
-                const auto inv = inverse(transform.affine);
-                for (unsigned axis = 0; axis < 3; ++axis) {
-                    for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
-                        data[36 + axis * 4 + coordinate] = float(inv.m[4 * axis + coordinate]);
-                    data[39 + axis * 4] = 0;
-                }
-            } else {
-                for (unsigned axis = 0; axis < 3; ++axis) {
-                    for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
-                        data[36 + axis * 4 + coordinate] =
-                            transform.axes[axis][coordinate] / transform.scale[axis];
-                    data[39 + axis * 4] = 0;
-                }
+            const auto normals = normal_transform(draw_affine);
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
+                    data[36 + axis * 4 + coordinate] = float(normals.m[4 * coordinate + axis]);
+                data[39 + axis * 4] = 0;
             }
             const auto& c = entity.at("components");
             const auto tint = c.value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});
@@ -223,7 +242,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             data[34] = tint.at("b");
             data[35] = 1;
         }
-        context->CommitShaderResources(resources_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->CommitShaderResources(resources_[pipeline],
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         DrawAttribs draw;
         const auto kind = primitive_kind(entity);
         draw.NumVertices = counts_.at(kind);

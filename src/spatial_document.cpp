@@ -1,4 +1,5 @@
 #include "spatial_document.hpp"
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <stdexcept>
@@ -41,7 +42,28 @@ AffineTransform matrix(const Json& e) {
 } // namespace
 Json encode(LocalTranslation v) { return {{"x", v.x}, {"y", v.y}, {"z", v.z}}; }
 Json encode(LocalRotation v) { return {{"x", v.x}, {"y", v.y}, {"z", v.z}, {"w", v.w}}; }
-Json encode(LocalScale v) { return {{"x", v.x}, {"y", v.y}, {"z", v.z}}; }
+Json encode(LocalScale v) {
+    return {
+        {"x", v.x == 0 ? 0.0f : v.x}, {"y", v.y == 0 ? 0.0f : v.y}, {"z", v.z == 0 ? 0.0f : v.z}};
+}
+void promote_scale_format(Json& document, const char* rows, unsigned required_version) {
+    for (auto& row : document.at(rows)) {
+        auto& components = row.at("components");
+        if (!components.contains("forge.local_scale"))
+            continue;
+        auto& scale = components.at("forge.local_scale");
+        for (auto axis : {"x", "y", "z"}) {
+            const double value = scale.at(axis).get<double>();
+            // The former domain check compared float storage, including .001
+            // parsed as double and rounded to its nearest float representation.
+            if (float(value) < .001f)
+                document["version"] =
+                    std::max(document.at("version").get<unsigned>(), required_version);
+            if (value == 0)
+                scale[axis] = 0.0f;
+        }
+    }
+}
 LocalTransform read_local(const Json& c) {
     LocalTransform t;
     if (c.contains("forge.local_translation")) {
@@ -54,7 +76,7 @@ LocalTransform read_local(const Json& c) {
     }
     if (c.contains("forge.local_scale")) {
         const auto& p = c.at("forge.local_scale");
-        t.scale = {p.at("x"), p.at("y"), p.at("z")};
+        t.scale = checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
     }
     (void)affine_transform(t);
     return t;
@@ -212,9 +234,22 @@ void write_world(Json& authored, const Json& effective, const std::string& id,
                  const AffineTransform& desired, TransformChannel channels, bool changed_only) {
     const auto& e = row(effective, id);
     const auto old_local = read_local(e.at("components"));
-    // Parent affine = old_world * inverse(old_local). Shared graph owns parent semantics.
-    const auto parent = matrix(e) * inverse(affine_transform(old_local));
-    auto local = decompose(inverse(parent) * desired);
+    // Resolve the actual parent. Recovering it as world*inverse(local) incorrectly
+    // makes every world edit depend on the child's own invertibility.
+    (void)matrix(e); // Keep unresolved-binding rejection explicit.
+    const auto binding = read_binding(e);
+    AffineTransform parent;
+    std::string parent_id;
+    if (binding.mode == SpatialMode::FollowStructure)
+        parent_id = e.value("parent", std::string{});
+    else if (binding.mode == SpatialMode::Explicit)
+        parent_id = binding.target.entity.str();
+    if (!parent_id.empty()) {
+        const auto& candidate = row(effective, parent_id);
+        if (candidate.at("components").contains("forge.local_translation"))
+            parent = matrix(candidate);
+    }
+    auto local = decompose(inverse(parent) * desired, &old_local);
     const auto mask = unsigned(channels);
     if (!(mask & 1) && !equivalent(old_local.translation, local.translation))
         throw std::runtime_error("Operation would also require a translation override");

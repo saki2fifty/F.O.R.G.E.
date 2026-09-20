@@ -100,7 +100,7 @@ class BlockoutProperties {
         }
         if (pending_ == id && component_ == name)
             value = {values_.at("x"), values_.at("y"), values_.at("z")};
-        const double low = scale ? double(.001f) : position ? -1e12 : -360000.0;
+        const double low = scale ? -10000.0 : position ? -1e12 : -360000.0;
         const double high = scale ? 10000.0 : position ? 1e12 : 360000.0;
         const char* label = scale ? "Scale" : position ? "Position (m)" : "Rotation (deg)";
         bool changed = false, released = false;
@@ -113,17 +113,24 @@ class BlockoutProperties {
         if (!stacked)
             ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvail().x);
         const char* formats[] = {"X %.3f", "Y %.3f", "Z %.3f"};
+        const char* scale_formats[] = {"X %.7g", "Y %.7g", "Z %.7g"};
+        if (scale)
+            for (auto& v : value)
+                if (v == 0)
+                    v = 0;
         for (int axis = 0; axis < 3; ++axis) {
             ImGui::PushID(axis);
             if (axis && !stacked)
                 ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
             if (stacked)
                 ImGui::SetNextItemWidth(-1);
-            changed |= ImGui::DragScalar("##value", ImGuiDataType_Double, &value[axis],
-                                         scale      ? .01f
-                                         : position ? .05f
-                                                    : .5f,
-                                         &low, &high, formats[axis], ImGuiSliderFlags_AlwaysClamp);
+            changed |=
+                ImGui::DragScalar("##value", ImGuiDataType_Double, &value[axis],
+                                  scale      ? .01f
+                                  : position ? .05f
+                                             : .5f,
+                                  &low, &high, scale ? scale_formats[axis] : formats[axis],
+                                  ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat);
             released |= ImGui::IsItemDeactivatedAfterEdit();
             ui::help("Drag this labeled axis or Ctrl-click to type. Release commits one scene "
                      "Undo; Escape cancels.");
@@ -136,8 +143,8 @@ class BlockoutProperties {
         ui::help(position ? "Local X/Y/Z translation in meters. Drag or Ctrl-click to type. "
                             "Release commits one "
                             "undo step; Escape cancels."
-                 : scale  ? "Positive X/Y/Z scale. Drag or Ctrl-click to type. Values range from "
-                            "0.001 to 10000. Release commits one undo step; Escape cancels."
+                 : scale  ? "Signed X/Y/Z visual scale. Zero collapses an axis. Values range from "
+                            "-10000 to +10000. Release commits one undo step; Escape cancels."
                           : "Euler X/Y/Z angles in degrees. Applied X, then Y, then Z. Drag or "
                             "Ctrl-click to type; release commits one undo step. Escape cancels.");
         if (changed)
@@ -289,6 +296,16 @@ class BlockoutProperties {
             vector_control(scene, id, "forge.position");
             vector_control(scene, id, "forge.rotation");
             vector_control(scene, id, "forge.scale");
+            if (entity.value("spatial_resolved", false) &&
+                inverse_reciprocal_condition(ObjectTransform(entity).matrix()) <
+                    min_inverse_rcond) {
+                ImGui::TextWrapped(
+                    "Valid visual transform; inverse-dependent operations are unavailable.");
+                ui::help("Zero scale or extreme scale imbalance makes this world transform unsafe "
+                         "to invert. "
+                         "Select in Hierarchy and edit local Scale to recover. Physics validates "
+                         "its own collider requirements.");
+            }
             ui::heading("Blockout Geometry", "Built-in meshes and opaque blockout tint. This is "
                                              "not a material or texture system.");
             int kind = int(primitive_kind(entity));
@@ -384,7 +401,7 @@ class BlockoutProperties {
         error_.clear();
         for (double number : value)
             if (!std::isfinite(number) ||
-                (component == "forge.scale" && (number < 0.001f || number > 10000)) ||
+                (component == "forge.scale" && (std::abs(number) > max_local_scale)) ||
                 (component == "forge.rotation" && std::abs(number) > 360000) ||
                 (component == "forge.position" && std::abs(number) > 1e12) ||
                 (component == "forge.tint" && (number < 0 || number > 1)))

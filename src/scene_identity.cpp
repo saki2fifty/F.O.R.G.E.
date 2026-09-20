@@ -60,9 +60,11 @@ static Json migrate_identity(const Json& source, const Json* existing = nullptr)
     return result;
 }
 Json migrate_scene(const Json& source, const Json* existing) {
-    if (source.at("version") == 3 || source.at("version") == 4) {
+    if (source.at("version") == 3 || source.at("version") == 4 || source.at("version") == 5) {
         Scene::validate_document(source);
-        return source;
+        auto compatible = source;
+        detail::promote_scale_format(compatible, "entities", 5);
+        return compatible;
     }
     auto result = detail::migrate_transforms(migrate_identity(source, existing));
     Scene::validate_document(result);
@@ -70,7 +72,7 @@ Json migrate_scene(const Json& source, const Json* existing) {
 }
 Json duplicate_scene_asset(const Json& source) {
     Scene::validate_document(source);
-    if (source.at("version") != 3 && source.at("version") != 4)
+    if (source.at("version") != 3 && source.at("version") != 4 && source.at("version") != 5)
         throw std::runtime_error("Migrate the scene before duplicating its asset");
     auto result = source;
     result["asset_id"] = AssetId::generate();
@@ -147,7 +149,7 @@ Json read_scene_file(const std::filesystem::path& path) {
 }
 void write_scene_file(const std::filesystem::path& path, const Json& document) {
     Scene::validate_document(document);
-    if (document.at("version") != 3 && document.at("version") != 4)
+    if (document.at("version") != 3 && document.at("version") != 4 && document.at("version") != 5)
         throw std::runtime_error("Save requires a migrated scene");
     if (std::filesystem::exists(path)) {
         const auto source = read(path);
@@ -175,6 +177,8 @@ void write_scene_file(const std::filesystem::path& path, const Json& document) {
             }
         }
     }
-    atomic_write(path, document.dump(2));
+    auto compatible = document;
+    detail::promote_scale_format(compatible, "entities", 5);
+    atomic_write(path, compatible.dump(2));
 }
 } // namespace forge

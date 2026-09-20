@@ -251,7 +251,7 @@ inline void test_draft_ownership() {
                 !scene.can_undo(),
             "Prefab Save ownership/history boundary incorrect");
     source.edit_source(document, prefab);
-    source.set_property("forge.local_scale", "x", -1.0);
+    source.set_property("forge.local_scale", "x", -10001.0);
     const auto good = document.prefabs().source(prefab);
     require(!source.resolve_close(ui::DraftResolution::Save, scene, document) && source.is_open() &&
                 source.dirty() && document.prefabs().source(prefab) == good,

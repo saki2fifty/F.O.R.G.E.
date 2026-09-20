@@ -168,6 +168,10 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
     else if (type == "int64")
         changed = numeric_property<std::int64_t>(label.c_str(), ImGuiDataType_S64, "%lld", value,
                                                  commit_on_enter);
+    else if (type == "float32" &&
+             field.value("property_id", std::string{}).starts_with("forge.local_scale."))
+        changed = numeric_property<double>(label.c_str(), ImGuiDataType_Double, "%.9g", value,
+                                           commit_on_enter);
     else if (type == "float32")
         changed = numeric_property<float>(label.c_str(), ImGuiDataType_Float, "%.3f", value,
                                           commit_on_enter);

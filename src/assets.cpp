@@ -291,7 +291,8 @@ AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
     std::ifstream stream(locate(source));
     const auto doc = Json::parse(stream);
     Scene::validate_document(doc);
-    if (doc.at("version") != 2 && doc.at("version") != 3 && doc.at("version") != 4)
+    if (doc.at("version") != 2 && doc.at("version") != 3 && doc.at("version") != 4 &&
+        doc.at("version") != 5)
         throw std::runtime_error("Scene must be migrated before catalog registration");
     AssetRecord record{doc.at("asset_id").get<AssetId>(),
                        SceneAsset::type,
@@ -327,7 +328,8 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
         } else if (record.type == PrefabAsset::type) {
             std::ifstream stream(path);
             const PrefabDocument doc(Json::parse(stream));
-            if (record.schema_version != 1 || doc.asset() != id)
+            if (record.schema_version != doc.source.at("version").get<unsigned>() ||
+                doc.asset() != id)
                 return {AssetState::Incompatible, record,
                         "Prefab identity/schema does not match metadata"};
         } else if (record.schema_version != 1) {

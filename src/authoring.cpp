@@ -334,7 +334,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         }
         if (a.contains("scale")) {
             const auto& p = a.at("scale");
-            desired.scale = {p.at("x"), p.at("y"), p.at("z")};
+            desired.scale = checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
             mask |= 4;
         }
         detail::write_local(entity(doc, id), current, desired, TransformChannel(mask));

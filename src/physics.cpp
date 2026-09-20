@@ -128,32 +128,50 @@ Configuration configuration(flecs::entity e, LocalScale scale) {
         detail::validate_reflected_value(e, v);
         c.dimensions = {v.radius, v.height, v.radius};
     }
+    const JPH::Vec3 signed_scale(scale.x, scale.y, scale.z);
+    bool valid_scale = false;
+    if (c.shape == 0)
+        valid_scale = JPH::BoxShape(JPH::Vec3::sReplicate(.5f)).IsValidScale(signed_scale);
+    else if (c.shape == 1)
+        valid_scale = JPH::SphereShape(.5f).IsValidScale(signed_scale);
+    else
+        valid_scale = JPH::CapsuleShape(.5f, .5f).IsValidScale(signed_scale);
+    if (!valid_scale)
+        throw std::runtime_error(
+            "Visual scale is valid, but this collider rejects its world scale: "
+            "Jolt requires nonzero axes; Sphere/Capsule require uniform magnitudes");
+    // These three centered symmetric shapes ignore axis signs in pinned Jolt.
+    // Baking magnitudes into their dimensions represents exactly the same solid;
+    // this is not a general policy for mesh/compound/asymmetric colliders.
+    const LocalScale magnitude{std::abs(scale.x), std::abs(scale.y), std::abs(scale.z)};
     for (unsigned i = 0; i < 3; ++i) {
-        const double scaled = c.dimensions[i] * std::array<float, 3>{scale.x, scale.y, scale.z}[i];
+        const double scaled =
+            c.dimensions[i] * std::array<float, 3>{magnitude.x, magnitude.y, magnitude.z}[i];
         if (!std::isfinite(scaled) || scaled < .000999999 || scaled > 10000)
             throw std::runtime_error("Scaled collider dimensions must remain .001..10000 meters");
     }
-    if (c.shape && (std::abs(scale.x - scale.y) > 1e-5f || std::abs(scale.x - scale.z) > 1e-5f))
+    if (c.shape && (std::abs(magnitude.x - magnitude.y) > 1e-5f ||
+                    std::abs(magnitude.x - magnitude.z) > 1e-5f))
         throw std::runtime_error(
-            "Sphere and Capsule Colliders require uniform positive world scale");
+            "Sphere and Capsule Colliders require uniform world scale magnitudes");
     return c;
 }
 JPH::RefConst<JPH::Shape> shape(const Configuration& c) {
     JPH::ShapeSettings::ShapeResult result;
+    const LocalScale scale{std::abs(c.scale.x), std::abs(c.scale.y), std::abs(c.scale.z)};
     if (c.shape == 0) {
-        JPH::Vec3 half(float(c.dimensions[0] * c.scale.x * .5),
-                       float(c.dimensions[1] * c.scale.y * .5),
-                       float(c.dimensions[2] * c.scale.z * .5));
+        JPH::Vec3 half(float(c.dimensions[0] * scale.x * .5), float(c.dimensions[1] * scale.y * .5),
+                       float(c.dimensions[2] * scale.z * .5));
         JPH::BoxShapeSettings s(half, std::min(.05f, half.ReduceMin() * .1f));
         s.mDensity = c.body.density;
         result = s.Create();
     } else if (c.shape == 1) {
-        JPH::SphereShapeSettings s(float(c.dimensions[0] * c.scale.x));
+        JPH::SphereShapeSettings s(float(c.dimensions[0] * scale.x));
         s.mDensity = c.body.density;
         result = s.Create();
     } else {
-        JPH::CapsuleShapeSettings s(float(c.dimensions[1] * c.scale.y * .5),
-                                    float(c.dimensions[0] * c.scale.x));
+        JPH::CapsuleShapeSettings s(float(c.dimensions[1] * scale.y * .5),
+                                    float(c.dimensions[0] * scale.x));
         s.mDensity = c.body.density;
         result = s.Create();
     }
@@ -323,7 +341,7 @@ struct PhysicsRuntime::Impl {
                     }
                 }
             }
-            auto pose = decompose(evaluated.at(id).affine);
+            auto pose = decompose(evaluated.at(id).affine, &nodes.at(id).local);
             valid_position(pose.translation);
             result.emplace(e.id(), std::pair{configuration(e, pose.scale), pose});
         }
@@ -389,13 +407,13 @@ void PhysicsRuntime::synchronize(float dt) {
         if (!cmd.teleport && (initial.at(id).first.body.motion != 1 || dt <= 0))
             throw std::runtime_error("Kinematic target requires a Kinematic Body and fixed tick");
         const auto evaluated = evaluate_transforms(nodes);
-        auto target = decompose(evaluated.at(id).affine);
+        auto target = decompose(evaluated.at(id).affine, &nodes.at(id).local);
         target.translation = cmd.p;
         target.rotation = cmd.q;
         auto affine = affine_transform(target);
         if (nodes.at(id).parent)
             affine = inverse(evaluated.at(nodes.at(id).parent).affine) * affine;
-        const auto local = decompose(affine);
+        const auto local = decompose(affine, &nodes.at(id).local);
         if (!equivalent(local.scale, nodes.at(id).local.scale))
             throw std::runtime_error("Physics target would change LocalScale under its spatial "
                                      "parent; choose a representable target or World binding");

@@ -13,7 +13,7 @@ FORGE applies local scale, then X/Y/Z rotation, then local position, followed by
 3. Watch the preview while editing.
 4. Release the drag or finish the text edit to commit one undo step. Press Escape during a drag to cancel.
 
-Scale must be positive, from 0.001 to 10000. Negative/mirrored and zero scales are not supported. Rotation accepts values within ±360000 degrees. A Plane has no thickness, so its local Y scale does not give it depth.
+Scale accepts -10000 to +10000 on each axis. Negative values mirror that axis; zero collapses it. Small values such as 0.0001 are accepted. Rotation accepts values within ±360000 degrees. A Plane has no thickness, so its local Y scale does not give it depth.
 
 ## Rotate and scale from the Scene
 
@@ -64,3 +64,20 @@ A missing attachment hides the object instead of placing it at a guessed locatio
 The three channels inherit independently. Moving an instance overrides its position only; rotation and scale can continue following its prefab. Rotating or scaling similarly overrides just that channel. Right-click the **Scale** field to access **Revert translation**, **Revert rotation**, and **Revert scale** individually. Removing an override restores the inherited value, or the default/absence when no prefab supplies it.
 
 Preserving world placement during reparenting can require new local values. FORGE creates only the needed channel overrides; a rotated/scaled parent may require all three. **Paste transform** and **Reset transform** intentionally override all three. Full prefab authoring tools are still pending.
+
+## Mirroring and zero scale
+
+Type a negative value in **Scale** to mirror an axis. **S**, then **X/Y/Z**,
+changes only that local axis; drag left through a zero multiplier to mirror, or
+type a signed multiplier. Axis changes recompute from the original transform.
+Confirm creates one Undo step; Escape restores the original. Multiplying an axis
+that was already zero keeps it zero: select the object in Hierarchy and type a
+nonzero Scale value to restore it.
+
+A collapsed object remains in the scene and Hierarchy. Geometry clicking is
+unavailable if its transform cannot be safely inverted. Parenting with
+**Keep local** still works under a zero-scale parent; **Preserve world** or a
+world-space gesture can fail with an inverse-unavailable diagnostic. The failed
+operation leaves the scene unchanged. Collider restrictions are separate: see
+[Physics](physics.md). Saving extended scale values marks scenes/prefabs with a
+newer document version; older FORGE builds cannot open them.

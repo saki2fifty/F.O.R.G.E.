@@ -104,7 +104,7 @@ void math() {
     singular.m[0] = 0;
     rejects([&] { inverse(singular); });
     rejects([] { normalized({0, 0, 0, 0}); });
-    rejects([] { affine_transform({{}, {}, {-1, 1, 1}}); });
+    check(affine_transform({{}, {}, {-1, 1, 1}}).m[0] == -1, "Reflection rejected");
     std::map<std::uint64_t, TransformNode> deep;
     for (std::uint64_t i = 1; i <= 20000; ++i)
         deep.emplace(i, TransformNode{{{1, 0, 0}, {}, {}}, i - 1, true});
@@ -112,6 +112,159 @@ void math() {
     expect_near(result.at(20000).affine.m[3], 20000);
     deep.at(1).parent = 20000;
     rejects([&] { evaluate_transforms(deep); });
+}
+void signed_scale_math() {
+    const auto rotation = rotation_from_euler({37, -61, 123});
+    for (float x : {-2.f, 0.f, 2.f})
+        for (float y : {-3.f, 0.f, 3.f})
+            for (float z : {-4.f, 0.f, 4.f}) {
+                LocalTransform local{{13, -7, 2}, rotation, {x, y, z}};
+                const auto matrix = affine_transform(local);
+                auto restored = decompose(matrix, &local);
+                check(equivalent(restored.scale, local.scale),
+                      "Decomposition moved reflection signs");
+                check(equivalent(restored.rotation, local.rotation),
+                      "Decomposition changed rank-deficient rotation");
+                expect_near(affine_transform(restored), matrix, 2e-6);
+                for (unsigned repeat = 0; repeat < 20; ++repeat) {
+                    restored = decompose(affine_transform(restored), &restored);
+                    check(equivalent(restored.scale, local.scale),
+                          "Repeated decomposition sign oscillation");
+                    check(equivalent(restored.rotation, local.rotation),
+                          "Repeated quaternion discontinuity");
+                }
+                const auto parity = transform_parity(matrix);
+                check(parity == (x * y * z == 0  ? TransformParity::Singular
+                                 : x * y * z < 0 ? TransformParity::Negative
+                                                 : TransformParity::Positive),
+                      "Wrong transform parity");
+                auto normals = normal_transform(matrix);
+                for (auto n : normals.m)
+                    check(std::isfinite(n), "Nonfinite singular normal transform");
+                if (x * y * z != 0) {
+                    expect_near(inverse(matrix) * matrix, AffineTransform{}, 1e-12);
+                    const auto inv = inverse(matrix);
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        Double3 input{};
+                        input[axis] = 1;
+                        auto n = normals.vector(input);
+                        Double3 expected{inv.m[4 * axis], inv.m[4 * axis + 1], inv.m[4 * axis + 2]};
+                        const double nl = std::hypot(n[0], n[1], n[2]),
+                                     el = std::hypot(expected[0], expected[1], expected[2]);
+                        for (unsigned j = 0; j < 3; ++j)
+                            expect_near(n[j] / nl, expected[j] / el, 1e-12);
+                    }
+                } else
+                    rejects([&] { inverse(matrix); });
+            }
+    for (float scale : {-10000.f, -0.0001f, -std::numeric_limits<float>::denorm_min(), 0.f,
+                        std::numeric_limits<float>::denorm_min(), 0.0001f, 10000.f}) {
+        LocalTransform local{{}, {}, {scale, scale, scale}};
+        auto matrix = affine_transform(local);
+        const auto decoded = decompose(matrix, &local);
+        check(decoded.scale == local.scale, "Scale boundary/denormal was changed");
+        if (scale != 0)
+            expect_near(inverse(matrix) * matrix, AffineTransform{}, 1e-12);
+    }
+    for (float tiny : {-1e-20f, 1e-20f}) {
+        auto matrix = affine_transform({{}, {}, {tiny, 1, 1}});
+        check(inverse_reciprocal_condition(matrix) < min_inverse_rcond, "Missed axis conditioning");
+        rejects([&] { inverse(matrix); });
+    }
+    for (float bad : {10001.f, -10001.f, std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN()})
+        rejects([&] { affine_transform({{}, {}, {bad, 1, 1}}); });
+    auto rank_two = normal_transform(affine_transform({{}, {}, {0, 2, 3}}));
+    check(rank_two.vector({1, 0, 0}) == Double3{1, 0, 0}, "Surviving plane normal lost");
+    check(rank_two.vector({0, 1, 0}) == Double3{}, "Degenerate normal fabricated");
+    auto rank_one = normal_transform(affine_transform({{}, {}, {0, 0, 3}}));
+    check(rank_one.vector({1, 2, 3}) == Double3{}, "Rank-one normal fabricated");
+    LocalTransform hemisphere{{}, {-rotation.x, -rotation.y, -rotation.z, -rotation.w}, {-1, 2, 3}};
+    const auto q = decompose(affine_transform(hemisphere), &hemisphere).rotation;
+    check(double(q.x) * hemisphere.rotation.x + double(q.y) * hemisphere.rotation.y +
+                  double(q.z) * hemisphere.rotation.z + double(q.w) * hemisphere.rotation.w >
+              0,
+          "Quaternion hemisphere lost");
+}
+void signed_scale_authoring() {
+    EngineContext engine;
+    Scene s(engine.world());
+    auto parent = create(s, 3), child = create(s, 7);
+    auto old_boundary = s.document();
+    old_boundary["entities"][0]["components"]["forge.local_scale"] = xyz(.001, .001, .001);
+    s.reset(old_boundary);
+    check(s.document().at("version") == 3,
+          "Previously supported .001 JSON boundary unnecessarily promoted scene version");
+    authoring_command(s, "transform.scale", {{"entity", parent}, {"value", xyz(1, 1, 1)}});
+    for (double invalid : {10000.00001, -10000.00001, 1e-50, -1e-50}) {
+        const auto before = s.document();
+        rejects([&] {
+            authoring_command(s, "transform.scale",
+                              {{"entity", child}, {"value", xyz(invalid, 1, 1)}});
+        });
+        check(s.document() == before, "Unrepresentable scale changed authored content");
+    }
+    for (auto scale : {xyz(-1, 2, 3), xyz(0, 2, 3), xyz(0, 0, 0), xyz(-.0001, .0001, 1),
+                       xyz(-10000, 10000, 1)}) {
+        auto before = s.document();
+        const auto owned_rotation = s.entity(child).owns<LocalRotation>();
+        authoring_command(s, "transform.scale", {{"entity", child}, {"value", scale}});
+        const auto signed_doc = s.document();
+        auto exact = s.entity(child).get<LocalScale>();
+        check(s.entity(child).owns<LocalRotation>() == owned_rotation,
+              "Scale edit changed rotation ownership");
+        s.undo();
+        check(s.document() == before, "Signed scale undo lost intent");
+        s.redo();
+        check(s.document() == signed_doc, "Signed scale redo lost intent");
+        Scene loaded(engine.world());
+        loaded.reset(signed_doc);
+        check(loaded.entity(child).get<LocalScale>() == exact,
+              "Signed scene roundtrip changed values");
+        auto entity = row(s.effective_document(), child);
+        auto bounds = object_bounds(entity);
+        for (unsigned i = 0; i < 3; ++i)
+            check(std::isfinite(bounds.first[i]) && bounds.first[i] <= bounds.second[i],
+                  "Signed bounds inverted");
+        (void)object_hit(entity, {7, 0, -10}, {0, 0, 1}, .05f, 100);
+    }
+    authoring_command(s, "transform.scale", {{"entity", child}, {"value", xyz(0, 2, -3)}});
+    authoring_command(s, "transform.world_translation", {{"entity", child}, {"value", xyz(8)}});
+    expect_near(world(s, child).m[3], 8);
+    const auto before = world(s, child);
+    s.reparent_entity(child, parent);
+    expect_near(world(s, child), before);
+    check(s.entity(child).get<LocalScale>() == LocalScale{0, 2, -3}, "Reparent lost signed scale");
+    authoring_command(s, "transform.scale", {{"entity", parent}, {"value", xyz(0, 1, 1)}});
+    check(row(s.effective_document(), child).at("spatial_resolved"), "Singular parent unresolved");
+    const auto original = s.document();
+    const auto revision = s.revision();
+    rejects([&] {
+        authoring_command(s, "transform.world_translation",
+                          {{"entity", child}, {"value", xyz(20)}});
+    });
+    check(s.document() == original && s.revision() == revision,
+          "Rejected singular operation mutated scene");
+    s.reparent_entity(child, "", ReparentMode::KeepLocal);
+    const auto root = s.document();
+    rejects([&] { s.reparent_entity(child, parent); });
+    check(s.document() == root, "Singular preserve-world reparent changed scene");
+    s.reparent_entity(child, parent, ReparentMode::KeepLocal);
+    authoring_command(s, "transform.scale", {{"entity", child}, {"value", xyz(1, 1, 1)}});
+    check(s.entity(child).get<LocalScale>() == LocalScale{},
+          "Inspector/API could not recover zero scale");
+    s.reparent_entity(child, "", ReparentMode::KeepLocal);
+    authoring_command(s, "transform.scale", {{"entity", child}, {"value", xyz(-1, 1, 1)}});
+    const auto picked = row(s.effective_document(), child);
+    auto pos = ObjectTransform(picked).position;
+    check(object_hit(picked, {pos[0], pos[1], pos[2] - 10}, {0, 0, 1}, .05f, 100).has_value(),
+          "Mirrored object not pickable");
+    authoring_command(s, "transform.scale", {{"entity", child}, {"value", xyz(-0.0, 1, 1)}});
+    const auto zero =
+        row(s.document(), child).at("components").at("forge.local_scale").at("x").get<float>();
+    check(zero == 0 && !std::signbit(zero), "Negative zero persisted");
+    check(!object_hit(row(s.effective_document(), child), {0, 0, -10}, {0, 0, 1}, .05f, 100),
+          "Singular object produced arbitrary geometry hit");
 }
 void migration_and_inheritance() {
     EngineContext engine;
@@ -510,6 +663,8 @@ void files_and_scope() {
 int main() {
     try {
         math();
+        signed_scale_math();
+        signed_scale_authoring();
         migration_and_inheritance();
         hierarchy();
         compensation();

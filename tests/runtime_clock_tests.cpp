@@ -20,6 +20,27 @@ template <class F> void rejects(F f) {
     throw std::runtime_error("expected rejection");
 }
 RuntimeClock::Time time_ms(int n) { return RuntimeClock::Time{} + std::chrono::milliseconds(n); }
+void signed_scale_interpolation() {
+    PresentationPoses poses;
+    std::map<std::uint64_t, TransformNode> nodes;
+    nodes[1] = {{{}, {}, {1, 2, -3}}, 0, true};
+    nodes[2] = {{{1, 2, 3}, {}, {-1, 1, 1}}, 1, true};
+    poses.reset(nodes);
+    nodes[1].local.scale = {-1, 0, 3};
+    poses.capture(nodes);
+    for (double alpha : {0.0, .25, .5, .75, 1.0}) {
+        const auto result = poses.evaluate(alpha);
+        const auto& parent = result.at(1);
+        check(parent.resolved && result.at(2).resolved, "Signed interpolation became unresolved");
+        expect_near(parent.affine.m[0], 1 - 2 * alpha);
+        expect_near(parent.affine.m[5], 2 - 2 * alpha);
+        expect_near(parent.affine.m[10], -3 + 6 * alpha);
+        expect_near(result.at(2).affine.m[0], -(1 - 2 * alpha));
+        expect_near(result.at(2).affine.m[3], 1 - 2 * alpha);
+    }
+    const auto midpoint = poses.evaluate(.5).at(1).affine;
+    check(midpoint.m[0] == 0 && midpoint.m[10] == 0, "Scale interpolation clamped around zero");
+}
 void clocks() {
     RuntimeClock clock({100, .25, 8});
     unsigned calls = 0;
@@ -226,6 +247,7 @@ int main(int argc, char** argv) {
     try {
         check(argc == 2, "module path required");
         clocks();
+        signed_scale_interpolation();
         poses();
         live(argv[1]);
         std::cout << "Clock, poses, live pipeline/presentation passed\n";

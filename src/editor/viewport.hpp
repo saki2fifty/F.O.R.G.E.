@@ -19,9 +19,11 @@ class Viewport {
     std::optional<ViewportFrameKey> frame_;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_, grid_pipeline_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> pipelines_;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> grid_pipeline_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> constants_, vertices_, grid_constants_;
     std::array<unsigned, primitive_count> starts_{}, counts_{};
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> resources_, grid_resources_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> resources_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> grid_resources_;
 };
 } // namespace forge

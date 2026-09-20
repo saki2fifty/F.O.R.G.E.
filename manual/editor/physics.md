@@ -46,7 +46,7 @@ A body currently needs **exactly one** collider, centered on its transform:
 
 Collider geometry is independent of the visible primitive. Changing a mesh's Shape does not change its collider. Match their dimensions yourself. Collider wireframes are not available in this first integration.
 
-Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support positive scale on each axis. Spheres and capsules require uniform positive world scale. Shear, negative scale, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow non-dynamic spatial parents when their final world transform meets these restrictions.
+Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support signed nonzero scale on each axis. Spheres and capsules require equal nonzero scale magnitudes; their signs may differ. These centered shapes are symmetric, so mirroring does not change their physical solid. Zero/tiny scale rejected by Jolt, shear, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow non-dynamic spatial parents when their final world transform meets these restrictions.
 
 ## Weight, friction, and bounce
 

@@ -20,9 +20,9 @@ namespace {
 void validate(const Json& doc) {
     if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
         (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3 &&
-         doc.at("version") != 4) ||
+         doc.at("version") != 4 && doc.at("version") != 5) ||
         !doc.contains("entities") || !doc.at("entities").is_array())
-        throw std::runtime_error("Expected scene version 1, 2, 3 or 4 and an entities array");
+        throw std::runtime_error("Expected scene version 1, 2, 3, 4 or 5 and an entities array");
     if (doc.at("version") != 1) {
         (void)doc.at("asset_id").get<AssetId>();
         if (doc.contains("legacy_ids")) {
@@ -224,7 +224,8 @@ std::size_t Scene::entity_count() const {
 }
 void Scene::replace(const Json& source) {
     validate(source);
-    const auto doc = source.at("version") < 3 ? migrate_scene(source, &opaque_) : source;
+    auto doc = source.at("version") < 3 ? migrate_scene(source, &opaque_) : source;
+    detail::promote_scale_format(doc, "entities", 5);
     struct Intended {
         std::string id, name, parent, base;
         bool prefab;
@@ -881,6 +882,7 @@ Json Scene::serialize(bool effective) const {
                 output[indices.at(next++)] = rows.at(children.ids[i]);
     }
     doc["entities"] = std::move(output);
+    detail::promote_scale_format(doc, "entities", 5);
     return doc;
 }
 Json Scene::document() const { return serialize(false); }
@@ -910,6 +912,7 @@ void detail::SceneDraft::edit(const Json& document) {
                     data[key] = data.at(key).get<double>();
             }
         }
+    detail::promote_scale_format(normalized, "entities", 5);
     document_ = std::move(normalized);
 }
 std::string detail::SceneDraft::instantiate_prefab(AssetId asset) {
@@ -917,7 +920,7 @@ std::string detail::SceneDraft::instantiate_prefab(AssetId asset) {
         throw std::runtime_error("Prefab source is not available in this project");
     const PrefabDocument source(prefabs_.at(asset));
     auto doc = document_;
-    doc["version"] = 4;
+    doc["version"] = std::max(doc.at("version").get<unsigned>(), 4u);
     const auto id = EntityId::generate().str();
     std::string name = "Prefab";
     for (const auto& m : source.source.at("members"))

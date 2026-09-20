@@ -43,3 +43,15 @@ The current editor has one loaded authored scene. This service does not claim co
 ## Deliberately deferred Apply
 
 There is no Apply button, command, advertised API capability or partial Apply workflow. Future Apply must define and test coordinated prefab-plus-scene ownership, publication order, interruption recovery, Undo/Redo, later source edits, dirty/untitled scenes and conflicts. The candidate/revision boundary is reusable; no future cross-document history format is frozen here. Nested overrides, structural per-instance edits, Unpack, resource handles/import/cook and general plugin/gameplay SDKs remain deferred.
+
+## Expanded scale compatibility
+
+Prefab2 retains the same member identity, revision, structure and override model
+as prefab1. Its version permits signed, zero and tiny LocalScale values. Source
+candidates automatically promote only when known scale needs the expanded range;
+positive-only documents remain prefab1. Publication validates and reconciles the
+normalized candidate before writing it, updates catalog schema metadata, and
+retains the previous source/instances on failure. Scene-owned signed/zero scale
+overrides use scene5 and remain independently undoable/revertible. Unknown payloads
+are untouched; direct source publication still has its existing separate history
+policy and is not an Apply operation.
