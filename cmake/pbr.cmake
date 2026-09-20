@@ -21,5 +21,5 @@ add_library(forge_presentation_diligent STATIC src/presentation_diligent.cpp src
 target_include_directories(forge_presentation_diligent PUBLIC src
  "${diligent_SOURCE_DIR}/DiligentCore")
 target_compile_definitions(forge_presentation_diligent PRIVATE NOMINMAX)
-target_link_libraries(forge_presentation_diligent PUBLIC forge_mesh forge_texture forge_diligent_pbr_native Diligent-BuildSettings
+target_link_libraries(forge_presentation_diligent PUBLIC forge_render_bounds forge_mesh forge_texture forge_diligent_pbr_native Diligent-BuildSettings
  PRIVATE forge_texture_formats Diligent-Archiver-shared)

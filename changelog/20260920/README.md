@@ -1042,3 +1042,16 @@
   Add request/reply markers and timed Python stack dumps so another stall identifies
   the exact blocked operation. Do not treat the failed run as a clean validation or
   change runtime behavior based on an unlocalized timeout.
+
+### Camera visibility and mesh detail
+
+- Add conservative affine bounds, camera-relative frustum checks and projected-size
+  LOD selection using the actual admitted camera projection. Preserve mirrored,
+  sheared, planar and collapsed bounds; support perspective/orthographic, imported
+  camera basis, projection flips and infinite far planes.
+- Add focused regressions for clipping, large origins, LOD transitions and invalid
+  numerical input. Correct the fixture's expected perspective screen fraction from
+  one half to one quarter; the implemented projection math was unchanged.
+- Native production draw/deformation integration remains in progress.
+- Focused bounds regressions passed normally and under strict ASan/UBSan/LSan
+  (1/1 each); source formatting, manual3/3, workflow lint and whitespace checks pass.

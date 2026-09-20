@@ -219,3 +219,20 @@ The punctual shader adapter composes native PBR with a source-verified spotlight
 correction and a finite-output boundary; see[the dependency issue](dependency-known-issues.md).
 Its boolean result must feed the eventual renderer's numeric diagnostics, rather
 than silently claiming an unrepresentable contribution rendered correctly.
+
+### Visibility and mesh detail selection
+
+Private CPU bounds preparation transforms all eight mesh-bound corners through the
+derived affine matrix. This preserves conservative extents for reflection, shear
+and zero scale. Visibility uses the actual admitted camera projection, including
+image flips, imported camera basis, orthographic and infinite-far modes. The six
+D3D clip-plane tests reject only bounds entirely outside a plane; camera-relative
+double arithmetic avoids first converting distant world positions to GPU floats.
+
+LOD selection uses projected bound diameter divided by viewport height, clamped
+to[0,1], with the cooked decreasing thresholds. Bounds crossing the eye plane keep
+full detail. A two-unit box whose nearest face is four units from a90-degree camera
+has25% vertical screen coverage. This library is tested with large origins and
+singular transforms; connecting selected draw parts and deformed bounds to the
+production renderer remains part of Phase7. Static bounds must not cull animated
+geometry until the deformation consumer supplies conservative updated bounds.
