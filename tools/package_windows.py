@@ -35,6 +35,8 @@ def package(build, dependencies, output):
     dlls = sorted(build.glob('*.dll'))
     if not any('graphicsengined3d12' in p.name.lower() for p in dlls):
         raise ValueError('The Diligent D3D12 runtime DLL is missing from the build output')
+    if not any(p.name.lower().startswith('archiver') for p in dlls):
+        raise ValueError('The Diligent render-state Archiver runtime DLL is missing')
     images += dlls
     for image in images:
         check_pe64(image)

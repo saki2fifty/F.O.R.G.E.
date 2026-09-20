@@ -24,7 +24,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 | SDL3 | release-3.4.16 / `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c` | Windows, events, preference paths, dialogs, process pipes | [Official release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16) |
 | Dear ImGui | v1.92.9b-docking / `b48d1afbe8ee8b238e2961dc363a949dd7304e23` | Docking, tables, controls, texture-backed preview | [Source](https://github.com/ocornut/imgui/tree/v1.92.9b-docking) |
 
-Ozz, Jolt, Flecs, JSON and ImGui use MIT; miniaudio uses its MIT-0 option; SDL uses zlib; Diligent uses Apache-2.0 with separately licensed third-party dependencies. Preserve upstream notices when distributing binaries. The Runtime install component includes the Flecs and JSON license texts. A complete editor distribution notice bundle remains a release gate. Diligent's native Metal backend is commercial; this build selects D3D12 only. DiligentFX/PBR and other advanced upstream capabilities are not enabled by this foundation.
+Ozz, Jolt, Flecs, JSON and ImGui use MIT; miniaudio uses its MIT-0 option; SDL uses zlib; Diligent uses Apache-2.0 with separately licensed third-party dependencies. Preserve upstream notices when distributing binaries. The Runtime install component includes the Flecs and JSON license texts. A complete editor distribution notice bundle remains a release gate. Diligent's native Metal backend is commercial; this build selects D3D12 only. Phase7 composes the native DiligentFX PBR utility subset described below; other advanced upstream capabilities are not implicitly enabled.
 
 Build tooling: CMake presets, Ninja incremental targets, Python 3.10+ subprocess/path tooling, MSVC for Windows and GCC for portable tests. Formatting uses clang-format 23.1.1. GitHub Actions uses pinned checkout/setup actions and an explicit Windows compiler environment. Tool versions and host SDK versions should be recorded with release evidence.
 
@@ -50,7 +50,7 @@ The latest numbered release is 2.5.6; FORGE intentionally uses a later coordinat
 |---|---|---|
 | DiligentCore | `744f079f61cdbda15d371383682418fc927e4a61` | D3D12 |
 | DiligentTools | `7d1139064f36b14f911e5bca095be9c9dcfc5112` | ImGui integration; Phase7 native CPU glTF Document/VertexDataConverter adapter |
-| DiligentFX | `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da` | Disabled |
+| DiligentFX | `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da` | Native PBR utility/source-factory subset; umbrella target disabled |
 | DiligentSamples | `73b08a788380b6db5aaa3274335749aaf7fc0056` | Disabled |
 
 Phase7 tooling verification2026-09-20: `FORGE_BUILD_ASSET_TOOLS` adds an optional
@@ -244,3 +244,17 @@ Windows SDK reflection supplies dimensions, groups and bytecode version checks.
 No dependency pin changes or DXC/DXIL support are implied. CPU admission tests pass;
 the native Windows adapter is undergoing execution validation. See
 [shader asset contracts and remaining integration](shader-assets.md).
+
+### Native PBR/cache composition — verified source2026-09-20
+
+Exact Core/FX revisions above are unchanged. `DILIGENT_BUILD_FX=OFF` avoids the
+umbrella's unconditional EnTTv3.16.0 fetch and public ImGui/AssetLoader dependencies.
+`cmake/pbr.cmake` selects unmodified native PBR_Renderer/source-factory C++ files
+and the native `convert_shaders_to_headers` pipeline. Diligent owns GGX/sheen LUTs,
+default textures, cubemap convolution, native content-hashed shader/PSO caches and
+resource lifetime. The backend-private FORGE target links the matching Archiver
+DLL; packaging must include it. `EnableHotReload=false`, hash by content, no disk
+cache loading. This is source-level build composition, not a public engine ABI or
+an upstream patch. No live-documentation drift was used to select APIs. Windows
+execution of this addition is pending; full mesh PBR/skinning is not yet claimed.
+See[render ownership and limitations](rendering-foundation.md).

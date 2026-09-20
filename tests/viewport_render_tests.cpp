@@ -160,6 +160,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
     require(checked >= 2, "Axis fixture does not cover visible world coordinates");
 }
 } // namespace
+#include "presentation_diligent_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Expected image output directory");
@@ -200,7 +201,8 @@ int main(int argc, char** argv) {
                 save(pixels, 64, 64, images / (name + ".ppm"));
             });
         check_imgui(device, context, images);
-        forge::Viewport viewport(device);
+        forge::DiligentPresentation presentation(device);
+        forge::Viewport viewport(presentation);
         forge::EngineContext scene_engine;
         forge::Scene live_scene(scene_engine.world());
         forge::Json scene{{"version", 1}, {"entities", forge::Json::array()}};
@@ -220,10 +222,36 @@ int main(int argc, char** argv) {
             save(pixels, w, h, images / (std::string(name) + ".ppm"));
             return pixels;
         };
+        check_native_pbr(presentation, context);
         auto original = render("grid");
         check_axes(original, width, height, camera);
         auto unchanged = render("retained");
         require(unchanged == original && viewport.retained == 1, "Retained grid frame changed");
+        {
+            const auto misses = presentation.cache_misses();
+            const auto hits = presentation.cache_hits();
+            forge::Viewport second(presentation);
+            require(presentation.cache_misses() == misses && presentation.cache_hits() >= hits + 8,
+                    "Second viewport did not reuse native shader and parity/grid pipeline states");
+            auto other_camera = camera;
+            other_camera.pan(90, -30, height);
+            const auto effective = live_scene.effective_document();
+            const auto other =
+                readback(device, context,
+                         second.render(context, effective, width, height, other_camera, 1, true));
+            require(other != original, "Independent camera fixture did not move");
+            presentation.clear_cache();
+            const auto first =
+                readback(device, context,
+                         viewport.render(context, effective, width, height, camera, 1, true));
+            require(
+                first == original,
+                "Shared PSO aliased per-view camera constants or reset invalidated live resources");
+            const auto after =
+                readback(device, context,
+                         second.render(context, effective, width, height, other_camera, 1, true));
+            require(after == other, "Second view changed after another view rendered");
+        }
         camera.look(45, 12);
         check_axes(render("look"), width, height, camera);
         camera.pan(75, -40, height);

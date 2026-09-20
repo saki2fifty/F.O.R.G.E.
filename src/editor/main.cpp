@@ -259,7 +259,8 @@ int main(int argc, char** argv) {
         native->auto_build = auto_build;
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
-        forge::Viewport viewport(device), game_viewport(device);
+        forge::DiligentPresentation presentation(device);
+        forge::Viewport viewport(presentation), game_viewport(presentation);
         forge::RuntimeUiHost runtime_ui(window.get(), device,
                                         std::filesystem::path(base) /
                                             "resources/ui/LatoLatin-Regular.ttf");

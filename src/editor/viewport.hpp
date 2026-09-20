@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "presentation_diligent.hpp"
 #include "scene_cache.hpp"
 #include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
@@ -10,7 +11,7 @@ namespace forge {
 class Viewport {
   public:
     std::uint64_t redraws = 0, retained = 0;
-    explicit Viewport(Diligent::IRenderDevice* device);
+    explicit Viewport(DiligentPresentation& presentation);
     Diligent::ITextureView* render(Diligent::IDeviceContext* context, const Json& scene,
                                    unsigned width, unsigned height, const EditorCamera& camera,
                                    std::uint64_t generation, bool live, GridSettings grid = {});

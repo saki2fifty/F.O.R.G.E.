@@ -985,3 +985,16 @@
 - Reject nonzero GPU subnormal projection/light values that Direct3D flushes to
   zero; authored visual LocalScale admission is unchanged. Targeted authoring
   regression passed normally and with strict ASan/UBSan/LSan (1/1 each).
+
+### Shared native presentation cache and PBR utilities
+
+- Share native Diligent shader/pipeline caches between Scene and Game views while
+  preserving separate mutable camera/object resource bindings. Reset retained cache
+  history without invalidating live referenced pipelines.
+- Compose unmodified pinned PBR utilities and shader-source generation without
+  the FX umbrella's EnTT scene system or ImGui dependency. Add lazy native default
+  textures, BRDF lookup resources and environment-convolution access.
+- Require the matching Diligent Archiver DLL in Windows packages.
+- Add Windows pixel/resource regressions for independent views, cache reset and
+  constant-radiance cube convolution. These native checks are pending execution;
+  this is not a claim that the full imported-material renderer is complete.

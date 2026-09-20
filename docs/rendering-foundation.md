@@ -146,3 +146,32 @@ fragments and make no semantic identity claim.
 
 The in-progress[shader asset contract](shader-assets.md) records the current
 source/permutation/cooked reflection boundary and outstanding production integration.
+
+## Native presentation resources — Phase7 implementation
+
+The private `forge_presentation_diligent` target owns per-device native
+`IRenderStateCache` resources without any Flecs world or ImGui dependency.
+Scene/Game blockout views share shaders and full graphics pipelines through
+Diligent's content-based cache. Their camera/object constants are mutable SRB
+bindings owned by each viewport, never shared pipeline static variables.
+Active PSOs/SRBs retain native references across cache reset and viewport destruction.
+The cache resets after256 newly created wrapper-managed shader/PSO entries;
+this bounds retained entry history, not GPU memory bytes. Native PBR creates a
+bounded, lazy utility resource set once per device. No serialized cache file or
+unvalidated native live shader reload is enabled. Asset candidate validation and
+cooked-resource provenance remain separate requirements.
+
+`forge_diligent_pbr_native` compiles the unmodified pinned FX `PBR_Renderer.cpp`
+and native memory shader-source factory, with upstream shader-header generation.
+The full FX umbrella stays disabled: its CMake file unconditionally fetches EnTT
+and publicly links ImGui/AssetLoader. FORGE needs its PBR algorithms and utilities,
+not another scene owner. This composition adds no dependency pin or vendor patch.
+The native PBR utility supplies default textures, GGX/sheen lookup textures and
+environment convolution. FORGE's signed/zero-safe mesh shader and actual material,
+light/shadow and skin/morph bindings remain required before production PBR is
+considered integrated. A native utility test is not that completion claim.
+
+Windows fixtures cover two independently moved views sharing native pipeline
+states, live rendering after cache reset, fallback texture pixels and constant
+radiance preservation across every face/mip of native IBL convolution. Validation
+of this new native subset is pending until its source-only Windows audit passes.

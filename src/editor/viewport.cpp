@@ -4,7 +4,7 @@
 #include <stdexcept>
 using namespace Diligent;
 namespace forge {
-Viewport::Viewport(IRenderDevice* device) : device_(device) {
+Viewport::Viewport(DiligentPresentation& presentation) : device_(presentation.device()) {
     const char* vs = R"(
 cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; float4 axisX; float4 axisY; float4 axisZ; float4 tint; float4 normalX; float4 normalY; float4 normalZ; };
 struct Out { float4 position : SV_POSITION; float3 color : COLOR0; };
@@ -32,16 +32,17 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     shader.Desc.Name = "FORGE blockout VS";
     shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
     shader.Source = vs;
-    device_->CreateShader(shader, &vertex);
+    presentation.shader(shader, &vertex);
     shader.Desc.Name = "FORGE blockout PS";
     shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
     shader.Source = ps;
-    device_->CreateShader(shader, &pixel);
+    presentation.shader(shader, &pixel);
     if (!vertex || !pixel)
         throw std::runtime_error("Preview shader compilation failed");
     GraphicsPipelineStateCreateInfo pso;
     pso.PSODesc.Name = "FORGE blockout";
     pso.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+    pso.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
     pso.GraphicsPipeline.NumRenderTargets = 1;
     pso.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
     pso.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
@@ -56,7 +57,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
         pso.GraphicsPipeline.RasterizerDesc.CullMode =
             parity == 2 ? CULL_MODE_NONE : CULL_MODE_BACK;
         pso.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = parity == 1 ? True : False;
-        device_->CreateGraphicsPipelineState(pso, &pipelines_[parity]);
+        presentation.graphics(pso, &pipelines_[parity]);
         if (!pipelines_[parity])
             throw std::runtime_error("Preview parity pipeline creation failed");
     }
@@ -98,28 +99,28 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     if (!constants_)
         throw std::runtime_error("Preview constant buffer creation failed");
     for (unsigned parity = 0; parity < pipelines_.size(); ++parity) {
-        auto* variable =
-            pipelines_[parity]->GetStaticVariableByName(SHADER_TYPE_VERTEX, "ObjectData");
+        pipelines_[parity]->CreateShaderResourceBinding(&resources_[parity], true);
+        auto* variable = resources_[parity]->GetVariableByName(SHADER_TYPE_VERTEX, "ObjectData");
         if (!variable)
             throw std::runtime_error("Preview shader constants missing");
         variable->Set(constants_);
-        pipelines_[parity]->CreateShaderResourceBinding(&resources_[parity], true);
     }
     shader.Desc.Name = "FORGE grid VS";
     shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
     shader.Source = grid_vertex_shader;
     vertex.Release();
-    device_->CreateShader(shader, &vertex);
+    presentation.shader(shader, &vertex);
     shader.Desc.Name = "FORGE grid PS";
     shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
     shader.Source = grid_pixel_shader;
     pixel.Release();
-    device_->CreateShader(shader, &pixel);
+    presentation.shader(shader, &pixel);
     if (!vertex || !pixel)
         throw std::runtime_error("Grid shader compilation failed");
     GraphicsPipelineStateCreateInfo grid;
     grid.PSODesc.Name = "FORGE world ground grid";
     grid.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+    grid.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
     grid.GraphicsPipeline.NumRenderTargets = 1;
     grid.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
     grid.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
@@ -136,7 +137,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     blend.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
     grid.pVS = vertex;
     grid.pPS = pixel;
-    device_->CreateGraphicsPipelineState(grid, &grid_pipeline_);
+    presentation.graphics(grid, &grid_pipeline_);
     if (!grid_pipeline_)
         throw std::runtime_error("Grid pipeline creation failed");
     buffer.Name = "FORGE grid camera";
@@ -144,11 +145,11 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     device_->CreateBuffer(buffer, nullptr, &grid_constants_);
     if (!grid_constants_)
         throw std::runtime_error("Grid camera buffer creation failed");
-    auto* variable = grid_pipeline_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "GridView");
+    grid_pipeline_->CreateShaderResourceBinding(&grid_resources_, true);
+    auto* variable = grid_resources_->GetVariableByName(SHADER_TYPE_PIXEL, "GridView");
     if (!variable)
         throw std::runtime_error("Grid shader camera binding missing");
     variable->Set(grid_constants_);
-    grid_pipeline_->CreateShaderResourceBinding(&grid_resources_, true);
 }
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
                                unsigned height, const EditorCamera& camera,
