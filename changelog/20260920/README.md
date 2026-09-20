@@ -701,3 +701,26 @@
   passed. Manual3/3, formatting and whitespace checks passed. Windows source audit
   for the preceding model runtime correction remains in progress; no numbered build
   or desktop acceptance is claimed for this work.
+
+### Preserve imported source TRS, including zero scale
+
+- New private model bundles use format2 and retain explicit local translation,
+  normalized quaternion and signed scale alongside checked derived affine data.
+  Zero-scale source nodes keep their actual rotation. Matrix-authored nodes use the
+  admitted normalized basis and existing math decomposition. No scene/identity/ABI
+  format change; no fourth authoritative Flecs transform component.
+- Static source values retain their own numeric domain; Ozz conversion reuses the
+  canonical helper and then enforces its existing float/rest limits. Tiny-value
+  consistency checks normalize columns rather than hiding differences with an
+  absolute unit-sized tolerance. Earlier format1 outputs remain readable for their
+  existing consumers and retain their version; workflows needing original TRS
+  require reimport. Selected catalog/manifest/bundle versions must agree.
+- Seven normal hierarchy/bundle/recipe/worker/CLI/runtime/animation checks passed
+  in the initial eight-test run. The existing Ozz corruption fixture required updating
+  because the stricter encoder now catches its inconsistent local matrix earlier;
+  the corrected fixture keeps TRS/matrix consistent and still verifies rejection
+  against the independent Ozz rest pose. That suite passed(0.35s). Strict sanitizer
+  hierarchy/bundle/recipe/Ozz/legacy animation5/5 passed(54.94s); manual3/3, format and
+  whitespace checks passed. Windows validation and complete Phase7 remain in progress.
+- Rebuilt the asset-tools-disabled core/runtime profile; legacy animation,
+  separate-process animation and target-boundary checks3/3 passed(34.60s).

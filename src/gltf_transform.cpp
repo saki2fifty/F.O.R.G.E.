@@ -1,5 +1,6 @@
 #include "gltf_transform.hpp"
 #include <cmath>
+#include <forge/transform.hpp>
 namespace forge::asset_detail {
 namespace {
 using Json = nlohmann::json;
@@ -66,5 +67,29 @@ std::array<double, 16> gltf_node_matrix(const Json& node) {
                 throw std::runtime_error("glTF TRS matrix exceeds finite numeric range");
         }
     return result;
+}
+Json canonical_gltf_trs(const Json& source) {
+    const auto admitted = gltf_node_matrix(source);
+    auto t = numbers<3>(source, "translation", {0, 0, 0});
+    auto s = numbers<3>(source, "scale", {1, 1, 1});
+    auto q = numbers<4>(source, "rotation", {0, 0, 0, 1});
+    if (source.contains("matrix")) {
+        AffineTransform basis;
+        for (unsigned c = 0; c < 3; ++c) {
+            s[c] = std::hypot(admitted[c * 4], admitted[c * 4 + 1], admitted[c * 4 + 2]);
+            for (unsigned r = 0; r < 3; ++r)
+                basis.m[r * 4 + c] = admitted[c * 4 + r] / s[c];
+        }
+        // Only the normalized basis passes through the ECS math helper. Do not
+        // impose LocalScale's authoring bounds on immutable source transforms.
+        const auto local = decompose(basis);
+        t = {admitted[12], admitted[13], admitted[14]};
+        s = {s[0] * local.scale.x, s[1] * local.scale.y, s[2] * local.scale.z};
+        q = {local.rotation.x, local.rotation.y, local.rotation.z, local.rotation.w};
+    }
+    const auto norm = std::hypot(std::hypot(q[0], q[1]), std::hypot(q[2], q[3]));
+    for (auto& value : q)
+        value /= norm;
+    return {{"translation", t}, {"rotation", q}, {"scale", s}};
 }
 } // namespace forge::asset_detail

@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "gltf_scene.hpp"
 #include "gltf_surfaces.hpp"
+#include "gltf_transform.hpp"
 #include "texture_ktx.hpp"
 #include <algorithm>
 #include <cstring>
@@ -274,6 +275,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
              {"mesh",
               node.mesh == gltf_no_index ? Json(nullptr) : Json(address("meshes", node.mesh))},
              {"local", affine},
+             {"trs", canonical_gltf_trs(doc.at("nodes").at(i))},
              {"weights", node.morph_weights},
              {"camera", node.camera == gltf_no_index ? Json(nullptr) : Json(node.camera)},
              {"light", scene_values.nodes.at(i).at("light")},

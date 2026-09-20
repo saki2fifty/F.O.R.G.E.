@@ -14,6 +14,9 @@ struct ModelImportMember {
     std::map<std::string, std::string> bindings;
 };
 struct ModelBundleIndex {
+    // Version1 remains readable for existing animation/resource selections, but
+    // lacks recoverable authored TRS. New cooks use version2.
+    unsigned version = 2;
     std::string source_digest;
     std::vector<ModelImportMember> members;
     // Immutable asset hierarchy, never a second mutable gameplay hierarchy.

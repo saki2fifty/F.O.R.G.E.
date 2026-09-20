@@ -26,7 +26,7 @@ The private native stage prepares a single candidate containing:
 - Material texture-slot bindings and mesh material-slot assignments.
 - Texture semantic variants under one image member, with per-material samplers.
 - Original node labels and parent relationships, scene roots/default selection,
-  morph defaults and exact local affine transforms in FORGE row-major3x4 storage.
+  morph defaults, explicit local TRS and derived affine transforms in FORGE row-major3x4 storage.
 - Content and semantic-usage evidence for subsequent existing subasset reconciliation.
 - Bounded diagnostics for processing and unreferenced images.
 
@@ -308,3 +308,29 @@ source discovery still reports that separate condition. It does not publish,
 convert, mutate a world, or replace a live resource. Cache bytes are owned after the
 read, so eviction cannot invalidate them. Runtime resource adoption and the rendered
 model remain separate integration requirements.
+
+
+## Imported local transforms and cooked format compatibility
+
+New model bundles use private format2. Every node stores explicit translation,
+normalized XYZW quaternion and signed scale in `trs`, alongside a checked derived
+`local` affine3x4. Explicit source TRS never passes through matrix decomposition:
+zero scale would lose the original rotation, and reflections can have several
+mathematically equivalent decompositions. Matrix-authored source nodes pass the
+exact glTF affine/nonzero-column/no-shear admission before the existing normalized
+basis decomposition is used. This does not alter the source file.
+
+The immutable source numeric profile is separate from authored ECS LocalScale and
+Ozz rest storage. Static transforms are not silently clamped to either consumer's
+limits. A consumer must reject values it cannot represent. Ozz private conversion
+now uses the same canonical TRS helper followed by its existing finite float/rest
+profile checks. Composition validation compares normalized columns, so an absolute
+unit-sized epsilon cannot hide a corrupted tiny-scale transform.
+
+Existing format1 bundles remain readable for their existing mesh/animation resource
+consumers and retain version1 when decoded/re-encoded. They have no guaranteed
+recoverable original TRS and must be reimported before a workflow requiring that
+information. The importer declares output version2 in the full build key; new cooks
+cannot reuse version1 outputs as version2. Selected catalog, cache manifest and
+bundle version must agree. Catalog metadata envelope version1 is independent of
+this cooked format version. No scene format, identity or module ABI changes here.

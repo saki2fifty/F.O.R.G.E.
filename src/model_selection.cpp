@@ -38,7 +38,7 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     const auto& record = owner->second;
     const auto& selected = record.metadata.at("forge.import");
     require(selected.at("version") == 1 && selected.at("output_format") == "forge.model-bundle" &&
-                selected.at("output_version") == 1,
+                (selected.at("output_version") == 1 || selected.at("output_version") == 2),
             "Unsupported selected model artifact profile");
     ModelSelection result;
     result.owner = model;
@@ -52,6 +52,8 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
         cancelled();
         result.index = validate_model_bundle(candidate.files);
     });
+    require(selected.at("output_version") == result.index.version,
+            "Selected model format version differs from immutable artifact");
     require(selected.at("artifact_digest") == asset_build_digest(artifact.manifest.at("files")) &&
                 selected.at("source_digest") == result.index.source_digest,
             "Selected model catalog and cooked revision disagree");

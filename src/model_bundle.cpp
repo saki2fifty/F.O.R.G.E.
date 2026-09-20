@@ -1,6 +1,7 @@
 #include "model_bundle.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "gltf_transform.hpp"
 #include "model_animation.hpp"
 #include "model_scene_values.hpp"
 #include <algorithm>
@@ -57,7 +58,8 @@ void node_index(const Json& j, std::size_t count, bool nullable = true) {
         return;
     require(number(j, count) < count, "Model node reference out of bounds");
 }
-void hierarchy(const Json& h, const std::map<std::string, const ModelImportMember*>& members) {
+void hierarchy(const Json& h, const std::map<std::string, const ModelImportMember*>& members,
+               unsigned version) {
     const auto& nodes = array(h.at("nodes"), 100000);
     const auto cameras = h.value("cameras", Json::array());
     const auto lights = h.value("lights", Json::array());
@@ -92,6 +94,24 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
         for (const auto& value : local)
             require(value.is_number() && std::isfinite(value.get<double>()),
                     "Nonfinite model transform");
+        if (version >= 2) {
+            const auto& trs = node.at("trs");
+            require(trs.is_object() && trs.size() == 3 && trs.contains("translation") &&
+                        trs.contains("rotation") && trs.contains("scale"),
+                    "Model node requires explicit canonical TRS");
+            const auto matrix = gltf_node_matrix(trs);
+            // Explicit zero/tiny TRS is checked by composition, never decomposition.
+            // Scale-relative error prevents a unit-sized epsilon hiding tiny data.
+            for (unsigned c = 0; c < 4; ++c) {
+                const double scale = c == 3 ? 0 : trs.at("scale").at(c).get<double>();
+                for (unsigned r = 0; r < 3; ++r) {
+                    const auto a = local.at(r * 4 + c).get<double>();
+                    const auto b = matrix[c * 4 + r];
+                    require(scale == 0 ? a == b : std::abs(a / scale - b / scale) <= 2e-6,
+                            "Model node TRS differs from its derived affine transform");
+                }
+            }
+        }
         member(node.at("mesh"), "mesh");
         node_index(node.value("camera", Json(nullptr)), cameras.size());
         node_index(node.value("light", Json(nullptr)), lights.size());
@@ -156,6 +176,7 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
     }
 }
 void validate(const ModelBundleIndex& index) {
+    require(index.version == 1 || index.version == 2, "Unsupported model bundle version");
     require(valid_content_digest(index.source_digest) && index.members.size() <= 4096 &&
                 index.diagnostics.size() <= 4096,
             "Invalid model index source/counts");
@@ -194,7 +215,7 @@ void validate(const ModelBundleIndex& index) {
     }
     for (const auto& message : index.diagnostics)
         (void)text(message, 8192);
-    hierarchy(index.hierarchy, members);
+    hierarchy(index.hierarchy, members, index.version);
 }
 } // namespace
 std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index) {
@@ -214,7 +235,7 @@ std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index) 
                            {"bindings", m.bindings}});
     }
     const auto text =
-        Json{{"format", "forge.model-bundle"},       {"version", 1},
+        Json{{"format", "forge.model-bundle"},       {"version", index.version},
              {"source_digest", index.source_digest}, {"members", members},
              {"hierarchy", index.hierarchy},         {"diagnostics", index.diagnostics}}
             .dump();
@@ -224,9 +245,9 @@ std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index) 
 }
 ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
     const auto j = parse_bounded_json(bytes, index_bytes);
-    require(j.at("format") == "forge.model-bundle" && number(j.at("version"), 1) == 1,
-            "Unsupported model bundle format");
+    require(j.at("format") == "forge.model-bundle", "Unsupported model bundle format");
     ModelBundleIndex result;
+    result.version = unsigned(number(j.at("version"), 2));
     result.source_digest = text(j.at("source_digest"), 64);
     for (const auto& m : array(j.at("members"), 4096)) {
         ModelImportMember member;

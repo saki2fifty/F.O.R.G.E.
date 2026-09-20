@@ -82,7 +82,7 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
         c.input.document() != plan.input.document())
         throw std::runtime_error("Model publication requires its exact prepared build input");
     const auto bundle = asset_detail::validate_model_bundle(c.files);
-    if (bundle.source_digest != c.input.source_digest)
+    if (bundle.source_digest != c.input.source_digest || bundle.version != c.input.output_version)
         throw std::runtime_error("Model candidate belongs to another source revision");
     if (bundle.hierarchy.contains("animation")) {
         const auto digest =

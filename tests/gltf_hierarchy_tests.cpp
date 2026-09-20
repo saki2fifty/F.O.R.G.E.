@@ -1,4 +1,5 @@
 #include "gltf_native.hpp"
+#include "gltf_transform.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -54,6 +55,32 @@ int main() {
         require(std::abs(matrix[1] + 2) < 1e-9 && std::abs(matrix[4] + 3) < 1e-9 &&
                     matrix[10] == 0 && matrix[12] == 2 && matrix[13] == 3 && matrix[14] == 4,
                 "Source TRS reflection, zero scale, orientation or translation was lost");
+        const Json exact_trs = {{"translation", {1e100, -2.0, 3.0}},
+                                {"rotation", {0.0, 0.0, std::sqrt(.5), std::sqrt(.5)}},
+                                {"scale", {-1e-100, 0.0, 2e100}}};
+        const auto canonical = canonical_gltf_trs(exact_trs);
+        require(canonical.at("translation") == exact_trs.at("translation") &&
+                    canonical.at("scale") == exact_trs.at("scale") &&
+                    std::abs(canonical.at("rotation")[2].get<double>() - std::sqrt(.5)) < 1e-15,
+                "Static source TRS adopted ECS/Ozz bounds or lost zero-scale rotation");
+        const auto columns = gltf_node_matrix(exact_trs);
+        // A non-singular matrix with scales outside either consumer's profile is
+        // still valid immutable source data; later consumers enforce their bounds.
+        auto matrix_trs = exact_trs;
+        matrix_trs["scale"][1] = -3e-100;
+        const auto source_matrix = gltf_node_matrix(matrix_trs);
+        const auto decomposed = canonical_gltf_trs({{"matrix", source_matrix}});
+        const auto rebuilt = gltf_node_matrix(decomposed);
+        for (unsigned c = 0; c < 3; ++c) {
+            const auto scale = matrix_trs.at("scale")[c].get<double>();
+            for (unsigned r = 0; r < 3; ++r)
+                require(std::abs(rebuilt[c * 4 + r] / scale - source_matrix[c * 4 + r] / scale) <
+                            2e-6,
+                        "Source matrix canonical TRS reconstruction changed its basis");
+        }
+        require(rebuilt[12] == 1e100 && columns[4] == 0 && columns[5] == 0 && columns[6] == 0,
+                "Canonical TRS changed large translation or zero-scale column");
+        rejects([&] { canonical_ozz_rest(exact_trs); }, "Ozz profile");
         auto bad = skeleton();
         bad["nodes"][1]["children"] = {0};
         rejects([&] { hierarchy(bad); }, "cycle");

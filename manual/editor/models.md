@@ -87,3 +87,14 @@ silently selecting a different mesh or material. Importing does not add a scene 
 step.
 
 See [textures](textures.md), [Content](content-browser.md) and [animation](animation.md).
+
+
+## Imported transforms
+
+New imports preserve each source node's position, quaternion rotation and signed
+scale, including zero scale. A zero-scaled node keeps its rotation instead of having
+it reconstructed from a flattened matrix. Importing does not rewrite the source.
+Older development imports remain readable; reimport them to prepare the additional
+transform information needed for model placement. Import validation and placement
+validation are separate: a value may be valid model data but exceed the scene or
+animation consumer's supported range.

@@ -203,8 +203,12 @@ int main(int argc, char** argv) {
                 index.hierarchy["animation"]["provenance"]["source_digest"] = std::string(64, 'f');
             });
             corrupt_index([&](auto& index) {
-                index.hierarchy["nodes"][meta["joint_nodes"][0].template get<std::size_t>()]
-                               ["local"][3] = 12345.;
+                auto& node =
+                    index.hierarchy["nodes"][meta["joint_nodes"][0].template get<std::size_t>()];
+                // Keep this node internally consistent so the full-family check
+                // still proves rejection against the independent Ozz rest pose.
+                node["local"][3] = 12345.;
+                node["trs"]["translation"][0] = 12345.;
             });
             if (!meta.at("clips").empty())
                 corrupt_index(

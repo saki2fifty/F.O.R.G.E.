@@ -4,6 +4,10 @@
 namespace forge::asset_detail {
 // Exact glTF affine/TRS admission shared by native and animation-only imports.
 std::array<double, 16> gltf_node_matrix(const nlohmann::json& node);
+// Immutable imported TRS, independent of ECS/Ozz numeric profiles. Explicit
+// signed/zero scales keep their original rotation; matrix input is decomposed only
+// after glTF admission. Consumers must validate their own representable domain.
+nlohmann::json canonical_gltf_trs(const nlohmann::json& node);
 // Ozz private input only: preserve explicit signed/zero TRS; convert admitted
 // matrix rest into explicit TRS so native fallback channels retain the rest pose.
 nlohmann::json canonical_ozz_rest(const nlohmann::json& node);

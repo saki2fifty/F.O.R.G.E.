@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "gltf_model_cook.hpp"
 #include "gltf_snapshot.hpp"
+#include "gltf_transform.hpp"
 #include <algorithm>
 #include <forge/texture_bundle.hpp>
 #include <iostream>
@@ -143,6 +144,36 @@ int main(int argc, char** argv) {
         invalid([](auto& j) { j["members"][0]["bindings"]["material.999"] = "/materials/0"; });
         invalid([](auto& j) { j["members"][0]["bindings"] = Json::object(); });
         invalid([](auto& j) { j["members"][0]["address"] = j["members"][1]["address"]; });
+        invalid([](auto& j) { j["hierarchy"]["nodes"][0].erase("trs"); });
+        invalid([](auto& j) { j["hierarchy"]["nodes"][0]["trs"]["translation"][0] = 999.0; });
+        invalid([](auto& j) { j["hierarchy"]["nodes"][0]["trs"]["rotation"] = {0, 0, 0, 0}; });
+        auto legacy = files;
+        change(legacy, [](auto& j) {
+            j["version"] = 1;
+            for (auto& node : j["hierarchy"]["nodes"])
+                node.erase("trs");
+        });
+        const auto legacy_index = validate_model_bundle(legacy);
+        require(legacy_index.version == 1 &&
+                    decode_model_bundle_index(encode_model_bundle_index(legacy_index)).version == 1,
+                "Legacy cooked model version was silently upgraded");
+        auto zero_source = source;
+        const Json zero_node = {{"mesh", 0},
+                                {"rotation", {.2, .4, .4, .8}},
+                                {"translation", {1, 2, 3}},
+                                {"scale", {0, -2, 1e-100}}};
+        zero_source.document["nodes"] = Json::array({zero_node});
+        zero_source.document["scenes"] = Json::array({{{"nodes", {0}}}});
+        zero_source.document["scene"] = 0;
+        zero_source.source_digest = asset_build_digest(zero_source.document);
+        const auto zero_files = cook_static_gltf_bundle(NativeGltfDocument(zero_source));
+        const auto zero_index = validate_model_bundle(zero_files);
+        require(zero_index.version == 2 &&
+                    zero_index.hierarchy.at("nodes")[0].at("trs") == canonical_gltf_trs(zero_node),
+                "Cooked model lost original singular signed/tiny TRS");
+        auto damaged_zero = zero_files;
+        change(damaged_zero, [](auto& j) { j["hierarchy"]["nodes"][0]["local"][2] = 0; });
+        rejects([&] { validate_model_bundle(damaged_zero); });
         auto bad = files;
         bad.push_back({"unexpected.bin", {std::byte{0}}});
         rejects([&] { validate_model_bundle(bad); });
