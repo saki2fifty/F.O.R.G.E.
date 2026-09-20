@@ -235,7 +235,7 @@ std::vector<AssetImportOutcome> AssetImportService::poll() {
                 candidate.sidecar.settings = draft.request.settings;
                 candidate.sidecar.build_inputs = candidate.input.document();
                 candidate.files = completion.artifact->files;
-                pending->prepare(candidate, pending->plan);
+                pending->prepare(candidate, pending->plan, current);
                 outcome.publication = publisher_.publish(std::move(candidate), *draft.importer,
                                                          pending->compatibility);
                 outcome.published = true;

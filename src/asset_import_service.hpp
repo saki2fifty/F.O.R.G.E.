@@ -21,9 +21,10 @@ struct AssetImportOutcome {
 class AssetImportService {
   public:
     // Runs on the owner after worker completion. Supplies this importer's complete
-    // root/member mapping without changing files, worlds or live resources.
-    using PreparePublication =
-        std::function<void(AssetPublicationCandidate&, const AssetImportPlan&)>;
+    // root/member mapping without changing files, worlds or live resources. The
+    // catalog is the validated current ticket snapshot, borrowed for this call.
+    using PreparePublication = std::function<void(AssetPublicationCandidate&,
+                                                  const AssetImportPlan&, const AssetCatalog&)>;
     AssetImportService(std::shared_ptr<const ProjectLease> lease,
                        std::shared_ptr<const AssetImporterRegistry> registry, ImportTarget target,
                        unsigned workers = 2);

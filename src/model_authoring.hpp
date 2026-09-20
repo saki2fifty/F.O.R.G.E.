@@ -5,5 +5,6 @@ namespace forge {
 // Throws SubassetIdentityFailure with bounded structured alternatives on ambiguity.
 // It neither writes files nor changes the input candidate on failure.
 void prepare_model_publication(AssetPublicationCandidate& candidate, const AssetImportPlan& plan,
+                               const AssetCatalog& previous_catalog,
                                std::span<const SubassetIdentityDecision> decisions = {});
 } // namespace forge

@@ -171,8 +171,12 @@ class TextureImportEditor {
         if (save_ && !locked && !job_ && draft_) {
             save_ = false;
             try {
-                job_ = service_->submit(*draft_, prepare_texture_publication,
-                                        [](const auto&, const auto&) {});
+                job_ = service_->submit(
+                    *draft_,
+                    [](auto& candidate, const auto& plan, const auto&) {
+                        prepare_texture_publication(candidate, plan);
+                    },
+                    [](const auto&, const auto&) {});
                 error_.clear();
             } catch (const std::exception& e) {
                 error_ = e.what();

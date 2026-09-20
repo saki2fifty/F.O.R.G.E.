@@ -120,8 +120,8 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions](auto& candidate, const auto& plan) {
-                    prepare_asset_publication(candidate, plan, decisions);
+                [decisions](auto& candidate, const auto& plan, const auto& catalog) {
+                    prepare_asset_publication(candidate, plan, catalog, decisions);
                 },
                 [](const auto&, const auto&) {});
             // CLI owns no live world/device. Importer format validation remains mandatory.

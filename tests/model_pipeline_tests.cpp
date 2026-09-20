@@ -99,7 +99,9 @@ int main(int argc, char** argv) {
             auto draft = service.prepare(source);
             service.submit(
                 draft,
-                [decisions](auto& c, const auto& p) { prepare_model_publication(c, p, decisions); },
+                [decisions](auto& c, const auto& p, const auto& catalog) {
+                    prepare_model_publication(c, p, catalog, decisions);
+                },
                 [reject_compatibility](const auto& catalog, const auto& artifact) {
                     require(!reject_compatibility, "Deliberate live compatibility failure");
                     require(!catalog.records().empty() && !artifact.files.empty(),
@@ -250,18 +252,72 @@ int main(int argc, char** argv) {
         const auto ids = bindings(three.publication->catalog, small_owner);
         require(ids.size() == 3 && ids.at("/meshes/0") == first_id,
                 "New members replaced known identity");
+        auto unchanged = run(small);
+        require(unchanged.published && unchanged.cache_hit &&
+                    bindings(unchanged.publication->catalog, small_owner) == ids,
+                "Exact unchanged import asked to remap identical members");
         auto baseline = read_bytes(root / "forge.assets.json", max_asset_index_bytes);
+        doc["asset"]["generator"] = "Changed source requires fresh correspondence evidence";
+        save(root / small, doc);
         auto ambiguous = run(small);
-        require(!ambiguous.published && ambiguous.cache_hit &&
+        require(!ambiguous.published && !ambiguous.cache_hit &&
                     ambiguous.identity_conflicts.size() == 1 &&
                     ambiguous.identity_conflicts[0].observations.size() == 2 &&
                     read_bytes(root / "forge.assets.json", max_asset_index_bytes) == baseline,
-                "Ambiguous cache reimport guessed an identity");
+                "Changed ambiguous source guessed an identity");
         std::vector<SubassetIdentityDecision> decisions{{"/meshes/1", ids.at("/meshes/1")},
                                                         {"/meshes/2", ids.at("/meshes/2")}};
         auto resolved = run(small, decisions);
         require(resolved.published && bindings(resolved.publication->catalog, small_owner) == ids,
                 "Explicit correspondence failed");
+        // Exact cache correspondence must not overrule an explicit identity choice.
+        auto swapped =
+            run(small, {{"/meshes/1", ids.at("/meshes/2")}, {"/meshes/2", ids.at("/meshes/1")}});
+        require(swapped.published && swapped.cache_hit &&
+                    bindings(swapped.publication->catalog, small_owner).at("/meshes/1") ==
+                        ids.at("/meshes/2"),
+                "Unchanged import ignored explicit correspondence");
+        auto restored = run(small, decisions);
+        require(restored.published && bindings(restored.publication->catalog, small_owner) == ids,
+                "Explicit correspondence could not restore bindings");
+        auto explicit_new = run(small, {{"/meshes/1", std::nullopt}});
+        require(explicit_new.published && explicit_new.cache_hit,
+                "Unchanged import ignored explicit new identity");
+        const auto new_bindings = bindings(explicit_new.publication->catalog, small_owner);
+        require(new_bindings.at("/meshes/1") != ids.at("/meshes/1") &&
+                    new_bindings.at("/meshes/0") == ids.at("/meshes/0") &&
+                    new_bindings.at("/meshes/2") == ids.at("/meshes/2") &&
+                    explicit_new.publication->catalog.records()
+                        .at(ids.at("/meshes/1"))
+                        .subasset->removed,
+                "Explicit new identity changed unrelated members or lost its tombstone");
+        auto restore_old = run(small, decisions);
+        require(restore_old.published &&
+                    bindings(restore_old.publication->catalog, small_owner) == ids,
+                "Explicit choice could not restore a same-type tombstone");
+        // A corrupted sidecar cannot borrow the catalog's unchanged-index proof.
+        const auto exact_draft = service.prepare(small);
+        const auto exact_plan = importer->discover(exact_draft.request, {});
+        const auto pristine = AssetImportSidecar::parse(*exact_draft.ticket.sidecar_bytes);
+        for (unsigned mutation = 0; mutation < 3; ++mutation) {
+            AssetPublicationCandidate candidate;
+            candidate.ticket = exact_draft.ticket;
+            candidate.input = exact_plan.input;
+            candidate.sidecar = pristine;
+            candidate.files = restore_old.publication->artifact.files;
+            auto& entry = *std::find_if(candidate.sidecar.identity.entries.begin(),
+                                        candidate.sidecar.identity.entries.end(),
+                                        [&](auto& e) { return e.id == ids.at("/meshes/1"); });
+            if (mutation == 0)
+                entry.removed = true;
+            else if (mutation == 1)
+                entry.evidence.content_digest = std::string(64, '0');
+            else
+                entry.key += "-mismatch";
+            rejects([&] {
+                prepare_model_publication(candidate, exact_plan, restore_old.publication->catalog);
+            });
+        }
         doc["meshes"].erase(doc["meshes"].begin() + 1, doc["meshes"].end());
         save(root / small, doc);
         auto removed = run(small);

@@ -72,8 +72,10 @@ create a new mesh asset. Supply `{}` as the first optional argument if settings 
 unchanged. Addresses describe this candidate only; inspect the current conflict
 before choosing. Do not use old array positions to guess correspondence.
 
-In the current implementation, identical unkeyed members can ask for correspondence
-again on a later reimport, including a cache hit. A future editor workflow will make
+Reimporting the exact same source with the same settings and tools preserves the
+published member identities, including identical meshes. If the input changes and
+members remain indistinguishable, FORGE asks for a decision again. An explicit choice
+still takes precedence on an unchanged import. A future editor workflow will make
 these decisions easier to inspect.
 
 ## Failures

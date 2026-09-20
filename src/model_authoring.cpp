@@ -2,9 +2,81 @@
 #include "asset_bytes.hpp"
 #include "model_bundle.hpp"
 #include "model_importer.hpp"
+#include <algorithm>
 #include <forge/model_asset.hpp>
+#include <set>
 namespace forge {
+namespace {
+std::vector<SubassetIdentityDecision>
+selected_correspondence(const AssetPublicationCandidate& c,
+                        const asset_detail::ModelBundleIndex& bundle, const AssetCatalog& catalog,
+                        std::span<const SubassetIdentityDecision> explicit_decisions) {
+    std::vector<SubassetIdentityDecision> result(explicit_decisions.begin(),
+                                                 explicit_decisions.end());
+    const auto root = catalog.records().find(c.ticket.owner);
+    if (root == catalog.records().end() || !root->second.metadata.contains("forge.import") ||
+        root->second.metadata.at("forge.import").at("key") != c.input.key())
+        return result;
+    const auto& owner = root->second;
+    if (owner.type != ModelAsset::type || owner.subasset || owner.source != c.ticket.source ||
+        !owner.metadata.contains("forge.model"))
+        return result;
+    const auto file = std::find_if(c.files.begin(), c.files.end(),
+                                   [](const auto& f) { return f.name == "model.json"; });
+    if (file == c.files.end() ||
+        owner.metadata.at("forge.model").at("sha256") !=
+            asset_detail::content_digest(file->bytes) ||
+        owner.metadata.at("forge.model").at("bytes") != file->bytes.size())
+        return result;
+    // Same complete input key AND same compiled index authenticating every member.
+    // Addresses now refer to this exact existing revision, not source-order guesses
+    // across different imports. The catalog remains the sole selected binding graph.
+    auto require = [](bool ok) {
+        if (!ok)
+            throw std::runtime_error("Selected model correspondence disagrees with "
+                                     "catalog/sidecar; restore consistent import metadata");
+    };
+    require(owner.dependency_edges.size() == bundle.members.size());
+    std::map<std::string, AssetId> selected;
+    for (const auto& edge : owner.dependency_edges) {
+        require(edge.kind == AssetDependencyKind::Runtime &&
+                edge.role.starts_with("model.member:") && edge.revision == c.input.key() &&
+                selected.emplace(edge.role.substr(13), edge.target).second);
+        const auto found = catalog.records().find(edge.target);
+        require(found != catalog.records().end() && found->second.type == edge.expected_type);
+    }
+    std::map<AssetId, const SubassetIdentityEntry*> previous;
+    for (const auto& entry : c.sidecar.identity.entries)
+        previous.emplace(entry.id, &entry);
+    std::set<std::string> decided;
+    std::set<AssetId> claimed;
+    for (const auto& decision : explicit_decisions) {
+        decided.insert(decision.address);
+        if (decision.previous)
+            claimed.insert(*decision.previous);
+    }
+    for (const auto& member : bundle.members) {
+        const auto selected_member = selected.find(member.identity.address);
+        require(selected_member != selected.end());
+        const auto id = selected_member->second;
+        const auto old = previous.find(id);
+        const auto record = catalog.records().find(id);
+        require(old != previous.end() && !old->second->removed &&
+                old->second->type == member.identity.type &&
+                old->second->evidence == member.identity.evidence &&
+                record != catalog.records().end() && record->second.subasset &&
+                record->second.subasset->owner == c.ticket.owner &&
+                !record->second.subasset->removed &&
+                record->second.subasset->key == old->second->key &&
+                record->second.metadata.at("forge.import") == owner.metadata.at("forge.import"));
+        if (!decided.contains(member.identity.address) && !claimed.contains(id))
+            result.push_back({member.identity.address, id});
+    }
+    return result;
+}
+} // namespace
 void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPlan& plan,
+                               const AssetCatalog& previous_catalog,
                                std::span<const SubassetIdentityDecision> decisions) {
     if (plan.input.output_format != "forge.model-bundle" ||
         c.input.document() != plan.input.document())
@@ -34,8 +106,9 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
     std::vector<SubassetObservation> observed;
     for (const auto& member : bundle.members)
         observed.push_back(member.identity);
+    const auto mapped = selected_correspondence(c, bundle, previous_catalog, decisions);
     auto reconciled = reconcile_subassets(previous, c.input.source_digest, "forge.gltf-model.v1",
-                                          observed, decisions);
+                                          observed, mapped);
     if (!reconciled.document)
         throw SubassetIdentityFailure(std::move(reconciled.conflicts));
     const auto key = c.input.key();

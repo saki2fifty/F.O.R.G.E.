@@ -684,3 +684,20 @@
   audit. Exact nlohmann3.12 C++20 operators accept nonscalar conversion on the
   JSON-left side; FORGE now uses that supported ordering. Rebuilt model recipe
   passed in20.55seconds. Windows rerun pending.
+
+### Unchanged model correspondence
+
+- Exact unchanged reimports reuse the published catalog's member correspondence
+  only after matching the complete build input and compiled index, member ownership,
+  type, revision and sidecar evidence. Identical meshes no longer repeatedly ask for
+  identity decisions when nothing changed. Changed inputs still require sufficient
+  evidence or an explicit decision; a cache hit alone never proves correspondence.
+- Explicit reassignment/new-identity decisions take precedence, including restoring
+  a same-type tombstone. Inconsistent sidecar proof rejects without publication.
+  Import preparation borrows the already validated current catalog snapshot; it adds
+  no parallel identity store. Shared CLI and texture editor adapters were updated.
+- Normal integration6/6 passed(48.75s), expanded worker/CLI/service regressions3/3
+  passed(27.79s); strict sanitizer service1/1(2.00s) and direct model recipe1/1(41.11s)
+  passed. Manual3/3, formatting and whitespace checks passed. Windows source audit
+  for the preceding model runtime correction remains in progress; no numbered build
+  or desktop acceptance is claimed for this work.

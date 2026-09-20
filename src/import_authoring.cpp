@@ -14,9 +14,10 @@ asset_import_registry(const std::filesystem::path& worker) {
     return registry;
 }
 void prepare_asset_publication(AssetPublicationCandidate& candidate, const AssetImportPlan& plan,
+                               const AssetCatalog& previous_catalog,
                                std::span<const SubassetIdentityDecision> decisions) {
     if (plan.input.importer == "forge.model.gltf")
-        prepare_model_publication(candidate, plan, decisions);
+        prepare_model_publication(candidate, plan, previous_catalog, decisions);
     else if (plan.input.importer == "forge.texture.image" ||
              plan.input.importer == "forge.texture.container") {
         if (!decisions.empty())

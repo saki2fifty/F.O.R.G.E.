@@ -44,7 +44,11 @@ with tempfile.TemporaryDirectory(dir=scratch) as temp:
     first = call(project)
     sidecar = source.with_name(source.name + '.forge-import.json')
     catalog = project / 'forge.assets.json'
+    repeated = call(project)
+    assert repeated['asset'] == first['asset'] and repeated['cache_hit']
     selected = catalog.read_bytes(), sidecar.read_bytes()
+    document['asset']['generator'] = 'Changed source with ambiguous members'
+    source.write_text(json.dumps(document), encoding='utf-8')
     ambiguous = call(project, success=False)
     assert ambiguous['error']['code'] == 'subasset.identity-ambiguous', ambiguous
     conflicts = ambiguous['identity_conflicts']
@@ -61,7 +65,7 @@ with tempfile.TemporaryDirectory(dir=scratch) as temp:
     relocated = Path(temp) / 'Relocated model project'
     shutil.copytree(project, relocated, ignore=shutil.ignore_patterns('.forge'))
     moved = call(relocated, decisions=decisions)
-    assert moved['asset'] == first['asset'] and moved['build_key'] == first['build_key']
+    assert moved['asset'] == first['asset'] and moved['build_key'] == resolved['build_key']
     assert not moved['cache_hit']
     (relocated / 'Assets/triangle.bin').write_bytes(b'bad')
     before = (relocated / 'forge.assets.json').read_bytes()

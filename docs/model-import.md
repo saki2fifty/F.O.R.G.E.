@@ -125,8 +125,13 @@ Ambiguous correspondence returns structured same-type candidate addresses and pr
 AssetIds. Publication leaves both catalog and sidecar unchanged until explicit choices
 resolve it. A choice may retain a previous same-type member or deliberately allocate
 a new one. Even a cache hit still performs correspondence, stale-input checks and
-compatibility preflight. Identical unkeyed members may require an explicit decision
-again on reimport; cache equality by itself does not currently bypass reconciliation.
+compatibility preflight. When both the complete input key and compiled model index
+match the currently published revision, existing catalog member bindings supply
+correspondence after sidecar, type, ownership and revision validation. This safely
+preserves even identical unkeyed members on an unchanged reimport. A cache hit alone
+is insufficient: changed source/settings/tool revisions use the regular evidence and
+explicit-choice resolver. Explicit choices, including creating a new identity, always
+take precedence. Inconsistent selected metadata rejects before publication.
 
 The CLI owns no live renderer or world; its compatibility callback has no live-resource
 work. Editor/runtime callers must still supply their actual compatibility preflight.

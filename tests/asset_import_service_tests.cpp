@@ -72,7 +72,7 @@ class Importer final : public AssetImporter {
                 "Invalid raw fixture");
     }
 };
-void prepare(AssetPublicationCandidate& c, const AssetImportPlan&) {
+void prepare(AssetPublicationCandidate& c, const AssetImportPlan&, const AssetCatalog&) {
     c.sidecar.identity.owner = c.ticket.owner;
     c.sidecar.identity.source = c.ticket.source;
     c.sidecar.identity.source_digest = c.input.source_digest;
