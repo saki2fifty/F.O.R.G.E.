@@ -76,6 +76,7 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
 }
 } // namespace
 #include "model_animation_runtime.hpp"
+#include "model_placement_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 6, "Need mode worker fixture output-root converter");
@@ -150,6 +151,7 @@ int main(int argc, char** argv) {
                 require(!loaded_model.bytes(member).empty(),
                         "Selected model member bytes unavailable");
         }
+        test_model_placement(loaded_model, first.publication->catalog);
         ResourcePool<MeshAsset> mesh_resources({1, 64, 64, 128 * 1024 * 1024});
         ResourcePool<MaterialAsset> material_resources({1, 64, 64, 16 * 1024 * 1024});
         const AssetRef<MeshAsset> selected_mesh{before.at("/meshes/0")};

@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "relationship_graph.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
 #include <array>
@@ -79,28 +80,19 @@ void validate(const Json& doc) {
             if (entities.contains(alias) && target != alias)
                 throw std::runtime_error("Legacy alias shadows a persistent entity ID");
     for (const char* relation : {"parent", "base"}) {
-        std::set<std::string> visiting, done;
-        std::function<void(const std::string&)> visit = [&](const std::string& id) {
-            if (done.contains(id))
-                return;
-            if (!visiting.insert(id).second)
-                throw std::runtime_error("Cyclic scene relationship");
-            const auto& e = *entities.at(id);
-            if (e.contains(relation)) {
-                const auto target = e.at(relation).get<std::string>();
-                if (!entities.contains(target))
-                    throw std::runtime_error("Missing relationship target");
-                if (std::string(relation) == "base" && !entities.at(target)->value("prefab", false))
-                    throw std::runtime_error("Base must be a prefab");
-                visit(target);
-            }
-            visiting.erase(id);
-            done.insert(id);
-        };
-        for (const auto& [id, value] : entities) {
-            (void)value;
-            visit(id);
+        detail::RelationshipGraph graph;
+        for (const auto& [id, row] : entities) {
+            auto& edges = graph[id];
+            if (!row->contains(relation))
+                continue;
+            const auto target = row->at(relation).get<std::string>();
+            if (!entities.contains(target))
+                throw std::runtime_error("Missing relationship target");
+            if (std::string(relation) == "base" && !entities.at(target)->value("prefab", false))
+                throw std::runtime_error("Base must be a prefab");
+            edges.push_back({target});
         }
+        detail::validate_relationship_graph(graph, relation);
     }
     for (const auto& [id, row] : entities)
         if (row->contains("prefab_instance")) {
@@ -115,29 +107,15 @@ void validate(const Json& doc) {
         }
     // Prefab expansion follows base links and then child links. Validate their
     // combined graph before Flecs can attempt recursive child instantiation.
-    std::map<std::string, std::vector<std::string>> expansion;
+    detail::RelationshipGraph expansion;
     for (const auto& [id, e] : entities) {
+        expansion.try_emplace(id);
         if (e->contains("base"))
-            expansion[id].push_back(e->at("base").get<std::string>());
+            expansion[id].push_back({e->at("base").get<std::string>(), false});
         if (e->contains("parent"))
-            expansion[e->at("parent").get<std::string>()].push_back(id);
+            expansion[e->at("parent").get<std::string>()].push_back({id});
     }
-    std::set<std::string> visiting, done;
-    std::function<void(const std::string&)> visit = [&](const std::string& id) {
-        if (done.contains(id))
-            return;
-        if (!visiting.insert(id).second)
-            throw std::runtime_error(
-                "Parent and prefab links would recursively instantiate the hierarchy");
-        for (const auto& next : expansion[id])
-            visit(next);
-        visiting.erase(id);
-        done.insert(id);
-    };
-    for (const auto& [id, e] : entities) {
-        (void)e;
-        visit(id);
-    }
+    detail::validate_relationship_graph(expansion, "Prefab expansion");
     if (doc.at("version") >= 3)
         detail::validate_spatial(doc);
 }
@@ -310,12 +288,11 @@ void Scene::replace(const Json& source) {
             next.values[i] = type.decode(materialized.at(type.name));
             if (!components.contains(type.name))
                 continue;
-            for (const auto& [field, value] : type.defaults.items()) {
-                (void)value;
-                components[type.name].erase(field);
-            }
-            if (components[type.name].empty())
+            auto extensions = detail::builtin_extensions(type, components.at(type.name));
+            if (extensions.is_null())
                 components.erase(type.name);
+            else
+                components[type.name] = std::move(extensions);
         }
         item.erase("name");
         if (!inactive_members.contains(next.parent))
@@ -842,13 +819,14 @@ Json Scene::serialize(bool effective) const {
                 auto& fields = item["property_overrides"][type.name];
                 for (auto& [field, v] : fields.items())
                     if (value.contains(field))
-                        v = value.at(field);
+                        v = detail::merge_builtin_property_extensions(type, field, value.at(field),
+                                                                      v);
                 continue;
             }
             auto& data = item["components"][type.name];
             if (!data.is_object())
                 data = Json::object();
-            data.update(value);
+            data = detail::merge_builtin_extensions(type, value, data);
         }
         if (effective && e.has<LocalTranslation>()) {
             const auto t = context_.get_local_transform(e);

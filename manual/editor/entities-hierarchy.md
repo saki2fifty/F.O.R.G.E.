@@ -47,3 +47,11 @@ Click the **+** beside search, or right-click and choose **Create**. The same ca
 ## Reorder siblings
 
 Hold **Shift** while dragging an entity onto another entity with the same parent to place it immediately before that sibling. This changes order without changing parent or transform. Normal dragging still reparents. Undo/Redo and scene saving preserve sibling order. Prefab member order belongs to the prefab source rather than an instance override.
+
+## Very deep hierarchies
+
+A hierarchy path can contain up to128 objects, including its root. Prefab member
+trees and inheritance must also fit the engine's supported depth. An operation
+that would exceed the limit reports an error and leaves the scene and Undo history
+unchanged. Move some objects nearer the root to reduce nesting. Choosing World
+space changes spatial following; it does not remove an object's structural parent.

@@ -3,6 +3,12 @@
 #include <nlohmann/json.hpp>
 #include <span>
 namespace forge::detail {
+// Optional engine authoring semantics attached to a native Meta member entity.
+// This identifies entries within that collection, not globally identifiable objects.
+struct ReflectedSequenceKey {
+    std::string member;
+};
+inline constexpr const char* reflected_sequence_key_type = "forge.meta.sequence_key";
 // Explicit engine-owned reference/container adapters only. No arbitrary project opaque types.
 struct ReflectedAdapter {
     ecs_entity_t type;

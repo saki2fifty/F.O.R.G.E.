@@ -838,3 +838,64 @@
   in61.86s. Manual3/3, formatting and whitespace checks passed. Windows validation
   for this combined change is pending; the preceding native-value checkpoint
   independently passed its33-test Windows editor/model audit.
+
+## Mesh component, nested data and material-list intent
+
+- Added the typed MeshRenderer Flecs component with Mesh/Material references,
+  stable material-slot keys, visibility/shadow flags and render layers. Native Meta
+  describes its string/vector/nested values and verifies actual C++ member offsets.
+  Production rendering and Add Component/collection UI remain in progress.
+- Preserved nested unknown fields through scene round trips and native list
+  reordering using declared existing slot keys. Known values stay authoritative
+  in Flecs; opaque fragments never overwrite native edits or follow a different key.
+- Extended shared property commands to reflected collection/object values with
+  destination-schema validation and the existing candidate/Undo boundary. Whole-list
+  equal-value prefab intent, unrelated source propagation, Revert and Undo are
+  covered; no per-entry merge or Apply-to-Prefab workflow is introduced.
+- Focused normal core, authoring, structured-prefab and resource tests passed4/4
+  in1.43s, including invalid-source rejection before the durable-write callback.
+  Strict ASan/UBSan/LeakSanitizer passed the same4/4 in8.74s.
+  No numbered delivery is allocated by this internal checkpoint.
+
+- Selected immutable model data now builds derived AssetId/member and filename/file
+  lookup indexes after whole-family validation. Material resolution no longer scans
+  all model members for each binding. These indexes are transient and do not change
+  catalog ownership or persistent identities. Real direct/worker model regressions
+  passed2/2 in66.01s; strict ASan/UBSan/LeakSanitizer direct regression passed1/1
+  in70.35s before the subsequent model-placement addition.
+
+## Imported model scene placement — internal integration
+
+- Added ModelSource native provenance and detached static model placement. Normal
+  Flecs entities receive fresh UUIDs, independent authored TRS and MeshRenderer data.
+  Source-node AssetIds remain separate from scene EntityIds. Source TRS does not pass
+  through a singular matrix decomposition; float scale underflow rejects explicitly.
+- Placement rechecks scene and Model generations before one scene/history commit.
+  Scene transforms remain owned intent across resource reimport. Prefab and scene
+  duplication retain source AssetRefs while generating their own entity identities.
+- Direct and supervised-worker model regressions passed2/2 in58.60s after placement
+  integration, including signed/zero transforms, subtree history, fresh scene UUIDs,
+  prefab inheritance, stale selection and inconsistent/removed member rejection.
+  Core, authoring and structured-prefab tests also passed3/3 during this integration.
+  Strict ASan/UBSan/LeakSanitizer validation subsequently passed4/4 in81.90s
+  for direct model placement plus core, authoring and structured-prefab regressions.
+- This is an internal consumer checkpoint. Animated, camera/light,
+  visibility and morph placement, GPU rendering and the placement UI remain required
+  in this Phase7 package. No incomplete workflow is advertised in the editor.
+
+### Placement and native hierarchy boundary
+
+- Explicitly mark placed mesh and empty transform nodes as having no legacy
+  primitive, preventing accidental fallback cubes before unified rendering.
+- Validate structural, inheritance and combined expansion depth iteratively against
+  the exact pinned Flecs128-level DAG profile before scene/prefab realization.
+  Missing targets, cycles and excessive depth reject without hierarchy rewrites.
+- Added accepted-boundary structured prefab publication/instantiation, Undo/Redo,
+  IsA inheritance and rejected129/10,000-level cases. Normal core, authoring,
+  structured-prefab and direct/supervised model tests passed5/5 in70.61s.
+  Strict ASan/UBSan/LeakSanitizer passed4/4 in81.90s for the direct model and
+  shared core/authoring/prefab tests. Review then corrected expansion depth so an
+  IsA source link does not count as a structural level; normal boundary regressions
+  passed3/3 in1.60s. The final strict boundary run passed3/3 in10.40s. Manual3/3, formatting,
+  workflow syntax and whitespace checks passed; latest-source Windows checks follow
+  separately without allocating a numbered build.

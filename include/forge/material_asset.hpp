@@ -2,9 +2,7 @@
 #include <forge/texture_asset.hpp>
 #include <map>
 namespace forge {
-struct MaterialAsset {
-    static constexpr const char* type = "material";
-};
+
 enum class MaterialParameterType { Scalar, Vector2, Vector3, Vector4, LinearColor3, LinearColor4 };
 struct MaterialParameter {
     MaterialParameterType type = MaterialParameterType::Scalar;

@@ -31,6 +31,10 @@ Json xyz() {
 }
 Json text_type() { return {{"type", "string"}, {"maxLength", 1024}}; }
 void validate_value(const Json& value, const Json& schema, const std::string& path) {
+    // JSON Schema {} accepts any JSON kind. property.set validates this value
+    // against its actual native-reflected target, including full envelope bounds.
+    if (schema.empty())
+        return;
     if (schema.contains("anyOf")) {
         for (const auto& candidate : schema.at("anyOf")) {
             try {
@@ -544,13 +548,13 @@ Json authoring_commands() {
     auto field = entity_arg;
     field["component"] = text_type();
     field["field"] = text_type();
-    field["value"] = {{"anyOf", Json::array({number(-1e38, 1e38), text_type(),
-                                             Json{{"type", "boolean"}}, Json{{"type", "null"}}})}};
+    field["value"] = Json::object();
     add("property.set", "Set reflected property",
         "Validate against the supported reflected property schema.", field,
         {"entity", "component", "field", "value"});
     field.erase("value");
-    add("property.revert", "Revert property", "Remove explicit scalar override intent.", field,
+    add("property.revert", "Revert property",
+        "Remove explicit property override intent; a collection is one property.", field,
         {"entity", "component", "field"});
     add("prefab.instantiate", "Instantiate prefab",
         "Create a linked instance of an available project prefab asset.", {{"asset", text_type()}},

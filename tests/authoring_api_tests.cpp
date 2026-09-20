@@ -1,5 +1,7 @@
 #include "entity_recipe_tests.hpp"
+#include "mesh_component_tests.hpp"
 #include "ordered_hierarchy_tests.hpp"
+#include "relationship_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/flecs_script.hpp>
 #include <forge/geometry.hpp>
@@ -33,6 +35,8 @@ int main(int argc, char** argv) {
                          "recovery passed\n";
             return 0;
         }
+        test_mesh_component();
+        test_relationship_depth();
         test_entity_recipes();
         test_ordered_hierarchy();
         forge::EngineContext scene_engine;

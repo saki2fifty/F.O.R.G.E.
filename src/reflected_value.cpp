@@ -179,6 +179,23 @@ struct Projection {
                 field["animatable"] =
                     field.at("type") == "float32" || field.at("type") == "float64";
                 field["unit"] = "unitless";
+                const auto key_type =
+                    ecs_lookup_path_w_sep(world, 0, reflected_sequence_key_type, "::", "::", false);
+                const auto* key = key_type && m.member ? static_cast<const ReflectedSequenceKey*>(
+                                                             ecs_get_id(world, m.member, key_type))
+                                                       : nullptr;
+                if (key) {
+                    if ((field.at("type") != "vector" && field.at("type") != "array") ||
+                        field.at("element").at("type") != "struct" || key->member.empty() ||
+                        key->member.size() > 255)
+                        fail(m.name, "Collection entry key requires a named string struct field");
+                    bool found = false;
+                    for (const auto& f : field.at("element").at("fields"))
+                        found |= f.at("id") == key->member && f.at("type") == "string";
+                    if (!found)
+                        fail(m.name, "Collection entry key is not a reflected string field");
+                    field["element_key"] = key->member;
+                }
                 if (m.member)
                     presentation(world, m.member, field);
                 else {
@@ -333,6 +350,15 @@ void validate(const Json& field, const Json& value, const std::string& path) {
             fail(path, "Collection size/type mismatch");
         for (std::size_t i = 0; i < value.size(); ++i)
             validate(field.at("element"), value[i], path + "[" + std::to_string(i) + "]");
+        if (field.contains("element_key")) {
+            const auto key = field.at("element_key").get<std::string>();
+            std::set<std::string> keys;
+            for (const auto& item : value) {
+                const auto& id = item.at(key).get_ref<const std::string&>();
+                if (id.empty() || !keys.insert(id).second)
+                    fail(path, "Empty or duplicate collection entry key");
+            }
+        }
     } else if (kind == "asset_ref" || kind == "entity_ref") {
         if (value.is_null()) {
             if (!field.value("nullable", false))

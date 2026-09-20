@@ -112,3 +112,37 @@ capabilities and pending GPU/editor work.
 [Cooked material values](material-assets.md) and immutable typed CPU material
 selections are now implemented. Their layout checks do not replace the pending
 Diligent reflection adapter or GPU material implementation.
+
+## Authored mesh component checkpoint
+
+`forge.mesh_renderer` now stores the typed `MeshRenderer` Flecs component: a Mesh
+AssetRef, a sparse material-assignment collection, enabled/visible and cast/receive
+shadow flags, and a32-bit layer mask. These are authored values; GPU objects, resource
+leases, bounds and resolved draw-slot ordinals remain derived presentation state.
+The component is not yet advertised in Add Component: its production renderer and
+collection Inspector consumer are still being integrated. Primitive/Tint remains
+unchanged until the explicit conversion workflow is ready.
+
+Each material assignment has a mesh-qualified `slot` key and typed Material AssetRef.
+An absent entry follows the mesh's current default; an entry with a null Material reference
+explicitly chooses FORGE's built-in default. Keys are unique,1–255 ASCII bytes from
+letters, digits, underscore, hyphen, dot and colon. The initial authored list limit
+is4096 entries within the shared reflected-value envelope. Removed mesh-slot keys
+remain unresolved intent, not a request to assign another physical slot. See
+[mesh resources](runtime-resources.md) for the runtime resolution boundary.
+
+Native Meta describes the component, references, nested entries and engine-owned
+string/vector adapters. Registration verifies physical member offsets against the
+C++ types. Flecs IsA ownership supplies component inheritance. Existing structured
+prefab field intent treats the entire material list as one property: an equal-value
+edit still creates intent, unrelated fields continue following source publication,
+and Revert removes that list intent with scene Undo/Redo. There is no per-entry
+prefab merge or Apply-to-Prefab operation.
+
+Unknown nested entry fields survive scene round trips and list reordering by their
+existing unique slot key. Engine-owned metadata marks that key on the native Meta
+member; it is not a new asset/entity identity or reflection registry. Internal
+unknown fragments never retain copies of known native field values. Native values
+win on serialization; removing an entry does not transfer its opaque fields to a
+new key. Other reflected collections without a declared key use positional unknown
+fragments and make no semantic identity claim.

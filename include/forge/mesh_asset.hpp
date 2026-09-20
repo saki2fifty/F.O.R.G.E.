@@ -6,9 +6,7 @@
 #include <vector>
 
 namespace forge {
-struct MeshAsset {
-    static constexpr const char* type = "mesh";
-};
+
 enum class MeshTopology { Points, Lines, Triangles };
 struct MeshStream {
     std::string semantic;

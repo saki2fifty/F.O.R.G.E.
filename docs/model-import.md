@@ -373,3 +373,52 @@ Renaming all uses of several identical mesh allocations may therefore report a
 The official negative-scale fixture exercises explicit resolution of that real
 conflict before verifying node identity preservation. FORGE does not silently map
 those meshes by their old array positions.
+
+Selected immutable families build temporary reverse indexes from their validated
+catalog bindings and artifact file list. AssetId lookup selects the same admitted
+member after copying/moving a selection, and filename lookup addresses owned bytes.
+These indexes contain revision-local positions only; they are neither serialized
+subasset identities nor a second binding registry.
+
+## Scene placement ownership
+
+The internal placement command prepares ordinary scene entities from one selected
+Model revision. Each placed node gets a fresh EntityId, independent owned
+LocalTranslation/LocalRotation/LocalScale, and a MeshRenderer where applicable.
+Explicit source TRS is copied through the existing scene numerical admission;
+there is no matrix round trip that loses zero-scale rotation. Scale values that
+underflow float storage reject clearly instead of becoming zero. WorldTransform
+remains derived and is never written to the authored document.
+
+`forge.model_source` is the native ModelSource component. Its typed Model AssetRef
+and ModelNode AssetRef retain source provenance. A null node identifies an ordinary
+wrapper/root entity; source-node references are independent of the fresh scene
+EntityIds. Structural membership under the nearest model root defines the intended
+instance association. This is not a second model hierarchy, a persistent runtime
+instance ID, or a Prefab identity assigned to a Model. Future animation binding must
+diagnose a node moved outside its matching root instead of retargeting it silently.
+
+Scene names, hierarchy and TRS are owned snapshots. Successfully reimported Mesh/
+Material resources can update through their stable AssetIds, but reimport does not
+automatically reconstruct the scene hierarchy or overwrite local scene edits. A new
+placement uses the newly published source hierarchy. Explicit source reset/rebuild
+requires an undoable authoring workflow; none is implied by this provenance.
+ModelSource and MeshRenderer retain the same native IsA/prefab inheritance as other
+components when the placed subtree becomes an ordinary structured prefab.
+
+Preparation captures the scene AssetId/revision and Model revision/generation.
+Commit rechecks both plus active typed member ownership/revision and node-to-mesh
+bindings, then uses one validated Scene::edit/history step. Failure
+leaves the scene unchanged; import publication is still outside Scene Undo. A model
+with several scenes and no default requires a selection; a sceneless model uses
+its root forest. The existing10,000-entity/8MiB scene-command limits also apply.
+The placed wrapper counts toward the pinned Flecs128-level structural-depth limit;
+an over-depth candidate rejects before creating entities. Every placed node also
+explicitly selects the legacy `no_primitive` value, so the compatibility
+blockout path cannot mistake a mesh node or empty transform node for a cube.
+
+This internal checkpoint supports static mesh hierarchies only. It deliberately
+rejects camera/light, special visibility, morph and animated placement until their
+ECS consumers are connected in the same Phase7 package. No placement UI is exposed
+yet, and no complete model-placement or rendering claim follows from these helpers.
+Those consumers remain required Phase7 work, not deferred delivery scope.

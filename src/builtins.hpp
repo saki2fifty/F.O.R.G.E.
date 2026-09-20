@@ -4,15 +4,17 @@
 #include <forge/audio_components.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/physics_components.hpp>
+#include <forge/render_components.hpp>
 #include <forge/ui_components.hpp>
 #include <forge/world.hpp>
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 15;
-using Value = std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive,
-                           PhysicsBody, BoxCollider, SphereCollider, CapsuleCollider, AudioSource,
-                           AudioListener, Animator, NavigationSurface, NavigationAgent, UiDocument>;
+inline constexpr std::size_t builtin_count = 17;
+using Value =
+    std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
+                 BoxCollider, SphereCollider, CapsuleCollider, AudioSource, AudioListener, Animator,
+                 NavigationSurface, NavigationAgent, UiDocument, MeshRenderer, ModelSource>;
 struct Builtin {
     const char* name;
     const char* description;
@@ -27,6 +29,10 @@ struct Builtin {
 };
 const std::array<Builtin, builtin_count>& builtins();
 Json register_builtins(flecs::world& world, unsigned family = 0);
+Json builtin_extensions(const Builtin&, const Json& source);
+Json merge_builtin_extensions(const Builtin&, const Json& known, const Json& extensions);
+Json merge_builtin_property_extensions(const Builtin&, const std::string& field, const Json& known,
+                                       const Json& source);
 void validate_components(const Json& components);
 // Checks registered scalar storage/ranges only; domain validation remains with each subsystem.
 void validate_reflected_value(flecs::world world, ecs_entity_t type, const void* value);

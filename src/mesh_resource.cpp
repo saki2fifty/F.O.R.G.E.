@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "material_slot.hpp"
 #include <forge/mesh_resource.hpp>
 #include <set>
 namespace forge {
@@ -6,14 +7,6 @@ namespace {
 void require(bool ok, const char* why) {
     if (!ok)
         throw std::runtime_error(why);
-}
-void valid_key(std::string_view key) {
-    require(!key.empty() && key.size() <= 255, "Invalid mesh material slot key length");
-    // Engine binding tokens, not display labels. Labels may be arbitrary UTF-8.
-    for (const unsigned char c : key)
-        require((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                    c == '_' || c == '-' || c == '.' || c == ':',
-                "Invalid mesh material slot key character");
 }
 } // namespace
 std::size_t MeshResourceData::resident_bytes() const {
@@ -34,7 +27,7 @@ void validate_mesh_material_bindings(const MeshResourceData& value) {
     require(value.materials.size() == used.size(), "Mesh material binding coverage differs");
     std::set<std::string> keys;
     for (const auto& binding : value.materials) {
-        valid_key(binding.key);
+        detail::validate_material_slot_key(binding.key);
         require(used.erase(binding.physical_slot) == 1 && keys.insert(binding.key).second,
                 "Duplicate or unused mesh material binding");
     }
@@ -42,15 +35,12 @@ void validate_mesh_material_bindings(const MeshResourceData& value) {
 MeshMaterialSelection select_mesh_materials(const MeshResourceData& mesh,
                                             std::span<const MaterialSlotOverride> overrides) {
     validate_mesh_material_bindings(mesh);
-    require(overrides.size() <= 4096, "Too many authored material slot overrides");
+    detail::validate_material_slots(overrides);
     MeshMaterialSelection result{mesh.materials, {}};
     std::map<std::string, std::size_t> slots;
     for (std::size_t i = 0; i < result.bindings.size(); ++i)
         slots.emplace(result.bindings[i].key, i);
-    std::set<std::string> seen;
     for (const auto& override : overrides) {
-        valid_key(override.slot);
-        require(seen.insert(override.slot).second, "Duplicate authored material slot override");
         const auto found = slots.find(override.slot);
         if (found == slots.end())
             result.unresolved.push_back(override.slot);

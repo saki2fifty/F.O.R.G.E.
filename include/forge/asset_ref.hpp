@@ -1,6 +1,12 @@
 #pragma once
 #include <forge/identity.hpp>
 namespace forge {
+struct MeshAsset {
+    static constexpr const char* type = "mesh";
+};
+struct MaterialAsset {
+    static constexpr const char* type = "material";
+};
 struct SceneAsset {
     static constexpr const char* type = "scene";
 };

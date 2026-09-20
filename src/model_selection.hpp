@@ -12,6 +12,9 @@ struct ModelSelection {
     std::uint64_t generation = 0;
     ModelBundleIndex index;
     std::map<std::string, AssetId> bindings;
+    // Derived lookup indices for this immutable selection only, not persisted IDs.
+    std::map<AssetId, std::size_t> member_indices;
+    std::map<std::string, std::size_t> file_indices;
     std::shared_ptr<const CachedArtifact> artifact;
     const ModelImportMember& member(AssetId id) const;
     std::span<const std::byte> bytes(const ModelImportMember& member) const;

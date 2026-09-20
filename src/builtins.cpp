@@ -1,5 +1,9 @@
 #include "builtins.hpp"
+#include "material_slot.hpp"
+#include "reflected_extensions.hpp"
+#include "reflected_string.hpp"
 #include "reflected_value.hpp"
+#include "reflected_vector.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -10,7 +14,22 @@
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, UiDocument>)
+    if constexpr (std::is_same_v<T, ModelSource>) {
+        return {{"model", p.model.id ? Json(p.model.id) : Json()},
+                {"node", p.node.id ? Json(p.node.id) : Json()}};
+    } else if constexpr (std::is_same_v<T, MeshRenderer>) {
+        Json slots = Json::array();
+        for (const auto& slot : p.materials)
+            slots.push_back({{"slot", slot.slot},
+                             {"material", slot.material.id ? Json(slot.material.id) : Json()}});
+        return {{"mesh", p.mesh.id ? Json(p.mesh.id) : Json()},
+                {"materials", slots},
+                {"enabled", p.enabled},
+                {"visible", p.visible},
+                {"cast_shadows", p.cast_shadows},
+                {"receive_shadows", p.receive_shadows},
+                {"layers", p.layers}};
+    } else if constexpr (std::is_same_v<T, UiDocument>)
         return {{"document", p.document.id ? Json(p.document.id) : Json()},
                 {"enabled", p.enabled},
                 {"visible", p.visible},
@@ -69,7 +88,33 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, LocalScale>) {
+    if constexpr (std::is_same_v<T, ModelSource>) {
+        ModelSource value;
+        if (!p.at("model").is_null())
+            value.model.id = p.at("model").get<AssetId>();
+        if (!p.at("node").is_null())
+            value.node.id = p.at("node").get<AssetId>();
+        if (value.node.id && !value.model.id)
+            throw std::runtime_error("Model node provenance requires its source Model");
+        return value;
+    } else if constexpr (std::is_same_v<T, MeshRenderer>) {
+        MeshRenderer value;
+        if (!p.at("mesh").is_null())
+            value.mesh.id = p.at("mesh").get<AssetId>();
+        for (const auto& slot : p.at("materials")) {
+            MaterialSlotOverride entry{slot.at("slot").get<std::string>(), {}};
+            if (!slot.at("material").is_null())
+                entry.material.id = slot.at("material").get<AssetId>();
+            value.materials.push_back(std::move(entry));
+        }
+        validate_material_slots(value.materials);
+        value.enabled = p.at("enabled");
+        value.visible = p.at("visible");
+        value.cast_shadows = p.at("cast_shadows");
+        value.receive_shadows = p.at("receive_shadows");
+        value.layers = p.at("layers").get<std::uint32_t>();
+        return value;
+    } else if constexpr (std::is_same_v<T, LocalScale>) {
         return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
     } else if constexpr (std::is_same_v<T, UiDocument>) {
         UiDocument v;
@@ -167,7 +212,34 @@ template <class T> void register_asset_ref(flecs::world& w, const char* name) {
 }
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
-    if constexpr (std::is_same_v<T, LocalTranslation>) {
+    if constexpr (std::is_same_v<T, ModelSource>) {
+        register_asset_ref<ModelAsset>(w, "forge.model_ref");
+        register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
+        c.template member<AssetRef<ModelAsset>>("model").template member<AssetRef<ModelNodeAsset>>(
+            "node");
+        for (const auto& [field, offset] : {std::pair{"model", offsetof(ModelSource, model)},
+                                            std::pair{"node", offsetof(ModelSource, node)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("ModelSource native Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, MeshRenderer>) {
+        register_asset_ref<MeshAsset>(w, "forge.mesh_ref");
+        register_asset_ref<MaterialAsset>(w, "forge.material_ref");
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
+        w.component<MaterialSlotOverride>("forge.material_slot_override")
+            .template member<std::string>("slot")
+            .template member<AssetRef<MaterialAsset>>("material");
+        w.component<std::vector<MaterialSlotOverride>>("forge.material_slot_overrides")
+            .opaque(reflected_vector<MaterialSlotOverride>);
+        c.template member<AssetRef<MeshAsset>>("mesh")
+            .template member<std::vector<MaterialSlotOverride>>("materials")
+            .template member<bool>("enabled")
+            .template member<bool>("visible")
+            .template member<bool>("cast_shadows")
+            .template member<bool>("receive_shadows")
+            .template member<std::uint32_t>("layers");
+    } else if constexpr (std::is_same_v<T, LocalTranslation>) {
         c.template member<double>("x").template member<double>("y").template member<double>("z");
     } else if constexpr (std::is_same_v<T, UiDocument>) {
         register_asset_ref<UiDocumentAsset>(w, "forge.ui_document_ref");
@@ -237,6 +309,29 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("w");
     else
         c.template member<float>("x").template member<float>("y").template member<float>("z");
+    if constexpr (std::is_same_v<T, MeshRenderer>) {
+        for (const auto& [field, offset] :
+             {std::pair{"mesh", offsetof(MeshRenderer, mesh)},
+              std::pair{"materials", offsetof(MeshRenderer, materials)},
+              std::pair{"enabled", offsetof(MeshRenderer, enabled)},
+              std::pair{"visible", offsetof(MeshRenderer, visible)},
+              std::pair{"cast_shadows", offsetof(MeshRenderer, cast_shadows)},
+              std::pair{"receive_shadows", offsetof(MeshRenderer, receive_shadows)},
+              std::pair{"layers", offsetof(MeshRenderer, layers)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("MeshRenderer native Meta disagrees with typed layout");
+        }
+        for (const auto& [field, offset] :
+             {std::pair{"slot", offsetof(MaterialSlotOverride, slot)},
+              std::pair{"material", offsetof(MaterialSlotOverride, material)}}) {
+            const auto* member =
+                ecs_struct_get_member(w.c_ptr(), w.id<MaterialSlotOverride>(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error(
+                    "MaterialSlotOverride native Meta disagrees with typed layout");
+        }
+    }
     c.add(flecs::OnInstantiate, flecs::Inherit);
     return c;
 }
@@ -318,7 +413,13 @@ const std::array<Builtin, builtin_count>& builtins() {
             }),
         descriptor<UiDocument>(
             "forge.ui_document", "Runtime UI document displayed during Play", "unitless", {}, {},
-            [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); })};
+            [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); }),
+        descriptor<MeshRenderer>(
+            "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
+            [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
+        descriptor<ModelSource>(
+            "forge.model_source", "Imported model and source-node provenance", "unitless", {}, {},
+            [](flecs::world& w) { return register_type<ModelSource>(w, "forge.model_source"); })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -578,7 +679,7 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         member.set_doc_name(friendly_name(name).c_str()).set_doc_brief(help.c_str());
     }
 }
-Json validation_schema(const char* name) {
+const Json& validation_schema(const char* name) {
     std::lock_guard lock(catalog_mutex);
     if (!validation_catalog.contains(name)) {
         // Standalone schema/file tools have no gameplay world to borrow. This
@@ -592,6 +693,7 @@ Json validation_schema(const char* name) {
 } // namespace
 Json register_builtins(flecs::world& world, unsigned family) {
     world.import<flecs::units>();
+    world.component<ReflectedSequenceKey>(reflected_sequence_key_type);
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
@@ -606,16 +708,26 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
+        if (name == "forge.mesh_renderer")
+            c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
         std::vector<ReflectedAdapter> references;
         // Only explicitly registered FORGE references cross the opaque boundary.
         for (const auto& [path, asset] :
-             {std::pair{"forge.audio_clip_ref", AudioClipAsset::type},
+             {std::pair{"forge.model_ref", ModelAsset::type},
+              std::pair{"forge.model_node_ref", ModelNodeAsset::type},
+              std::pair{"forge.mesh_ref", MeshAsset::type},
+              std::pair{"forge.material_ref", MaterialAsset::type},
+              std::pair{"forge.audio_clip_ref", AudioClipAsset::type},
               std::pair{"forge.skeleton_ref", SkeletonAsset::type},
               std::pair{"forge.animation_clip_ref", AnimationClipAsset::type},
               std::pair{"forge.navmesh_ref", NavMeshAsset::type},
               std::pair{"forge.ui_document_ref", UiDocumentAsset::type}}) {
             if (auto ref = world.lookup(path))
                 references.push_back({ref.id(), "asset_ref", asset});
+        }
+        if (name == "forge.mesh_renderer") {
+            references.push_back({world.id<std::string>(), "string"});
+            references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});
         }
         auto fields = reflected_type_schema(world, c.id(), references).at("fields");
         for (auto& field : fields) {
@@ -633,7 +745,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
                               {"fields", fields},
                               {"optional", category != 0}});
         std::lock_guard lock(catalog_mutex);
-        validation_catalog.try_emplace(type.name, components.back());
+        auto validation = components.back();
+        validation["type"] = "struct";
+        validation_catalog.try_emplace(type.name, std::move(validation));
     }
     return {{"version", 1}, {"components", components}};
 }
@@ -689,12 +803,28 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
                                      ": component field outside supported range");
     }
 }
+Json builtin_extensions(const Builtin& type, const Json& source) {
+    const auto& schema = validation_schema(type.name);
+    return reflected_extensions(schema, source);
+}
+Json merge_builtin_extensions(const Builtin& type, const Json& known, const Json& extensions) {
+    const auto& schema = validation_schema(type.name);
+    return merge_reflected_extensions(schema, known, extensions);
+}
+Json merge_builtin_property_extensions(const Builtin& type, const std::string& field,
+                                       const Json& known, const Json& source) {
+    const auto& schema = validation_schema(type.name);
+    for (const auto& entry : schema.at("fields"))
+        if (entry.at("id") == field)
+            return merge_reflected_extensions(entry, known, reflected_extensions(entry, source));
+    throw std::runtime_error("Unknown builtin property extension");
+}
 void validate_components(const Json& components) {
     for (const auto& type : builtins()) {
         if (!components.contains(type.name))
             continue;
         const auto& data = components.at(type.name);
-        const auto schema = validation_schema(type.name);
+        const auto& schema = validation_schema(type.name);
         // Preserve the legacy opaque extension envelope. The bounded reflected
         // payload contains only this builtin's known fields, never unknown data.
         Json known = Json::object();
@@ -702,8 +832,7 @@ void validate_components(const Json& components) {
             const auto key = field.at("id").get<std::string>();
             known[key] = data.at(key);
         }
-        validate_reflected_json(
-            {{"type", "struct"}, {"id", type.name}, {"fields", schema.at("fields")}}, known);
+        validate_reflected_json(schema, known);
         (void)type.decode(data); // Cross-member invariants remain FORGE-owned.
     }
 }

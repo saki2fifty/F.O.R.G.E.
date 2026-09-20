@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "relationship_graph.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
 #include <cmath>
@@ -64,19 +65,19 @@ void PrefabDocument::validate(const Json& doc) {
     }
     if (!ids.contains(root))
         throw std::runtime_error("Prefab root member is missing");
+    detail::RelationshipGraph hierarchy;
+    for (const auto& item : doc.at("members")) {
+        auto& edges = hierarchy[item.at("id").get<std::string>()];
+        if (item.contains("parent"))
+            edges.push_back({item.at("parent").get<std::string>()});
+    }
+    detail::validate_relationship_graph(hierarchy, "Prefab member");
     std::map<std::uint64_t, TransformNode> nodes;
     std::map<std::string, std::uint64_t> handles;
     for (const auto& id : ids)
         handles[id] = handles.size() + 1;
     for (const auto& item : doc.at("members")) {
         const std::string id = item.at("id");
-        std::set<std::string> visited{id};
-        auto cur = id;
-        while (cur != root) {
-            cur = member(doc, cur).at("parent");
-            if (!ids.contains(cur) || !visited.insert(cur).second)
-                throw std::runtime_error("Invalid/cyclic prefab hierarchy");
-        }
         TransformNode n{detail::read_local(item.at("components"))};
         const auto spatial = item.value("spatial", Json{{"mode", "follow_structure"}});
         const auto mode = spatial.at("mode").get<std::string>();

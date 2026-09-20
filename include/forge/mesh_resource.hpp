@@ -1,7 +1,7 @@
 #pragma once
 #include <filesystem>
-#include <forge/material_asset.hpp>
 #include <forge/mesh_asset.hpp>
+#include <forge/render_components.hpp>
 #include <forge/resource.hpp>
 namespace forge {
 // Keys are stable within one logical mesh. Physical slot numbers belong only to
@@ -12,12 +12,7 @@ struct MeshMaterialBinding {
     AssetRef<MaterialAsset> material;
     bool operator==(const MeshMaterialBinding&) const = default;
 };
-struct MaterialSlotOverride {
-    std::string slot;
-    // Explicit null chooses the built-in default. Absence follows the mesh.
-    AssetRef<MaterialAsset> material;
-    bool operator==(const MaterialSlotOverride&) const = default;
-};
+
 struct MeshMaterialSelection {
     std::vector<MeshMaterialBinding> bindings;
     // Retain authored entries when reimport removes a slot. Never guess a target.

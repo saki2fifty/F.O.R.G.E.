@@ -14,7 +14,8 @@ loads project DLLs and never copies ABI-layout bytes between processes.
 
 ## Current evidence and implementation boundary
 
-Current src/world.cpp/scene.cpp and builtins.hpp admit15 built-in codecs; unknown
+The freeze baseline admitted15 built-in codecs. Phase7 now admits17 with the
+MeshRenderer and ModelSource CPU components; unknown
 payloads survive but arbitrary SDK components are runtime-only. A fresh native Meta
 probe transferred named values between different C layouts and proved equal-value
 IsA ownership/Revert. Pinned member-offset issue requires physical-order registration

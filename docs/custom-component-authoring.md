@@ -183,3 +183,20 @@ checks byte bounds before making the JSON copy, and rejects embedded NUL instead
 of truncating it. Arbitrary project opaque strings remain unadmitted. The same
 checked single-value serializer is reused for vector elements; missing, duplicate,
 wrong-type and unexpected named emissions fail safely.
+
+### Nested unknown fields and collection commands
+
+The existing built-in scene codecs now preserve unknown fields recursively while
+storing known values only in Flecs components. An engine-owned native member
+annotation can identify an existing unique string field as a collection key. This
+is used for MeshRenderer material slots so reordered native entries retain their
+own opaque extensions; duplicate or empty keys reject before commit. Unkeyed
+collections preserve unknown data positionally. This mechanism does not itself
+admit project schemas or promise per-entry prefab override intent.
+
+The shared `property.set` command accepts JSON containers as well as scalar values.
+Its destination's native-reflected schema still enforces type, range, depth, count
+and byte limits, followed by complete scene/domain validation. A collection remains
+one top-level property for structured prefab intent and Revert. Invalid assignments
+leave both scene and history unchanged. This extends value transport; it does not
+claim the nested Inspector or SDK worker implementation is complete.

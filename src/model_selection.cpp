@@ -15,17 +15,15 @@ void check_file(const Json& metadata, const ModelMemberFile& file) {
 }
 } // namespace
 const ModelImportMember& ModelSelection::member(AssetId id) const {
-    for (const auto& value : index.members)
-        if (bindings.at(value.identity.address) == id)
-            return value;
-    throw std::runtime_error("Asset is not an active member of this model revision");
+    const auto found = member_indices.find(id);
+    require(found != member_indices.end(), "Asset is not an active member of this model revision");
+    return index.members.at(found->second);
 }
 std::span<const std::byte> ModelSelection::bytes(const ModelImportMember& member) const {
     require(!member.node, "Inline model nodes have no standalone artifact bytes");
-    for (const auto& file : artifact->files)
-        if (file.name == member.artifact.file)
-            return file.bytes;
-    throw std::runtime_error("Selected model member file is missing");
+    const auto found = file_indices.find(member.artifact.file);
+    require(artifact && found != file_indices.end(), "Selected model member file is missing");
+    return artifact->files.at(found->second).bytes;
 }
 ModelSelection load_model_selection(const std::filesystem::path& project,
                                     const AssetCatalog& catalog, AssetId model,
@@ -88,9 +86,12 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     }
     require(result.bindings.size() == result.index.members.size(),
             "Selected model member count differs from immutable artifact");
-    for (const auto& member : result.index.members) {
+    for (std::size_t i = 0; i < result.index.members.size(); ++i) {
         cancelled();
+        const auto& member = result.index.members[i];
         const auto id = result.bindings.at(member.identity.address);
+        require(result.member_indices.emplace(id, i).second,
+                "Selected model member identity is duplicated");
         const auto found = catalog.records().find(id);
         require(found != catalog.records().end(), "Selected model member identity is missing");
         const auto& child = found->second;
@@ -124,6 +125,9 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     for (const auto& edge : record.dependency_edges)
         require(catalog.records().at(edge.target).type == edge.expected_type,
                 "Model root member expected type mismatch");
+    for (std::size_t i = 0; i < artifact.files.size(); ++i)
+        require(result.file_indices.emplace(artifact.files[i].name, i).second,
+                "Selected model artifact filename is duplicated");
     cancelled();
     result.artifact = std::make_shared<const CachedArtifact>(std::move(artifact));
     return result;

@@ -19,6 +19,15 @@
 
 AssetId is the scene's durable authored-document identity. EntityId and AssetId are distinct UUIDv4 types serialized as canonical lowercase strings. No DocumentId or persistent runtime-instance identity is introduced. `parent` and `base` are scene-local EntityId strings; base must identify a prefab. Names need not be unique. Structural, inheritance and effective spatial graphs must be acyclic.
 
+Scene structural and inheritance paths, admit at most128 authored entities per path. Combined prefab expansion admits
+at most128 structural levels; its IsA source link does not add a structural level. Structured prefab member trees use the same
+limit. This follows the exact pinned Flecs4.1.6 `FLECS_DAG_DEPTH_MAX`, rather than
+relying on native assertions that may be disabled in Release. An iterative graph
+check rejects missing targets, cycles and excessive depth before native realization
+or history changes. It does not clamp or restructure content. The independent
+FORGE spatial evaluator still validates its own effective-parent graph; spatial
+World binding does not remove structural ancestry from this Flecs constraint.
+
 ## Authored local channels
 
 Only owned components are serialized. Missing local channels can inherit independently from `base`: owning translation never materializes inherited rotation or scale. Effective translation makes an entity transform-capable; missing rotation/scale default to identity/unit scale. Local translation is finite double XYZ; rotation is normalized float XYZW (squared-length tolerance 2e-6); visual scale is finite signed float XYZ, -10000–+10000, including zero and tiny magnitudes (extended values require scene5 on output). Tint and Primitive are unchanged. Rotation display/edit adapters use Euler degrees; ordinary saves preserve canonical quaternion fields directly.

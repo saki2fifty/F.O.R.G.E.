@@ -43,3 +43,17 @@ Technical request examples and exact contracts are maintained separately in the 
 For read-only project source and dependency inspection, see [Asset inspection tools](asset-tools.md).
 
 To inspect or edit a scene already open in FORGE, use [Live automation](live-automation.md). The headless process described above continues to own only its isolated in-memory scene.
+
+## Structured property values
+
+`property.set` accepts the value type described by the selected component field.
+Besides numbers, text and switches, a reflected field may accept a structured value
+or a list. Submit the complete value for that field; the editor checks its type,
+limits and scene rules before committing. An invalid edit leaves the scene and
+Undo history unchanged.
+
+On a prefab instance, a supported list field is one override. Setting the same list
+again still records your choice. Revert makes that whole field follow the prefab
+again, and Undo restores the override. This does not merge individual list entries
+with later prefab edits. Schema discovery describes fields currently available;
+project-defined component authoring remains under development.

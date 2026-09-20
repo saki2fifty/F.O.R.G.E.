@@ -24,7 +24,8 @@ It does not claim every native mechanism needs its own editor control. No Phase 
 
 ## Reflected authoring metadata
 
-All 15 built-in authored component types explicitly create member entities.
+All built-in authored component types explicitly create member entities
+(17 with the Phase7 MeshRenderer and ModelSource CPU components).
 Their structure and scalar types come from Meta, friendly names and help from
 Doc, applicable physical dimensions from Units, and bounds from
 `EcsMemberRanges`. Quaternions and scale are dimensionless; quaternion fields
