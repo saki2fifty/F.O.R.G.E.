@@ -157,6 +157,11 @@ int main(int argc, char** argv) {
                 activation = "active";
                 activation_tick = clock.tick() + 1;
             }
+            // Drain an already captured response between catch-up ticks. A slow
+            // simulation batch must not restrict transport to one small pipe
+            // quota per eight ticks. Commands still execute only after the batch;
+            // no world mutation or new snapshot is interleaved with a fixed tick.
+            io.flush();
         };
         while (!io.closed()) {
             clock.advance(forge::RuntimeClock::Clock::now(), tick);

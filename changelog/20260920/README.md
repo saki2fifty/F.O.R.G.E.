@@ -1070,3 +1070,20 @@
 - Source6aa4eaf Windows native audit passed36/36 in48.34s, including isolated shader
   worker, GPU mesh/texture readback, viewport cache isolation and native constant-cube
   IBL filtering. The later signed-surface/spotlight GPU fixtures require their own run.
+
+### Runtime response progress
+
+- Windows request tracing localized the repeated core-test timeout to large
+  running-scene responses. The response eventually progressed; startup succeeded.
+- Drain pending response bytes between completed catch-up ticks while retaining
+  fixed-step clocks, command boundaries and ordered reliable replies.
+- Avoid copying the entire scene for navigation on every tick when a retained
+  native Flecs query finds no enabled navigation surfaces. Clear stale geometry
+  and validate again when surfaces are re-enabled.
+- Add disable/re-enable navigation coverage and request duration/size diagnostics.
+  Normal navigation and large runtime-protocol checks passed2/2 in2.02s. Windows
+  recurrence remains pending for this correction. Strict runtime clock/protocol
+  checks passed; the instrumented navigation owner also passed with the normal
+  bounded converter. Launching an ASan converter under the production512-MiB
+  address-space limit fails at sanitizer shadow reservation, reproduced separately;
+  no worker limit or sanitizer suppression was changed.

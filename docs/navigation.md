@@ -73,3 +73,13 @@ See the [Navigation user guide](../manual/editor/navigation.md) for the no-code 
 ### Query timing inside gameplay systems
 
 Navigation captures source geometry at the writable start of a fixed tick and refreshes it after gameplay before moving agents. A query inside a read-only Flecs system uses that captured validation state and never writes derived transforms. Deferred gameplay edits become visible when Flecs merges them; subsequent agent movement validates the updated geometry. Inherited NavigationAgent components are collected through a normal Flecs query, not an ownership-only component iterator.
+
+## Empty navigation geometry
+
+Runtime synchronization uses a retained native Flecs query for effective enabled
+NavigationSurface components before copying the scene for geometry extraction.
+With no enabled surfaces, it clears the previous digest and reports unavailable
+source geometry without serializing unrelated scene data. Re-enabling a surface
+returns through the existing complete geometry/hierarchy validation; a cached
+NavMesh cannot be reused against a removed or disabled source. This optimization
+does not skip validation when any enabled surface exists.

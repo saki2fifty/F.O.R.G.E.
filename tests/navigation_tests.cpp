@@ -178,6 +178,16 @@ int main(int argc, char** argv) {
         check(f.position() == stop, "Stale navmesh moved agent");
 
         f.scene.entity("floor").set<LocalTranslation>({0, 0, 0});
+        const auto floor_surface = f.scene.entity("floor").get<NavigationSurface>();
+        const auto obstacle_surface = f.scene.entity("obstacle").get<NavigationSurface>();
+        f.scene.entity("floor").set<NavigationSurface>({false});
+        f.scene.entity("obstacle").set<NavigationSurface>({false});
+        check(f.navigation->project_point({record.id}, {-8, .1, 0}).status == NavStatus::Stale,
+              "Disabling all native surfaces reused previous geometry");
+        f.scene.entity("floor").set<NavigationSurface>(floor_surface);
+        f.scene.entity("obstacle").set<NavigationSurface>(obstacle_surface);
+        check(f.navigation->project_point({record.id}, {-8, .1, 0}).status == NavStatus::Success,
+              "Re-enabling native surfaces did not refresh geometry");
         auto bad_checkpoint = checkpoint;
         bad_checkpoint["assets"][0]["sha256"] = "wrong";
         reject([&] { recovered.navigation->restore(bad_checkpoint); });

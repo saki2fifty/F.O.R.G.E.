@@ -3,6 +3,7 @@ import atexit
 import faulthandler
 import subprocess
 import sys
+import time
 from pathlib import Path
 # A blocked Windows pipe must identify the exact operation, rather than leaving
 # only the process banner when CTest's outer deadline expires.
@@ -18,10 +19,12 @@ def request(command, **fields):
     data=dict(protocol=2,id=sequence,session=session,command=command)
     data.update(fields)
     print(f"Protocol request {sequence}: {command}", flush=True)
+    started=time.monotonic()
     p.stdin.write(json.dumps(data)+'\n')
     p.stdin.flush()
-    result=json.loads(p.stdout.readline())
-    print(f"Protocol reply {sequence}: {command}", flush=True)
+    incoming=p.stdout.readline()
+    result=json.loads(incoming)
+    print(f"Protocol reply {sequence}: {command}, {len(incoming)} chars, {time.monotonic()-started:.3f}s", flush=True)
     if command=='hello': session=result['session']
     return result
 try:

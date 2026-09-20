@@ -47,7 +47,9 @@ struct NavigationRuntime::Impl {
     std::map<flecs::entity_t, std::string> errors;
     std::uint64_t tick = 0;
     std::string geometry_digest, geometry_error;
-    Impl(WorldContext& c, std::filesystem::path p) : context(c), project(std::move(p)) {}
+    flecs::query<const NavigationSurface> surfaces;
+    Impl(WorldContext& c, std::filesystem::path p)
+        : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()) {}
     void check() const {
         if (owner != std::this_thread::get_id() || !scene)
             throw NavigationFailure(NavStatus::Unavailable,
@@ -154,6 +156,16 @@ void NavigationRuntime::synchronize() {
     s.check();
     if (s.context.world().is_readonly())
         throw std::logic_error("Navigation synchronization requires a writable boundary");
+    // The native query follows effective inherited values and excludes templates.
+    // With no enabled surface there is no geometry to serialize or hash. In
+    // particular unrelated large opaque scene data must not be copied each tick.
+    bool has_surface = false;
+    s.surfaces.each([&](const NavigationSurface& surface) { has_surface |= surface.enabled; });
+    if (!has_surface) {
+        s.geometry_digest.clear();
+        s.geometry_error = "No enabled NavigationSurface geometry";
+        return;
+    }
     try {
         s.geometry_digest = navigation_geometry_digest(s.scene->effective_document());
         s.geometry_error.clear();

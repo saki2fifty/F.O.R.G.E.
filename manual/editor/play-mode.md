@@ -13,6 +13,8 @@ Play runs a copy of your scene in a separate runtime process. Your editor scene 
 
 The runtime keeps its own clock. Editor FPS and snapshot polling do not set gameplay speed. Running presentation blends between completed simulation poses; paused presentation shows the latest completed state. Without a gameplay module, objects normally stay stationary even though the tick counter increases.
 
+Large scene updates are sent in bounded pieces while gameplay continues. If an update is still being received, the next control waits for that update to finish; it is not silently dropped.
+
 Stop Play before editing or saving. Runtime movement is never automatically saved into the authored scene.
 
 ## Check one tick
