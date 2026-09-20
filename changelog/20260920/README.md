@@ -152,3 +152,33 @@
   in1.99s without display/device. After shared validation scans and bounded
   influence work were added, the final focused rerun passed4/4 in2.23s.
   No completed renderer/Ozz publication claim or intermediate numbered package.
+
+### Importer registration and settings — continued Phase 7 infrastructure
+
+- Added immutable native importer declarations, sealed startup registration,
+  bounded source probes, explicit platform/profile support and deliberate
+  selection when multiple providers match. Shared selections retain provider
+  lifetime; registration order does not choose a winner.
+- Added typed bounded importer settings with defaults, explicit equal-value
+  overrides, reset/repair, preserved unknown envelope data, explicit version
+  migration and effective-value digests. Document-envelope and importer-settings
+  versions are separate. Failed edits/parses preserve the previous document.
+- Portable registry/settings tests passed2/2; shared-SDK2/2 and strict
+  ASan/UBSan/LeakSanitizer2/2 also passed. These are infrastructure APIs, not a shipped import dialog or
+  completed production importer/worker/publication path.
+
+- Extended the existing asset supervisor with configurable bounded job limits and
+  an Import command using flat outputs and cooperative cancellation followed by
+  forced termination. Existing converter defaults remain. Output folders/links/
+  count/size checks and pre-cancelled/stale-staging rejection are covered.
+- Added Windows CPU-time limits and Linux parent-death/process-group cleanup.
+  Initial new-worker plus legacy-converter tests passed2/2 in31.96s. After lifecycle
+  corrections, affected portable regressions passed9/9 in38.47s, shared-SDK9/9
+  in33.53s, and strict sanitizer worker/registry/settings checks4/4 in32.19s.
+  The existing known-upstream Flecs include check remains separately labeled;
+  the focused sanitizer suite uses no suppression. This is not yet a completed
+  production import dispatcher or last-good publisher. Windows execution remains pending.
+
+- Final worker review also rejects a successful exit observed after the wall-time
+  deadline. Targeted new/legacy worker reruns passed2/2 portable(32.02s),2/2
+  shared-SDK(31.97s), and2/2 strict sanitizers(32.09s).
