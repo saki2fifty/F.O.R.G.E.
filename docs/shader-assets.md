@@ -2,7 +2,8 @@
 
 The shader subsystem currently has source/permutation admission, immutable cooked
 value transport and a Diligent compiler/reflection adapter undergoing Windows
-validation. Project worker/publication, Content editing, material compatibility,
+validation. Source capture, supervised worker and shared cache/publication integration are
+implemented and undergoing validation. Content editing, material compatibility,
 shader reload and production renderer consumers are still being integrated. This
 page does not describe a shipped end-user shader workflow.
 
@@ -26,8 +27,9 @@ No new compiler dependency or dependency upgrade is introduced.
 Build identity includes stage source/entry points, exact captured source bytes,
 selected defines, matrix packing, optimization, Diligent compiler-adapter revision,
 backend/profile, compiler Debug flag and the digest of the actual loaded
-`d3dcompiler_47.dll`. Asset identity, display names and timestamps are not content
-keys. Cached/runtime bytecode retains reflection; stripping it is unsupported.
+`d3dcompiler_47.dll`. The inner compiler key excludes asset identity and display names. The outer
+publication key hashes the original authored document, including its AssetId,
+so publication can recheck the exact source. Neither key uses source timestamps. Cached/runtime bytecode retains reflection; stripping it is unsupported.
 
 ## Includes and bounded input
 
@@ -45,7 +47,23 @@ virtual filenames must be canonical, with ASCII case collisions rejected for
 Windows portability. Embedded NUL and control characters are rejected. There are
 at most64 fixed defines,16 permutation axes and32 distinct choices per axis.
 These are bounded compile-request limits, not promises about hardware throughput.
-Project-source compilation still needs its supervised worker before public use.
+A shader document declares a canonical project `source_root`, such as `Shaders`.
+The capture reads `.hlsl`, `.hlsli`, `.fx`, `.fxh` and `.inc` files recursively beneath
+that directory, with a 4096 directory-entry limit. Filesystem links within the tree
+are rejected. Stage paths and local include names are relative to this source root.
+Host-provided `engine/` includes occupy a reserved virtual namespace. Project files
+cannot shadow it. Engine include bytes contribute to the importer revision; project
+source dependencies use real project locators in the shared dependency graph.
+Changing an unused captured include also rebuilds: this is conservative invalidation.
+
+The dedicated Windows shader worker reuses the fixed import-process transport and
+supervisor. It creates a private Diligent WARP device for compilation, independent
+of the editor's adapter/device. The supervisor enforces 1 GiB process memory,
+60 seconds wall time, 50 seconds CPU time and bounded output. Cancellation retains
+an explicit 100 ms grace period before terminating a compiler that cannot cooperate.
+These process bounds supplement source limits; they do not promise a sandbox against
+trusted native dependencies. No HLSL source executes inside the editor compiler path.
+Native worker execution is still being verified on Windows.
 
 ## Reflection and cooked data
 
@@ -76,3 +94,19 @@ is connected.
 Shipping consumers load cooked bytes without invoking source compilation. Native
 reflection still uses the platform D3DCompiler runtime already used by Diligent;
 this is not a claim that the DLL can be removed from a working package.
+
+## Publication ownership
+
+The authored shader document owns its AssetId before compilation. Import refuses
+an ID/catalog mismatch; copying a shader document requires the normal explicit
+new-asset identity operation. A selected permutation lives in the shared import
+settings sidecar. The compiler adapter revision includes exact FORGE source,
+toolchain and build configuration fingerprints, alongside the actual FXC DLL digest.
+
+The existing AssetImportService, DerivedDataCache and AssetPublisher handle queueing,
+cache admission, source rechecks and journaled catalog/sidecar publication. Shader
+preparation checks its inner compiler key on fresh output and cache hits. A failure,
+cancellation, stale include or rejected consumer compatibility leaves the previous
+catalog selection intact. Compatibility remains an explicit caller preflight; this
+foundation does not yet connect production material pipelines to shader publication.
+Shader asset history remains separate from scene Undo.

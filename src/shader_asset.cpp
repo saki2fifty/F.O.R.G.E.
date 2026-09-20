@@ -221,7 +221,7 @@ AssetBuildInput shader_build_input(const ShaderProgramSource& program, const Sha
     AssetBuildInput input;
     input.source_digest = asset_build_digest(entries);
     input.importer = "forge.shader.diligent";
-    input.importer_revision = "1-core744f079f61cdbda15d371383682418fc927e4a61";
+    input.importer_revision = shader_compiler_revision();
     input.settings = {{"defines", defines},
                       {"row_major", program.row_major},
                       {"optimization", program.optimization},
@@ -236,6 +236,10 @@ AssetBuildInput shader_build_input(const ShaderProgramSource& program, const Sha
             asset_detail::content_digest(std::as_bytes(std::span(source)));
     (void)input.key();
     return input;
+}
+std::string shader_compiler_revision() {
+    return asset_build_digest({{"sources_toolchain", FORGE_SHADER_RECIPE_FINGERPRINT},
+                               {"configuration", FORGE_SHADER_RECIPE_CONFIGURATION}});
 }
 void validate_shader_reflection(const Json& reflection) {
     require(reflection.is_object() && reflection.at("resources").is_array() &&

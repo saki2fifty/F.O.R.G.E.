@@ -33,6 +33,8 @@ select_shader_permutation(const ShaderProgramSource&,
 // a native source factory may read only this set, never the host filesystem.
 using ShaderSources = std::map<std::string, std::string>;
 void validate_shader_sources(const ShaderSources&);
+// Exact FORGE adapter sources/toolchain/configuration, independent of asset identity.
+std::string shader_compiler_revision();
 // Logical shader identity, current pathname and source timestamps are excluded
 // from build identity. Exact compiler bytes/profile and all captured sources count.
 AssetBuildInput shader_build_input(const ShaderProgramSource&, const ShaderSources&,

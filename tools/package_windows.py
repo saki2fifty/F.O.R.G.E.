@@ -31,7 +31,7 @@ def package(build, dependencies, output):
     cache = (build/'CMakeCache.txt').read_text()
     if 'CMAKE_BUILD_TYPE:STRING=Release' not in cache:
         raise ValueError('A Release build is required; Debug CRT binaries are not distributable')
-    images = [build/'forge_editor.exe', build/'forge_runtime.exe', build/'forge_tools.exe', build/'forge_nav_build.exe', build/'forge_asset_build.exe']
+    images = [build/'forge_editor.exe', build/'forge_runtime.exe', build/'forge_tools.exe', build/'forge_nav_build.exe', build/'forge_asset_build.exe', build/'forge_shader_build.exe']
     dlls = sorted(build.glob('*.dll'))
     if not any('graphicsengined3d12' in p.name.lower() for p in dlls):
         raise ValueError('The Diligent D3D12 runtime DLL is missing from the build output')

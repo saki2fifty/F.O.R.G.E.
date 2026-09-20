@@ -200,8 +200,17 @@ std::string diagnostic(IDataBlob* blob) {
 }
 } // namespace
 std::string diligent_shader_compiler_digest() {
-    const auto module = GetModuleHandleW(L"d3dcompiler_47.dll");
-    require(module, "Loaded FXC compiler DLL is unavailable for provenance");
+    // The SDK declarations are not dllimport: taking &D3DCompile can identify
+    // the executable's linker thunk. Retain the actual named SDK compiler DLL,
+    // allowing the application package/system directories, never the project cwd.
+    const auto module =
+        LoadLibraryExW(D3DCOMPILER_DLL_W, nullptr,
+                       LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+    require(module != nullptr, "Loaded FXC compiler DLL is unavailable for provenance");
+    struct ReleaseModule {
+        HMODULE module;
+        ~ReleaseModule() { FreeLibrary(module); }
+    } release{module};
     std::wstring path(32768, L'\0');
     const auto length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
     require(length && length < path.size(), "Cannot resolve the loaded FXC compiler path");

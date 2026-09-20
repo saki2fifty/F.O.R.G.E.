@@ -926,3 +926,24 @@
   CPU checks passed locally as recorded above. Native Windows compilation and GPU
   execution are pending; worker, publication and editor/render consumers are still
   required before the complete Phase7 delivery. No numbered build is allocated.
+
+### Shader worker and shared asset services
+
+- Added bounded shader-root capture with canonical virtual names, reserved engine
+  includes, copied worker transport and real project-file dependency edges. Native
+  Diligent preprocessing remains authoritative; FORGE does not parse include syntax.
+- Reused the existing import supervisor, queue, derived-data cache and journaled
+  publication. Shader workers use a private WARP device, bounded lifetime/memory,
+  compiler identity checks and detached results. Publication checks captured compiler
+  provenance on fresh outputs and cache hits, retaining explicit material preflight.
+- Added exact FORGE adapter source/toolchain/configuration fingerprints. Separated
+  the identity-neutral inner compiler key from the outer authored-document publication
+  key. AssetId mismatches reject; shader import does not silently replace identity.
+- Factored the existing import-process transport into a shared target. Local shader
+  admission/pipeline and direct/isolated texture regressions passed4/4 in2.09s;
+  strict shader ASan/UBSan/LeakSanitizer checks passed2/2 in0.25s. The first local
+  compile found a record-initializer error, corrected before those successful builds.
+- Added Windows real-worker tests for valid/rejected compilation, recursive includes,
+  cache reuse, incompatible layouts, stale includes, cancellation and last-good
+  preservation. Those Windows tests have not yet run. Release packaging now requires
+  the dedicated shader worker; no numbered package is produced by this checkpoint.
