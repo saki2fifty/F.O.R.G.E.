@@ -338,3 +338,57 @@ is silently invented. It does not affect sparse vertex-attribute patches.
 This is private import admission, not yet a completed Content model workflow or
 GPU preview. Full model-worker integration and publication validation remain
 Phase7 completion requirements.
+
+## Material factors, bindings and variants
+
+Private surface admission checks core PBR factors and the pinned Khronos schemas
+for clearcoat, specular, sheen, anisotropy, iridescence, transmission, volume, IOR,
+dispersion, emission strength, unlit and the archived specular-glossiness workflow.
+Unsupported values reject before native material loading. Diagnostics identify the
+material or sampler and the affected numeric field. This CPU boundary does **not**
+claim all these effects are implemented in the production renderer.
+
+Native `GLTF::LoadMaterial` supplies supported factor conversion. FORGE keeps
+texture bindings separately, with candidate-local texture/image addresses,
+color/data/normal usage, sampler state and offset/rotation/scale/UV-set values.
+This prevents the native three-bit packed selector from truncating a valid source
+UV-set index. Actual mesh UV availability and renderer profile compatibility still
+have to pass before publication. Zero and negative texture scales are preserved.
+Normal-map and clearcoat-normal scale may be negative under the source schemas.
+
+Bindings preserve all six glTF minification choices, both magnification choices
+and repeat/mirror/clamp-edge wrapping. Explicit non-mip filters clamp maximum LOD
+to zero. Unspecified filters choose linear magnification and trilinear minification.
+Sampler intent belongs to the binding; two references to the same image can use
+different samplers and semantic variants without requiring duplicate image identities.
+Basis KTX2 and WebP image alternatives are selected explicitly, preferring Basis
+when both exist. Their declaration, fallback requirement, source index and MIME
+are checked; the selected image still requires real codec admission. Failure is
+not silently replaced with another fallback image.
+
+Source alpha mode remains independent of transmission, unlike the native loader's
+convenience blend-mode choice. Occlusion strength is retained explicitly; the pinned
+native factor loader leaves it at its default. Emission color and strength remain
+separate values so animation and authoring do not lose independent channels.
+Standalone IOR and dispersion are preserved even where the native CPU layout has
+no matching independent field. Missing volume attenuation distance remains absent,
+meaning infinite distance, rather than becoming a finite authored constant.
+
+Schema-backed numeric cases include IOR zero or at least one, alpha cutoff above
+one, specular color above one, and iridescence thickness minimum above maximum.
+IOR zero is the specification's constant-Fresnel compatibility mode, not physical
+zero refraction; renderer/animation support must honor that special contract.
+Values must remain finite and representable in the selected float parameter profile.
+Cross-extension combinations forbidden by the specifications reject; legacy
+specular-glossiness with emission strength remains valid.
+
+Unlit bindings retain only base color. Legacy specular-glossiness bindings replace
+the metallic-roughness fallback textures, preserving their native workflow defaults.
+Original source fields and unknown metadata remain captured provenance.
+
+Material variants retain their names and candidate-local primitive/material
+mappings. Duplicate display names are allowed; they are not identity. A variant may
+occur only once across a primitive's mappings, all references must be in range,
+and missing mappings retain the ordinary primitive material. Publication must bind
+these addresses through stable subasset identity; this helper alone does not assign
+AssetIds or expose a finished variant-selection UI.

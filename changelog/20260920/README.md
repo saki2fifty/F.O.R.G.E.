@@ -404,3 +404,28 @@
 - Previous0fa1422 Windows source audit passed20/20 in13.61s. No numbered build was
   allocated. Complete model publication, production rendering and the rest of the
   authorized Phase7 package remain in progress.
+
+### glTF surface admission, texture bindings and material variants
+
+- Add source-backed core and extension material validation before native loading,
+  with material/sampler/field diagnostics. Reuse Diligent's native material factor
+  handling while retaining independent authored alpha, normal scales, occlusion
+  strength, emission channels, standalone IOR and dispersion.
+- Preserve specification-valid IOR zero, negative normal scales, alpha cutoff and
+  specular colors above one, and reversed iridescence thickness ranges. Omitted
+  volume attenuation distance keeps its infinite/default meaning.
+- Preserve binding-specific sampler choices, all six minification modes, explicit
+  non-mip LOD clamp, arbitrary admitted source UV-set addresses and signed/zero
+  texture transforms. One image retains distinct color/data/normal usages.
+- Validate Basis/WebP alternative source declarations and fallback requirements;
+  selected images still require the existing real codec admission. Remove unused
+  PBR bindings for unlit/legacy workflows without changing captured provenance.
+- Retain candidate-local material-variant mappings, allow duplicate display names,
+  enforce reference/aggregate bounds and reject conflicting primitive assignments.
+  Missing variant mappings retain ordinary primitive behavior.
+- Normal full glTF/preparation11/11 passed in0.46s; strict ASan/UBSan/LeakSanitizer
+  11/11 passed in3.49s. Formatting, manual3/3 and workflow syntax passed. Explicit
+  Windows target/test selection includes the new regression; Windows execution
+  remains pending. No numbered package allocated.
+- These are import-side capabilities. Stable family publication, material authoring,
+  production GPU effects and the remaining Phase7 integrations are still in progress.

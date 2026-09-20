@@ -1,6 +1,7 @@
 #include "gltf_native.hpp"
 #include "gltf_draco.hpp"
 #include "gltf_meshopt.hpp"
+#include "gltf_surfaces.hpp"
 #include <GLTFDocument.hpp>
 #include <GLTFVertexDataConverter.hpp>
 #include <algorithm>
@@ -159,6 +160,7 @@ NativeGltfDocument::NativeGltfDocument(GltfSourceBundle captured) : source_(std:
     meshes_ = admitted.document.value("meshes", nlohmann::json::array());
     (void)validate_gltf_accessors(admitted);
     validate_gltf_mesh_containers(admitted);
+    validate_gltf_surfaces(admitted);
     hierarchy_ = validate_gltf_hierarchy(admitted);
     auto transport = std::move(admitted.document);
     std::map<std::string, std::span<const std::byte>> files;
