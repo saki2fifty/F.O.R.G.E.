@@ -12,6 +12,12 @@ std::vector<ArtifactFile> run_import_process(const std::filesystem::path& execut
                                              const std::filesystem::path& project,
                                              ImportProcessRequest request, WorkerLimits limits,
                                              std::stop_token stop = {});
+// Second sequential process for model animation. Only canonical flat glTF input
+// and a fixed official converter command are accepted; no catalog writes.
+std::vector<ArtifactFile> run_model_animation_process(const std::filesystem::path& executable,
+                                                      const std::filesystem::path& project,
+                                                      std::span<const ArtifactFile> inputs,
+                                                      std::stop_token stop = {});
 ImportProcessRequest read_import_process_request(const std::filesystem::path& staging,
                                                  WorkerLimits limits);
 // Bounded header inspection selects one of the executable's fixed recipes before

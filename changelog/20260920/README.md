@@ -545,3 +545,20 @@
   missing converter executable; configuring the existing exact-pin converter
   resolved that test setup issue. Manual3/3, formatting and workflow checks passed.
   Windows validation of this new stage remains pending.
+
+### Supervised model conversion and morph curves
+
+- Reused the asset process supervisor and disposable job directory for a sequential
+  official gltf2ozz stage. Generated input/output names, URIs and configuration are
+  restricted; source/accessor admission precedes launch. Failed/cancelled conversion,
+  missing tools, changed inputs and unexpected files cannot publish a candidate.
+- Added immutable glTF morph STEP/LINEAR/CUBICSPLINE evaluation with exact endpoint
+  semantics and tangent interval scaling. Negative and greater-than-one weights
+  remain valid; malformed curves, invalid rig targets and arithmetic overflow reject.
+- Exercised the real converter through its bounded process runner, verified staging
+  cleanup and retained texture worker regressions. Whole-model importer composition
+  and runtime/rendered skinning/morph application remain in progress.
+- Validation: combined normal model/texture/CLI/converter/morph8/8 passed in46.93s;
+  strictASan/UBSan/LSan4/4 passed in32.77s. Manual3/3, formatting, workflow syntax
+  and whitespace checks passed. The earlier canonical-stage Windows audit is
+  still running; no numbered package has been produced.

@@ -1,5 +1,6 @@
 #include "model_animation.hpp"
 #include "animation_asset.hpp"
+#include "morph_animation.hpp"
 #include <algorithm>
 #include <cmath>
 #include <set>
@@ -102,9 +103,18 @@ void validate_model_animation(const Json& meta, std::span<const ArtifactFile> fi
         require(clip->info().tracks == skeleton->info().tracks &&
                     std::abs(clip->info().duration - duration) <= 1e-6 * std::max(1., duration),
                 "Converted clip tracks or duration differ from source plan");
+        MorphAnimation morphs(entry.at("morph_tracks"));
+        for (const auto& track : entry.at("morph_tracks")) {
+            require(node_set.contains(index(track.at("node"), 100000)),
+                    "Morph track targets a node outside its admitted rig");
+            require(track.at("times").back().get<double>() <= duration,
+                    "Morph track exceeds clip duration");
+        }
         Sampler sampler(skeleton, clip);
-        for (float ratio : {0.f, .25f, .5f, .75f, 1.f})
+        for (float ratio : {0.f, .25f, .5f, .75f, 1.f}) {
             (void)sampler.sample(ratio);
+            (void)morphs.sample(duration * ratio);
+        }
     }
     require(available.empty(), "Unexpected model animation output");
     cancelled();

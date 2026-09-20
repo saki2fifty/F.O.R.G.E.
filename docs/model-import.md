@@ -220,3 +220,30 @@ still required integration work, not completed by these adapter tests.
 
 Evidence: [Ozz converter at the selected pin](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/gltf/gltf2ozz.cc),
 [skeleton builder](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/skeleton_builder.cc).
+
+### Supervised converter stage and morph sampling
+
+The private second-stage runner reuses the shared job directory, cancellation and
+OS process supervisor. It accepts only generated `source.gltf`, `config.json` and
+optional `animation.bin`. Fixed configuration permits only the expected skeleton
+and numbered clip output files; all possible input URIs are restricted to the
+staged binary. CPU glTF container/accessor admission runs before launching the
+fixed official converter command. Unexpected/missing outputs, changed inputs,
+failed/cancelled conversion and invalid archives reject the candidate. Disposable
+job files are removed on success and failure.
+
+This stage allows1GiB process memory,16MiB per file,320MiB aggregate staging,
+68files and240seconds wall/220seconds CPU. Collected archive outputs remain capped
+at256MiB. It is intended to run **after** the native model worker has exited, never
+nested inside it, so cancellation retains ownership of every child process. The
+current tests exercise this runner directly; importer composition remains ongoing.
+
+`MorphAnimation` is immutable companion curve data. It owns no clock, gameplay
+entities or playback state. Evaluation receives seconds from its caller, clamps
+before/after a channel to that channel's endpoint, and applies the glTF interpolation
+formula in AppendixC. Cubic in/out derivatives are multiplied by key interval
+length. Weights are not clamped to0–1 or normalized. Duplicate target nodes,
+malformed/nonfinite curves and arithmetic overflow are explicit failures. A clip
+cannot target a node outside its admitted rig or extend beyond its declared duration.
+The evaluator is separate from skeletal Ozz sampling; scene/runtime application
+and rendered morph proof remain ongoing work.

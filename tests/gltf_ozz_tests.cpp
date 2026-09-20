@@ -1,5 +1,6 @@
 #include "animation_asset.hpp"
 #include "gltf_ozz_transport.hpp"
+#include "import_process.hpp"
 #include "model_animation.hpp"
 #include <cmath>
 #include <fstream>
@@ -24,7 +25,7 @@ std::vector<std::byte> read(const std::filesystem::path& path) {
 }
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "Need mode and directory");
+        require(argc == 3 || argc == 4, "Need mode and directory");
         const std::filesystem::path root = argv[2];
         if (std::string_view(argv[1]) == "prepare") {
             auto captured = capture_gltf_source(root, "input.gltf");
@@ -48,6 +49,51 @@ int main(int argc, char** argv) {
                 rejected = true;
             }
             require(rejected, "Cancelled transport accepted");
+        } else if (std::string_view(argv[1]) == "convert") {
+            require(argc == 4, "Need fixed converter executable");
+            std::vector<ArtifactFile> inputs{{"source.gltf", read(root / "source.gltf")},
+                                             {"config.json", read(root / "config.json")}};
+            if (std::filesystem::exists(root / "animation.bin"))
+                inputs.push_back({"animation.bin", read(root / "animation.bin")});
+            const auto outputs = run_model_animation_process(argv[3], root, inputs);
+            validate_model_animation(Json::parse(read(root / "metadata.json")), outputs);
+            for (const auto& file : outputs) {
+                std::ofstream out(root / file.name, std::ios::binary);
+                out.write(reinterpret_cast<const char*>(file.bytes.data()),
+                          static_cast<std::streamsize>(file.bytes.size()));
+                require(bool(out), "Cannot write test converter output");
+            }
+            auto reject = [&](const std::vector<ArtifactFile>& bad, std::stop_token stop = {}) {
+                bool rejected = false;
+                try {
+                    (void)run_model_animation_process(argv[3], root, bad, stop);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                require(rejected, "Invalid converter process input accepted");
+            };
+            auto bad = inputs;
+            bad[0].name = "../source.gltf";
+            reject(bad);
+            bad = inputs;
+            auto config = Json::parse(bad[1].bytes);
+            config["skeleton"]["filename"] = "../outside.ozz";
+            const auto text = config.dump();
+            const auto bytes = std::as_bytes(std::span(text));
+            bad[1].bytes.assign(bytes.begin(), bytes.end());
+            reject(bad);
+            std::stop_source stop;
+            stop.request_stop();
+            reject(inputs, stop.get_token());
+            bool missing_tool = false;
+            try {
+                (void)run_model_animation_process(root / "missing-converter", root, inputs);
+            } catch (const std::exception&) {
+                missing_tool = true;
+            }
+            require(missing_tool, "Missing converter was accepted");
+            require(std::filesystem::is_empty(root / ".forge/jobs"),
+                    "Converter left per-run staging behind");
         } else {
             using namespace forge::animation_detail;
             const auto meta = Json::parse(read(root / "metadata.json"));
@@ -58,6 +104,19 @@ int main(int argc, char** argv) {
                 files.push_back({file, read(root / file)});
             }
             validate_model_animation(meta, files);
+            for (const auto& clip : meta.at("clips")) {
+                if (!clip.at("morph_tracks").empty()) {
+                    auto bad = meta;
+                    bad["clips"][0]["morph_tracks"][0]["node"] = 99999;
+                    bool rejected = false;
+                    try {
+                        validate_model_animation(bad, files);
+                    } catch (const std::exception&) {
+                        rejected = true;
+                    }
+                    require(rejected, "Foreign morph node accepted");
+                }
+            }
             auto reject = [&](const Json& metadata, const std::vector<ArtifactFile>& input) {
                 bool rejected = false;
                 try {

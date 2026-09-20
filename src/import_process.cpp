@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
+#include <forge/gltf_accessors.hpp>
 #include <fstream>
 
 namespace forge::asset_detail {
@@ -167,6 +168,143 @@ std::vector<ArtifactFile> run_import_process(const std::filesystem::path& execut
             "Unsupported import result manifest");
     require(!stop.stop_requested(), "Import cancelled before candidate validation");
     return read_files(job.path / "output", result.at("files"), limits, true);
+}
+std::vector<ArtifactFile> run_model_animation_process(const std::filesystem::path& executable,
+                                                      const std::filesystem::path& project,
+                                                      std::span<const ArtifactFile> inputs,
+                                                      std::stop_token stop) {
+    require(!stop.stop_requested(), "Model animation conversion cancelled");
+    require(inputs.size() >= 2 && inputs.size() <= 3, "Invalid model converter input count");
+    constexpr std::size_t limit = 16 * 1024 * 1024;
+    std::map<std::string, std::span<const std::byte>> lookup;
+    for (const auto& input : inputs) {
+        require((input.name == "source.gltf" || input.name == "config.json" ||
+                 input.name == "animation.bin") &&
+                    input.bytes.size() <= limit && lookup.emplace(input.name, input.bytes).second,
+                "Invalid model converter input file");
+    }
+    require(lookup.contains("source.gltf") && lookup.contains("config.json"),
+            "Missing model converter inputs");
+    const auto source = parse_bounded_json(lookup.at("source.gltf"), limit);
+    const auto config = parse_bounded_json(lookup.at("config.json"), 64 * 1024);
+    auto fields = [](const Json& object, std::initializer_list<std::string_view> allowed) {
+        require(object.is_object(), "Invalid canonical converter object");
+        for (const auto& [key, value] : object.items()) {
+            (void)value;
+            require(std::find(allowed.begin(), allowed.end(), key) != allowed.end(),
+                    "Unexpected canonical converter field");
+        }
+    };
+    fields(source, {"asset", "nodes", "scenes", "scene", "buffers", "bufferViews", "accessors",
+                    "animations"});
+    fields(source.at("asset"), {"version"});
+    require(source.at("asset").at("version") == "2.0" && source.at("scene") == 0,
+            "Unsupported canonical converter source");
+    const auto& nodes = source.at("nodes");
+    const auto& scenes = source.at("scenes");
+    const auto& animations = source.at("animations");
+    require(nodes.is_array() && !nodes.empty() && nodes.size() <= 1024 && scenes.is_array() &&
+                scenes.size() == 1 && animations.is_array() && animations.size() <= 64,
+            "Canonical converter node/scene/clip count exceeds bounds");
+    fields(scenes[0], {"nodes"});
+    for (const auto& node : nodes)
+        fields(node, {"name", "translation", "rotation", "scale", "children"});
+    if (source.contains("buffers")) {
+        const auto& buffers = source.at("buffers");
+        require(buffers.is_array() && buffers.size() == 1 && lookup.contains("animation.bin"),
+                "Invalid canonical converter buffer");
+        fields(buffers[0], {"uri", "byteLength"});
+        require(buffers[0].at("uri") == "animation.bin" &&
+                    buffers[0].at("byteLength") == lookup.at("animation.bin").size(),
+                "Canonical converter buffer path/length mismatch");
+    } else
+        require(!lookup.contains("animation.bin"), "Unexpected canonical converter binary file");
+    for (const auto& view : source.at("bufferViews"))
+        fields(view, {"buffer", "byteOffset", "byteLength"});
+    for (const auto& accessor : source.at("accessors")) {
+        fields(accessor, {"bufferView", "componentType", "count", "type", "min", "max"});
+        require(accessor.at("componentType") == 5126,
+                "Canonical converter accessor must contain floats");
+    }
+    fields(config, {"skeleton", "animations"});
+    require(config.at("skeleton") == Json{{"filename", "skeleton.ozz"}} &&
+                config.at("animations").is_array() &&
+                config.at("animations").size() == animations.size(),
+            "Invalid canonical converter configuration");
+    std::set<std::string> expected;
+    for (const auto& input : inputs)
+        expected.insert(input.name);
+    expected.insert("skeleton.ozz");
+    std::vector<std::string> outputs{"skeleton.ozz"};
+    for (std::size_t i = 0; i < animations.size(); ++i) {
+        const auto name = "forge_clip_" + std::to_string(i),
+                   filename = "clip-" + std::to_string(i) + ".ozz";
+        const auto& animation = animations[i];
+        const auto& settings = config.at("animations")[i];
+        fields(animation, {"name", "samplers", "channels"});
+        fields(settings, {"clip", "filename", "iframe_interval", "raw", "additive", "optimize",
+                          "sampling_rate"});
+        require(animation.at("name") == name && settings.at("clip") == name &&
+                    settings.at("filename") == filename && settings.at("iframe_interval") == 0 &&
+                    settings.at("raw") == false && settings.at("additive") == false &&
+                    settings.at("optimize").is_boolean() &&
+                    settings.at("sampling_rate").is_number_unsigned(),
+                "Invalid canonical converter clip settings");
+        const auto rate = settings.at("sampling_rate").get<std::uint64_t>();
+        require(rate >= 1 && rate <= 240, "Invalid model animation sampling rate");
+        require(animation.at("samplers").is_array() && animation.at("samplers").size() <= 3072 &&
+                    animation.at("channels").is_array() && animation.at("channels").size() <= 3072,
+                "Canonical converter channel count exceeds bounds");
+        for (const auto& sampler : animation.at("samplers"))
+            fields(sampler, {"input", "output", "interpolation"});
+        for (const auto& channel : animation.at("channels")) {
+            fields(channel, {"sampler", "target"});
+            fields(channel.at("target"), {"node", "path"});
+            const auto path = channel.at("target").at("path");
+            require(path == "translation" || path == "rotation" || path == "scale",
+                    "Unsupported canonical animation target");
+        }
+        expected.insert(filename);
+        outputs.push_back(filename);
+    }
+    JobDirectory job(project);
+    for (const auto& input : inputs)
+        write(job.path / input.name, input.bytes);
+    // Reuse CPU container/accessor admission without linking native model codecs
+    // into the parent. Every possible converter URI has already been restricted.
+    GltfSourceLimits source_limits;
+    source_limits.file_bytes = limit;
+    source_limits.json_bytes = limit;
+    source_limits.total_bytes = 2 * limit;
+    source_limits.source_files = 2;
+    const auto admitted = capture_gltf_source(job.path, "source.gltf", {}, source_limits, stop);
+    (void)validate_gltf_accessors(admitted, {}, stop);
+    WorkerLimits limits;
+    limits.memory_bytes = 1024ull * 1024 * 1024;
+    limits.file_bytes = limit;
+    limits.total_bytes = 320ull * 1024 * 1024;
+    limits.files = 68;
+    limits.seconds = 240;
+    limits.cpu_seconds = 220;
+    run_worker(WorkerKind::Animation, executable, job.path, stop, limits);
+    for (const auto& file : std::filesystem::directory_iterator(job.path)) {
+        ordinary(file.path());
+        require(file.is_regular_file() && expected.erase(file.path().filename().string()) == 1,
+                "Unexpected model converter output");
+    }
+    require(expected.empty(), "Missing model converter output");
+    for (const auto& input : inputs)
+        require(read_bytes(job.path / input.name, limit) == input.bytes,
+                "Model converter changed its immutable input");
+    std::vector<ArtifactFile> result;
+    std::size_t budget = 256 * 1024 * 1024;
+    for (const auto& name : outputs) {
+        require(!stop.stop_requested(), "Model converter output collection cancelled");
+        auto bytes = read_bytes(job.path / name, std::min(limit, budget));
+        budget -= bytes.size();
+        result.push_back({name, std::move(bytes)});
+    }
+    return result;
 }
 ImportProcessRequest read_import_process_request(const std::filesystem::path& staging,
                                                  WorkerLimits limits) {

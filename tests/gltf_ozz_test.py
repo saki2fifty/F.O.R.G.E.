@@ -47,8 +47,7 @@ def run(name, nodes, channels, expected, skins=None):
     (work / "input.gltf").write_text(json.dumps(doc))
     (work / "expected.json").write_text(json.dumps(expected))
     subprocess.run([str(test), "prepare", str(work)], check=True, timeout=20)
-    subprocess.run([str(converter), "--file=source.gltf", "--config_file=config.json"], cwd=work,
-                   check=True, timeout=20, capture_output=True)
+    subprocess.run([str(test), "convert", str(work), str(converter)], check=True, timeout=30, capture_output=True)
     subprocess.run([str(test), "verify", str(work)], check=True, timeout=20)
     return json.loads((work / "metadata.json").read_text())
 
