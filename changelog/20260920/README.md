@@ -677,3 +677,10 @@
   process-specific recovery session identity; initial failures are retained in logs.
 - Updated animation/model manuals and resource/timing contracts. Model scene
   instantiation and GPU deformation remain required Phase7 work; no numbered ZIP.
+
+- Follow-up Windows compilation reached model publication and found the same
+  reversed string/JSON pattern in converter-provenance comparison. Corrected it
+  and reviewed every added comparison since the preceding passing Windows source
+  audit. Exact nlohmann3.12 C++20 operators accept nonscalar conversion on the
+  JSON-left side; FORGE now uses that supported ordering. Rebuilt model recipe
+  passed in20.55seconds. Windows rerun pending.

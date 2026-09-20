@@ -17,7 +17,7 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
             bundle.hierarchy.at("animation").at("provenance").at("converter_sha256");
         if (c.input.importer_revision != asset_detail::model_recipe_revision() ||
             !c.input.tool_revisions.contains("gltf2ozz") ||
-            c.input.tool_revisions.at("gltf2ozz") != digest ||
+            digest != c.input.tool_revisions.at("gltf2ozz") ||
             !plan.data.at("animation").get<bool>() || digest != plan.data.at("converter_sha256"))
             throw std::runtime_error("Model animation provenance differs from prepared recipe");
     } else if (plan.data.at("animation").get<bool>())
