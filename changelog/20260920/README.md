@@ -519,3 +519,29 @@
   in36.80s; rebuilt model/textureCLI and worker regression4/4 passed in7.20s.
   Manual3/3 and formatting passed. Windows validation for this increment is pending.
   No intermediate numbered package; complete Phase7 implementation continues.
+
+
+### Model skeletal conversion admission
+
+- Added bounded canonical animation input for the official pinned gltf2ozz tool,
+  preserving required ancestors, unique transient joint lookup names, expected
+  native joint order and rest matrices. Source files and authored ECS identities
+  remain unchanged.
+- Corrected matrix-authored fallback rest channels in FORGE's private input without
+  patching Ozz. Kept signed/zeroTRS explicit and distinguished asset rig numeric
+  admission from ECS LocalScale write limits.
+- Preserved morph curves separately and retained their clip duration even when all
+  rig transform channels are already animated. Constant time-zero clips use an
+  explicit1second duration; cubic tail extension preserves preceding derivatives.
+- Added converter-output rejection for mismatched joint order/parents/rest values,
+  clip count/duration, malformed archives and unexpected files. Exact converter
+  execution and actual admitted sampling cover matrix rest fallback, signed/zero
+  scale, morph timing, constant clips and the separate Ozz rest numeric range.
+- Whole-model worker composition, resource binding and GPU skinning remain in
+  progress; this internal stage is not a completed animated-model workflow.
+- Windows model-worker source6f81e11 audit35512121158 passed29/29 in20.93s.
+  The skeletal converter/admission tests passed2/2 normally(0.27s) and2/2
+  under strictASan/UBSan/LSan(3.59s). The first sanitizer attempt found a
+  missing converter executable; configuring the existing exact-pin converter
+  resolved that test setup issue. Manual3/3, formatting and workflow checks passed.
+  Windows validation of this new stage remains pending.

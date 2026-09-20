@@ -3,9 +3,11 @@
 #include <array>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 namespace forge::animation_detail {
 inline constexpr const char* ozz_revision = "744eb9d99f606eda849acb0b1204f7a3dc20bca1";
+using Matrix = std::array<float, 16>; // Column-major, skeleton model space.
 // Instances can only be constructed through admission. Immutable after construction.
 class Skeleton {
   public:
@@ -13,6 +15,9 @@ class Skeleton {
     ~Skeleton();
     Skeleton(const Skeleton&) = delete;
     const ArchiveInfo& info() const { return info_; }
+    std::vector<std::string> joint_names() const;
+    // Evaluated through native LocalToModelJob after archive admission.
+    std::vector<Matrix> rest_pose() const;
 
   private:
     friend class Sampler;
@@ -33,7 +38,6 @@ class Clip {
     std::unique_ptr<Impl> impl_;
     ArchiveInfo info_;
 };
-using Matrix = std::array<float, 16>; // Column-major, skeleton model space.
 class Sampler {
   public:
     explicit Sampler(std::shared_ptr<const Skeleton>, std::shared_ptr<const Clip>);

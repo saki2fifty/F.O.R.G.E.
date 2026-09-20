@@ -32,6 +32,11 @@ int main(int argc, char** argv) {
         Sampler sampler(skeleton, clip);
         check(skeleton->info().tracks == 2 && clip->info().duration == 1,
               "Unexpected official fixture");
+        check(skeleton->joint_names() == std::vector<std::string>{"Root", "Joint"},
+              "Admitted native joint ordering changed");
+        const auto rest = skeleton->rest_pose();
+        check(rest.size() == 2 && rest[0][13] == 0 && rest[1][13] == 1,
+              "Native rest pose disagrees with admitted skeleton hierarchy");
         // Reuse the same sampling context, including backward seeks and discontinuities.
         for (float ratio : {0.f, .5f, 1.f, .1f, .9f, 0.f}) {
             auto pose = sampler.sample(ratio);

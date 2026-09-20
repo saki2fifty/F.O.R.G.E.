@@ -48,9 +48,18 @@ target_link_libraries(forge_gltf_native PUBLIC forge_assets forge_mesh forge_mat
 if(WIN32)
  target_compile_definitions(forge_gltf_native PRIVATE NOMINMAX)
 endif()
-add_library(forge_model_cook STATIC src/gltf_model_cook.cpp)
-target_link_libraries(forge_model_cook PUBLIC forge_model_pipeline PRIVATE forge_gltf_native forge_texture_import forge_texture_ktx)
+add_library(forge_model_cook STATIC src/gltf_model_cook.cpp src/gltf_ozz_transport.cpp)
+target_link_libraries(forge_model_cook PUBLIC forge_model_pipeline PRIVATE forge_gltf_native forge_texture_import forge_texture_ktx forge_core)
+add_library(forge_model_animation STATIC src/model_animation.cpp)
+target_link_libraries(forge_model_animation PUBLIC forge_assets PRIVATE forge_animation_admission)
 if(BUILD_TESTING)
+ set(FORGE_TEST_ANIMATION_CONVERTER "$<TARGET_FILE:gltf2ozz>" CACHE STRING "Official converter used for animation tests; unsanitized worker for bounded-process sanitizer tests")
+ add_executable(forge_gltf_ozz_tests tests/gltf_ozz_tests.cpp)
+ target_include_directories(forge_gltf_ozz_tests PRIVATE src)
+ target_link_libraries(forge_gltf_ozz_tests PRIVATE forge_model_cook forge_gltf_native forge_animation_admission forge_model_animation)
+ add_test(NAME gltf_ozz COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/gltf_ozz_test.py
+  ${FORGE_TEST_ANIMATION_CONVERTER} $<TARGET_FILE:forge_gltf_ozz_tests> ${CMAKE_BINARY_DIR}/gltf-ozz-tests)
+ set_tests_properties(gltf_ozz PROPERTIES TIMEOUT 90)
  add_executable(forge_model_bundle_tests tests/model_bundle_tests.cpp)
  target_include_directories(forge_model_bundle_tests PRIVATE src)
  target_link_libraries(forge_model_bundle_tests PRIVATE forge_model_cook forge_gltf_native)
@@ -158,7 +167,7 @@ foreach(source
  src/gltf_source.cpp src/gltf_accessors.cpp src/gltf_validation.hpp src/gltf_snapshot.hpp src/gltf_snapshot.cpp
  src/model_scene_values.hpp src/model_scene_values.cpp src/gltf_scene.hpp src/gltf_scene.cpp
  src/model_bundle.hpp src/model_bundle.cpp src/model_importer.hpp src/model_importer.cpp src/model_worker.cpp
- src/gltf_model_cook.hpp src/gltf_model_cook.cpp src/gltf_native.hpp src/gltf_native.cpp
+ src/gltf_model_cook.hpp src/gltf_model_cook.cpp src/gltf_ozz_transport.hpp src/gltf_ozz_transport.cpp src/gltf_native.hpp src/gltf_native.cpp
  src/gltf_meshopt.hpp src/gltf_meshopt.cpp src/gltf_draco.hpp src/gltf_draco.cpp
  src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp
  src/gltf_surfaces.hpp src/gltf_surfaces.cpp src/mesh_processing.hpp src/mesh_processing.cpp

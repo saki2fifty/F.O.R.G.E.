@@ -176,3 +176,47 @@ Evidence: [glTF camera specification at the selected revision](https://github.co
 [node visibility](https://github.com/KhronosGroup/glTF/tree/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Khronos/KHR_node_visibility),
 [node selectability](https://github.com/KhronosGroup/glTF/tree/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Khronos/KHR_node_selectability),
 and[DiligentFX PBR normal handling](https://github.com/DiligentGraphics/DiligentFX/blob/aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da/Shaders/PBR/public/PBR_Shading.fxh).
+
+
+## Canonical skeletal converter input
+
+The private model animation adapter retains skin joints, animation targets and
+all required ancestors in one bounded conversion rig (up to1024nodes and64clips).
+Generated unique converter names identify only candidate-local nodes. They never
+become EntityIds or durable subasset correspondence keys. Native depth-first joint
+order, parent indices and model-space rest matrices must match the source-derived
+plan after safe archive admission. Clips must match skeleton track count and source
+duration; sampled model matrices must remain finite.
+
+The exact Ozz0.17.0 converter reads unanimated fallback channels from nodeTRS even
+when its skeleton loader reads a node matrix. FORGE therefore decomposes admitted
+matrix-authored rest transforms into explicitTRS **only in its private converter
+input**. Explicit signed/zeroTRS stays explicit; original source bytes remain intact.
+The conversion rig uses the existing bounded Ozz rest profile(abs<=65504), distinct
+from editable ECS LocalScale(abs<=10000). Matrix normalization before the shared
+TRS decomposition helper avoids accidentally imposing the ECS limit on asset data.
+ECS realization still requires its own authored-transform representability checks.
+
+Transform tracks use the official converter's STEP/LINEAR/CUBICSPLINE handling.
+Cubic interpolation is sampled at the configured rate; it is not an exact native
+cubic runtime curve. Morph curves retain original times, values and derivatives in
+separate private metadata because the pinned converter does not import weights.
+When morph channels run longer, FORGE extends a transform channel with its final
+clamped value. For cubic tracks, only the outgoing derivative beyond the original
+last key is replaced by zero, and a constant endpoint is appended; preceding
+segments retain their derivatives. Morph-only clips receive an unanimated rest
+channel. A clip whose only key is at time zero uses an explicit constant duration
+(default1second) because Ozz requires positive duration. No helper gameplay entity
+or artificial skeleton joint is created to carry time.
+
+The adapter bounds decoded animation inputs to64MiB before native decoding, binary
+converter input to16MiB, plan/JSON files to16MiB each, and morph metadata expansion
+before allocating its JSON arrays. Existing archive limits remain16MiB each with
+bounded joints, keys and numerical values. Output validation allows at most256MiB
+for a rig and its clips, rejects unexpected/duplicate/missing files, and admits
+archives before calling the runtime. These internal stages are tested with the
+actual pinned converter; whole-model worker composition and runtime skinning are
+still required integration work, not completed by these adapter tests.
+
+Evidence: [Ozz converter at the selected pin](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/gltf/gltf2ozz.cc),
+[skeleton builder](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/skeleton_builder.cc).

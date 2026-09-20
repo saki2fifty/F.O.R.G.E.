@@ -68,6 +68,30 @@ Skeleton::Skeleton(std::span<const std::byte> bytes) {
         throw ArchiveError("Ozz skeleton count mismatch");
 }
 Skeleton::~Skeleton() = default;
+std::vector<std::string> Skeleton::joint_names() const {
+    std::vector<std::string> result;
+    for (const auto* name : impl_->value.joint_names())
+        result.emplace_back(name);
+    return result;
+}
+std::vector<Matrix> Skeleton::rest_pose() const {
+    std::vector<ozz::math::Float4x4> matrices(info_.tracks);
+    ozz::animation::LocalToModelJob job;
+    job.skeleton = &impl_->value;
+    job.input = impl_->value.joint_rest_poses();
+    job.output = ozz::make_span(matrices);
+    if (!job.Run())
+        throw ArchiveError("Ozz rest pose evaluation failed");
+    std::vector<Matrix> result(matrices.size());
+    for (std::size_t i = 0; i < matrices.size(); ++i) {
+        for (unsigned c = 0; c < 4; ++c)
+            ozz::math::StorePtrU(matrices[i].cols[c], result[i].data() + c * 4);
+        for (auto value : result[i])
+            if (!std::isfinite(value))
+                throw ArchiveError("Skeleton rest model pose is not finite");
+    }
+    return result;
+}
 Clip::Clip(std::span<const std::byte> bytes) {
     info_ = validate_archive(bytes, ArchiveKind::Animation);
     impl_ = std::make_unique<Impl>();
