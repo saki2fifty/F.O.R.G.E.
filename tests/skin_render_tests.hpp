@@ -68,7 +68,7 @@ void check_skin_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        Viewport viewport{0.f, 0.f, 64.f, 64.f, 0.f, 1.f};
+        Diligent::Viewport viewport{0.f, 0.f, 64.f, 64.f, 0.f, 1.f};
         context->SetViewports(1, &viewport, 64, 64);
         if (depth_only) {
             context->SetRenderTargets(0, nullptr, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
