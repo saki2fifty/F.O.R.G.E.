@@ -192,3 +192,22 @@
 - Strict ASan/UBSan/LSan regressions pass3/3 in78.05s with leak detection enabled.
   Keep Scene frame/fit actions from operating on runtime snapshots while Game is
   also visible. Manual3/3 and formatting checks pass; native pixel tests remain pending.
+
+### Native resource rebinding correction
+
+- Windows source audit558e5ba passed36/37 tests. The viewport test reached native
+  rendering and failed its first environment-lighting pixel assertion; captured
+  output was black. Later sky and display assertions were not reached.
+- Correct FORGE's environment texture bindings from Diligent assign-once mutable
+  variables to dynamic variables. The pinned D3D12 implementation deliberately
+  ignores reassignment of an already-bound mutable resource. Dynamic bindings also
+  preserve in-flight descriptor lifetime during replacement.
+- Apply the same correction to the HDR display input and add a real source-identity
+  switch/resize/return regression. Uniform buffers that retain the same identity
+  remain mutable. No unsafe overwrite flags or vendor patches are introduced.
+- Exact-source review and GPU capture identify this as a FORGE integration error.
+  Corrected native execution remains pending; the prior unnumbered camera audit
+  will be superseded because it contains the same binding defect.
+- Corrected binding code and the resize regression pass the full local native C++
+  syntax harness. Formatting and whitespace checks pass. These checks do not replace
+  the queued D3D12 pixel and SDK execution checks.

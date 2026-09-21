@@ -84,6 +84,17 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     GraphicsPipelineStateCreateInfo ci;
     ci.PSODesc.Name = "FORGE prepared mesh draw";
     ci.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    // Environment revisions change on a live SRB. Mutable means set-once in
+    // Diligent; dynamic bindings are copied safely for each committed draw.
+    const ShaderResourceVariableDesc environment_variables[]{
+        {SHADER_TYPE_PIXEL, "g_ForgeDiffuse", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ForgeSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ForgeCharlie", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+    if (lit) {
+        ci.PSODesc.ResourceLayout.Variables = environment_variables;
+        ci.PSODesc.ResourceLayout.NumVariables = program.sheen ? 3u : 2u;
+    }
+
     ci.pVS = vertex;
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;

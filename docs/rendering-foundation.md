@@ -572,3 +572,10 @@ retained for compatibility tests until migration/visual acceptance is complete.
 
 Phase7 provides reusable frame composition and cooked runtime asset contracts. The
 full standalone exporter remains future work under the explicit phase scope.
+
+
+Live environment-map and display-input SRVs use Diligent **dynamic** resource
+variables. Diligent **mutable** means assign once per shader-resource binding;
+it does not permit ordinary live replacement. Fixed buffer identities remain
+mutable while their mapped contents change. Do not use an unsynchronized mutable
+`ALLOW_OVERWRITE` to replace an in-flight environment or resized HDR target.

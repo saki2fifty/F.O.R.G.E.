@@ -35,6 +35,19 @@ void check_display_resolve(forge::DiligentPresentation& presentation,
             "HDR values were clamped before tone mapping");
     require(render({0, 0, 0, 1}, 0)[0] == std::array<unsigned char, 4>{0, 0, 0, 255},
             "Black HDR input generated a tone-mapping singularity");
+
+    // The source identity changes when a viewport resizes, even if the same
+    // display owner is retained. Rebinding must not sample the original texture.
+    auto original = hdr;
+    desc.Width = desc.Height = 16;
+    presentation.device()->CreateTexture(desc, nullptr, &hdr);
+    require(bool(hdr), "Replacement HDR fixture allocation failed");
+    const auto red = render({.6f, .02f, .01f, 1}, 0);
+    require(red.size() == 16 * 16 && red[0][0] > red[0][1] + 100,
+            "Display resolve retained an old HDR binding after resize");
+    hdr = original;
+    const auto restored = render({.18f, .18f, .18f, 1}, 0);
+    require(restored == gray, "Display source binding did not return to the original target");
     auto* previous = display.output();
     bool rejected = false;
     try {

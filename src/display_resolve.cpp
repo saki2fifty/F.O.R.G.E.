@@ -44,6 +44,11 @@ float4 main(float4 position:SV_Position):SV_Target0 {
     GraphicsPipelineStateCreateInfo ci;
     ci.PSODesc.Name = "FORGE HDR to display";
     ci.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    const ShaderResourceVariableDesc input{SHADER_TYPE_PIXEL, "g_HDR",
+                                           SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+    ci.PSODesc.ResourceLayout.Variables = &input;
+    ci.PSODesc.ResourceLayout.NumVariables = 1;
+
     ci.GraphicsPipeline.NumRenderTargets = 1;
     ci.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
     ci.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
