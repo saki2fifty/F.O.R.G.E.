@@ -359,9 +359,9 @@ components take precedence over legacy Primitive/Tint for that entity.
 Project changes release scene bundles before replacing the host. Texture-import
 publication feeds its admitted catalog snapshot to the host. External model reimport
 watching and model import UI still require their shared publication connection.
-The current host uses RGBA8/D32 targets; HDR, transparent pass ordering, shadow/IBL,
-advanced material and deformation consumers, authored Game cameras and standalone
-presentation remain unfinished Phase7 work. This connection does not declare the
+The editor now selects linear RGBA16F/D32 targets and the display resolve described
+below. Shadow/IBL, remaining material/deformation consumers, authored Game cameras
+and standalone presentation remain unfinished Phase7 work. This connection does not declare the
 production renderer complete or imply unvalidated Windows acceptance.
 
 Punctual-light numerical admission first recognizes a valid zero contribution when
@@ -412,3 +412,40 @@ for iridescence, sheen and anisotropy. Verified2026-09-21. Native FXC/WARP execu
 of these new consumers remains pending; local compilation is not GPU acceptance.
 Transmission, volume/dispersion and the HDR/IBL/shadow pass connections remain
 ongoing work in the authorized batch.
+
+### Queues and HDR display — native validation in progress
+
+Visible mesh parts enter distinct opaque, masked and blended queues. Opaque/masked
+parts group by reflection parity, material and mesh identity. Blended parts sort by
+camera-forward depth of their current transformed bounds, descending, before state
+locality. Persistent EntityId and part number break ties deterministically; extraction
+or native entity allocation order is not the draw order. Per-part culling follows
+coarse mesh culling and the selected LOD. Imported glTF BLEND disables depth writes,
+retains depth testing and uses straight-alpha composition. Conventional part-level
+sorting cannot correctly resolve every intersecting transparent surface or cyclic
+overlap; order-independent transparency is not implemented.
+
+Editor Scene and current Game preview color targets are linear RGBA16F with D32
+depth. The reusable `DisplayResolve` calls the pinned Diligent `ToneMapping.fxh`
+PBR Neutral operator, applies manual exposure as `2^EV`, then calls native
+`LinearToSRGB` once. The resulting RGBA8_UNORM display image contains encoded sRGB
+values; the current ImGui/UNORM swapchain presentation performs no second transfer.
+The grid and other editor overlays are composed after this resolve. The legacy
+LDR viewport construction remains available for existing regression comparisons.
+
+The half-float lighting target represents finite magnitudes through65504. The
+resolve diagnoses nonfinite lighting/exposure results with magenta instead of
+propagating them into display output. Authoring values are not rewritten. This
+is SDR display from HDR lighting, not an HDR-monitor output mode. Target resize
+stages replacement resources before releasing the previous textures.
+
+The Scene View exposure preference is independent of authored cameras and game
+settings. It persists with the existing personal editor preferences and invalidates
+the retained frame. Useful UI range is[-20,+20]EV; the backend separately validates
+finite representability. Automatic eye adaptation is not enabled.
+
+Exact mapper evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
+`Shaders/PostProcess/ToneMapping/public/{ToneMapping,ToneMappingStructures}.fxh`
+and `Shaders/Common/public/SRGBUtilities.fxh`, verified2026-09-21. Local16-stage
+shader compilation, native C++ syntax and normal/strict-sanitizer queue tests pass;
+FXC/WARP validation of these changes is pending.

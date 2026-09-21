@@ -33,6 +33,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
     default_material.model = "forge.gltf.metallic-roughness.v1";
     for (const auto& lod : mesh_.get().lods) {
         auto& output = lods_.emplace_back();
+        auto& info = info_.emplace_back();
         for (const auto& part : lod.parts) {
             const auto& binding = *bindings.at(part.material_slot);
             const MaterialData* values = &default_material;
@@ -50,6 +51,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             }
             output.push_back(std::make_unique<MeshDraw>(presentation, context, part, *values,
                                                         native_textures, color, depth));
+            info.push_back({values->alpha, binding.material.id, part.bounds});
         }
     }
 }
@@ -58,13 +60,19 @@ void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransfo
                           unsigned lod) {
     if (lod >= lods_.size())
         throw std::runtime_error("Mesh draw LOD is outside the prepared candidate");
+    for (unsigned part = 0; part < lods_[lod].size(); ++part)
+        draw_part(context, world, camera, lights, lod, part);
+}
+void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTransform& world,
+                               const CameraView& camera, std::span<const LightView> lights,
+                               unsigned lod, unsigned part) {
+    auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
     for (const auto& [key, texture] : textures_) {
         (void)key;
         (void)texture.get();
     }
-    for (const auto& part : lods_[lod])
-        part->draw(context, world, camera, lights);
+    selected->draw(context, world, camera, lights);
 }
 } // namespace forge

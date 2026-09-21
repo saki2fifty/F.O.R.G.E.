@@ -4,7 +4,7 @@
 namespace forge::ui {
 struct SceneTools {
     bool move_tool = true, grid = true, snap = false;
-    float snap_step = 1, grid_step = 1, fly_speed = 5;
+    float snap_step = 1, grid_step = 1, fly_speed = 5, exposure = 0;
     MoveGesture move;
     ImVec2 press{}, drag_size{};
     bool dragged = false;

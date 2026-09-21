@@ -94,3 +94,17 @@ draws are not yet connected. The Game
 preview still uses its existing rendering path. Model placement, mesh picking and
 production render controls remain part of the ongoing integration; importing a file
 alone does not place an object in the scene. See [Models](models.md).
+
+## Brightness and transparent materials
+
+Open the Scene **View** menu and adjust **Exposure** to brighten or darken the
+preview. A value of **+1 EV** doubles the light; **-1 EV** halves it. **0 EV** restores
+the default. This personal preference is saved between editor sessions and does not
+change authored objects or game cameras. The grid and selection overlays keep their
+normal colors.
+
+The viewport keeps bright lighting values in an HDR target, then uses PBR Neutral
+tone mapping for the display. Blended imported materials render after solid and
+cutout materials, from far to near. Intersecting transparent surfaces can still show
+sorting artifacts; this is conventional transparency, not order-independent rendering.
+These new display and queue paths are undergoing Windows rendering validation.

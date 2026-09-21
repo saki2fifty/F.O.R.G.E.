@@ -1,5 +1,6 @@
 #include "mesh_render_host.hpp"
 #include "mesh_draw_shader.hpp"
+#include "render_sort.hpp"
 #include <set>
 namespace forge {
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
@@ -37,8 +38,9 @@ void MeshResourceHost::submit() {
     gpu_meshes_.submit();
     gpu_textures_.submit();
 }
-MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host)
-    : host_(std::move(host)) {
+MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
+                                     Diligent::TEXTURE_FORMAT color)
+    : host_(std::move(host)), color_(color) {
     if (!host_)
         throw std::runtime_error("Mesh scene requires a presentation resource host");
 }
@@ -109,8 +111,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     }
                     auto native = std::make_unique<MeshDrawBundle>(
                         host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
-                        host_->gpu_textures_, Diligent::TEX_FORMAT_RGBA8_UNORM,
-                        Diligent::TEX_FORMAT_D32_FLOAT);
+                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT);
                     entry.ready = std::move(native);
                     entry.bounds = bounds;
                     entry.thresholds = std::move(thresholds);
@@ -145,6 +146,18 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     host_->check_thread();
     if (scene.scene != scene_)
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
+    struct Object {
+        const RenderMesh* mesh;
+        MeshDrawBundle* bundle;
+        unsigned lod;
+        std::vector<LightView> lights;
+    };
+    struct Item {
+        RenderSortKey key;
+        std::size_t object;
+    };
+    std::vector<Object> objects;
+    std::vector<Item> queue;
     for (const auto& mesh : scene.meshes) {
         if (!(mesh.renderer.layers & layers))
             continue;
@@ -152,6 +165,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         if (found == entries_.end() || !found->second.ready)
             continue;
         auto& entry = found->second;
+        const auto queue_start = queue.size();
         try {
             const auto bounds = transform_bounds(entry.bounds, mesh.world);
             if (!bounds_visible(bounds, camera))
@@ -161,17 +175,45 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (unsigned i = 0; i < entry.thresholds.size(); ++i)
                 if (coverage <= entry.thresholds[i])
                     lod = i;
-            std::vector<LightView> lights;
+            Object object{&mesh, entry.ready.get(), lod, {}};
             for (const auto& light : scene.lights)
                 if (light.light.layers & mesh.renderer.layers & layers) {
-                    if (lights.size() == mesh_draw_light_limit)
+                    if (object.lights.size() == mesh_draw_light_limit)
                         throw std::runtime_error(
                             "Visible light list exceeds the current draw profile");
-                    lights.push_back(light.light);
+                    object.lights.push_back(light.light);
                 }
-            entry.ready->draw(host_->context_, mesh.world, camera, lights, lod);
+            const auto parts = entry.ready->parts(lod);
+            for (unsigned i = 0; i < parts.size(); ++i) {
+                const auto& part = parts[i];
+                const auto part_bounds = transform_bounds(part.bounds, mesh.world);
+                if (!bounds_visible(part_bounds, camera))
+                    continue;
+                RenderSortKey key{part.alpha,
+                                  transform_parity(mesh.world),
+                                  part.material,
+                                  entry.ready->mesh_identity().asset,
+                                  bounds_camera_depth(part_bounds, camera),
+                                  mesh.entity,
+                                  i};
+                validate_render_key(key);
+                queue.push_back({key, objects.size()});
+            }
+            objects.push_back(std::move(object));
         } catch (const std::exception& e) {
+            queue.resize(queue_start);
             report(mesh.entity, e.what());
+        }
+    }
+    std::sort(queue.begin(), queue.end(),
+              [](const auto& a, const auto& b) { return render_key_less(a.key, b.key); });
+    for (const auto& item : queue) {
+        const auto& object = objects[item.object];
+        try {
+            object.bundle->draw_part(host_->context_, object.mesh->world, camera, object.lights,
+                                     object.lod, item.key.part);
+        } catch (const std::exception& e) {
+            report(object.mesh->entity, e.what());
         }
     }
 }

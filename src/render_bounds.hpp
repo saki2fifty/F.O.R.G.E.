@@ -10,6 +10,7 @@ struct RenderBounds {
 RenderBounds transform_bounds(const MeshBounds&, const AffineTransform&);
 // Projection is the actual admitted camera projection, not a second camera model.
 bool bounds_visible(const RenderBounds&, const CameraView&);
+double bounds_camera_depth(const RenderBounds&, const CameraView&);
 // Conservative projected diameter relative to viewport height, clamped [0,1].
 // A box crossing the eye plane selects full detail without division through zero.
 float bounds_screen_coverage(const RenderBounds&, const CameraView&);

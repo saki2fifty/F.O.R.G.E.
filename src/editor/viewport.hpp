@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "display_resolve.hpp"
 #include "mesh_render_host.hpp"
 #include "presentation_diligent.hpp"
 #include "scene_cache.hpp"
@@ -12,9 +13,16 @@ namespace forge {
 class Viewport {
   public:
     std::uint64_t redraws = 0, retained = 0;
-    explicit Viewport(DiligentPresentation& presentation);
+    explicit Viewport(DiligentPresentation& presentation, bool hdr = false);
+    void exposure(float ev) {
+        if (exposure_ != ev) {
+            exposure_ = ev;
+            frame_.reset();
+        }
+    }
     void resources(std::shared_ptr<MeshResourceHost> host) {
-        meshes_ = host ? std::make_unique<MeshSceneRenderer>(std::move(host)) : nullptr;
+        meshes_ =
+            host ? std::make_unique<MeshSceneRenderer>(std::move(host), color_format_) : nullptr;
         mesh_scene_.reset();
         frame_.reset();
     }
@@ -24,6 +32,9 @@ class Viewport {
                                    std::uint64_t generation, bool live, GridSettings grid = {});
 
   private:
+    Diligent::TEXTURE_FORMAT color_format_;
+    std::unique_ptr<DisplayResolve> display_;
+    float exposure_ = 0;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     std::optional<RenderScene> mesh_scene_;
     std::uint64_t mesh_generation_ = 0;

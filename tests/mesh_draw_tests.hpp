@@ -1,7 +1,9 @@
 #pragma once
 #include "mesh_draw.hpp"
 #include "mesh_draw_bundle.hpp"
-void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDeviceContext* context) {
+#include "render_sort.hpp"
+void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                     const std::filesystem::path& images) {
     using namespace Diligent;
     forge::MeshPart part;
     part.vertices = 4;
@@ -56,6 +58,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         return readback(presentation.device(), context, rtv);
     };
     const auto reference = render(draw);
+    save(reference, 32, 32, images / "mesh-prepared-positive.ppm");
     require(reference[16 * 32 + 16] == std::array<unsigned char, 4>{51, 153, 26, 255} ||
                 reference[16 * 32 + 16] == std::array<unsigned char, 4>{51, 153, 25, 255},
             "Prepared unlit mesh did not render with camera-relative placement");
@@ -134,6 +137,47 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     require(render(draw) == reference, "Camera image flip broke face culling");
     camera.flip_y = false;
     view = forge::camera_view(camera, camera_world, 32, 32);
+    {
+        auto blended = material;
+        blended.alpha = forge::MaterialAlpha::Blend;
+        blended.depth_write = false;
+        blended.parameters["baseColorFactor"].value = {1, 0, 0, .5f};
+        forge::MeshDraw red(presentation, context, gpu.lods[0].parts[0], blended, {},
+                            TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        blended.parameters["baseColorFactor"].value = {0, 0, 1, .5f};
+        forge::MeshDraw blue(presentation, context, gpu.lods[0].parts[0], blended, {},
+                             TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        forge::RenderSortKey near, far;
+        near.alpha = far.alpha = forge::MaterialAlpha::Blend;
+        near.depth = 1.5;
+        far.depth = 2;
+        std::vector<forge::RenderSortKey> queue{near, far};
+        std::sort(queue.begin(), queue.end(), forge::render_key_less);
+        world.m[11] = 3;
+        render(draw);
+        // Readback changes resource states; bind the render targets again.
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        for (const auto& item : queue) {
+            world.m[11] = item.depth;
+            (item.depth == 2 ? red : blue).draw(context, world, view, {});
+        }
+        auto image = readback(presentation.device(), context, rtv);
+        auto value = image[16 * 32 + 16];
+        require(std::abs(int(value[0]) - 77) <= 2 && std::abs(int(value[1]) - 38) <= 2 &&
+                    std::abs(int(value[2]) - 134) <= 2 && value[3] == 255,
+                "Sorted straight-alpha layers did not compose over opaque depth");
+        auto masked = material;
+        masked.alpha = forge::MaterialAlpha::Mask;
+        masked.parameters["baseColorFactor"].value = {1, 1, 1, .4f};
+        forge::MeshDraw mask(presentation, context, gpu.lods[0].parts[0], masked, {},
+                             TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        world.m[11] = 1;
+        mask.draw(context, world, view, {});
+        require(readback(presentation.device(), context, rtv) == image,
+                "Masked alpha below cutoff wrote color/depth");
+        world.m[11] = 2;
+    }
     material.model = "forge.gltf.metallic-roughness.v1";
     material.parameters["metallicFactor"] = {forge::MaterialParameterType::Scalar, {0}};
     material.parameters["roughnessFactor"] = {forge::MaterialParameterType::Scalar, {.7f}};
@@ -151,6 +195,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
             "Native PBR material/light binding failed or produced diagnostic color");
     world.m[0] = -1;
     const auto reflected = render(lit, std::span(&light, 1));
+    save(reflected, 32, 32, images / "mesh-pbr-reflected.ppm");
     require(reflected == illuminated, "Signed surface normal changed reflected PBR illumination");
     world.m[0] = 1;
     world.m[10] = 0;
@@ -164,6 +209,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     forge::MeshDraw coated(presentation, context, gpu.lods[0].parts[0], coated_material, {},
                            TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     const auto coating = render(coated, std::span(&light, 1));
+    save(coating, 32, 32, images / "mesh-clearcoat.ppm");
     const auto coated_pixel = coating[16 * 32 + 16];
     require(coated_pixel != illuminated[16 * 32 + 16] &&
                 coated_pixel != std::array<unsigned char, 4>{255, 0, 255, 255},
@@ -182,6 +228,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     forge::MeshDraw film(presentation, context, gpu.lods[0].parts[0], film_material, {},
                          TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     const auto film_image = render(film, std::span(&light, 1));
+    save(film_image, 32, 32, images / "mesh-iridescence.ppm");
     require(film_image[16 * 32 + 16] != pixel &&
                 film_image[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
             "Iridescence did not change the native reflection response");
@@ -199,6 +246,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     forge::MeshDraw sheen(presentation, context, gpu.lods[0].parts[0], sheen_material, {},
                           TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     const auto sheen_image = render(sheen, std::span(&light, 1));
+    save(sheen_image, 32, 32, images / "mesh-sheen.ppm");
     require(sheen_image[16 * 32 + 16] != pixel &&
                 sheen_image[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
             "Sheen factor/roughness/native lookup did not affect the base layer");
@@ -249,6 +297,8 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
                                   anisotropic_material, {}, TEX_FORMAT_RGBA8_UNORM,
                                   TEX_FORMAT_D32_FLOAT);
     const auto rotated = render(rotated_aniso, std::span(&light, 1));
+    save(directional, 32, 32, images / "mesh-anisotropy.ppm");
+    save(rotated, 32, 32, images / "mesh-anisotropy-rotated.ppm");
     require(directional[16 * 32 + 16] != rotated[16 * 32 + 16] &&
                 rotated[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
             "Anisotropy direction/rotation did not reach native shading");

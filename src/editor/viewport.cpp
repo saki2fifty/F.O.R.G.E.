@@ -5,7 +5,10 @@
 #include <stdexcept>
 using namespace Diligent;
 namespace forge {
-Viewport::Viewport(DiligentPresentation& presentation) : device_(presentation.device()) {
+Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
+    : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),
+      display_(hdr ? std::make_unique<DisplayResolve>(presentation) : nullptr),
+      device_(presentation.device()) {
     const char* vs = R"(
 cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; float4 axisX; float4 axisY; float4 axisZ; float4 tint; float4 normalX; float4 normalY; float4 normalZ; };
 struct Out { float4 position : SV_POSITION; float3 color : COLOR0; };
@@ -45,7 +48,7 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     pso.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
     pso.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
     pso.GraphicsPipeline.NumRenderTargets = 1;
-    pso.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
+    pso.GraphicsPipeline.RTVFormats[0] = color_format_;
     pso.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
     pso.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     pso.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
@@ -169,25 +172,26 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     // materials/effects must also opt out of retained EDIT frames.
     if (!live && frame_ && *frame_ == key) {
         ++retained;
-        return color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        return display_ ? display_->output() : color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     }
     if (!color_ || color_->GetDesc().Width != width || color_->GetDesc().Height != height) {
-        color_.Release();
-        depth_.Release();
+        RefCntAutoPtr<ITexture> color, depth;
         TextureDesc t;
         t.Name = "FORGE scene viewport";
         t.Type = RESOURCE_DIM_TEX_2D;
         t.Width = width;
         t.Height = height;
-        t.Format = TEX_FORMAT_RGBA8_UNORM;
+        t.Format = color_format_;
         t.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-        device_->CreateTexture(t, nullptr, &color_);
+        device_->CreateTexture(t, nullptr, &color);
         t.Name = "FORGE scene depth";
         t.Format = TEX_FORMAT_D32_FLOAT;
         t.BindFlags = BIND_DEPTH_STENCIL;
-        device_->CreateTexture(t, nullptr, &depth_);
-        if (!color_ || !depth_)
+        device_->CreateTexture(t, nullptr, &depth);
+        if (!color || !depth)
             throw std::runtime_error("Viewport allocation failed");
+        color_ = std::move(color);
+        depth_ = std::move(depth);
     }
     auto* rtv = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
@@ -281,6 +285,12 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         context->SetViewports(1, &area, width, height);
         meshes_->draw(*mesh_scene_, view, UINT32_MAX);
     }
+    if (display_) {
+        display_->resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure_);
+        auto* display_target = display_->target();
+        context->SetRenderTargets(1, &display_target, dsv,
+                                  RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
     if (grid.visible) {
         {
             MapHelper<GridConstants> data(context, grid_constants_, MAP_WRITE, MAP_FLAG_DISCARD);
@@ -295,6 +305,6 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     }
     ++redraws;
     frame_ = key;
-    return color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    return display_ ? display_->output() : color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 } // namespace forge

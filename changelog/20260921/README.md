@@ -89,3 +89,19 @@
   still running; these results do not claim Windows validation of later layers.
 - Reflection-layer checkpoint: native C++ syntax checks, all14 local shader stages,
   format and manual3/3 passed. FXC/WARP tests remain pending.
+
+### Scene queues and HDR display
+
+- Sort visible mesh parts into opaque, masked and blended queues. Blended ordering
+  uses camera-relative depth; stable identities break ties. Apply per-part bounds
+  culling and material/mesh/parity locality without changing ECS identity.
+- Render editor lighting into RGBA16F, then resolve through pinned PBR Neutral tone
+  mapping and exactly one sRGB transfer. Composite the grid after tone mapping.
+- Add persistent Scene View Exposure with contextual help. Preserve previous target
+  resources if resize allocation fails; reject invalid display inputs explicitly.
+- Add native transparency/cutout and HDR/exposure regression captures. Local16 shader
+  stages and native C++ syntax pass. CPU queue/bounds tests pass normal1/1 and strict
+  ASan/UBSan/LSan1/1; Windows validation of this increment remains pending.
+- Earlier189051f source audit passed all37/37 Windows editor/render tests in53.16s,
+  including complete GPU bundles, tangent-handedness and resource retirement. It
+  predates advanced reflection layers, queue sorting and HDR display.

@@ -1,4 +1,5 @@
 #include "render_bounds.hpp"
+#include "render_sort.hpp"
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -36,6 +37,7 @@ int main() {
         const auto view = camera_view(camera, {}, 400, 400);
         auto bounds = transform_bounds(unit, world);
         check(bounds_visible(bounds, view), "Visible box culled");
+        check(bounds_camera_depth(bounds, view) == 5, "Sort depth ignored camera basis");
         check(std::abs(bounds_screen_coverage(bounds, view) - .25f) < 1e-6,
               "Perspective bounds use incorrect projected diameter");
         check(!bounds_visible({{-1, -1, -6}, {1, 1, -4}}, view), "Behind-camera box visible");
@@ -70,6 +72,8 @@ int main() {
         pose.rotation = rotation_from_euler({0, 90, 0});
         const auto rotated = camera_view(camera, affine_transform(pose), 400, 400);
         check(bounds_visible({{4, -1, -1}, {6, 1, 1}}, rotated), "Rotated camera culling failed");
+        check(std::abs(bounds_camera_depth({{4, -1, -1}, {6, 1, 1}}, rotated) - 5) < 1e-6,
+              "Rotated camera sort depth used world Z");
         camera.projection = std::uint32_t(CameraProjection::Orthographic);
         camera.orthographic_height = 4;
         const auto orthographic = camera_view(camera, {}, 400, 400);
@@ -87,6 +91,31 @@ int main() {
         check(bounds_visible({{1e12 - 1, 1e12 - 1, 1e12 + 4}, {1e12 + 1, 1e12 + 1, 1e12 + 6}},
                              distant),
               "Camera-relative culling lost a nearby object at a large world origin");
+        check(bounds_camera_depth({{1e12 - 1, 1e12 - 1, 1e12 + 4}, {1e12 + 1, 1e12 + 1, 1e12 + 6}},
+                                  distant) == 5,
+              "Large-origin sorting lost relative depth");
+        const auto first = EntityId::parse("00000000-0000-4000-8000-000000000001");
+        const auto second = EntityId::parse("00000000-0000-4000-8000-000000000002");
+        RenderSortKey opaque, mask, near, far, tied;
+        opaque.entity = second;
+        mask.alpha = MaterialAlpha::Mask;
+        near.alpha = far.alpha = tied.alpha = MaterialAlpha::Blend;
+        near.depth = 2;
+        far.depth = tied.depth = 9;
+        near.entity = far.entity = second;
+        tied.entity = first;
+        std::vector<RenderSortKey> queue{near, far, mask, tied, opaque};
+        for (const auto& key : queue)
+            validate_render_key(key);
+        std::sort(queue.begin(), queue.end(), render_key_less);
+        check(queue == std::vector<RenderSortKey>{opaque, mask, tied, far, near},
+              "Queues ignored opacity/depth/stable identity order");
+        std::reverse(queue.begin(), queue.end());
+        std::sort(queue.begin(), queue.end(), render_key_less);
+        check(queue == std::vector<RenderSortKey>{opaque, mask, tied, far, near},
+              "Render order depends on extraction/allocation order");
+        near.depth = std::numeric_limits<double>::quiet_NaN();
+        rejects([&] { validate_render_key(near); });
         MeshData mesh;
         mesh.lods = {{1, {}}, {.25f, {}}, {.1f, {}}};
         check(select_mesh_lod(mesh, .8f) == 0 && select_mesh_lod(mesh, .25f) == 1 &&

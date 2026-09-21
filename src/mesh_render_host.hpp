@@ -31,7 +31,8 @@ class MeshResourceHost {
 // transforms and values; this cache only retains complete draw-resource bundles.
 class MeshSceneRenderer {
   public:
-    explicit MeshSceneRenderer(std::shared_ptr<MeshResourceHost>);
+    explicit MeshSceneRenderer(std::shared_ptr<MeshResourceHost>,
+                               Diligent::TEXTURE_FORMAT color = Diligent::TEX_FORMAT_RGBA8_UNORM);
     bool update(const RenderScene&);
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers);
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
@@ -51,6 +52,7 @@ class MeshSceneRenderer {
     };
     void report(EntityId, const std::string&);
     std::shared_ptr<MeshResourceHost> host_;
+    Diligent::TEXTURE_FORMAT color_;
     AssetId scene_;
     std::map<EntityId, Entry> entries_;
     std::vector<Diagnostic> diagnostics_;

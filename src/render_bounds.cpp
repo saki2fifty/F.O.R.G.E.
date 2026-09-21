@@ -76,6 +76,17 @@ bool bounds_visible(const RenderBounds& bounds, const CameraView& camera) {
     }
     return true;
 }
+double bounds_camera_depth(const RenderBounds& bounds, const CameraView& camera) {
+    validate(bounds);
+    double depth = 0;
+    for (unsigned a = 0; a < 3; ++a) {
+        const double center = (bounds.minimum[a] - camera.position[a]) * .5 +
+                              (bounds.maximum[a] - camera.position[a]) * .5;
+        depth += center * camera.forward[a];
+    }
+    require(std::isfinite(depth), "Render bounds camera depth is not finite");
+    return depth;
+}
 float bounds_screen_coverage(const RenderBounds& bounds, const CameraView& camera) {
     require(camera.viewport.width && camera.viewport.height, "LOD needs a nonempty viewport");
     const auto corners = clip_corners(bounds, camera);

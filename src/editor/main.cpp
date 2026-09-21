@@ -167,6 +167,7 @@ int main(int argc, char** argv) {
                 scene_tools.snap = j.value("snap", false);
                 scene_tools.snap_step = std::clamp(j.value("snap_step", 1.0f), 0.01f, 1000.0f);
                 scene_tools.grid_step = std::clamp(j.value("grid_step", 1.0f), 0.1f, 1000.0f);
+                scene_tools.exposure = std::clamp(j.value("exposure", 0.0f), -20.0f, 20.0f);
                 scene_tools.fly_speed = std::clamp(j.value("fly_speed", 5.0f), 0.1f, 1000.0f);
                 recent_projects = j.value("recent_projects", std::vector<std::string>{});
                 last_project = j.value("last_project", std::string{});
@@ -190,6 +191,7 @@ int main(int argc, char** argv) {
                                       {"snap_step", scene_tools.snap_step},
                                       {"grid_step", scene_tools.grid_step},
                                       {"fly_speed", scene_tools.fly_speed},
+                                      {"exposure", scene_tools.exposure},
                                       {"recent_projects", recent_projects},
                                       {"last_project", last_project}}
                               .dump(2));
@@ -260,7 +262,7 @@ int main(int argc, char** argv) {
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
         forge::DiligentPresentation presentation(device);
-        forge::Viewport viewport(presentation), game_viewport(presentation);
+        forge::Viewport viewport(presentation, true), game_viewport(presentation, true);
         std::shared_ptr<forge::MeshResourceHost> mesh_resources;
         auto reset_mesh_resources = [&] {
             viewport.resources({});
@@ -1430,6 +1432,12 @@ int main(int argc, char** argv) {
                                     ImGui::DragFloat("Fly speed", &scene_tools.fly_speed, .2f, .1f,
                                                      1000, "%.1f", ImGuiSliderFlags_AlwaysClamp);
                                 forge::ui::help("RMB flight speed in world units per second.");
+                                changed |= ImGui::SliderFloat("Exposure", &scene_tools.exposure,
+                                                              -20, 20, "%.2f EV");
+                                forge::ui::help(
+                                    "Scene preview exposure in stops. +1 doubles light; -1 halves "
+                                    "it. PBR Neutral tone mapping; editor overlays are unchanged. "
+                                    "This preference does not edit game cameras.");
                                 if (changed)
                                     perform(save_preferences);
                                 ImGui::EndPopup();
@@ -1439,6 +1447,7 @@ int main(int argc, char** argv) {
                         }
                     }
                     view_camera.fly_speed = scene_tools.fly_speed;
+                    viewport.exposure(scene_tools.exposure);
                     if (game_view && !play.ready()) {
                         ImGui::TextWrapped("%s", play.status().c_str());
                         ImGui::TextWrapped("Use Play to start the isolated runtime. Scene remains "
