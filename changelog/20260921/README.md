@@ -303,3 +303,7 @@
   ASan/UBSan/LSan pass, native C++/fixture syntax passes,36 generated HLSL stages
   compile including1/256-target color/shadow variants, and manual3/3 plus formatting
   pass. Windows morph pixel execution remains pending.
+
+### Windows fixture portability follow-up
+
+- Renamed a transmission resize-fixture local that collided with the Windows RPC `small` macro. The optical source audit stopped at compilation; no optical or shadow GPU pass is claimed from that run.

@@ -53,8 +53,8 @@ void check_transmission_background(forge::DiligentPresentation& presentation,
     require(right.front()[2] > 230 && right.front()[0] < 10 && right.back() == right.front() &&
                 snapshot.output()->GetTexture() == first,
             "Transmission snapshot did not refresh the reused texture");
-    const auto small = capture({0, 0, 16, 16});
-    require(small.size() == 16 * 16 && small.front()[0] > 230,
+    const auto resized_pixels = capture({0, 0, 16, 16});
+    require(resized_pixels.size() == 16 * 16 && resized_pixels.front()[0] > 230,
             "Transmission snapshot resize retained old source pixels");
     const auto previous = snapshot.output();
     bool rejected = false;
