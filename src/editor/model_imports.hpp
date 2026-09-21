@@ -10,11 +10,14 @@ namespace forge {
 class ModelImportEditor : public AssetImportEditor {
   public:
     std::function<bool()> placement_allowed;
+    std::function<void(SceneDocument&, bool)> draw_preview;
     ModelImportEditor(std::filesystem::path worker, std::filesystem::path converter, Scene& scene,
                       ui::EditorSelection& selection)
         : AssetImportEditor(profile(std::move(worker), std::move(converter))), scene_(scene),
           selection_(selection) {
         draw_extension = [this](SceneDocument& document, bool locked) {
+            if (draw_preview)
+                draw_preview(document, dirty());
             draw_model(document, locked);
         };
     }

@@ -1,4 +1,5 @@
 #include "model_placement_tests.hpp"
+#include "asset_preview_scene.hpp"
 #include "model_placement.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
@@ -25,6 +26,20 @@ void test_model_placement(const forge::asset_detail::ModelSelection& selected,
     Scene scene(engine.world());
     scene.reset(empty_scene());
     const auto initial = scene.document();
+    const auto model_preview = prepare_model_preview(selected);
+    require(!model_preview.scene.meshes.empty() && model_preview.nodes == 15 &&
+                model_preview.scene.diagnostics.empty() && scene.document() == initial &&
+                !scene.can_undo(),
+            "Detached model preview changed the authored scene or lost the source hierarchy");
+    const auto selected_mesh = model_preview.scene.meshes.front().renderer.mesh;
+    const auto mesh_preview = prepare_model_preview(selected, {}, selected_mesh);
+    require(!mesh_preview.scene.meshes.empty() &&
+                mesh_preview.scene.model_nodes.size() == model_preview.scene.model_nodes.size() &&
+                std::all_of(mesh_preview.scene.meshes.begin(), mesh_preview.scene.meshes.end(),
+                            [&](const auto& item) { return item.renderer.mesh == selected_mesh; }),
+            "Mesh preview dropped joint scope or included unrelated meshes");
+    rejects([&] { (void)prepare_model_preview(selected, 999999); });
+    rejects([&] { (void)prepare_model_preview(selected, {}, {AssetId::generate()}); });
     ModelPlacementOptions options;
     options.name = "Signed model";
     options.transform.translation = {10, 2, -3};

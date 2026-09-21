@@ -91,6 +91,12 @@ struct EditorFixture {
                                "texture-import-200",
                                "material-editor",
                                "material-editor-200",
+                               "model-preview",
+                               "model-preview-200",
+                               "mesh-preview",
+                               "mesh-preview-200",
+                               "imported-material-preview",
+                               "imported-material-preview-200",
                                "content-file-review",
                                "content-file-review-200"};
         auto* texture = view->GetTexture();

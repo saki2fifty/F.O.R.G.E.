@@ -14,7 +14,9 @@ not change that shared material; editing and publishing the material does.
 6. Choose **Save** to save the source and prepare a validated published material.
 
 Double-click a published project Material in Content to reopen it. Materials inside
-an imported model open that model's import document. To customize one without
+an imported model open a read-only **Material preview** on a sphere. Its MMB orbit,
+Shift+MMB pan, scroll zoom and preview lighting affect only inspection. **Open source
+import** opens the owning model's import document. To customize one without
 changing the model source, create a project material and choose the imported
 material as its **Base material**.
 

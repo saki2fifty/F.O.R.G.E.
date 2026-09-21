@@ -18,6 +18,29 @@ To reopen an imported model, select its model asset in Content and use
 settings Save action. Closing or switching projects with pending work offers
 Apply, Discard or Keep editing. Scene Undo does not undo asset publication.
 
+## Inspect a model or mesh before placement
+
+After a successful import, the central **Model import** document shows **3D preview**.
+It uses the published model, including its transforms, material assignments, default
+morph weights and skin-joint relationships. Animation does not autoplay.
+
+- Hold MMB over the image to orbit; hold Shift+MMB to pan; scroll to zoom.
+- Choose **Frame view** to fit the visible geometry, including mirrored placements.
+- Expand **Preview lighting** for exposure, key light, source lights and background.
+- If the source contains multiple scenes, **Preview scene** chooses which one to inspect. The separate source-scene choice under placement still controls **Place model**.
+- Expand **Import settings** to change the import. Unapplied settings do not change the published preview.
+
+Double-click a generated Mesh in Content, or use **View mesh** in Inspector, to
+inspect its placements in a read-only **Mesh** document. Its owning model supplies
+the joint scope; it is not converted to an unrelated static mesh. A mesh unused in
+the selected source scene reports that limitation. **Open source import** returns
+to the owning model's settings.
+
+These controls only change the view. They create no scene entities and have no
+Scene Undo entry. Preparation runs asynchronously. A failed replacement keeps the
+previous complete image and shows a diagnostic; **Retry preview** retries inspection.
+Switching to another asset clears the previous asset's image.
+
 ## Place a model
 
 1. Open the model's **Import settings / Place** document.

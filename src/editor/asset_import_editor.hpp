@@ -219,7 +219,7 @@ class AssetImportEditor {
                         draft_->importer->settings().reset(draft_->request.settings);
                 ImGui::EndDisabled();
                 if (draw_extension && preview_before_settings)
-                    draw_extension(document, job_ || dirty());
+                    draw_extension(document, locked || job_ || dirty());
                 ImGui::BeginDisabled(locked || job_);
                 const bool show_settings =
                     !preview_before_settings || ImGui::CollapsingHeader("Import settings");

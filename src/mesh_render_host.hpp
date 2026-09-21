@@ -57,6 +57,7 @@ class MeshSceneRenderer {
     };
     DrawStats draw_stats() const { return draw_stats_; }
     std::size_t bundle_count() const;
+    std::optional<RenderBounds> bounds() const;
 
     std::uint64_t pose_payload_bytes() const;
     EntityId pick(const RenderScene&, const CameraView&, double x, double y,

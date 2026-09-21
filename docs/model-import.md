@@ -607,3 +607,28 @@ Application-specific underscore attributes remain in the captured source with a
 diagnostic; the built-in renderer assigns no invented shader meaning. Instanced
 skin bindings currently reject explicitly: the existing joint-world palette must
 not silently ignore the instance transform. This combination remains under review.
+
+
+## Read-only Model / Mesh previews
+
+Private `AssetScenePreview` and `ModelViewer` reuse the existing model placement
+projection, spatial evaluation, `MeshResourceHost` and `FrameRenderer`. No authored
+world or second transform authority is introduced. Mesh filtering retains all
+copied node/joint scope. Source scene choice is preview-local; published Model
+placement still requires its independent explicit choice where ambiguous.
+
+One cancellable CPU preparation job per document captures an immutable catalog.
+Receipt key/generation and selected source scene invalidate preparation; unrelated
+catalog revisions still refresh dependent render resources. Rendering and GPU
+adoption remain on the presentation owner. Actual posed world bounds frame the
+camera, using the existing forward-safe bounds path for signed scale, skin and
+morph defaults. The existing camera framing profile is diagnosed if exceeded.
+
+Completed images are copied to retained output only after preparation and resource
+admission succeed. Failure retains the previous good image for the same asset;
+asset changes clear it. Unchanged camera/settings/size and resource revisions do
+not redraw. Preview targets are bounded to 2048 pixels per axis. Shared resources
+remain governed by existing CPU/GPU budgets and frame submission leases. Read-only
+documents have no Save/Undo capability and release after GUI submission on close.
+Imported Material members use this same shared path with an engine sphere. This
+viewer does not replace the standalone Material document's draft preview/history.

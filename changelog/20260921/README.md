@@ -834,3 +834,13 @@
 - Exact D3D12 backend inspection corrected the initial generic-view assumption: array/cube face previews use one-slice 2D-array SRVs and matching shaders because non-array SRVs cannot address an offset array slice on this backend. No dependency pin changed.
 - The preceding Content correction now passes all 51 Windows native tests (187.45 s); its actual material captures confirm keyboard tooltips no longer obscure the screenshot. The 200% narrow capture exposed a clipped preview geometry label, now changed to the shared stacked property row. Texture preview fields use the same layout.
 - Final local document pass is 4/4 (14.70 s), with generic renderer/test/main syntax, manual and format checks passing. The preceding Content checkpoint also completed all Linux/Windows core and exact SDK profiles successfully. Texture-preview native rendering remains pending.
+
+
+## Model, Mesh and imported Material inspection (continuing Phase 7)
+
+- Added central published Model previews before the import settings, and read-only Mesh/imported Material documents with Open source import. Reused existing model placement, spatial projection, renderer and resource ownership rather than introducing a scene or transform authority.
+- Added actual-geometry framing, orbit/pan/zoom, preview scene, source/key lighting, exposure and background. Mesh filtering preserves joint scope. Replacement failure retains the previous complete image; switching assets clears unrelated fallback.
+- Added immutable async preparation, cached rendered output and bounded preview dimensions. Import/placement availability remains guarded independently from read-only preview controls.
+- Model recipe/pipeline regressions pass locally 2/2 (78.12 s); strict model recipe passes with ASan/UBSan/LSan (119.97 s). Generic main/presentation syntax checks pass. Added actual Windows Model/Mesh/imported Material captures at 100%/200%; native execution is pending. No numbered release or Phase 7 completion claim.
+
+- Import-document UI regressions pass 2/2 (2.20 s), including placement lock behavior. Manual and full-format checks pass. Prior texture checkpoint core/SDK profiles pass on Windows and Linux; native texture-viewer execution remains in progress.

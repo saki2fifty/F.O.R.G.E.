@@ -6,6 +6,24 @@
 #include "render_sort.hpp"
 #include <set>
 namespace forge {
+std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
+    host_->check_thread();
+    std::optional<RenderBounds> result;
+    for (const auto& [id, entry] : entries_) {
+        (void)id;
+        if (!entry.ready)
+            continue;
+        const auto box = mesh_instance_bounds(entry.pose, {0, 0, 0});
+        if (!result)
+            result = box;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+            }
+    }
+    return result;
+}
 namespace {
 struct DrawCapacityError : std::runtime_error {
     using std::runtime_error::runtime_error;

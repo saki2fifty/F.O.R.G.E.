@@ -28,6 +28,7 @@
 #include "material_preview.hpp"
 #include "mesh_material_inspector.hpp"
 #include "model_imports.hpp"
+#include "model_viewer.hpp"
 #include "native_build.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
@@ -52,6 +53,7 @@
 #include "workspace.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <bit>
 #include <forge/build.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -329,19 +331,38 @@ int main(int argc, char** argv) {
         std::unique_ptr<forge::TextureViewer> texture_viewer;
         forge::TextureViewerDocument texture_view_document(presentation, context);
         texture_imports.preview_before_settings = true;
-        texture_imports.draw_extension = [&](auto& document, bool draft) {
+        texture_imports.draw_extension = [&](auto& document, bool) {
             if (!mesh_resources || !texture_imports.selected_asset())
                 return;
             if (!texture_viewer || texture_viewer->project() != document.project())
                 texture_viewer = std::make_unique<forge::TextureViewer>(presentation, context,
                                                                         document.project());
             texture_viewer->draw(mesh_resources->catalog(), {texture_imports.selected_asset()},
-                                 draft);
+                                 texture_imports.dirty());
         };
         forge::ModelImportEditor model_imports(
             std::filesystem::path(base) / "forge_asset_build.exe",
             std::filesystem::path(base) / "tools/gltf2ozz.exe", scene, editor.selection);
         model_imports.placement_allowed = [&] { return !document_locked; };
+        std::unique_ptr<forge::ModelViewer> model_viewer;
+        forge::AssetViewerDocument asset_view_document(presentation, context);
+        model_imports.preview_before_settings = true;
+        model_imports.draw_preview = [&](auto& document, bool draft) {
+            if (!mesh_resources || !model_imports.selected_asset())
+                return;
+            if (!model_viewer || model_viewer->project() != document.project())
+                model_viewer = std::make_unique<forge::ModelViewer>(
+                    presentation, context, document.project(), mesh_resources);
+            model_viewer->draw(mesh_resources->catalog(), model_imports.selected_asset(), draft);
+        };
+        asset_view_document.open_source = [&](forge::AssetId asset) {
+            if (!mesh_resources)
+                return;
+            const auto catalog = mesh_resources->catalog();
+            const auto found = catalog->records().find(asset);
+            if (found != catalog->records().end())
+                model_imports.open(files.document, found->second.source);
+        };
         forge::ShaderImportEditor shader_imports(
             std::filesystem::path(base) / "forge_shader_build.exe", [] {
                 return forge::asset_detail::ShaderCompilerProfile{
@@ -649,6 +670,20 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(model_imports.close_cancelled, false); }});
+        documents.add({"asset_viewer",
+                       "Asset preview",
+                       "Asset preview###Asset viewer",
+                       true,
+                       [&] { return asset_view_document.is_open(); },
+                       {},
+                       [&] { asset_view_document.draw(files.document.project(), mesh_resources); },
+                       {},
+                       {},
+                       {},
+                       [&] { asset_view_document.close(); }});
+        asset_editors.add({"mesh", "View mesh", [&](const forge::AssetRecord& asset) {
+                               asset_view_document.open(files.document.project(), asset);
+                           }});
         asset_editors.add(
             {"model", "Import settings / Place", [&](const forge::AssetRecord& asset) {
                  model_imports.open(files.document, asset.source);
@@ -687,13 +722,12 @@ int main(int argc, char** argv) {
                        [&] { return material_editor.can_redo(); },
                        {},
                        [&] { return std::exchange(material_editor.close_cancelled, false); }});
-        asset_editors.add(
-            {"material", "Edit material / model source", [&](const forge::AssetRecord& asset) {
-                 if (asset.subasset)
-                     model_imports.open(files.document, asset.source);
-                 else
-                     material_editor.open(files.document, asset.source);
-             }});
+        asset_editors.add({"material", "Open material", [&](const forge::AssetRecord& asset) {
+                               if (asset.subasset)
+                                   asset_view_document.open(files.document.project(), asset);
+                               else
+                                   material_editor.open(files.document, asset.source);
+                           }});
         files.save_active = [&] {
             if (content_files.busy())
                 throw std::runtime_error("Finish the Content file operation before saving");
@@ -1255,6 +1289,61 @@ int main(int argc, char** argv) {
                     SDL_SetWindowSize(window.get(), 960, 640);
                     break;
                 case 30: {
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    // Two asymmetric placements, including a reflection. This is
+                    // deterministic source data, not a pre-rendered preview.
+                    std::string vertices;
+                    for (float value : std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) {
+                        const auto bits = std::bit_cast<std::uint32_t>(value);
+                        for (unsigned byte = 0; byte < 4; ++byte)
+                            vertices.push_back(char((bits >> (byte * 8)) & 255));
+                    }
+                    const auto source = forge::Json::parse(R"({
+                        "asset":{"version":"2.0"},
+                        "extensionsUsed":["KHR_materials_unlit"],
+                        "buffers":[{"uri":"preview.bin","byteLength":36}],
+                        "bufferViews":[{"buffer":0,"byteLength":36}],
+                        "accessors":[{"bufferView":0,"componentType":5126,"count":3,
+                            "type":"VEC3","min":[-1,-1,0],"max":[1,1,0]}],
+                        "materials":[{"name":"Orange","doubleSided":true,
+                            "extensions":{"KHR_materials_unlit":{}},
+                            "pbrMetallicRoughness":{"baseColorFactor":[0.8,0.2,0.04,1]}}],
+                        "meshes":[{"name":"Triangle","primitives":[{
+                            "attributes":{"POSITION":0},"material":0}]}],
+                        "nodes":[{"mesh":0,"translation":[-2,0,0]},
+                            {"mesh":0,"translation":[2,0,0],"scale":[-1,1,1]}],
+                        "scenes":[{"nodes":[0,1]}],"scene":0})");
+                    forge::atomic_write(files.document.project() / "Assets/preview.bin", vertices);
+                    forge::atomic_write(files.document.project() / "Assets/preview.gltf",
+                                        source.dump());
+                    model_imports.open(files.document, "Assets/preview.gltf");
+                    model_imports.request_save();
+                    break;
+                }
+                case 31:
+                case 33:
+                case 35:
+                    forge::ui::style(2);
+                    SDL_SetWindowSize(window.get(), 960, 640);
+                    break;
+                case 32:
+                case 34: {
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    const std::string type = fixture.stage == 32 ? "mesh" : "material";
+                    const auto& records = mesh_resources->catalog()->records();
+                    const auto found =
+                        std::find_if(records.begin(), records.end(), [&](const auto& entry) {
+                            return entry.second.type == type && entry.second.subasset &&
+                                   entry.second.source.generic_string() == "Assets/preview.gltf";
+                        });
+                    if (found == records.end())
+                        throw std::runtime_error("Preview fixture generated member is missing");
+                    asset_view_document.open(files.document.project(), found->second);
+                    break;
+                }
+                case 36: {
                     if (texture_imports.dirty() || material_editor.dirty()) {
                         if (texture_imports.dirty() && !texture_imports.pending())
                             texture_imports.request_save();
@@ -1275,7 +1364,7 @@ int main(int argc, char** argv) {
                     content_files.prepare_review();
                     break;
                 }
-                case 31:
+                case 37:
                     forge::ui::style(2);
                     SDL_SetWindowSize(window.get(), 960, 640);
                     ImGui::SetWindowPos("Asset source files", {15, 15});
@@ -2320,13 +2409,22 @@ int main(int argc, char** argv) {
             gui->Render(context);
 #ifdef FORGE_UI_FIXTURE
             ++fixture.frames;
+            if ((fixture.stage == 30 || fixture.stage == 31) && model_viewer &&
+                !model_viewer->error().empty())
+                throw std::runtime_error("Model preview fixture failed: " + model_viewer->error());
+            if (fixture.stage >= 32 && fixture.stage <= 35 && !asset_view_document.error().empty())
+                throw std::runtime_error("Member preview fixture failed: " +
+                                         asset_view_document.error());
             if (fixture.prepared && fixture.frames > 12 &&
                 ((fixture.stage != 26 && fixture.stage != 27) ||
                  (texture_viewer && texture_viewer->ready())) &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
                 (fixture.stage < 28 || (material_preview && !material_preview->pending())) &&
-                (fixture.stage < 30 ||
+                ((fixture.stage != 30 && fixture.stage != 31) ||
+                 (model_viewer && model_viewer->ready())) &&
+                ((fixture.stage < 32 || fixture.stage > 35) || asset_view_document.ready()) &&
+                (fixture.stage < 36 ||
                  (content_files.operation() &&
                   content_files.operation()->state() == forge::AssetFileState::Review))) {
                 if (fixture.stage >= 28 && !material_preview->diagnostics().empty())
@@ -2357,7 +2455,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 32) {
+                if (fixture.stage == 38) {
                     play.stop();
                     running = false;
                 }
@@ -2370,6 +2468,10 @@ int main(int argc, char** argv) {
                 (texture_viewer && texture_viewer->project() != files.document.project()))
                 texture_viewer.reset();
             texture_view_document.after_submission(files.document.project());
+            if (!model_imports.is_open() ||
+                (model_viewer && model_viewer->project() != files.document.project()))
+                model_viewer.reset();
+            asset_view_document.after_submission(files.document.project());
             swap->Present(0);
             performance.finish(ui_submit, present);
         }

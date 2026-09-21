@@ -23,6 +23,9 @@ class FrameRenderer {
     Diligent::ITextureView* depth() const;
     Diligent::ITextureView* output() const { return display_.output(); }
     std::uint64_t frames = 0;
+    std::optional<RenderBounds> bounds() const {
+        return meshes_ ? meshes_->bounds() : std::nullopt;
+    }
 
   private:
     void targets(unsigned width, unsigned height);
