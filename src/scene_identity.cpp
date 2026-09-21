@@ -1,3 +1,4 @@
+#include "reflected_references.hpp"
 #include "spatial_document.hpp"
 #include <forge/scene.hpp>
 #include <forge/scene_identity.hpp>
@@ -74,6 +75,9 @@ Json duplicate_scene_asset(const Json& source) {
     return duplicate_scene_asset(source, AssetId::generate());
 }
 Json duplicate_scene_asset(const Json& source, AssetId destination) {
+    return duplicate_scene_asset(source, destination, Json::object());
+}
+Json duplicate_scene_asset(const Json& source, AssetId destination, const Json& schema) {
     Scene::validate_document(source);
     if (source.at("version") != 3 && source.at("version") != 4 && source.at("version") != 5)
         throw std::runtime_error("Migrate the scene before duplicating its asset");
@@ -123,6 +127,9 @@ Json duplicate_scene_asset(const Json& source, AssetId destination) {
         detail::remap_spatial(e, source.at("asset_id").get<AssetId>(),
                               result.at("asset_id").get<AssetId>(), typed_remap);
     remap_prefab_instances(result, typed_remap);
+    for (auto& entity : result["entities"])
+        detail::remap_custom_entity_refs(entity, schema, source.at("asset_id").get<AssetId>(),
+                                         destination, typed_remap);
     if (result.contains("legacy_ids"))
         for (auto& id : result["legacy_ids"])
             id = fresh(id.get<std::string>());

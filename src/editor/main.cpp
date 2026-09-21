@@ -1128,8 +1128,12 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             if (SDL_GetTicks() - fixture.started > 240000 ||
                 SDL_GetTicks() - fixture.stage_started > 45000)
-                throw std::runtime_error("Editor fixture timed out at stage " +
-                                         std::to_string(fixture.stage));
+                throw std::runtime_error(
+                    "Editor fixture timed out at stage " + std::to_string(fixture.stage) +
+                    " after " + std::to_string(fixture.frames) + " frames; model ready=" +
+                    std::to_string(model_viewer && model_viewer->ready()) + "; material pending=" +
+                    std::to_string(material_preview && material_preview->pending()) +
+                    "; member ready=" + std::to_string(asset_view_document.ready()));
             if (!fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
@@ -2472,7 +2476,8 @@ int main(int argc, char** argv) {
                  (texture_viewer && texture_viewer->ready())) &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
-                (fixture.stage < 28 || (material_preview && !material_preview->pending())) &&
+                ((fixture.stage != 28 && fixture.stage != 29) ||
+                 (material_preview && !material_preview->pending())) &&
                 ((fixture.stage != 30 && fixture.stage != 31) ||
                  (model_viewer && model_viewer->ready())) &&
                 ((fixture.stage < 32 || fixture.stage > 35) || asset_view_document.ready()) &&
@@ -2481,7 +2486,8 @@ int main(int argc, char** argv) {
                 (fixture.stage < 38 ||
                  (content_files.operation() &&
                   content_files.operation()->state() == forge::AssetFileState::Review))) {
-                if (fixture.stage >= 28 && !material_preview->diagnostics().empty())
+                if ((fixture.stage == 28 || fixture.stage == 29) &&
+                    !material_preview->diagnostics().empty())
                     throw std::runtime_error("Material editor fixture preview failed");
                 if ((fixture.stage == 26 || fixture.stage == 27) &&
                     !texture_viewer->error().empty())

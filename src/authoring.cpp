@@ -111,6 +111,20 @@ Json property_schema(const detail::SceneDraft& scene, const std::string& compone
     throw CommandError("unsupported_property",
                        "Unsupported reflected property: " + component + "." + field);
 }
+void require_editable_component(const Json& schema, const Json& row, const std::string& key) {
+    for (const auto& type : schema.at("components")) {
+        if (type.at("id") != key || !type.value("custom", false))
+            continue;
+        for (const auto* channel : {"components", "property_overrides"})
+            if (row.contains(channel) && row.at(channel).contains(key)) {
+                const auto& value = row.at(channel).at(key);
+                if (!value.is_object() || value.value("$forge", Json()) != type.at("admission"))
+                    throw CommandError("incompatible_schema",
+                                       "Component data is preserved read only; explicitly migrate "
+                                       "it before editing");
+            }
+    }
+}
 void set_fields(detail::SceneDraft& scene, const std::string& id, const std::string& component,
                 const Json& values) {
     auto doc = scene.document();
@@ -125,6 +139,25 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
     const bool property_intent = (e.contains("prefab_instance") || e.contains("prefab_member")) &&
                                  (!canonical.starts_with("forge.local_")) &&
                                  !e["components"].contains(canonical);
+    Json admission;
+    const auto authoring_schema = scene.schema();
+    for (const auto& type : authoring_schema.at("components"))
+        if (type.at("id") == canonical && type.value("custom", false))
+            admission = type.at("admission");
+    if (!admission.is_null()) {
+        for (const auto* components :
+             {static_cast<const Json*>(&e.at("components")), &view.at("components")})
+            if (components->contains(canonical) &&
+                (!components->at(canonical).is_object() ||
+                 components->at(canonical).value("$forge", Json()) != admission))
+                throw CommandError("incompatible_schema",
+                                   "Component schema differs; explicitly migrate its preserved "
+                                   "values before editing");
+        if (e.contains("property_overrides") && e.at("property_overrides").contains(canonical) &&
+            e.at("property_overrides").at(canonical).value("$forge", Json()) != admission)
+            throw CommandError("incompatible_schema",
+                               "Property override schema differs; values were preserved");
+    }
     if (legacy) {
         auto merged = view.at("components").value(component, Json::object());
         if (merged.empty())
@@ -164,6 +197,11 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
             if (property_intent)
                 e["property_overrides"][canonical][field] = value;
             c[canonical][field] = value;
+        }
+        if (!admission.is_null()) {
+            c[canonical]["$forge"] = admission;
+            if (property_intent)
+                e["property_overrides"][canonical]["$forge"] = admission;
         }
         if (canonical == "forge.local_rotation") {
             const auto& q = c.at(canonical);
@@ -407,10 +445,12 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
                                        "Component already exists; edit or Revert it");
                 for (const auto& f : c.at("fields"))
                     row["components"][key][f.at("id").get<std::string>()] = f.at("default");
+                if (c.value("custom", false))
+                    row["components"][key]["$forge"] = c.at("admission");
             }
         if (!known)
             throw CommandError("unsupported_property",
-                               "Only optional engine components can be added here");
+                               "Only admitted optional components can be added here");
         scene.edit(doc);
     } else if (op == "component.revert") {
         auto component = a.at("component").get<std::string>();
@@ -426,9 +466,10 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             known |= c.at("id") == component;
         if (!known)
             throw CommandError("unsupported_property",
-                               "Only supported built-in overrides can be removed");
+                               "Only admitted component overrides can be removed");
         auto doc = scene.document();
         auto& row = entity(doc, id);
+        require_editable_component(schema, row, component);
         row["components"].erase(component);
         if (row.contains("property_overrides"))
             row["property_overrides"].erase(component);
@@ -441,12 +482,15 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             throw CommandError("unsupported_property",
                                "Revert this complete transform channel instead");
         (void)property_schema(scene, component, field);
+        require_editable_component(scene.schema(), row, component);
         if (row["components"].contains(component))
             throw CommandError("unsupported_property",
                                "Use component Revert for a full component override");
         if (row.contains("property_overrides") && row["property_overrides"].contains(component)) {
             row["property_overrides"][component].erase(field);
-            if (row["property_overrides"][component].empty())
+            if (row["property_overrides"][component].empty() ||
+                (row["property_overrides"][component].size() == 1 &&
+                 row["property_overrides"][component].contains("$forge")))
                 row["property_overrides"].erase(component);
         }
         scene.edit(doc);

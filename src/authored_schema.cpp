@@ -85,6 +85,9 @@ Json description(flecs::world& world, ecs_entity_t native_type,
     auto projection = reflected_type_schema(world, native_type, adapters);
     if (projection.at("type") != "struct")
         throw std::runtime_error("An authored component must be a reflected value struct");
+    for (const auto& field : projection.at("fields"))
+        if (field.at("id") == "$forge")
+            throw std::runtime_error("Root field $forge is reserved for authored schema identity");
     // Native reconstruction proves the editor's safe representation is supported.
     // It has no project callbacks even though this worker/runtime world does.
     const ReconstructedMeta reconstructed(world, projection, adapters);
@@ -169,7 +172,6 @@ void opt_in_authoring(flecs::world& world, ecs_entity_t type, std::string key, s
 }
 Json export_authored_types(flecs::world& world) {
     world.component<AuthoredTypeAdmission>(admission_name);
-    const auto adapters = authoring_value_adapters(world);
     Json result = Json::array();
     std::set<std::string> keys;
     std::size_t bytes = 0;
@@ -184,6 +186,9 @@ Json export_authored_types(flecs::world& world) {
     });
     if (overflow)
         throw std::runtime_error("Too many authored component declarations");
+    if (!count)
+        return result;
+    const auto adapters = authoring_value_adapters(world);
     for (std::size_t i = 0; i < count; ++i) {
         const auto type = declarations[i];
         const auto admission = world.entity(type).get<AuthoredTypeAdmission>();
@@ -220,6 +225,10 @@ void validate_authored_types(flecs::world& world, const Json& copied) {
         const auto& structure = item.at("structure");
         if (structure.at("type") != "struct")
             throw std::runtime_error("Copied component is not a struct");
+        for (const auto& field : structure.at("fields"))
+            if (field.at("id") == "$forge")
+                throw std::runtime_error(
+                    "Root field $forge is reserved for authored schema identity");
         const ReconstructedMeta type(world, structure, refs);
         if (item.at("digest") != authored_structure_digest(structure))
             throw std::runtime_error("Copied authored structure digest mismatch");

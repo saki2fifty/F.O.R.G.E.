@@ -34,7 +34,7 @@ The lower **Prefab instance** section shows revision/status and **Open prefab so
 
 Use the **Entity** menu or Hierarchy context menu to duplicate or delete. Transform reset, snap, ground placement, and color/shape commands are searchable in the [Command palette](commands.md). Ground placement aligns the preview mesh to Y=0; it does not query terrain.
 
-Multi-selection, arbitrary plugin inspectors and material editing are not implemented.
+Materials have their own [central editor](materials.md). Multi-selection and arbitrary plugin inspectors are not implemented.
 
 Ordinary fields read label then value; narrow panels stack the label to preserve usable field width. Transform utilities are in its **three-dot** header menu.
 
@@ -46,3 +46,26 @@ Integer properties reject fractional values and numbers outside their storage ra
 Rejected edits keep the previous value and do not add an Undo step. Unrecognized
 extension data already saved with a component is retained when known properties
 are edited; it does not become an editable field merely because it was preserved.
+
+## Nested values, lists and flags
+
+Expand a structured property to edit its named fields. Arrays show a fixed number
+of entries; lists also offer **Add item...**, **Remove item**, and **Move up**.
+Large collections show sixteen entries per page. A new entry stays in a draft popup
+until **Add** passes validation. **Cancel** leaves the collection unchanged.
+The collection is one property: each committed edit is one scene Undo step, and
+prefab Revert applies to the complete collection rather than one list entry.
+
+Bit flags allow several named choices at once. Selecting a zero flag clears the
+set. Integer fields retain their declared width; strings are not truncated to a
+short display buffer. Read-only metadata disables editing.
+
+Right-click a property control for **Reset to default**. This assigns the current
+schema's declared default. On a prefab instance it records an explicit override;
+**Revert** instead follows the shared prefab value.
+
+A component whose schema is missing or incompatible is labeled unavailable or
+shown with a read-only explanation. Its stored data remains preserved. It does not
+become editable merely because a similarly named component exists in another build.
+The separate exact-SDK authoring admission workflow is still under implementation;
+these generic controls do not automatically admit arbitrary C++ types.

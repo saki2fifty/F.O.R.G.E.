@@ -312,6 +312,7 @@ int main(int argc, char** argv) {
                         .find("space%20%23%25.html") != std::string::npos,
                 "Manual URL did not escape path characters");
         test_typed_ui_layer();
+        test_reflected_value_inputs();
         test_editor_selection_and_actions();
         test_redesign_drawers();
         test_draft_ownership();

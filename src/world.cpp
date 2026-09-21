@@ -1,3 +1,5 @@
+#include "authored_component.hpp"
+#include "authored_schema.hpp"
 #include "builtins.hpp"
 #include <forge/world.hpp>
 #include <stdexcept>
@@ -159,6 +161,10 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
     world_.import<flecs::stats>();
     world_.import<flecs::metrics>();
     world_.import<flecs::alerts>();
+    // Flecs compiles a struct's member cursor operations at registration time.
+    // Engine reference/string metadata must exist before a project declares a
+    // member of one of these types, not only when that project opts into authoring.
+    (void)detail::authoring_value_adapters(world_);
     auto composition = built_in_modules();
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.physics"; }))
@@ -198,6 +204,9 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
         for (const auto& c :
              world_.import<UiRegistration>().get<UiRegistration>().schema.at("components"))
             schema_["components"].push_back(c);
+        authored_codecs_ = detail::authored_codecs(world_);
+        for (const auto& codec : authored_codecs_)
+            schema_["components"].push_back(codec.editor_schema());
         local_transforms_ = world_.query_builder<const LocalTranslation>()
                                 .cache_kind(flecs::QueryCacheNone)
                                 .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)

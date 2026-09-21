@@ -189,9 +189,10 @@ AssetFilePlan prepare_asset_file_operation(const std::filesystem::path& project,
     cancel(stop);
     return result;
 }
-std::string rewrite_authored_asset(const AssetRecord& record, std::string_view bytes,
-                                   const std::filesystem::path&,
-                                   const std::map<AssetId, AssetId>& identities) {
+static std::string rewrite_authored_with_schema(const AssetRecord& record, std::string_view bytes,
+                                                const std::filesystem::path&,
+                                                const std::map<AssetId, AssetId>& identities,
+                                                const Json& schema) {
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
         record.type != "shader")
         throw std::runtime_error("No authored-document copy adapter for this source format");
@@ -201,7 +202,7 @@ std::string rewrite_authored_asset(const AssetRecord& record, std::string_view b
         throw std::runtime_error("Authored source identity differs from its catalog record");
     if (record.type == "scene") {
         if (!identities.empty())
-            value = duplicate_scene_asset(value, identities.at(record.id));
+            value = duplicate_scene_asset(value, identities.at(record.id), schema);
         Scene::validate_document(value);
     } else if (record.type == "prefab") {
         PrefabDocument::validate(value);
@@ -219,16 +220,22 @@ std::string rewrite_authored_asset(const AssetRecord& record, std::string_view b
     }
     return identities.empty() ? std::string(bytes) : value.dump(2);
 }
-AssetSourceRewrite project_asset_file_rewriter(const std::filesystem::path& project) {
-    return [paths = ProjectPaths(project)](const AssetRecord& record, std::string_view bytes,
-                                           const std::filesystem::path& destination,
-                                           const std::map<AssetId, AssetId>& identities) {
+std::string rewrite_authored_asset(const AssetRecord& record, std::string_view bytes,
+                                   const std::filesystem::path& destination,
+                                   const std::map<AssetId, AssetId>& identities) {
+    return rewrite_authored_with_schema(record, bytes, destination, identities, Json::object());
+}
+AssetSourceRewrite project_asset_file_rewriter(const std::filesystem::path& project, Json schema) {
+    return [paths = ProjectPaths(project),
+            schema = std::move(schema)](const AssetRecord& record, std::string_view bytes,
+                                        const std::filesystem::path& destination,
+                                        const std::map<AssetId, AssetId>& identities) {
         if (record.type == "model" || record.type == "animation_source")
             return gltf_detail::relocate_gltf_source(paths, record.source, destination,
                                                      std::as_bytes(std::span(bytes)));
         if (record.type == "texture" || record.type == "audio_clip")
             return std::string(bytes); // Catalog-owned identity; no UUID in pixels/WAV.
-        return rewrite_authored_asset(record, bytes, destination, identities);
+        return rewrite_authored_with_schema(record, bytes, destination, identities, schema);
     };
 }
 } // namespace forge

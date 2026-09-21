@@ -77,3 +77,85 @@ inline void test_typed_ui_layer() {
             "Layer edit did not undo");
     ImGui::DestroyContext();
 }
+inline void test_reflected_value_inputs() {
+    using forge::Json;
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {1000, 700};
+    io.DeltaTime = 1.f / 60;
+    io.ConfigInputTrickleEventQueue = false;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    Json field, value;
+    ImVec2 target{};
+    bool committed = false;
+    auto frame = [&] {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({800, 500});
+        ImGui::Begin("Reflected value inputs");
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        committed |= forge::property_field({}, field, value);
+        target = ImGui::GetItemRectMin();
+        target.x += 20;
+        target.y += 8;
+        ImGui::End();
+        ImGui::Render();
+    };
+    auto press = [&](ImGuiKey key) {
+        io.AddKeyEvent(key, true);
+        frame();
+        io.AddKeyEvent(key, false);
+        frame();
+    };
+    auto enter = [&](const char* text, bool append = false) {
+        committed = false;
+        frame();
+        frame();
+        io.AddMousePosEvent(target.x, target.y);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        press(append ? ImGuiKey_End : ImGuiKey_A);
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        io.AddInputCharactersUTF8(text);
+        frame();
+        press(ImGuiKey_Enter);
+    };
+    for (const auto& [type, initial, input, expected] :
+         std::vector<std::tuple<std::string, Json, const char*, Json>>{
+             {"int8", 0, "-128", -128},
+             {"uint8", 0u, "255", 255u},
+             {"int16", 0, "-32768", -32768},
+             {"uint16", 0u, "65535", 65535u},
+             {"uint64", 0u, "18446744073709551615", UINT64_MAX}}) {
+        field = {{"id", type}, {"type", type}};
+        value = initial;
+        enter(input);
+        require(committed && value == expected, "Typed reflected input lost integer width/value");
+    }
+    field = {{"id", "long-text"}, {"type", "string"}};
+    value = std::string(5000, 'x');
+    enter("y", true);
+    require(committed && value == std::string(5000, 'x') + "y",
+            "Editing a long reflected string truncated its existing contents");
+    field = {{"id", "nested"},
+             {"type", "struct"},
+             {"fields", Json::array({{{"id", "count"}, {"type", "uint64"}}})}};
+    value = {{"count", 0u}, {"unknown", "preserved"}};
+    enter("9007199254740993");
+    require(committed && value.at("count") == UINT64_C(9007199254740993) &&
+                value.at("unknown") == "preserved",
+            "Nested property input rounded an integer or discarded unknown fields");
+    field = {{"id", "locked"}, {"type", "int32"}, {"read_only", true}};
+    value = 7;
+    enter("9");
+    require(!committed && value == 7, "Read-only reflected field remained editable");
+    ImGui::DestroyContext();
+}

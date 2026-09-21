@@ -269,5 +269,8 @@ ReconstructedMeta::ReconstructedMeta(flecs::world world, const nlohmann::json& p
         throw;
     }
 }
-ReconstructedMeta::~ReconstructedMeta() { ecs_delete(world_, scope_); }
+ReconstructedMeta::~ReconstructedMeta() {
+    if (scope_)
+        ecs_delete(world_, scope_);
+}
 } // namespace forge::detail

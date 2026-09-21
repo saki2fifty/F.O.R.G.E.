@@ -1,4 +1,5 @@
 #pragma once
+#include "../reflected_value.hpp"
 #include "asset_labels.hpp"
 #include "editor_state.hpp"
 #include "icons.hpp"
@@ -9,6 +10,7 @@
 #include <forge/engine_assets.hpp>
 #include <forge/project_paths.hpp>
 #include <map>
+#include <misc/cpp/imgui_stdlib.h>
 namespace forge {
 inline std::string property_label(const Json& field) {
     if (field.contains("display_name"))
@@ -152,19 +154,199 @@ inline bool numeric_property(const char* label, ImGuiDataType type, const char* 
     return true;
 }
 inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
-                           bool commit_on_enter = true) {
+                           bool commit_on_enter = true);
+// A new collection element is a detached UI draft, not an authored default.
+// It must pass native-derived validation before the collection can be committed.
+inline Json property_draft_seed(const Json& field) {
+    if (field.contains("default"))
+        return field.at("default");
+    const auto type = field.at("type").get<std::string>();
+    if (type == "struct") {
+        auto result = Json::object();
+        for (const auto& member : field.at("fields"))
+            result[member.at("id").get<std::string>()] = property_draft_seed(member);
+        return result;
+    }
+    if (type == "array" || type == "vector") {
+        auto result = Json::array();
+        if (type == "array")
+            for (unsigned i = 0; i < field.at("count").get<unsigned>(); ++i)
+                result.push_back(property_draft_seed(field.at("element")));
+        return result;
+    }
+    if (type == "string")
+        return "";
+    if (type == "bool")
+        return false;
+    if (type == "entity_ref" || type == "asset_ref")
+        return nullptr;
+    if (type == "enum")
+        return field.at("choices").front().at("value");
+    if (type == "float32" || type == "float64")
+        return field.value("minimum", Json(0.0));
+    return field.value("minimum",
+                       type.starts_with("uint") || type == "bitmask" ? Json(0u) : Json(0));
+}
+inline bool property_collection(const std::filesystem::path& root, const Json& field, Json& value,
+                                bool commit_on_enter) {
+    const bool dynamic = field.at("type") == "vector";
+    bool changed = false;
+    constexpr int per_page = 16;
+    const auto page_id = ImGui::GetID("collection-page");
+    auto* storage = ImGui::GetStateStorage();
+    const int pages = std::max(1, int((value.size() + per_page - 1) / per_page));
+    int page = std::clamp(storage->GetInt(page_id), 0, pages - 1);
+    ImGui::TextDisabled("%zu items%s", value.size(), dynamic ? "" : " (fixed)");
+    ui::help("A collection is one property and one Undo step per committed edit. Unknown fields "
+             "remain attached to their existing entries.");
+    if (pages > 1) {
+        ImGui::BeginDisabled(page == 0);
+        if (ui::button("Previous", "Show the preceding sixteen entries."))
+            --page;
+        ImGui::EndDisabled();
+        ui::next_text_button("Next");
+        ImGui::BeginDisabled(page + 1 == pages);
+        if (ui::button("Next", "Show the following sixteen entries."))
+            ++page;
+        ImGui::EndDisabled();
+        ImGui::Text("Page %d / %d", page + 1, pages);
+        ui::help("Pagination keeps large collections usable without drawing every entry.");
+    }
+    storage->SetInt(page_id, page);
+    const auto end = std::min(value.size(), std::size_t((page + 1) * per_page));
+    for (std::size_t i = std::size_t(page * per_page); i < end; ++i) {
+        ui::IdScope entry(std::to_string(i).c_str());
+        auto element = field.at("element");
+        element["id"] = "value";
+        element["display_name"] = "Item " + std::to_string(i + 1);
+        changed |= property_field(root, element, value[i], commit_on_enter);
+        if (dynamic) {
+            if (ui::button("Remove item",
+                           "Remove this entry. The whole collection edit is undoable.")) {
+                value.erase(value.begin() + std::ptrdiff_t(i));
+                changed = true;
+                break;
+            }
+            ui::next_text_button("Move up");
+            ImGui::BeginDisabled(i == 0);
+            if (ui::button("Move up", "Move this complete entry, including its unknown fields, one "
+                                      "position earlier.")) {
+                std::swap(value[i - 1], value[i]);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+        }
+        ImGui::Separator();
+    }
+    if (dynamic) {
+        const auto maximum = field.value("maximum_count", 4096u);
+        ImGui::BeginDisabled(value.size() >= maximum);
+        // One bounded draft per field; it never enters the scene before Add.
+        struct Draft {
+            Json value;
+            std::string error;
+            int seen = 0;
+        };
+        static std::map<ImGuiID, Draft> drafts;
+        const auto id = ImGui::GetID("new-collection-item");
+        const auto frame = ImGui::GetFrameCount();
+        if (auto found = drafts.find(id); found != drafts.end())
+            found->second.seen = frame;
+        if (ui::button("Add item...", "Prepare a new entry. Add validates the candidate "
+                                      "collection; Cancel leaves it unchanged.")) {
+            // Never invalidate an outer popup's draft during nested drawing.
+            std::erase_if(drafts, [&](const auto& row) { return row.second.seen != frame; });
+            if (drafts.size() < 64 || drafts.contains(id)) {
+                drafts[id] = {property_draft_seed(field.at("element")), {}, frame};
+                ImGui::OpenPopup("New collection item");
+            }
+        }
+        ImGui::EndDisabled();
+        if (ImGui::BeginPopup("New collection item")) {
+            auto found = drafts.find(id);
+            if (found != drafts.end()) {
+                auto& draft = found->second;
+                auto element = field.at("element");
+                element["id"] = "new-item";
+                element["display_name"] = "New item";
+                property_field(root, element, draft.value, false);
+                if (ui::button("Add",
+                               "Validate this entry and add it in one property operation.")) {
+                    try {
+                        auto candidate = value;
+                        candidate.push_back(draft.value);
+                        detail::validate_reflected_json(field, candidate);
+                        value = std::move(candidate);
+                        changed = true;
+                        ImGui::CloseCurrentPopup();
+                    } catch (const std::exception& e) {
+                        draft.error = e.what();
+                    }
+                }
+                ui::next_text_button("Cancel");
+                if (ui::button("Cancel", "Discard this new entry without changing the collection."))
+                    ImGui::CloseCurrentPopup();
+                if (!draft.error.empty())
+                    ui::field_error(draft.error.c_str());
+            }
+            ImGui::EndPopup();
+        } else
+            drafts.erase(id);
+    }
+    return changed;
+}
+inline bool property_field_body(const std::filesystem::path& root, const Json& field, Json& value,
+                                bool commit_on_enter) {
     auto visible_label = property_label(field);
     const auto unit = field.value("unit", std::string("unitless"));
     if (unit != "unitless" && !unit.empty())
         visible_label += " (" + unit + ")";
     const std::string type = field.at("type");
     const auto label = "##" + property_label(field);
+    if (type == "struct" || type == "array" || type == "vector") {
+        const bool open = ImGui::TreeNode(visible_label.c_str());
+        ui::help(
+            field
+                .value("description", std::string("Expand this reflected value. Changes use the "
+                                                  "owning component's validation and history."))
+                .c_str());
+        bool changed = false;
+        if (open) {
+            if (type == "struct") {
+                for (const auto& member : field.at("fields")) {
+                    const auto key = member.at("id").get<std::string>();
+                    ui::IdScope scope(key.c_str());
+                    changed |= property_field(root, member, value.at(key), commit_on_enter);
+                }
+            } else
+                changed = property_collection(root, field, value, commit_on_enter);
+            ImGui::TreePop();
+        }
+        return changed;
+    }
     ui::property_label_row(visible_label.c_str(),
                            field.value("description", std::string{}).c_str());
     if (type == "asset_ref")
         return asset_ref_picker(root, value, field.at("asset_type"), label.c_str());
     bool changed = false;
-    if (field.contains("choices")) {
+    if (type == "bitmask") {
+        auto bits = value.get<std::uint32_t>();
+        if (ImGui::BeginCombo(label.c_str(), value.dump().c_str())) {
+            for (const auto& choice : field.at("choices")) {
+                const auto flag = choice.at("value").get<std::uint32_t>();
+                const bool selected = flag ? (bits & flag) == flag : bits == 0;
+                if (ImGui::Selectable(choice.at("label").get_ref<const std::string&>().c_str(),
+                                      selected, ImGuiSelectableFlags_NoAutoClosePopups)) {
+                    bits = flag ? (selected ? bits & ~flag : bits | flag) : 0;
+                    value = bits;
+                    changed = true;
+                }
+                ui::help("Toggle the declared flags. Choosing zero clears every flag. Unknown bits "
+                         "are rejected before commit.");
+            }
+            ImGui::EndCombo();
+        }
+    } else if (field.contains("choices")) {
         std::string current = "Unsupported value";
         for (const auto& choice : field.at("choices"))
             if (choice.at("value") == value)
@@ -176,7 +358,7 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
                     value = choice.at("value");
                     changed = true;
                 }
-                ui::help(field.at("description").get_ref<const std::string&>().c_str());
+                ui::help(field.value("description", std::string{}).c_str());
             }
             ImGui::EndCombo();
         }
@@ -185,7 +367,19 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
         changed = ImGui::Checkbox(label.c_str(), &next);
         if (changed)
             value = next;
-    } else if (type == "uint32")
+    } else if (type == "int8")
+        changed = numeric_property<std::int8_t>(label.c_str(), ImGuiDataType_S8, "%d", value,
+                                                commit_on_enter);
+    else if (type == "uint8")
+        changed = numeric_property<std::uint8_t>(label.c_str(), ImGuiDataType_U8, "%u", value,
+                                                 commit_on_enter);
+    else if (type == "int16")
+        changed = numeric_property<std::int16_t>(label.c_str(), ImGuiDataType_S16, "%d", value,
+                                                 commit_on_enter);
+    else if (type == "uint16")
+        changed = numeric_property<std::uint16_t>(label.c_str(), ImGuiDataType_U16, "%u", value,
+                                                  commit_on_enter);
+    else if (type == "uint32")
         changed = numeric_property<std::uint32_t>(label.c_str(), ImGuiDataType_U32, "%u", value,
                                                   commit_on_enter);
     else if (type == "int32")
@@ -208,12 +402,11 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
         changed = numeric_property<double>(label.c_str(), ImGuiDataType_Double, "%.3f", value,
                                            commit_on_enter);
     else if (type == "string") {
-        std::array<char, 4096> buffer{};
-        SDL_strlcpy(buffer.data(), value.get<std::string>().c_str(), buffer.size());
-        changed = ImGui::InputText(label.c_str(), buffer.data(), buffer.size(),
+        auto buffer = value.get<std::string>();
+        changed = ImGui::InputText(label.c_str(), &buffer,
                                    commit_on_enter ? ImGuiInputTextFlags_EnterReturnsTrue : 0);
         if (changed)
-            value = buffer.data();
+            value = std::move(buffer);
     } else if (type == "entity_ref" && ui::editor_context && ui::editor_context->scene) {
         auto& scene = *ui::editor_context->scene;
         const auto document = scene.document();
@@ -274,5 +467,13 @@ inline bool property_field(const std::filesystem::path& root, const Json& field,
         }
     }
     return changed;
+}
+inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
+                           bool commit_on_enter) {
+    const bool read_only = field.value("read_only", false);
+    ImGui::BeginDisabled(read_only);
+    const bool changed = property_field_body(root, field, value, commit_on_enter);
+    ImGui::EndDisabled();
+    return changed && !read_only;
 }
 } // namespace forge

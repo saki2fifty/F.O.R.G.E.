@@ -275,3 +275,37 @@ string); copied value transport uses typed JSON references. The private duplicat
 helper visits declared EntityRef fields through structs/arrays/vectors only, leaving
 unknown payload, asset references and foreign/unmapped entity targets untouched.
 Its helper tests do not yet establish complete scene-duplication integration.
+
+### Native scene and prefab transport checkpoint
+
+Private `AuthoredCodec` bindings now connect admitted world-local native Meta types
+to scene commands, serialization and compiled prefab instances. A copied module can
+bootstrap an authoring/validation world with engine-owned native lifecycle only.
+Gameplay runtime worlds bind the same named transport to their actual opted-in C++
+component types. Known fields live in Flecs; unknown extensions remain in the
+existing authored envelope. This checkpoint does not yet activate project schemas
+from the editor UI or complete explicit schema migrations.
+
+Each custom component stores a reserved root `$forge` identity containing format
+`forge.authored-component`, version1, owner module, authored schema version and
+structure digest. An opted-in root field with that name is rejected. A missing or
+mismatched envelope stays opaque in authoring; the runtime rejects recognized
+custom authored payloads without their matching schema instead of ignoring them.
+Typed EntityRefs are remapped during subtree/scene duplication using admitted
+metadata only; unknown fields and foreign references remain untouched. Asset-file
+operations carry copied metadata to their worker rather than accessing a live world.
+Reference impact includes whole components and per-property prefab intent.
+
+Structured prefab compilation realizes native IsA inheritance. Explicit equal-value
+field intent materializes the corresponding native component while retaining the
+existing property intent for later source updates. Revert removes intent through
+scene history; it does not edit the prefab asset. Local TRS remains independently
+owned native components. No custom transform override-mask system was added.
+
+The shared property widgets now handle nested values, paged arrays/vectors, small
+fixed-width integers and bit flags. Text uses the pinned Dear ImGui std::string
+wrapper, avoiding truncation at the previous4096-byte UI buffer. New collection
+entries are detached drafts validated against the complete collection before
+publication. Unknown/incompatible components have a read-only presentation.
+End-to-end project schema publication, explicit migration and SDK Play proof remain
+required before this work package is complete.

@@ -9,6 +9,8 @@ Json migrate_scene(const Json& source, const Json* existing = nullptr);
 Json duplicate_scene_asset(const Json& source);
 // Use a preallocated NEW asset identity while remapping known intra-scene refs.
 Json duplicate_scene_asset(const Json& source, AssetId destination);
+// Copied, already-admitted native schema permits remapping known custom refs.
+Json duplicate_scene_asset(const Json& source, AssetId destination, const Json& schema);
 std::string resolve_legacy_id(const Json& document, const std::string& id);
 // A companion record retains assignments without overwriting a legacy source on open.
 Json read_scene_file(const std::filesystem::path& path);

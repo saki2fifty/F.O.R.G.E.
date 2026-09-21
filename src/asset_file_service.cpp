@@ -77,7 +77,7 @@ void AssetFileService::prepare(AssetRecord source, AssetFileRequest request, nlo
         index_authored_source(*lease, source);
         auto review = std::make_shared<AssetFileReview>();
         review->plan = prepare_asset_file_operation(
-            lease->root(), request, project_asset_file_rewriter(lease->root()), stop);
+            lease->root(), request, project_asset_file_rewriter(lease->root(), schema), stop);
         const std::set<AssetId> targets(review->plan.affected.begin(), review->plan.affected.end());
         review->impact = scan_asset_references(lease->root(), schema, targets, drafts, stop);
         review->schema = std::move(schema);

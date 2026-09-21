@@ -169,6 +169,20 @@ inline void test_redesign_drawers() {
             "Correcting the field did not apply or resolve its Problem");
     forge::authoring_history(scene, false);
     require(scene.document() == before_invalid, "Rejected edit polluted scene Undo");
+    auto opaque = scene.document();
+    opaque["entities"][0]["components"]["absent.plugin"] = {{"preserved", 42}};
+    scene.edit(opaque);
+    ImGui::NewFrame();
+    ImGui::Begin("Unavailable schema fixture");
+    ImGui::LogToBuffer();
+    inspector.draw(scene, files.document, entity);
+    const std::string unavailable_text = GImGui->LogBuffer.c_str();
+    ImGui::LogFinish();
+    ImGui::End();
+    ImGui::Render();
+    require(unavailable_text.find("absent.plugin (unavailable)") != std::string::npos &&
+                scene.document() == opaque,
+            "Inspector hid or rewrote a component whose module is unavailable");
     ImGui::DestroyContext();
 }
 inline void test_draft_ownership() {

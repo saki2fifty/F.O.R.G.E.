@@ -467,6 +467,8 @@ class PrefabEditor {
                                     for (const auto& field : type.at("fields"))
                                         m["components"][key][field.at("id").get<std::string>()] =
                                             field.at("default");
+                                    if (type.value("custom", false))
+                                        m["components"][key]["$forge"] = type.at("admission");
                                 });
                             ImGui::EndPopup();
                         }
@@ -484,6 +486,17 @@ class PrefabEditor {
                                     .c_str(),
                                 "Edit prefab defaults. Explicit instance overrides are "
                                 "preserved at publication.");
+                            if (component.value("custom", false) &&
+                                (!m["components"][key].is_object() ||
+                                 m["components"][key].value("$forge", Json()) !=
+                                     component.at("admission"))) {
+                                ImGui::TextWrapped(
+                                    "Schema changed or unavailable. This component remains "
+                                    "preserved and read only until explicitly migrated.");
+                                ui::help("Publishing unrelated prefab changes does not reinterpret "
+                                         "or discard this component's unknown values.");
+                                continue;
+                            }
                             if (component.value("optional", false)) {
                                 if (ui::button("Remove component",
                                                "Remove this component from the draft. Publish "

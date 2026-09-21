@@ -960,20 +960,21 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.mesh_renderer")
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
         std::vector<ReflectedAdapter> references;
-        // Only explicitly registered FORGE references cross the opaque boundary.
-        for (const auto& [path, asset] :
-             {std::pair{"forge.model_ref", ModelAsset::type},
-              std::pair{"forge.model_node_ref", ModelNodeAsset::type},
-              std::pair{"forge.mesh_ref", MeshAsset::type},
-              std::pair{"forge.material_ref", MaterialAsset::type},
-              std::pair{"forge.audio_clip_ref", AudioClipAsset::type},
-              std::pair{"forge.skeleton_ref", SkeletonAsset::type},
-              std::pair{"forge.animation_clip_ref", AnimationClipAsset::type},
-              std::pair{"forge.navmesh_ref", NavMeshAsset::type},
-              std::pair{"forge.ui_document_ref", UiDocumentAsset::type}}) {
-            if (auto ref = world.lookup(path))
-                references.push_back({ref.id(), "asset_ref", asset});
-        }
+        // Native typed identity remains authoritative even when an earlier SDK
+        // schema registered a reference before its builtin family used a label.
+        auto add_reference = [&]<class T>() {
+            if (const auto id = world.id_if_registered<AssetRef<T>>())
+                references.push_back({id, "asset_ref", T::type});
+        };
+        add_reference.template operator()<ModelAsset>();
+        add_reference.template operator()<ModelNodeAsset>();
+        add_reference.template operator()<MeshAsset>();
+        add_reference.template operator()<MaterialAsset>();
+        add_reference.template operator()<AudioClipAsset>();
+        add_reference.template operator()<SkeletonAsset>();
+        add_reference.template operator()<AnimationClipAsset>();
+        add_reference.template operator()<NavMeshAsset>();
+        add_reference.template operator()<UiDocumentAsset>();
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});

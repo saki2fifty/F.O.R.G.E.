@@ -51,6 +51,39 @@ inline void test_asset_file_service(const std::filesystem::path& root) {
     const std::array inspected{AssetReferenceDocument{"native.scene.json", native_refs}};
     check(inspect_asset_references(scene.schema(), inspected, {target}).references.size() == 2,
           "Native MeshRenderer Meta did not expose mesh and nested material references");
+    {
+        // The same authored reference can occur in partial prefab intent. Only
+        // metadata admitted for this exact envelope may interpret custom data.
+        auto custom_schema = schema;
+        auto& declaration = custom_schema["components"].back();
+        const Json stamp = {{"format", "forge.authored-component"},
+                            {"version", 1},
+                            {"module", "test.module"},
+                            {"schema_version", 1},
+                            {"digest", "fixture"}};
+        declaration["custom"] = true;
+        declaration["admission"] = stamp;
+        auto partial = used;
+        auto& row = partial["entities"][0];
+        row["property_overrides"]["test.references"] = row["components"]["test.references"];
+        row["property_overrides"]["test.references"]["$forge"] = stamp;
+        row["components"].erase("test.references");
+        auto inspect = [&] {
+            const std::array docs{AssetReferenceDocument{"partial.scene.json", partial}};
+            return inspect_asset_references(custom_schema, docs, {target});
+        };
+        const auto found = inspect();
+        check(found.references.size() == 2,
+              "Partial custom prefab intent lost known AssetRef/EntityRef impact");
+        check(
+            std::none_of(found.uninspected.begin(), found.uninspected.end(),
+                         [](const auto& path) { return path.find("$forge") != std::string::npos; }),
+            "Admitted schema identity was reported as unknown payload");
+        row["property_overrides"]["test.references"]["$forge"]["schema_version"] = 2;
+        const auto mismatch = inspect();
+        check(mismatch.references.empty() && !mismatch.uninspected.empty(),
+              "Incompatible custom metadata was treated as known reference coverage");
+    }
     asset_storage::replace(root / "Assets/target.scene.json", source.dump(2));
     asset_storage::replace(root / "Assets/consumer.scene.json", used.dump(2));
     auto material = MaterialSource::create(AssetId::generate());

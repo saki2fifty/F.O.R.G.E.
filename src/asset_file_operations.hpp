@@ -2,6 +2,7 @@
 #include "asset_file_transaction.hpp"
 #include <forge/assets.hpp>
 #include <functional>
+#include <nlohmann/json.hpp>
 namespace forge {
 enum class AssetFileAction { Move, Duplicate, Delete };
 struct AssetFileRequest {
@@ -32,5 +33,6 @@ AssetFilePlan prepare_asset_file_operation(const std::filesystem::path& project,
 // raw sources are copied by their caller only when their format contract permits.
 std::string rewrite_authored_asset(const AssetRecord&, std::string_view,
                                    const std::filesystem::path&, const std::map<AssetId, AssetId>&);
-AssetSourceRewrite project_asset_file_rewriter(const std::filesystem::path& project);
+AssetSourceRewrite project_asset_file_rewriter(const std::filesystem::path& project,
+                                               nlohmann::json schema = nlohmann::json::object());
 } // namespace forge

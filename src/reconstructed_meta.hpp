@@ -12,6 +12,9 @@ class ReconstructedMeta {
     ReconstructedMeta(const ReconstructedMeta&) = delete;
     ReconstructedMeta& operator=(const ReconstructedMeta&) = delete;
     ecs_entity_t native_type() const { return type_; }
+    // After successful world bootstrap, native registrations can live until the
+    // world destroys all values and finalizes its own Meta type tree.
+    void release_to_world() noexcept { scope_ = 0; }
 
   private:
     ecs_world_t* world_ = nullptr;

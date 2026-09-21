@@ -10,6 +10,9 @@
 #include <optional>
 #include <string>
 namespace forge {
+namespace detail {
+struct AuthoredCodec;
+}
 using Json = nlohmann::json;
 struct Tint {
     float r = 0.2f, g = 0.6f, b = 0.7f;
@@ -51,6 +54,7 @@ class WorldContext {
     flecs::world& world() { return world_; }
     WorldRole role() const { return role_; }
     const Json& schema() const { return schema_; }
+    const std::vector<detail::AuthoredCodec>& authored_codecs() const { return authored_codecs_; }
     enum class ResolveState { Available, Missing, Unresolved, Ambiguous };
     struct Resolution {
         ResolveState state;
@@ -86,6 +90,8 @@ class WorldContext {
     // Destroy the world before state used by its observers/hooks.
     ModuleLifecycle modules_; // Code/providers must outlive world finalization.
     flecs::world world_;
+    // Derived native bindings contain no values/hooks and retire before the world.
+    std::vector<detail::AuthoredCodec> authored_codecs_;
     // Queries are destroyed before their world; callback providers remain alive.
     flecs::query<const LocalTranslation> local_transforms_;
     flecs::query<const WorldTransform> derived_transforms_;

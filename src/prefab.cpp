@@ -1,3 +1,4 @@
+#include "authored_component.hpp"
 #include "builtins.hpp"
 #include "relationship_graph.hpp"
 #include "spatial_document.hpp"
@@ -138,6 +139,7 @@ CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
             if (members_.contains(key))
                 return members_.at(key);
             const auto& item = member(document.source, id);
+            detail::validate_runtime_custom_values(context_, item.at("components"));
             auto e =
                 item.contains("parent")
                     ? world.entity(flecs::Parent{compile(item.at("parent"))}).add(flecs::Prefab)
@@ -147,6 +149,9 @@ CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
             for (const auto& type : detail::builtins())
                 if (item["components"].contains(type.name))
                     type.apply(e, type.decode(item["components"].at(type.name)));
+            for (const auto& codec : context_.authored_codecs())
+                if (item["components"].contains(codec.key()))
+                    codec.apply(e, codec.prepare(world, item["components"].at(codec.key())));
             return e;
         };
         for (const auto& item : document.source.at("members"))
@@ -174,7 +179,7 @@ CompiledPrefab::~CompiledPrefab() {
             e.destruct();
     }
 }
-Json prefab_override_value(const Json& definition, const Json& instance) {
+Json prefab_override_value(const Json& definition, const Json& instance, const Json& schema) {
     auto values = definition.at("components");
     for (const auto& [key, value] : instance.at("components").items())
         values[key] = value;
@@ -199,6 +204,7 @@ Json prefab_override_value(const Json& definition, const Json& instance) {
         }
     }
     detail::validate_components(values);
+    detail::project_custom_prefab_intent(values, instance, schema);
     return values;
 }
 void validate_prefab_instances(const Json& scene) {
@@ -262,7 +268,7 @@ void validate_prefab_instances(const Json& scene) {
                 throw std::runtime_error("Structured member cannot redefine inheritance");
         }
 }
-Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources) {
+Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, const Json& schema) {
     auto doc = source;
     std::map<std::string, Json> rows;
     for (const auto& e : source.at("entities"))
@@ -312,7 +318,7 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources) {
                                                              mapping.at(target).get<EntityId>()};
                     }
                 }
-                (void)prefab_override_value(item, row);
+                (void)prefab_override_value(item, row, schema);
             }
             for (const auto& [m, id] : mapping.items())
                 if (!alive.contains(m) && rows.contains(id.get<std::string>()))
@@ -358,7 +364,7 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources) {
     validate_prefab_instances(doc);
     return doc;
 }
-Json project_prefab_intent(const Json& scene, const PrefabSources& sources) {
+Json project_prefab_intent(const Json& scene, const PrefabSources& sources, const Json& schema) {
     auto doc = scene;
     std::map<std::string, const Json*> roots;
     for (const auto& row : scene.at("entities"))
@@ -384,7 +390,7 @@ Json project_prefab_intent(const Json& scene, const PrefabSources& sources) {
         const auto& definition = sources.at(asset);
         if (m.empty())
             m = definition.at("root");
-        row["components"] = prefab_override_value(member(definition, m), row);
+        row["components"] = prefab_override_value(member(definition, m), row, schema);
     }
     return doc;
 }

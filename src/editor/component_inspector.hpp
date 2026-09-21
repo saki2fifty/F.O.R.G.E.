@@ -3,6 +3,7 @@
 #include "document.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
+#include <set>
 namespace forge {
 class ComponentInspector {
   public:
@@ -72,6 +73,9 @@ class ComponentInspector {
         const bool prefab = owned.contains("prefab_instance") || owned.contains("prefab_member") ||
                             owned.contains("base");
         const auto masks = owned.value("property_overrides", Json::object());
+        std::set<std::string> known_components;
+        for (const auto& type : schema.at("components"))
+            known_components.insert(type.at("id").get<std::string>());
         unsigned visible_components = 0;
         for (const auto& type : schema.at("components")) {
             if (!type.value("optional", false))
@@ -96,6 +100,24 @@ class ComponentInspector {
                 ImGui::CollapsingHeader(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
             ui::help("Component properties. Right-click this header for Remove or Revert. Revert "
                      "resumes inherited values; it does not delete shared prefab source data.");
+            bool compatible = true;
+            if (type.value("custom", false)) {
+                for (const auto* channel :
+                     std::array<const Json*, 3>{&values, &owned.at("components"), &masks})
+                    if (channel->contains(key) &&
+                        (!channel->at(key).is_object() ||
+                         channel->at(key).value("$forge", Json()) != type.at("admission")))
+                        compatible = false;
+            }
+            if (!compatible) {
+                if (expanded) {
+                    ImGui::TextWrapped(
+                        "Schema unavailable or changed. Values are preserved and read only.");
+                    ui::help("Rebuild and inspect the matching gameplay module, or run an explicit "
+                             "schema migration. Opening or saving does not rewrite these values.");
+                }
+                continue;
+            }
             if (ImGui::BeginPopupContextItem("component-actions")) {
                 ImGui::BeginDisabled(!whole && !partial);
                 if (ImGui::MenuItem(prefab ? "Revert component" : "Remove component"))
@@ -126,6 +148,17 @@ class ComponentInspector {
                         : property_field(project.project(), field, value);
                 if (changed)
                     edit_property(scene, entity, key, name, value);
+                if (ImGui::BeginPopupContextItem("property-actions")) {
+                    ImGui::BeginDisabled(field.value("read_only", false) ||
+                                         !field.contains("default"));
+                    if (ImGui::MenuItem("Reset to default"))
+                        edit_property(scene, entity, key, name, field.at("default"));
+                    ui::help(
+                        "Assign this schema's declared default. On a prefab instance this creates "
+                        "explicit property intent; Revert instead follows the prefab source.");
+                    ImGui::EndDisabled();
+                    ImGui::EndPopup();
+                }
                 const bool field_override = whole || (partial && masks.at(key).contains(name));
                 if (prefab) {
                     ImGui::TextDisabled("%s", field_override ? "Overridden" : "Inherited");
@@ -151,6 +184,30 @@ class ComponentInspector {
             const auto id = error_key(entity, key, "");
             if (errors_.contains(id))
                 ui::field_error(errors_.at(id));
+        }
+        // An unknown native plugin payload is not a failed generic property form.
+        // Keep it visible without interpreting fields, references or schema IDs.
+        std::set<std::string> unavailable;
+        for (const auto* channel : {&values, &masks})
+            for (const auto& [key, value] : channel->items()) {
+                (void)value;
+                if (!known_components.contains(key))
+                    unavailable.insert(key);
+            }
+        for (const auto& key : unavailable) {
+            if (search_key(key).find(search_key(filter_)) == std::string::npos)
+                continue;
+            ++visible_components;
+            ui::IdScope scope(key.c_str());
+            if (ImGui::CollapsingHeader((key + " (unavailable)").c_str())) {
+                ImGui::TextWrapped("The declaring component schema is missing. Its stored values "
+                                   "are preserved and read only.");
+                ui::help("Load the matching opted-in gameplay schema to edit this component. "
+                         "Unknown plugin data is retained through scene Save, duplication and "
+                         "prefab transport.");
+            } else
+                ui::help("Component data is present, but its schema is unavailable. Expand for "
+                         "details.");
         }
         if (!visible_components)
             ImGui::TextWrapped(filter_[0]

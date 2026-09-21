@@ -34,7 +34,7 @@ struct Inspect {
         }
     }
     void fields(const Json& descriptions, const Json& value, const std::string& path,
-                unsigned depth) {
+                unsigned depth, bool admission = false) {
         if (!value.is_object())
             throw std::runtime_error("Expected object in reflected reference inspection");
         std::set<std::string> known;
@@ -47,7 +47,7 @@ struct Inspect {
         }
         for (const auto& [id, unused] : value.items()) {
             (void)unused;
-            if (!known.contains(id))
+            if (!known.contains(id) && !(admission && id == "$forge"))
                 unknown(path + "." + id);
         }
     }
@@ -90,16 +90,24 @@ struct Inspect {
             for (const auto& row : doc.at(rows)) {
                 budget();
                 owner = row.value("name", row.value("id", std::string{}));
-                for (const auto& [component, value] : row.at("components").items()) {
-                    if (const auto found = types.find(component); found != types.end())
-                        fields(found->second.at("fields"), value, component, 0);
-                    else
-                        unknown(component);
+                for (const auto* channel : {"components", "property_overrides"}) {
+                    const auto values = row.value(channel, Json::object());
+                    for (const auto& [component, value] : values.items()) {
+                        const auto found = types.find(component);
+                        const bool custom =
+                            found != types.end() && found->second.value("custom", false);
+                        if (found == types.end() ||
+                            (custom && (!value.is_object() || value.value("$forge", Json()) !=
+                                                                  found->second.at("admission"))))
+                            unknown(component);
+                        else
+                            fields(found->second.at("fields"), value, component, 0, custom);
+                    }
                 }
                 if (row.contains("prefab_instance"))
                     reference(row.at("prefab_instance").at("asset"), "prefab_instance.asset",
                               "Prefab instance");
-                // Property override paths only mark intent; component values above own references.
+                // Both whole-component and per-property intent carry authored values.
                 for (const auto& [key, unused] : row.items()) {
                     (void)unused;
                     if (key != "id" && key != "name" && key != "components" && key != "parent" &&
