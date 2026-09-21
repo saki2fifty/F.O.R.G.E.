@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
         forge::ui::DocumentWorkspace documents;
         forge::ui::AssetEditors asset_editors;
         content.editors = &asset_editors;
-        bool document_locked = false;
+        bool document_locked = false, asset_document_locked = false;
         forge::BlockoutProperties blockout;
         forge::ui::CommandWorkspace commands;
         char hierarchy_filter[256]{};
@@ -307,6 +307,7 @@ int main(int argc, char** argv) {
         forge::ModelImportEditor model_imports(
             std::filesystem::path(base) / "forge_asset_build.exe",
             std::filesystem::path(base) / "tools/gltf2ozz.exe", scene, editor.selection);
+        model_imports.placement_allowed = [&] { return !document_locked; };
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
@@ -403,7 +404,7 @@ int main(int argc, char** argv) {
                        true,
                        [&] { return texture_imports.is_open(); },
                        [&] { return texture_imports.dirty(); },
-                       [&] { texture_imports.draw(files.document, document_locked); },
+                       [&] { texture_imports.draw(files.document, asset_document_locked); },
                        [&] { texture_imports.request_save(); },
                        {},
                        {},
@@ -420,7 +421,7 @@ int main(int argc, char** argv) {
                        true,
                        [&] { return model_imports.is_open(); },
                        [&] { return model_imports.dirty(); },
-                       [&] { model_imports.draw(files.document, document_locked); },
+                       [&] { model_imports.draw(files.document, asset_document_locked); },
                        [&] { model_imports.request_save(); },
                        {},
                        {},
@@ -595,6 +596,8 @@ int main(int argc, char** argv) {
                                      scene_tools.move.active() || modal.active() ||
                                      blockout.active();
             document_locked = edit_locked;
+            asset_document_locked = native->busy() || files.busy() || scene_tools.move.active() ||
+                                    modal.active() || blockout.active();
             editor.selection.reconcile(scene.document());
             if (editor.task.owner == forge::ui::DocumentTask::Extension &&
                 !documents.available(editor.task.id()))
@@ -1098,6 +1101,7 @@ int main(int argc, char** argv) {
                 }
                 model_imports.poll(files.document, message);
                 if (auto catalog = model_imports.take_catalog()) {
+                    play.model_assets_changed();
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
                     content.refresh(files);

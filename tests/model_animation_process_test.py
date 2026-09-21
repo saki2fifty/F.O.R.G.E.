@@ -108,8 +108,44 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
         retained = second.request('snapshot')
         assert pose(retained) == pose(stepped), retained
         assert retained['recovery'] == recovered['recovery']
+        notified = second.request('refresh_model_assets')
+        assert pose(notified) == pose(retained)
+        # Paused preparation retains both time and the old published sample.
+        for _ in range(20):
+            time.sleep(.002)
+            frozen = second.request('snapshot')
+            assert pose(frozen) == pose(retained), frozen
+        deadline = time.monotonic() + 15
+        updated = second.request('step')
+        while (pose(updated)['model_revision'] == pose(retained)['model_revision']
+               and time.monotonic() < deadline):
+            time.sleep(.002)
+            updated = second.request('step')
+        assert pose(updated)['model_revision'] != pose(retained)['model_revision'], updated
+        assert pose(updated)['time'] > pose(retained)['time'], updated
+        assert abs(pose(updated)['local'][0]['translation'][1] -
+                   4 * pose(updated)['time']) < .003, updated
+        # A corrupt catalog notification fails asynchronously without silencing
+        # the active sampler or replacing the runtime world.
+        catalog_path = project / 'forge.assets.json'
+        saved_catalog = catalog_path.read_bytes()
+        catalog_path.write_text('{invalid')
+        second.request('refresh_model_assets')
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            frozen = second.request('snapshot')
+            if any(d.get('category') == 'animation.catalog' for d in frozen['diagnostics']):
+                break
+            time.sleep(.002)
+        else:
+            raise AssertionError('Missing structured catalog failure')
+        assert pose(frozen) == pose(updated), frozen
+        catalog_path.write_bytes(saved_catalog)
+        second.request('refresh_model_assets')
+        resumed = second.request('step')
+        assert pose(resumed)['model_revision'] == pose(updated)['model_revision']
     finally:
         first.close()
         if second:
             second.close()
-print('Cooked model asynchronous IPC loading, paused time, sampling and crash/revision recovery passed')
+print('Cooked model IPC loading, fixed-boundary refresh, failure retention and recovery passed')

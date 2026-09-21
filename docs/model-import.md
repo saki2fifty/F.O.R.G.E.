@@ -554,3 +554,34 @@ Real-process ImGui tests cover successful import/guarded close, focus, ambiguous
 reimport, stale-decision rejection, new review/publication, signed/zero root scale,
 selection, single-step Undo/Redo and corrupt-source last-good retention. Windows
 visual/render acceptance and further asset-editor preview work remain in progress.
+
+## Runtime publication notifications
+
+A successful Model document publication notifies the separate Play runtime using
+`refresh_model_assets`. The runtime reads its own project catalog asynchronously;
+the message carries no source path, native pointer or arbitrary catalog payload.
+Repeated notifications coalesce while one bounded catalog read is pending.
+
+Animation providers request the newly selected typed skeleton/clip pair through
+the existing resource pools. The previous leases and sampler stay active during
+preparation or a rejected replacement. Paused presentation may pump preparation
+but never adopts a different sampler or applies transform channels. At the next
+fixed tick, candidate sampling and the existing full transform/physics validator
+run before consumer adoption. Playback time is preserved in seconds, wrapped for
+a looping shorter clip or clamped for a non-looping shorter clip; completed clips
+stay stopped. First successful replacement snaps transform and morph presentation
+together. Independent TRS channel intent and authored instance hierarchy remain.
+
+Removed members, incompatible family revisions, stale generations, corrupt
+artifacts and invalid candidate poses emit structured diagnostics and preserve
+the consumer's last good pair. A later publication can retry. Renderer resources
+still require matching model provenance; they cannot pair new mesh skin/morph
+metadata with the old animation revision. This mechanism applies to imported
+model families; legacy standalone animation companions retain their documented
+restart policy. Scene/history and recovery envelope formats are unchanged.
+
+The asynchronous catalog read uses the existing 64 MiB catalog limit. Closing a
+runtime joins the single owned read; no worker retains a world or Flecs pointer.
+Normal asset import settings may be edited during Play, but model placement stays
+subject to the scene-edit guard. The runtime does not rewrite placed hierarchy
+when the source hierarchy changes.

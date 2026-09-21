@@ -245,3 +245,26 @@ loading has no substitute selection cube.
 For an exceptionally expensive click, FORGE leaves the previous selection in place
 and reports that the selection work budget was exceeded. Use Hierarchy for that
 entity.
+
+## Reimport while playing
+
+You can update import settings in an open Model import document during Play.
+**Import / Reimport** prepares and validates the replacement while the previous good
+model remains usable. Placement is still a scene edit: stop Play before using
+**Place model**.
+
+A successfully published model notifies the Play runtime. While paused, the
+replacement can load, but the current animation and transforms stay frozen.
+Press **Step** or **Resume** to adopt a ready compatible replacement. Playback
+keeps its current time; a shorter clip wraps if looping or stops at its end.
+A missing clip, corrupt asset or incompatible pose reports an error and leaves
+the previous animation active. Fix the source and apply the import again.
+
+Reimport does not recreate or rearrange your placed entities. Scene edits and
+asset imports have separate histories. Older standalone Skeleton/Clip conversion
+assets still require stopping and starting Play to use a new conversion.
+
+Engine meshes include texture coordinates and tangents, so a surface material can
+use textures and normal maps. Curved shapes wrap around their circumference;
+flat faces and caps use planar coordinates. These are fixed built-in layouts,
+not an editable UV unwrap.

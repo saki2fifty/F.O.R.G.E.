@@ -9,6 +9,7 @@
 namespace forge {
 class ModelImportEditor : public AssetImportEditor {
   public:
+    std::function<bool()> placement_allowed;
     ModelImportEditor(std::filesystem::path worker, std::filesystem::path converter, Scene& scene,
                       ui::EditorSelection& selection)
         : AssetImportEditor(profile(std::move(worker), std::move(converter))), scene_(scene),
@@ -21,6 +22,9 @@ class ModelImportEditor : public AssetImportEditor {
     bool placement_ready() const { return selected_.has_value() && !job_.valid(); }
     EntityId place(SceneDocument& document,
                    const asset_detail::ModelPlacementOptions& options = {}) {
+        if (placement_allowed && !placement_allowed())
+            throw std::runtime_error(
+                "Finish Play or the active scene operation before placing a model.");
         if (!is_open() || !placement_ready() || dirty() || pending() ||
             document.project() != project_)
             throw std::runtime_error(
@@ -120,6 +124,7 @@ class ModelImportEditor : public AssetImportEditor {
                 }};
     }
     void draw_model(SceneDocument& document, bool locked) {
+        locked = locked || (placement_allowed && !placement_allowed());
         ui::heading(
             "Place in scene",
             "Creates ordinary authored entities using the validated imported hierarchy. One scene "

@@ -38,22 +38,23 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
                         "morph channel type/width/range is invalid: " + channels[c]);
                 result.morph_offsets[t * rows + c / 4][c % 4] = attribute->offset | (width - 1);
             }
-        const auto prefix =
-            "ByteAddressBuffer g_ForgeMorphDeltas;\n"
-            "cbuffer ForgeMorphOffsets {uint4 g_MorphOffsets[" +
-            std::to_string(result.morph_offsets.size()) +
-            "];};\n"
-            "cbuffer ForgeMorphWeights {float4 g_MorphWeights[" +
-            std::to_string((result.morph_count + 3) / 4) +
-            "];};\n"
-            "float4 ForgeMorphDelta(uint target,uint channel,uint vertex) {\n"
-            "uint packed=g_MorphOffsets[target*" +
-            std::to_string(rows) +
-            "+channel/4][channel%4];if(packed==0xffffffffu)return 0;\n"
-            "uint width=(packed&3)+1;uint at=(packed&~3u)+vertex*width*4;\n"
-            "if(width==2)return float4(asfloat(g_ForgeMorphDeltas.Load2(at)),0,0);\n"
-            "if(width==3)return float4(asfloat(g_ForgeMorphDeltas.Load3(at)),0);\n"
-            "return asfloat(g_ForgeMorphDeltas.Load4(at));}\n";
+        const auto prefix = "ByteAddressBuffer g_ForgeMorphDeltas;\n"
+                            "cbuffer ForgeMorphOffsets {uint4 g_MorphOffsets[" +
+                            std::to_string(result.morph_offsets.size()) +
+                            "];};\n"
+                            "cbuffer ForgeMorphWeights {float4 g_MorphWeights[" +
+                            std::to_string((result.morph_count + 3) / 4) +
+                            "];};\n"
+                            "float4 ForgeMorphDelta(uint target,uint channel,uint vertex) {\n"
+                            "uint packed=g_MorphOffsets[target*" +
+                            std::to_string(rows) +
+                            "+channel/4][channel%4];float4 delta=0;\n"
+                            "if(packed!=0xffffffffu) {\n"
+                            "uint width=(packed&3)+1;uint at=(packed&~3u)+vertex*width*4;\n"
+                            "if(width==2)delta.xy=asfloat(g_ForgeMorphDeltas.Load2(at));\n"
+                            "else if(width==3)delta.xyz=asfloat(g_ForgeMorphDeltas.Load3(at));\n"
+                            "else delta=asfloat(g_ForgeMorphDeltas.Load4(at));}\n"
+                            "return delta;}\n";
         result.source = prefix + result.source;
         result.source += "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
                          ";t++) {float w=g_MorphWeights[t/4][t%4];if(w!=0) {\n"

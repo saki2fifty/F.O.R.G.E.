@@ -48,3 +48,11 @@ Existing version-1 catalogs still open. On the next catalog save, FORGE keeps th
 original file as `forge.assets.json.v1.backup` before writing version 2. Keep the
 catalog and its backup with the project when upgrading. Older FORGE builds cannot
 read version 2. This does not change scene or prefab identities.
+
+## Refreshing the list
+
+Content discovers saved scenes and registered assets in the background.
+**Refreshing...** means a scan is running; you can continue using the existing
+list. Repeated **Refresh** clicks are combined. A failed scan reports its error
+and keeps the last good results. Opening another project clears the old list
+and discards any unfinished results belonging to the previous project.

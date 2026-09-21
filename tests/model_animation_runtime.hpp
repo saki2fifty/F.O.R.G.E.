@@ -453,5 +453,71 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
                     node.get<LocalTranslation>() == before.translation,
                 "Removing incompatible physics did not restore visual-only scale animation");
     }
+    {
+        Runtime hot(project);
+        hot.scene.restore_snapshot(bound_document);
+        wait_for_model(hot);
+        hot.simulation.tick(.1f);
+        const auto original = hot.pose();
+        const auto frozen = hot.scene.snapshot();
+        hot.animation->catalog(publication(request.generation + 10));
+        // Resource preparation is allowed while paused, but cannot publish a
+        // replacement sampler/pose until a fixed simulation boundary.
+        for (unsigned i = 0; i < 30; ++i) {
+            hot.simulation.presentation(.5);
+            std::this_thread::sleep_for(1ms);
+        }
+        require(hot.pose() == original && hot.scene.snapshot() == frozen,
+                "Paused model refresh changed playback or authored transforms");
+        auto adopt = [&](std::uint64_t generation) {
+            const auto until = std::chrono::steady_clock::now() + 10s;
+            do {
+                hot.simulation.tick(.001f);
+                if (hot.pose().at("model_generation") == generation)
+                    return;
+                std::this_thread::sleep_for(1ms);
+            } while (std::chrono::steady_clock::now() < until);
+            throw std::runtime_error("Model runtime failed to adopt a prepared publication");
+        };
+        adopt(request.generation + 10);
+        require(hot.pose().at("time").get<double>() > .1 &&
+                    hot.animation->model_pose_ready(hot.scene.entity("actor").id()),
+                "Model refresh restarted the clock or published an unapplied pose");
+        auto broken = *publication(request.generation + 11);
+        auto missing = broken.records().at(clip.id);
+        missing.subasset->removed = true;
+        broken.replace(missing);
+        hot.animation->catalog(std::make_shared<const AssetCatalog>(std::move(broken)));
+        hot.simulation.tick(.001f);
+        require(hot.pose().at("model_generation") == request.generation + 10 &&
+                    hot.animation->checkpoint_ready(),
+                "Removed clip replaced or silenced last-good playback");
+        hot.animation->pose_validator([](const auto&) {
+            throw std::runtime_error("Owned fixture rejects candidate spatial pose");
+        });
+        hot.animation->catalog(publication(request.generation + 12));
+        const auto validation_until = std::chrono::steady_clock::now() + 10s;
+        bool rejected_candidate = false;
+        while (!rejected_candidate && std::chrono::steady_clock::now() < validation_until) {
+            hot.simulation.tick(.001f);
+            for (const auto& diagnostic : hot.engine.services().diagnostics())
+                if (diagnostic.at("category") == "animation.reload" &&
+                    diagnostic.at("text").get<std::string>().find("Owned fixture") !=
+                        std::string::npos)
+                    rejected_candidate = true;
+            std::this_thread::sleep_for(1ms);
+        }
+        hot.animation->pose_validator({});
+        hot.simulation.tick(.001f);
+        require(rejected_candidate && !hot.pose().is_null() &&
+                    hot.pose().at("model_generation") == request.generation + 10,
+                "Rejected model candidate replaced last-good animation resources");
+        hot.animation->catalog(publication(request.generation + 13));
+        adopt(request.generation + 13);
+        hot.animation->catalog(publication(request.generation + 12));
+        hot.simulation.tick(.001f);
+        require(hot.pose().at("model_generation") == request.generation + 13,
+                "Stale catalog notification regressed active animation");
+    }
     std::filesystem::rename(moved_source, source_path);
 }

@@ -26,6 +26,17 @@ void check_engine_resources(const std::filesystem::path& root) {
         require(part.vertices == legacy.size(), "Built-in migration lost primitive vertices");
         const auto& positions = std::get<std::vector<float>>(part.find("POSITION")->values);
         const auto& normals = std::get<std::vector<float>>(part.find("NORMAL")->values);
+        require(part.find("TEXCOORD_0") && part.find("TANGENT"),
+                "Engine shape cannot use textured or normal-mapped materials");
+        const auto& uv = std::get<std::vector<float>>(part.find("TEXCOORD_0")->values);
+        const auto& tangents = std::get<std::vector<float>>(part.find("TANGENT")->values);
+        for (unsigned i = 0; i < part.vertices; ++i) {
+            const Float3 n{normals[3 * i], normals[3 * i + 1], normals[3 * i + 2]},
+                t{tangents[4 * i], tangents[4 * i + 1], tangents[4 * i + 2]};
+            require(std::abs(geom_dot(n, t)) < .00001f && std::abs(geom_dot(t, t) - 1) < .00001f &&
+                        std::abs(tangents[4 * i + 3]) == 1,
+                    "Engine surface tangent is not an orthonormal direction/sign");
+        }
         for (unsigned i = 0; i < part.vertices; i += 3) {
             auto point = [&](unsigned vertex) {
                 return Float3{positions[3 * vertex], positions[3 * vertex + 1],
@@ -36,6 +47,18 @@ void check_engine_resources(const std::filesystem::path& root) {
             const Float3 normal{normals[3 * i], normals[3 * i + 1], normals[3 * i + 2]};
             require(geom_dot(area, normal) >= -1e-7f,
                     "Engine mesh winding disagrees with outward normals");
+            const float du1 = uv[2 * (i + 1)] - uv[2 * i], du2 = uv[2 * (i + 2)] - uv[2 * i],
+                        dv1 = uv[2 * (i + 1) + 1] - uv[2 * i + 1],
+                        dv2 = uv[2 * (i + 2) + 1] - uv[2 * i + 1];
+            if (geom_dot(area, area) > 1e-12f) {
+                const auto determinant = du1 * dv2 - du2 * dv1;
+                require(std::abs(determinant) > 1e-9f,
+                        "Noncollapsed engine triangle has collapsed UV coordinates");
+                if (determinant * tangents[4 * i + 3] <= 0)
+                    throw std::runtime_error(
+                        std::string("Engine tangent handedness disagrees with UVs: ") + asset.name +
+                        " triangle " + std::to_string(i / 3));
+            }
         }
         require(mesh.materials.at(0).key == "surface", "Engine material binding is not stable");
     }

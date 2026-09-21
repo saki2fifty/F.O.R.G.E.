@@ -1,3 +1,4 @@
+#include "content.hpp"
 #include "model_imports.hpp"
 #include <fstream>
 #include <iostream>
@@ -13,12 +14,56 @@ void save(const std::filesystem::path& path, const Json& source) {
     out << source.dump();
     require(bool(out.flush()), "Cannot save owned model editor fixture");
 }
+void check_content_refresh(const std::filesystem::path& root) {
+    EngineContext engine;
+    Scene scene(engine.world());
+    std::vector<std::string> recent;
+    EditorFiles files(scene, nullptr, recent);
+    const auto a = root / "ContentA", b = root / "ContentB";
+    std::filesystem::create_directories(a);
+    std::filesystem::create_directories(b);
+    files.document.open_project(a, true);
+    const auto first = scene.asset_id();
+    save(a / "First.scene.json", scene.document());
+    ContentBrowser content;
+    content.refresh(files);
+    require(content.refreshing() && !content.record(first),
+            "Content scan performed synchronous discovery/adoption");
+    auto finish = [&] {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (content.refreshing() && std::chrono::steady_clock::now() < deadline) {
+            content.poll(files);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        require(!content.refreshing(), "Content scan did not settle");
+    };
+    for (unsigned i = 0; i < 8; ++i)
+        content.refresh(files);
+    finish();
+    require(content.record(first), "Asynchronous discovery lost scene AssetId");
+    std::ofstream(a / "forge.assets.json") << "{invalid";
+    content.refresh(files);
+    finish();
+    require(content.record(first), "Failed discovery destroyed the last good list");
+    content.refresh(files);
+    files.document.open_project(b, true);
+    auto second_scene = scene.document();
+    const auto second = AssetId::generate();
+    second_scene["asset_id"] = second;
+    save(b / "Second.scene.json", second_scene);
+    content.poll(files);
+    require(!content.record(first), "Project switch retained previous Content selection");
+    finish();
+    require(content.record(second) && !content.record(first),
+            "An old Content job published into the newly opened project");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         require(argc == 3, "Need model worker and scratch root");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
+        check_content_refresh(root);
         const auto path = root / "Assets/model.gltf";
         Json source{{"asset", {{"version", "2.0"}}},
                     {"scene", 0},
@@ -110,6 +155,17 @@ int main(int argc, char** argv) {
         editor.request_save();
         frame();
         wait([&] { return !editor.pending() && editor.placement_ready(); });
+        editor.placement_allowed = [] { return false; };
+        bool locked_placement = false;
+        const auto locked_scene = scene.document();
+        try {
+            editor.place(document);
+        } catch (const std::exception&) {
+            locked_placement = true;
+        }
+        require(locked_placement && scene.document() == locked_scene,
+                "Import document bypassed host scene-edit lock");
+        editor.placement_allowed = [] { return true; };
         require(!editor.dirty() && editor.selected_asset() == owner,
                 "Reviewed model reimport lost root identity");
         const auto before = scene.document();

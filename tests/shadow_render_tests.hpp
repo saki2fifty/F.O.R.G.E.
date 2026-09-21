@@ -55,7 +55,10 @@ void check_shadow_render(forge::DiligentPresentation& presentation,
     caster_world.m[11] = 2;
     RenderScene scene;
     scene.scene = AssetId::generate();
-    scene.settings.shadows.resolution = 64;
+    // Resolve the caster across more than the native 3x3 PCF footprint. At 64
+    // texels the second cascade's small caster is mostly a penumbra, so its
+    // center is not a valid fully-occluded sample for the strict ratio below.
+    scene.settings.shadows.resolution = 256;
     scene.settings.shadows.cascades = 2;
     scene.settings.shadows.distance = 8;
     Light light;

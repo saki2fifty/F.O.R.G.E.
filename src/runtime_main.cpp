@@ -275,6 +275,12 @@ int main(int argc, char** argv) {
                             candidate); // Publish only a complete validated reconstruction.
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
                         ui_commands.reset(session, ++ui_generation);
+                    } else if (command == "refresh_model_assets") {
+                        auto animation = forge::animation_runtime(runtime->engine.world());
+                        if (!animation || project_root.empty())
+                            throw std::runtime_error(
+                                "Model asset refresh requires a project runtime");
+                        animation->refresh_assets();
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();

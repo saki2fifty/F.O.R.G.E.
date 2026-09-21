@@ -235,3 +235,12 @@ Recovery uses the same validator while sampling into temporary state. Failure le
 existing playback times and transforms unchanged. Complete runtime recovery still
 reconstructs the scene and physics before admitting animation; the animation section
 alone does not replace the scene or roll back solver state.
+
+### Imported-model refresh
+
+The standalone conversion restart rule above does not apply to Phase7 model
+families. Their immutable catalog notifications, typed resource pair preparation,
+fixed-boundary candidate validation and last-good playback retention are described
+in [model import](model-import.md#runtime-publication-notifications). Presentation
+includes the selected model revision/publication generation for diagnostics; neither
+field is a new persistent identity or authored transform authority.

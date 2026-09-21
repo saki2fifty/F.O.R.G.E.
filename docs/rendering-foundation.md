@@ -956,3 +956,21 @@ Immutable mesh and morph buffers use Diligent's
 selects bounded descriptor-table SRVs instead of size-less root SRVs. They do
 not require dynamic offsets. CPU admission still checks every stream range;
 the descriptor boundary is additional GPU protection, not asset validation.
+
+### Built-in mesh surface coordinates
+
+The immutable engine primitive recipe v2 adds TEXCOORD_0 and TANGENT to the same
+positions, outward normals and topology. Engine AssetIds are unchanged. Sphere/
+icosphere/hemisphere use longitude/polar coordinates, cylindrical surfaces use
+longitude/height, torus uses its two angular parameters, and flat caps/convex faces
+use dominant-normal planar projection. Triangle corners split wrap seams; pole U
+comes from adjacent non-pole corners. Coordinates may exceed one at a wrap seam.
+
+Tangents are the analytic derivative of those known parametric surfaces, projected
+onto the stored normal plane and normalized. W records UV handedness, including
+inside tube surfaces and caps. Imported arbitrary meshes still use the existing
+native meshoptimizer tangent processor; procedural meshes do not pull the offline
+importer/codecs into the runtime dependency graph. The legacy PrimitiveVertex
+layout, navigation geometry, persisted Primitive/Tint values and engine logical
+identities are unchanged. Normal mesh admission and resource budgets include the
+additional channels.

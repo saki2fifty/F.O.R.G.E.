@@ -3,6 +3,7 @@
 #include <forge/world.hpp>
 #include <functional>
 namespace forge {
+class AssetCatalog;
 EngineModule animation_module(std::filesystem::path project);
 class AnimationRuntime {
   public:
@@ -13,6 +14,10 @@ class AnimationRuntime {
     using PoseValidator = std::function<void(const std::map<std::uint64_t, TransformNode>&)>;
     void pose_validator(PoseValidator);
     void synchronize();
+    // Development host notifications. Catalog IO runs off-thread; sampling/adoption
+    // remains on the world owner. Neither operation edits the authored hierarchy.
+    void refresh_assets();
+    void catalog(std::shared_ptr<const AssetCatalog>);
     void tick(float dt);
     void reset_presentation();
     Json presentation(flecs::entity_t entity, double alpha);

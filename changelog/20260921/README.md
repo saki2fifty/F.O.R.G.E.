@@ -529,3 +529,55 @@
   configuration error; production fingerprint and worker memory checks remain.
   This is not a claim of sanitizer coverage inside the child process.
 - Manual checks pass 3/3; formatting and platform-neutral presentation syntax pass.
+
+### Live model animation publication
+
+- Notify separate Play after a Model document publication; read the runtime's own
+  catalog asynchronously and coalesce repeated notifications.
+- Prepare the new skeleton/clip through existing typed resource pools while keeping
+  last-good playback. Adopt at a fixed tick only after sampling and transform/physics
+  validation; preserve playback time and snap the first compatible replacement pose.
+- Preserve previous resources on missing/corrupt/stale/incompatible candidates, with
+  structured diagnostics and retry on a later publication. Retain standalone legacy
+  animation restart semantics and the existing recovery envelope.
+- Allow asset import settings during Play while preserving the model-placement
+  scene-edit guard. Add runtime IPC, paused refresh, failure, generation and locked
+  placement regressions; validation is in progress.
+
+### Built-in mesh texture support
+
+- Add texture coordinates and analytic tangent frames to all twenty engine meshes:
+  spherical, cylindrical, toroidal and planar mappings with split seams/poles.
+- Preserve engine AssetIds, geometry, legacy preview vertex layout and scene
+  Primitive/Tint compatibility. Increment only the immutable mesh recipe revision.
+- Test every built-in shape through mesh encode/decode, tangent orthogonality,
+  noncollapsed UV triangles and UV/winding handedness; validation is in progress.
+
+### Responsive Content discovery
+
+- Move registered-asset and saved-scene discovery off the UI thread with one owned
+  cancellable scan. Coalesce repeated requests, retain the prior list on failure,
+  and reject completed scans after a project switch. Show Refreshing status.
+- Keep newly created prefab records immediately available from the existing owned
+  prefab catalog; background discovery never creates IDs or writes an asset index.
+- Add actual controller regressions for background adoption, repeated refresh,
+  corrupt catalog retention and old-project completion; validation is in progress.
+
+- Validation: live runtime model IPC 1/1 (1.99 s), normal model pipeline 1/1
+  (34.54 s), strict model/animation 2/2 (90.94 s), and updated built-in surface
+  direct-model sanitizer regression 1/1 (97.12 s) pass.
+- Content/model controller regressions pass normally (1.72 s) and with the
+  instrumented host (1.89 s). Correct capsule pole handedness using its limiting
+  surface orientation; roundoff in a near-zero radial dot product is not a valid
+  orientation test. Keep failed empty Content scans on the refresh interval.
+
+### Native renderer follow-up
+
+- Windows source audit f72a763 passes 39/42 tests, including the model editor,
+  retained mesh selection and skinned surfaces. Optimized FXC morph rendering
+  still fails; the identical DXC and unoptimized FXC comparisons pass.
+- Rewrite morph delta loading with an initialized result and a single return,
+  retaining all bounds and compiler settings; native confirmation is pending.
+- Confirm directional shadow depth now renders. Increase only the small-caster
+  acceptance fixture resolution so its interior exceeds the native PCF footprint;
+  preserve the strict occlusion assertion. Full native shadow validation pending.

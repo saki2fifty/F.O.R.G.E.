@@ -20,6 +20,10 @@ class PlaySession {
     bool active() const { return process_ != nullptr; }
     bool ready() const { return active() && stage_ == Stage::Running; }
     bool paused() const { return timing_.value("paused", true); }
+    void model_assets_changed() {
+        if (active())
+            model_assets_changed_ = true;
+    }
     bool pending_activation() const { return ready() && transaction_; }
     bool awaiting_activation_input() const {
         return pending_activation() && desired_paused_ && paused();
@@ -317,6 +321,9 @@ class PlaySession {
                     const auto command = control_;
                     control_.clear();
                     send({{"command", command}});
+                } else if (model_assets_changed_) {
+                    model_assets_changed_ = false;
+                    send({{"command", "refresh_model_assets"}});
                 } else if (!ui_command_.is_null()) {
                     auto command = std::move(ui_command_);
                     ui_command_ = nullptr;
@@ -362,6 +369,7 @@ class PlaySession {
         control_.clear();
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
+        model_assets_changed_ = false;
         waiting_ = false;
     }
     void begin_running() {
@@ -449,6 +457,7 @@ class PlaySession {
     double simulation_hz_ = 60;
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
     Json ui_snapshot_, ui_ack_, ui_command_;
+    bool model_assets_changed_ = false;
     std::vector<InputEvent> input_events_;
     SDL_Process* process_ = nullptr;
     Stage stage_ = Stage::Hello;

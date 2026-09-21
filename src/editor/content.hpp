@@ -6,9 +6,12 @@
 #include "search.hpp"
 #include <algorithm>
 #include <cctype>
+#include <future>
 #include <set>
+#include <stop_token>
 namespace forge {
-inline std::vector<std::filesystem::path> scene_files(const std::filesystem::path& root) {
+inline std::vector<std::filesystem::path> scene_files(const std::filesystem::path& root,
+                                                      std::stop_token stop = {}) {
     std::vector<std::filesystem::path> result;
     std::error_code error;
     std::filesystem::recursive_directory_iterator it(
@@ -19,6 +22,8 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
     unsigned visited = 0;
     std::uintmax_t scanned_bytes = 0;
     for (; it != end; it.increment(error)) {
+        if (stop.stop_requested())
+            throw std::runtime_error("Content scan cancelled");
         if (++visited > 10000)
             throw std::runtime_error("Scene scan exceeds 10000 entries; use File > Open scene");
         if (error)
@@ -73,34 +78,76 @@ class ContentBrowser {
         const auto it = catalog_->records().find(id);
         return it == catalog_->records().end() ? nullptr : &it->second;
     }
+    ~ContentBrowser() { stop_.request_stop(); }
+    bool refreshing() const { return scan_.valid() || refresh_again_; }
     void refresh(EditorFiles& files) {
-        auto candidate = AssetCatalog::open_project(files.document.project());
-        // Scenes already carry their AssetId. Use the same catalog abstraction for discovery;
-        // browsing never creates a replacement identity or writes a second asset database.
-        for (const auto& path : scene_files(files.document.project())) {
-            const auto doc = read_json(files.document.project() / path);
-            if (!doc.contains("asset_id"))
-                continue;
-            const auto id = doc.at("asset_id").get<AssetId>();
-            if (!candidate.records().contains(id))
-                candidate.add_scene(path);
-        }
-        for (const auto& [id, prefab] : files.document.prefabs().records()) {
-            if (!candidate.records().contains(id))
-                candidate.add(prefab);
-            else if (candidate.records().at(id).type != prefab.type ||
-                     candidate.records().at(id).source != prefab.source)
-                throw std::runtime_error("Conflicting prefab asset identity in Content");
-        }
-        root_ = files.document.project();
-        catalog_ = std::move(candidate);
+        select_project(files);
         refreshed_ = SDL_GetTicks();
+        if (scan_.valid()) {
+            refresh_again_ = true;
+            return;
+        }
+        refresh_again_ = false;
+        stop_ = std::stop_source{};
+        scan_project_ = root_;
+        scan_ = std::async(std::launch::async, [root = root_, stop = stop_.get_token()] {
+            auto candidate = AssetCatalog::open_project(root);
+            // Scenes carry their own AssetIds. Browsing creates no new identity
+            // and writes no replacement asset database.
+            for (const auto& path : scene_files(root, stop)) {
+                if (stop.stop_requested())
+                    throw std::runtime_error("Content scan cancelled");
+                const auto doc = read_json(root / path);
+                if (!doc.contains("asset_id"))
+                    continue;
+                const auto id = doc.at("asset_id").get<AssetId>();
+                if (!candidate.records().contains(id))
+                    candidate.add_scene(path);
+            }
+            return candidate;
+        });
+    }
+    void poll(EditorFiles& files) {
+        select_project(files);
+        if (!scan_.valid()) {
+            if (std::exchange(refresh_again_, false))
+                refresh(files);
+            return;
+        }
+        if (scan_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+            return;
+        try {
+            auto candidate = scan_.get();
+            if (!stop_.stop_requested() && scan_project_ == root_) {
+                merge_prefabs(candidate, files);
+                catalog_ = std::move(candidate);
+                error_.clear();
+                refreshed_ = SDL_GetTicks();
+            }
+        } catch (const std::exception& e) {
+            if (!stop_.stop_requested() && scan_project_ == root_) {
+                error_ = e.what();
+                refreshed_ = SDL_GetTicks();
+            }
+        }
+        if (std::exchange(refresh_again_, false))
+            refresh(files);
     }
     const AssetRecord* resolve_record(EditorFiles& files, AssetId id) {
+        poll(files);
         const bool changed = inspected_ != id;
+        // Prefab authoring already has an owned validated record; expose that
+        // immediately while disk discovery runs in the background.
+        if (const auto known = files.document.prefabs().records().find(id);
+            known != files.document.prefabs().records().end()) {
+            if (!catalog_)
+                catalog_.emplace(root_);
+            if (!record(id))
+                catalog_->add(known->second);
+        }
         inspected_ = id;
-        if (root_ != files.document.project() || !catalog_ || (changed && !record(id)) ||
-            SDL_GetTicks() - refreshed_ > 5000) {
+        if (root_ != files.document.project() || (!catalog_ && refreshed_ == 0) ||
+            (changed && !record(id)) || SDL_GetTicks() - refreshed_ > 5000) {
             try {
                 refresh(files);
                 error_.clear();
@@ -156,6 +203,7 @@ class ContentBrowser {
     void draw(EditorFiles& files, bool* open = nullptr,
               const std::function<void()>& prefab_controls = {},
               const std::function<void()>& asset_controls = {}, bool locked = false) {
+        poll(files);
         if (ui::editor_context && ui::editor_context->reveal_content)
             ImGui::SetNextWindowFocus();
         if (!ImGui::Begin("Content", open)) {
@@ -165,12 +213,7 @@ class ContentBrowser {
         auto& selection = ui::editor_context ? ui::editor_context->selection : fallback_;
         if (ui::editor_context)
             ui::editor_context->task.focus(ui::DocumentTask::Scene);
-        if (root_ != files.document.project()) {
-            root_ = files.document.project();
-            catalog_.reset();
-            refreshed_ = 0;
-        }
-        bool rescan = !catalog_ || SDL_GetTicks() - refreshed_ > 5000;
+        bool rescan = !refreshing() && (refreshed_ == 0 || SDL_GetTicks() - refreshed_ > 5000);
         if (ui::button("Create / Register", "Create or register supported project assets. These "
                                             "operations are separate from scene Undo."))
             ImGui::OpenPopup("Asset operations");
@@ -221,6 +264,13 @@ class ContentBrowser {
                 error_ = e.what();
                 refreshed_ = SDL_GetTicks();
             }
+        if (refreshing()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("Refreshing...");
+            ui::help(
+                "Project asset discovery runs in the background. Existing results stay available; "
+                "a failed scan keeps the last complete list.");
+        }
         const bool wide_filters = ImGui::GetContentRegionAvail().x >= 600 * ui::interface_scale;
         if (wide_filters)
             ImGui::SameLine();
@@ -366,5 +416,28 @@ class ContentBrowser {
     char filter_[256]{}, folder_[256]{}, wav_[1024] = "Assets/sound.wav";
     bool reveal_ = false;
     Uint64 refreshed_ = 0;
+    bool refresh_again_ = false;
+    std::filesystem::path scan_project_;
+    std::stop_source stop_;
+    std::future<AssetCatalog> scan_;
+    void select_project(EditorFiles& files) {
+        if (root_ == files.document.project())
+            return;
+        stop_.request_stop();
+        root_ = files.document.project();
+        catalog_.reset();
+        error_.clear();
+        refreshed_ = 0;
+        refresh_again_ = true;
+    }
+    static void merge_prefabs(AssetCatalog& candidate, EditorFiles& files) {
+        for (const auto& [id, prefab] : files.document.prefabs().records()) {
+            if (!candidate.records().contains(id))
+                candidate.add(prefab);
+            else if (candidate.records().at(id).type != prefab.type ||
+                     candidate.records().at(id).source != prefab.source)
+                throw std::runtime_error("Conflicting prefab asset identity in Content");
+        }
+    }
 };
 } // namespace forge

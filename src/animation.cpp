@@ -7,6 +7,7 @@
 #include <forge/animation.hpp>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
+#include <future>
 #include <set>
 namespace forge {
 namespace {
@@ -20,6 +21,7 @@ struct Pair {
     std::shared_ptr<const Clip> clip;
     std::string skeleton_revision, clip_revision;
     ModelAnimationLease model;
+    std::uint64_t model_generation = 0;
 };
 struct Playback {
     Animator config;
@@ -46,6 +48,10 @@ struct AnimationRuntime::Impl {
     std::map<flecs::entity_t, std::string> binding_errors;
     std::set<flecs::entity_t> orphan_nodes;
     std::map<flecs::entity_t, Animator> failed_configurations;
+    std::set<flecs::entity_t> reload_pending;
+    std::map<flecs::entity_t, std::string> reload_errors;
+    std::future<std::shared_ptr<const AssetCatalog>> catalog_job;
+    bool catalog_again = false;
     std::size_t cache_bytes = 0;
     AnimationRuntime::PoseValidator pose_validator;
     std::set<std::uint64_t> discontinuities;
@@ -55,8 +61,8 @@ struct AnimationRuntime::Impl {
         if (model_resources)
             model_resources->close();
     }
-    void apply_model_poses(bool commit = true,
-                           const std::map<flecs::entity_t, double>& times = {}) {
+    void apply_model_poses(bool commit = true, const std::map<flecs::entity_t, double>& times = {},
+                           flecs::entity_t only = 0) {
         // One derived instance index per fixed tick. Native ChildOf lookup also
         // resolves Flecs Parent storage at the pinned revision. Nested roots are
         // boundaries, including roots belonging to another model.
@@ -101,7 +107,10 @@ struct AnimationRuntime::Impl {
             orphan_nodes = std::move(orphans);
         }
         for (auto& [id, playback] : states) {
-            if (!playback.config.enabled || errors.contains(id) || pending.contains(id)) {
+            if (only && id != only)
+                continue;
+            if (!playback.config.enabled ||
+                (!only && (errors.contains(id) || pending.contains(id)))) {
                 if (commit)
                     binding_errors.erase(id);
                 continue;
@@ -237,19 +246,26 @@ struct AnimationRuntime::Impl {
         if (!loaded)
             return std::nullopt;
         Pair result{loaded.skeleton->native, loaded.clip->native, request.revision,
-                    request.revision, std::move(loaded)};
+                    request.revision,        std::move(loaded),   request.generation};
         return result;
     }
     std::optional<Pair> load(const Animator& config) {
         if (!config.skeleton.id || !config.clip.id)
             throw ArchiveError("Choose a Skeleton and Animation clip");
         const auto key = std::pair{config.skeleton.id, config.clip.id};
-        if (const auto existing = model_requests.find(key); existing != model_requests.end())
+        if (const auto existing = model_requests.find(key); existing != model_requests.end()) {
+            // Native resource requests coalesce unchanged revisions, after typed
+            // member/owner validation. Removed members must not reuse an old ticket.
+            auto request = model_resources->request(model_catalog, config.skeleton, config.clip);
+            existing->second = std::move(request);
             return acquire_model(existing->second);
+        }
         if (model_catalog && model_catalog->records().contains(config.skeleton.id) &&
             model_catalog->records().contains(config.clip.id) &&
             (model_catalog->records().at(config.skeleton.id).metadata.contains("forge.model") ||
              model_catalog->records().at(config.clip.id).metadata.contains("forge.model"))) {
+            if (!model_resources)
+                model_resources = std::make_unique<ModelAnimationResources>(project);
             auto request = model_resources->request(model_catalog, config.skeleton, config.clip);
             return acquire_model(model_requests.emplace(key, std::move(request)).first->second);
         }
@@ -330,7 +346,43 @@ struct AnimationRuntime::Impl {
         return Pair{skeletons.at(config.skeleton.id), clips.at(config.clip.id),
                     sm.at("artifact_sha256"), cm.at("artifact_sha256")};
     }
-    void synchronize() {
+    void catalog(std::shared_ptr<const AssetCatalog> selected) {
+        if (!selected)
+            throw ArchiveError("Animation catalog notification is empty");
+        std::set<flecs::entity_t> changed;
+        for (const auto& [id, state] : states)
+            if (state.assets.model)
+                changed.insert(id);
+        model_catalog = std::move(selected);
+        reload_pending.swap(changed);
+        reload_errors.clear();
+        failed_configurations.clear();
+    }
+    void refresh_assets() {
+        if (catalog_job.valid()) {
+            catalog_again = true;
+            return;
+        }
+        catalog_job = std::async(std::launch::async, [root = project] {
+            return std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+        });
+    }
+    void poll_catalog() {
+        if (!catalog_job.valid() ||
+            catalog_job.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+            return;
+        try {
+            catalog(catalog_job.get());
+        } catch (const std::exception& e) {
+            Diagnostic diagnostic{Severity::Error, "animation.catalog", e.what(), {}};
+            diagnostic.context.module = "forge.animation";
+            context.services().emit(std::move(diagnostic));
+        }
+        if (std::exchange(catalog_again, false))
+            refresh_assets();
+    }
+    void synchronize(float fixed_dt = 0) {
+        poll_catalog();
         if (model_resources)
             model_resources->pump();
         pending.clear();
@@ -345,9 +397,12 @@ struct AnimationRuntime::Impl {
             used_skeletons.insert(config.skeleton.id);
             used_clips.insert(config.clip.id);
             auto old = states.find(e.id());
-            if (old != states.end() && old->second.config == config) {
+            const bool reload = old != states.end() && old->second.config == config &&
+                                reload_pending.contains(e.id());
+            if (old != states.end() && old->second.config == config && !reload) {
                 errors.erase(e.id());
                 failed_configurations.erase(e.id());
+                reload_pending.erase(e.id());
                 return;
             }
             if (failed_configurations.contains(e.id()) &&
@@ -355,8 +410,55 @@ struct AnimationRuntime::Impl {
                 return;
             try {
                 detail::validate_reflected_value(e, config);
-                if (old != states.end() && old->second.config.skeleton == config.skeleton &&
-                    old->second.config.clip == config.clip) {
+                if (reload) {
+                    auto assets = load(config);
+                    if (!assets)
+                        return; // Continue the previous good playback while loading.
+                    if (assets->model.clip.identity() == old->second.assets.model.clip.identity() &&
+                        assets->model.skeleton.identity() ==
+                            old->second.assets.model.skeleton.identity()) {
+                        reload_pending.erase(e.id());
+                        return;
+                    }
+                    if (fixed_dt == 0)
+                        return; // Pause may prepare resources, but cannot apply a new pose.
+                    Playback next;
+                    next.config = config;
+                    next.reference = old->second.reference;
+                    next.assets = std::move(*assets);
+                    std::size_t joints = next.assets.skeleton->info().tracks;
+                    for (const auto& [other, state] : states)
+                        if (other != e.id())
+                            joints += state.assets.skeleton->info().tracks;
+                    if (joints > 8192)
+                        throw ArchiveError("Animation replacement exceeds evaluated-joint budget");
+                    next.sampler =
+                        std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
+                    const auto duration = next.assets.clip->info().duration;
+                    next.time = config.loop ? std::fmod(old->second.time, duration)
+                                            : std::min(old->second.time, double(duration));
+                    next.previous = next.time;
+                    next.playing = old->second.playing && (config.loop || next.time < duration);
+                    next.sampler->sample(float(next.time / duration));
+                    double target_time = next.time;
+                    if (next.config.enabled && next.playing) {
+                        target_time += double(fixed_dt) * config.playback_speed;
+                        target_time = config.loop ? std::fmod(target_time, duration)
+                                                  : std::min(target_time, double(duration));
+                    }
+                    // Temporary owner-local candidate, never published or sampled externally.
+                    // Validate transform/physics compatibility before adopting either resource.
+                    std::swap(old->second, next);
+                    try {
+                        apply_model_poses(false, {{e.id(), target_time}}, e.id());
+                    } catch (...) {
+                        std::swap(old->second, next);
+                        throw;
+                    }
+                    reload_pending.erase(e.id());
+                    reload_errors.erase(e.id());
+                } else if (old != states.end() && old->second.config.skeleton == config.skeleton &&
+                           old->second.config.clip == config.clip) {
                     if (old->second.config.enabled != config.enabled) {
                         old->second.discontinuous = true;
                         old->second.model_pose_applied = false;
@@ -389,7 +491,18 @@ struct AnimationRuntime::Impl {
                 }
                 errors.erase(e.id());
                 failed_configurations.erase(e.id());
+                reload_pending.erase(e.id());
             } catch (const std::exception& ex) {
+                if (reload) {
+                    reload_pending.erase(e.id());
+                    reload_errors[e.id()] = ex.what();
+                    Diagnostic d{Severity::Error, "animation.reload", ex.what(), {}};
+                    d.context.entity = context.reference(e.id())->entity;
+                    d.context.module = "forge.animation";
+                    d.context.asset = config.clip.id;
+                    context.services().emit(std::move(d));
+                    return; // Last-good playback remains active; retry on a new notification.
+                }
                 if (errors[e.id()] != ex.what()) {
                     Diagnostic d{Severity::Error, "animation.asset", ex.what(), {}};
                     d.context.entity = context.reference(e.id())->entity;
@@ -421,6 +534,9 @@ struct AnimationRuntime::Impl {
                       [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(failed_configurations,
                       [&](const auto& entry) { return !alive.contains(entry.first); });
+        std::erase_if(reload_pending, [&](auto id) { return !alive.contains(id); });
+        std::erase_if(reload_errors,
+                      [&](const auto& entry) { return !alive.contains(entry.first); });
     }
 };
 AnimationRuntime::AnimationRuntime(WorldContext& c, std::filesystem::path p)
@@ -435,13 +551,21 @@ void AnimationRuntime::synchronize() {
     if (impl_)
         impl_->synchronize();
 }
+void AnimationRuntime::refresh_assets() {
+    if (impl_)
+        impl_->refresh_assets();
+}
+void AnimationRuntime::catalog(std::shared_ptr<const AssetCatalog> selected) {
+    if (impl_)
+        impl_->catalog(std::move(selected));
+}
 void AnimationRuntime::tick(float dt) {
     if (!impl_)
         return;
     if (!std::isfinite(dt) || dt <= 0)
         throw ArchiveError("Animation requires a positive fixed delta");
     auto profile = impl_->context.services().profile("animation", "FixedPlayback");
-    impl_->synchronize();
+    impl_->synchronize(dt);
     for (auto& [id, p] : impl_->states) {
         p.previous = p.time;
         p.advance = 0;
@@ -508,6 +632,7 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     if (p.assets.model) {
         result["model_asset"] = p.assets.model.skeleton->model;
         result["model_revision"] = p.assets.skeleton_revision;
+        result["model_generation"] = p.assets.model_generation;
         result["joint_nodes"] = p.assets.model.skeleton->joint_nodes;
         result["joint_assets"] = p.assets.model.skeleton->joint_assets;
         if (p.assets.model.clip->has_transform_channels) {
