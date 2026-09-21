@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
         unsigned char* pixels;
         int w, h;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+        io.Fonts->SetTexID(ImTextureID(1)); // Headless draw-command inspection.
         ui::EditorUiContext context;
         ui::ContextScope scope(context);
         test_content_browser(root);

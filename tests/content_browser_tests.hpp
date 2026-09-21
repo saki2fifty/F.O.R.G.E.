@@ -70,7 +70,9 @@ inline void test_content_browser(const std::filesystem::path& root) {
         const auto changed = thumbnail_revision(revisions, material);
         check(changed != before,
               "Transitive texture revision failed to invalidate Material thumbnail");
+        atomic_write(root / "Assets/moved.material.json", "{}");
         revisions.relocate(material, "Assets/moved.material.json");
+        std::filesystem::remove(root / "Assets/moved.material.json");
         check(thumbnail_revision(revisions, material) == changed,
               "Locator-only movement changed published thumbnail identity");
         surface.dependencies.clear();

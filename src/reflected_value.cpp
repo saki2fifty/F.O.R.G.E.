@@ -170,8 +170,8 @@ struct Projection {
                     if (start < finish && begin < end)
                         fail(m.name, "Reflected members overlap");
                 extents.emplace_back(start, end);
-                auto field = describe(m.type, depth + 1 + (m.count > 1));
-                if (m.count > 1)
+                auto field = describe(m.type, depth + 1 + (m.count > 0));
+                if (m.count > 0)
                     field = {{"type", "array"}, {"count", m.count}, {"element", std::move(field)}};
                 field["id"] = member_name;
                 field["serialized"] = true;
@@ -210,7 +210,7 @@ struct Projection {
                 }
                 const auto* ranges = m.member ? ecs_get(world, m.member, EcsMemberRanges) : nullptr;
                 const EcsMemberRanges native =
-                    ranges ? *ranges : EcsMemberRanges{m.range, m.error_range, m.warning_range};
+                    ranges ? *ranges : EcsMemberRanges{m.range, m.warning_range, m.error_range};
                 for (const auto& [key, range] : {std::pair{"value", native.value},
                                                  {"warning_range", native.warning},
                                                  {"error_range", native.error}}) {
@@ -348,8 +348,15 @@ void validate(const Json& field, const Json& value, const std::string& path) {
             (kind == "array" && value.size() != field.at("count").get<std::size_t>()) ||
             (kind == "vector" && value.size() > field.at("maximum_count").get<std::size_t>()))
             fail(path, "Collection size/type mismatch");
+        auto element = field.at("element");
+        // Inline numeric member arrays carry native ranges on their member.
+        // Apply its hard value range to every entry; alert bands remain metadata.
+        if (field.contains("minimum")) {
+            element["minimum"] = field.at("minimum");
+            element["maximum"] = field.at("maximum");
+        }
         for (std::size_t i = 0; i < value.size(); ++i)
-            validate(field.at("element"), value[i], path + "[" + std::to_string(i) + "]");
+            validate(element, value[i], path + "[" + std::to_string(i) + "]");
         if (field.contains("element_key")) {
             const auto key = field.at("element_key").get<std::string>();
             std::set<std::string> keys;

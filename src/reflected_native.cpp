@@ -147,7 +147,7 @@ struct Reader {
                 if (!member)
                     throw std::runtime_error("Native member metadata changed while reading");
                 const auto* ptr = static_cast<const std::byte*>(value) + member->offset;
-                if (member->count > 1)
+                if (member->count > 0)
                     result[key] = sequence(member->type, field.at("element"), ptr,
                                            std::size_t(member->count));
                 else

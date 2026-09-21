@@ -1126,8 +1126,10 @@ int main(int argc, char** argv) {
             };
             commands.actions = &actions;
 #ifdef FORGE_UI_FIXTURE
-            if (SDL_GetTicks() - fixture.started > 110000)
-                throw std::runtime_error("Editor fixture timed out");
+            if (SDL_GetTicks() - fixture.started > 240000 ||
+                SDL_GetTicks() - fixture.stage_started > 45000)
+                throw std::runtime_error("Editor fixture timed out at stage " +
+                                         std::to_string(fixture.stage));
             if (!fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
@@ -1286,7 +1288,7 @@ int main(int argc, char** argv) {
                 }
                 case 27:
                     forge::ui::style(2);
-                    SDL_SetWindowSize(window.get(), 960, 640);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
                     break;
                 case 28: {
                     forge::ui::style(1);
@@ -1308,7 +1310,7 @@ int main(int argc, char** argv) {
                 }
                 case 29:
                     forge::ui::style(2);
-                    SDL_SetWindowSize(window.get(), 960, 640);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
                     break;
                 case 30: {
                     forge::ui::style(1);
@@ -1347,7 +1349,7 @@ int main(int argc, char** argv) {
                 case 33:
                 case 35:
                     forge::ui::style(2);
-                    SDL_SetWindowSize(window.get(), 960, 640);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
                     break;
                 case 32:
                 case 34: {

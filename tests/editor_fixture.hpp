@@ -10,13 +10,14 @@
 #include <SDL3/SDL.h>
 #include <dxgi1_4.h>
 #include <fstream>
+#include <iostream>
 #include <windows.h>
 #include <wrl/client.h>
 namespace forge::test {
 struct EditorFixture {
     std::filesystem::path output, project, config;
     unsigned stage = 0, frames = 0;
-    Uint64 started = SDL_GetTicks();
+    Uint64 started = SDL_GetTicks(), stage_started = started;
     bool prepared = false;
     bool scene_create = false, hierarchy_create = false;
     float scene_image_y = 0;
@@ -132,7 +133,11 @@ struct EditorFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         if (!image)
             throw std::runtime_error("Editor fixture image write failed");
+        std::cout << "Captured editor stage " << stage << " (" << names[stage] << ") in "
+                  << SDL_GetTicks() - stage_started << " ms\n"
+                  << std::flush;
         ++stage;
+        stage_started = SDL_GetTicks();
         frames = 0;
         prepared = false;
     }

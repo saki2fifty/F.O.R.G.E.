@@ -200,3 +200,34 @@ and byte limits, followed by complete scene/domain validation. A collection rema
 one top-level property for structured prefab intent and Revert. Invalid assignments
 leave both scene and history unchanged. This extends value transport; it does not
 claim the nested Inspector or SDK worker implementation is complete.
+
+Inline native member arrays preserve their count even when it is one. At the pinned
+revision, `ecs_member_t.count == 0` denotes a scalar; any positive count denotes an
+array (`src/addons/meta/serializer.c`). Projection and detached native transport
+therefore retain `[value]` for a one-element array instead of flattening it. Both
+numeric and owned-string one-element round trips are covered by the regression.
+
+### Reconstructed native metadata
+
+The private authoring adapter reconstructs copied native projections into a scoped
+Flecs type tree using native Struct member entities, Array, Vector, Enum, Bitmask,
+Doc, Units and MemberRanges. It checks its final native projection against the
+admitted input before exposing a type. No project pointer, layout offset or callback
+crosses into this tree. Failure and destruction retire the entire registration scope;
+all values must retire first and the world must outlive the adapter.
+
+The copied metadata envelope is bounded before native registration: 1MiB including
+worst-case JSON text escaping, 32,768 envelope nodes, 4,096 type nodes, nesting8,
+256 leaves and 64KiB native layout. These are separate from component-value limits.
+More than32 struct fields use native member entities rather than a parallel field
+registry. Tests reconstruct64 fields, documentation, units and ranges across worlds,
+as well as enum/bitmask values and owned string/vector/array lifetimes.
+
+Native value ranges constrain FORGE candidate authoring. Warning/error intervals
+remain diagnostic bands, matching pinned `src/addons/alerts.c`; values inside the
+hard range can cross either diagnostic threshold. They are not automatic vetoes.
+The descriptor-only projection keeps warning/error order identical to member-entity
+metadata. Numeric inline-array value ranges apply to each element. Reconstructed
+range metadata must satisfy the same interval containment as pinned `struct_ts.c`.
+This private adapter remains a prerequisite; it alone does not admit project types
+into Add Component or complete SDK inspection, persistence or prefab integration.

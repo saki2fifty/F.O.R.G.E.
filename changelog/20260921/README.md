@@ -854,3 +854,17 @@
 - Windows texture source audit stopped at a test compile ambiguity between FORGE and Diligent TextureData. Qualified all four test declarations and reproduced the production namespace context in the local syntax probe. Cancelled the queued audit containing the same known error; corrected native validation will follow. This was a test compile failure, not a passing Windows GPU result.
 
 - Local editor/browser validation passes (11.49 s), including dependency-key behavior and actual ImGui image command submission. Manual tests pass. Added native cache reuse/failed-refresh/128-entry retirement assertions; these still await Windows execution.
+
+## Reflected array correction
+
+- Exact Flecs source/probe inspection found that inline member count 1 is an array, while FORGE's metadata projection/native reader had treated it as a scalar. Corrected both paths; no pin, identity or gameplay ABI1 change.
+- Added a regression that failed before the fix, then passed the normal core suite (0.25 s), covering single-element numeric and owned-string arrays. Strict ASan/UBSan/LSan core validation passed (1.10 s). This does not by itself enable custom SDK component authoring.
+
+## Copied native Meta reconstruction and validation follow-up
+
+- Added private scoped reconstruction of native Flecs metadata, including more than32 member entities, Docs/Units/ranges, enum/bitmask, arrays/vectors and owned strings. Checked projection equality and bounded registration before values are exposed; project callbacks are never copied into the editor. Custom SDK authoring remains under implementation.
+- Corrected swapped warning/error metadata for descriptor-only members and enforced native inline-array value ranges per element. Warning/error bands remain diagnostics, with explicit regression for values crossing those thresholds inside the hard range.
+- Windows source audit compiled successfully and passed49/51 checks, including native texture and mesh rendering. Content revision fixture incorrectly omitted a destination source file; corrected the fixture. The expanded40-view capture suite reached31 views before its old110-second deadline; added stage timing/stall diagnostics and a bounded240-second total budget. Native rerun is required.
+- Asset-viewer200% captures now use1920×1080; existing dedicated960×640 narrow-workspace captures remain. This permits visual inspection of viewer content rather than capturing only a scrolled-off source header. No production layout behavior changed.
+- Rebuilt and ran the standalone Content fixture locally; debug ImGui caught an unassigned headless font texture during draw-command inspection. Added the fixture font texture ID before inspecting commands; this does not change production rendering. Local Content fixture passes (1.34 s).
+- Final reconstruction/range core regressions pass normally (0.28 s) and with strict ASan/UBSan/LSan (1.38 s). Generic editor syntax, manual tests and changed-source formatting pass. Windows follow-up remains pending.
