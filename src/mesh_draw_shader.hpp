@@ -6,7 +6,7 @@ inline constexpr unsigned mesh_draw_light_limit = 64;
 struct MeshDrawShader {
     std::string vertex, pixel;
     MaterialShader material;
-    bool sheen{};
+    bool sheen{}, transmission{};
 };
 // Pure source/binding preparation; no device, pipeline or source importer.
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile&,

@@ -141,4 +141,12 @@ PbrMaterialProfile prepare_pbr_material(const MaterialData& source) {
     // Do not impose an invented minimum<=maximum restriction.
     return result;
 }
+bool material_transmits(const PbrMaterialProfile& profile) {
+    if (profile.workflow != PbrWorkflow::MetallicRoughness)
+        return false;
+    const auto& p = profile.values.parameters;
+    return p.at("transmissionFactor").value[0] > 0 && p.at("ior").value[0] != 0 &&
+           (p.at("metallicFactor").value[0] < 1 ||
+            profile.values.textures.contains("metallicRoughnessTexture"));
+}
 } // namespace forge

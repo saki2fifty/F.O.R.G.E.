@@ -290,7 +290,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         Diligent::Viewport area{0.f, 0.f, float(width), float(height), 0.f, 1.f};
         context->SetViewports(1, &area, width, height);
         sky_.draw(context, view, mesh_scene_->settings.environment);
-        meshes_->draw(*mesh_scene_, view, UINT32_MAX);
+        meshes_->draw(*mesh_scene_, view, UINT32_MAX, color_,
+                      depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL));
     }
     if (display_) {
         display_->resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure_);

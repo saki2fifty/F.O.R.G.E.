@@ -160,7 +160,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         if (camera.settings.clear_color)
             sky_.draw(context, camera.view, scene.settings.environment);
         if (meshes_)
-            meshes_->draw(scene, camera.view, camera.settings.layers);
+            meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv);
     }
     if (meshes_) {
         for (const auto& error : meshes_->diagnostics())

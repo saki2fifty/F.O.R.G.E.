@@ -41,7 +41,8 @@ class MeshSceneRenderer {
                                Diligent::TEXTURE_FORMAT color = Diligent::TEX_FORMAT_RGBA8_UNORM);
     bool update(const RenderScene&);
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
-    void draw(const RenderScene&, const CameraView&, std::uint32_t layers);
+    void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
+              Diligent::ITexture* color = nullptr, Diligent::ITextureView* depth = nullptr);
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     bool pending() const;
@@ -62,6 +63,7 @@ class MeshSceneRenderer {
     void report(EntityId, const std::string&);
     std::shared_ptr<MeshResourceHost> host_;
     std::unique_ptr<ShadowRenderer> shadows_;
+    std::unique_ptr<TransmissionBackground> transmission_;
     Diligent::TEXTURE_FORMAT color_;
     AssetId scene_;
     AssetRef<TextureAsset> environment_source_;

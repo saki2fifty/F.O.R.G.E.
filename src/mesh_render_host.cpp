@@ -48,6 +48,7 @@ MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
     if (!host_)
         throw std::runtime_error("Mesh scene requires a presentation resource host");
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
+    transmission_ = std::make_unique<TransmissionBackground>(host_->presentation_);
 }
 void MeshSceneRenderer::report(EntityId entity, const std::string& text) {
     if (diagnostics_.size() >= 256) {
@@ -219,7 +220,8 @@ bool MeshSceneRenderer::pending() const {
                        [](const auto& pair) { return bool(pair.second.candidate); });
 }
 void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
-                             std::uint32_t layers) {
+                             std::uint32_t layers, Diligent::ITexture* color,
+                             Diligent::ITextureView* depth) {
     host_->check_thread();
     if (scene.scene != scene_)
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
@@ -233,6 +235,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     struct Item {
         RenderSortKey key;
         std::size_t object;
+        bool transmission;
     };
     std::vector<Object> objects;
     std::vector<Item> queue;
@@ -269,7 +272,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto part_bounds = transform_bounds(part.bounds, mesh.world);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
-                RenderSortKey key{part.alpha,
+                RenderSortKey key{part.transmission ? MaterialAlpha::Blend : part.alpha,
                                   transform_parity(mesh.world),
                                   part.material,
                                   entry.ready->mesh_identity().asset,
@@ -277,7 +280,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                   mesh.entity,
                                   i};
                 validate_render_key(key);
-                queue.push_back({key, objects.size()});
+                queue.push_back({key, objects.size(), part.transmission});
             }
             objects.push_back(std::move(object));
         } catch (const std::exception& e) {
@@ -291,14 +294,51 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (environment_ready_)
         lighting = {&environment_ready_.get(), scene.settings.environment.intensity,
                     scene.settings.environment.rotation};
+    const bool needs_background =
+        std::any_of(queue.begin(), queue.end(), [](const auto& item) { return item.transmission; });
+    TransmissionLighting transmission;
+    bool captured = false;
+    auto clear_bindings = [&] {
+        for (auto& [id, entry] : entries_) {
+            (void)id;
+            if (entry.ready)
+                entry.ready->transmission(nullptr);
+        }
+    };
+    // Release all old SRB references before reusing a previous camera's snapshot
+    // as a copy destination. No sampling/write feedback and no invisible retainers.
+    clear_bindings();
+    if (!needs_background)
+        transmission_->clear();
     for (const auto& item : queue) {
+        if (needs_background && !captured && item.key.alpha == MaterialAlpha::Blend) {
+            captured = true;
+            try {
+                if (!color || !depth)
+                    throw std::runtime_error("Transmission requires HDR color and depth targets");
+                transmission = transmission_->capture(host_->context_, color, camera.viewport);
+            } catch (const std::exception& error) {
+                report({}, error.what());
+            }
+            if (color && depth) {
+                auto* rtv = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+                host_->context_->SetRenderTargets(
+                    1, &rtv, depth, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                const auto& v = camera.viewport;
+                Diligent::Viewport area{float(v.x),      float(v.y), float(v.width),
+                                        float(v.height), 0,          1};
+                host_->context_->SetViewports(1, &area, color->GetDesc().Width,
+                                              color->GetDesc().Height);
+            }
+        }
         const auto& object = objects[item.object];
         try {
             object.bundle->draw_part(
                 host_->context_, object.mesh->world, camera, object.lights, object.lod,
                 item.key.part, environment_ready_ ? &lighting : nullptr,
                 object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
-                &shadows_->lighting(), object.shadow_slots);
+                &shadows_->lighting(), object.shadow_slots,
+                transmission.background ? &transmission : nullptr);
         } catch (const std::exception& e) {
             report(object.mesh->entity, e.what());
         }

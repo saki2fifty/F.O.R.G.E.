@@ -250,3 +250,35 @@
 - Update the clock/presentation regression for the intentional legacy default-cube
   adapter: the root remains a blockout mesh, and the explicitly assigned child mesh
   is verified by persistent entity identity rather than vector position.
+- Local SDK-profile validation now has passing execution for all66 tests, including
+  installed SDK packaging (17.70s). The initial full run passed64/66 in84.92s; two
+  loopback tests were blocked by sandbox socket creation and passed on a permitted
+  rerun. The clock regression passes locally, and the camera fixture syntax passes.
+
+
+### Transmission and volume rendering integration
+
+- Connect per-camera cropped HDR background capture, native mip generation and the
+  opaque-before-transmission queue to both Scene and Game. Reuse the native light
+  sampler and release old background bindings across invisible/parity/LOD draws.
+- Add transmission/thickness texture channels, rough background filtering, Snell
+  displacement, Beer absorption and RGB dispersion with native reflected lighting,
+  sheen and clearcoat composition. Keep transmission separate from alpha coverage.
+- Preserve signed affine thickness and zero-thickness rank-two surfaces. Diagnose
+  derived optical values that cannot fit the GPU representation without editing
+  LocalScale. Use parallel view directions for orthographic material lighting.
+- Add CPU pass-selection tests and native fixtures for capture, mip refresh,
+  optical factors, textures, reflection and collapse. Record unresolved volume
+  topology/inside-interface acceptance and bounded screen-space behavior honestly.
+- All Linux/Windows core and SDK push jobs for cc5afb6 pass. Local material tests
+  pass; generated HLSL and native C++ checks are separate from the pending Windows
+  rendering audit. No numbered package has been allocated for this checkpoint.
+
+- Windows source audit cc5afb6 stopped during viewport-test compilation because
+  the shadow fixture relied on a transitive `<numbers>` include. Add the explicit
+  standard header. No camera or shadow GPU execution occurred in that run.
+
+- Final local optical checks: material regression1/1 normal and1/1 strict
+  ASan/UBSan/LSan pass;28 generated HLSL stages compile; native-header C++ syntax,
+  combined17-texture fixture syntax, manual3/3 and formatting pass. Native optical
+  pixel execution remains pending.

@@ -1,5 +1,6 @@
 #include "mesh_draw_shader.hpp"
 #include <algorithm>
+#include <limits>
 #include <stdexcept>
 namespace forge {
 namespace {
@@ -22,12 +23,12 @@ float4 ForgeProject(float3 p) {
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
                                 bool shadow_pass) {
     const auto& source = profile.values;
-    // These checks remain until the full extended lighting/pass consumer is wired.
-    // Never render authored extension controls as if ignored values were supported.
-    for (const char* name : {"transmissionFactor", "thicknessFactor", "dispersion"}) {
-        auto found = profile.values.parameters.find(name);
-        require(found == profile.values.parameters.end() || found->second.value[0] == 0,
-                std::string("extended lighting consumer unavailable: ") + name);
+    const bool transmission = !shadow_pass && material_transmits(profile);
+    if (transmission) {
+        const double ior = source.parameters.at("ior").value[0];
+        const double spread = (ior - 1) * (.025 * source.parameters.at("dispersion").value[0]);
+        require(ior + spread <= std::numeric_limits<float>::max(),
+                "dispersed IOR exceeds the finite GPU optical profile");
     }
     const bool sheen =
         profile.workflow == PbrWorkflow::MetallicRoughness &&
@@ -44,7 +45,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                     role == "clearcoatRoughnessTexture" || role == "clearcoatNormalTexture" ||
                     role == "iridescenceTexture" || role == "iridescenceThicknessTexture" ||
                     role == "sheenColorTexture" || role == "sheenRoughnessTexture" ||
-                    role == "anisotropyTexture",
+                    role == "anisotropyTexture" || role == "transmissionTexture" ||
+                    role == "thicknessTexture",
                 "extended texture consumer unavailable: " + role);
     }
     if (profile.values.textures.contains("clearcoatNormalTexture"))
@@ -94,6 +96,7 @@ ForgeVarying main(uint id:SV_VertexID) {
           (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_SHEEN ") + (sheen ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_ANISOTROPY ") + (anisotropy ? "1\n" : "0\n");
+    ps += std::string("#define ENABLE_TRANSMISSION ") + (transmission ? "1\n" : "0\n");
     ps += "#include \"ForgeSurface.fxh\"\n#include \"ForgeLighting.fxh\"\n";
     if (profile.workflow == PbrWorkflow::MetallicRoughness)
         ps += "#include \"Iridescence.fxh\"\n";
@@ -105,6 +108,8 @@ ForgeVarying main(uint id:SV_VertexID) {
             "#include \"ForgeShadows.fxh\"\nTexture2D g_ForgeGGX;SamplerState g_ForgeLightSampler;"
             "TextureCube g_ForgeDiffuse,g_ForgeSpecular,g_ForgeCharlie;"
             "cbuffer ForgeEnvironment {float4 g_Environment;};\n";
+    if (transmission)
+        ps += "#include \"ForgeTransmission.fxh\"\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
           "];};\n";
     ps += R"(
@@ -151,7 +156,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     else {
         ps += R"(
     SurfaceShadingInfo s=(SurfaceShadingInfo)0;
-    s.Pos=input.World;s.View=ForgeUnit(-input.World);
+    s.Pos=input.World;s.View=g_Object[13].z!=0?-g_Object[8].xyz:ForgeUnit(-input.World);
     float face=front?1:-1;
     float3 n=ForgeUnit(input.Normal);
     if(!any(n!=0)) {
@@ -264,6 +269,10 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         sample("occlusionTexture",
                "s.Occlusion=lerp(1,sample_occlusionTexture.r,ForgeParameter_occlusionStrength())");
         sample("emissiveTexture", "s.Emissive*=sample_emissiveTexture.rgb");
+        if (transmission) {
+            ps += "s.Transmission=ForgeParameter_transmissionFactor();\n";
+            sample("transmissionTexture", "s.Transmission*=sample_transmissionTexture.r");
+        }
         ps += R"(
     SurfaceLightingInfo lighting=GetDefaultSurfaceLightingInfo();
     [loop]for(uint i=0;i<(uint)g_Object[13].x;i++) {
@@ -287,11 +296,44 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                  lighting);
     }
     float3 color=ResolveLighting(s,lighting);
+)";
+        if (transmission) {
+            ps += "float volumeThickness=ForgeParameter_thicknessFactor();\n";
+            sample("thicknessTexture", "volumeThickness*=sample_thicknessTexture.g");
+            const std::string attenuation = source.parameters.contains("attenuationDistance")
+                                                ? "ForgeParameter_attenuationDistance()"
+                                                : "0";
+            ps += "float3 transported=ForgeTransport(input.World,s.View,n,geometric*face,"
+                  "input.Position.xy,volumeThickness,ForgeParameter_ior(),ForgeParameter_"
+                  "dispersion(),"
+                  "s.BaseLayer.Srf.PerceptualRoughness," +
+                  attenuation +
+                  ","
+                  "ForgeParameter_attenuationColor(),front);\n";
+            ps += R"(
+    IBLSamplingInfo reflection=GetIBLSamplingInfo(s.BaseLayer.Srf,g_ForgeGGX,
+        g_ForgeLightSampler,n,s.View);
+    float3 reflected=GetSpecularIBL_GGX(s.BaseLayer.Srf,reflection,float3(1,1,1));
+    transported*=base.rgb*(1-s.BaseLayer.Metallic)*s.Transmission*saturate(1-reflected);
+#if ENABLE_SHEEN
+    transported*=1-max(s.Sheen.Color.r,max(s.Sheen.Color.g,s.Sheen.Color.b))*
+        SamplePreintegratedSheenBRDF(g_ForgeSheen,g_ForgeLightSampler,s.BaseLayer.NdotV,
+                                    s.Sheen.Roughness).g;
+#endif
+    // Resolve the added base transport through the same native clearcoat layer.
+    // It is light transmitted through the surface, never authored emission.
+    float ccV=max(dot(s.Clearcoat.Normal,s.View),.1);
+    transported*=1-s.Clearcoat.Factor*SchlickReflection(ccV,
+        s.Clearcoat.Srf.Reflectance0.x,s.Clearcoat.Srf.Reflectance90.x);
+    color+=transported;
+)";
+        }
+        ps += R"(
     if(!valid||!all(isfinite(color)))return float4(1,0,1,1);
     return float4(color,base.a);
 })";
     }
 
-    return {vs, ps, material, sheen};
+    return {vs, ps, material, sheen, transmission};
 }
 } // namespace forge

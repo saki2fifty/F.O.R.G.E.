@@ -253,8 +253,8 @@ strength, alpha cutoffs above one, HDR specular-color factors, IOR zero or at le
 one, and arbitrary preserved UV-set numbers. Iridescence thickness endpoints may
 be reversed, explicitly permitted by the exact Khronos extension. Double evaluation
 of the IOR reflectance ratio avoids unnecessary intermediate float overflow.
-Native shading and complete refraction/dispersion consumers remain in progress;
-admitting a material parameter does not prove that it is rendered.
+Native shading is connected to the shared Scene/Game mesh path. Optical transport
+validation is tracked below; admitting a parameter alone never proves rendering.
 
 ### Built-in vertex fetch
 
@@ -305,12 +305,10 @@ cofactor adapter and a geometric-face fallback. Texture-space derivatives are
 evaluated before fragment rejection. Per-material texture views/samplers and
 mutable draw constants remain scoped to their prepared native bindings.
 
-The initial adapter deliberately rejects skin/morph bindings and extended material
-effects whose consumers are not yet wired. Environment/shadows, complete extended
-PBR, deformation, GPU resource adoption and Scene/Game/standalone integration remain
-Phase7 work. This is an internal implementation checkpoint, not a shipped renderer
-completion claim. Native fixtures cover reflection, singular planes, projection
-flips, large origins, explicit light/no-light behavior; execution is pending.
+The adapter currently rejects skin/morph bindings until a pose consumer is admitted.
+Environment, HDR and shadow passes connect to Scene/Game with retained GPU resource
+ownership. The following sections record validation separately for each consumer;
+this ongoing Phase7 source is not a shipped renderer completion claim.
 
 Mesh draw shader source and binding preparation are separate from native device
 allocation. This permits local compilation of the actual generated programs before
@@ -410,8 +408,8 @@ Exact evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
 Khronos glTF `c18432787e6d545a1218c1926ccdcfaffd4c116b` extension specifications
 for iridescence, sheen and anisotropy. Verified2026-09-21. Native FXC/WARP execution
 of these new consumers remains pending; local compilation is not GPU acceptance.
-Transmission, volume/dispersion and the HDR/IBL/shadow pass connections remain
-ongoing work in the authorized batch.
+The HDR/IBL/shadow connections and the optical transport adapter are described
+below with their actual validation status.
 
 ### Queues and HDR display — native validation in progress
 
@@ -634,3 +632,60 @@ Normal authoring/bounds regressions pass2/2. All28 generated HLSL stages pass th
 supplementary DXC check, including masked depth programs. Native D3D12 tests exercise
 all three light kinds, alpha rejection, mirrored casters, large origins, oversized
 allocation rejection and camera fitting. Their Windows execution remains pending.
+
+
+### Transmission background and optical transport — validation in progress
+
+The shared mesh queue draws opaque/masked surfaces and the camera background first,
+then captures that camera's HDR rectangle into a distinct mipmapped texture.
+Transmission and alpha-blended parts sort together back to front. Transmission is
+separate from alpha coverage: it does not turn the material into alpha blending.
+The transmission factor's red texture channel modulates transmission; the thickness
+factor's green texture channel modulates volume thickness. Fully constant metals,
+zero transmission and the IOR-zero ideal reflector do not request a capture.
+A metallic texture prevents the constant-metal shortcut because it can expose
+nonmetallic texels.
+
+Diligent owns texture allocation, copy, transitions and mip generation. Capture
+requires single-sample RGBA16F, checked device dimensions and the native mip-generation
+format flags. The logical mip payload limit is512 MiB per visual scene's retained
+snapshot; this is not a total VRAM guarantee. A failed replacement keeps the previous
+allocation, reports the error and omits the unavailable transmissive draw. It never
+uses an old camera image as if it were the current background. Every parity/LOD SRB,
+including invisible bundles, releases the old snapshot binding before reuse.
+
+The optical adapter uses native diffuse-transmission reduction, reflected GGX/DFG,
+sheen attenuation and clearcoat Fresnel. It adds transmitted radiance as a base-layer
+lighting contribution, not authored emission. Thin surfaces sample the unshifted
+background; roughness selects its mip level with the IOR adjustment. Volume uses
+Snell refraction and an estimated path through the baked thickness, then Beer
+attenuation in world units. Missing attenuation distance means no absorption;
+zero and one attenuation-color endpoints avoid logarithm singularities.
+Dispersion samples RGB paths with the exact extension's approximate IOR spread.
+
+For affine linear transform A and unit world geometric normal N, normal thickness
+scales by ||A^T N||. This equals1/||A^-T n|| for a corresponding unit local normal n.
+It supports shear and reflection without division by determinant. A surviving
+rank-two surface has zero normal thickness. The CPU admits the derived thickness
+against a Frobenius-norm float bound before a draw; this may conservatively reject
+extreme optical distances, and never clamps or rewrites authored LocalScale.
+Derived dispersed IOR must also fit a GPU float. These are renderer-domain limits,
+not scene-format changes.
+
+This is an opaque-background raster approximation. Off-screen refraction falls
+back to the unshifted sightline; it cannot recover hidden geometry or nested
+transparent media. Transmission does not cast an opaque shadow depth, and colored
+transmission shadows/caustics are not supplied by this pass. Nonzero volume thickness
+ignores double-sided culling, as required by the exact extension. Volume topology
+admission, camera-inside/exit-interface and total-internal-reflection reflected-energy
+acceptance remain open validation work; the present path must not be described as
+complete general volume transport. Slab fixtures exercise the numerical adapter,
+not proof of arbitrary closed-volume conformance.
+
+Evidence: pinned FX PBR_Shading.fxh, RenderPBR.psh and OIT shader source, and glTF
+c18432787e6d545a1218c1926ccdcfaffd4c116b KHR_materials_transmission/volume/dispersion.
+The native FX thickness is debug-only and its transmission output uses alpha;
+FORGE supplies frame composition and optical transport without patching upstream.
+Local CPU material tests and generated HLSL compile. New Windows pixel tests cover
+camera crop/mips, clear transmission, attenuation, roughness, refraction, dispersion,
+texture channels and signed/rank-two scale; execution is pending.

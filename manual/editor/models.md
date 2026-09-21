@@ -6,11 +6,11 @@ and animation clips together with the model.
 The original source files stay unchanged.
 
 **Current limitation:** this is a tools command workflow. Placing imported models
-in a scene, the model editor and rendering imported materials are still being
-implemented. Imported Skeleton and Clip assets can now drive the existing
+in a scene and the model editor are still being implemented. Prepared mesh
+materials can render through the shared Scene/Game mesh path. Imported Skeleton and Clip assets can now drive the existing
 [Animator bone preview](animation.md). Cameras, punctual lights, node
 visibility/selectability and material variants are retained in imported model data;
-their viewport controls and rendering are not available yet.
+their complete model-placement workflow is not available yet.
 This page describes the working model preparation path only.
 
 ## Prepare a model
@@ -147,3 +147,23 @@ Engine assets are read-only and do not create files in your project. Existing
 blockout objects keep their Primitive and Color controls and their familiar preview
 shading. Their compatibility rendering uses the shared mesh path without rewriting
 saved scenes or creating material files.
+
+
+## Transparent and glass surfaces
+
+Imported glTF transmission is different from ordinary transparent alpha. Transmission
+shows the opaque scene through a surface while retaining its reflections. Its factor
+controls how much light passes through; metallic regions do not transmit. Roughness
+blurs the view through the surface. A thickness value adds refraction and distance-based
+absorption; dispersion can separate the red, green and blue refraction paths.
+
+The current optical path is being validated as part of the larger Phase7 update.
+It samples the opaque view behind the object. It cannot show another transparent
+object through the same glass layer, recover objects outside the camera image, or
+produce colored glass shadows and caustics. Looking from inside a volume remains
+an open acceptance case. These limits are separate from the ordinary Alpha mode.
+
+Mirroring an object preserves its optical thickness. Flattening its volume to a
+surviving plane makes it thin; FORGE does not secretly replace zero scale with a
+small positive number. Optical values outside the renderer's finite range produce
+a rendering diagnostic without changing the scene's authored transform.

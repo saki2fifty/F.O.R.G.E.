@@ -13,4 +13,7 @@ struct PbrMaterialProfile {
 // This is the built-in material model boundary, not a generic shader schema.
 // It preserves the existing identity-neutral cooked MaterialData representation.
 PbrMaterialProfile prepare_pbr_material(const MaterialData&);
+// True when this material can transmit at any texel. Texture modulation can
+// lower metallic=1, so a metallic map prevents the constant-metal shortcut.
+bool material_transmits(const PbrMaterialProfile&);
 } // namespace forge

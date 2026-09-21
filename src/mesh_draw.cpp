@@ -74,6 +74,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         shadows_ = buffer(device, "FORGE shadow receiver", sizeof(ShadowLighting::values));
         empty_shadow_ = presentation.empty_shadow(context);
     }
+    if (program.transmission) {
+        volume_thickness_ = profile.values.parameters.at("thicknessFactor").value[0];
+        transmission_ = buffer(device, "FORGE transmission background", 2 * sizeof(Row));
+        black_background_ = presentation.pbr(context).GetBlackTexSRV();
+        require(bool(black_background_), "native black transmission fallback unavailable");
+    }
     RefCntAutoPtr<ITextureView> sheen;
     if (program.sheen) {
         sheen = presentation.pbr(context).GetPreintegratedSheen_SRV();
@@ -88,14 +94,19 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     ci.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
     // Environment revisions change on a live SRB. Mutable means set-once in
     // Diligent; dynamic bindings are copied safely for each committed draw.
-    const ShaderResourceVariableDesc environment_variables[]{
+    std::vector<ShaderResourceVariableDesc> environment_variables{
         {SHADER_TYPE_PIXEL, "g_ForgeDiffuse", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ForgeSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ForgeShadows", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ForgeCharlie", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
     if (lit) {
-        ci.PSODesc.ResourceLayout.Variables = environment_variables;
-        ci.PSODesc.ResourceLayout.NumVariables = program.sheen ? 4u : 3u;
+        if (!program.sheen)
+            environment_variables.pop_back();
+        if (program.transmission)
+            environment_variables.push_back(
+                {SHADER_TYPE_PIXEL, "g_ForgeTransmission", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        ci.PSODesc.ResourceLayout.Variables = environment_variables.data();
+        ci.PSODesc.ResourceLayout.NumVariables = Uint32(environment_variables.size());
     }
 
     ci.pVS = vertex;
@@ -116,8 +127,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         b.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
     }
     for (unsigned parity = 0; parity < 3; ++parity) {
-        g.RasterizerDesc.CullMode =
-            source.double_sided || parity == 2 ? CULL_MODE_NONE : CULL_MODE_BACK;
+        g.RasterizerDesc.CullMode = source.double_sided || parity == 2 || volume_thickness_ > 0
+                                        ? CULL_MODE_NONE
+                                        : CULL_MODE_BACK;
         g.RasterizerDesc.FrontCounterClockwise = parity == 1;
         presentation.graphics(ci, &pipelines_[parity]);
         pipelines_[parity]->CreateShaderResourceBinding(&bindings_[parity], true);
@@ -159,6 +171,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             for (const auto* name : {"g_ForgeDiffuse", "g_ForgeSpecular", "g_ForgeCharlie"}) {
                 bind(SHADER_TYPE_PIXEL, name, black_environment_, false);
             }
+        }
+        if (program.transmission) {
+            bind(SHADER_TYPE_PIXEL, "ForgeTransmission", transmission_);
+            bind(SHADER_TYPE_PIXEL, "g_ForgeTransmission", black_background_);
         }
         if (program.sheen) {
             bind(SHADER_TYPE_PIXEL, "g_ForgeSheen", sheen);
@@ -204,10 +220,18 @@ void MeshDraw::bind_shadows(const ShadowLighting* shadows) {
         variable->SetArray(maps.data(), 0, shadow_light_limit);
     }
 }
+void MeshDraw::bind_transmission(const TransmissionLighting* lighting) {
+    if (!transmission_)
+        return;
+    auto* view = lighting ? lighting->background : black_background_.RawPtr();
+    require(view, "transmission background unavailable");
+    for (auto& binding : bindings_)
+        binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeTransmission")->Set(view);
+}
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
                     std::span<const LightView> lights, const EnvironmentLighting* environment,
                     const std::array<float, 3>* legacy_tint, const ShadowLighting* shadows,
-                    std::span<const int> shadow_slots) {
+                    std::span<const int> shadow_slots, const TransmissionLighting* transmission) {
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
@@ -239,7 +263,23 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
     for (unsigned r = 0; r < 4; ++r)
         for (unsigned c = 0; c < 4; ++c)
             object[9 + r][c] = view.projection[r * 4 + c];
+    if (transmission_ && volume_thickness_ > 0 &&
+        transform_parity(world) != TransformParity::Singular) {
+        // Frobenius norm bounds ||A^T N|| for every unit surface normal. This
+        // is GPU admission of derived optical distance, never a LocalScale edit.
+        double norm = 0;
+        for (unsigned r = 0; r < 3; ++r)
+            for (unsigned c = 0; c < 3; ++c)
+                norm = std::hypot(norm, world.m[r * 4 + c]);
+        require(double(volume_thickness_) * norm <= std::numeric_limits<float>::max(),
+                "world-space volume thickness exceeds the finite GPU optical profile");
+    }
     object[13][0] = float(lights.size());
+    object[13][1] = gpu(largest);
+    // Projection W is constant for orthographic views. Surface view direction
+    // must then be parallel for every pixel, not aimed at the camera position.
+    object[13][2] = view.projection[14] == 0 ? 1.f : 0.f;
+    object[13][3] = transform_parity(world) == TransformParity::Singular ? 1.f : 0.f;
     std::array<Row, mesh_draw_light_limit * 4> packed{};
     for (std::size_t i = 0; i < lights.size(); ++i) {
         const auto& light = lights[i];
@@ -312,6 +352,21 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
                             shadow_light_limit * ShadowLighting::rows_per_light, Row{});
         }
         bind_shadows(shadows);
+    }
+    if (transmission_) {
+        require(transmission && transmission->background && transmission->viewport == view.viewport,
+                "transmissive draw requires its camera's opaque background snapshot");
+        const auto& v = transmission->viewport;
+        const auto& desc = transmission->background->GetTexture()->GetDesc();
+        require(v.width && v.height && desc.Width == v.width && desc.Height == v.height &&
+                    desc.Format == TEX_FORMAT_RGBA16_FLOAT,
+                "transmission background dimensions/format differ from its camera");
+        {
+            MapHelper<Row> data(context, transmission_, MAP_WRITE, MAP_FLAG_DISCARD);
+            data[0] = {float(v.x), float(v.y), 1.f / v.width, 1.f / v.height};
+            data[1] = {float(desc.MipLevels - 1), 0, 0, 0};
+        }
+        bind_transmission(transmission);
     }
     context->SetPipelineState(pipelines_[index]);
     context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

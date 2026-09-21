@@ -106,6 +106,27 @@ inline void test_pbr_material_profile() {
     invalid([](auto& m) { m.textures["normalTexture"].sampler.compare = TextureCompare::Less; });
     invalid([](auto& m) { m.textures["customTexture"] = {}; });
     invalid([](auto& m) { m.model = "custom.unknown"; });
+    {
+        MaterialData glass;
+        glass.model = "forge.gltf.metallic-roughness.v1";
+        glass.parameters["transmissionFactor"] = {Type::Scalar, {1}};
+        check(!material_transmits(prepare_pbr_material(glass)),
+              "Fully metallic constant material entered transmission pass");
+        glass.parameters["metallicFactor"] = {Type::Scalar, {0}};
+        check(material_transmits(prepare_pbr_material(glass)),
+              "Dielectric transmission did not enter the optical pass");
+        glass.parameters["ior"] = {Type::Scalar, {0}};
+        check(!material_transmits(prepare_pbr_material(glass)),
+              "Ideal-reflector IOR incorrectly transmitted light");
+        glass.parameters["ior"].value[0] = 1.5f;
+        glass.parameters["metallicFactor"].value[0] = 1;
+        glass.textures["metallicRoughnessTexture"].semantic = TextureSemantic::Data;
+        check(material_transmits(prepare_pbr_material(glass)),
+              "Metallic texture modulation was ignored during pass selection");
+        glass.parameters["transmissionFactor"].value[0] = 0;
+        check(!material_transmits(prepare_pbr_material(glass)),
+              "Zero transmission factor allocated an unnecessary background");
+    }
     MaterialData legacy;
     legacy.model = "forge.gltf.specular-glossiness.v1";
     legacy.parameters["specularFactor"] = {Type::LinearColor3, {.2f, .3f, .4f}};

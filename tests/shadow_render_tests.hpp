@@ -1,6 +1,7 @@
 #pragma once
 #include "mesh_draw.hpp"
 #include "shadow_renderer.hpp"
+#include <numbers>
 void check_shadow_render(forge::DiligentPresentation& presentation,
                          Diligent::IDeviceContext* context, const std::filesystem::path& images) {
     using namespace forge;

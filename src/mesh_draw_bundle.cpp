@@ -54,12 +54,13 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                                         native_textures, color, depth));
             // Blended surfaces do not have a single opaque shadow depth. Masked
             // surfaces evaluate the same base alpha and cutoff as their color pass.
-            shadows.push_back(values->alpha == MaterialAlpha::Blend
+            const bool transmits = material_transmits(prepare_pbr_material(*values));
+            shadows.push_back(values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
                                   : std::make_unique<MeshDraw>(
                                         presentation, context, part, *values, native_textures,
                                         Diligent::TEX_FORMAT_UNKNOWN, depth));
-            info.push_back({values->alpha, binding.material.id, part.bounds});
+            info.push_back({values->alpha, binding.material.id, part.bounds, transmits});
         }
     }
 }
@@ -88,6 +89,11 @@ void MeshDrawBundle::shadows(const ShadowLighting* lighting) {
         for (auto& part : lod)
             part->bind_shadows(lighting);
 }
+void MeshDrawBundle::transmission(const TransmissionLighting* lighting) {
+    for (auto& lod : lods_)
+        for (auto& part : lod)
+            part->bind_transmission(lighting);
+}
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
                           const EnvironmentLighting* environment, unsigned lod) {
@@ -100,7 +106,8 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                const CameraView& camera, std::span<const LightView> lights,
                                unsigned lod, unsigned part, const EnvironmentLighting* environment,
                                const std::array<float, 3>* legacy_tint,
-                               const ShadowLighting* shadows, std::span<const int> shadow_slots) {
+                               const ShadowLighting* shadows, std::span<const int> shadow_slots,
+                               const TransmissionLighting* transmission) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -108,6 +115,7 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
         (void)key;
         (void)texture.get();
     }
-    selected->draw(context, world, camera, lights, environment, legacy_tint, shadows, shadow_slots);
+    selected->draw(context, world, camera, lights, environment, legacy_tint, shadows, shadow_slots,
+                   transmission);
 }
 } // namespace forge
