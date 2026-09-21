@@ -269,6 +269,64 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
                     capacity.diagnostics().empty(),
                 "Freed native part capacity did not permit a refused draw to retry");
     }
+    {
+        auto catalog = std::make_shared<const AssetCatalog>(project);
+        const auto catalog_before = catalog->document();
+        const AssetRef<MaterialAsset> ref{AssetId::generate()};
+        MaterialResourceData material;
+        material.values.model = "forge.gltf.unlit.v1";
+        material.values.parameters["baseColorFactor"] = {MaterialParameterType::LinearColor4,
+                                                         {0, 0, 1, 1}};
+        bool denied = false;
+        try {
+            host->preview_material(ref, material);
+        } catch (const std::exception&) {
+            denied = true;
+        }
+        require(denied, "Unsaved material entered a normal scene resource host");
+        auto preview_host =
+            std::make_shared<MeshResourceHost>(presentation, context, project, true);
+        preview_host->catalog(catalog);
+        preview_host->preview_material(ref, material);
+        FrameRenderer preview_frame(presentation);
+        preview_frame.resources(preview_host);
+        auto preview_scene = extract_render_scene(document);
+        preview_scene.settings.shadows.enabled = false;
+        preview_scene.meshes[0].renderer.materials = {{"surface", ref}};
+        preview_scene.meshes[0].legacy_tint.reset();
+        const auto cameras = prepare_game_cameras(preview_scene, 64, 32);
+        auto prepared_preview = [&] {
+            const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            do {
+                preview_frame.render(context, preview_scene, cameras.cameras, 64, 32, 0);
+                preview_host->submit();
+                if (!preview_frame.pending())
+                    break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (std::chrono::steady_clock::now() < until);
+            require(!preview_frame.pending(), "Material preview preparation stalled");
+            return readback(presentation.device(), context, preview_frame.output());
+        };
+        const auto blue = prepared_preview();
+        require(preview_frame.diagnostics().empty() &&
+                    blue[16 * 64 + 32][2] > blue[16 * 64 + 32][0] + 50,
+                "Unsaved material did not render through shared frame path");
+        material.values.parameters["baseColorFactor"].value = {1, 0, 0, 1};
+        preview_host->preview_material(ref, material);
+        const auto red = prepared_preview();
+        require(red[16 * 64 + 32][0] > red[16 * 64 + 32][2] + 50,
+                "Material preview retained stale factor values");
+        save(red, 64, 32, images / "material-draft-preview.ppm");
+        material.values.textures["baseColorTexture"].semantic = TextureSemantic::Color;
+        material.textures["baseColorTexture"] = {AssetId::generate()};
+        preview_host->preview_material(ref, material);
+        const auto rejected_preview = prepared_preview();
+        require(!preview_frame.diagnostics().empty() && rejected_preview == red,
+                "Missing draft texture erased last-good preview");
+        require(catalog->document() == catalog_before,
+                "Unsaved material preview published or mutated catalog state");
+        preview_frame.resources({});
+    }
     host->submit();
     renderer.resources({});
 }

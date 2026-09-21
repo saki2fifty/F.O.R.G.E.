@@ -2,7 +2,8 @@
 
 Import prepares an image for use as a texture and gives it a durable asset identity.
 The original image stays unchanged. Texture import is available in the current
-Phase7 source; material assignment and GPU texture previews are still being built.
+Phase7 source. Assign textures to surface roles in the [Material editor](materials.md);
+its surface preview shows them on geometry. A dedicated texture preview is still being built.
 
 ## Import an image
 

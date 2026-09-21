@@ -21,6 +21,9 @@
 #include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
+#include "material_editor.hpp"
+#include "material_preview.hpp"
+#include "mesh_material_inspector.hpp"
 #include "model_imports.hpp"
 #include "native_build.hpp"
 #include "navigation_tools.hpp"
@@ -34,6 +37,8 @@
 #include "scene_cache.hpp"
 #include "scene_lighting.hpp"
 #include "scene_tools.hpp"
+#include "shader_diligent.hpp"
+#include "shader_imports.hpp"
 #include "status_bar.hpp"
 #include "texture_imports.hpp"
 #include "transform_gesture.hpp"
@@ -287,6 +292,17 @@ int main(int argc, char** argv) {
             }
         };
         reset_mesh_resources();
+        forge::MeshMaterialInspector mesh_material_inspector;
+        component_inspector.material_slots = [&](const forge::Json& renderer,
+                                                 forge::Json& materials) {
+            forge::AssetRef<forge::MeshAsset> mesh;
+            if (!renderer.at("mesh").is_null())
+                mesh.id = renderer.at("mesh").get<forge::AssetId>();
+            mesh_material_inspector.select(files.document.project(),
+                                           mesh_resources ? mesh_resources->catalog() : nullptr,
+                                           mesh);
+            return mesh_material_inspector.draw(materials);
+        };
         forge::RuntimeUiHost runtime_ui(window.get(), device,
                                         std::filesystem::path(base) /
                                             "resources/ui/LatoLatin-Regular.ttf");
@@ -308,26 +324,40 @@ int main(int argc, char** argv) {
             std::filesystem::path(base) / "forge_asset_build.exe",
             std::filesystem::path(base) / "tools/gltf2ozz.exe", scene, editor.selection);
         model_imports.placement_allowed = [&] { return !document_locked; };
+        forge::ShaderImportEditor shader_imports(
+            std::filesystem::path(base) / "forge_shader_build.exe", [] {
+                return forge::asset_detail::ShaderCompilerProfile{
+                    forge::asset_detail::diligent_shader_compiler_digest(),
+                    forge::asset_detail::diligent_shader_compiler_debug()};
+            });
+        forge::MaterialEditor material_editor;
+        std::unique_ptr<forge::MaterialPreview> material_preview;
+        std::shared_ptr<const forge::AssetCatalog> material_preview_catalog;
+        material_editor.update_preview = [&](auto ref, auto data, auto catalog) {
+            if (!material_preview)
+                material_preview = std::make_unique<forge::MaterialPreview>(
+                    presentation, context, files.document.project(), catalog);
+            material_preview->catalog(catalog);
+            material_preview->material(ref, std::move(data));
+            material_preview_catalog = std::move(catalog);
+        };
+        material_editor.draw_preview = [&] {
+            if (material_preview && material_preview_catalog)
+                material_preview->draw(*material_preview_catalog);
+        };
+        material_editor.release_preview = [&] {
+            material_preview.reset();
+            material_preview_catalog.reset();
+        };
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
         std::string name_entity, authored_name;
         std::optional<forge::EditorFiles::Action> pending_switch;
         files.before_request = [&](const forge::EditorFiles::Action& action) {
-            if (!prefab_editor.dirty() && !project_settings.dirty() && !script_editor.dirty() &&
-                !texture_imports.dirty() && !model_imports.dirty())
+            if (documents.close_pending_sources())
                 return true;
             pending_switch = action;
-            if (prefab_editor.dirty())
-                prefab_editor.request_close();
-            else if (project_settings.dirty())
-                project_settings.request_close();
-            else if (script_editor.dirty())
-                script_editor.request_close();
-            else if (texture_imports.dirty())
-                texture_imports.request_close();
-            else
-                model_imports.request_close();
             return false;
         };
         documents.add({"scene",
@@ -357,7 +387,8 @@ int main(int argc, char** argv) {
                        [&] { prefab_editor.request_close(); },
                        {},
                        {},
-                       {}});
+                       {},
+                       [&] { return std::exchange(prefab_editor.close_cancelled, false); }});
         documents.add(
             {"settings",
              "Project Settings",
@@ -372,7 +403,8 @@ int main(int argc, char** argv) {
              [&] { project_settings.request_close(); },
              {},
              {},
-             {}});
+             {},
+             [&] { return std::exchange(project_settings.close_cancelled, false); }});
         documents.add({"flecs_script",
                        "Flecs Script",
                        "Flecs Script###Flecs Script",
@@ -386,7 +418,8 @@ int main(int argc, char** argv) {
                        [&] { script_editor.request_close(); },
                        {},
                        {},
-                       {}});
+                       {},
+                       [&] { return std::exchange(script_editor.close_cancelled, false); }});
         asset_editors.add(
             {"flecs_script", "Edit Flecs Script",
              [&](const forge::AssetRecord& asset) { script_editor.open(files.document, asset); }});
@@ -411,7 +444,8 @@ int main(int argc, char** argv) {
                        [&] { texture_imports.request_close(); },
                        {},
                        {},
-                       {}});
+                       {},
+                       [&] { return std::exchange(texture_imports.close_cancelled, false); }});
         asset_editors.add({"texture", "Import settings", [&](const forge::AssetRecord& asset) {
                                texture_imports.open(files.document, asset.source);
                            }});
@@ -428,10 +462,52 @@ int main(int argc, char** argv) {
                        [&] { model_imports.request_close(); },
                        {},
                        {},
-                       {}});
+                       {},
+                       [&] { return std::exchange(model_imports.close_cancelled, false); }});
         asset_editors.add(
             {"model", "Import settings / Place", [&](const forge::AssetRecord& asset) {
                  model_imports.open(files.document, asset.source);
+             }});
+        documents.add({"shader_import",
+                       "Shader import",
+                       "Shader import###Shader import",
+                       true,
+                       [&] { return shader_imports.is_open(); },
+                       [&] { return shader_imports.dirty(); },
+                       [&] { shader_imports.draw(files.document, asset_document_locked); },
+                       [&] { shader_imports.request_save(); },
+                       {},
+                       {},
+                       [&] { shader_imports.request_close(); },
+                       {},
+                       {},
+                       {},
+                       [&] { return std::exchange(shader_imports.close_cancelled, false); }});
+        asset_editors.add(
+            {"shader", "Import settings / Compile", [&](const forge::AssetRecord& asset) {
+                 shader_imports.open(files.document, asset.source);
+             }});
+        documents.add({"material",
+                       "Material",
+                       "Material###Material",
+                       true,
+                       [&] { return material_editor.is_open(); },
+                       [&] { return material_editor.dirty(); },
+                       [&] { material_editor.draw(files.document, asset_document_locked); },
+                       [&] { material_editor.request_save(); },
+                       [&] { material_editor.undo(); },
+                       [&] { material_editor.redo(); },
+                       [&] { material_editor.request_close(); },
+                       [&] { return material_editor.can_undo(); },
+                       [&] { return material_editor.can_redo(); },
+                       {},
+                       [&] { return std::exchange(material_editor.close_cancelled, false); }});
+        asset_editors.add(
+            {"material", "Edit material / model source", [&](const forge::AssetRecord& asset) {
+                 if (asset.subasset)
+                     model_imports.open(files.document, asset.source);
+                 else
+                     material_editor.open(files.document, asset.source);
              }});
         files.save_active = [&] {
             if (!documents.save(editor.task.id()))
@@ -953,6 +1029,28 @@ int main(int argc, char** argv) {
                     forge::ui::style(2);
                     SDL_SetWindowSize(window.get(), 960, 640);
                     break;
+                case 28: {
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    auto source = forge::MaterialDocument::create(files.document.writer_guard(),
+                                                                  "Assets/Preview.material.json");
+                    source->edit(source->revision(), "Preview factors", [](auto& j) {
+                        j["overrides"]["parameters"]["baseColorFactor"] = {
+                            {"type", unsigned(forge::MaterialParameterType::LinearColor4)},
+                            {"value", {.04, .3, .7, 1}}};
+                        j["overrides"]["parameters"]["metallicFactor"] = {{"type", 0},
+                                                                          {"value", {0}}};
+                        j["overrides"]["parameters"]["roughnessFactor"] = {{"type", 0},
+                                                                           {"value", {.25}}};
+                    });
+                    source->save();
+                    material_editor.open(files.document, source->locator());
+                    break;
+                }
+                case 29:
+                    forge::ui::style(2);
+                    SDL_SetWindowSize(window.get(), 960, 640);
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -1093,14 +1191,29 @@ int main(int argc, char** argv) {
             files.draw_dialogs();
             animation_tools.poll(files.document, message);
             try {
+                material_editor.poll(files.document, message);
+                if (auto catalog = material_editor.take_catalog()) {
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    content.refresh(files);
+                }
                 texture_imports.poll(files.document, message);
                 if (auto catalog = texture_imports.take_catalog()) {
+                    material_editor.asset_catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(std::move(catalog));
+                    content.refresh(files);
+                }
+                shader_imports.poll(files.document, message);
+                if (auto catalog = shader_imports.take_catalog()) {
+                    material_editor.asset_catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
                     content.refresh(files);
                 }
                 model_imports.poll(files.document, message);
                 if (auto catalog = model_imports.take_catalog()) {
+                    material_editor.asset_catalog_changed(catalog);
                     play.model_assets_changed();
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
@@ -1683,8 +1796,10 @@ int main(int argc, char** argv) {
                     files, &workspace.content,
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
+                        material_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);
                         model_imports.content(files.document, edit_locked);
+                        shader_imports.content(files.document, edit_locked);
                         script_editor.content(files.document, edit_locked, editor.selection,
                                               message);
                         animation_tools.content(files.document, edit_locked, message);
@@ -1906,34 +2021,12 @@ int main(int argc, char** argv) {
                 ImGui::End();
             }
 
-            if (prefab_editor.close_cancelled || project_settings.close_cancelled ||
-                script_editor.close_cancelled || texture_imports.close_cancelled ||
-                model_imports.close_cancelled) {
+            if (documents.consume_close_cancellation())
                 pending_switch.reset();
-                prefab_editor.close_cancelled = project_settings.close_cancelled =
-                    script_editor.close_cancelled = texture_imports.close_cancelled =
-                        model_imports.close_cancelled = false;
-            }
-            if (pending_switch) {
-                if (!prefab_editor.dirty() && project_settings.dirty())
-                    project_settings.request_close();
-                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
-                         script_editor.dirty())
-                    script_editor.request_close();
-                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
-                         !script_editor.dirty() && texture_imports.dirty())
-                    texture_imports.request_close();
-                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
-                         !script_editor.dirty() && !texture_imports.dirty() &&
-                         model_imports.dirty())
-                    model_imports.request_close();
-                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
-                         !script_editor.dirty() && !texture_imports.dirty() &&
-                         !model_imports.dirty()) {
-                    auto action = *pending_switch;
-                    pending_switch.reset();
-                    files.request(action);
-                }
+            if (pending_switch && documents.close_pending_sources()) {
+                auto action = *pending_switch;
+                pending_switch.reset();
+                files.request(action);
             }
             auto collect_diagnostics = [&](const auto& records) {
                 for (const auto& d : records) {
@@ -1989,7 +2082,10 @@ int main(int argc, char** argv) {
             ++fixture.frames;
             if (fixture.prepared && fixture.frames > 12 &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
-                (fixture.stage != 7 || (play.paused() && game_input.captured()))) {
+                (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
+                (fixture.stage < 28 || (material_preview && !material_preview->pending()))) {
+                if (fixture.stage >= 28 && !material_preview->diagnostics().empty())
+                    throw std::runtime_error("Material editor fixture preview failed");
                 if (fixture.stage == 0) {
                     auto* content_window = ImGui::FindWindowByName("Content");
                     if (!content_window || !content_window->DockTabIsVisible)
@@ -2012,7 +2108,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 28) {
+                if (fixture.stage == 30) {
                     play.stop();
                     running = false;
                 }

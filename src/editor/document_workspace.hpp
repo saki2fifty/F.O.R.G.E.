@@ -10,6 +10,7 @@ struct WorkspaceDocument {
     std::function<void()> draw, save, undo, redo, request_close;
     std::function<bool()> can_undo, can_redo;
     std::function<void(const std::string&)> inspect;
+    std::function<bool()> take_close_cancelled;
 };
 class DocumentWorkspace {
   public:
@@ -73,6 +74,24 @@ class DocumentWorkspace {
         for (const auto& d : entries_)
             if (d.draw)
                 d.draw();
+    }
+    // Asset/source drafts settle before the scene's existing file guard. Each
+    // owner retains its own Save/history/publication semantics and close dialog.
+    bool close_pending_sources() const {
+        for (const auto& d : entries_)
+            if (d.id != "scene" && d.dirty && d.dirty()) {
+                if (d.request_close)
+                    d.request_close();
+                return false;
+            }
+        return true;
+    }
+    bool consume_close_cancellation() const {
+        bool cancelled = false;
+        for (const auto& d : entries_)
+            if (d.take_close_cancelled)
+                cancelled = d.take_close_cancelled() || cancelled;
+        return cancelled;
     }
     void dock(ImGuiID center) const {
         for (const auto& d : entries_)

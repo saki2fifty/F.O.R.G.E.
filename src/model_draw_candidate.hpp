@@ -3,6 +3,14 @@
 #include <tuple>
 namespace forge::asset_detail {
 using DrawTextureKey = std::pair<AssetId, TextureSemantic>;
+// Immutable unsaved material values in an isolated preview host. A revision lease
+// uses the same resource pool machinery; this is never a catalog publication.
+struct MaterialPreviewSelection {
+    AssetRef<MaterialAsset> asset;
+    std::string revision;
+    std::uint64_t generation{};
+    MaterialResourceData data;
+};
 struct PreparedModelDraw {
     ResourceLease<MeshAsset> mesh;
     MeshMaterialSelection selection;
@@ -43,8 +51,8 @@ class ModelDrawCandidate {
   public:
     ModelDrawCandidate(std::filesystem::path project, std::shared_ptr<const AssetCatalog> catalog,
                        std::uint64_t catalog_epoch, AssetRef<MeshAsset> mesh,
-                       std::vector<MaterialSlotOverride> overrides,
-                       ResourcePool<MeshAsset>& meshes);
+                       std::vector<MaterialSlotOverride> overrides, ResourcePool<MeshAsset>& meshes,
+                       std::shared_ptr<const MaterialPreviewSelection> preview = {});
     void advance(std::uint64_t current_catalog_epoch, ResourcePool<MeshAsset>& meshes,
                  ResourcePool<MaterialAsset>& materials, ResourcePool<TextureAsset>& textures);
     void cancel(); // Only this consumer; coalesced pool requests remain usable.
@@ -59,6 +67,7 @@ class ModelDrawCandidate {
     const std::uint64_t epoch_;
     std::filesystem::path project_;
     std::shared_ptr<const AssetCatalog> catalog_;
+    std::shared_ptr<const MaterialPreviewSelection> preview_;
     std::vector<MaterialSlotOverride> overrides_;
     ResourceState state_ = ResourceState::Loading;
     std::string diagnostic_;

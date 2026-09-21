@@ -8,7 +8,9 @@ namespace forge {
 // on workers; adoption and native access stay on the calling presentation thread.
 class MeshResourceHost {
   public:
-    MeshResourceHost(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path);
+    MeshResourceHost(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path,
+                     bool isolated_material_preview = false);
+    void preview_material(AssetRef<MaterialAsset>, MaterialResourceData);
     void catalog(std::shared_ptr<const AssetCatalog>);
     std::shared_ptr<const AssetCatalog> catalog() const {
         check_thread();
@@ -26,6 +28,8 @@ class MeshResourceHost {
     std::filesystem::path project_;
     std::shared_ptr<const AssetCatalog> catalog_;
     std::uint64_t epoch_ = 0;
+    const bool isolated_material_preview_;
+    std::shared_ptr<const asset_detail::MaterialPreviewSelection> material_preview_;
     ResourcePool<MeshAsset> meshes_;
     ResourcePool<MaterialAsset> materials_;
     ResourcePool<TextureAsset> textures_;

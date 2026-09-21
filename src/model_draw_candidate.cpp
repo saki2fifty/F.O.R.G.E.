@@ -1,5 +1,6 @@
 #include "model_draw_candidate.hpp"
 #include "material_slot.hpp"
+#include "pbr_material.hpp"
 namespace forge::asset_detail {
 namespace {
 template <class T>
@@ -30,12 +31,20 @@ ModelDrawCandidate::ModelDrawCandidate(std::filesystem::path project,
                                        std::shared_ptr<const AssetCatalog> catalog,
                                        std::uint64_t epoch, AssetRef<MeshAsset> mesh,
                                        std::vector<MaterialSlotOverride> overrides,
-                                       ResourcePool<MeshAsset>& meshes)
+                                       ResourcePool<MeshAsset>& meshes,
+                                       std::shared_ptr<const MaterialPreviewSelection> preview)
     : epoch_(epoch), project_(std::move(project)), catalog_(std::move(catalog)),
-      overrides_(std::move(overrides)) {
+      preview_(std::move(preview)), overrides_(std::move(overrides)) {
     if (!epoch_ || !catalog_ || !mesh.id)
         throw std::runtime_error("Invalid complete model draw request");
     detail::validate_material_slots(overrides_);
+    if (preview_) {
+        if (!preview_->asset.id || !preview_->generation ||
+            !valid_content_digest(preview_->revision))
+            throw std::runtime_error("Invalid material preview selection");
+        validate_material_bindings(preview_->data.values, preview_->data.textures);
+        (void)prepare_pbr_material(preview_->data.values);
+    }
     mesh_ = request_model_mesh(meshes, project_, catalog_, mesh);
 }
 void ModelDrawCandidate::check_thread() const {
@@ -50,6 +59,7 @@ void ModelDrawCandidate::fail(ResourceState state, std::string message) {
     materials_.clear();
     textures_.clear();
     catalog_.reset();
+    preview_.reset();
 }
 void ModelDrawCandidate::advance(std::uint64_t epoch, ResourcePool<MeshAsset>& meshes,
                                  ResourcePool<MaterialAsset>& materials,
@@ -71,10 +81,27 @@ void ModelDrawCandidate::advance(std::uint64_t epoch, ResourcePool<MeshAsset>& m
             // Missing authored slots remain visible diagnostics, never guessed
             // replacement bindings. Existing slots still use their selected values.
             for (const auto& binding : prepared_.selection.bindings)
-                if (binding.material.id && !materials_.contains(binding.material.id))
-                    materials_.emplace(binding.material.id,
-                                       request_model_pbr_material(materials, project_, catalog_,
-                                                                  binding.material));
+                if (binding.material.id && !materials_.contains(binding.material.id)) {
+                    if (preview_ && binding.material == preview_->asset)
+                        materials_.emplace(
+                            binding.material.id,
+                            materials.request(
+                                preview_->asset, preview_->revision, preview_->generation,
+                                [selected = preview_](std::stop_token stop) {
+                                    if (stop.stop_requested())
+                                        throw std::runtime_error("Material preview cancelled");
+                                    auto data =
+                                        std::make_unique<MaterialResourceData>(selected->data);
+                                    const auto bytes = data->resident_bytes();
+                                    return ResourceCandidate<MaterialAsset>{std::move(data),
+                                                                            {bytes}};
+                                },
+                                {}, 0, "builtin:material-preview-v1"));
+                    else
+                        materials_.emplace(binding.material.id,
+                                           request_model_pbr_material(materials, project_, catalog_,
+                                                                      binding.material));
+                }
             stage_ = 1;
         }
         if (stage_ == 1) {

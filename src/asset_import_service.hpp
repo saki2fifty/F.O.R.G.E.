@@ -32,8 +32,12 @@ class AssetImportService {
     AssetImportService(const AssetImportService&) = delete;
     AssetImportService& operator=(const AssetImportService&) = delete;
     // Reads bounded metadata/prefix only; source hashing and native work run in queue.
+    // Authored documents may supply their existing UUID for first publication.
+    // It cannot replace registered, sidecar or active-import identity. The importer
+    // must separately verify that its captured source contains this UUID.
     AssetImportDraft prepare(const std::filesystem::path& source,
-                             std::optional<std::string_view> importer = {});
+                             std::optional<std::string_view> importer = {},
+                             AssetId authored_identity = {});
     AssetJobId submit(AssetImportDraft draft, PreparePublication prepare,
                       AssetPublisher::Compatibility compatibility, int priority = 0);
     void cancel(AssetJobId job);

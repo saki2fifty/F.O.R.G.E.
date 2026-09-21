@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "cooked_envelope.hpp"
+#include "material_source_tests.hpp"
 #include "pbr_material_tests.hpp"
 #include <chrono>
 #include <forge/material_resource.hpp>
@@ -65,6 +66,7 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material scratch directory");
         test_pbr_material_profile();
+        test_material_source();
         const auto m = material();
         const auto bytes = encode_material(m);
         const auto decoded = decode_material(bytes);

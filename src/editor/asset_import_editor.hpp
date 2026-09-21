@@ -11,6 +11,9 @@ struct ImportEditorProfile {
     std::function<void(AssetPublicationCandidate&, const AssetImportPlan&, const AssetCatalog&,
                        std::span<const SubassetIdentityDecision>)>
         publish;
+    // Only authored asset documents own UUIDs before first catalog publication.
+    std::function<AssetId(const std::filesystem::path&, const std::filesystem::path&)>
+        source_identity;
 };
 class AssetImportEditor {
   public:
@@ -364,7 +367,9 @@ class AssetImportEditor {
     void load(std::filesystem::path source) {
         std::optional<AssetImportDraft> next;
         if (!source.empty())
-            next = service_->prepare(source);
+            next = service_->prepare(
+                source, {},
+                profile_.source_identity ? profile_.source_identity(project_, source) : AssetId{});
         draft_ = std::move(next);
         ++selection_generation_;
         saved_ = draft_ && draft_->ticket.sidecar_bytes.has_value();

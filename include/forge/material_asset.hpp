@@ -50,6 +50,10 @@ void validate_material(const MaterialData& material);
 void validate_material_bindings(const MaterialData& material,
                                 const MaterialTextureBindings& bindings);
 void validate_material_layout(const MaterialData& material, const MaterialLayout& layout);
+// Shared typed projection for source authoring and cooked envelopes. This is a
+// value representation; durable texture identities remain separate bindings.
+nlohmann::json material_values_document(const MaterialData& material);
+MaterialData material_values_from_document(const nlohmann::json& document);
 std::vector<std::byte> encode_material(const MaterialData& material);
 MaterialData decode_material(std::span<const std::byte> bytes);
 } // namespace forge

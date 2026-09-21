@@ -48,7 +48,8 @@ inline void test_animation_editor() {
         auto* draw = ImGui::GetWindowDrawList();
         const int before = draw->VtxBuffer.Size;
         forge::EditorCamera camera;
-        forge::draw_animation_debug(doc, camera, {400, 100}, {550, 500});
+        auto skeletons = forge::prepare_animation_debug(doc, nullptr);
+        forge::draw_animation_debug(skeletons, camera, {400, 100}, {550, 500});
         require(draw->VtxBuffer.Size > before, "Debug skeleton overlay produced no geometry");
         const auto center = forge::project_point(camera, {0, 1, 0}, 550, 500);
         require(bool(center), "Debug joint unexpectedly outside camera");
@@ -61,7 +62,8 @@ inline void test_animation_editor() {
         require(joint_near_expected, "Debug skeleton ignored existing camera projection");
         doc["entities"][0].erase("animation_pose");
         const int without = draw->VtxBuffer.Size;
-        forge::draw_animation_debug(doc, camera, {400, 100}, {550, 500});
+        skeletons = forge::prepare_animation_debug(doc, nullptr);
+        forge::draw_animation_debug(skeletons, camera, {400, 100}, {550, 500});
         require(draw->VtxBuffer.Size == without, "Nonanimated scene acquired overlay geometry");
         ImGui::End();
         ImGui::Render();

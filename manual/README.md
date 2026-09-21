@@ -21,6 +21,8 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 - [Model import tools](editor/models.md): prepare static glTF asset families and resolve identity conflicts.
 - [Scene lighting](editor/lighting.md): environment maps, sky, intensity, rotation and exposure.
 - [Textures](editor/textures.md): import images, choose usages and reimport safely.
+- [Materials](editor/materials.md): edit reusable surfaces, preview them and assign mesh slots.
+- [Shader import](editor/shaders.md): compile project HLSL programs and retain good revisions on errors.
 - [Content browser](editor/content-browser.md): find and open project scene files.
 - [Prefabs](editor/prefabs.md): create reusable groups, edit sources, override and revert instance values.
 - [Primitives and color](editor/primitives.md): create built-in shapes and give them a tint.
@@ -48,7 +50,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Current boundaries
 
-The viewport draws transformed built-in blockout meshes. WAV audio and single-clip skeletal animation with debug bones are available. Production materials, imported/skinned meshes, terrain, and standalone game export are not available yet. This manual adds their instructions when their editor workflows exist.
+The current Phase7 source adds imported and skinned mesh rendering, material authoring, textures and scene lighting alongside the existing blockout and gameplay tools. The complete Phase7 package is still in validation; repository instructions describe source behavior, not a new numbered delivery. Terrain, material graphs and standalone game export remain outside the current delivered workflows.
 
 ## Commands and inspection
 

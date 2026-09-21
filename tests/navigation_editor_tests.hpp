@@ -39,7 +39,7 @@ inline void test_navigation_editor() {
         require(message.empty(), "Navigation content controls failed");
         auto* draw = ImGui::GetWindowDrawList();
         auto before = draw->VtxBuffer.Size;
-        tools.draw(scene.effective_document(), {}, {600, 0}, {500, 800});
+        tools.draw(scene.effective_document(), forge::EditorCamera{}, {600, 0}, {500, 800});
         require(draw->VtxBuffer.Size == before,
                 "Disabled navigation overlay changed scene fixture");
         ImGui::End();

@@ -1,6 +1,7 @@
 #include "mesh_render_host.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_pick.hpp"
+#include "pbr_material.hpp"
 #include "render_projection.hpp"
 #include "render_sort.hpp"
 #include <set>
@@ -61,12 +62,30 @@ EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& cam
     return selected;
 }
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
-                                   Diligent::IDeviceContext* context, std::filesystem::path project)
+                                   Diligent::IDeviceContext* context, std::filesystem::path project,
+                                   bool isolated_material_preview)
     : presentation_(presentation), context_(context), project_(std::move(project)),
+      isolated_material_preview_(isolated_material_preview),
       environments_(presentation.device(), context, 512ull * 1024 * 1024, 16,
                     EnvironmentRealization{&presentation}),
       gpu_meshes_(presentation.device(), context, 512ull * 1024 * 1024),
       gpu_textures_(presentation.device(), context, 512ull * 1024 * 1024) {}
+void MeshResourceHost::preview_material(AssetRef<MaterialAsset> ref, MaterialResourceData data) {
+    check_thread();
+    if (!isolated_material_preview_ || !ref.id || epoch_ == UINT64_MAX)
+        throw std::runtime_error("Unsaved material requires an isolated preview host");
+    validate_material_bindings(data.values, data.textures);
+    (void)prepare_pbr_material(data.values);
+    const auto revision = asset_build_digest(
+        {{"values", material_values_document(data.values)}, {"textures", data.textures}});
+    if (material_preview_ && material_preview_->asset == ref &&
+        material_preview_->revision == revision)
+        return;
+    auto next = std::make_shared<const asset_detail::MaterialPreviewSelection>(
+        asset_detail::MaterialPreviewSelection{ref, revision, epoch_ + 1, std::move(data)});
+    material_preview_ = std::move(next);
+    ++epoch_;
+}
 void MeshResourceHost::check_thread() const {
     if (thread_ != std::this_thread::get_id())
         throw std::runtime_error("Mesh presentation accessed from another thread");
@@ -226,7 +245,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             try {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
-                    renderer.materials, host_->meshes_);
+                    renderer.materials, host_->meshes_, host_->material_preview_);
             } catch (const std::exception& e) {
                 entry.error = e.what();
             }

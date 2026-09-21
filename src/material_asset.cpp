@@ -141,7 +141,7 @@ std::size_t MaterialData::resident_bytes() const {
     }
     return bytes;
 }
-std::vector<std::byte> encode_material(const MaterialData& m) {
+nlohmann::json material_values_document(const MaterialData& m) {
     validate_material(m);
     Json parameters = Json::object(), textures = Json::object();
     for (const auto& [name, p] : m.parameters) {
@@ -158,19 +158,16 @@ std::vector<std::byte> encode_material(const MaterialData& m) {
                           {"offset", t.offset},
                           {"scale", t.scale},
                           {"rotation", t.rotation}};
-    return asset_detail::encode_envelope({{"model", m.model},
-                                          {"alpha", unsigned(m.alpha)},
-                                          {"alpha_cutoff", m.alpha_cutoff},
-                                          {"double_sided", m.double_sided},
-                                          {"depth_test", m.depth_test},
-                                          {"depth_write", m.depth_write},
-                                          {"parameters", parameters},
-                                          {"textures", textures}},
-                                         {}, magic, metadata_limit);
+    return {{"model", m.model},
+            {"alpha", unsigned(m.alpha)},
+            {"alpha_cutoff", m.alpha_cutoff},
+            {"double_sided", m.double_sided},
+            {"depth_test", m.depth_test},
+            {"depth_write", m.depth_write},
+            {"parameters", parameters},
+            {"textures", textures}};
 }
-MaterialData decode_material(std::span<const std::byte> bytes) {
-    const auto envelope = asset_detail::decode_envelope(bytes, magic, metadata_limit, 0);
-    const auto& j = envelope.metadata;
+MaterialData material_values_from_document(const nlohmann::json& j) {
     MaterialData m;
     m.model = j.at("model").get<std::string>();
     m.alpha = MaterialAlpha(number(j.at("alpha"), 2));
@@ -201,5 +198,12 @@ MaterialData decode_material(std::span<const std::byte> bytes) {
     }
     validate_material(m);
     return m;
+}
+std::vector<std::byte> encode_material(const MaterialData& m) {
+    return asset_detail::encode_envelope(material_values_document(m), {}, magic, metadata_limit);
+}
+MaterialData decode_material(std::span<const std::byte> bytes) {
+    return material_values_from_document(
+        asset_detail::decode_envelope(bytes, magic, metadata_limit, 0).metadata);
 }
 } // namespace forge

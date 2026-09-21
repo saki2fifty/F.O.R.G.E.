@@ -634,3 +634,59 @@
   normalized rotation/morph routing 1/1 (0.05 s), and ASan/UBSan/leak checks 2/2
   (108.31 s). An additional normal real-worker failure regression passes (35.80 s):
   mismatched instance counts retain the prior model revision, bindings and scene.
+
+### Standalone material authoring foundation
+
+- Add sparse versioned Material source documents with explicit equal-value intent,
+  base inheritance, reset-to-default, texture clear and Revert semantics. Preserve
+  unknown document fields and reuse existing typed material admission/defaults.
+- Resolve against immutable published base materials through the existing dependency
+  graph and asset publication service; add root Material resource loading through
+  the renderer's shared resource path. Source Save remains separate from publication.
+- Material source tests pass locally. Full publication/resource, sanitizer and
+  Windows validation for this increment are pending; the central editor is in progress.
+
+### Material and shader authoring integration
+
+- Add a central Material source document with independent bounded Undo/Redo,
+  external-file conflict checks, explicit source AssetId, guarded close and Save.
+  Source Save and cooked publication remain separate; errors preserve the previous
+  published asset and do not masquerade as scene Undo transactions.
+- Add base-material inheritance through the existing typed dependency graph,
+  cycle rejection, sparse equal-value overrides, per-field Revert and explicit
+  reset-to-default/texture-clear semantics. Runtime resolves immutable cooked values.
+- Add grouped surface/PBR-extension controls, per-slot texture drag/drop, UV and
+  sampler editing, source diagnostics, responsive property/preview columns and
+  source-document routing for project materials versus imported model members.
+- Add an isolated unsaved material preview using the shared frame renderer with
+  engine sphere/cube/plane meshes, orbit/zoom, light/environment/background/exposure
+  controls and last-good complete-resource adoption. Normal scene resource hosts
+  refuse unsaved preview selections; native pixel tests cover that boundary.
+- Add asynchronous Inspector material-slot discovery and assignment through the
+  existing reflected property operation. Keep unresolved slots visible, preserve
+  stable keys and expose restoration of mesh defaults with scene Undo/Redo.
+- Validate actual cooked texture dimensions and requested semantic variants before
+  publishing materials. Incompatible or missing variants retain good publications.
+- Add the Shader import document using the existing isolated compiler, declared
+  source identity and last-good publisher. It does not claim arbitrary Shader
+  assets can replace built-in mesh material shader contracts.
+- Route pending source close/cancellation through document adapters instead of
+  growing subsystem-specific switch chains. Preserve each document's Save/history
+  ownership and existing scene guards.
+- Correct older animation/navigation editor test callers to their current copied
+  debug-data APIs. Include the editor process test and all new test targets in
+  explicit Windows audit build/test lists; copy required UI test runtime DLLs.
+- Add Materials/Shader import manual pages and update Content, texture and technical
+  ownership documentation. Offline manual validation and formatting pass locally.
+- Current local validation: material/resource/import tests 3/3 pass (6.48 s);
+  latest ASan/UBSan/LeakSanitizer material/import tests 3/3 pass (9.43 s).
+  Native material preview and Shader UI tests await this source's Windows audit.
+  The previous source 4507282 passed all 42 Windows tests and all core profiles.
+  No new numbered package has been produced; the complete Phase7 work remains active.
+- Final local admission follow-up: validate draft numeric/vector/sampler structure
+  through the existing typed value decoder before UI entry, while still allowing
+  unfinished model values to fail publication safely. Keep edit failures local to
+  their controls so rejection cannot unwind an open ImGui tree.
+- Updated local results: material/import 3/3 normal (5.53 s), strict sanitizers
+  3/3 (6.23 s), Material UI/assignment 1/1 (1.37 s). Add actual Windows editor
+  captures for Material at 100% and 200% UI scale, in addition to native pixel tests.

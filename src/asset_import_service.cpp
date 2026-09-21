@@ -63,7 +63,8 @@ void AssetImportService::check() const {
     lease_->check();
 }
 AssetImportDraft AssetImportService::prepare(const std::filesystem::path& source,
-                                             std::optional<std::string_view> selected) {
+                                             std::optional<std::string_view> selected,
+                                             AssetId authored_identity) {
     check();
     const ProjectPaths paths(lease_->root());
     auto locator = ProjectPaths::normalize(source);
@@ -92,12 +93,17 @@ AssetImportDraft AssetImportService::prepare(const std::filesystem::path& source
             owner = pending->draft.request.asset;
         }
     }
-    auto ticket = publisher_.capture(owner ? owner : AssetId::generate(), locator);
+    require(!authored_identity || !owner || authored_identity == owner,
+            "Authored source identity differs from the registered/reserved asset");
+    auto ticket = publisher_.capture(
+        owner ? owner : (authored_identity ? authored_identity : AssetId::generate()), locator);
     std::optional<AssetImportSidecar> sidecar;
     if (ticket.sidecar_bytes) {
         sidecar = AssetImportSidecar::parse(*ticket.sidecar_bytes);
         require(sidecar->identity.source == locator && (!owner || sidecar->identity.owner == owner),
                 "Import sidecar source/identity disagrees with catalog");
+        require(!authored_identity || sidecar->identity.owner == authored_identity,
+                "Authored source identity differs from import sidecar");
         ticket.owner = sidecar->identity.owner;
         if (!selected)
             selected = sidecar->settings.importer;

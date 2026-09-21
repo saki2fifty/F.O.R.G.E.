@@ -7,6 +7,8 @@ namespace forge {
 class ComponentInspector {
   public:
     bool add_open = false;
+    // Domain-specific logical mesh slots reuse the same property command/history.
+    std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     void edit_property(Scene& scene, const std::string& entity, const std::string& component,
                        const std::string& field, const Json& value) {
         apply(scene, entity, component, field, "property.set", value);
@@ -118,7 +120,11 @@ class ComponentInspector {
                     continue;
                 ui::IdScope field_scope(name.c_str());
                 auto value = values.at(key).at(name);
-                if (property_field(project.project(), field, value))
+                const bool changed =
+                    key == "forge.mesh_renderer" && name == "materials" && material_slots
+                        ? material_slots(values.at(key), value)
+                        : property_field(project.project(), field, value);
+                if (changed)
                     edit_property(scene, entity, key, name, value);
                 const bool field_override = whole || (partial && masks.at(key).contains(name));
                 if (prefab) {

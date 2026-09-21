@@ -56,6 +56,32 @@ inline void test_document_workspace() {
     require(!docs.find(d.id) && context.selection.kind() == SelectionKind::None &&
                 context.task.owner == DocumentTask::Scene,
             "Retired document retained selection/history target");
+    int first_closes = 0, second_closes = 0;
+    bool first_dirty = true, second_dirty = true, cancelled = false;
+    WorkspaceDocument first;
+    first.id = "source.first";
+    first.dirty = [&] { return first_dirty; };
+    first.request_close = [&] { ++first_closes; };
+    first.take_close_cancelled = [&] { return std::exchange(cancelled, false); };
+    docs.add(first);
+    WorkspaceDocument second;
+    second.id = "source.second";
+    second.dirty = [&] { return second_dirty; };
+    second.request_close = [&] { ++second_closes; };
+    docs.add(second);
+    WorkspaceDocument scene;
+    scene.id = "scene";
+    scene.dirty = [] { return true; };
+    docs.add(scene);
+    require(!docs.close_pending_sources() && first_closes == 1 && second_closes == 0,
+            "Independent source guards ran concurrently");
+    first_dirty = false;
+    require(!docs.close_pending_sources() && second_closes == 1, "Next source guard was omitted");
+    cancelled = true;
+    require(docs.consume_close_cancellation() && !docs.consume_close_cancellation(),
+            "Source close cancellation was lost or repeated");
+    second_dirty = false;
+    require(docs.close_pending_sources(), "Source guard consumed scene file ownership");
     AssetEditors editors;
     int opens = 0;
     editors.add({"scene", "Open scene", [&](const forge::AssetRecord&) { ++opens; }});

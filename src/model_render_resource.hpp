@@ -10,6 +10,8 @@ MeshResourceData model_mesh_resource(const ModelSelection&, AssetRef<MeshAsset>)
 MaterialResourceData model_material_resource(const ModelSelection&, AssetRef<MaterialAsset>,
                                              const MaterialLayout&);
 MaterialResourceData model_pbr_material_resource(const ModelSelection&, AssetRef<MaterialAsset>);
+MaterialResourceData load_pbr_material(const std::filesystem::path&, const AssetCatalog&,
+                                       AssetRef<MaterialAsset>, std::stop_token = {});
 TextureData model_texture_resource(const ModelSelection&, AssetRef<TextureAsset>, TextureSemantic);
 // Omitted semantic selects HDR color when available, otherwise color; never data/normal.
 // Root texture assets and model members share the same async identity/lifetime path.

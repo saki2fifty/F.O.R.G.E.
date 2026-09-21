@@ -88,7 +88,9 @@ struct EditorFixture {
                                "workspace-expanded-200",
                                "workspace-restored-100",
                                "texture-import",
-                               "texture-import-200"};
+                               "texture-import-200",
+                               "material-editor",
+                               "material-editor-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -1,5 +1,6 @@
 #include "model_render_resource.hpp"
 #include "engine_render_resource.hpp"
+#include "material_selection.hpp"
 #include "pbr_material.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/model_asset.hpp>
@@ -253,6 +254,9 @@ ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>& pool,
     if (engine_asset(material.id))
         return request_engine_material(pool, material);
     require(bool(catalog), "Model PBR material requires a selected catalog");
+    if (const auto found = catalog->records().find(material.id);
+        found != catalog->records().end() && !found->second.subasset)
+        return request_root_material(pool, std::move(project), std::move(catalog), material);
     const auto selected = selected_member(*catalog, material.id, MaterialAsset::type);
     return pool.request(
         material, selected.revision, selected.generation,
@@ -266,6 +270,21 @@ ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>& pool,
             return ResourceCandidate<MaterialAsset>{std::move(data), {bytes}};
         },
         {}, 0, "builtin:gltf-pbr-v1");
+}
+MaterialResourceData load_pbr_material(const std::filesystem::path& project,
+                                       const AssetCatalog& catalog,
+                                       AssetRef<MaterialAsset> material, std::stop_token stop) {
+    if (stop.stop_requested())
+        throw std::runtime_error("Material load cancelled");
+    if (engine_asset(material.id))
+        return engine_material_resource(material);
+    const auto found = catalog.records().find(material.id);
+    require(found != catalog.records().end() && found->second.type == MaterialAsset::type,
+            "Selected material is missing or has wrong type");
+    if (!found->second.subasset)
+        return load_material_selection(project, catalog, material, stop).data;
+    const auto selected = selected_member(catalog, material.id, MaterialAsset::type);
+    return model_pbr_material_resource(load_selected(project, catalog, selected, stop), material);
 }
 ResourceTicket request_model_material(ResourcePool<MaterialAsset>& pool,
                                       std::filesystem::path project,

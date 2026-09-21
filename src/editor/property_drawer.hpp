@@ -34,7 +34,7 @@ inline std::string asset_display(const AssetRecord& record) {
     return name;
 }
 inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std::string& type,
-                             const char* title) {
+                             const char* title, bool include_engine = true) {
     ui::IdScope scope(title);
     try {
         std::string label = "None";
@@ -63,7 +63,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             unsigned count = 0;
             for (const auto& asset : engine_assets()) {
                 const auto display = std::string("Engine / ") + asset.name;
-                if (type != asset.type ||
+                if (!include_engine || type != asset.type ||
                     search_key(display).find(search_key(search.data())) == std::string::npos)
                     continue;
                 ui::IdScope item(asset.id.str().c_str());
@@ -105,7 +105,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                     const auto it = catalog.records().find(id);
                     const auto* builtin = engine_asset(id);
                     const bool compatible =
-                        builtin ? type == builtin->type
+                        builtin ? include_engine && type == builtin->type
                                 : it != catalog.records().end() && it->second.type == type;
                     if (!compatible)
                         ImGui::SetTooltip("This field requires %s", type.c_str());

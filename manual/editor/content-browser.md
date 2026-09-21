@@ -1,6 +1,6 @@
 # Content browser
 
-Content is the project's asset browser. It lists registered scenes, prefabs, audio, animation, navigation, texture and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
+Content is the project's asset browser. It lists registered scenes, prefabs, models, materials, shaders, audio, animation, navigation, texture and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
 
 ## Find and inspect an asset
 
@@ -23,6 +23,8 @@ Open **Create / Register**:
 
 - **Import model...** opens [Model import](models.md) for glTF settings, identity review, scene/animation selection and placement.
 - **Import texture...** opens the [Texture import](textures.md) document for image/container settings and safe reimport.
+- **New material...** creates a reusable source in the central [Material editor](materials.md).
+- **Import shader...** opens [Shader import](shaders.md) for an existing project program.
 - **New scene** creates an untitled scene through the save guard.
 - **Audio / Register WAV** registers a WAV already copied into this project. Enter its project-relative path and choose **Register WAV**.
 - **Prefabs** contains Create from selection, Instantiate, Edit source and Duplicate asset.
@@ -39,6 +41,8 @@ Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
 Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their import settings document; this does not yet provide a GPU texture preview. Model assets open their import and placement document.
+
+Project Material assets open their source editor; imported model Material members open the model's source workflow. Shader assets open compilation settings. Each source task has its own history/publication rules and close guard.
 
 
 ## Asset catalog compatibility
