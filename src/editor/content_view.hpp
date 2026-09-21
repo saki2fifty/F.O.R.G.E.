@@ -7,9 +7,16 @@
 #include <utility>
 namespace forge {
 // ImGui adapter over immutable discovery data. All writes remain in application services.
+struct ContentThumbnail {
+    ImTextureID image = 0;
+    float aspect = 1;
+    std::string status;
+};
 class ContentView {
   public:
     std::function<void(const ContentEntry&)> open, context_menu;
+    std::function<ContentThumbnail(AssetId)> thumbnail;
+    std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const std::vector<AssetId>&)> reimport;
     Json settings() const {
         return {{"grid", grid_},
@@ -370,10 +377,14 @@ class ContentView {
                     }
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                         primary(entry, selection);
+                    const auto preview = grid_ && entry.asset && thumbnail && ImGui::IsItemVisible()
+                                             ? thumbnail(entry.asset)
+                                             : ContentThumbnail{};
                     ui::help((entry.name + "\n" + entry.path + "\n" + entry.type + " | " +
                               content_state_label(entry.state) +
                               "\nCtrl/Shift: multiple selection. Double-click: open. Right-click: "
-                              "actions.")
+                              "actions." +
+                              (preview.status.empty() ? "" : "\n" + preview.status))
                                  .c_str());
                     if (reveal_key_ == entry.key) {
                         ImGui::SetScrollHereY();
@@ -395,6 +406,9 @@ class ContentView {
                             ImGui::SetClipboardText(entry.asset.str().c_str());
                         if (ImGui::MenuItem("Copy source path"))
                             ImGui::SetClipboardText(entry.path.c_str());
+                        if (entry.asset && retry_thumbnail && !preview.status.empty() &&
+                            ImGui::MenuItem("Refresh thumbnail"))
+                            retry_thumbnail(entry.asset);
                         if (context_menu)
                             context_menu(entry);
                         ImGui::EndPopup();
@@ -408,10 +422,22 @@ class ContentView {
                             std::min(item_width * .4f, tile_size_ * ui::interface_scale * .45f);
                         const ImVec2 lo{pos.x + (item_width - icon) * .5f,
                                         pos.y + 12 * ui::interface_scale};
-                        draw->AddRect(lo, {lo.x + icon, lo.y + icon}, muted,
-                                      4 * ui::interface_scale, 0, 1.5f * ui::interface_scale);
-                        draw->AddLine({lo.x + icon * .2f, lo.y + icon * .4f},
-                                      {lo.x + icon * .8f, lo.y + icon * .4f}, muted);
+                        if (preview.image) {
+                            const float box_w = std::max(1.f, item_width - 8 * ui::interface_scale);
+                            const float box_h = std::max(
+                                1.f, item_height - 2 * ImGui::GetTextLineHeightWithSpacing() -
+                                         8 * ui::interface_scale);
+                            const float h = std::min(box_h, box_w / preview.aspect);
+                            const float w = h * preview.aspect;
+                            const ImVec2 a{pos.x + (item_width - w) * .5f,
+                                           pos.y + (box_h - h) * .5f + 4 * ui::interface_scale};
+                            draw->AddImage(ImTextureRef{preview.image}, a, {a.x + w, a.y + h});
+                        } else {
+                            draw->AddRect(lo, {lo.x + icon, lo.y + icon}, muted,
+                                          4 * ui::interface_scale, 0, 1.5f * ui::interface_scale);
+                            draw->AddLine({lo.x + icon * .2f, lo.y + icon * .4f},
+                                          {lo.x + icon * .8f, lo.y + icon * .4f}, muted);
+                        }
                         draw->AddText({pos.x + 4, pos.y + item_height -
                                                       2 * ImGui::GetTextLineHeightWithSpacing()},
                                       color, entry.name.c_str());

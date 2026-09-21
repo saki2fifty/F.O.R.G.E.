@@ -1,5 +1,6 @@
 #pragma once
 #include "content.hpp"
+#include "thumbnail_revision.hpp"
 #include <iostream>
 inline void test_content_browser(const std::filesystem::path& root) {
     using namespace forge;
@@ -49,6 +50,42 @@ inline void test_content_browser(const std::filesystem::path& root) {
         const auto large = scan_content_catalog(scan_root, first.scenes);
         check(large.diagnostic.empty() && large.catalog.records().size() == 3,
               "Unrelated sources hit the obsolete 10000-entry scene discovery cap");
+    }
+    {
+        AssetCatalog revisions(root);
+        const auto material = AssetId::generate(), texture = AssetId::generate();
+        AssetRecord image{texture, "texture", "Assets/thumb.png"};
+        image.metadata["forge.import"] = {{"key", std::string(64, 'a')}, {"generation", 1}};
+        revisions.add(image);
+        AssetRecord surface{material, "material", "Assets/thumb.material.json"};
+        surface.dependencies = {texture};
+        surface.metadata["forge.import"] = {{"key", std::string(64, 'b')}, {"generation", 1}};
+        revisions.add(surface);
+        const auto before = thumbnail_revision(revisions, material);
+        revisions.add({AssetId::generate(), "texture", "Assets/unrelated.png"});
+        check(thumbnail_revision(revisions, material) == before,
+              "Unrelated catalog edit invalidated a thumbnail");
+        image.metadata["forge.import"]["generation"] = 2;
+        revisions.replace(image);
+        const auto changed = thumbnail_revision(revisions, material);
+        check(changed != before,
+              "Transitive texture revision failed to invalidate Material thumbnail");
+        revisions.relocate(material, "Assets/moved.material.json");
+        check(thumbnail_revision(revisions, material) == changed,
+              "Locator-only movement changed published thumbnail identity");
+        surface.dependencies.clear();
+        revisions.replace(surface);
+        check(thumbnail_revision(revisions, material) != changed,
+              "Removed dependency retained the previous thumbnail identity");
+        std::stop_source stop;
+        stop.request_stop();
+        bool cancelled = false;
+        try {
+            (void)thumbnail_revision(revisions, material, stop.get_token());
+        } catch (const std::exception&) {
+            cancelled = true;
+        }
+        check(cancelled, "Thumbnail revision worker ignored cancellation");
     }
     AssetCatalog catalog(root);
     const auto model = AssetId::generate(), member = AssetId::generate(),
@@ -208,6 +245,25 @@ inline void test_content_browser(const std::filesystem::path& root) {
         frame();
         check(ImGui::GetDrawData()->TotalVtxCount < 20000, "Grid did not clip large content");
     }
+    view.update(std::make_shared<const ContentIndex>(ContentIndex::build(catalog, nullptr)));
+    unsigned thumbnail_requests = 0;
+    view.thumbnail = [&](AssetId id) {
+        check(bool(id), "Source-only row requested an asset thumbnail");
+        ++thumbnail_requests;
+        return ContentThumbnail{ImTextureID(123), 2.f, "Published fixture thumbnail"};
+    };
+    ui::style(1.f);
+    io.DisplaySize = {1440, 900};
+    frame();
+    frame();
+    check(thumbnail_requests > 0 && thumbnail_requests <= 6,
+          "Visible grid failed to request bounded asset thumbnails");
+    bool image_command = false;
+    for (const auto* draw : ImGui::GetDrawData()->CmdLists)
+        for (const auto& command : draw->CmdBuffer)
+            image_command |= command.GetTexID() == ImTextureID(123);
+    check(image_command, "Content grid did not submit its returned thumbnail image");
+    view.thumbnail = {};
     view.load_settings({{"grid", false}, {"folder_tree", true}});
     view.update(std::make_shared<const ContentIndex>(ContentIndex::build(catalog, nullptr)));
     ui::style(1.f);

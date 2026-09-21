@@ -38,6 +38,16 @@ class TextureAssetPreview {
             error_ = e.what();
         }
     }
+    void cancel() {
+        if (ticket_)
+            pool_.cancel(asset_, ticket_.inspect().identity.variant);
+        catalog_.reset();
+    }
+    void retry() {
+        auto catalog = catalog_;
+        catalog_.reset();
+        select(std::move(catalog), asset_, semantic_);
+    }
     void pump() {
         pool_.pump();
         gpu_.collect();

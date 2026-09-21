@@ -15,7 +15,7 @@ Content is the project's asset browser. It lists registered scenes, prefabs, mod
 
 Use the folder tree or **Folders** menu to choose a location. The **Project** breadcrumb returns to the root; clicking a breadcrumb opens that ancestor. **<** and **>** return to previous/next locations. Search normally includes subfolders. Turn off **View → Include subfolders** for the current folder only.
 
-**View → List** shows names, types and source states. **View → Grid** uses tiles; **Tile size** adjusts their width. A generic file icon is currently a fallback, not a rendered thumbnail. Grid/list, tile size, folder-tree visibility and subfolder preference are saved as personal editor preferences. Narrow Content panels use **Folders** when there is insufficient room for the tree.
+**View → List** shows names, types and source states. **View → Grid** uses tiles; **Tile size** adjusts their width. Published Texture, Model, Mesh and Material assets show rendered thumbnails as visible tiles prepare. Other types and unfinished previews show a file icon. Grid/list, tile size, folder-tree visibility and subfolder preference are saved as personal editor preferences. Narrow Content panels use **Folders** when there is insufficient room for the tree.
 
 - Click to select one item; **Ctrl-click** adds/removes an item.
 - **Shift-click** selects a range; **Ctrl+A** selects the filtered results.
@@ -25,6 +25,23 @@ Use the folder tree or **Folders** menu to choose a location. The **Project** br
 - Dragging sends the individual asset under the pointer. It preserves an entity Inspector for assigning that asset; it does not assign an entire multi-selection.
 
 Right-click offers **Copy AssetId** for registered assets and **Copy source path** for either kind of row. Generated model members show their imported display names, with the owning path in their tooltip and Inspector.
+
+### Thumbnail behavior
+
+Thumbnails show the last successfully published asset, not unsaved import settings
+or Material drafts. Textures retain their aspect ratio; models and meshes use the
+same materials and transformed geometry as their viewers. Imported materials use
+a sphere. Thumbnails do not animate or run gameplay.
+
+Only visible grid items request work. The editor shares scratch viewers, caches up
+to 128 completed images (at most 32 MiB), and retires least recently used offscreen
+entries. Published dependency changes refresh affected images. Unrelated catalog
+changes recheck identity without redrawing unchanged content.
+
+A failed refresh keeps the previous image. Hover the tile for its preparation or
+error message; right-click **Refresh thumbnail** to retry. Missing/unimported and
+removed assets show a fallback. Thumbnail viewing does not import files, change
+scene history or save new assets. Closing/switching projects discards this cache.
 
 ### Read asset state
 
@@ -61,15 +78,15 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 ## Current limits
 
-Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; preview thumbnails and broader source operations are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; broader source operations are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discovery is bounded to 64 directory levels, 110,000 directory/file entries and 64 MiB of JSON reads, with an 8 MiB per-file limit. Registered non-scene sources, the catalog, project metadata and import sidecars are excluded from those JSON reads. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
-Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their import settings document; this does not yet provide a GPU texture preview. Model assets open their import and placement document.
+Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their texture preview and import document; generated model textures open a read-only Texture viewer. Model assets open their preview, import and placement document. Mesh assets open read-only mesh inspection.
 
-Project Material assets open their source editor; imported model Material members open the model's source workflow. Shader assets open compilation settings. Each source task has its own history/publication rules and close guard.
+Project Material assets open their source editor; imported model Material members open a read-only Material preview with an Open source import action. Shader assets open compilation settings. Each source task has its own history/publication rules and close guard.
 
 
 ## Asset catalog compatibility

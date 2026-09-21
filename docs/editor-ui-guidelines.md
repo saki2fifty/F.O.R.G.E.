@@ -127,3 +127,17 @@ Property search, multi-selection and Inspector locking require shared selection/
 and transaction policies before enabling them; do not implement separate ad-hoc variants
 per subsystem. Every permanent row must justify its space. Prefer on-demand tools and
 central documents over a permanent panel for each library.
+
+
+### Content thumbnails
+
+Visible grid items borrow a disposable image from `ContentThumbnails`; Content
+selection/drag and asset identity remain independent. One active preparation and
+one scratch Texture/scene renderer replace per-tile renderer ownership. Completed
+images are LRU-bounded to 128 × 256² RGBA8 (32 MiB), with current-frame retirement
+held through GUI submission; Diligent owns backend deferred GPU destruction.
+Existing resource pools separately bound decoded assets and shared mesh/texture
+residency. A worker hashes the published dependency closure (16,384-node/frontier
+profile); no source decoding or graph walk runs in tile drawing. Unsupported or
+over-budget previews use an honest fallback and diagnostic. Recipe/cache identity
+is disposable and does not allocate AssetIds or define a persisted thumbnail ABI.

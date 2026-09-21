@@ -844,3 +844,13 @@
 - Model recipe/pipeline regressions pass locally 2/2 (78.12 s); strict model recipe passes with ASan/UBSan/LSan (119.97 s). Generic main/presentation syntax checks pass. Added actual Windows Model/Mesh/imported Material captures at 100%/200%; native execution is pending. No numbered release or Phase 7 completion claim.
 
 - Import-document UI regressions pass 2/2 (2.20 s), including placement lock behavior. Manual and full-format checks pass. Prior texture checkpoint core/SDK profiles pass on Windows and Linux; native texture-viewer execution remains in progress.
+
+
+## Content thumbnails and native validation correction
+
+- Added actual published Texture/Model/Mesh/Material thumbnails to visible Content grid tiles, retaining image aspect ratio. One active request shares scratch viewers; completed images use a 128-entry, at-most-32-MiB LRU cache. Unsupported/unimported/removed assets keep an explicit fallback.
+- Dependency revisions invalidate affected thumbnails; unrelated catalog changes reuse unchanged images. Failed replacements retain previous good images with hover diagnostics and Refresh thumbnail. Offscreen/catalog-superseded preparation is cancelled; project changes discard the cache after prior submission.
+- Added dependency revision, cancellation and visible-image UI regressions, plus native Content thumbnail captures at 100%/200%. Native execution remains pending.
+- Windows texture source audit stopped at a test compile ambiguity between FORGE and Diligent TextureData. Qualified all four test declarations and reproduced the production namespace context in the local syntax probe. Cancelled the queued audit containing the same known error; corrected native validation will follow. This was a test compile failure, not a passing Windows GPU result.
+
+- Local editor/browser validation passes (11.49 s), including dependency-key behavior and actual ImGui image command submission. Manual tests pass. Added native cache reuse/failed-refresh/128-entry retirement assertions; these still await Windows execution.

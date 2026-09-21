@@ -15,7 +15,7 @@ void check_texture_preview(forge::DiligentPresentation& presentation,
     for (const auto dimension :
          {TextureDimension::D2, TextureDimension::D2Array, TextureDimension::Cube,
           TextureDimension::CubeArray, TextureDimension::D3}) {
-        TextureData data;
+        forge::TextureData data;
         data.dimension = dimension;
         data.semantic = TextureSemantic::Data;
         data.width = data.height = 8;
@@ -64,7 +64,7 @@ void check_texture_preview(forge::DiligentPresentation& presentation,
     settings = {};
     settings.nearest = true;
     settings.checker = false;
-    TextureData data;
+    forge::TextureData data;
     data.width = data.height = 1;
     data.format = TextureFormat::RGBA8Srgb;
     data.subresources = {{std::byte{128}, std::byte{64}, std::byte{32}, std::byte{128}}};
@@ -149,7 +149,7 @@ void check_texture_preview(forge::DiligentPresentation& presentation,
     require(readback(presentation.device(), context, preview.output()) == pixels,
             "Rejected texture preview changed previous image pixels");
     {
-        TextureData hdr;
+        forge::TextureData hdr;
         hdr.width = hdr.height = 1;
         hdr.format = TextureFormat::RGBA32Float;
         hdr.semantic = TextureSemantic::HdrColor;
@@ -181,7 +181,7 @@ void check_texture_preview(forge::DiligentPresentation& presentation,
         } cleanup{root};
         const auto id = AssetId::generate();
         const auto publish = [&](unsigned char red, std::uint64_t generation) {
-            TextureData texture;
+            forge::TextureData texture;
             texture.width = texture.height = 1;
             texture.format = TextureFormat::RGBA8Srgb;
             texture.subresources = {{std::byte{red}, std::byte{0}, std::byte{0}, std::byte{255}}};

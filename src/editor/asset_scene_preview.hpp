@@ -119,6 +119,12 @@ class AssetScenePreview {
             });
         }
     }
+    void cancel() {
+        stop_.request_stop();
+        queued_ = false;
+        inspected_catalog_.reset();
+        wanted_key_.clear();
+    }
     void frame_view() { auto_frame_ = redraw_ = true; }
     void retry() {
         inspected_catalog_.reset();

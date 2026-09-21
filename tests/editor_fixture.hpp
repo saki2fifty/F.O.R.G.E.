@@ -97,6 +97,8 @@ struct EditorFixture {
                                "mesh-preview-200",
                                "imported-material-preview",
                                "imported-material-preview-200",
+                               "content-thumbnails",
+                               "content-thumbnails-200",
                                "content-file-review",
                                "content-file-review-200"};
         auto* texture = view->GetTexture();

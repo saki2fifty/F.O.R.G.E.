@@ -139,6 +139,8 @@ class ContentBrowser {
     void load_settings(const Json& value) { view_.load_settings(value); }
     bool take_settings_changed() { return view_.take_settings_changed(); }
     const ui::AssetEditors* editors = nullptr;
+    std::function<ContentThumbnail(AssetId)> thumbnail;
+    std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const AssetRecord&, bool)> file_actions;
     std::function<void()> rescan_sources, import_status;
     std::function<std::map<AssetId, ContentState>()> import_activity;
@@ -466,6 +468,8 @@ class ContentBrowser {
             view_.reveal(selection);
             ui::editor_context->reveal_content = false;
         }
+        view_.thumbnail = thumbnail;
+        view_.retry_thumbnail = retry_thumbnail;
         view_.draw(selection, locked);
         if (!error_.empty()) {
             ui::field_error(error_);

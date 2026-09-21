@@ -1,5 +1,6 @@
 #ifdef FORGE_UI_FIXTURE
 #include "editor_fixture.hpp"
+#include "thumbnail_cache_tests.hpp"
 #include <backends/imgui_impl_sdl3.h>
 #endif
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
@@ -15,6 +16,7 @@
 #include "content.hpp"
 #include "content_files.hpp"
 #include "content_imports.hpp"
+#include "content_thumbnails.hpp"
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
 #include "ecs_tools.hpp"
@@ -346,6 +348,26 @@ int main(int argc, char** argv) {
         model_imports.placement_allowed = [&] { return !document_locked; };
         std::unique_ptr<forge::ModelViewer> model_viewer;
         forge::AssetViewerDocument asset_view_document(presentation, context);
+        std::unique_ptr<forge::ContentThumbnails> content_thumbnails;
+        content.thumbnail = [&](forge::AssetId id) {
+            if (!mesh_resources)
+                return forge::ContentThumbnail{};
+            if (!content_thumbnails) {
+                content_thumbnails = std::make_unique<forge::ContentThumbnails>(
+                    presentation, context, files.document.project(), mesh_resources);
+                content_thumbnails->begin(mesh_resources->catalog());
+            }
+            const auto view = content_thumbnails->request(id);
+            const auto aspect = view.image ? float(view.image->GetTexture()->GetDesc().Width) /
+                                                 view.image->GetTexture()->GetDesc().Height
+                                           : 1.f;
+            return forge::ContentThumbnail{reinterpret_cast<ImTextureID>(view.image), aspect,
+                                           view.status};
+        };
+        content.retry_thumbnail = [&](forge::AssetId id) {
+            if (content_thumbnails)
+                content_thumbnails->retry(id);
+        };
         model_imports.preview_before_settings = true;
         model_imports.draw_preview = [&](auto& document, bool draft) {
             if (!mesh_resources || !model_imports.selected_asset())
@@ -1344,6 +1366,26 @@ int main(int argc, char** argv) {
                     break;
                 }
                 case 36: {
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    content.load_settings(
+                        {{"grid", true}, {"folder_tree", false}, {"tile_size", 120}});
+                    workspace.content = true;
+                    workspace.bottom_folded = false;
+                    if (auto* w = ImGui::FindWindowByName("Content"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Content", {20, 60});
+                    ImGui::SetWindowSize("Content", {1360, 760});
+                    ImGui::SetWindowFocus("Content");
+                    break;
+                }
+                case 37:
+                    forge::ui::style(2);
+                    SDL_SetWindowSize(window.get(), 960, 640);
+                    ImGui::SetWindowPos("Content", {15, 45});
+                    ImGui::SetWindowSize("Content", {930, 580});
+                    break;
+                case 38: {
                     if (texture_imports.dirty() || material_editor.dirty()) {
                         if (texture_imports.dirty() && !texture_imports.pending())
                             texture_imports.request_save();
@@ -1364,7 +1406,7 @@ int main(int argc, char** argv) {
                     content_files.prepare_review();
                     break;
                 }
-                case 37:
+                case 39:
                     forge::ui::style(2);
                     SDL_SetWindowSize(window.get(), 960, 640);
                     ImGui::SetWindowPos("Asset source files", {15, 15});
@@ -2117,6 +2159,12 @@ int main(int argc, char** argv) {
             }
             if (!game_visible)
                 game_input.release(play);
+            if (content_thumbnails) {
+                if (content_thumbnails->project() != files.document.project())
+                    content_thumbnails.reset(); // Previous frame was already submitted.
+                else
+                    content_thumbnails->begin(mesh_resources ? mesh_resources->catalog() : nullptr);
+            }
             if (workspace.content && !workspace.bottom_folded) {
                 ImGui::BeginDisabled(modal.active() || scene_tools.move.active() ||
                                      blockout.active());
@@ -2400,6 +2448,8 @@ int main(int argc, char** argv) {
             // Apply default focus after all first-use dock tabs have been created.
             if (rebuilt_workspace)
                 ImGui::SetWindowFocus("Content");
+            if (content_thumbnails)
+                content_thumbnails->advance();
             const auto ui_submit = forge::ui::Performance::Clock::now();
             auto* rtv = swap->GetCurrentBackBufferRTV();
             context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -2424,7 +2474,9 @@ int main(int argc, char** argv) {
                 ((fixture.stage != 30 && fixture.stage != 31) ||
                  (model_viewer && model_viewer->ready())) &&
                 ((fixture.stage < 32 || fixture.stage > 35) || asset_view_document.ready()) &&
-                (fixture.stage < 36 ||
+                ((fixture.stage != 36 && fixture.stage != 37) ||
+                 (content_thumbnails && content_thumbnails->completed() >= 5)) &&
+                (fixture.stage < 38 ||
                  (content_files.operation() &&
                   content_files.operation()->state() == forge::AssetFileState::Review))) {
                 if (fixture.stage >= 28 && !material_preview->diagnostics().empty())
@@ -2455,7 +2507,9 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 38) {
+                if (fixture.stage == 40) {
+                    check_thumbnail_cache(presentation, context, files.document.project(),
+                                          mesh_resources);
                     play.stop();
                     running = false;
                 }
@@ -2472,6 +2526,8 @@ int main(int argc, char** argv) {
                 (model_viewer && model_viewer->project() != files.document.project()))
                 model_viewer.reset();
             asset_view_document.after_submission(files.document.project());
+            if (content_thumbnails)
+                content_thumbnails->after_submission();
             swap->Present(0);
             performance.finish(ui_submit, present);
         }
