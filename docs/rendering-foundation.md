@@ -974,3 +974,26 @@ importer/codecs into the runtime dependency graph. The legacy PrimitiveVertex
 layout, navigation geometry, persisted Primitive/Tint values and engine logical
 identities are unchanged. Normal mesh admission and resource budgets include the
 additional channels.
+
+## Repeated static geometry
+
+The presentation owner shares complete immutable mesh/material/texture bundles by
+physical resource identity and binding selection. A weak cache does not retain
+removed entities. Authoring entities, transforms, picking and overrides stay separate.
+Compatible opaque/masked parts use Diligent per-instance vertex inputs and indexed
+draws, in chunks of 64. Each instance carries its camera-relative affine transform,
+normalized surface basis and optional blockout tint. Winding, LOD, material revision,
+light layer selection and shadow reception must match. Skinned, morphed, transmissive
+and blended color draws retain their independent submission paths. Shadow passes
+continue to submit individual casters. These are rendering choices, not asset limits.
+
+This uses the pinned Diligent Core `DrawIndexedAttribs::NumInstances` and input
+frequency mechanism demonstrated by its matching Tutorial04_Instancing. Native
+acceptance compares batched and individual pixels and checks resource release.
+
+The default per-scene native bundle limit is 4096 distinct LOD draw parts, shared
+across repeated instances. Retained old revisions count during replacement. This
+limits PSO/SRB/constant-buffer fan-out separately from the mesh/texture byte budgets;
+it is not a measurement of driver VRAM. Refused candidates retain the old draw and
+retry after another bundle releases capacity. Current instancing uploads use at most
+7168 bytes per eligible prepared part per pass (64 instances × seven float4 rows).

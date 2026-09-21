@@ -5,6 +5,11 @@
 #include "render_sort.hpp"
 #include <set>
 namespace forge {
+namespace {
+struct DrawCapacityError : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+} // namespace
 EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& camera, double x,
                                  double y, std::uint32_t layers, double radius) const {
     host_->check_thread();
@@ -95,8 +100,10 @@ void MeshResourceHost::submit() {
     gpu_textures_.submit();
 }
 MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
-                                     Diligent::TEXTURE_FORMAT color, std::uint64_t pose_budget)
-    : host_(std::move(host)), color_(color), pose_budget_(pose_budget) {
+                                     Diligent::TEXTURE_FORMAT color, std::uint64_t pose_budget,
+                                     std::size_t draw_part_limit)
+    : host_(std::move(host)), color_(color), pose_budget_(pose_budget),
+      draw_part_limit_(draw_part_limit) {
     if (!host_)
         throw std::runtime_error("Mesh scene requires a presentation resource host");
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
@@ -135,6 +142,41 @@ void MeshSceneRenderer::report(EntityId entity, const std::string& text) {
     value.context.source = "presentation";
     diagnostics_.push_back(std::move(value));
 }
+std::size_t MeshSceneRenderer::bundle_count() const {
+    host_->check_thread();
+    return std::count_if(bundles_.begin(), bundles_.end(),
+                         [](const auto& row) { return !row.second.expired(); });
+}
+std::shared_ptr<MeshDrawBundle>
+MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepared, bool skinned,
+                                  std::shared_ptr<const MeshPoseGeometry> geometry) {
+    const auto key = asset_detail::prepared_model_draw_key(prepared, skinned);
+    if (auto found = bundles_.find(key); found != bundles_.end())
+        if (auto existing = found->second.lock())
+            return existing;
+    // Bound native PSO/SRB/constant-buffer fan-out independently of vertex and
+    // texture residency. Include retained old revisions while preparing replacements.
+    std::size_t parts = 0;
+    auto admit = [&](std::size_t count) {
+        if (count > draw_part_limit_ - parts)
+            throw DrawCapacityError("Native mesh draw-part budget exceeded (old draw retained)");
+        parts += count;
+    };
+    for (const auto& lod : prepared.mesh->mesh.lods)
+        admit(lod.parts.size());
+    for (const auto& [old_key, weak] : bundles_) {
+        (void)old_key;
+        if (auto live = weak.lock())
+            for (const auto& lod : live->prepared().mesh->mesh.lods)
+                admit(lod.parts.size());
+    }
+    auto next = std::make_shared<MeshDrawBundle>(
+        host_->presentation_, host_->context_, prepared, host_->gpu_meshes_, host_->gpu_textures_,
+        color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry));
+    next->environment(environment_ready_);
+    bundles_[key] = next;
+    return next;
+}
 bool MeshSceneRenderer::update(const RenderScene& scene) {
     host_->pump();
     bool changed = false;
@@ -142,6 +184,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     omitted_ = scene.omitted_diagnostics;
     if (scene_ != scene.scene) {
         entries_.clear();
+        bundles_.clear();
         environment_ready_ = {};
         environment_candidate_.reset();
         environment_epoch_ = 0;
@@ -156,6 +199,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         used.insert(mesh.entity);
     // Reclaim deleted instances before admitting this frame's replacements.
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
+    std::erase_if(bundles_, [](const auto& row) { return row.second.expired(); });
     auto resident = pose_payload_bytes();
     for (const auto& mesh : scene.meshes) {
         auto& entry = entries_[mesh.entity];
@@ -200,10 +244,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         prepare_mesh_instance_pose(candidate->mesh.get(), *entry.candidate_geometry,
                                                    mesh, model_index, available());
                     pose_validated = true;
-                    auto native = std::make_unique<MeshDrawBundle>(
-                        host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
-                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned,
-                        entry.candidate_geometry);
+                    auto native =
+                        prepare_bundle(*candidate, pose.skinned, entry.candidate_geometry);
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
                         thresholds.push_back(lod.screen_coverage);
@@ -217,6 +259,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.candidate.reset();
                     entry.candidate_geometry.reset();
                     changed = true;
+                } catch (const DrawCapacityError& e) {
+                    entry.error = e.what(); // Retry when another bundle releases capacity.
                 } catch (const std::exception& e) {
                     entry.error = e.what();
                     if (pose_validated) {
@@ -239,18 +283,17 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     if (entry.failed_skin_mode == pose.skinned)
                         throw std::runtime_error(entry.pose_error);
                     entry.failed_skin_mode = pose.skinned;
-                    auto native = std::make_unique<MeshDrawBundle>(
-                        host_->presentation_, host_->context_, entry.ready->prepared(),
-                        host_->gpu_meshes_, host_->gpu_textures_, color_,
-                        Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned,
-                        entry.ready->geometry_owner());
-                    native->environment(environment_ready_);
+                    auto native = prepare_bundle(entry.ready->prepared(), pose.skinned,
+                                                 entry.ready->geometry_owner());
                     entry.ready = std::move(native);
                 }
                 entry.failed_skin_mode.reset();
                 changed |= pose != entry.pose;
                 entry.pose = std::move(pose);
                 entry.pose_error.clear();
+            } catch (const DrawCapacityError& e) {
+                entry.failed_skin_mode.reset();
+                entry.pose_error = e.what();
             } catch (const std::exception& e) {
                 entry.pose_error = e.what();
             }
@@ -432,7 +475,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     clear_bindings();
     if (!needs_background)
         transmission_->clear();
-    for (const auto& item : queue) {
+    draw_stats_ = {};
+    for (std::size_t cursor = 0; cursor < queue.size();) {
+        const auto& item = queue[cursor++];
         if (needs_background && !captured && item.key.alpha == MaterialAlpha::Blend) {
             captured = true;
             try {
@@ -454,15 +499,59 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             }
         }
         const auto& object = objects[item.object];
+        const auto batch_start = cursor - 1;
         try {
+            std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
+            std::size_t count = 1;
+            batch[0] = {object.pose->world, object.mesh->legacy_tint};
+            const bool eligible = item.key.alpha != MaterialAlpha::Blend && !item.transmission &&
+                                  object.bundle->supports_instances(object.lod, item.key.part);
+            while (eligible && cursor < queue.size() && count < batch.size()) {
+                const auto& next_item = queue[cursor];
+                const auto& next = objects[next_item.object];
+                if (next.bundle != object.bundle || next.lod != object.lod ||
+                    next_item.key.part != item.key.part ||
+                    next_item.key.parity != item.key.parity ||
+                    next_item.key.alpha != item.key.alpha || next_item.transmission ||
+                    next.mesh->renderer.layers != object.mesh->renderer.layers ||
+                    next.mesh->renderer.receive_shadows != object.mesh->renderer.receive_shadows)
+                    break;
+                batch[count++] = {next.pose->world, next.mesh->legacy_tint};
+                ++cursor;
+            }
             object.bundle->draw_part(
                 host_->context_, object.mesh->world, camera, object.lights, object.lod,
                 item.key.part, environment_ready_ ? &lighting : nullptr,
                 object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
                 &shadows_->lighting(), object.shadow_slots,
-                transmission.background ? &transmission : nullptr, object.pose);
+                transmission.background ? &transmission : nullptr, object.pose,
+                count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
+                          : std::span<const MeshDraw::Instance>{});
+            ++draw_stats_.calls;
+            draw_stats_.instances += count;
+            draw_stats_.batched_calls += count > 1;
         } catch (const std::exception& e) {
-            report(object.mesh->entity, e.what());
+            if (cursor == batch_start + 1) {
+                report(object.mesh->entity, e.what());
+                continue;
+            }
+            // A rejected batch must not hide its valid neighbors. Individual
+            // submissions retain the same complete validation and entity errors.
+            for (auto i = batch_start; i < cursor; ++i) {
+                const auto& failed_item = queue[i];
+                const auto& single = objects[failed_item.object];
+                try {
+                    single.bundle->draw_part(
+                        host_->context_, single.pose->world, camera, single.lights, single.lod,
+                        failed_item.key.part, environment_ready_ ? &lighting : nullptr,
+                        single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
+                        &shadows_->lighting(), single.shadow_slots, nullptr, single.pose);
+                    ++draw_stats_.calls;
+                    ++draw_stats_.instances;
+                } catch (const std::exception& error) {
+                    report(single.mesh->entity, error.what());
+                }
+            }
         }
     }
 }

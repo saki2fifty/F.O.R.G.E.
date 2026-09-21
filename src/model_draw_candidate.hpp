@@ -1,5 +1,6 @@
 #pragma once
 #include "model_render_resource.hpp"
+#include <tuple>
 namespace forge::asset_detail {
 using DrawTextureKey = std::pair<AssetId, TextureSemantic>;
 struct PreparedModelDraw {
@@ -8,6 +9,33 @@ struct PreparedModelDraw {
     std::map<AssetId, ResourceLease<MaterialAsset>> materials;
     std::map<DrawTextureKey, ResourceLease<TextureAsset>> textures;
 };
+// Complete physical identity, including pool owner/generation and texture semantic.
+// This is a transient cache key, never a new authored asset or entity identity.
+struct PreparedModelDrawKey {
+    std::vector<ResourceIdentity> resources;
+    std::vector<std::tuple<std::uint32_t, std::string, AssetId>> bindings;
+    std::vector<std::pair<AssetId, TextureSemantic>> textures;
+    std::vector<std::string> unresolved;
+    bool skinned{};
+    auto operator<=>(const PreparedModelDrawKey&) const = default;
+};
+inline PreparedModelDrawKey prepared_model_draw_key(const PreparedModelDraw& draw, bool skinned) {
+    PreparedModelDrawKey result;
+    result.skinned = skinned;
+    result.resources.push_back(draw.mesh.identity());
+    for (const auto& [id, material] : draw.materials) {
+        (void)id;
+        result.resources.push_back(material.identity());
+    }
+    for (const auto& [key, texture] : draw.textures) {
+        result.textures.push_back(key);
+        result.resources.push_back(texture.identity());
+    }
+    for (const auto& slot : draw.selection.bindings)
+        result.bindings.emplace_back(slot.physical_slot, slot.key, slot.material.id);
+    result.unresolved = draw.selection.unresolved;
+    return result;
+}
 // One detached complete CPU candidate from a copied catalog publication. The
 // presentation owner retains its old GPU bundle until this candidate AND its
 // complete GPU realization succeed. No live world/device or publication here.

@@ -1,6 +1,7 @@
 #pragma once
 #include "frame_renderer.hpp"
 #include "render_values.hpp"
+#include <forge/engine_assets.hpp>
 #include <fstream>
 void check_frame_renderer(forge::DiligentPresentation& presentation,
                           Diligent::IDeviceContext* context, const std::filesystem::path& images) {
@@ -179,6 +180,94 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         scene.meshes.clear();
         limited.update(scene);
         require(limited.pose_payload_bytes() == 0, "Removed mesh poses retained payload");
+    }
+    {
+        auto scene = extract_render_scene(document);
+        const auto original = scene.meshes.at(0);
+        scene.meshes.clear();
+        for (unsigned i = 0; i < 65; ++i) {
+            auto copy = original;
+            copy.entity = EntityId::generate();
+            copy.world.m[0] = 1;
+            copy.world.m[10] = 1;
+            scene.meshes.push_back(copy);
+        }
+        MeshSceneRenderer batches(host);
+        batches.update(scene);
+        require(!batches.pending() && batches.diagnostics().empty() && batches.bundle_count() == 1,
+                "Repeated immutable geometry allocated separate native bundles");
+        Diligent::TextureDesc desc;
+        desc.Name = "FORGE native batch acceptance";
+        desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        desc.Width = 64;
+        desc.Height = 32;
+        desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
+        desc.BindFlags = Diligent::BIND_RENDER_TARGET;
+        Diligent::RefCntAutoPtr<Diligent::ITexture> color, depth;
+        presentation.device()->CreateTexture(desc, nullptr, &color);
+        desc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
+        desc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
+        presentation.device()->CreateTexture(desc, nullptr, &depth);
+        require(color && depth, "Batch target allocation failed");
+        auto* rtv = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+        auto* dsv = depth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+        context->SetRenderTargets(1, &rtv, dsv,
+                                  Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearDepthStencil(dsv, Diligent::CLEAR_DEPTH_FLAG, 1, 0,
+                                   Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const Diligent::Viewport area{0, 0, 64, 32, 0, 1};
+        context->SetViewports(1, &area, 64, 32);
+        const auto view = camera_view(base, {}, 64, 32);
+        batches.draw(scene, view, UINT32_MAX);
+        auto stats = batches.draw_stats();
+        require(stats.calls == 2 && stats.instances == 65 && stats.batched_calls == 1 &&
+                    batches.diagnostics().empty(),
+                "Repeated geometry was not split into bounded native batches");
+        scene.meshes.back().world.m[0] = -1;
+        batches.update(scene);
+        batches.draw(scene, view, UINT32_MAX);
+        stats = batches.draw_stats();
+        require(stats.calls == 2 && stats.instances == 65 && stats.batched_calls == 1,
+                "Reflected instance was combined with the wrong winding group");
+        scene.meshes.front().legacy_tint = std::array<float, 3>{-1, 0, 0};
+        batches.draw(scene, view, UINT32_MAX);
+        require(batches.draw_stats().instances == 64 && batches.diagnostics().size() == 1 &&
+                    batches.diagnostics()[0].context.entity == scene.meshes.front().entity,
+                "One invalid instance hid valid neighbors or lost its entity diagnostic");
+        scene.meshes.clear();
+        batches.update(scene);
+        require(batches.bundle_count() == 0, "Native bundle cache retained removed geometry");
+    }
+    {
+        auto scene = extract_render_scene(document);
+        MeshSceneRenderer capacity(host, Diligent::TEX_FORMAT_RGBA8_UNORM, mesh_pose_payload_limit,
+                                   1);
+        capacity.update(scene);
+        require(capacity.bundle_count() == 1 && capacity.diagnostics().empty(),
+                "Native part budget rejected its first complete draw");
+        auto extra = scene.meshes[0];
+        extra.entity = EntityId::generate();
+        extra.renderer.mesh = engine_primitive(1);
+        scene.meshes.push_back(extra);
+        auto denied = [&] {
+            return std::any_of(
+                capacity.diagnostics().begin(), capacity.diagnostics().end(),
+                [](const auto& d) { return d.text.find("draw-part budget") != std::string::npos; });
+        };
+        const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        do {
+            capacity.update(scene);
+            if (denied())
+                break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (std::chrono::steady_clock::now() < until);
+        require(denied() && capacity.bundle_count() == 1,
+                "Native part capacity did not reject before allocating another bundle");
+        scene.meshes = {extra};
+        capacity.update(scene);
+        require(!capacity.pending() && capacity.bundle_count() == 1 &&
+                    capacity.diagnostics().empty(),
+                "Freed native part capacity did not permit a refused draw to retry");
     }
     host->submit();
     renderer.resources({});

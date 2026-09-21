@@ -24,6 +24,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                                 bool shadow_pass) {
     const auto& source = profile.values;
     const bool transmission = !shadow_pass && material_transmits(profile);
+    const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
     if (transmission) {
         const double ior = source.parameters.at("ior").value[0];
         const double spread = (ior - 1) * (.025 * source.parameters.at("dispersion").value[0]);
@@ -68,15 +69,19 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     std::string varyings =
         "struct ForgeVarying {float4 Position:SV_Position;float3 World:TEXCOORD0;"
         "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
-        "float4 Color:COLOR0;float2 UV[" +
+        "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;float2 UV[" +
         std::to_string(uv_count) + "]:TEXCOORD4;";
     if (fetch.skin)
         varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) +
                     ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
     varyings += "};\n";
     std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source + skin +
-                     fetch.source + varyings + R"(
-ForgeVarying main(uint id:SV_VertexID) {
+                     fetch.source + varyings;
+    if (instanced)
+        vs += "struct ForgeInstance {float4 R0:ATTRIB0;float4 R1:ATTRIB1;float4 R2:ATTRIB2;"
+              "float4 B0:ATTRIB3;float4 B1:ATTRIB4;float4 B2:ATTRIB5;float4 Tint:ATTRIB6;};\n";
+    vs += std::string("ForgeVarying main(uint id:SV_VertexID") +
+          (instanced ? ",ForgeInstance instance" : "") + R"() {
     ForgeMeshVertex v=ForgeLoadMeshVertex(id);
     ForgeVarying o=(ForgeVarying)0;
     float3x3 basis;
@@ -93,9 +98,14 @@ ForgeVarying main(uint id:SV_VertexID) {
     o.World=mul(basis,v.Position)*g_SkinInfo.x+float3(rows[0].w,rows[1].w,rows[2].w);
 )";
         vs += "o.Source=v.Position;[unroll]for(uint k=0;k<3;k++)o.SkinRows[k]=basis[k];\n";
+    } else if (instanced) {
+        vs += "float4 position4=float4(v.Position,1);o.World=float3(dot(instance.R0,position4),"
+              "dot(instance.R1,position4),dot(instance.R2,position4));"
+              "basis=float3x3(instance.B0.xyz,instance.B1.xyz,instance.B2.xyz);\n";
     } else
         vs += "o.World=ForgePoint(v.Position);basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_"
               "Object[5].xyz);\n";
+    vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
     vs += R"(
     o.Position=ForgeProject(o.World);o.Color=v.Color;
     ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
@@ -154,7 +164,7 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
             depth += "if(alpha<ForgeAlphaCutoff())discard;\n";
         }
         depth += "}\n";
-        return {vs, depth, material, false, false, geometry};
+        return {vs, depth, material, false, false, geometry, instanced};
     }
     std::string ps =
         "#define USE_IBL 1\n#define USE_HDR_IBL_CUBEMAPS 1\n#define TEX_COLOR_CONVERSION_MODE 0\n";
@@ -214,10 +224,10 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         ps += "base.a=1;\n";
     if (profile.workflow == PbrWorkflow::Unlit)
         ps += R"(
-    if(g_Object[14].w!=0) {
+    if(input.LegacyTint.w!=0) {
         float3 n=ForgeUnit(input.Normal);
         if(!any(n!=0)) n=ForgeUnit(cross(dpdx,dpdy));
-        base.rgb*=g_Object[14].rgb*(0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5)))));
+        base.rgb*=input.LegacyTint.rgb*(0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5)))));
     }
     return all(isfinite(base))?base:float4(1,0,1,1);}
 )";
@@ -417,6 +427,6 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 })";
     }
 
-    return {vs, ps, material, sheen, transmission, geometry};
+    return {vs, ps, material, sheen, transmission, geometry, instanced};
 }
 } // namespace forge

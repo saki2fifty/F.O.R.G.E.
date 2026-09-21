@@ -581,3 +581,31 @@
 - Confirm directional shadow depth now renders. Increase only the small-caster
   acceptance fixture resolution so its interior exceeds the native PCF footprint;
   preserve the strict occlusion assertion. Full native shadow validation pending.
+
+### Repeated geometry rendering
+
+- Share complete native draw bundles by exact resource generations, material slots,
+  texture semantics and skin policy; weak entries release removed content.
+- Use Diligent per-instance inputs and bounded indexed batches for compatible
+  opaque/masked static parts. Keep independent entity identities, signed/zero
+  transforms, surface bases and legacy tint; split incompatible winding/layers.
+- Retain individual transparent, transmissive, skinned and morphing draws and
+  preserve shadow-caster submission. Add native pixel-equivalence, batching and
+  release regressions plus immutable-key checks; validation pending.
+
+- Previous combined source 384d07c now passes all 42 native Windows audit tests.
+  Optimized FXC morph rendering passes after the initialized single-return
+  correction, with the production compiler/profile unchanged. Directional, spot
+  and point shadows pass strict occlusion, cutout and mirrored-caster checks.
+  The new instancing changes still require their own native run.
+
+- Bound native bundle fan-out before allocation to 4096 distinct LOD parts per
+  scene; count retained revisions, share repeated entities, and retry refused
+  candidates after capacity is released. This counts native draw resources rather
+  than claiming a driver VRAM measurement. Add low-capacity native regression.
+- If one instance rejects batch validation, retry individually so valid neighbors
+  still render with entity-specific diagnostics.
+
+- Local model/render regressions pass 2/2 normally (34.13 s) and with ASan, UBSan
+  and leak checks (98.22 s). Generated shader checks pass all 48 stages. Native
+  instancing/low-capacity tests remain pending; no numbered package reserved.

@@ -268,3 +268,11 @@ Engine meshes include texture coordinates and tangents, so a surface material ca
 use textures and normal maps. Curved shapes wrap around their circumference;
 flat faces and caps use planar coordinates. These are fixed built-in layouts,
 not an editable UV unwrap.
+
+## Repeated objects
+
+FORGE combines compatible static objects into instanced rendering batches. You
+still select, move, rename and override each object separately. Mirrored objects
+use the appropriate winding group; different materials and lighting masks split
+batches. Animated, morphing and transparent objects keep their individual draw
+paths. No merge command or identity change is required.

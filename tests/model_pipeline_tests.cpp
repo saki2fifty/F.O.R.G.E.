@@ -224,6 +224,23 @@ int main(int argc, char** argv) {
                 "Complete draw did not retain exact immutable resource revisions");
         const auto previous_draw = *complete.ready();
         {
+            const auto key = prepared_model_draw_key(previous_draw, false);
+            require(key == prepared_model_draw_key(previous_draw, false) &&
+                        key != prepared_model_draw_key(previous_draw, true),
+                    "Draw cache ignored skin shader policy");
+            auto changed = previous_draw;
+            changed.selection.bindings[0].key += "/changed";
+            require(key != prepared_model_draw_key(changed, false),
+                    "Draw cache ignored stable material-slot selection");
+            auto old_generation = key;
+            ++old_generation.resources[0].generation;
+            require(old_generation != key, "Draw cache ignored physical resource generation");
+            auto changed_semantic = key;
+            changed_semantic.textures.clear();
+            require(changed_semantic != key, "Draw cache ignored texture semantic binding");
+        }
+
+        {
             ResourcePool<MaterialAsset> cold_materials({1, 64, 64, 16 * 1024 * 1024});
             ResourcePool<TextureAsset> cold_textures({1, 64, 64, 64 * 1024 * 1024});
             ModelDrawCandidate cold(root, first_catalog, 1, selected_mesh, {}, mesh_resources);

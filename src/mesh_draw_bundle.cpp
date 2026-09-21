@@ -123,7 +123,8 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                const std::array<float, 3>* legacy_tint,
                                const ShadowLighting* shadows, std::span<const int> shadow_slots,
                                const TransmissionLighting* transmission,
-                               const MeshInstancePose* pose) {
+                               const MeshInstancePose* pose,
+                               std::span<const MeshDraw::Instance> instances) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -136,6 +137,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin);
+                   skin, instances);
 }
 } // namespace forge

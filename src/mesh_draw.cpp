@@ -106,6 +106,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         morph_weights_ = buffer(device, "FORGE copied morph weights",
                                 ((fetch.morph_count + 3) / 4) * sizeof(Row));
     }
+    if (program.instanced) {
+        BufferDesc desc;
+        desc.Name = "FORGE static instance transforms";
+        desc.Size = instance_limit * 7 * sizeof(Row);
+        desc.BindFlags = BIND_VERTEX_BUFFER;
+        desc.Usage = USAGE_DYNAMIC;
+        desc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        device->CreateBuffer(desc, nullptr, &instances_);
+        require(bool(instances_), "instance buffer allocation failed");
+    }
     object_ = buffer(device, "FORGE camera-relative object", 15 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
     auto values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
@@ -153,6 +163,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     g.RTVFormats[0] = color_format;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
+    std::array<LayoutElement, 7> instance_layout;
+    if (program.instanced) {
+        for (unsigned i = 0; i < instance_layout.size(); ++i)
+            instance_layout[i] =
+                LayoutElement{i, 0, 4, VT_FLOAT32, False, INPUT_ELEMENT_FREQUENCY_PER_INSTANCE};
+        g.InputLayout.LayoutElements = instance_layout.data();
+        g.InputLayout.NumElements = Uint32(instance_layout.size());
+    }
     g.DepthStencilDesc.DepthEnable = shadow_pass_ || source.depth_test;
     g.DepthStencilDesc.DepthWriteEnable = shadow_pass_ || source.depth_write;
     if (!shadow_pass_ && source.alpha == MaterialAlpha::Blend) {
@@ -287,8 +305,13 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const EnvironmentLighting* environment, const std::array<float, 3>* legacy_tint,
                     const ShadowLighting* shadows, std::span<const int> shadow_slots,
                     const TransmissionLighting* transmission, std::span<const float> morph_weights,
-                    const SkinPose* skin) {
+                    const SkinPose* skin, std::span<const Instance> instances) {
     const auto world = skin_ ? AffineTransform{} : object_world;
+    require(instances.empty() || (instances_ && instances.size() <= instance_limit),
+            "instance batch exceeds its supported static draw profile");
+    if (!instances.empty())
+        require(instances.front().world == world,
+                "instance batch leader differs from draw transform");
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
@@ -490,11 +513,53 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         }
         bind_transmission(transmission);
     }
+    if (instances_) {
+        // Prepare the complete bounded batch before publishing any mapped bytes.
+        std::array<std::array<Row, 7>, instance_limit> copied{};
+        const Instance single{world, legacy_tint ? std::optional(*legacy_tint) : std::nullopt};
+        const auto selected = instances.empty() ? std::span(&single, 1) : instances;
+        for (std::size_t i = 0; i < selected.size(); ++i) {
+            const auto& item = selected[i];
+            require(transform_parity(item.world) == transform_parity(world),
+                    "instance batch mixes raster winding policies");
+            double maximum = 0;
+            for (unsigned r = 0; r < 3; ++r)
+                for (unsigned c = 0; c < 3; ++c)
+                    maximum = std::max(maximum, std::abs(item.world.m[4 * r + c]));
+            for (unsigned r = 0; r < 3; ++r) {
+                for (unsigned c = 0; c < 3; ++c) {
+                    copied[i][r][c] = gpu(item.world.m[4 * r + c]);
+                    copied[i][3 + r][c] = maximum > 0 ? gpu(item.world.m[4 * r + c] / maximum) : 0;
+                }
+                copied[i][r][3] = gpu(item.world.m[4 * r + 3] - view.position[r]);
+            }
+            if (item.legacy_tint) {
+                for (unsigned c = 0; c < 3; ++c) {
+                    const auto value = (*item.legacy_tint)[c];
+                    require(std::isfinite(value) && value >= 0 && value <= 1,
+                            "invalid instance blockout color");
+                    copied[i][6][c] = value;
+                }
+                copied[i][6][3] = 1;
+            }
+        }
+        {
+            MapHelper<Row> mapped(context, instances_, MAP_WRITE, MAP_FLAG_DISCARD);
+            for (std::size_t i = 0; i < selected.size(); ++i)
+                std::copy(copied[i].begin(), copied[i].end(), static_cast<Row*>(mapped) + i * 7);
+        }
+        IBuffer* vertices[]{instances_};
+        const Uint64 offset = 0;
+        context->SetVertexBuffers(0, 1, vertices, &offset,
+                                  RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                  SET_VERTEX_BUFFERS_FLAG_RESET);
+    }
     context->SetPipelineState(pipelines_[index]);
     context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->SetIndexBuffer(mesh_.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DrawIndexedAttribs draw;
     draw.NumIndices = mesh_.index_count;
+    draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
     draw.IndexType = VT_UINT32;
     draw.Flags = DRAW_FLAG_VERIFY_ALL;
     context->DrawIndexed(draw);

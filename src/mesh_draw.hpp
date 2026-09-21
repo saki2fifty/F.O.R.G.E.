@@ -13,6 +13,12 @@ namespace forge {
 // No source parser, entity registry or second material interpretation lives here.
 class MeshDraw {
   public:
+    static constexpr unsigned instance_limit = 64;
+    struct Instance {
+        AffineTransform world;
+        std::optional<std::array<float, 3>> legacy_tint;
+    };
+    bool supports_instances() const { return bool(instances_); }
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
@@ -28,7 +34,8 @@ class MeshDraw {
               const std::array<float, 3>* legacy_tint = nullptr,
               const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
               const TransmissionLighting* transmission = nullptr,
-              std::span<const float> morph_weights = {}, const SkinPose* skin = nullptr);
+              std::span<const float> morph_weights = {}, const SkinPose* skin = nullptr,
+              std::span<const Instance> instances = {});
 
   private:
     GpuMeshPart mesh_;
@@ -41,6 +48,6 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
     float volume_thickness_{};
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;
 };
 } // namespace forge

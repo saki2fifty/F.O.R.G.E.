@@ -33,7 +33,11 @@ class MeshDrawBundle {
                    const std::array<float, 3>* legacy_tint = nullptr,
                    const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
                    const TransmissionLighting* transmission = nullptr,
-                   const MeshInstancePose* pose = nullptr);
+                   const MeshInstancePose* pose = nullptr,
+                   std::span<const MeshDraw::Instance> instances = {});
+    bool supports_instances(unsigned lod, unsigned part) const {
+        return lods_.at(lod).at(part)->supports_instances();
+    }
     std::span<const PartInfo> parts(unsigned lod) const { return info_.at(lod); }
     const std::vector<std::string>& unresolved_slots() const { return unresolved_; }
     const ResourceIdentity& mesh_identity() const { return mesh_.source(); }

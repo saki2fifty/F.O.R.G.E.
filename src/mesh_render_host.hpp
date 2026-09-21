@@ -39,7 +39,8 @@ class MeshSceneRenderer {
   public:
     explicit MeshSceneRenderer(std::shared_ptr<MeshResourceHost>,
                                Diligent::TEXTURE_FORMAT color = Diligent::TEX_FORMAT_RGBA8_UNORM,
-                               std::uint64_t pose_budget = mesh_pose_payload_limit);
+                               std::uint64_t pose_budget = mesh_pose_payload_limit,
+                               std::size_t draw_part_limit = 4096);
     bool update(const RenderScene&);
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
@@ -47,6 +48,12 @@ class MeshSceneRenderer {
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     bool pending() const;
+    struct DrawStats {
+        std::size_t calls{}, instances{}, batched_calls{};
+    };
+    DrawStats draw_stats() const { return draw_stats_; }
+    std::size_t bundle_count() const;
+
     std::uint64_t pose_payload_bytes() const;
     EntityId pick(const RenderScene&, const CameraView&, double x, double y,
                   std::uint32_t layers = UINT32_MAX, double point_line_radius = 5) const;
@@ -58,7 +65,7 @@ class MeshSceneRenderer {
         std::vector<MaterialSlotOverride> overrides;
         std::uint64_t epoch = 0;
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
-        std::unique_ptr<MeshDrawBundle> ready;
+        std::shared_ptr<MeshDrawBundle> ready;
         MeshInstancePose pose;
         std::shared_ptr<const MeshPoseGeometry> candidate_geometry;
         std::vector<float> thresholds;
@@ -66,6 +73,9 @@ class MeshSceneRenderer {
         std::optional<bool> failed_skin_mode;
         std::uint64_t pose_bytes() const;
     };
+    std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
+                                                   std::shared_ptr<const MeshPoseGeometry>);
+    std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
     bool update_environment(const RenderScene&);
     void report(EntityId, const std::string&);
     std::shared_ptr<MeshResourceHost> host_;
@@ -73,6 +83,7 @@ class MeshSceneRenderer {
     std::unique_ptr<TransmissionBackground> transmission_;
     Diligent::TEXTURE_FORMAT color_;
     const std::uint64_t pose_budget_;
+    const std::size_t draw_part_limit_;
     AssetId scene_;
     AssetRef<TextureAsset> environment_source_;
     std::uint64_t environment_epoch_ = 0;
@@ -82,5 +93,6 @@ class MeshSceneRenderer {
     std::map<EntityId, Entry> entries_;
     std::vector<Diagnostic> diagnostics_;
     std::size_t omitted_ = 0;
+    DrawStats draw_stats_;
 };
 } // namespace forge

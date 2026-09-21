@@ -140,6 +140,53 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     camera.flip_y = false;
     view = forge::camera_view(camera, camera_world, 32, 32);
     {
+        require(draw.supports_instances(), "Static mesh did not prepare native instancing");
+        std::array<forge::MeshDraw::Instance, 2> instances;
+        for (unsigned i = 0; i < 2; ++i) {
+            instances[i].world = world;
+            instances[i].world.m[0] = instances[i].world.m[5] = .4;
+            instances[i].world.m[3] += i ? .7 : -.7;
+            instances[i].legacy_tint =
+                i ? std::array<float, 3>{1, .2f, .3f} : std::array<float, 3>{.2f, 1, .3f};
+        }
+        auto render_instances = [&](bool batch) {
+            context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            const float black[]{0, 0, 0, 1};
+            context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            if (batch)
+                draw.draw(context, instances[0].world, view, {}, nullptr, nullptr, nullptr, {},
+                          nullptr, {}, nullptr, instances);
+            else
+                for (const auto& instance : instances)
+                    draw.draw(context, instance.world, view, {}, nullptr, &*instance.legacy_tint);
+            return readback(presentation.device(), context, rtv);
+        };
+        for (unsigned parity = 0; parity < 3; ++parity) {
+            for (auto& instance : instances) {
+                instance.world.m[0] = parity == 1 ? -.4 : .4;
+                instance.world.m[10] = parity == 2 ? 0 : 1;
+            }
+            const auto expected = render_instances(false);
+            const auto batched = render_instances(true);
+            require(
+                batched == expected && batched[16 * 32 + 10][1] > 20 &&
+                    batched[16 * 32 + 21][0] > batched[16 * 32 + 10][0],
+                "Native instances changed placement, per-instance color or reflection/collapse");
+            save(batched, 32, 32, images / ("mesh-instances-" + std::to_string(parity) + ".ppm"));
+        }
+        instances[0].world.m[10] = instances[1].world.m[10] = 1;
+        instances[1].world.m[0] = -.4;
+        bool rejected = false;
+        try {
+            render_instances(true);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected, "Mixed instance winding silently chose one raster policy");
+    }
+    {
         auto blended = material;
         blended.alpha = forge::MaterialAlpha::Blend;
         blended.depth_write = false;
