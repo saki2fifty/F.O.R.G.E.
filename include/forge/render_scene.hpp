@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/render_view.hpp>
+#include <forge/scene_render_settings.hpp>
 #include <forge/services.hpp>
 namespace forge {
 // Detached presentation values, never a second world or authored hierarchy.
@@ -20,6 +21,7 @@ struct RenderMesh {
 };
 struct RenderScene {
     AssetId scene;
+    SceneRenderSettings settings;
     std::vector<RenderCamera> cameras;
     std::vector<RenderLight> lights;
     std::vector<RenderMesh> meshes;

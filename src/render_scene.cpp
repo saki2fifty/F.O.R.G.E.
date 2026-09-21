@@ -53,6 +53,12 @@ RenderScene extract_render_scene(const Json& source) {
     require(source.is_object(), "Presentation scene must be an object");
     RenderScene result;
     result.scene = source.at("asset_id").get<AssetId>();
+    try {
+        result.settings = scene_render_settings(source);
+    } catch (const std::exception& e) {
+        report(result,
+               diagnostic(result.scene, {}, "render.settings.invalid", e.what(), "rendering"));
+    }
     const auto& entities = source.at("entities");
     require(entities.is_array() && entities.size() <= 10000,
             "Presentation scene exceeds the entity profile");

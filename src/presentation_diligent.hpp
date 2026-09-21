@@ -11,6 +11,7 @@ class DiligentPresentation {
   public:
     explicit DiligentPresentation(Diligent::IRenderDevice*);
     Diligent::IRenderDevice* device() const { return device_; }
+    Diligent::IRenderStateCache* cache() const { return cache_; }
     void shader(const Diligent::ShaderCreateInfo&, Diligent::IShader**);
     void graphics(const Diligent::GraphicsPipelineStateCreateInfo&, Diligent::IPipelineState**);
     void compute(const Diligent::ComputePipelineStateCreateInfo&, Diligent::IPipelineState**);

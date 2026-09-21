@@ -9,6 +9,10 @@ class MeshResourceHost {
   public:
     MeshResourceHost(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path);
     void catalog(std::shared_ptr<const AssetCatalog>);
+    std::shared_ptr<const AssetCatalog> catalog() const {
+        check_thread();
+        return catalog_;
+    }
     void pump();
     void submit();
 
@@ -24,6 +28,7 @@ class MeshResourceHost {
     ResourcePool<MeshAsset> meshes_;
     ResourcePool<MaterialAsset> materials_;
     ResourcePool<TextureAsset> textures_;
+    EnvironmentResidency environments_;
     GpuResidency<MeshAsset> gpu_meshes_;
     GpuResidency<TextureAsset> gpu_textures_;
 };
@@ -38,6 +43,7 @@ class MeshSceneRenderer {
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     bool pending() const;
+    const EnvironmentLease& environment() const { return environment_ready_; }
 
   private:
     struct Entry {
@@ -50,10 +56,16 @@ class MeshSceneRenderer {
         std::vector<float> thresholds;
         std::string error;
     };
+    bool update_environment(const RenderScene&);
     void report(EntityId, const std::string&);
     std::shared_ptr<MeshResourceHost> host_;
     Diligent::TEXTURE_FORMAT color_;
     AssetId scene_;
+    AssetRef<TextureAsset> environment_source_;
+    std::uint64_t environment_epoch_ = 0;
+    std::optional<ResourceTicket> environment_candidate_;
+    EnvironmentLease environment_ready_;
+    std::string environment_error_;
     std::map<EntityId, Entry> entries_;
     std::vector<Diagnostic> diagnostics_;
     std::size_t omitted_ = 0;

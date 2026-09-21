@@ -90,8 +90,8 @@ precedence over the same entity's older primitive preview.
 This path is still undergoing native rendering validation. The current adapter
 handles static meshes with unlit or PBR materials, including clearcoat, iridescence,
 sheen and anisotropy, under explicit scene lights. Transmission and skinned/morphed
-draws are not yet connected. The Game
-preview still uses its existing rendering path. Model placement, mesh picking and
+draws are not yet connected. Scene and Game share the prepared mesh/environment
+resources; Game still uses its existing viewing camera. Model placement, mesh picking and
 production render controls remain part of the ongoing integration; importing a file
 alone does not place an object in the scene. See [Models](models.md).
 
@@ -108,3 +108,5 @@ tone mapping for the display. Blended imported materials render after solid and
 cutout materials, from far to near. Intersecting transparent surfaces can still show
 sorting artifacts; this is conventional transparency, not order-independent rendering.
 These new display and queue paths are undergoing Windows rendering validation.
+
+Use [Scene lighting](lighting.md) for authored environment maps and Game exposure.

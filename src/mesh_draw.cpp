@@ -149,6 +149,23 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         }
     }
 }
+void MeshDraw::bind_environment(const GpuEnvironment* maps) {
+    if (!environment_)
+        return;
+    if (maps)
+        require(maps->diffuse && maps->specular && maps->sheen, "incomplete environment candidate");
+    auto view = [&](Diligent::ITexture* texture) {
+        return texture ? texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE)
+                       : black_environment_.RawPtr();
+    };
+    for (auto& binding : bindings_)
+        for (const auto& [name, value] :
+             {std::pair{"g_ForgeDiffuse", view(maps ? maps->diffuse.RawPtr() : nullptr)},
+              std::pair{"g_ForgeSpecular", view(maps ? maps->specular.RawPtr() : nullptr)},
+              std::pair{"g_ForgeCharlie", view(maps ? maps->sheen.RawPtr() : nullptr)}})
+            if (auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, name))
+                variable->Set(value);
+}
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
                     std::span<const LightView> lights, const EnvironmentLighting* environment) {
     require(context && lights.size() <= mesh_draw_light_limit,

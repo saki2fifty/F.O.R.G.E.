@@ -486,3 +486,45 @@ from local shader compilation.
 Exact source: pinned PBR_Renderer.hpp/cpp caller-owned output APIs and PBR_Shading.fxh
 `ApplyIBL`, verified2026-09-21. The preceding a3cf2ee native audit passed37/37 in58.10s
 for reflection layers; environment/HDR/queue native execution is pending separately.
+
+### Scene environment selection and sky
+
+Scene-owned `rendering` settings version1 contain environment TextureAsset identity,
+intensity, Y rotation in radians, sky visibility, and game exposure in stops[-20,+20].
+Missing settings preserve the previous default: no implicit environment lighting.
+These are scene/document values rather than entity transform components. The shared
+`scene.rendering.set` command patches only requested known fields, preserves unknown
+metadata, validates before commit, and uses Scene Undo/Redo. Effective snapshots carry
+those same detached values. Invalid native producer settings emit a structured
+`render.settings.invalid` diagnostic.
+
+Texture selection now accepts both standalone cooked texture assets and model
+subassets. Copied catalog metadata selects an immutable DDC revision; worker loading
+checks its complete format, file digests, importer recipe and typed variant. Color
+selection prefers HDR when present, otherwise color; it never substitutes normal/data.
+The import publisher and standalone runtime selection share the same cooked bundle
+validator. No image decode or original-source read occurs on the presentation thread.
+
+Environment GPU adoption retains the previous usable maps after a failed replacement.
+Clearing the reference intentionally removes them. Mesh bundles replace **all**
+parity/LOD bindings, including invisible parts, before releasing an old environment
+lease. The sky releases its native cube/sphere binding cache before releasing that
+lease. This keeps native references within residency accounting and fence retirement.
+
+The exact FX`aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`
+[EnvMapRenderer](https://github.com/DiligentGraphics/DiligentFX/blob/aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da/Components/src/EnvMapRenderer.cpp)
+and `Shaders/Common/private/EnvMap.psh` provide the sky PSO, cube/equirectangular
+sampling, Y rotation, and far-depth testing without depth writes. FORGE disables
+native sky tone mapping/sRGB output and resolves the complete HDR frame once.
+Sky renders before transparent meshes. Existing foreground depth remains protected.
+
+**Evidence-based adapter correction:** native `SampleEnvMap` divides its unprojected
+far point by W. A true infinite-far projection gives W=0 at depth1; absolute float
+world coordinates also lose small directions at large camera positions. FORGE passes
+a transient camera-relative unit-depth ray-plane matrix to that native helper:
+`right*x/P00 + up*y/P11 + forward`, W=1. Orthographic rays use constant forward.
+This preserves perspective/axis-flip direction, ignores translation as a sky should,
+and requires no authored transform inverse or fabricated scene hierarchy. CPU tests
+cover infinite far, large origins, orthographic views, flips and invalid projection.
+Native sky tests check radiance, depth coverage, foreground protection and visibility;
+Windows execution of these additions remains required.

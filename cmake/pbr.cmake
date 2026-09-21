@@ -10,14 +10,15 @@ convert_shaders_to_headers("${forge_fx_shaders}" "${forge_fx_generated}"
  "${forge_fx_generated}/shaders_list.h" forge_fx_shader_headers)
 add_library(forge_diligent_pbr_native STATIC
  "${forge_fx_root}/PBR/src/PBR_Renderer.cpp"
+ "${forge_fx_root}/Components/src/EnvMapRenderer.cpp"
  "${forge_fx_root}/Utilities/src/DiligentFXShaderSourceStreamFactory.cpp"
  ${forge_fx_shader_headers} "${forge_fx_generated}/shaders_list.h")
 target_include_directories(forge_diligent_pbr_native PUBLIC "${forge_fx_root}"
- "${forge_fx_root}/PBR/interface" PRIVATE "${forge_fx_generated}")
+ "${forge_fx_root}/PBR/interface" "${forge_fx_root}/Components/interface" PRIVATE "${forge_fx_generated}")
 target_link_libraries(forge_diligent_pbr_native PUBLIC Diligent-GraphicsEngine
  Diligent-GraphicsTools Diligent-BuildSettings)
 include(cmake/texture_formats.cmake)
-add_library(forge_presentation_diligent STATIC src/presentation_diligent.cpp src/environment_gpu.cpp src/display_resolve.cpp src/texture_gpu.cpp src/mesh_gpu.cpp src/mesh_vertex_fetch.cpp src/mesh_draw.cpp src/mesh_draw_shader.cpp src/mesh_draw_bundle.cpp src/mesh_render_host.cpp src/gpu_residency.cpp)
+add_library(forge_presentation_diligent STATIC src/presentation_diligent.cpp src/environment_gpu.cpp src/environment_sky.cpp src/display_resolve.cpp src/texture_gpu.cpp src/mesh_gpu.cpp src/mesh_vertex_fetch.cpp src/mesh_draw.cpp src/mesh_draw_shader.cpp src/mesh_draw_bundle.cpp src/mesh_render_host.cpp src/gpu_residency.cpp)
 target_include_directories(forge_presentation_diligent PUBLIC src
  "${diligent_SOURCE_DIR}/DiligentCore")
 target_compile_definitions(forge_presentation_diligent PRIVATE NOMINMAX)

@@ -6,6 +6,8 @@ namespace forge {
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
                                    Diligent::IDeviceContext* context, std::filesystem::path project)
     : presentation_(presentation), context_(context), project_(std::move(project)),
+      environments_(presentation.device(), context, 512ull * 1024 * 1024, 16,
+                    EnvironmentRealization{&presentation}),
       gpu_meshes_(presentation.device(), context, 512ull * 1024 * 1024),
       gpu_textures_(presentation.device(), context, 512ull * 1024 * 1024) {}
 void MeshResourceHost::check_thread() const {
@@ -30,11 +32,13 @@ void MeshResourceHost::pump() {
     meshes_.pump();
     materials_.pump();
     textures_.pump();
+    environments_.collect();
     gpu_meshes_.collect();
     gpu_textures_.collect();
 }
 void MeshResourceHost::submit() {
     check_thread();
+    environments_.submit();
     gpu_meshes_.submit();
     gpu_textures_.submit();
 }
@@ -63,9 +67,14 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     omitted_ = scene.omitted_diagnostics;
     if (scene_ != scene.scene) {
         entries_.clear();
+        environment_ready_ = {};
+        environment_candidate_.reset();
+        environment_epoch_ = 0;
+        environment_error_.clear();
         scene_ = scene.scene;
         changed = true;
     }
+    changed |= update_environment(scene);
     std::set<EntityId> used;
     for (const auto& mesh : scene.meshes) {
         used.insert(mesh.entity);
@@ -112,6 +121,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     auto native = std::make_unique<MeshDrawBundle>(
                         host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
                         host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT);
+                    native->environment(environment_ready_);
                     entry.ready = std::move(native);
                     entry.bounds = bounds;
                     entry.thresholds = std::move(thresholds);
@@ -136,9 +146,75 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     return changed;
 }
+bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
+    bool changed = false;
+    const auto source = scene.settings.environment.texture;
+    auto adopt = [&](EnvironmentLease next) {
+        for (auto& [id, entry] : entries_) {
+            (void)id;
+            if (entry.ready)
+                entry.ready->environment(next);
+        }
+        environment_ready_ = std::move(next);
+        changed = true;
+    };
+    if (source != environment_source_ || environment_epoch_ != host_->epoch_) {
+        environment_source_ = source;
+        environment_epoch_ = host_->epoch_;
+        environment_candidate_.reset();
+        environment_error_.clear();
+        changed = true;
+        if (!source.id)
+            adopt({});
+        else
+            try {
+                environment_candidate_ = asset_detail::request_texture(
+                    host_->textures_, host_->project_, host_->catalog_, source);
+            } catch (const std::exception& e) {
+                environment_error_ = e.what();
+            }
+    }
+    if (environment_candidate_) {
+        const auto info = environment_candidate_->inspect();
+        if (info.state == ResourceState::Ready) {
+            try {
+                const auto cpu = host_->textures_.acquire(*environment_candidate_);
+                if (!cpu)
+                    throw std::runtime_error("Environment selection became stale before adoption");
+                auto next = host_->environments_.acquire(cpu);
+                adopt(std::move(next));
+            } catch (const std::exception& e) {
+                environment_error_ = e.what();
+            }
+            environment_candidate_.reset();
+        } else if (info.state != ResourceState::Queued && info.state != ResourceState::Loading &&
+                   info.state != ResourceState::DependencyPending &&
+                   info.state != ResourceState::Replacing) {
+            environment_error_ =
+                info.diagnostic.empty() ? resource_state_name(info.state) : info.diagnostic;
+            environment_candidate_.reset();
+        }
+    }
+    if (!environment_error_.empty()) {
+        if (diagnostics_.size() < 256) {
+            Diagnostic error{Severity::Error,
+                             "render.environment.resource",
+                             environment_error_.substr(0, 4000) +
+                                 (environment_ready_ ? " (previous environment retained)" : ""),
+                             {}};
+            error.context.asset = scene.scene;
+            error.context.property = "rendering.environment.texture";
+            error.context.source = "presentation";
+            diagnostics_.push_back(std::move(error));
+        } else
+            ++omitted_;
+    }
+    return changed;
+}
 bool MeshSceneRenderer::pending() const {
     host_->check_thread();
-    return std::any_of(entries_.begin(), entries_.end(),
+    return environment_candidate_.has_value() ||
+           std::any_of(entries_.begin(), entries_.end(),
                        [](const auto& pair) { return bool(pair.second.candidate); });
 }
 void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
@@ -207,11 +283,16 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     }
     std::sort(queue.begin(), queue.end(),
               [](const auto& a, const auto& b) { return render_key_less(a.key, b.key); });
+    EnvironmentLighting lighting;
+    if (environment_ready_)
+        lighting = {&environment_ready_.get(), scene.settings.environment.intensity,
+                    scene.settings.environment.rotation};
     for (const auto& item : queue) {
         const auto& object = objects[item.object];
         try {
             object.bundle->draw_part(host_->context_, object.mesh->world, camera, object.lights,
-                                     object.lod, item.key.part);
+                                     object.lod, item.key.part,
+                                     environment_ready_ ? &lighting : nullptr);
         } catch (const std::exception& e) {
             report(object.mesh->entity, e.what());
         }

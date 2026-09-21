@@ -1,5 +1,6 @@
 #include "model_render_resource.hpp"
 #include "pbr_material.hpp"
+#include "texture_bundle_validation.hpp"
 #include <forge/model_asset.hpp>
 #include <forge/texture_bundle.hpp>
 #include <set>
@@ -102,23 +103,76 @@ TextureData model_texture_resource(const ModelSelection& selected, AssetRef<Text
     }
     throw std::runtime_error("Selected model texture variant is missing");
 }
-ResourceTicket request_model_texture(ResourcePool<TextureAsset>& pool,
-                                     std::filesystem::path project,
-                                     std::shared_ptr<const AssetCatalog> catalog,
-                                     AssetRef<TextureAsset> texture, TextureSemantic semantic) {
-    require(bool(catalog), "Model texture requires a selected catalog");
-    const auto selected = selected_member(*catalog, texture.id, TextureAsset::type);
-    const auto variant = std::string(texture_variant_key(semantic));
+ResourceTicket request_texture(ResourcePool<TextureAsset>& pool, std::filesystem::path project,
+                               std::shared_ptr<const AssetCatalog> catalog,
+                               AssetRef<TextureAsset> texture,
+                               std::optional<TextureSemantic> semantic) {
+    require(bool(catalog), "Texture requires a selected catalog");
+    const auto found = catalog->records().find(texture.id);
+    require(found != catalog->records().end() && found->second.type == TextureAsset::type,
+            "Texture selection is missing or has the wrong type");
+    const bool member = bool(found->second.subasset);
+    const auto& imported = found->second.metadata.at("forge.import");
+    const auto selected = member ? selected_member(*catalog, texture.id, TextureAsset::type)
+                                 : Selected{texture.id, imported.at("key").get<std::string>(),
+                                            imported.at("generation").get<std::uint64_t>()};
+    require(imported.at("generation").is_number_unsigned() && selected.generation > 0,
+            "Invalid texture publication generation");
+    const auto variant = semantic ? std::string(texture_variant_key(*semantic)) : "color:auto";
     return pool.request(
         texture, selected.revision, selected.generation,
-        [project = std::move(project), catalog = std::move(catalog), selected, texture,
-         semantic](std::stop_token stop) {
-            const auto family = load_selected(project, *catalog, selected, stop);
-            auto data =
-                std::make_unique<TextureData>(model_texture_resource(family, texture, semantic));
-            require(!stop.stop_requested(), "Model texture preparation cancelled");
-            const auto bytes = data->resident_bytes();
-            return ResourceCandidate<TextureAsset>{std::move(data), {bytes}};
+        [project = std::move(project), catalog = std::move(catalog), selected, texture, semantic,
+         member](std::stop_token stop) {
+            auto cancelled = [&] {
+                require(!stop.stop_requested(), "Texture preparation cancelled");
+            };
+            cancelled();
+            TextureBundleIndex index;
+            std::shared_ptr<const CachedArtifact> artifact;
+            if (member) {
+                const auto family = load_selected(project, *catalog, selected, stop);
+                index = decode_texture_bundle_index(family.bytes(family.member(texture.id)));
+                artifact = family.artifact;
+            } else {
+                const auto& metadata =
+                    catalog->records().at(texture.id).metadata.at("forge.import");
+                require(metadata.at("version") == 1 &&
+                            metadata.at("output_format") == "forge.texture-bundle" &&
+                            metadata.at("output_version") == 1,
+                        "Unsupported selected texture artifact profile");
+                DerivedDataCache cache(project, {256 * 1024 * 1024, 512 * 1024 * 1024, 16});
+                auto loaded = cache.load_selected(selected.revision, [&](const auto& candidate) {
+                    cancelled();
+                    index = validate_texture_bundle(candidate.files);
+                });
+                require(metadata.at("artifact_digest") ==
+                            asset_build_digest(loaded.manifest.at("files")),
+                        "Selected texture catalog and cooked revision disagree");
+                const auto& inputs = loaded.manifest.at("inputs");
+                require(inputs.at("source") == metadata.at("source_digest") &&
+                            inputs.at("importer") == metadata.at("importer") &&
+                            inputs.at("importer_revision") == metadata.at("importer_revision") &&
+                            inputs.at("output_format") == metadata.at("output_format") &&
+                            inputs.at("output_version") == metadata.at("output_version"),
+                        "Texture artifact recipe differs from selected catalog revision");
+                artifact = std::make_shared<const CachedArtifact>(std::move(loaded));
+            }
+            auto usage = semantic.value_or(TextureSemantic::Color);
+            if (!semantic &&
+                std::any_of(index.variants.begin(), index.variants.end(),
+                            [](const auto& v) { return v.semantic == TextureSemantic::HdrColor; }))
+                usage = TextureSemantic::HdrColor;
+            const auto& entry = index.find(usage);
+            for (const auto& file : artifact->files) {
+                if (file.name != entry.file)
+                    continue;
+                auto data = std::make_unique<TextureData>(decode_texture(file.bytes));
+                require(data->semantic == usage, "Selected texture semantic mismatch");
+                cancelled();
+                const auto bytes = data->resident_bytes();
+                return ResourceCandidate<TextureAsset>{std::move(data), {bytes}};
+            }
+            throw std::runtime_error("Selected texture variant is missing");
         },
         {}, 0, variant);
 }

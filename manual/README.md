@@ -19,6 +19,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 - [Scenes](editor/scenes.md): create and switch scene files.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
 - [Model import tools](editor/models.md): prepare static glTF asset families and resolve identity conflicts.
+- [Scene lighting](editor/lighting.md): environment maps, sky, intensity, rotation and exposure.
 - [Textures](editor/textures.md): import images, choose usages and reimport safely.
 - [Content browser](editor/content-browser.md): find and open project scene files.
 - [Prefabs](editor/prefabs.md): create reusable groups, edit sources, override and revert instance values.

@@ -30,11 +30,10 @@ inline std::string asset_display(const AssetRecord& record) {
         name += " / " + record.metadata.at("clip_name").get<std::string>();
     return name;
 }
-inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
-                             const std::string& type, const char* title) {
+inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std::string& type,
+                             const char* title) {
     ui::IdScope scope(title);
     try {
-        const auto catalog = AssetCatalog::open_project(project);
         std::string label = "None";
         if (!value.is_null()) {
             auto resolved = catalog.resolve(value.get<AssetId>(), type);
@@ -107,6 +106,15 @@ inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
             }
         }
         return changed;
+    } catch (const std::exception& e) {
+        ui::field_error(e.what());
+        return false;
+    }
+}
+inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
+                             const std::string& type, const char* title) {
+    try {
+        return asset_ref_picker(AssetCatalog::open_project(project), value, type, title);
     } catch (const std::exception& e) {
         ui::field_error(e.what());
         return false;

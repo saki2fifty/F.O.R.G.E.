@@ -182,7 +182,23 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         (void)entity(doc, id);
     }
     Json result = {{"operation", op}, {"selected", id}};
-    if (op == "prefab.instantiate")
+    if (op == "scene.rendering.set") {
+        auto doc = scene.document();
+        auto& rendering = doc["rendering"];
+        if (rendering.is_null())
+            rendering = {{"version", 1u}};
+        // Patch known fields and retain unknown future/plugin metadata verbatim.
+        for (const auto& [key, value] : a.items()) {
+            if (key == "environment") {
+                auto& env = rendering[key];
+                if (env.is_null())
+                    env = Json::object();
+                env.update(value);
+            } else
+                rendering[key] = value;
+        }
+        scene.edit(doc);
+    } else if (op == "prefab.instantiate")
         result["selected"] = scene.instantiate_prefab(a.at("asset").get<AssetId>());
     else if (op == "prefab.revert_name")
         scene.revert_prefab_name(id);
@@ -448,6 +464,16 @@ Json authoring_commands() {
                             {"capability", "scene.edit"},
                             {"input_schema", object(properties, required)}});
     };
+    add("scene.rendering.set", "Scene lighting and display",
+        "Change scene environment or game exposure in one undoable scene operation. Missing fields "
+        "remain unchanged.",
+        {{"exposure", number(-20, 20)},
+         {"environment", object({{"texture", {{"anyOf", {text_type(), {{"type", "null"}}}}}},
+                                 {"intensity", number(0, std::numeric_limits<float>::max())},
+                                 {"rotation", number(-std::numeric_limits<double>::max(),
+                                                     std::numeric_limits<double>::max())},
+                                 {"sky", {{"type", "boolean"}}}})}},
+        Json::array());
     const auto entity_arg = Json{{"entity", text_type()}};
     auto recipe_ids = Json::array();
     for (const auto& r : entity_recipes())

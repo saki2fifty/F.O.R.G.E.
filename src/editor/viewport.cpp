@@ -8,7 +8,7 @@ namespace forge {
 Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
     : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),
       display_(hdr ? std::make_unique<DisplayResolve>(presentation) : nullptr),
-      device_(presentation.device()) {
+      sky_(presentation, color_format_), device_(presentation.device()) {
     const char* vs = R"(
 cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; float4 axisX; float4 axisY; float4 axisZ; float4 tint; float4 normalX; float4 normalY; float4 normalZ; };
 struct Out { float4 position : SV_POSITION; float3 color : COLOR0; };
@@ -165,6 +165,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         }
         if (meshes_->update(*mesh_scene_))
             frame_.reset();
+        sky_.select(meshes_->environment());
         live = live || meshes_->pending();
     }
     const auto key = viewport_frame_key(generation, width, height, camera, grid);
@@ -283,6 +284,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         const auto view = camera_view(lens, camera_world, width, height);
         Diligent::Viewport area{0.f, 0.f, float(width), float(height), 0.f, 1.f};
         context->SetViewports(1, &area, width, height);
+        sky_.draw(context, view, mesh_scene_->settings.environment);
         meshes_->draw(*mesh_scene_, view, UINT32_MAX);
     }
     if (display_) {

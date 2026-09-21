@@ -122,3 +122,29 @@
   environment consumers require the next Windows source audit.
 - IBL checkpoint: all16 local shader stages, native C++ syntax, normal/strict
   material tests1/1 each, manual3/3 and format pass. Native validation remains pending.
+
+### Scene lighting and selected environment assets
+
+- Add scene-owned environment identity, intensity, rotation, sky visibility and
+  exposure settings with shared validated authoring, Scene Undo/Redo, unknown-data
+  preservation and detached presentation transport.
+- Load standalone and model-member texture variants through copied catalog selections
+  on workers. Verify complete cooked bundles and publication provenance; failed or
+  unavailable variants retain prior usable resources.
+- Connect environment GPU adoption to mesh hosts; update all parity/LOD native bindings
+  before retiring old maps. Reuse pinned Diligent EnvMapRenderer for sky sampling and
+  far-depth drawing, with camera-relative rays safe for infinite-far cameras.
+- Add Scene lighting controls and the shared asset picker catalog-snapshot overload.
+  Scene and the current Game preview share prepared mesh/environment resources; Game
+  uses authored scene exposure. Full authored-camera/standalone integration remains in progress.
+- Local normal checks pass4/4: render bounds/sky rays, texture recipe, model recipe and
+  authoring API in35.02s. Initial command-catalog count assertion was updated for the
+  new shared command and rerun successfully. Native C++ syntax including unmodified
+  upstream sky/PBR code passes. Sanitizer and native Windows execution are pending.
+- Strict ASan/UBSan/LSan validation passed4/4 in77.04s with leak detection enabled.
+  Editor lighting-header syntax passes against local SDL/ImGui headers. Manual3/3
+  and formatting pass after correcting a wrapped list for the offline manual format.
+  An additional HDR catalog-selection regression is being validated separately.
+- Added HDR catalog-selection regression passes normal1/1(.93s) and strict
+  sanitizer1/1(1.68s): auto-color preserves RGBA32Float HDR; explicit unavailable LDR
+  is rejected. No numbered Windows build was allocated for this checkpoint.

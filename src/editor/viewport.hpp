@@ -4,6 +4,7 @@
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "display_resolve.hpp"
+#include "environment_sky.hpp"
 #include "mesh_render_host.hpp"
 #include "presentation_diligent.hpp"
 #include "scene_cache.hpp"
@@ -21,6 +22,7 @@ class Viewport {
         }
     }
     void resources(std::shared_ptr<MeshResourceHost> host) {
+        sky_.select({});
         meshes_ =
             host ? std::make_unique<MeshSceneRenderer>(std::move(host), color_format_) : nullptr;
         mesh_scene_.reset();
@@ -35,6 +37,7 @@ class Viewport {
     Diligent::TEXTURE_FORMAT color_format_;
     std::unique_ptr<DisplayResolve> display_;
     float exposure_ = 0;
+    EnvironmentSky sky_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     std::optional<RenderScene> mesh_scene_;
     std::uint64_t mesh_generation_ = 0;

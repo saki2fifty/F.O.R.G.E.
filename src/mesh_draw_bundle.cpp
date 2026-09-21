@@ -55,6 +55,15 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         }
     }
 }
+void MeshDrawBundle::environment(const EnvironmentLease& lease) {
+    const auto* maps = lease ? &lease.get() : nullptr;
+    // Replace every parity/LOD binding, including currently invisible parts,
+    // before releasing its old lease. Budget accounting must cover native SRBs.
+    for (auto& lod : lods_)
+        for (auto& part : lod)
+            part->bind_environment(maps);
+    environment_ = lease;
+}
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
                           const EnvironmentLighting* environment, unsigned lod) {

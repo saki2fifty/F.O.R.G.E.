@@ -202,8 +202,8 @@ int main(int argc, char** argv) {
         require(!material_lease->textures.empty(), "Official material lost texture fixture");
         const auto& [texture_role, texture_ref] = *material_lease->textures.begin();
         const auto texture_semantic = material_lease->values.textures.at(texture_role).semantic;
-        auto texture_request = request_model_texture(texture_resources, root, first_catalog,
-                                                     texture_ref, texture_semantic);
+        auto texture_request =
+            request_texture(texture_resources, root, first_catalog, texture_ref, texture_semantic);
         require(texture_resources.wait(texture_request, 10s), "Model texture resource failed");
         auto texture_lease = texture_resources.acquire(texture_request);
         require(texture_lease && texture_lease->semantic == texture_semantic &&
@@ -269,8 +269,8 @@ int main(int argc, char** argv) {
         });
         wrong_thread.join();
         require(wrong_thread_rejected, "Draw candidate allowed off-owner access");
-        auto missing_variant = request_model_texture(texture_resources, root, first_catalog,
-                                                     texture_ref, TextureSemantic::HdrColor);
+        auto missing_variant = request_texture(texture_resources, root, first_catalog, texture_ref,
+                                               TextureSemantic::HdrColor);
         require(!texture_resources.wait(missing_variant, 10s) &&
                     texture_lease->byte_size() == image_bytes,
                 "Unavailable texture variant replaced valid color data");

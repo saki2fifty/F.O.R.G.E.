@@ -1,4 +1,5 @@
 #pragma once
+#include "environment_sky.hpp"
 #include "mesh_draw.hpp"
 #include "mesh_draw_bundle.hpp"
 #include "render_sort.hpp"
@@ -236,6 +237,42 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
                     "Constant environment changed radiance with rotation");
         // Reset SRBs to default maps before closing this derived-resource owner.
         render(lit);
+        forge::EnvironmentSky sky(presentation, TEX_FORMAT_RGBA8_UNORM);
+        sky.select(maps);
+        forge::SceneEnvironment sky_settings;
+        auto sky_image = [&](const forge::CameraView& sky_view, bool geometry) {
+            if (geometry)
+                (void)render(draw);
+            else {
+                context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                const float clear[4]{0, 0, 0, 1};
+                context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            }
+            Diligent::Viewport area{0, 0, 32, 32, 0, 1};
+            context->SetViewports(1, &area, 32, 32);
+            sky.draw(context, sky_view, sky_settings);
+            return readback(presentation.device(), context, rtv);
+        };
+        const auto sky_pixels = sky_image(view, false);
+        save(sky_pixels, 32, 32, images / "native-environment-sky.ppm");
+        for (const auto index : {0, 16 * 32 + 16, 1023}) {
+            const auto pixel = sky_pixels[index];
+            require(pixel[0] >= 63 && pixel[0] <= 65 && pixel[1] >= 127 && pixel[1] <= 129 &&
+                        pixel[2] >= 190 && pixel[2] <= 192,
+                    "Native sky radiance changed color space or failed far-depth coverage");
+        }
+        auto infinite = camera;
+        infinite.infinite_far = true;
+        require(sky_image(forge::camera_view(infinite, camera_world, 32, 32), false) == sky_pixels,
+                "Infinite-far sky reconstruction changed radiance");
+        require(sky_image(view, true)[16 * 32 + 16] == reference[16 * 32 + 16],
+                "Sky overwrote foreground geometry");
+        sky_settings.sky = false;
+        require(sky_image(view, false)[16 * 32 + 16] == std::array<unsigned char, 4>{0, 0, 0, 255},
+                "Hidden sky still drew the environment background");
+        sky.select({});
         environments.submit();
         maps = {};
         same = {};

@@ -40,6 +40,45 @@ inline void test_render_scene() {
         doc["entities"].push_back({{"id", id}, {"name", "View"}, {"components", components}});
     doc["entities"][0]["components"]["forge.camera"]["order"] = -2;
     scene.reset(doc);
+    const auto environment = AssetId::generate();
+    authoring_command(
+        scene, "scene.rendering.set",
+        {{"exposure", 2},
+         {"environment",
+          {{"texture", environment}, {"intensity", .5}, {"rotation", -1.25}, {"sky", false}}}});
+    const auto settings = scene_render_settings(scene.document());
+    require(settings.environment.texture.id == environment && settings.exposure == 2 &&
+                settings.environment.intensity == .5f && settings.environment.rotation == -1.25 &&
+                !settings.environment.sky,
+            "Scene rendering settings lost authored values");
+    require(scene.undo() && !scene.document().contains("rendering") && scene.redo() &&
+                scene_render_settings(scene.document()) == settings,
+            "Scene rendering history did not restore settings");
+    auto unknown = scene.document();
+    unknown["rendering"]["plugin"] = {{"unrecognized", 42}};
+    unknown["rendering"]["environment"]["plugin"] = "retained";
+    scene.reset(unknown);
+    authoring_command(scene, "scene.rendering.set", {{"environment", {{"intensity", 3}}}});
+    require(scene.document()["rendering"]["plugin"] == unknown["rendering"]["plugin"] &&
+                scene.document()["rendering"]["environment"]["plugin"] == "retained" &&
+                scene_render_settings(scene.document()).environment.texture.id == environment,
+            "Environment patch rewrote unrelated authored metadata");
+    const auto good_settings = scene.document();
+    for (const auto& patch :
+         {Json{{"exposure", 21}}, Json{{"environment", {{"intensity", -1}}}},
+          Json{{"environment", {{"texture", "wrong-id"}}}}, Json{{"environment", {{"sky", 1}}}}}) {
+        rejects([&] { authoring_command(scene, "scene.rendering.set", patch); });
+        require(scene.document() == good_settings, "Rejected environment edit changed scene");
+    }
+    auto bad_settings = good_settings;
+    bad_settings["rendering"]["version"] = 2u;
+    rejects([&] { scene.edit(bad_settings); });
+    require(extract_render_scene(bad_settings).diagnostics.at(0).category ==
+                "render.settings.invalid",
+            "Malformed producer settings lacked a structured diagnostic");
+    require(scene_render_settings(scene.effective_document()) ==
+                scene_render_settings(scene.document()),
+            "Effective scene dropped global render settings");
     const auto original = scene.document();
     auto source = scene.effective_document();
     auto snapshot = extract_render_scene(source);

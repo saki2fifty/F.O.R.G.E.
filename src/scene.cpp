@@ -6,6 +6,7 @@
 #include <cmath>
 #include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
+#include <forge/scene_render_settings.hpp>
 #include <fstream>
 #include <functional>
 #include <map>
@@ -36,6 +37,7 @@ void validate(const Json& doc) {
             }
         }
     }
+    (void)scene_render_settings(doc);
     validate_prefab_instances(doc);
     std::map<std::string, const Json*> entities;
     for (const auto& e : doc.at("entities")) {

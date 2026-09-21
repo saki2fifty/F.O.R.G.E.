@@ -89,8 +89,8 @@ void ModelDrawCandidate::advance(std::uint64_t epoch, ResourcePool<MeshAsset>& m
                     const auto semantic = material->values.textures.at(role).semantic;
                     DrawTextureKey key{ref.id, semantic};
                     if (!textures_.contains(key))
-                        textures_.emplace(key, request_model_texture(textures, project_, catalog_,
-                                                                     ref, semantic));
+                        textures_.emplace(
+                            key, request_texture(textures, project_, catalog_, ref, semantic));
                 }
             }
             stage_ = 2;

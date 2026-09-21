@@ -11,9 +11,11 @@ MaterialResourceData model_material_resource(const ModelSelection&, AssetRef<Mat
                                              const MaterialLayout&);
 MaterialResourceData model_pbr_material_resource(const ModelSelection&, AssetRef<MaterialAsset>);
 TextureData model_texture_resource(const ModelSelection&, AssetRef<TextureAsset>, TextureSemantic);
-ResourceTicket request_model_texture(ResourcePool<TextureAsset>&, std::filesystem::path project,
-                                     std::shared_ptr<const AssetCatalog>, AssetRef<TextureAsset>,
-                                     TextureSemantic);
+// Omitted semantic selects HDR color when available, otherwise color; never data/normal.
+// Root texture assets and model members share the same async identity/lifetime path.
+ResourceTicket request_texture(ResourcePool<TextureAsset>&, std::filesystem::path project,
+                               std::shared_ptr<const AssetCatalog>, AssetRef<TextureAsset>,
+                               std::optional<TextureSemantic> = {});
 // Request metadata comes from a copied catalog selection; worker preparation
 // verifies that exact family before the existing pool's owner-thread adoption.
 ResourceTicket request_model_mesh(ResourcePool<MeshAsset>&, std::filesystem::path project,

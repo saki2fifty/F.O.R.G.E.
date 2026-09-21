@@ -17,6 +17,7 @@ class MeshDrawBundle {
                    const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,
                    GpuResidency<TextureAsset>&, Diligent::TEXTURE_FORMAT color,
                    Diligent::TEXTURE_FORMAT depth);
+    void environment(const EnvironmentLease&);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr, unsigned lod = 0);
     void draw_part(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
@@ -28,6 +29,7 @@ class MeshDrawBundle {
     std::size_t lod_count() const { return lods_.size(); }
 
   private:
+    EnvironmentLease environment_;
     GpuLease<MeshAsset> mesh_;
     std::map<asset_detail::DrawTextureKey, GpuLease<TextureAsset>> textures_;
     std::vector<std::string> unresolved_;

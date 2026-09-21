@@ -1,5 +1,6 @@
 #include "render_bounds.hpp"
 #include "render_sort.hpp"
+#include "sky_view.hpp"
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -94,6 +95,23 @@ int main() {
         check(bounds_camera_depth({{1e12 - 1, 1e12 - 1, 1e12 + 4}, {1e12 + 1, 1e12 + 1, 1e12 + 6}},
                                   distant) == 5,
               "Large-origin sorting lost relative depth");
+        const auto ortho_sky = sky_ray_matrix(orthographic);
+        check(ortho_sky == sky_ray_matrix(distant) && ortho_sky[0] == 0 && ortho_sky[5] == 0 &&
+                  ortho_sky[14] == 1 && ortho_sky[15] == 1,
+              "Orthographic sky rays depended on world position or screen position");
+        Camera sky_camera;
+        sky_camera.vertical_fov = std::numbers::pi / 2;
+        auto sky = sky_ray_matrix(camera_view(sky_camera, {}, 400, 400));
+        sky_camera.infinite_far = true;
+        check(sky == sky_ray_matrix(camera_view(sky_camera, affine_transform(pose), 400, 400)) &&
+                  sky[0] == 1 && sky[5] == 1 && sky[14] == 1 && sky[15] == 1,
+              "Infinite-far or large-origin sky produced invalid ray reconstruction");
+        sky_camera.flip_x = true;
+        const auto flipped_sky = sky_ray_matrix(camera_view(sky_camera, {}, 400, 400));
+        check(flipped_sky[0] == -1 && flipped_sky[5] == 1, "Sky ignored projection reflection");
+        auto bad_sky = view;
+        bad_sky.projection[0] = 0;
+        rejects([&] { sky_ray_matrix(bad_sky); });
         const auto first = EntityId::parse("00000000-0000-4000-8000-000000000001");
         const auto second = EntityId::parse("00000000-0000-4000-8000-000000000002");
         RenderSortKey opaque, mask, near, far, tied;

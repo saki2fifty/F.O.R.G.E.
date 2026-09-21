@@ -14,6 +14,7 @@ class MeshDraw {
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
              Diligent::TEXTURE_FORMAT depth_format);
+    void bind_environment(const GpuEnvironment*);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr);
 

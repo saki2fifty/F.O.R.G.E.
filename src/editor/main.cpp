@@ -30,6 +30,7 @@
 #include "runtime_ui_host.hpp"
 #include "runtime_ui_tools.hpp"
 #include "scene_cache.hpp"
+#include "scene_lighting.hpp"
 #include "scene_tools.hpp"
 #include "status_bar.hpp"
 #include "texture_imports.hpp"
@@ -204,6 +205,7 @@ int main(int argc, char** argv) {
         forge::PlaySession play;
         forge::GameInput game_input;
         forge::ProjectSettingsEditor project_settings;
+        bool scene_lighting_open = false;
         const char* base = SDL_GetBasePath();
         if (!base)
             throw std::runtime_error("Cannot locate runtime directory");
@@ -274,6 +276,7 @@ int main(int argc, char** argv) {
                 host->catalog(std::make_shared<const forge::AssetCatalog>(
                     forge::AssetCatalog::open_project(files.document.project())));
                 viewport.resources(host);
+                game_viewport.resources(host);
                 mesh_resources = std::move(host);
             } catch (const std::exception& e) {
                 message = std::string("Mesh resources unavailable: ") + e.what();
@@ -610,6 +613,10 @@ int main(int argc, char** argv) {
                         action.unavailable_reason = "Select an authored entity for this action.";
                 }
             };
+            add_action(
+                "scene.lighting", "Scene / Lighting", "",
+                "Edit environment lighting, sky and game exposure using Scene Save and Undo.", true,
+                [&] { scene_lighting_open = true; });
             add_action("save", std::string("Save / ") + editor.task.name(), "Ctrl+S",
                        "Save or Publish the active task. Scene, prefab and settings have "
                        "independent ownership.",
@@ -973,6 +980,7 @@ int main(int argc, char** argv) {
                         automation.menu();
                         performance.menu();
                         project_settings.menu();
+                        actions.item("scene.lighting", "Scene lighting...");
                     });
                     forge::ui::help_menu(std::filesystem::path(base), message);
                     if (narrow_menu)
@@ -1049,6 +1057,9 @@ int main(int argc, char** argv) {
                 if (ImGui::IsKeyPressed(ImGuiKey_F7, false))
                     actions.invoke("step");
             }
+            const auto lighting_catalog = mesh_resources ? mesh_resources->catalog() : nullptr;
+            forge::ui::scene_lighting(scene_lighting_open, scene, lighting_catalog.get(),
+                                      edit_locked);
             ecs_workspace.draw(scene, editor.problems);
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
                           blockout.at_view_target, edit_locked);
@@ -1478,6 +1489,14 @@ int main(int argc, char** argv) {
                             });
                     };
                     const auto& preview = read_preview();
+                    if (game_view) {
+                        try {
+                            game_viewport.exposure(forge::scene_render_settings(preview).exposure);
+                        } catch (const std::exception&) {
+                            // Extraction reports the malformed producer settings in Problems.
+                            game_viewport.exposure(0);
+                        }
+                    }
                     auto size = ImGui::GetContentRegionAvail();
                     if (size.x > 1 && size.y > 1) {
                         if (frame_selected &&

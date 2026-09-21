@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "model_render_resource.hpp"
 #include "texture_importer.hpp"
 #include <forge/asset_publication.hpp>
 #include <forge/scene.hpp>
@@ -209,6 +210,37 @@ int main(int argc, char** argv) {
             AssetCatalog::open_project(root).resolve(AssetRef<TextureAsset>{request.asset}).state ==
                 AssetState::Available,
             "Published texture missing from catalog");
+        ResourcePool<TextureAsset> selected_pool;
+        const auto selected_catalog = std::make_shared<const AssetCatalog>(result.catalog);
+        const AssetRef<TextureAsset> selected_ref{request.asset};
+        const auto auto_color =
+            request_texture(selected_pool, root, selected_catalog, selected_ref);
+        require(selected_pool.wait(auto_color, 5s) &&
+                    selected_pool.current(selected_ref, "color:auto")->semantic ==
+                        TextureSemantic::Color,
+                "Catalog-selected color resource failed");
+        const auto typed_data = request_texture(selected_pool, root, selected_catalog, selected_ref,
+                                                TextureSemantic::Data);
+        require(selected_pool.wait(typed_data, 5s) &&
+                    selected_pool.current(selected_ref, "data")->format == TextureFormat::RGBA8,
+                "Catalog-selected data variant lost its semantics");
+        const auto good_color = selected_pool.current(selected_ref, "color:auto");
+        auto bad_catalog = result.catalog;
+        auto bad_record = bad_catalog.records().at(request.asset);
+        bad_record.metadata["forge.import"]["generation"] = 2u;
+        bad_record.metadata["forge.import"]["artifact_digest"] = std::string(64, '0');
+        bad_catalog.replace(bad_record);
+        const auto bad_selection = request_texture(
+            selected_pool, root, std::make_shared<const AssetCatalog>(bad_catalog), selected_ref);
+        require(!selected_pool.wait(bad_selection, 5s) &&
+                    selected_pool.current(selected_ref, "color:auto").identity() ==
+                        good_color.identity(),
+                "Corrupt catalog selection replaced the usable environment texture");
+        const auto missing_variant = request_texture(selected_pool, root, selected_catalog,
+                                                     selected_ref, TextureSemantic::Normal);
+        require(!selected_pool.wait(missing_variant, 5s) && good_color->width == 2,
+                "Missing semantic was silently substituted or damaged a live lease");
+        selected_pool.close();
         const auto baseline = read_bytes(root / "forge.assets.json", max_asset_index_bytes);
         DerivedDataCache cache(root);
         auto hit = cache.find(plan.input, [&](const auto& a) { importer->validate(a); });
@@ -293,6 +325,31 @@ int main(int argc, char** argv) {
                     container_texture.subresources[1][0] == std::byte{12} &&
                     container_texture.subresources[1][1] == std::byte{34},
                 "Container recipe regenerated or lost supplied mip pixels");
+        const std::string hdr_header = "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1\n";
+        auto hdr_bytes_view = std::as_bytes(std::span(hdr_header));
+        std::vector<std::byte> hdr_bytes(hdr_bytes_view.begin(), hdr_bytes_view.end());
+        hdr_bytes.insert(hdr_bytes.end(),
+                         {std::byte{128}, std::byte{64}, std::byte{32}, std::byte{130}});
+        write(root / "Assets/environment.hdr", hdr_bytes);
+        request = {
+            AssetId::generate(), root, "Assets/environment.hdr", target, {"forge.texture.image"}};
+        const auto hdr_plan = importer->discover(request, {});
+        auto hdr_result = publisher.publish(candidate(hdr_plan, prepare(hdr_plan)), *importer,
+                                            [](const auto&, const auto&) {});
+        ResourcePool<TextureAsset> hdr_pool;
+        const auto hdr_catalog = std::make_shared<const AssetCatalog>(hdr_result.catalog);
+        const AssetRef<TextureAsset> hdr_ref{request.asset};
+        const auto hdr_request = request_texture(hdr_pool, root, hdr_catalog, hdr_ref);
+        require(hdr_pool.wait(hdr_request, 5s) &&
+                    hdr_pool.current(hdr_ref, "color:auto")->semantic ==
+                        TextureSemantic::HdrColor &&
+                    hdr_pool.current(hdr_ref, "color:auto")->format == TextureFormat::RGBA32Float,
+                "Environment color selection lost HDR semantic/range");
+        const auto ldr_request =
+            request_texture(hdr_pool, root, hdr_catalog, hdr_ref, TextureSemantic::Color);
+        require(!hdr_pool.wait(ldr_request, 5s),
+                "Explicit LDR color silently substituted an HDR variant");
+        hdr_pool.close();
         if (std::filesystem::exists(root / ".forge/jobs"))
             require(std::filesystem::is_empty(root / ".forge/jobs"),
                     "Finished import staging was not cleaned");
