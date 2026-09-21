@@ -454,6 +454,8 @@ AssetPublicationResult AssetPublisher::publish(AssetPublicationCandidate candida
                 {"importer_revision", descriptor.revision},
                 {"settings_version", candidate.input.settings_version},
                 {"source_digest", candidate.input.source_digest},
+                {"sidecar_digest",
+                 asset_detail::content_digest(std::as_bytes(std::span(sidecar_bytes)))},
                 {"dependency_digest",
                  asset_build_digest(Json{{"assets", candidate.input.document().at("dependencies")},
                                          {"sources", candidate.input.source_dependencies}})},
@@ -488,6 +490,11 @@ AssetPublicationResult AssetPublisher::publish(AssetPublicationCandidate candida
     const auto journal_path = paths_.resolve(journal_name);
     const auto index = AssetCatalog::project_index(paths_.root());
     const auto sidecar = paths_.resolve(sidecar_path(candidate.ticket.source));
+    std::map<std::filesystem::path, std::string, ProjectLocatorLess> written_sources{
+        {index.lexically_relative(paths_.root()),
+         asset_detail::content_digest(std::as_bytes(std::span(catalog_bytes)))},
+        {sidecar_path(candidate.ticket.source),
+         asset_detail::content_digest(std::as_bytes(std::span(sidecar_bytes)))}};
     if (candidate.ticket.catalog_bytes &&
         parse(*candidate.ticket.catalog_bytes).at("version") == 1) {
         auto backup = index;
@@ -531,6 +538,7 @@ AssetPublicationResult AssetPublisher::publish(AssetPublicationCandidate candida
             cleanup = error.what();
         }
     }
-    return {std::move(updated), std::move(artifact), std::move(cleanup)};
+    return {std::move(updated), std::move(artifact), std::move(cleanup),
+            std::move(written_sources)};
 }
 } // namespace forge

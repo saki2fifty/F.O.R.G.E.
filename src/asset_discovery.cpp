@@ -64,35 +64,36 @@ bool hidden_source(const std::filesystem::path& absolute) {
 std::string source_kind(const std::filesystem::path& path) {
     const auto name = lowercase(path_utf8(path.filename()));
     // Recognition is deliberately separate from importer support/admission.
-    for (const auto& [suffix, kind] :
-         std::initializer_list<std::pair<const char*, const char*>>{{".scene.json", "scene"},
-                                                                    {".prefab.json", "prefab"},
-                                                                    {".material.json", "material"},
-                                                                    {".gltf", "model"},
-                                                                    {".glb", "model"},
-                                                                    {".png", "image"},
-                                                                    {".jpg", "image"},
-                                                                    {".jpeg", "image"},
-                                                                    {".tga", "image"},
-                                                                    {".bmp", "image"},
-                                                                    {".hdr", "image"},
-                                                                    {".dds", "image"},
-                                                                    {".ktx", "image"},
-                                                                    {".ktx2", "image"},
-                                                                    {".webp", "image"},
-                                                                    {".exr", "image"},
-                                                                    {".wav", "audio"},
-                                                                    {".mp3", "audio"},
-                                                                    {".flac", "audio"},
-                                                                    {".ogg", "audio"},
-                                                                    {".ttf", "font"},
-                                                                    {".otf", "font"},
-                                                                    {".rml", "ui_document"},
-                                                                    {".rcss", "ui_style"},
-                                                                    {".hlsl", "shader"},
-                                                                    {".hlsli", "shader_include"},
-                                                                    {".flecs", "script"},
-                                                                    {".ozz", "animation_archive"}})
+    for (const auto& [suffix, kind] : std::initializer_list<std::pair<const char*, const char*>>{
+             {".scene.json", "scene"},
+             {".prefab.json", "prefab"},
+             {".material.json", "material"},
+             {".shader.json", "shader_program"},
+             {".gltf", "model"},
+             {".glb", "model"},
+             {".png", "image"},
+             {".jpg", "image"},
+             {".jpeg", "image"},
+             {".tga", "image"},
+             {".bmp", "image"},
+             {".hdr", "image"},
+             {".dds", "image"},
+             {".ktx", "image"},
+             {".ktx2", "image"},
+             {".webp", "image"},
+             {".exr", "image"},
+             {".wav", "audio"},
+             {".mp3", "audio"},
+             {".flac", "audio"},
+             {".ogg", "audio"},
+             {".ttf", "font"},
+             {".otf", "font"},
+             {".rml", "ui_document"},
+             {".rcss", "ui_style"},
+             {".hlsl", "shader"},
+             {".hlsli", "shader_include"},
+             {".flecs", "script"},
+             {".ozz", "animation_archive"}})
         if (name.ends_with(suffix))
             return kind;
     return "unrecognized";
@@ -156,11 +157,12 @@ std::vector<SourceChange> changes(const SourceSnapshot& before, const SourceSnap
 
 SourceSnapshot scan_asset_sources(const std::filesystem::path& project,
                                   const SourceScanOptions& options, std::stop_token stop) {
-    if (options.roots.empty() || options.roots.size() > 256 || options.ignored.size() > 1024 ||
-        !options.max_files || options.max_files > 1000000 || !options.max_directories ||
-        options.max_directories > 100000 || !options.max_depth || options.max_depth > 128 ||
-        !options.max_file_bytes || options.max_file_bytes > 2ULL * 1024 * 1024 * 1024 ||
-        !options.max_total_bytes || options.max_total_bytes > 1024ULL * 1024 * 1024 * 1024)
+    if ((options.roots.empty() && !options.include_project_root) || options.roots.size() > 256 ||
+        options.ignored.size() > 1024 || !options.max_files || options.max_files > 1000000 ||
+        !options.max_directories || options.max_directories > 100000 || !options.max_depth ||
+        options.max_depth > 128 || !options.max_file_bytes ||
+        options.max_file_bytes > 2ULL * 1024 * 1024 * 1024 || !options.max_total_bytes ||
+        options.max_total_bytes > 1024ULL * 1024 * 1024 * 1024)
         throw std::runtime_error("Invalid asset scan limits");
     ProjectPaths paths(project);
     if (!std::filesystem::is_directory(paths.root()))
@@ -175,6 +177,12 @@ SourceSnapshot scan_asset_sources(const std::filesystem::path& project,
     std::vector<Pending> pending;
     for (const auto& root : options.roots)
         pending.push_back({ProjectPaths::normalize(root), 0});
+    if (options.include_project_root) {
+        // Explicit roots were still validated above. One traversal is sufficient
+        // and avoids treating its ordinary descendants as directory aliases.
+        pending.clear();
+        pending.push_back({{}, 0});
+    }
     std::sort(pending.begin(), pending.end(),
               [](const auto& a, const auto& b) { return a.path > b.path; });
     SourceSnapshot result;
@@ -200,25 +208,28 @@ SourceSnapshot scan_asset_sources(const std::filesystem::path& project,
         try {
             if (result.files.contains(item.path))
                 continue;
-            if (filtered_locator(item.path, ignored)) {
+            const bool project_root = item.path.empty();
+            if (!project_root && filtered_locator(item.path, ignored)) {
                 ++result.filtered;
                 continue;
             }
             // Resolve contained symlinks/junctions before reading. As with other
             // project IO this is not a sandbox against concurrent host filesystem mutation.
-            const auto absolute = paths.resolve(item.path);
+            const auto absolute = project_root ? paths.root() : paths.resolve(item.path);
             if (!std::filesystem::exists(absolute)) {
                 // A not-yet-created Assets root is an ordinary empty project.
                 if (item.depth != 0)
                     diagnostic(item.path, "source_changed", "Source disappeared during scan", true);
                 continue;
             }
-            if (hidden_source(absolute)) {
+            if (!project_root && hidden_source(absolute)) {
                 ++result.filtered;
                 continue;
             }
             if (std::filesystem::is_directory(absolute)) {
-                if (!directories.insert(paths.file_identity(item.path)).second) {
+                if (!directories
+                         .insert(project_root ? "<project-root>" : paths.file_identity(item.path))
+                         .second) {
                     diagnostic(item.path, "directory_alias",
                                "Directory already scanned through another path", false);
                     continue;
@@ -314,11 +325,20 @@ std::vector<SourceChange> SourceChangeTracker::drain(Clock::time_point now) {
     auto result = changes(baseline_, latest_, generation_);
     std::erase_if(result, [&](const auto& change) {
         const auto found = writes_.find(change.source);
-        return found != writes_.end() && found->second == change.digest &&
-               (change.kind == SourceChangeKind::Created ||
-                change.kind == SourceChangeKind::Modified);
+        if (found == writes_.end())
+            return false;
+        const bool own =
+            found->second == change.digest &&
+            (change.kind == SourceChangeKind::Created || change.kind == SourceChangeKind::Modified);
+        writes_.erase(found);
+        return own;
     });
-    writes_.clear();
+    // A scan already in flight may report another file before observing our
+    // write. Retain that acknowledgement until this path is actually observed.
+    std::erase_if(writes_, [&](const auto& write) {
+        const auto found = latest_.files.find(write.first);
+        return found != latest_.files.end() && found->second.digest == write.second;
+    });
     baseline_ = latest_;
     pending_ = false;
     return result;

@@ -36,6 +36,9 @@ struct SourceScanOptions {
     std::size_t max_files = 100000, max_directories = 10000, max_depth = 64;
     std::uint64_t max_file_bytes = 512ULL * 1024 * 1024;
     std::uint64_t max_total_bytes = 8ULL * 1024 * 1024 * 1024;
+    // Scan project-contained sources outside Assets as well. The project root is
+    // a traversal scope only; it never becomes a valid asset/source locator.
+    bool include_project_root = false;
 };
 // Read-only, deterministic full rescan. All file contents are hashed; timestamps
 // alone never establish that a source is unchanged. Safe to call on a worker.

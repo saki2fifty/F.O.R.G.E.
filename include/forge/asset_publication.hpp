@@ -33,6 +33,9 @@ struct AssetPublicationResult {
     CachedArtifact artifact;
     // Selection succeeded even if deleting its now-completed recovery record failed.
     std::string cleanup_diagnostic;
+    // Exact committed bytes for watcher self-write suppression. Transient receipt,
+    // not another persisted source registry or publication authority.
+    std::map<std::filesystem::path, std::string, ProjectLocatorLess> written_sources;
 };
 // Writer-thread boundary shared by editor/headless authoring, never the worker.
 // The caller retains ProjectLease for this object's entire lifetime. Runtime

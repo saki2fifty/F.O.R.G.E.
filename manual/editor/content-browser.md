@@ -34,7 +34,7 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 ## Current limits
 
-This is a catalog browser, not a general importer or file manager. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. General file management and thumbnails are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+Content combines registered assets with recognized source files. General file management is still being implemented. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. General file management and thumbnails are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 16 directory levels, 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 
@@ -60,3 +60,33 @@ Content discovers saved scenes and registered assets in the background.
 list. Repeated **Refresh** clicks are combined. A failed scan reports its error
 and keeps the last good results. Opening another project clears the old list
 and discards any unfinished results belonging to the previous project.
+
+## Source files and automatic updates
+
+Copy source files into the project, then choose **Refresh**. Recognized sources
+that have not been registered appear as **Source / ...** rows; use **Type → Source
+files** to see them separately. Selecting a source shows its relative path, size
+and kind in Inspector. **Open import / source** opens supported Model, Texture,
+Material or Shader workflows. A source row has no AssetId and cannot be dragged
+into a typed asset field until it has been imported.
+
+FORGE checks project source contents in the background approximately every two
+seconds after the previous check completes. Changes to registered Model, Texture,
+Material and Shader sources or their import settings schedule reimport. New files
+require an explicit import; discovery alone does not assign identities.
+
+Choose **Source updates** to see the current scan, queued updates and active job.
+**Rescan / retry failed** checks again and retries failed imports. Errors also
+appear in Problems. A failed import keeps the last published asset usable. A
+missing source does not erase its asset identity or existing cooked output.
+
+Unsaved import settings or Material edits delay automatic replacement for that
+asset. Save or resolve the draft first. Successfully published changes refresh
+clean source documents and dependent materials, and request safe scene-resource
+updates. This does not change scene Undo history. An incomplete scan pauses new
+automatic work until a complete scan succeeds.
+
+The watcher uses bounded content-hash polling, including sources outside the
+Assets folder but inside the project. It ignores hidden, temporary and cache
+entries. It does not rely on timestamps alone. General rename/move reconciliation
+and thumbnail browsing remain under development.

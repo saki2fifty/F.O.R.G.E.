@@ -143,3 +143,14 @@ to replace. The current editor texture workflow likewise does not yet expose GPU
 texture/material consumers; those consumers must add their compatibility preflight
 when wired. No cross-document scene Undo, arbitrary native rollback or general
 plugin ABI is implied.
+
+## Publication receipts for source observation
+
+Publication returns transient exact content-digest receipts for its catalog and
+sidecar writes, prepared before the commit point. The watcher uses them to avoid
+self-write rebuild loops. `forge.import.sidecar_digest` records the exact committed
+sidecar bytes alongside the existing source/importer/profile metadata. This is
+extensible import metadata, not another identity, scene format or catalog version.
+Older selections without this field undergo one verified reimport before their
+unchanged sidecars can be recognized at startup. A rejected candidate changes none
+of these selections.

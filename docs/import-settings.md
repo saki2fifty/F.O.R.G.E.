@@ -1,8 +1,8 @@
 # Importer registry and settings
 
 **Phase7 infrastructure; production importer/editor integration is in progress.**
-These APIs do not currently register a shipped Model/Texture/Shader importer or
-expose an import dialog. Native model preparation is described separately in
+Model, Texture, Material and Shader providers now use this shared service and
+central editor documents; the complete Phase7 delivery remains in progress. Native model preparation is described separately in
 [glTF admission](gltf-admission.md). The [asset foundation](asset-foundation.md)
 still governs worker, publication and runtime ownership.
 

@@ -12,6 +12,7 @@
 #include "command_workspace.hpp"
 #include "component_inspector.hpp"
 #include "content.hpp"
+#include "content_imports.hpp"
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
 #include "ecs_tools.hpp"
@@ -349,6 +350,72 @@ int main(int argc, char** argv) {
             material_preview.reset();
             material_preview_catalog.reset();
         };
+        forge::ContentImports content_imports;
+        content_imports.routes = [&] {
+            auto routes = texture_imports.automatic_routes();
+            for (auto route : model_imports.automatic_routes())
+                routes.push_back(std::move(route));
+            for (auto route : shader_imports.automatic_routes())
+                routes.push_back(std::move(route));
+            routes.push_back({"forge.material.builtin", forge::desktop_texture_target(),
+                              forge::material_import_registry(),
+                              [](auto& c, const auto& plan, const auto&) {
+                                  forge::prepare_material_publication(c, plan);
+                              }});
+            return routes;
+        };
+        content_imports.blocked = [&](forge::AssetId id) {
+            return files.busy() ||
+                   (texture_imports.selected_asset() == id && texture_imports.dirty()) ||
+                   (model_imports.selected_asset() == id && model_imports.dirty()) ||
+                   (shader_imports.selected_asset() == id && shader_imports.dirty()) ||
+                   (material_editor.document() &&
+                    material_editor.document()->source().asset() == id && material_editor.dirty());
+        };
+        content_imports.published = [&](forge::AssetId id, auto catalog) {
+            texture_imports.source_published(id);
+            model_imports.source_published(id);
+            shader_imports.source_published(id);
+            material_editor.source_published(files.document, id);
+            material_editor.asset_catalog_changed(catalog);
+            if (mesh_resources)
+                mesh_resources->catalog(catalog);
+            play.model_assets_changed();
+            content.refresh(files);
+        };
+        content.rescan_sources = [&] { content_imports.rescan(); };
+        content.import_status = [&] { content_imports.status(); };
+        content.open_source = [&](const auto& path, const std::string& kind, bool open) {
+            if (kind == "model") {
+                if (open)
+                    model_imports.open(files.document, path);
+            } else if (kind == "image") {
+                if (open)
+                    texture_imports.open(files.document, path);
+            } else if (kind == "material") {
+                if (open)
+                    material_editor.open(files.document, path);
+            } else if (kind == "shader_program") {
+                if (open)
+                    shader_imports.open(files.document, path);
+            } else
+                return false;
+            return true;
+        };
+        documents.add({"content.source",
+                       "Source file",
+                       "Content",
+                       false,
+                       [&] { return true; },
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       [&](const std::string& locator) { content.inspect_source(locator); }});
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
@@ -1193,12 +1260,14 @@ int main(int argc, char** argv) {
             try {
                 material_editor.poll(files.document, message);
                 if (auto catalog = material_editor.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(catalog);
                     content.refresh(files);
                 }
                 texture_imports.poll(files.document, message);
                 if (auto catalog = texture_imports.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
@@ -1206,6 +1275,7 @@ int main(int argc, char** argv) {
                 }
                 shader_imports.poll(files.document, message);
                 if (auto catalog = shader_imports.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
@@ -1213,6 +1283,7 @@ int main(int argc, char** argv) {
                 }
                 model_imports.poll(files.document, message);
                 if (auto catalog = model_imports.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
                     play.model_assets_changed();
                     if (mesh_resources)
@@ -1223,6 +1294,8 @@ int main(int argc, char** argv) {
                 message = e.what();
                 forge::ui::report_error("asset_import", message);
             }
+            content_imports.poll(files.document, message);
+            content.source_snapshot(content_imports.sources());
             navigation_tools.poll(scene, files.document, play.active(), message);
             automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +

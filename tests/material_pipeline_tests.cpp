@@ -1,6 +1,7 @@
 #include "material_authoring.hpp"
 #include "material_document.hpp"
 #include "material_selection.hpp"
+#include "material_watch_tests.hpp"
 #include "model_render_resource.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/material_source.hpp>
@@ -293,6 +294,7 @@ int main(int argc, char** argv) {
         submit(service, "Assets/fresh.material.json");
         done = finish(service);
         require(done.published, "Compatible texture selection failed: " + done.diagnostic);
+        test_material_watch(root / "watch-project");
         std::cout << "Material source/publication/resource/last-good/ancestry checks passed\n";
         return 0;
     } catch (const std::exception& e) {

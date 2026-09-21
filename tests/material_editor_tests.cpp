@@ -87,11 +87,38 @@ int main(int argc, char** argv) {
         require(!editor.is_open() && !editor.dirty() && !preview && releases >= 1,
                 "Successful material Save did not finish guarded close/release preview");
         require(ImGui::GetTopMostPopupModal() == nullptr, "Material Save left a stale modal");
-        const auto good = AssetCatalog::open_project(root).document();
+        auto good = AssetCatalog::open_project(root).document();
         require(AssetCatalog::open_project(root).records().contains(id),
                 "Material UI did not publish original UUID");
         editor.open(project, "Assets/source.material.json");
         frame();
+        {
+            const auto prior_releases = releases;
+            MaterialDocument external(project.writer_guard(), "Assets/source.material.json");
+            external.edit(external.revision(), "External roughness", [](auto& j) {
+                j["overrides"]["parameters"]["roughnessFactor"] = {{"type", 0}, {"value", {.42f}}};
+            });
+            external.save();
+            AssetImportService service(project.writer_guard(), material_import_registry(),
+                                       desktop_texture_target());
+            service.submit(
+                service.prepare("Assets/source.material.json"),
+                [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); },
+                [](const auto&, const auto&) {});
+            require(service.wait_idle(std::chrono::seconds(10)),
+                    "External source publication stalled");
+            const auto outcome = service.poll();
+            require(outcome.size() == 1 && outcome[0].published,
+                    "External source publication failed");
+            editor.source_published(project, id);
+            editor.asset_catalog_changed(
+                std::make_shared<const AssetCatalog>(outcome[0].publication->catalog));
+            frame();
+            require(!editor.dirty() && !editor.can_undo() && releases == prior_releases &&
+                        preview->values.parameters.at("roughnessFactor").value[0] == .42f,
+                    "Clean material hot reload lost preview ownership or retained stale source");
+            good = outcome[0].publication->catalog.document();
+        }
         const auto before_invalid = previews;
         editor.edit(editor.document()->revision(), "Invalid roughness", [](auto& j) {
             j["overrides"]["parameters"]["roughnessFactor"] = {{"type", 0}, {"value", {-1}}};

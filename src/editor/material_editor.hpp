@@ -69,6 +69,14 @@ class MaterialEditor {
         catalog_ = std::move(catalog);
         invalidate_base();
     }
+    void source_published(SceneDocument& project, AssetId id) {
+        if (!document_ || document_->source().asset() != id || dirty())
+            return;
+        auto next =
+            std::make_unique<MaterialDocument>(project.writer_guard(), document_->locator());
+        document_ = std::move(next);
+        invalidate_base(); // Preserve last-good preview/camera while the clean source reloads.
+    }
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
         if (ui::button("New material...", "Create a reusable material source. Edit and publish it "

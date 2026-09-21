@@ -6,6 +6,7 @@
 #include "search.hpp"
 #include <algorithm>
 #include <cctype>
+#include <forge/asset_discovery.hpp>
 #include <future>
 #include <set>
 #include <stop_token>
@@ -72,6 +73,41 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 class ContentBrowser {
   public:
     const ui::AssetEditors* editors = nullptr;
+    std::function<void()> rescan_sources, import_status;
+    std::function<bool(const std::filesystem::path&, const std::string&, bool)> open_source;
+    void source_snapshot(std::shared_ptr<const SourceSnapshot> snapshot) {
+        if (snapshot && snapshot->complete)
+            sources_ = std::move(snapshot);
+    }
+    void inspect_source(const std::string& locator) {
+        const auto path = std::filesystem::u8path(locator);
+        if (!sources_) {
+            ui::field_error("Source discovery is not ready.");
+            return;
+        }
+        const auto found = sources_->files.find(path);
+        if (found == sources_->files.end()) {
+            ui::field_error("This source is no longer present in the last complete scan.");
+            return;
+        }
+        const auto& source = found->second;
+        ImGui::TextWrapped("Source: %s", locator.c_str());
+        ui::help("A project file, not yet a registered logical asset. Import prepares a typed "
+                 "asset without changing scene content.");
+        ImGui::Text("Type: %s", source.source_kind.c_str());
+        ui::help("Recognized file kind; import still validates its actual contents.");
+        ImGui::Text("Size: %.1f KiB", double(source.bytes) / 1024);
+        ui::help("Source file size from the last complete background scan.");
+        if (open_source && open_source(path, source.source_kind, false)) {
+            if (ui::button("Open import / source", "Review this source in its registered central "
+                                                   "asset document. No scene edit."))
+                open_source(path, source.source_kind, true);
+        } else {
+            ImGui::TextWrapped("Use Create / Register for this source type's available tools.");
+        }
+        if (ui::button("Reveal source folder", "Open this project's source directory."))
+            SDL_OpenURL(ui::local_file_url((root_ / path).parent_path()).c_str());
+    }
     const AssetRecord* record(AssetId id) const {
         if (!catalog_)
             return nullptr;
@@ -222,6 +258,12 @@ class ContentBrowser {
                        "Refresh registered assets and discover saved scene documents.")) {
             rescan = true;
             error_.clear();
+            if (rescan_sources)
+                rescan_sources();
+        }
+        if (import_status) {
+            ui::next_text_button("Source updates");
+            import_status();
         }
         if (ImGui::BeginPopup("Asset operations")) {
             ImGui::BeginDisabled(locked);
@@ -286,6 +328,8 @@ class ContentBrowser {
         if (ImGui::BeginCombo("Type", type_.empty() ? "All assets" : type_.c_str())) {
             if (ImGui::Selectable("All assets", type_.empty()))
                 type_.clear();
+            if (ImGui::Selectable("Source files", type_ == "Source files"))
+                type_ = "Source files";
             std::set<std::string> types;
             if (catalog_)
                 for (const auto& [id, a] : catalog_->records()) {
@@ -310,6 +354,12 @@ class ContentBrowser {
                 for (const auto& [id, asset] : catalog_->records()) {
                     (void)id;
                     for (auto p = asset.source.parent_path(); !p.empty(); p = p.parent_path())
+                        folders.insert(path_text(p) + "/");
+                }
+            if (sources_)
+                for (const auto& [path, source] : sources_->files) {
+                    (void)source;
+                    for (auto p = path.parent_path(); !p.empty(); p = p.parent_path())
                         folders.insert(path_text(p) + "/");
                 }
             for (const auto& folder : folders)
@@ -391,6 +441,46 @@ class ContentBrowser {
                     ImGui::TableNextColumn();
                     ImGui::TextUnformatted(a.type.c_str());
                 }
+            if (sources_ && (type_.empty() || type_ == "Source files")) {
+                std::set<std::filesystem::path, ProjectLocatorLess> registered;
+                if (catalog_)
+                    for (const auto& [id, record] : catalog_->records()) {
+                        (void)id;
+                        registered.insert(record.source);
+                    }
+                for (const auto& [path, source] : sources_->files) {
+                    const auto label = path_text(path);
+                    if (registered.contains(path) || source.source_kind == "unrecognized" ||
+                        !source.alias_of.empty() ||
+                        search_key(label + " " + source.source_kind).find(search_key(filter_)) ==
+                            std::string::npos ||
+                        !search_key(label).starts_with(search_key(folder_)))
+                        continue;
+                    ++count;
+                    ui::IdScope scope(label.c_str());
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    const bool selected = selection.kind() == ui::SelectionKind::DocumentItem &&
+                                          selection.document() == "content.source" &&
+                                          selection.member() == label;
+                    if (ImGui::Selectable(label.c_str(), selected,
+                                          ImGuiSelectableFlags_AllowDoubleClick |
+                                              ImGuiSelectableFlags_SpanAllColumns)) {
+                        selection.select_document_item("content.source", label);
+                        if (ui::editor_context)
+                            ui::editor_context->task.focus_document("content.source",
+                                                                    "Source file");
+                        if (!locked && ImGui::IsMouseDoubleClicked(0) && open_source)
+                            open_source(path, source.source_kind, true);
+                    }
+                    ui::help("Unimported source. Select for source information; double-click "
+                             "supported types to review import or material source settings. No "
+                             "persistent asset identity is allocated by browsing.");
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Source / %s", source.source_kind.c_str());
+                    ui::help("This file is not registered as a logical asset yet.");
+                }
+            }
             if (!count) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -410,6 +500,7 @@ class ContentBrowser {
   private:
     std::filesystem::path root_;
     std::optional<AssetCatalog> catalog_;
+    std::shared_ptr<const SourceSnapshot> sources_;
     ui::EditorSelection fallback_;
     AssetId inspected_;
     std::string error_, type_;
@@ -426,6 +517,7 @@ class ContentBrowser {
         stop_.request_stop();
         root_ = files.document.project();
         catalog_.reset();
+        sources_.reset();
         error_.clear();
         refreshed_ = 0;
         refresh_again_ = true;

@@ -1,5 +1,6 @@
 #pragma once
 #include "../asset_import_service.hpp"
+#include "../asset_reimport.hpp"
 #include "document.hpp"
 #include "import_settings.hpp"
 #include <utility>
@@ -26,6 +27,24 @@ class AssetImportEditor {
     AssetId selected_asset() const { return draft_ ? draft_->ticket.owner : AssetId{}; }
     std::uint64_t selection_generation() const { return selection_generation_; }
     bool pending() const { return job_ != 0; }
+    std::vector<AssetReimportRoute> automatic_routes() const {
+        const auto registry = profile_.registry();
+        const auto prepare = profile_.publish;
+        std::vector<AssetReimportRoute> result;
+        for (const auto& descriptor : registry->descriptors())
+            result.push_back({descriptor.id, profile_.target, registry,
+                              [prepare](auto& c, const auto& p, const auto& catalog) {
+                                  prepare(c, p, catalog, {});
+                              }});
+        return result;
+    }
+    void source_published(AssetId id) {
+        if (!open_ || !draft_ || selected_asset() != id || dirty())
+            return;
+        const bool focus = focus_;
+        load(draft_->request.source);
+        focus_ = focus; // Background reimport must not steal document focus.
+    }
     const std::vector<SubassetIdentityConflict>& identity_conflicts() const { return conflicts_; }
     void decide_identity(const std::string& address, std::optional<AssetId> previous) {
         if (pending())

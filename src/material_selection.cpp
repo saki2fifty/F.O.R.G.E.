@@ -79,7 +79,8 @@ MaterialSelection load_material_selection(const std::filesystem::path& project,
                     input.at("importer_revision") == metadata.at("importer_revision") &&
                     input.at("output_format") == metadata.at("output_format") &&
                     input.at("output_version") == metadata.at("output_version") &&
-                    asset_build_digest(a.manifest.at("files")) == metadata.at("artifact_digest"),
+                    asset_build_digest(a.manifest.at("files")) ==
+                        metadata.at("artifact_digest").get<std::string>(),
                 "Material artifact and selected catalog revision disagree");
     });
     auto data = decode_material_bundle(artifact.files, ref.id);

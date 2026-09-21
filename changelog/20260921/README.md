@@ -690,3 +690,31 @@
 - Updated local results: material/import 3/3 normal (5.53 s), strict sanitizers
   3/3 (6.23 s), Material UI/assignment 1/1 (1.37 s). Add actual Windows editor
   captures for Material at 100% and 200% UI scale, in addition to native pixel tests.
+
+### Content sources and automatic reimport
+
+- Add asynchronous project-contained source polling, coalesced rescans, incomplete
+  scan recovery and exact self-write suppression across overlapping scans. Root
+  traversal does not weaken asset locator containment or create identities.
+- Show recognized unregistered sources in Content with a Source files filter,
+  source Inspector and supported central import/source-document dispatch.
+- Automatically reimport registered Texture/Model/Material/Shader assets through
+  their existing sealed providers and publication service. Order build dependencies,
+  defer dirty/pending documents, cancel superseded candidates and retain last-good
+  assets on missing sources, invalid content or failed import.
+- Expose Source updates status, queued/active work and manual retry. Refresh clean
+  documents, dependent material selections and scene resources after publication.
+- Record exact publication write receipts and sidecar digests. Unchanged startup
+  scans do not republish assets; changed source, sidecar, importer/profile and
+  captured dependency revisions are reconciled. Legacy metadata refreshes once.
+- Correct the MSVC C++20 string/JSON comparison that stopped source e2c0775 Windows
+  compilation. Both Windows core profiles and the native audit encountered that
+  same error; native material validation has not yet run on the corrected source.
+- Local validation: source/import/publication/material tests 4/4 pass (18.66 s);
+  the added offline dependency-startup regression also passes (9.41 s). Final
+  ASan/UBSan/LeakSanitizer tests 4/4 pass (18.89 s); Material/Model/Texture editor
+  tests 3/3 pass (4.40 s), editor process/scaling 1/1 pass (11.51 s). Manual tests,
+  formatting and adapted native main syntax pass. Add discovery to Windows audit
+  target/filter lists. Windows validation of this source remains pending.
+- Whole Phase7 remains in progress. No numbered package, file-management completion
+  or production-scale watcher performance claim is made by this checkpoint.

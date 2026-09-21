@@ -1,8 +1,8 @@
 # Source discovery and observation
 
 `scan_asset_sources` is a bounded, read-only full scan using `ProjectPaths`.
-It serves `forge_tools --assets scan`; the editor/native watcher adapter and
-automatic catalog/sidecar move transactions are not connected yet. Scanning does
+It serves `forge_tools --assets scan` and the editor polling watcher. Automatic
+catalog/sidecar move transactions are not connected yet. Scanning does
 not assign logical asset identity or claim importer support from a suffix.
 
 ## Inventory and limits
@@ -24,9 +24,10 @@ incomplete. Diagnostics are capped at256, while the incomplete flag is retained.
 
 Defaults:100k files,10k directories,64 levels,512MiB/file and8GiB total bytes read.
 Caller overrides remain bounded. Cancellation is checked between entries; a single
-bounded file read/hash is synchronous. No editor-main-thread polling is authorized
-by this API. A later watcher should debounce notifications and dispatch scans to
-the content worker, with manual/full-rescan recovery.
+bounded file read/hash is synchronous. File reads/hashing run on the polling worker; the owner thread receives copied
+observations and debounced changes. `include_project_root` permits traversal of
+project-contained sources outside Assets without making the project root a valid
+asset locator. `ProjectPaths::resolve(".")` remains rejected.
 
 ## Change tracking
 
@@ -84,3 +85,26 @@ and nonzero exit code; prior catalog/sidecar selections remain intact. The proce
 wait is bounded. The packaged worker is resolved beside the actual running executable,
 including PATH launches from other working directories. Projects can be relocated
 and rebuilt from sources/sidecars/catalog with an empty disposable cache.
+
+## Editor watch and automatic reimport
+
+`AssetSourceWatch` owns one asynchronous scan, coalesces rescan requests, debounces
+through `SourceChangeTracker` and cancels/joins before destruction. The default
+interval is two seconds after completion; callers may select 100ms–10min. Before
+the initial observation it is incomplete. Failed scans never generate deletions.
+A self-write receipt remains pending when an overlapping scan observes another
+path first; only an actual matching create/modify is suppressed.
+
+`AssetReimportService` uses the sealed importer routes and existing shared import
+service/publisher. It only schedules registered root assets, with one active job
+and at most 64 queued candidates considered per owner poll. Build edges order
+dependent work. Root/additional-source digests, committed sidecar digest and exact
+importer/target revision determine whether observations require rebuilding. Dirty
+document guards defer work. New generations cancel superseded work before debounce;
+the publisher independently verifies captured inputs again at commit.
+
+Successful publications notify resource/document consumers and enqueue graph
+dependents. Failed candidates retain the catalog and cooked selection and report
+diagnostics. Manual retry clears failed work; unchanged startup observations do
+not needlessly publish new generations. Full scans/hash copies are bounded by
+existing scan limits, not a claim of constant-time or production-scale throughput.

@@ -1,3 +1,4 @@
+#include "asset_watch.hpp"
 #include <algorithm>
 #include <forge/asset_discovery.hpp>
 #include <forge/identity.hpp>
@@ -153,6 +154,29 @@ int main(int argc, char** argv) {
         require(tracker.drain(now + 6200ms).size() == 1, "External write incorrectly suppressed");
         rejects([&] { tracker.acknowledge_write("Assets/copy.png", "not-a-digest"); });
 
+        // An overlapping scan can observe an unrelated path before it sees our
+        // committed write. Draining that path must not discard our receipt.
+        {
+            auto before = scan_asset_sources(project);
+            SourceChangeTracker delayed(before, 0ms);
+            auto after = before;
+            after.files.at("Assets/copy.png").digest = authored.files.at("Assets/copy.png").digest;
+            delayed.acknowledge_write("Assets/copy.png", after.files.at("Assets/copy.png").digest);
+            auto unrelated = before.files.at("Assets/copy.png");
+            unrelated.source = "Assets/unrelated.png";
+            before.files.emplace("Assets/unrelated.png", unrelated);
+            after.files.emplace("Assets/unrelated.png", unrelated);
+            delayed.observe(before, now);
+            require(delayed.drain(now).size() == 1,
+                    "Unrelated change disappeared behind self-write receipt");
+            delayed.observe(after, now + 1s);
+            require(delayed.drain(now + 1s).empty(),
+                    "Overlapping scan consumed an unobserved self-write receipt");
+            delayed.observe(before, now + 2s);
+            require(delayed.drain(now + 2s).size() == 1,
+                    "Consumed self-write receipt hid a later external change");
+        }
+
         // Atomic same-content replacement refreshes ephemeral identity evidence.
         write(project / "replacement", "external write");
         std::filesystem::remove(project / "Assets/copy.png");
@@ -196,6 +220,80 @@ int main(int argc, char** argv) {
                     "Directory alias loop not bounded");
         } else {
             std::cout << "Symlink fixture unavailable: " << link_error.message() << '\n';
+        }
+        {
+            const auto watched = scratch / "watched";
+            write(watched / "surface.hlsl", "first");
+            write(watched / "Assets/image.png", "pixels");
+            write(watched / ".forge/cache/ignored.bin", "derived");
+            SourceScanOptions all;
+            all.include_project_root = true;
+            all.max_file_bytes = 64;
+            const auto root_scan = scan_asset_sources(watched, all);
+            require(root_scan.complete && root_scan.files.size() == 2 &&
+                        root_scan.files.contains("surface.hlsl") &&
+                        !root_scan.files.contains(".forge/cache/ignored.bin"),
+                    "Project-wide traversal omitted root sources or admitted derived cache");
+            rejects([&] { (void)ProjectPaths(watched).resolve("."); });
+            AssetSourceWatch watch(watched, all, 10min, 0ms);
+            const auto initial_generation = watch.generation();
+            auto next = [&] {
+                const auto deadline = AssetSourceWatch::Clock::now() + 5s;
+                for (;;) {
+                    if (auto update = watch.poll())
+                        return *update;
+                    require(AssetSourceWatch::Clock::now() < deadline, "Watch delivery stalled");
+                    std::this_thread::sleep_for(1ms);
+                }
+            };
+            require(!watch.complete(), "Watch reported complete before initial scan");
+            auto update = next();
+            require(watch.complete() && update.generation == initial_generation + 1 &&
+                        update.changes.size() == 2,
+                    "Watch did not deliver deterministic initial discovery");
+            const auto old_stamp = std::filesystem::last_write_time(watched / "surface.hlsl");
+            write(watched / "surface.hlsl", "other");
+            std::filesystem::last_write_time(watched / "surface.hlsl", old_stamp);
+            for (int i = 0; i < 20; ++i)
+                watch.rescan();
+            update = next();
+            require(update.changes.size() == 1 &&
+                        update.changes[0].kind == SourceChangeKind::Modified &&
+                        update.generation == initial_generation + 2,
+                    "Manual rescan did not coalesce or relied on timestamps");
+            write(watched / "surface.hlsl", "saved");
+            const auto saved = scan_asset_sources(watched, all);
+            watch.acknowledge_write("surface.hlsl", saved.files.at("surface.hlsl").digest);
+            watch.rescan();
+            update = next();
+            require(update.changes.empty(), "Exact self-write suppression repeated an edit");
+            std::filesystem::rename(watched / "surface.hlsl", watched / "renamed.hlsl");
+            watch.rescan();
+            update = next();
+            require(update.changes.size() == 1 &&
+                        update.changes[0].kind == SourceChangeKind::Moved &&
+                        update.changes[0].previous_source == "surface.hlsl" &&
+                        update.changes[0].source == "renamed.hlsl",
+                    "Watch discarded reliable source move evidence");
+            std::filesystem::remove(watched / "renamed.hlsl");
+            write(watched / "too-large.bin", std::string(65, 'x'));
+            watch.rescan();
+            update = next();
+            require(!watch.complete() && !update.snapshot->complete && update.changes.empty(),
+                    "Incomplete watch scan inferred deletion");
+            std::filesystem::remove(watched / "too-large.bin");
+            watch.rescan();
+            update = next();
+            require(watch.complete() && update.changes.size() == 1 &&
+                        update.changes[0].kind == SourceChangeKind::Removed,
+                    "Rescan did not recover the pending deletion after scan failure");
+            auto off_thread = std::async(std::launch::async, [&] {
+                rejects([&] { watch.rescan(); });
+                rejects([&] { (void)watch.poll(); });
+            });
+            off_thread.get();
+            watch.rescan();
+            (void)watch.poll(); // Destruction cancels/joins an in-flight scan.
         }
         std::cout << "Source discovery and debounced change tracking passed\n";
         return 0;
