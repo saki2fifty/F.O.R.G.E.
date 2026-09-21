@@ -55,9 +55,11 @@ class MeshSceneRenderer {
         std::uint64_t epoch = 0;
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
         std::unique_ptr<MeshDrawBundle> ready;
-        MeshBounds bounds;
+        MeshInstancePose pose;
+        std::optional<MeshPoseGeometry> candidate_geometry;
         std::vector<float> thresholds;
-        std::string error;
+        std::string error, pose_error;
+        std::optional<bool> failed_skin_mode;
     };
     bool update_environment(const RenderScene&);
     void report(EntityId, const std::string&);

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <forge/render_components.hpp>
 #include <forge/runtime.hpp>
 #include <stdexcept>
 namespace forge {
@@ -309,6 +310,9 @@ Json RuntimeSimulation::presentation(double alpha) const {
         }
         if (animation_) {
             auto pose = animation_->presentation(entity, alpha);
+            const auto node = context_.world().entity(entity);
+            if (node.has<Animator>() && node.has<ModelSource>())
+                item["model_animation_ready"] = !pose.is_null();
             if (!pose.is_null())
                 item["animation_pose"] = std::move(pose);
         }

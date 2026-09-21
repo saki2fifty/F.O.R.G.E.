@@ -15,6 +15,7 @@ struct SkinPose {
     MeshBounds source_bounds;
     std::vector<AffineTransform> palette;
     RenderBounds bounds;
+    bool operator==(const SkinPose&) const = default;
 };
 SkinPose prepare_skin_pose(std::span<const AffineTransform> joint_world,
                            std::span<const AffineTransform> inverse_bind,

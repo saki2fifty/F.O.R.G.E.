@@ -47,6 +47,57 @@ MeshResourceData model_mesh_resource(const ModelSelection& selected, AssetRef<Me
     require(member.identity.type == MeshAsset::type, "Selected resource is not a mesh");
     MeshResourceData result;
     result.mesh = decode_mesh(selected.bytes(member));
+    if (selected.index.version >= 3) {
+        MeshModelBindings bindings{selected.owner, selected.revision, {}, {}};
+        std::map<std::size_t, AssetId> node_assets;
+        for (const auto& value : selected.index.members)
+            if (value.node)
+                require(
+                    node_assets.emplace(*value.node, selected.bindings.at(value.identity.address))
+                        .second,
+                    "Model mesh has duplicate node identities");
+        const auto& hierarchy = selected.index.hierarchy;
+        const auto* animation =
+            hierarchy.contains("animation") ? &hierarchy.at("animation").at("plan") : nullptr;
+        std::map<std::size_t, std::size_t> skin_indices;
+        const auto& nodes = hierarchy.at("nodes");
+        for (std::size_t index = 0; index < nodes.size(); ++index) {
+            const auto& node = nodes[index];
+            if (node.at("mesh").is_null() || node.at("mesh") != member.identity.address)
+                continue;
+            MeshModelNodeBinding binding;
+            binding.node = node_assets.at(index);
+            binding.morph_weights = node.at("weights").empty()
+                                        ? result.mesh.morph_defaults
+                                        : node.at("weights").get<std::vector<float>>();
+            binding.visible = node.value("visible", true);
+            binding.selectable = node.value("selectable", true);
+            if (animation && !animation->at("node_skins").at(index).is_null()) {
+                const auto source_skin = animation->at("node_skins").at(index).get<std::size_t>();
+                auto [found, inserted] = skin_indices.emplace(source_skin, bindings.skins.size());
+                if (inserted) {
+                    MeshSkinBinding skin;
+                    const auto& source = animation->at("skins").at(source_skin);
+                    const auto& joint_nodes = animation->at("joint_nodes");
+                    for (std::size_t joint = 0; joint < source.at("joints").size(); ++joint) {
+                        const auto rig_index = source.at("joints")[joint].get<std::size_t>();
+                        skin.joints.push_back(
+                            node_assets.at(joint_nodes.at(rig_index).get<std::size_t>()));
+                        AffineTransform inverse;
+                        const auto& matrix = source.at("inverse_bind_matrices").at(joint);
+                        for (unsigned row = 0; row < 3; ++row)
+                            for (unsigned col = 0; col < 4; ++col)
+                                inverse.m[row * 4 + col] = matrix.at(col * 4 + row).get<double>();
+                        skin.inverse_bind.push_back(inverse);
+                    }
+                    bindings.skins.push_back(std::move(skin));
+                }
+                binding.skin = found->second;
+            }
+            bindings.nodes.push_back(std::move(binding));
+        }
+        result.model = std::move(bindings);
+    }
     std::set<std::uint32_t> used;
     for (const auto& lod : result.mesh.lods)
         for (const auto& part : lod.parts)

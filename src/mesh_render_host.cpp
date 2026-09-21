@@ -77,6 +77,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         changed = true;
     }
     changed |= update_environment(scene);
+    const ModelSceneIndex model_index(scene);
     std::set<EntityId> used;
     for (const auto& mesh : scene.meshes) {
         used.insert(mesh.entity);
@@ -85,6 +86,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         if (entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
             entry.overrides != renderer.materials) {
             entry.candidate.reset();
+            entry.candidate_geometry.reset();
+            entry.failed_skin_mode.reset();
             entry.epoch = host_->epoch_;
             entry.mesh = renderer.mesh;
             entry.overrides = renderer.materials;
@@ -102,43 +105,66 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             entry.candidate->advance(host_->epoch_, host_->meshes_, host_->materials_,
                                      host_->textures_);
             if (const auto* candidate = entry.candidate->ready()) {
+                bool pose_validated = false;
                 try {
+                    if (!entry.candidate_geometry)
+                        entry.candidate_geometry =
+                            prepare_mesh_pose_geometry(candidate->mesh->mesh);
+                    auto pose = prepare_mesh_instance_pose(
+                        candidate->mesh.get(), *entry.candidate_geometry, mesh, model_index);
+                    pose_validated = true;
                     auto native = std::make_unique<MeshDrawBundle>(
                         host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
-                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT);
-                    MeshBounds bounds;
-                    bool first = true;
+                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned);
                     std::vector<float> thresholds;
-                    for (const auto& lod : candidate->mesh->mesh.lods) {
+                    for (const auto& lod : candidate->mesh->mesh.lods)
                         thresholds.push_back(lod.screen_coverage);
-                        for (const auto& part :
-                             native->parts(static_cast<unsigned>(thresholds.size() - 1))) {
-                            for (unsigned axis = 0; axis < 3; ++axis) {
-                                bounds.minimum[axis] = first ? part.bounds.minimum[axis]
-                                                             : std::min(bounds.minimum[axis],
-                                                                        part.bounds.minimum[axis]);
-                                bounds.maximum[axis] = first ? part.bounds.maximum[axis]
-                                                             : std::max(bounds.maximum[axis],
-                                                                        part.bounds.maximum[axis]);
-                            }
-                            first = false;
-                        }
-                    }
                     native->environment(environment_ready_);
                     entry.ready = std::move(native);
-                    entry.bounds = bounds;
+                    entry.pose = std::move(pose);
                     entry.thresholds = std::move(thresholds);
                     entry.error.clear();
+                    entry.candidate.reset();
+                    entry.candidate_geometry.reset();
                     changed = true;
                 } catch (const std::exception& e) {
                     entry.error = e.what();
+                    if (pose_validated) {
+                        entry.candidate.reset();
+                        entry.candidate_geometry.reset();
+                    }
                 }
-                entry.candidate.reset();
+                // A temporarily unavailable binding/revision remains retryable.
             } else if (entry.candidate->state() != ResourceState::Loading) {
                 entry.error = entry.candidate->diagnostic();
                 entry.candidate.reset();
             }
         }
+        if (entry.ready) {
+            try {
+                auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
+                                                       entry.ready->geometry(), mesh, model_index);
+                if (pose.skinned != entry.ready->skinned()) {
+                    if (entry.failed_skin_mode == pose.skinned)
+                        throw std::runtime_error(entry.pose_error);
+                    entry.failed_skin_mode = pose.skinned;
+                    auto native = std::make_unique<MeshDrawBundle>(
+                        host_->presentation_, host_->context_, entry.ready->prepared(),
+                        host_->gpu_meshes_, host_->gpu_textures_, color_,
+                        Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned);
+                    native->environment(environment_ready_);
+                    entry.ready = std::move(native);
+                }
+                entry.failed_skin_mode.reset();
+                changed |= pose != entry.pose;
+                entry.pose = std::move(pose);
+                entry.pose_error.clear();
+            } catch (const std::exception& e) {
+                entry.pose_error = e.what();
+            }
+        }
+        if (!entry.pose_error.empty())
+            report(mesh.entity, entry.pose_error + " (previous complete pose retained)");
         if (!entry.error.empty())
             report(mesh.entity,
                    entry.error + (entry.ready ? " (previous complete draw retained)" : ""));
@@ -229,6 +255,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     struct Object {
         const RenderMesh* mesh;
         MeshDrawBundle* bundle;
+        const MeshInstancePose* pose;
         unsigned lod;
         std::vector<LightView> lights;
         std::vector<int> shadow_slots;
@@ -249,7 +276,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         auto& entry = found->second;
         const auto queue_start = queue.size();
         try {
-            const auto bounds = transform_bounds(entry.bounds, mesh.world);
+            const auto bounds = mesh_instance_bounds(entry.pose, camera.position);
             if (!bounds_visible(bounds, camera))
                 continue;
             const float coverage = bounds_screen_coverage(bounds, camera);
@@ -257,7 +284,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (unsigned i = 0; i < entry.thresholds.size(); ++i)
                 if (coverage <= entry.thresholds[i])
                     lod = i;
-            Object object{&mesh, entry.ready.get(), lod, {}, {}};
+            Object object{&mesh, entry.ready.get(), &entry.pose, lod, {}, {}};
             for (const auto& light : scene.lights)
                 if (light.light.layers & mesh.renderer.layers & layers) {
                     if (object.lights.size() == mesh_draw_light_limit)
@@ -270,11 +297,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto parts = entry.ready->parts(lod);
             for (unsigned i = 0; i < parts.size(); ++i) {
                 const auto& part = parts[i];
-                const auto part_bounds = transform_bounds(part.bounds, mesh.world);
+                const auto part_bounds = mesh_part_bounds(entry.pose, lod, i, camera.position);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
                 RenderSortKey key{part.transmission ? MaterialAlpha::Blend : part.alpha,
-                                  transform_parity(mesh.world),
+                                  entry.pose.skinned ? TransformParity::Positive
+                                                     : transform_parity(entry.pose.world),
                                   part.material,
                                   entry.ready->mesh_identity().asset,
                                   bounds_camera_depth(part_bounds, camera),
@@ -339,7 +367,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 item.key.part, environment_ready_ ? &lighting : nullptr,
                 object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
                 &shadows_->lighting(), object.shadow_slots,
-                transmission.background ? &transmission : nullptr);
+                transmission.background ? &transmission : nullptr, object.pose);
         } catch (const std::exception& e) {
             report(object.mesh->entity, e.what());
         }
@@ -353,7 +381,7 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
     struct Caster {
         const RenderMesh* source;
         MeshDrawBundle* bundle;
-        RenderBounds bounds;
+        const MeshInstancePose* pose;
     };
     std::vector<Caster> casters;
     std::vector<ShadowCasterBounds> bounds;
@@ -364,8 +392,8 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
         if (found == entries_.end() || !found->second.ready)
             continue;
         try {
-            auto world_bounds = transform_bounds(found->second.bounds, mesh.world);
-            casters.push_back({&mesh, found->second.ready.get(), world_bounds});
+            auto world_bounds = mesh_instance_bounds(found->second.pose, camera.position);
+            casters.push_back({&mesh, found->second.ready.get(), &found->second.pose});
             bounds.push_back({world_bounds, mesh.renderer.layers});
         } catch (const std::exception& error) {
             report(mesh.entity, error.what());
@@ -375,8 +403,12 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
         host_->context_, scene, camera, layers, bounds,
         [&](const CameraView& view, std::uint32_t mask) {
             for (const auto& caster : casters)
-                if ((caster.source->renderer.layers & mask) && bounds_visible(caster.bounds, view))
-                    caster.bundle->draw_shadow(host_->context_, caster.source->world, view);
+                if (caster.source->renderer.layers & mask) {
+                    // Skin arithmetic uses this shadow camera's origin too.
+                    if (bounds_visible(mesh_instance_bounds(*caster.pose, view.position), view))
+                        caster.bundle->draw_shadow(host_->context_, caster.pose->world, view, 0,
+                                                   caster.pose);
+                }
         });
     for (const auto& error : shadows_->diagnostics())
         if (diagnostics_.size() < 256)

@@ -3,6 +3,8 @@
 #include <forge/mesh_asset.hpp>
 #include <forge/render_components.hpp>
 #include <forge/resource.hpp>
+#include <forge/transform.hpp>
+#include <optional>
 namespace forge {
 // Keys are stable within one logical mesh. Physical slot numbers belong only to
 // this cooked revision and must never identify an authored override.
@@ -18,9 +20,29 @@ struct MeshMaterialSelection {
     // Retain authored entries when reimport removes a slot. Never guess a target.
     std::vector<std::string> unresolved;
 };
+struct MeshSkinBinding {
+    // Ordered skin binding, addressed by each prepared part's joint palette.
+    std::vector<AssetId> joints;
+    std::vector<AffineTransform> inverse_bind;
+};
+struct MeshModelNodeBinding {
+    AssetId node;
+    std::optional<std::size_t> skin;
+    std::vector<float> morph_weights;
+    bool visible = true, selectable = true;
+};
+struct MeshModelBindings {
+    AssetId model;
+    std::string revision;
+    std::vector<MeshSkinBinding> skins;
+    std::vector<MeshModelNodeBinding> nodes;
+};
 struct MeshResourceData {
     MeshData mesh;
     std::vector<MeshMaterialBinding> materials;
+    // Immutable copied provenance/bind data, never another live node hierarchy.
+    // Empty for independent and engine meshes or legacy cooks without node IDs.
+    std::optional<MeshModelBindings> model;
     std::size_t resident_bytes() const;
 };
 void validate_mesh_material_bindings(const MeshResourceData& mesh);

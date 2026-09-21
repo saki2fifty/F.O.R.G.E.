@@ -1,4 +1,5 @@
 #include "mesh_morph.hpp"
+#include "model_instance_pose_tests.hpp"
 #include "render_bounds.hpp"
 #include "render_projection.hpp"
 #include "render_sort.hpp"
@@ -26,6 +27,7 @@ template <class F> void rejects(F action) {
 int main() {
     try {
         using namespace forge;
+        check_model_instance_poses();
         const MeshBounds unit{{-1, -1, -1}, {1, 1, 1}};
         {
             std::mt19937 random(47181);

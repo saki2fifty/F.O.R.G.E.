@@ -16,7 +16,7 @@ class MeshDraw {
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
-             Diligent::TEXTURE_FORMAT depth_format);
+             Diligent::TEXTURE_FORMAT depth_format, bool enable_skin = true);
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);

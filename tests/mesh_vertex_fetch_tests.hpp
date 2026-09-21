@@ -36,6 +36,10 @@ void check_mesh_vertex_fetch(forge::DiligentPresentation& presentation,
     require(fetch.uv_sets == std::vector<unsigned>{19} && fetch.normal && fetch.tangent &&
                 fetch.color && fetch.skin,
             "Vertex fetch lost selected UV or vertex channels");
+    const auto ordinary = forge::mesh_vertex_fetch(uploaded, profile, false);
+    require(!ordinary.skin && ordinary.normal && ordinary.tangent && ordinary.color &&
+                ordinary.source.find("v.Joints =") == std::string::npos,
+            "Unskinned node incorrectly enabled skinning from mesh attributes");
     auto shader = [&](SHADER_TYPE stage, const std::string& source) {
         ShaderCreateInfo ci;
         ci.Desc.Name = "FORGE indexed vertex-fetch acceptance";

@@ -73,6 +73,18 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
             "Replacement retargeted an old lease or mixed generations");
     auto weak = newer.clip.weak();
     const auto selected = load_model_selection(project, catalog, request.model);
+    const auto mesh_resource = model_mesh_resource(selected, {members.at("/meshes/0")});
+    require(mesh_resource.model && mesh_resource.model->model == request.model &&
+                mesh_resource.model->revision == request.revision &&
+                mesh_resource.model->nodes.size() == 1 &&
+                mesh_resource.model->nodes[0].node == members.at("/nodes/0") &&
+                mesh_resource.model->nodes[0].skin == 0 &&
+                mesh_resource.model->nodes[0].morph_weights == std::vector<float>{0} &&
+                mesh_resource.model->skins.size() == 1 &&
+                mesh_resource.model->skins[0].joints ==
+                    std::vector<AssetId>{members.at("/nodes/1"), members.at("/nodes/2")} &&
+                mesh_resource.model->skins[0].inverse_bind == std::vector<AffineTransform>(2),
+            "Model mesh resource lost skin joint order, inverse binds or node default weights");
     const auto artifact = project / ".forge/cache/derived" / request.revision /
                           selected.member(clip.id).artifact.file;
     const auto good_bytes = read_bytes(artifact, 16 * 1024 * 1024);

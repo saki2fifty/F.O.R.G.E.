@@ -15,5 +15,6 @@ struct MeshVertexFetch {
 };
 // Generated shader adapter for admitted GPU resources. No input-layout truncation
 // or conversion of integer joints. The caller supplies a zero-based indexed draw.
-MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart&, const PbrMaterialProfile&);
+MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart&, const PbrMaterialProfile&,
+                                  bool enable_skin = true);
 } // namespace forge

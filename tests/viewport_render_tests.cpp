@@ -192,7 +192,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 int main(int argc, char** argv) {
     ComPtr<ID3D12InfoQueue> diagnostics;
     try {
-        require(argc == 2, "Expected image output directory");
+        require(argc == 2 || argc == 3, "Expected image output directory and optional render case");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
         ComPtr<ID3D12Debug> debug;
@@ -226,6 +226,27 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IDeviceContext> context;
         factory->AttachToD3D12Device(native.Get(), 1, queues, engine, &device, &context);
         require(device && context, "Diligent device attachment failed");
+        if (argc == 3) {
+            const std::string selected = argv[2];
+            forge::DiligentPresentation isolated(device);
+            if (selected == "morph")
+                check_morph_render(isolated, context, images);
+            else if (selected == "skin")
+                check_skin_draw(isolated, context, images);
+            else if (selected == "frame")
+                check_frame_renderer(isolated, context, images);
+            else if (selected == "optics") {
+                check_display_resolve(isolated, context, images);
+                check_transmission_background(isolated, context);
+                check_transmission_render(isolated, context, images);
+                check_shadow_views(isolated);
+                check_shadow_render(isolated, context, images);
+            } else
+                throw std::runtime_error("Unknown isolated rendering acceptance case");
+            context->WaitForIdle();
+            std::cout << "Isolated rendering case passed: " << selected << "\n";
+            return 0;
+        }
         forge::test::diligent_shaders(
             device, context, [&](ITextureView* view, const std::string& name) {
                 const auto pixels = readback(device, context, view);

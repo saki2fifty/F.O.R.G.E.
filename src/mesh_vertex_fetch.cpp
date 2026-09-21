@@ -71,7 +71,8 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
     }
 }
 } // namespace
-MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProfile& material) {
+MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProfile& material,
+                                  bool enable_skin) {
     using namespace Diligent;
     require(mesh.vertices && mesh.vertex_count && mesh.stride && mesh.stride % 4 == 0,
             "missing or invalid vertex buffer");
@@ -125,7 +126,7 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProf
     result.normal = load("NORMAL", "Normal", 3, 3, VT_FLOAT32, false);
     result.tangent = load("TANGENT", "Tangent", 4, 4, VT_FLOAT32, false);
     result.color = load("COLOR_0", "Color", 3, 4, VT_FLOAT32, false);
-    result.skin = mesh.find("JOINTS_0") || mesh.find("WEIGHTS_0");
+    result.skin = enable_skin && (mesh.find("JOINTS_0") || mesh.find("WEIGHTS_0"));
     if (result.skin) {
         require(!mesh.joint_palette.empty(), "skin channels need an admitted draw palette");
         load("JOINTS_0", "Joints", 4, 4, VT_UINT32, true);

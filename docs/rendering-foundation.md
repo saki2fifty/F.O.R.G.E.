@@ -745,7 +745,7 @@ The shader source and CPU pose preparation have local compile/math tests. Native
 Windows fixtures now cover asymmetric reflection, sequential zero crossing,
 positive-joint/negative-blend orientation, ignored singular mesh nodes, large
 coordinates, invalid palettes and matching shadow depth. Their GPU execution is
-pending. Scene/model instance bindings and runtime-driven palettes remain to be
+pending. Scene/model instance bindings and runtime-driven palettes were subsequently
 connected; this section does not claim the complete animated-model workflow.
 
 
@@ -765,3 +765,39 @@ the corresponding binding profile and successful native pipeline creation. The
 mixed array/lighting compiler check also passes with the default FXC flags. Full
 Diligent rendering regression remains pending; compiler success alone does not
 establish native binding or hardware compatibility.
+
+
+### Scene-to-mesh pose integration — 2026-09-21
+
+The shared visual host now prepares each model mesh from its immutable CPU revision,
+source-node binding, and detached scene snapshot. Required skin joints resolve by
+`(ordinary model root EntityId, ModelNodeAssetId)`; a different instance is never a
+fallback. Actual extracted joint WorldTransforms multiply immutable inverse binds.
+The mesh-node world matrix applies to an unskinned node and is ignored for a skinned
+node. Joint vertex attributes alone do not enable skinning. This follows the pinned
+DiligentFX `GLTF_PBR_Renderer.cpp` node `SkinTransformsIndex` / `JointCount` contract.
+No additional live hierarchy or authored matrix authority is introduced.
+
+A runtime pose must match the mesh's model AssetId and immutable model revision.
+Missing/duplicate bindings, unavailable animation, invalid weights or mismatched
+revisions retain the previous complete draw and pose with a diagnostic. A pending
+CPU candidate retries when its instance becomes valid; failed GPU realization waits
+for a new asset selection/publication instead of recompiling every frame. Complete
+CPU revision leases survive their GPU bundle and derived pose. Moving an object
+while its pose is rejected does not partly move the retained draw.
+
+Morph target POSITION intervals are prepared once from admitted vertex deltas;
+each pose evaluates signed weights in O(targets), without rescanning vertices.
+Color and shadow submission receive the same morph weights and per-part skin
+palettes. Culling/LOD/sorting use deformed bounds, with skin floating-point padding
+recomputed for the actual color or shadow camera origin. LODs share one admitted
+pose, and material/mesh resource replacement remains a whole-candidate operation.
+
+CPU regression coverage includes two instances of one source, a singular ignored
+mesh-node transform, inverse binds, signed morphs, unskinned reuse of joint-bearing
+geometry, revision mismatch, duplicate/missing joints and successful repair.
+Native-header compilation succeeds; full native execution remains pending. Source
+`abc5956` passed 36/37 Windows tests but failed the first zero-weight morph draw with
+`GetDeviceRemovedReason=0x887a0005`. That HRESULT does not identify the cause.
+Independent native morph/skin/frame/optics cases now supplement the complete viewport
+suite so one device failure cannot conceal the other feature results.

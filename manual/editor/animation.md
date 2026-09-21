@@ -103,3 +103,14 @@ skinned or morphed mesh is still being integrated.
 Gameplay code replacement needs a complete recovery snapshot. If model assets are
 still loading, FORGE keeps the current code and asks you to retry the build after
 loading finishes. A crash before loading completes requires a fresh Play session.
+
+
+### Model binding errors
+
+The in-progress model rendering path checks that mesh, skeleton and clip belong
+to the same imported model revision. If a required joint is missing, duplicated or
+moved outside the model instance, FORGE reports a binding error and holds the last
+complete rendered pose. It does not borrow a joint from another copy of the model.
+Restore the matching hierarchy or restart Play after a successful reimport. A
+failed pose does not change the authored scene. Native acceptance of this rendering
+path and the complete animated-model placement workflow are still pending.

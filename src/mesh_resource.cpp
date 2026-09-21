@@ -14,6 +14,15 @@ std::size_t MeshResourceData::resident_bytes() const {
                  materials.capacity() * sizeof(MeshMaterialBinding);
     for (const auto& binding : materials)
         bytes += binding.key.capacity();
+    if (model) {
+        bytes += model->revision.capacity() + model->skins.capacity() * sizeof(MeshSkinBinding) +
+                 model->nodes.capacity() * sizeof(MeshModelNodeBinding);
+        for (const auto& skin : model->skins)
+            bytes += skin.joints.capacity() * sizeof(AssetId) +
+                     skin.inverse_bind.capacity() * sizeof(AffineTransform);
+        for (const auto& node : model->nodes)
+            bytes += node.morph_weights.capacity() * sizeof(float);
+    }
     return bytes;
 }
 void validate_mesh_material_bindings(const MeshResourceData& value) {

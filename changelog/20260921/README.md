@@ -343,3 +343,13 @@
 
 - Source1359ebc passes all four Windows/Linux core and SDK jobs plus formatting. Its native renderer audit builds and passes36/37 tests, but fails readback during the first morph checks; later optics, camera, skin and shadow cases are not claimed as executed. The earlier sampler-limit fixture completes. Readback errors now include the texture name and native device-removal status, and morph checks identify their individual stage. Capture writes are checked for failure.
 - Restored build caches previously still recompiled unchanged project inputs because Git checkout gave them new timestamps. Windows audit/package workflows now record content hashes and input times after a build, restoring times only for identical tracked regular files. Changed or new inputs are made newer than the cached completed build, including changed bytes with preserved timestamps. Compatibility keys and all required builds/tests remain in place. A real Ninja regression verifies reuse and invalidation; measured hosted-run improvement awaits a cache containing the new manifest.
+
+
+### Model instance presentation and deformation
+
+- Immutable mesh resources retain source-node and skin bindings, inverse binds and default morph weights. Runtime snapshots expose bounded durable-node morph weights and an explicit readiness marker.
+- Added model-root-scoped pose preparation and shared color/shadow submission. Required joints use actual extracted WorldTransforms; compatible instances keep separate morph weights and poses. An unskinned node can reuse a mesh containing joint attributes without accidentally enabling skinning.
+- Invalid bindings, incompatible revisions and invalid morph candidates retain the previous complete pose/resources. Temporary binding failures remain retryable; GPU allocation failures do not trigger shader rebuilds every frame.
+- Prepared morph intervals eliminate vertex rescans when weights change. Deformed bounds drive culling, LOD and transparent sorting, including per-camera skin rounding bounds in shadow views.
+- Normal CPU bounds, model pipeline and authoring regression tests pass (3/3, 33.88 seconds). Native-header syntax passes. Strict ASan/UBSan/LSan checks also pass (3/3, 80.08 seconds). A follow-up malformed-readiness regression and Windows validation remain pending.
+- Windows source audit abc5956 built successfully and passed 36/37 tests. The first zero-weight morph draw fails with device removal 0x887a0005; no morph/skin/optics acceptance is claimed. Added separate native morph, skin, frame and optics cases alongside the full viewport test to isolate subsequent failures.

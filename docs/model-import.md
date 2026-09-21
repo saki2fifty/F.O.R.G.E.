@@ -498,3 +498,17 @@ Legacy Animators without ModelSource retain standalone pose/debug behavior. Olde
 companions without channel intent require reimport before model-node application.
 Rendered skin/morph binding and public animated-model placement remain ongoing
 Phase7 integration; these runtime contracts alone do not claim that full workflow.
+
+
+### Prepared model presentation
+
+Mesh CPU revisions now carry copied source-node AssetIds, used skin joint AssetIds,
+inverse binds and node-default morph weights. No source parsing runs in a draw.
+The shared presentation host resolves required joints only inside the nearest
+structural model root, uses their extracted effective spatial WorldTransforms,
+and checks the runtime animation's model revision before adopting its morph weights.
+Per-instance color, shadow and deformed bounds consume one complete prepared pose.
+A failed binding/revision/weight candidate retains the previous pose and resources.
+See [the rendering integration status](rendering-foundation.md#scene-to-mesh-pose-integration--2026-09-21)
+for validation and pending native acceptance; public animated placement is not yet
+claimed complete.

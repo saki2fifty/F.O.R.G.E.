@@ -2,6 +2,7 @@
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/services.hpp>
+#include <map>
 namespace forge {
 // Detached presentation values, never a second world or authored hierarchy.
 // Input is the existing bounded effective_scene transport used by Editor Play.
@@ -20,6 +21,20 @@ struct RenderMesh {
     AffineTransform world;
     std::optional<std::array<float, 3>> legacy_tint;
 };
+struct RenderModelNode {
+    EntityId entity;
+    ModelSource source;
+    AffineTransform world;
+    // Derived from this snapshot's structural parent chain; null if unresolved.
+    EntityId root;
+};
+struct RenderModelAnimation {
+    EntityId root;
+    AssetId model;
+    std::string revision;
+    bool ready = false;
+    std::map<AssetId, std::vector<float>> morphs;
+};
 struct RenderScene {
     AssetId scene;
     SceneRenderSettings settings;
@@ -28,6 +43,8 @@ struct RenderScene {
     std::vector<RenderMesh> meshes;
     std::vector<Diagnostic> diagnostics;
     std::size_t omitted_diagnostics = 0;
+    std::vector<RenderModelNode> model_nodes;
+    std::vector<RenderModelAnimation> model_animations;
 };
 // Malformed envelope/identity rejects the whole snapshot. Invalid per-component
 // producer values are diagnosed and omitted without touching authored state.

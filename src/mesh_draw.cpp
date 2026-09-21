@@ -40,10 +40,10 @@ using Row = std::array<float, 4>;
 } // namespace
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
-                   TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format)
+                   TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
     const auto profile = prepare_pbr_material(source);
-    const auto fetch = mesh_vertex_fetch(mesh, profile);
+    const auto fetch = mesh_vertex_fetch(mesh, profile, enable_skin);
 
     const auto program = mesh_draw_shader(fetch, profile, shadow_pass_);
     const auto& material = program.material;

@@ -171,4 +171,67 @@ inline void test_render_scene() {
     partial = extract_render_scene(broken);
     require(partial.diagnostics.size() == 256 && partial.omitted_diagnostics == 44,
             "Render diagnostics escaped bounded retention");
+    {
+        const auto model = AssetId::generate(), node_asset = AssetId::generate();
+        const auto intermediary = EntityId::generate(), other_node = EntityId::generate();
+        auto model_row = [&](EntityId id, EntityId parent, AssetId node) {
+            return Json{{"id", id},
+                        {"parent", parent ? Json(parent) : Json(nullptr)},
+                        {"spatial_resolved", true},
+                        {"world_affine", AffineTransform{}.m},
+                        {"components",
+                         {{"forge.model_source",
+                           {{"model", model}, {"node", node ? Json(node) : Json(nullptr)}}}}}};
+        };
+        auto bridge = model_row(intermediary, first, {});
+        bridge["components"] = Json::object();
+        Json models{
+            {"asset_id", scene_id},
+            {"entities", Json::array({model_row(first, {}, {}), model_row(second, first, {}),
+                                      bridge, model_row(third, intermediary, node_asset),
+                                      model_row(other_node, second, node_asset)})}};
+        auto extract = extract_render_scene(models);
+        require(extract.diagnostics.empty() && extract.model_nodes.size() == 4 &&
+                    extract.model_nodes[2].root == first && extract.model_nodes[3].root == second,
+                "Render model extraction crossed nested roots or missed a non-model intermediary");
+        auto& actor = models["entities"][0];
+        actor["model_animation_ready"] = true;
+        actor["animation_pose"] = {{"model_asset", model},
+                                   {"model_revision", std::string(64, 'a')},
+                                   {"joint_nodes", {4}},
+                                   {"joint_assets", {node_asset}},
+                                   {"morphs", Json::array({{{"node", 4}, {"weights", {-2, .5}}}})}};
+        extract = extract_render_scene(models);
+        require(extract.diagnostics.empty() && extract.model_animations.size() == 1 &&
+                    extract.model_animations[0].ready &&
+                    extract.model_animations[0].morphs.at(node_asset) ==
+                        std::vector<float>{-2, .5f},
+                "Runtime morph extraction lost signed weights or durable node identity");
+        actor["model_animation_ready"] = false;
+        extract = extract_render_scene(models);
+        require(!extract.model_animations[0].ready && extract.model_animations[0].morphs.empty(),
+                "Unavailable runtime animation consumed a stale pose");
+        actor["model_animation_ready"] = "malformed";
+        extract = extract_render_scene(models);
+        require(extract.diagnostics.size() == 1 && extract.model_animations.size() == 1 &&
+                    !extract.model_animations[0].ready,
+                "Malformed readiness silently reset model animation to defaults");
+        actor["model_animation_ready"] = true;
+        auto valid = models;
+        actor["animation_pose"]["joint_nodes"].push_back(5);
+        actor["animation_pose"]["joint_assets"].push_back(node_asset);
+        extract = extract_render_scene(models);
+        require(extract.diagnostics.size() == 1 && !extract.model_animations[0].ready,
+                "Duplicate animation node identity was accepted");
+        models = valid;
+        models["entities"][3]["parent"] = nullptr;
+        extract = extract_render_scene(models);
+        require(extract.diagnostics.size() == 1 && !extract.model_nodes[2].root,
+                "Orphan model node silently attached to another instance");
+        models = valid;
+        models["entities"][0]["animation_pose"]["morphs"][0]["weights"][0] = 1e-100;
+        extract = extract_render_scene(models);
+        require(extract.diagnostics.size() == 1 && !extract.model_animations[0].ready,
+                "Unrepresentable morph weight silently became zero");
+    }
 }

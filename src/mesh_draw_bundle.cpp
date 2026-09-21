@@ -5,7 +5,9 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                const asset_detail::PreparedModelDraw& prepared,
                                GpuResidency<MeshAsset>& meshes,
                                GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
-                               Diligent::TEXTURE_FORMAT depth) {
+                               Diligent::TEXTURE_FORMAT depth, bool skinned)
+    : prepared_(prepared), geometry_(prepare_mesh_pose_geometry(prepared.mesh->mesh)),
+      skinned_(skinned) {
     const auto& source = prepared.mesh.get();
     validate_mesh_material_bindings(source);
     std::map<std::uint32_t, const MeshMaterialBinding*> bindings;
@@ -51,7 +53,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                 }
             }
             output.push_back(std::make_unique<MeshDraw>(presentation, context, part, *values,
-                                                        native_textures, color, depth));
+                                                        native_textures, color, depth, skinned));
             // Blended surfaces do not have a single opaque shadow depth. Masked
             // surfaces evaluate the same base alpha and cutoff as their color pass.
             const bool transmits = material_transmits(prepare_pbr_material(*values));
@@ -59,21 +61,30 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                   ? nullptr
                                   : std::make_unique<MeshDraw>(
                                         presentation, context, part, *values, native_textures,
-                                        Diligent::TEX_FORMAT_UNKNOWN, depth));
+                                        Diligent::TEX_FORMAT_UNKNOWN, depth, skinned));
             info.push_back({values->alpha, binding.material.id, part.bounds, transmits});
         }
     }
 }
 void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const AffineTransform& world,
-                                 const CameraView& camera, unsigned lod) {
+                                 const CameraView& camera, unsigned lod,
+                                 const MeshInstancePose* pose) {
     (void)mesh_.get();
     for (const auto& [key, texture] : textures_) {
         (void)key;
         (void)texture.get();
     }
-    for (auto& part : shadow_lods_.at(lod))
-        if (part)
-            part->draw(context, world, camera, {});
+    const auto& parts = shadow_lods_.at(lod);
+    for (unsigned p = 0; p < parts.size(); ++p)
+        if (parts[p]) {
+            const auto* skin =
+                pose && pose->lods.at(lod).at(p).skin ? &*pose->lods.at(lod).at(p).skin : nullptr;
+            parts[p]->draw(context, pose ? pose->world : world, camera, {}, nullptr, nullptr,
+                           nullptr, {}, nullptr,
+                           pose ? std::span<const float>(pose->morph_weights)
+                                : std::span<const float>{},
+                           skin);
+        }
 }
 void MeshDrawBundle::environment(const EnvironmentLease& lease) {
     const auto* maps = lease ? &lease.get() : nullptr;
@@ -107,7 +118,8 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                unsigned lod, unsigned part, const EnvironmentLighting* environment,
                                const std::array<float, 3>* legacy_tint,
                                const ShadowLighting* shadows, std::span<const int> shadow_slots,
-                               const TransmissionLighting* transmission) {
+                               const TransmissionLighting* transmission,
+                               const MeshInstancePose* pose) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -115,7 +127,11 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
         (void)key;
         (void)texture.get();
     }
-    selected->draw(context, world, camera, lights, environment, legacy_tint, shadows, shadow_slots,
-                   transmission);
+    const auto* skin =
+        pose && pose->lods.at(lod).at(part).skin ? &*pose->lods.at(lod).at(part).skin : nullptr;
+    selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
+                   shadows, shadow_slots, transmission,
+                   pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
+                   skin);
 }
 } // namespace forge
