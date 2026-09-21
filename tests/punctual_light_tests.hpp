@@ -125,7 +125,9 @@ void main() {
         require(result[5][c] == 0, "Outside-cone surface is lit");
     }
     require(upstream_difference > 1e-4, "Pinned spotlight discrepancy reproduction changed");
-    for (unsigned i : {4u, 6u, 7u})
+    require(result[6] == std::array<float, 4>{1, 2, 3, 1},
+            "Valid opposite-view back light was treated as a numeric failure");
+    for (unsigned i : {4u, 7u})
         require(result[i] == std::array<float, 4>{1, 2, 3, 0},
                 "Undefined punctual contribution corrupted previous lighting");
 }

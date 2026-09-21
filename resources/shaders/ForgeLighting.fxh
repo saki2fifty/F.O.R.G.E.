@@ -37,12 +37,21 @@ bool ForgeApplyPunctualLight(in SurfaceShadingInfo Shading, in PBRLightAttribs L
         }
         light_direction = ray;
     }
-    // Native GetAngularInfo normalizes L+V. Opposite directions have no defined
-    // half vector. Degenerate normals/views must not enter the native BRDF.
-    float3 half_vector = Shading.View - light_direction;
-    if (!(dot(half_vector, half_vector) >= 1.175494351e-38) ||
-        !(dot(Shading.View, Shading.View) >= 1.175494351e-38) ||
+    // Degenerate normals/views must not enter the native BRDF.
+    if (!(dot(Shading.View, Shading.View) >= 1.175494351e-38) ||
         !(dot(Shading.BaseLayer.Normal, Shading.BaseLayer.Normal) >= 1.175494351e-38))
+        return false;
+    // Native punctual terms are multiplied by saturated NdotL. Behind every
+    // contributing layer the result is exactly zero; do not normalize L+V or
+    // report a valid back light as a numeric error when that half vector is zero.
+    bool behind = dot(Shading.BaseLayer.Normal, -light_direction) <= 0;
+#if ENABLE_CLEAR_COAT
+    behind = behind && dot(Shading.Clearcoat.Normal, -light_direction) <= 0;
+#endif
+    if (behind)
+        return true;
+    float3 half_vector = Shading.View - light_direction;
+    if (!(dot(half_vector, half_vector) >= 1.175494351e-38))
         return false;
     SurfaceLightingInfo candidate = GetDefaultSurfaceLightingInfo();
     ApplyPunctualLight(Shading, Light,

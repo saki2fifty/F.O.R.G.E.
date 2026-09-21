@@ -44,3 +44,33 @@
 - Rebuilt cold-loading model recipe passes1/1 normally in29.87s and under strict
   ASan/UBSan/LSan in69.89s. Native bundle/viewport validation is pending; Game,
   standalone and production material/pass integration remain in progress.
+
+### Valid back lighting
+
+- Treat a punctual light behind every contributing surface layer as a valid zero
+  contribution before evaluating its half-vector. An opposite-view back light
+  must not display a numeric-error color. Coincident point lights and overflowing
+  contributions retain their explicit numerical rejection.
+- Updated the native regression; local14-stage shader compilation passes. Windows
+  execution of this correction is pending.
+
+### Windows diagnostic evidence
+
+- The49841b4 audit built and passed36/37 selected tests. Native D3D12 message660
+  confirmed the raw-fetch fixture's mismatched COLOR registers. The shared-layout
+  correction is in189051f and awaiting its native run.
+- All four Windows/Linux core and exact-SDK jobs passed for49841b4. These results
+  do not yet validate the later Scene integration or back-light correction.
+
+### Clearcoat material layer
+
+- Connect clearcoat intensity, roughness and independent normal maps to the pinned
+  native PBR layer. Preserve the red/green data channels and separate geometric
+  normal when a clearcoat normal map is absent.
+- Reuse a shared pixel tangent-frame reconstruction for base and coat normal maps;
+  normalize mapped directions before combining basis vectors to avoid overflow.
+- Add native clearcoat response and reflection regressions. Windows execution is
+  pending; this does not complete advanced material or production pass integration.
+- Clearcoat checkpoint: local14-stage HLSL compilation and native C++ header/source
+  syntax checks passed, including textured coat branches and Scene host wiring.
+  Format and manual3/3 passed. Native FXC/WARP execution remains required.

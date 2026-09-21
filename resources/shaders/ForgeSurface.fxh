@@ -57,9 +57,44 @@ float3 ForgePerturbNormal(ForgeSurfaceFrame frame, float3 tangent_normal)
 {
     if (!frame.TangentValid)
         return frame.Normal;
+    tangent_normal = ForgeUnit(tangent_normal);
     float3 result = ForgeUnit(frame.Tangent * tangent_normal.x +
                              frame.Bitangent * tangent_normal.y +
                              frame.Normal * tangent_normal.z);
     return any(result != 0) ? result : frame.Normal;
+}
+// Pixel interpolation can break orthogonality. Prefer the authored frame and
+// rebuild from the chosen texture's derivatives only when it has collapsed.
+// Derivatives are evaluated by the caller before divergent shading/discard.
+ForgeSurfaceFrame ForgePixelFrame(float3 normal, float3 tangent, float3 bitangent,
+                                  float3 dpdx, float3 dpdy, float2 dx, float2 dy)
+{
+    ForgeSurfaceFrame result = (ForgeSurfaceFrame)0;
+    result.Normal = ForgeUnit(normal);
+    result.NormalValid = any(result.Normal != 0);
+    if (!result.NormalValid)
+        return result;
+    float3 n = result.Normal;
+    float3 t = ForgeUnit(tangent - n * dot(n, tangent));
+    float3 b = ForgeUnit(bitangent);
+    float handedness = dot(cross(n, t), b);
+    if (abs(handedness) <= 1e-6)
+    {
+        float det = dx.x * dy.y - dx.y * dy.x;
+        if (isfinite(det) && abs(det) > 0)
+        {
+            t = ForgeUnit((dpdx * dy.y - dpdy * dx.y) * (det < 0 ? -1 : 1));
+            t = ForgeUnit(t - n * dot(n, t));
+            b = ForgeUnit((dpdy * dx.x - dpdx * dy.x) * (det < 0 ? -1 : 1));
+            handedness = dot(cross(n, t), b);
+        }
+    }
+    result.TangentValid = abs(handedness) > 1e-6;
+    if (result.TangentValid)
+    {
+        result.Tangent = t;
+        result.Bitangent = cross(n, t) * (handedness < 0 ? -1 : 1);
+    }
+    return result;
 }
 #endif

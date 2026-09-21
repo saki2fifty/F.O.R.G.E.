@@ -363,3 +363,17 @@ The current host uses RGBA8/D32 targets; HDR, transparent pass ordering, shadow/
 advanced material and deformation consumers, authored Game cameras and standalone
 presentation remain unfinished Phase7 work. This connection does not declare the
 production renderer complete or imply unvalidated Windows acceptance.
+
+Punctual-light numerical admission first recognizes a valid zero contribution when
+all contributing layers face away from the light. This avoids asking the native
+BRDF to normalize a zero half-vector for ordinary opposite-view back lighting.
+Undefined nonzero contributions remain failures; a zero contribution is not one.
+
+The metallic-roughness draw now feeds the pinned native clearcoat layer, using its
+IOR1.5 reflectance and layered composition. Red intensity and green roughness
+texture channels multiply their respective factors. Clearcoat uses the unperturbed
+geometric normal unless its own normal map exists; it does not inherit base normal
+mapping. Clearcoat normal admission requires an authored normal/tangent frame or a
+base normal map, matching the exact glTF extension. Both normal-map consumers share
+pixel-frame orthogonalization and safe derivative fallback. Native visual acceptance
+is still pending for this increment.

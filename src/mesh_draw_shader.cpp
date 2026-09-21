@@ -23,9 +23,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     const auto& source = profile.values;
     // These checks remain until the full extended lighting/pass consumer is wired.
     // Never render authored extension controls as if ignored values were supported.
-    for (const char* name :
-         {"clearcoatFactor", "sheenRoughnessFactor", "anisotropyStrength", "iridescenceFactor",
-          "transmissionFactor", "thicknessFactor", "dispersion"}) {
+    for (const char* name : {"sheenRoughnessFactor", "anisotropyStrength", "iridescenceFactor",
+                             "transmissionFactor", "thicknessFactor", "dispersion"}) {
         auto found = profile.values.parameters.find(name);
         require(found == profile.values.parameters.end() || found->second.value[0] == 0,
                 std::string("extended lighting consumer unavailable: ") + name);
@@ -40,9 +39,14 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                     role == "metallicRoughnessTexture" || role == "specularGlossinessTexture" ||
                     role == "normalTexture" || role == "occlusionTexture" ||
                     role == "emissiveTexture" || role == "specularTexture" ||
-                    role == "specularColorTexture",
+                    role == "specularColorTexture" || role == "clearcoatTexture" ||
+                    role == "clearcoatRoughnessTexture" || role == "clearcoatNormalTexture",
                 "extended texture consumer unavailable: " + role);
     }
+    if (profile.values.textures.contains("clearcoatNormalTexture"))
+        require((fetch.normal && fetch.tangent) ||
+                    profile.values.textures.contains("normalTexture"),
+                "clearcoat normal map requires authored normal/tangent or a base normal map");
     const auto material = material_shader(profile, fetch.uv_sets);
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string varyings =
@@ -61,8 +65,10 @@ ForgeVarying main(uint id:SV_VertexID) {
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
     )" + "[unroll]for(uint i=0;i<" +
                            std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
-    std::string ps = "#define USE_IBL 0\n#define TEX_COLOR_CONVERSION_MODE 0\n"
-                     "#include \"ForgeSurface.fxh\"\n#include \"ForgeLighting.fxh\"\n";
+    std::string ps = "#define USE_IBL 0\n#define TEX_COLOR_CONVERSION_MODE 0\n";
+    ps += std::string("#define ENABLE_CLEAR_COAT ") +
+          (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
+    ps += "#include \"ForgeSurface.fxh\"\n#include \"ForgeLighting.fxh\"\n";
     ps += object_source + varyings + material.source;
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
           "];};\n";
@@ -76,11 +82,15 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
               "(input.UV[" + std::to_string(slot.uv_slot) + "],ok_" + slot.role +
               ");valid=valid&&ok_" + slot.role + ";\n";
     }
-    if (profile.values.textures.contains("normalTexture")) {
+    for (const auto* role : {"normalTexture", "clearcoatNormalTexture"}) {
+        if (!profile.values.textures.contains(role))
+            continue;
         const auto slot = std::find_if(material.textures.begin(), material.textures.end(),
-                                       [](const auto& t) { return t.role == "normalTexture"; });
-        ps += "float2 uv=ForgeUV_normalTexture(input.UV[" + std::to_string(slot->uv_slot) +
-              "]);float2 dx=ddx(uv),dy=ddy(uv);\n";
+                                       [role](const auto& t) { return t.role == role; });
+        const std::string name = role;
+        ps += "float2 uv_" + name + "=ForgeUV_" + name + "(input.UV[" +
+              std::to_string(slot->uv_slot) + "]);float2 dx_" + name + "=ddx(uv_" + name + "),dy_" +
+              name + "=ddy(uv_" + name + ");\n";
     }
     ps += "if(!valid)return float4(1,0,1,1);\nfloat4 "
           "base=ForgeParameter_baseColorFactor()*input.Color;\n";
@@ -109,30 +119,19 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     }
     if(!any(n!=0)||!any(s.View!=0))return float4(1,0,1,1);
 )";
-        if (profile.values.textures.contains("normalTexture")) {
-            ps += R"(
-    float3 t=ForgeUnit(input.Tangent-n*dot(n,input.Tangent));
-    float3 b=ForgeUnit(input.Bitangent);
-    float handedness=dot(cross(n,t),b);
-    // Explicit authored tangent space wins, including tangent.w. Missing or
-    // collapsed frames use the selected normal UV derivatives without an inverse.
-    if(abs(handedness)<=1e-6) {
-        float det=dx.x*dy.y-dx.y*dy.x;
-        if(isfinite(det)&&abs(det)>0) {
-            t=ForgeUnit((dpdx*dy.y-dpdy*dx.y)*(det<0?-1:1));
-            t=ForgeUnit(t-n*dot(n,t));
-            b=ForgeUnit((dpdy*dx.x-dpdx*dy.x)*(det<0?-1:1));
-            handedness=dot(cross(n,t),b);
-        }
-    }
-    if(abs(handedness)>1e-6) {
-        float3 sampled=sample_normalTexture.xyz*2-1;
-        sampled.xy*=ForgeParameter_normalScale();
-        float3 candidate=ForgeUnit(t*sampled.x+cross(n,t)*(handedness<0?-1:1)*sampled.y+n*sampled.z);
-        if(any(candidate!=0))n=candidate;
-    }
-)";
-        }
+        ps += "float3 geometric=n;\n";
+        auto mapped_normal = [&](const char* role, const char* scale, const char* destination) {
+            if (!profile.values.textures.contains(role))
+                return;
+            const std::string name = role;
+            ps +=
+                "{ForgeSurfaceFrame frame=ForgePixelFrame(geometric,input.Tangent,input.Bitangent,"
+                "dpdx,dpdy,dx_" +
+                name + ",dy_" + name + ");float3 mapped=sample_" + name +
+                ".xyz*2-1;mapped.xy*=ForgeParameter_" + scale + "();" + destination +
+                "=ForgePerturbNormal(frame,mapped); }\n";
+        };
+        mapped_normal("normalTexture", "normalScale", "n");
         ps += "n*=face;s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
         if (profile.workflow == PbrWorkflow::MetallicRoughness) {
             ps += "float "
@@ -156,6 +155,17 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             sample("specularGlossinessTexture", "physical*=sample_specularGlossinessTexture");
             ps += "s.BaseLayer.Srf=GetSurfaceReflectance(PBR_WORKFLOW_SPECULAR_GLOSSINESS,base,"
                   "physical,s.BaseLayer.Metallic);\n";
+        }
+        if (profile.workflow == PbrWorkflow::MetallicRoughness) {
+            ps += "float "
+                  "coat=ForgeParameter_clearcoatFactor(),coatRough=ForgeParameter_"
+                  "clearcoatRoughnessFactor();\n";
+            sample("clearcoatTexture", "coat*=sample_clearcoatTexture.r");
+            sample("clearcoatRoughnessTexture", "coatRough*=sample_clearcoatRoughnessTexture.g");
+            ps += "float3 coatNormal=geometric;\n";
+            mapped_normal("clearcoatNormalTexture", "clearcoatNormalScale", "coatNormal");
+            ps += "s.Clearcoat.Normal=coatNormal*face;s.Clearcoat.Factor=coat;"
+                  "s.Clearcoat.Srf=GetSurfaceReflectanceClearCoat(coatRough,1.5);\n";
         }
         ps += "s.Occlusion=1;s.IBLScale=0;\n"
               "s.Emissive=ForgeParameter_emissiveFactor()*ForgeParameter_emissiveStrength();\n";

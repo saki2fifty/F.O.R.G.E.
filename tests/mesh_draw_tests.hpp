@@ -155,6 +155,22 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     world.m[10] = 0;
     require(render(lit, std::span(&light, 1)) == illuminated,
             "Rank-two cofactor frame changed surviving PBR surface");
+    world.m[10] = 1;
+    auto coated_material = material;
+    coated_material.parameters["clearcoatFactor"] = {forge::MaterialParameterType::Scalar, {1}};
+    coated_material.parameters["clearcoatRoughnessFactor"] = {forge::MaterialParameterType::Scalar,
+                                                              {.35f}};
+    forge::MeshDraw coated(presentation, gpu.lods[0].parts[0], coated_material, {},
+                           TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    const auto coating = render(coated, std::span(&light, 1));
+    const auto coated_pixel = coating[16 * 32 + 16];
+    require(coated_pixel != illuminated[16 * 32 + 16] &&
+                coated_pixel != std::array<unsigned char, 4>{255, 0, 255, 255},
+            "Clearcoat factor/roughness did not reach native layer shading");
+    world.m[0] = -1;
+    require(render(coated, std::span(&light, 1)) == coating,
+            "Clearcoat response changed under reflection");
+    world.m[0] = 1;
     // A valid authored frame on constant UVs: screen-gradient reconstruction
     // cannot substitute for the supplied tangent or silently lose tangent.w.
     world.m[10] = 1;
