@@ -16,6 +16,11 @@ class AnimationRuntime {
     void tick(float dt);
     void reset_presentation();
     Json presentation(flecs::entity_t entity, double alpha);
+    // Resource sampling can be ready while a newly loaded model still awaits
+    // its first fixed-boundary channel application. Visual hosts must distinguish
+    // those states without mutating transforms during presentation extraction.
+    bool model_pose_ready(flecs::entity_t entity) const;
+    std::vector<std::uint64_t> take_discontinuities();
     bool checkpoint_ready() const;
     Json checkpoint() const;
     void restore(const Json&);

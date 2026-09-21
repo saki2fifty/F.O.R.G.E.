@@ -489,8 +489,10 @@ rig's optional targets outside the selected source scene remain inactive.
 Sampling/application runs after Gameplay and before Navigation and pre-physics
 synchronization. Final transforms and presentation pose capture therefore see the
 same completed simulation state. Presentation never writes those local components.
-Disabled animation holds the last runtime values; it does not revert authoring
-ownership or advance time. Stop discards the runtime world. Invalid bindings cannot
+Disabled animation leaves the last runtime local TRS values; it does not revert
+authoring ownership or advance time. A disabled consumer contributes no live
+morph sample, so model drawing uses source-node morph defaults. Pause holds the
+complete animated pose instead. Stop discards the runtime world. Invalid bindings cannot
 advertise a recovery checkpoint; recovery validates candidate sample times and
 instance scopes before replacing any player's state.
 

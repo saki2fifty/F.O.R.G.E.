@@ -288,6 +288,9 @@ void RuntimeSimulation::tick(float dt) {
     if (stage_error_)
         std::rethrow_exception(stage_error_);
     poses_.capture(context_.transform_nodes());
+    if (animation_)
+        for (auto id : animation_->take_discontinuities())
+            poses_.snap(id);
     sync_audio();
     if (physics_)
         for (auto id : physics_->take_discontinuities())
@@ -325,8 +328,12 @@ Json RuntimeSimulation::presentation(double alpha) const {
         if (animation_) {
             auto pose = animation_->presentation(entity, alpha);
             const auto node = context_.world().entity(entity);
-            if (node.has<Animator>() && node.has<ModelSource>())
-                item["model_animation_ready"] = !pose.is_null();
+            // Disabling the animation consumer does not disable its meshes.
+            // Without a live animation selection, meshes use node morph defaults
+            // and the current ECS transforms, as any ordinary model instance.
+            if (node.has<Animator>() && node.get<Animator>().enabled && node.has<ModelSource>())
+                item["model_animation_ready"] =
+                    !pose.is_null() && animation_->model_pose_ready(entity);
             if (!pose.is_null())
                 item["animation_pose"] = std::move(pose);
         }

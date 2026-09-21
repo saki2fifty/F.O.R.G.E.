@@ -28,6 +28,7 @@ struct Playback {
     std::unique_ptr<Sampler> sampler;
     double time = 0, previous = 0, advance = 0;
     bool playing = false;
+    bool model_pose_applied = false, discontinuous = true;
 };
 } // namespace
 struct AnimationRuntime::Impl {
@@ -47,6 +48,7 @@ struct AnimationRuntime::Impl {
     std::map<flecs::entity_t, Animator> failed_configurations;
     std::size_t cache_bytes = 0;
     AnimationRuntime::PoseValidator pose_validator;
+    std::set<std::uint64_t> discontinuities;
     Impl(WorldContext& c, std::filesystem::path p) : context(c), project(std::move(p)) {}
     ~Impl() {
         states.clear();
@@ -185,6 +187,17 @@ struct AnimationRuntime::Impl {
                     pose_validator(candidate);
                 if (!commit)
                     continue;
+                const bool snap = playback.discontinuous || binding_errors.contains(id);
+                std::optional<std::set<std::uint64_t>> prepared_discontinuities;
+                if (snap) {
+                    // Prepare allocating bookkeeping before the first ECS write.
+                    // Publication below is a non-allocating owner swap.
+                    prepared_discontinuities = discontinuities;
+                    for (const auto& [target, write] : writes) {
+                        (void)write;
+                        prepared_discontinuities->insert(target);
+                    }
+                }
                 for (auto& [target, write] : writes) {
                     (void)target;
                     if (write.channels & unsigned(TransformChannel::Translation))
@@ -194,6 +207,16 @@ struct AnimationRuntime::Impl {
                     if (write.channels & unsigned(TransformChannel::Scale))
                         write.entity.set(write.value.scale);
                 }
+                if (snap) {
+                    discontinuities.swap(*prepared_discontinuities);
+                    // A new/repaired binding has no compatible previous sample.
+                    // Morph sampling and transform interpolation must snap to
+                    // the same successful fixed-boundary time.
+                    playback.previous = playback.time;
+                    playback.advance = 0;
+                }
+                playback.model_pose_applied = true;
+                playback.discontinuous = false;
                 binding_errors.erase(id);
             } catch (const std::exception& ex) {
                 if (!commit)
@@ -334,6 +357,10 @@ struct AnimationRuntime::Impl {
                 detail::validate_reflected_value(e, config);
                 if (old != states.end() && old->second.config.skeleton == config.skeleton &&
                     old->second.config.clip == config.clip) {
+                    if (old->second.config.enabled != config.enabled) {
+                        old->second.discontinuous = true;
+                        old->second.model_pose_applied = false;
+                    }
                     old->second.config = config;
                     old->second.previous = old->second.time;
                     old->second.advance = 0;
@@ -438,6 +465,7 @@ void AnimationRuntime::reset_presentation() {
     if (!impl_)
         return;
     impl_->synchronize();
+    impl_->discontinuities.clear();
     for (auto& [id, p] : impl_->states) {
         (void)id;
         p.previous = p.time;
@@ -493,6 +521,21 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
             result["transform_channels"] = std::move(channels);
         }
     }
+    return result;
+}
+bool AnimationRuntime::model_pose_ready(flecs::entity_t id) const {
+    if (!impl_ || impl_->errors.contains(id) || impl_->pending.contains(id) ||
+        impl_->binding_errors.contains(id))
+        return false;
+    const auto found = impl_->states.find(id);
+    return found != impl_->states.end() && found->second.config.enabled &&
+           found->second.model_pose_applied;
+}
+std::vector<std::uint64_t> AnimationRuntime::take_discontinuities() {
+    if (!impl_)
+        return {};
+    std::vector<std::uint64_t> result(impl_->discontinuities.begin(), impl_->discontinuities.end());
+    impl_->discontinuities.clear();
     return result;
 }
 bool AnimationRuntime::checkpoint_ready() const {
@@ -583,8 +626,13 @@ void AnimationRuntime::restore(const Json& data) {
         p.previous = time;
         p.advance = 0;
         p.sampler = std::move(value.sampler);
+        // The recovery envelope does not contain renderer-local history. Until
+        // the next successful fixed application, keep any prior good draw.
+        p.model_pose_applied = false;
+        p.discontinuous = true;
     }
     impl_->binding_errors.clear();
+    impl_->discontinuities.clear();
 }
 EngineModule animation_module(std::filesystem::path project) {
     auto module = animation_schema_module();

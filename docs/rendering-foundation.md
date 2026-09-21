@@ -861,3 +861,30 @@ sRGB value of 188 (one UNORM step allowed), with zero cross-channel leakage.
 Display resolve also now sizes output from the source view's selected mip,
 rather than always using the underlying texture's base dimensions. The last-mip
 fixture requires exactly one pixel as well as its expected color.
+
+
+### First model-pose publication
+
+Loading an animation resource while paused prepares its sampler without writing
+ECS transforms. The runtime distinguishes that state from a model pose which has
+actually passed channel/physics validation and been applied at a fixed tick.
+Until then, the model readiness marker is false and the presentation host retains
+any previous complete draw. Legacy standalone Animator pose inspection continues
+to work after resource loading, without advancing time.
+
+The first successful application and recovery from a failed binding are
+presentation discontinuities. Affected nodes snap through the existing
+presentation-pose cache; morph sampling snaps to the same successful fixed time.
+This changes transient interpolation history only; it creates no extra component
+overrides and preserves channel-granular ECS writes.
+Later compatible ticks interpolate normally. Recovery does not serialize this
+renderer-local history; a reconstructed model waits for its next successful fixed
+application. No presentation extraction writes authored/runtime TRS, and no second
+world-transform authority is introduced. Normal and strict sanitizer model,
+animation and physics regressions pass; Windows execution remains pending.
+
+Disabling Animator removes its live drawing contribution: the model remains
+visible with its current node transforms and the mesh's source-node morph defaults.
+It does not rewrite transforms. Use **Pause** to hold the complete animated pose.
+Re-enabling Animator waits for the next successful fixed tick and then snaps to
+that tick's pose before normal interpolation resumes.

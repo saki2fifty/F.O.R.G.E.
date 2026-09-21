@@ -139,3 +139,17 @@ reports the affected entity and the previous drawing remains visible. Removing
 other model instances can free the allowance so the pending instance can retry.
 This affects derived drawing data; it does not change saved transforms or assets.
 The full native animated-model workflow is still under validation.
+
+
+When a model's animation finishes loading during Pause, its asset information can
+be ready before the first animated drawing. **Step** or **Resume** lets the next
+simulation tick validate and apply the pose. Until that succeeds, FORGE keeps any
+previous good drawing. A newly applied or repaired pose appears directly; following
+frames interpolate normally. Loading while paused does not move the model or
+advance its playback clock.
+
+Disabling Animator removes its live drawing contribution: the model remains
+visible with its current node transforms and the mesh's source-node morph defaults.
+It does not rewrite transforms. Use **Pause** to hold the complete animated pose.
+Re-enabling Animator waits for the next successful fixed tick and then snaps to
+that tick's pose before normal interpolation resumes.

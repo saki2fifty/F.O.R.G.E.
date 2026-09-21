@@ -229,6 +229,21 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
         std::this_thread::sleep_for(1ms);
     }
     require(!bound.pose().is_null(), "Model binding resources did not load");
+    const auto bound_id = bound.scene.entity("actor").id();
+    const auto before_first_fixed = bound.scene.snapshot();
+    require(!bound.animation->model_pose_ready(bound_id),
+            "Resource adoption advertised unapplied model channels as a ready draw");
+    const auto loading_frame = bound.simulation.presentation(.5);
+    auto actor_frame = [&](const Json& frame) -> const Json& {
+        for (const auto& item : frame.at("entities"))
+            if (item.at("id").get<EntityId>() == bound.engine.world().reference(bound_id)->entity)
+                return item;
+        throw std::runtime_error("Missing model root in presentation fixture");
+    };
+    require(!actor_frame(loading_frame).at("model_animation_ready").get<bool>() &&
+                bound.scene.snapshot() == before_first_fixed,
+            "Paused presentation either wrote model channels or published an unapplied pose");
+
     double pre_physics_x = -1;
     auto monitor = bound.engine.world()
                        .world()
@@ -246,6 +261,23 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
                 !joint.owns<LocalScale>() && !joint.owns<ModelSource>() &&
                 joint.get<LocalScale>() == LocalScale{2, 3, 4},
             "Translation-only animation materialized unrelated prefab overrides");
+
+    require(bound.animation->model_pose_ready(bound_id),
+            "Successful first fixed model pose remained unavailable");
+    const auto first_frame = bound.simulation.presentation(0);
+    require(actor_frame(first_frame).at("model_animation_ready").get<bool>() &&
+                std::abs(actor_frame(first_frame).at("animation_pose").at("time").get<double>() -
+                         .5) < .002,
+            "First morph sample interpolated against an unapplied pose");
+    const auto joint_id = bound.engine.world().reference(joint.id())->entity;
+    auto world_x = [&](const Json& frame) {
+        for (const auto& item : frame.at("entities"))
+            if (item.at("id").get<EntityId>() == joint_id)
+                return item.at("world_affine").at(3).get<double>();
+        throw std::runtime_error("Missing animated joint in presentation fixture");
+    };
+    require(std::abs(world_x(first_frame) - world_x(bound.simulation.presentation(1))) < 1e-9,
+            "First animated transform blended from incompatible authored history");
     base.set<LocalScale>({3, 4, 5});
     bound.simulation.tick(.1f);
     require(joint.get<LocalScale>() == LocalScale{3, 4, 5},
@@ -284,6 +316,41 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
     require(bound.animation->checkpoint_ready() &&
                 bound.animation->checkpoint() == repaired_checkpoint,
             "Valid binding recovery retained a stale error or changed checkpoint values");
+
+    require(!bound.animation->model_pose_ready(bound_id),
+            "Recovered playback reused renderer-local ready history");
+    bound.simulation.reset_presentation();
+    bound.simulation.tick(.025f);
+    require(bound.animation->model_pose_ready(bound_id) &&
+                std::abs(world_x(bound.simulation.presentation(0)) -
+                         world_x(bound.simulation.presentation(1))) < 1e-9,
+            "Recovery did not snap its first successfully applied pose");
+    bound.simulation.tick(.025f);
+    const auto begin_x = world_x(bound.simulation.presentation(0));
+    const auto end_x = world_x(bound.simulation.presentation(1));
+    require(end_x > begin_x &&
+                std::abs(world_x(bound.simulation.presentation(.5)) - (begin_x + end_x) / 2) < 1e-9,
+            "Compatible model ticks stopped interpolating after the initial snap");
+    auto actor = bound.scene.entity("actor");
+    auto disabled = actor.get<Animator>();
+    disabled.enabled = false;
+    actor.set(disabled);
+    const auto disabled_transform = bound.engine.world().get_local_transform(joint);
+    const auto disabled_frame = bound.simulation.presentation(.5);
+    require(!actor_frame(disabled_frame).contains("model_animation_ready") &&
+                !actor_frame(disabled_frame).contains("animation_pose") &&
+                bound.engine.world().get_local_transform(joint) == disabled_transform,
+            "Disabled animation blocked static model drawing or rewrote transforms");
+    disabled.enabled = true;
+    actor.set(disabled);
+    const auto reenabled = bound.simulation.presentation(.5);
+    require(!actor_frame(reenabled).at("model_animation_ready").get<bool>(),
+            "Re-enabled model animation reused stale applied-pose readiness");
+    bound.simulation.tick(.01f);
+    require(bound.animation->model_pose_ready(bound_id) &&
+                std::abs(world_x(bound.simulation.presentation(0)) -
+                         world_x(bound.simulation.presentation(1))) < 1e-9,
+            "Re-enabled model did not snap at its next fixed application");
     monitor.destruct();
     auto physics_document = document;
     physics_document["entities"].erase(physics_document["entities"].begin() + 1,

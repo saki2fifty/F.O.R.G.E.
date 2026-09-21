@@ -383,3 +383,26 @@
   resolve dimensions for a selected mip and require a one-pixel last-mip result.
 - Validation and the complete Phase7 work package remain in progress. No new
   numbered package is reserved or delivered by this follow-up.
+
+
+### Model first-pose presentation boundary
+
+- Distinguish prepared animation resources from model channels successfully
+  applied at a fixed tick. Paused resource adoption does not advertise unapplied
+  model transforms as a ready mesh pose and never writes ECS transforms.
+- Snap the first/repaired model transform sample and its morph time together,
+  using the existing presentation cache. Later compatible ticks interpolate.
+- Reconstructed playback requires its next successful fixed application before
+  publishing a model draw; transient interpolation history is not serialized.
+- Add regressions for paused adoption, immutable scene state, readiness markers,
+  and coherent first-pose samples. Local and native validation are in progress.
+
+- A disabled Animator no longer marks its model meshes unavailable. Current node
+  transforms remain unchanged and source-node morph defaults apply; Pause is the
+  operation that holds a complete animated pose. Re-enable/recovery and subsequent
+  interpolation receive explicit regressions. Reset/recovery clear stale snap IDs.
+
+- Final first-pose validation: normal model/animation/physics tests passed 3/3 in
+  39.85s; strict ASan/UBSan/LSan passed 3/3 in 87.31s after moving allocating
+  interpolation bookkeeping before ECS writes. Manual checks passed 3/3; format
+  passed. Windows execution of this follow-up is still pending.
