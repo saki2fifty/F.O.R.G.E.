@@ -42,8 +42,10 @@ Geometry geometry(const nlohmann::json& doc) {
     for (const auto& [id, ep] : included) {
         const auto& e = *ep;
         const auto& c = e.at("components");
-        if (!c.contains("forge.primitive"))
-            throw std::runtime_error("NavigationSurface requires primitive geometry: " + id.str());
+        if ((!c.contains("forge.primitive") && !c.contains("forge.mesh_renderer")) ||
+            primitive_kind(e) == no_primitive)
+            throw std::runtime_error("NavigationSurface requires built-in mesh geometry: " +
+                                     id.str());
         if (c.contains("forge.physics_body") &&
             c.at("forge.physics_body").at("motion").get<unsigned>() != 0)
             throw std::runtime_error("NavigationSurface must be static: " + id.str());

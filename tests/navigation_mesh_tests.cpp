@@ -3,6 +3,7 @@
 #include <DetourNavMesh.h>
 #include <cmath>
 #include <cstring>
+#include <forge/engine_assets.hpp>
 #include <iostream>
 using namespace forge;
 using Json = nlohmann::json;
@@ -50,6 +51,21 @@ int main() {
         rejects([&] { geometry(collapsed); });
         auto doc = scene();
         auto g = geometry(doc);
+        auto mesh_sources = doc;
+        for (auto& row : mesh_sources["entities"]) {
+            auto& c = row["components"];
+            c["forge.mesh_renderer"] = {{"mesh", engine_primitive(c["forge.primitive"]["kind"]).id},
+                                        {"enabled", true}};
+            c.erase("forge.primitive");
+        }
+        const auto converted = geometry(mesh_sources);
+        check(converted.vertices == g.vertices && converted.indices == g.indices &&
+                  converted.digest == g.digest,
+              "Built-in MeshRenderer navigation differs from legacy primitive geometry");
+        auto unsupported_mesh = mesh_sources;
+        unsupported_mesh["entities"][0]["components"]["forge.mesh_renderer"]["mesh"] =
+            AssetId::generate();
+        rejects([&] { geometry(unsupported_mesh); });
         auto tile = build_tile(g, {});
         auto mesh = std::make_shared<Mesh>(tile);
         Query query(mesh);

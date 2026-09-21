@@ -2,6 +2,7 @@
 #include "mesh_component_tests.hpp"
 #include "node_policy_tests.hpp"
 #include "ordered_hierarchy_tests.hpp"
+#include "primitive_compatibility_tests.hpp"
 #include "relationship_tests.hpp"
 #include "render_scene_tests.hpp"
 #include "render_view_tests.hpp"
@@ -44,6 +45,7 @@ int main(int argc, char** argv) {
         test_node_policy();
         test_relationship_depth();
         test_entity_recipes();
+        test_primitive_compatibility();
         test_ordered_hierarchy();
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());

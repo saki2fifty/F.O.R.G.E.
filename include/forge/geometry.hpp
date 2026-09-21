@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cmath>
+#include <forge/engine_assets.hpp>
 #include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
 #include <limits>
@@ -84,6 +85,13 @@ struct ObjectTransform {
 };
 inline unsigned primitive_kind(const Json& entity) {
     const auto& c = entity.at("components");
+    if (c.contains("forge.mesh_renderer")) {
+        const auto& mesh = c.at("forge.mesh_renderer");
+        if (!mesh.value("enabled", true) || mesh.at("mesh").is_null())
+            return no_primitive;
+        const auto* asset = engine_asset(mesh.at("mesh").get<AssetId>());
+        return asset && asset->primitive ? *asset->primitive : no_primitive;
+    }
     return c.contains("forge.primitive") ? c.at("forge.primitive").at("kind").get<unsigned>() : 0;
 }
 struct PrimitiveVertex {

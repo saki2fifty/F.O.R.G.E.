@@ -155,3 +155,23 @@ on `MeshRenderer.materials`, preserving scene history and prefab field intent.
 An equal/default-valued assignment remains explicit; removing it resumes the mesh
 default. Unresolved keys remain authored and visible. No physical slot ordinal is
 saved as a logical key, and no second asset registry is introduced.
+
+
+## Built-in shape authoring and compatibility
+
+Explicit primitive creation recipes now compose local TRS and MeshRenderer, assign
+an immutable engine Mesh UUID and a surface Material UUID, and omit Primitive/Tint.
+Navigation Surface's plane uses the same composition plus NavigationSurface.
+Planar shapes use the two-sided default. No material asset file is created as an
+incidental scene edit; material sources retain independent history/publication.
+The pre-Phase7 `entity.create` kind/default form retains its legacy composition for
+existing command clients; current editor creation routes all pass explicit recipes.
+
+Old Primitive/Tint scene/prefab bytes remain authored authority for those objects.
+Presentation adapts their effective values to built-in Mesh resources and the legacy
+surface, preserving tint and independent native inheritance without dirtying or
+rewriting source documents. Explicit MeshRenderer always wins, even when disabled,
+empty or invalid. Inspector omits legacy controls in that case to avoid ignored
+writes. Built-in geometry queries recognize the assigned engine mesh; arbitrary
+imported meshes do not silently become a cube. Navigation's existing bounded
+built-in-geometry profile accepts equivalent built-in MeshRenderer sources.

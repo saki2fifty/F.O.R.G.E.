@@ -1,6 +1,6 @@
-# Primitives and tint
+# Built-in shapes
 
-Primitives are built-in shapes for blocking out a level before detailed assets are available. They share the existing preview renderer, picking, bounds and navigation geometry. They are not imported Mesh or Material assets.
+Built-in shapes are reusable engine Mesh assets for blocking out a level. New **3D Primitive** recipes create a Mesh Renderer with a built-in mesh and default Material assignment. Older scenes keep their original Primitive/Tint data and appearance through the compatibility renderer.
 
 ## Create an entity
 
@@ -21,13 +21,19 @@ Choose **3D Primitive**:
 - **Pyramid**, **Tetrahedron**, **Octahedron**, **Triangular Prism**, **Hexagonal Prism** and **Wedge** are fixed blockout solids within a unit local bounding box. Scale/rotate them to fit your level.
 - **Hemisphere** is a capped upper half-sphere of radius 0.5. **Icosphere** is a low-resolution sphere built by subdividing an icosahedron once.
 
-Shapes use fixed tessellation and proportions. No topology editor, subdivision control, UV/material authoring or automatic collider creation is included. Shape geometry and collider components are independent; choose/configure an existing supported collider explicitly.
+Shapes use fixed tessellation and proportions, with UV coordinates and tangents for material shading. No topology editor, subdivision control or automatic collider creation is included. Shape geometry and collider components are independent; choose/configure an existing supported collider explicitly.
 
-## Change shape or tint
+## Change a new shape's mesh or material
+
+Select the object and expand **Mesh Renderer** in Inspector. Choose a built-in **Mesh** or drag a compatible Mesh from Content. Assign a reusable Material to its **Surface** slot; **Use mesh default** removes that scene assignment and follows the mesh's default surface. Planar built-in meshes use a two-sided default material. Mesh assignment and slot changes are scene edits with Undo/Redo; editing a Material source has its own document ownership.
+
+New shapes begin with the default surface material rather than an entity Tint. Use the [Material editor](materials.md) to create colors, textures and other reusable surface settings. A disabled Mesh Renderer or an empty mesh assignment does not reveal an old cube underneath it.
+
+## Older scenes: shape and tint
 
 Select the entity and find **Inspector → Blockout Geometry**. **Shape** preserves transform and tint. **None** disables its geometry; choosing a visible shape restores it. **Tint** opens an opaque RGB color picker. Each drag commits one Undo step. Preview lighting modulates the displayed color; colors persist and appear in Game.
 
-This remains a fixed-shading blockout renderer. Imported meshes, editable materials, texture maps, transparency and shadows are future work.
+Legacy blockout appearance uses the shared Mesh/Material rendering path with a compatibility surface. Opening, saving, duplicating or instantiating an older scene/prefab does not rewrite its Primitive/Tint components into new assets. Component-level inheritance and tint overrides remain intact; no implicit migration dirties the scene. The legacy `entity.create` command form using `kind` (or no recipe) remains available for existing automation clients. New tools should use explicit creation recipes.
 
 ## Picking and framing
 

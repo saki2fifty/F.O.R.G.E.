@@ -12,7 +12,7 @@ This is basic path following. Agents do not avoid each other or react to moving 
 4. You can add a second obstacle elsewhere on the floor. Mark every shape that should affect the route.
 5. Save the scene.
 
-Only marked primitives contribute. Unmarked objects are invisible to the navigation build. Keep included geometry static.
+Only marked built-in shapes contribute, including their Mesh Renderer representation and legacy Primitive scenes. Imported arbitrary mesh geometry is not accepted by this navigation profile. Unmarked objects are invisible to the navigation build. Keep included geometry static.
 
 ## Build the NavMesh
 

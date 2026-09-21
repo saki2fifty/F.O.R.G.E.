@@ -306,6 +306,10 @@ class BlockoutProperties {
                          "Select in Hierarchy and edit local Scale to recover. Physics validates "
                          "its own collider requirements.");
             }
+            // MeshRenderer owns geometry/materials. Legacy controls would write
+            // ignored components and create misleading prefab override intent.
+            if (entity.at("components").contains("forge.mesh_renderer"))
+                return;
             ui::heading("Blockout Geometry", "Built-in meshes and opaque blockout tint. This is "
                                              "not a material or texture system.");
             int kind = int(primitive_kind(entity));

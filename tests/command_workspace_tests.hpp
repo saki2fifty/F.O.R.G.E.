@@ -1,5 +1,6 @@
 #pragma once
 #include "command_workspace.hpp"
+#include <forge/engine_assets.hpp>
 void require(bool condition, const char* message);
 inline void test_command_workspace(float scale) {
     ImGui::CreateContext();
@@ -58,7 +59,8 @@ inline void test_command_workspace(float scale) {
     io.AddKeyEvent(ImGuiKey_Enter, false);
     frame();
     require(scene.entity_count() == 1 &&
-                scene.document()["entities"][0]["components"]["forge.primitive"]["kind"] == 1,
+                scene.document()["entities"][0]["components"]["forge.mesh_renderer"]["mesh"]
+                        .get<forge::AssetId>() == forge::engine_primitive(1).id,
             "Palette keyboard search/execute failed");
     require(scene.undo() && scene.entity_count() == 0, "Palette command bypassed undo");
     workspace.diagnostics_open = true;

@@ -925,3 +925,14 @@
 - Pinned SDL evidence requires a pointer-position fallback for the legacy Windows drop path; ordinary positioned drag/drop retains event coordinates. New Scene drops preserve typed identity and independent prefab transform ownership.
 - Normal source-copy failure/race tests pass (0.86s); strict ASan/UBSan/LSan passes (0.56s). Updated model/editor controls and batch partial-failure tests pass (2.51s), including100%/200% rendering. Actual native Windows execution of this bundle remains pending.
 - The prior8fde30c Windows audit stopped at an MSVC compile error in newly added stalled-preview JSON diagnostics. Converted ImGui bit-fields to bool before forwarding into JSON. That compile fix does not establish that the unresolved Model-preview capture timeout is fixed.
+
+
+## Built-in primitive recipe integration
+
+- Current primitive creation recipes now assign immutable built-in Mesh and Material assets through MeshRenderer, without storing competing Primitive/Tint values. Planar shapes choose a two-sided default surface; new objects use material shading. Empty recipes retain explicit no-geometry behavior.
+- Existing scenes, prefab values and legacy kind-based automation retain their Primitive/Tint compatibility path. Rendering does not rewrite those files, materialize inherited overrides or dirty documents. Save/reopen, prefab propagation and new recipe Undo/Redo are covered by the authoring regression.
+- Inspector hides legacy geometry/tint controls when MeshRenderer owns appearance. Legacy appearance commands reject such targets without changing history. Built-in geometry queries recognize MeshRenderer assignments; imported, missing or disabled meshes cannot silently become cubes.
+- Navigation accepts equivalent built-in MeshRenderer sources under its existing static geometry profile. A regression compares exact vertices, indices and geometry digest against legacy sources; unsupported imported geometry is rejected.
+- Normal authoring tests pass (1.58s); navigation/model scene checks pass2/2 (0.34s). Rebuilt editor process/input and Content/model tests pass2/2 (17.82s). The initial run exposed a legacy-only palette assertion and a stale worker revision; both were corrected before the passing rerun. Strict sanitizer and Windows checks remain required.
+
+- Primitive compatibility also passes strict ASan/UBSan/LSan (authoring/navigation2/2,10.34s) and rebuilt core/structured-prefab/hierarchical-transform regressions (3/3,5.86s). Updated manual checks pass. Final Windows acceptance remains pending.

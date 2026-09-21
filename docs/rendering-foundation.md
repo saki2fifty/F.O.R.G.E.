@@ -1,7 +1,8 @@
 # Rendering foundation contract
 
-Design for later authorized implementation; no production mesh/material renderer
-is delivered by this document. Current Primitive/Tint blockout rendering remains
+This document describes the shared Scene/Game renderer and its asset/resource
+boundaries. Phase7 source implements the paths detailed below; final package and
+native acceptance gates remain in progress. Primitive/Tint compatibility remains
 supported. See [ADR008](decisions/008-rendering-assets.md) and
 [ADR009](decisions/009-coordinates.md).
 
@@ -10,9 +11,11 @@ supported. See [ADR008](decisions/008-rendering-assets.md) and
 An ECS renderable references one Mesh asset and material slots. Visibility, shadow
 participation and render-layer flags are explicit values. It never owns a Diligent
 buffer/texture pointer. Model containers reference separately identified Mesh,
-Material, Skeleton and Clip outputs. Built-in geometry will generate the same Mesh
-artifacts as imported content. Migration of Primitive/Tint requires a versioned,
-undoable authored conversion and a default-material mapping; it is not automatic.
+Material, Skeleton and Clip outputs. Built-in geometry uses the same Mesh resource/draw path as imported content.
+Current creation recipes assign engine-owned Mesh and Material assets directly.
+Existing Primitive/Tint data is projected without rewriting authored scene/prefab
+state. Any future persisted conversion requires explicit version/history semantics;
+it is not an automatic consequence of opening or saving a project.
 
 | Asset | Durable contract | Transient realization / deferred trigger |
 | --- | --- | --- |
@@ -56,9 +59,9 @@ Do not label an untested conversion as supported.
 
 Native reflected Camera and Light components and their validated CPU adapters are
 implemented during Phase7. See[cameras and lights](cameras-lights.md) for projection,
-units, imported basis, numerical admission and history ownership. This is not yet
-production rendering: Game still uses the preview camera until that consumer is
-connected. Scene's editor navigation camera remains personal transient state.
+units, imported basis, numerical admission and history ownership. Game composition
+uses authored cameras, as detailed below. Scene's editor navigation camera remains
+personal transient state.
 
 Directional, point and spot lights provide authored intent. Environment/sky is an
 asset plus scene-level settings; skybox and image-based lighting remain renderer
@@ -96,19 +99,14 @@ set. Old resources remain alive through CPU leases and GPU fences. Render extrac
 reads a stable presentation snapshot, never editor draft memory. Rendering hot reload
 must not restart the editor or reinterpret stale handles as new resources.
 
-## Phase7 CPU geometry checkpoint
+## Asset data and presentation
 
-[Cooked meshes](mesh-assets.md) and their [typed runtime CPU leases](runtime-resources.md)
-are implemented and tested through the pinned native glTF decoder. Full production
-GPU mesh/material/skin realization remains in progress. This does not alter the
-separate authored TRS or presentation ownership contract.
-
-The in-progress[texture data/import contract](texture-assets.md) records actual CPU
-capabilities and pending GPU/editor work.
-
-[Cooked material values](material-assets.md) and immutable typed CPU material
-selections are now implemented. Their layout checks do not replace the pending
-Diligent reflection adapter or GPU material implementation.
+[Cooked meshes](mesh-assets.md), [typed runtime leases](runtime-resources.md),
+[texture imports](texture-assets.md), [material values](material-assets.md) and the
+[shader compiler/reflection contract](shader-assets.md) feed the native presentation
+resources described below. CPU validation is required before GPU realization and
+does not substitute for native draw tests. Authored TRS remains independent of
+presentation ownership.
 
 ## Authored mesh component checkpoint
 

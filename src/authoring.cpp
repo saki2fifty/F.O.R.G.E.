@@ -1,3 +1,4 @@
+#include "builtins.hpp"
 #include "reflected_value.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
@@ -5,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <forge/authoring.hpp>
+#include <forge/engine_assets.hpp>
 #include <forge/entity_recipes.hpp>
 #include <forge/geometry.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -268,6 +270,24 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         created_row["spatial"] = {{"mode", "follow_structure"}};
         if (kind == no_primitive)
             created_row["components"].erase("forge.tint");
+        // Explicit recipes are the current composition contract. Retain the
+        // pre-Phase7 kind/default command form for legacy automation clients.
+        if (recipe && kind != no_primitive) {
+            Json renderer;
+            for (const auto& type : detail::builtins())
+                if (std::string_view(type.name) == "forge.mesh_renderer")
+                    renderer = type.defaults;
+            renderer["mesh"] = engine_primitive(kind).id;
+            const bool planar = kind == 3 || kind == 8 || kind == 9 || kind == 10;
+            renderer["materials"] =
+                Json::array({{{"slot", "surface"},
+                              {"material", engine_material(planar ? EngineMaterial::TwoSided
+                                                                  : EngineMaterial::Default)
+                                               .id}}});
+            created_row["components"]["forge.mesh_renderer"] = std::move(renderer);
+            created_row["components"].erase("forge.primitive");
+            created_row["components"].erase("forge.tint");
+        }
         if (recipe && !recipe->component.empty()) {
             bool found = false;
             const auto recipe_schema = scene.schema();
@@ -397,11 +417,16 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
                    {{a.at("field").get<std::string>(), a.at("value")}});
     else if (op == "transform.position" || op == "transform.rotation" || op == "transform.scale")
         set_fields(scene, id, "forge." + op.substr(10), a.at("value"));
-    else if (op == "appearance.color")
-        set_fields(scene, id, "forge.tint", a.at("value"));
-    else if (op == "appearance.shape")
-        set_fields(scene, id, "forge.primitive", {{"kind", a.at("kind")}});
-    else if (op == "transform.reset") {
+    else if (op == "appearance.color" || op == "appearance.shape") {
+        if (effective(scene, id).at("components").contains("forge.mesh_renderer"))
+            throw CommandError("unsupported_target",
+                               "MeshRenderer owns this object's appearance. Assign its mesh or "
+                               "material slots; legacy shape/tint edits would have no effect.");
+        if (op == "appearance.color")
+            set_fields(scene, id, "forge.tint", a.at("value"));
+        else
+            set_fields(scene, id, "forge.primitive", {{"kind", a.at("kind")}});
+    } else if (op == "transform.reset") {
         set_fields(scene, id, "forge.position", {{"x", 0}, {"y", 0}, {"z", 0}});
         set_fields(scene, id, "forge.rotation", {{"x", 0}, {"y", 0}, {"z", 0}});
         set_fields(scene, id, "forge.scale", {{"x", 1}, {"y", 1}, {"z", 1}});
