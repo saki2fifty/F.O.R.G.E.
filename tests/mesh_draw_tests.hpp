@@ -149,11 +149,11 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         blended.parameters["baseColorFactor"].value = {0, 0, 1, .5f};
         forge::MeshDraw blue(presentation, context, gpu.lods[0].parts[0], blended, {},
                              TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
-        forge::RenderSortKey near, far;
-        near.alpha = far.alpha = forge::MaterialAlpha::Blend;
-        near.depth = 1.5;
-        far.depth = 2;
-        std::vector<forge::RenderSortKey> queue{near, far};
+        forge::RenderSortKey near_item, far_item;
+        near_item.alpha = far_item.alpha = forge::MaterialAlpha::Blend;
+        near_item.depth = 1.5;
+        far_item.depth = 2;
+        std::vector<forge::RenderSortKey> queue{near_item, far_item};
         std::sort(queue.begin(), queue.end(), forge::render_key_less);
         world.m[11] = 3;
         render(draw);

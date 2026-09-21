@@ -148,3 +148,12 @@
 - Added HDR catalog-selection regression passes normal1/1(.93s) and strict
   sanitizer1/1(1.68s): auto-color preserves RGBA32Float HDR; explicit unavailable LDR
   is rejected. No numbered Windows build was allocated for this checkpoint.
+
+### Windows renderer validation correction
+
+- Native audit35551107369 forbd6df54 stopped during test compilation: Windows headers
+  define legacy `near`/`far` macros, which collided with queue fixture variable names.
+  Rename those variables; keep the actual ordering assertions unchanged. The audit
+  did not run its rendering tests. Core/SDK push validation forbd6df54 passed.
+- Supersede the queued8ea0067 source audit containing the same collision. This is
+  a test portability correction, not a dependency or renderer contract change.
