@@ -138,6 +138,17 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         measured.update(scene); // Its engine CPU revision is already resident.
         require(!measured.pending() && measured.diagnostics().empty(),
                 "Pose-budget baseline was not ready");
+        const auto view = camera_view(base, {}, 64, 32);
+        require(measured.pick(scene, view, 32, 16) == scene.meshes[0].entity,
+                "Retained singular mesh pose was not selectable");
+        scene.meshes[0].renderer.visible = false;
+        require(measured.pick(scene, view, 32, 16) == scene.meshes[0].entity,
+                "Hidden geometry lost independent selectability");
+        scene.meshes[0].selectable = false;
+        require(!measured.pick(scene, view, 32, 16),
+                "Unselectable geometry was selected by the retained mesh consumer");
+        scene.meshes[0].selectable = true;
+        scene.meshes[0].renderer.visible = true;
         const auto one = measured.pose_payload_bytes();
         require(one > 0, "Retained mesh pose payload was not accounted");
         MeshSceneRenderer limited(host, Diligent::TEX_FORMAT_RGBA8_UNORM, 2 * one);

@@ -468,3 +468,21 @@
 - Strict address/undefined/leak sanitizer checks pass 3/3 (91.36 seconds), manual
   checks pass 3/3, formatting passes, and all 48 supplementary generated HLSL
   stages compile. Native fixture/backend syntax checks pass; Windows rerun pending.
+
+### Precise viewport selection
+
+- Select actual retained mesh geometry at the chosen LOD, including morphs and
+  skinning. Preserve negative/zero-scale behavior without requiring an inverse.
+- Clip triangles, lines and points before perspective division. Use independent
+  node selectability, nearest-depth selection and stable identity tie breaking.
+- Share one camera construction path between Scene drawing and selection. Missing
+  geometry does not create a substitute cube hit; failed/over-budget queries keep
+  the existing selection and show an actionable status.
+- CPU regressions cover reflection, zero scale, large world origins, reflected
+  cameras, negative morphs, skinning, near-plane clipping, points/lines and work
+  exhaustion. Normal and strict sanitizer render-bounds checks pass; the native
+  retained-mesh selection check still requires Windows execution.
+- Final focused selection rerun passes normally (0.05 seconds) and with strict
+  sanitizers (0.22 seconds). Native backend, editor-main and fixture-header syntax
+  checks pass; manual checks pass 3/3 and formatting passes. Windows execution
+  remains a separate pending gate.

@@ -208,5 +208,22 @@ unselectable does not hide it. Each property edit supports scene Undo/Redo.
 Prefab instances use the same property Revert controls to follow their source again.
 
 Imported node flags feed these components through the internal placement path.
-Public imported-model placement and precise mesh picking remain under integration;
-the existing blockout selection path already observes the node selection switch.
+The retained mesh and legacy blockout selection paths observe this selection
+switch. Public imported-model placement remains under integration.
+
+## Selecting model geometry
+
+Click a model surface in the Scene view to select its corresponding entity.
+Selection follows the loaded mesh, including its current morph and skeletal pose.
+It also works with mirrored or flattened surfaces. Points and lines have a small
+pick radius to make thin geometry easier to select.
+
+Selection ignores material transparency and the visibility switch; **Node
+Selectability** controls whether the geometry can be picked. Select hidden or
+unselectable entities from **Hierarchy** when that is clearer. Geometry still
+loading has no substitute selection cube.
+
+For an exceptionally expensive click, FORGE leaves the previous selection in place
+and reports that the selection work budget was exceeded. Use Hierarchy for that
+entity. The imported-model placement controls are still undergoing integration in
+this source checkpoint.

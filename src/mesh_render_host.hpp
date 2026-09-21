@@ -48,6 +48,8 @@ class MeshSceneRenderer {
     std::size_t omitted_diagnostics() const { return omitted_; }
     bool pending() const;
     std::uint64_t pose_payload_bytes() const;
+    EntityId pick(const RenderScene&, const CameraView&, double x, double y,
+                  std::uint32_t layers = UINT32_MAX, double point_line_radius = 5) const;
     const EnvironmentLease& environment() const { return environment_ready_; }
 
   private:

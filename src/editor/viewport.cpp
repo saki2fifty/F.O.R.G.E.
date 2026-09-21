@@ -1,10 +1,42 @@
 #include "viewport.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "authoring.hpp"
 #include <cmath>
 #include <forge/geometry.hpp>
 #include <stdexcept>
 using namespace Diligent;
 namespace forge {
+namespace {
+CameraView scene_camera(const EditorCamera& camera, unsigned width, unsigned height) {
+    Camera lens;
+    lens.vertical_fov = 2 * std::atan(1.0 / EditorCamera::focal);
+    lens.near_plane = EditorCamera::near_plane;
+    lens.far_plane = EditorCamera::far_plane;
+    const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
+               forward = camera.forward();
+    AffineTransform world;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        world.m[axis * 4] = right[axis];
+        world.m[axis * 4 + 1] = up[axis];
+        world.m[axis * 4 + 2] = forward[axis];
+        world.m[axis * 4 + 3] = eye[axis];
+    }
+    return camera_view(lens, world, width, height);
+}
+} // namespace
+std::string Viewport::pick(const Json& source, const EditorCamera& camera, unsigned width,
+                           unsigned height, double x, double y, double radius) {
+    if (!meshes_)
+        return pick_block(source, camera, float(x), float(y), float(width), float(height));
+    const auto snapshot = extract_render_scene(source);
+    // Use current authored policy and the same complete retained resource/pose
+    // candidate as drawing. A click never invents substitute cube geometry.
+    if (meshes_->update(snapshot))
+        frame_.reset();
+    const auto id =
+        meshes_->pick(snapshot, scene_camera(camera, width, height), x, y, UINT32_MAX, radius);
+    return id ? id.str() : std::string{};
+}
 Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
     : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),
       display_(hdr ? std::make_unique<DisplayResolve>(presentation) : nullptr),
@@ -275,18 +307,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         context->Draw(draw);
     }
     if (meshes_ && mesh_scene_) {
-        Camera lens;
-        lens.vertical_fov = 2 * std::atan(1.0 / EditorCamera::focal);
-        lens.near_plane = EditorCamera::near_plane;
-        lens.far_plane = EditorCamera::far_plane;
-        AffineTransform camera_world;
-        for (unsigned axis = 0; axis < 3; ++axis) {
-            camera_world.m[axis * 4] = right[axis];
-            camera_world.m[axis * 4 + 1] = up[axis];
-            camera_world.m[axis * 4 + 2] = forward[axis];
-            camera_world.m[axis * 4 + 3] = eye[axis];
-        }
-        const auto view = camera_view(lens, camera_world, width, height);
+        const auto view = scene_camera(camera, width, height);
         meshes_->shadows(*mesh_scene_, view, UINT32_MAX);
         auto* scene_target = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         context->SetRenderTargets(1, &scene_target,

@@ -1,6 +1,7 @@
 #pragma once
 #include "authoring.hpp"
 #include "camera_controls.hpp"
+#include <functional>
 namespace forge::ui {
 struct SceneTools {
     bool move_tool = true, grid = true, snap = false;
@@ -50,7 +51,8 @@ struct SceneTools {
         return result;
     }
     void input(Scene& scene, const EditorCamera& camera, std::string& selected, ImVec2 origin,
-               ImVec2 size, const ViewportInput& input, bool can_edit, std::string& status) {
+               ImVec2 size, const ViewportInput& input, bool can_edit, std::string& status,
+               const std::function<std::string(const Json&, float, float)>& pick = {}) {
         const auto& io = ImGui::GetIO();
         const ImVec2 mouse{io.MousePos.x - origin.x, io.MousePos.y - origin.y};
         if (move.active() &&
@@ -110,8 +112,14 @@ struct SceneTools {
                     }
                 }
             }
-            if (hit == -2)
-                selected = pick_block(doc, camera, mouse.x, mouse.y, size.x, size.y);
+            if (hit == -2) {
+                try {
+                    selected = pick ? pick(doc, mouse.x, mouse.y)
+                                    : pick_block(doc, camera, mouse.x, mouse.y, size.x, size.y);
+                } catch (const std::exception& e) {
+                    status = std::string("Selection unchanged: ") + e.what();
+                }
+            }
         }
         if (move.active()) {
             if (ImGui::IsMouseDown(ImGuiMouseButton_Right) ||

@@ -1544,7 +1544,13 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             scene_tools.input(
                                 scene, view_camera, selected, image_origin, size, input,
-                                can_edit && !gizmo && !was_modal && !modal.active(), message);
+                                can_edit && !gizmo && !was_modal && !modal.active(), message,
+                                [&](const forge::Json& snapshot, float x, float y) {
+                                    return viewport.pick(snapshot, view_camera,
+                                                         unsigned(std::max(1.f, size.x)),
+                                                         unsigned(std::max(1.f, size.y)), x, y,
+                                                         5 * forge::ui::interface_scale);
+                                });
                         if (!game_view && input.activated &&
                             ImGui::IsMouseDown(ImGuiMouseButton_Left) && can_edit && !gizmo &&
                             !was_modal && !modal.active())

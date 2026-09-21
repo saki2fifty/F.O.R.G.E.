@@ -1,8 +1,60 @@
 #include "mesh_render_host.hpp"
 #include "mesh_draw_shader.hpp"
+#include "mesh_pick.hpp"
+#include "render_projection.hpp"
 #include "render_sort.hpp"
 #include <set>
 namespace forge {
+EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& camera, double x,
+                                 double y, std::uint32_t layers, double radius) const {
+    host_->check_thread();
+    MeshPickBudget budget;
+    EntityId selected;
+    double nearest = 2;
+    for (const auto& mesh : scene.meshes) {
+        if (!mesh.selectable || !(mesh.renderer.layers & layers))
+            continue;
+        const auto found = entries_.find(mesh.entity);
+        if (found == entries_.end() || !found->second.ready)
+            continue;
+        const auto& entry = found->second;
+        const auto bounds = mesh_instance_bounds(entry.pose, camera.position);
+        if (!bounds_visible(bounds, camera))
+            continue;
+        // Conservative screen rectangle; crossing a clip plane disables this
+        // shortcut. Precise tests below still clip every actual primitive.
+        double left = INFINITY, right = -INFINITY, top = INFINITY, bottom = -INFINITY;
+        bool rectangle = true;
+        for (unsigned corner = 0; corner < 8; ++corner) {
+            Double3 point;
+            for (unsigned c = 0; c < 3; ++c)
+                point[c] = corner & (1u << c) ? bounds.maximum[c] : bounds.minimum[c];
+            const auto pixel = project_render_point(camera, point);
+            if (!pixel) {
+                rectangle = false;
+                break;
+            }
+            left = std::min(left, (*pixel)[0]);
+            right = std::max(right, (*pixel)[0]);
+            top = std::min(top, (*pixel)[1]);
+            bottom = std::max(bottom, (*pixel)[1]);
+        }
+        if (rectangle &&
+            (x < left - radius || x > right + radius || y < top - radius || y > bottom + radius))
+            continue;
+        const auto& data = entry.ready->prepared().mesh->mesh;
+        const auto lod = select_mesh_lod(data, bounds_screen_coverage(bounds, camera));
+        const auto& parts = data.lods.at(lod).parts;
+        for (unsigned p = 0; p < parts.size(); ++p)
+            if (const auto depth = pick_mesh_part(parts[p], entry.pose.lods.at(lod).at(p),
+                                                  entry.pose, camera, x, y, budget, radius))
+                if (*depth < nearest || (*depth == nearest && mesh.entity < selected)) {
+                    nearest = *depth;
+                    selected = mesh.entity;
+                }
+    }
+    return selected;
+}
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
                                    Diligent::IDeviceContext* context, std::filesystem::path project)
     : presentation_(presentation), context_(context), project_(std::move(project)),

@@ -919,3 +919,30 @@ Rendering components Camera/Light/MeshRenderer and both node policies are marked
 optional in the existing shared component catalog. Core registration family does
 not imply that an authoring component is mandatory. ModelSource provenance stays
 internal; all edits use the existing scene command/revision/history boundary.
+
+### Geometric viewport selection
+
+The Scene viewport selects from the same retained CPU mesh revision and complete
+instance pose as the draw bundle. It chooses the rendered LOD, evaluates POSITION
+morph deltas before joint-world × inverse-bind skinning, and clips actual
+triangles/lines/points in homogeneous D3D clip space before perspective division.
+No world inverse is required. Reflection and rank-two surfaces remain selectable;
+collapsed triangle surfaces do not create a false solid hit. Selection is
+geometric and two-sided: material alpha, visibility and raster culling do not
+replace the independent structural selectability policy.
+
+Camera-relative double arithmetic subtracts the camera origin from matrix
+translations before applying local vertices. Triangle depth comes from screen
+barycentrics; points and lines have a five-pixel pick radius scaled with the editor
+interface. Nearest projected depth wins; EntityId breaks exact ties. Conservative
+screen bounds reject unrelated objects before precise tests. Selection never
+substitutes a cube for missing or still-loading imported geometry.
+
+One click shares a 1,048,576-unit synchronous work budget across candidates.
+A vertex costs one unit, each active POSITION morph another, and each skin
+influence another. Fixed-size clipping storage adds no per-triangle heap payload.
+Exhaustion rejects the entire query and preserves selection with an actionable
+status; Hierarchy remains available. This is a current interaction bound, not an
+asset rejection or a claim of bounded milliseconds. A 100,000-triangle fixture
+(300,000 units) measured 35–40 ms in the local normal build and 162 ms under strict
+sanitizers. Dense asynchronous/BVH selection remains future optimization.
