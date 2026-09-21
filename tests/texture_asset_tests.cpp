@@ -134,7 +134,9 @@ int main(int argc, char** argv) {
         t.semantic = TextureSemantic::HdrColor;
         rejects([&] { validate_texture(t); });
         t = texture(TextureFormat::BC1, TextureDimension::D3);
-        rejects([&] { validate_texture(t); });
+        const auto volume = decode_texture(encode_texture(t));
+        require(volume.dimension == TextureDimension::D3 && volume.subresources == t.subresources,
+                "Backend-neutral compressed volume roundtrip failed");
         t = texture(TextureFormat::RGBA8, TextureDimension::Cube);
         t.height = 4;
         rejects([&] { validate_texture(t); });
@@ -147,7 +149,15 @@ int main(int argc, char** argv) {
         validate_sampler(sampler);
         sampler.anisotropy = 16;
         validate_sampler(sampler);
+        sampler.anisotropy = 32;
+        sampler.lod_bias = 24;
+        const auto portable_sampler = nlohmann::json(sampler).get<SamplerState>();
+        require(portable_sampler.anisotropy == 32 && portable_sampler.lod_bias == 24,
+                "Logical sampler incorrectly imposed one backend's limits");
         sampler.min = TextureFilter::Nearest;
+        rejects([&] { validate_sampler(sampler); });
+        sampler = {};
+        sampler.anisotropy = 0;
         rejects([&] { validate_sampler(sampler); });
         sampler = {};
         sampler.max_lod = -1;

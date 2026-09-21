@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <forge/texture_asset.hpp>
 #include <forge/texture_bundle.hpp>
+#include <limits>
 
 namespace forge::asset_detail {
 namespace {
@@ -192,10 +193,10 @@ ImportSettingsSchema texture_settings(bool container) {
     rules.push_back(choice("filter", "Filtering", "Nearest or linear texture sampling.", "linear",
                            {"nearest", "linear"}));
     ImportSettingRule aniso{"anisotropy", "Anisotropy",
-                            "Maximum anisotropic samples; requires linear filtering.",
+                            "Requested anisotropy; requires linear filtering and device support.",
                             ImportSettingType::Integer, 1};
     aniso.minimum = 1;
-    aniso.maximum = 16;
+    aniso.maximum = std::numeric_limits<unsigned>::max();
     rules.push_back(aniso);
     if (!container) {
         rules.push_back(choice("transfer", "Color space",

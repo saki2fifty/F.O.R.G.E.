@@ -11,8 +11,6 @@ DisplayResolve::DisplayResolve(DiligentPresentation& presentation)
     : device_(presentation.device()) {
     ShaderCreateInfo shader;
     shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-    shader.ShaderCompiler = SHADER_COMPILER_FXC;
-    shader.HLSLVersion = {5, 1};
     shader.EntryPoint = "main";
     shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
     shader.Desc.Name = "FORGE display fullscreen triangle";

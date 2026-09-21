@@ -58,6 +58,14 @@ inline void test_pbr_material_profile() {
     prepared = prepare_pbr_material(source);
     const std::array<unsigned, 2> uv_sets{0, 19};
     const auto shader = material_shader(prepared, uv_sets);
+    const auto emulated = material_shader(prepared, uv_sets, MaterialSamplerBinding::NamedElements);
+    check(shader.source.find("register(") == std::string::npos &&
+              emulated.source.find("register(") == std::string::npos &&
+              emulated.source.find("SamplerState g_MaterialSamplers_0;") != std::string::npos &&
+              emulated.source.find("g_MaterialSamplers[") == std::string::npos &&
+              shader.samplers == emulated.samplers && shader.uniforms == emulated.uniforms &&
+              shader.textures[0].sampler_slot == emulated.textures[0].sampler_slot,
+          "Resource-array lowering changed logical sampler or material values");
     auto shared_sampler = prepared.values;
     shared_sampler.textures["occlusionTexture"] = shared_sampler.textures.begin()->second;
     shared_sampler.textures["occlusionTexture"].semantic = TextureSemantic::Data;

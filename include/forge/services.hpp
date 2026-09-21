@@ -4,6 +4,7 @@
 #include <forge/identity.hpp>
 #include <forge/navigation_service.hpp>
 #include <forge/physics_service.hpp>
+#include <forge/runtime_resource_service.hpp>
 #include <forge/ui_service.hpp>
 #include <functional>
 #include <memory>
@@ -32,10 +33,11 @@ enum class Capability : unsigned {
     Physics = 8,
     Audio = 16,
     Navigation = 32,
-    Ui = 64
+    Ui = 64,
+    Resources = 256
 };
 constexpr unsigned capability(Capability value) { return static_cast<unsigned>(value); }
-inline constexpr unsigned subsystem_capabilities = 8u | 16u | 32u | 64u;
+inline constexpr unsigned subsystem_capabilities = 8u | 16u | 32u | 64u | 256u;
 inline constexpr unsigned supplied_capabilities = 1u | 2u | subsystem_capabilities;
 inline constexpr unsigned known_capabilities = supplied_capabilities | 4u;
 struct ModuleRequirement {
@@ -71,6 +73,8 @@ class ServiceAccess {
   public:
     bool available(Capability capability) const;
     ServiceAccess world_scope() const;
+    void publish_resources(const std::shared_ptr<RuntimeResourceService>&) const;
+    std::shared_ptr<RuntimeResourceService> resources() const;
     void publish_ui(const std::shared_ptr<UiService>& service) const;
     std::shared_ptr<UiService> ui() const;
     void publish_navigation(const std::shared_ptr<NavigationService>& service) const;
@@ -100,6 +104,7 @@ class ServiceAccess {
     std::shared_ptr<detail::ServiceSlot<AudioService>> audio_;
     std::shared_ptr<detail::ServiceSlot<NavigationService>> navigation_;
     std::shared_ptr<detail::ServiceSlot<UiService>> ui_;
+    std::shared_ptr<detail::ServiceSlot<RuntimeResourceService>> resources_;
 };
 // Owned before worlds; access handles are weak and cannot extend owner lifetime.
 // All access is on the construction thread. Worker results cross through callers' queues.

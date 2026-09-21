@@ -1,8 +1,10 @@
+#include "sdk_resource_tests.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/runtime.hpp>
+#include <forge/runtime_resources.hpp>
 #include <forge/sdk_client.hpp>
 #include <fstream>
 #include <iostream>
@@ -111,7 +113,8 @@ int main(int argc, char** argv) {
         std::weak_ptr<void> lease = sdk.code;
         Module legacy;
         {
-            EngineContext engine(WorldRole::Runtime, true, {sdk, late_ui()});
+            EngineContext engine(WorldRole::Runtime, true,
+                                 {sdk, late_ui(), runtime_resources_module(root)});
             EngineContext second(WorldRole::Validation, false, {sdk});
             sdk = {};
             check(!lease.expired(), "Library not retained by world");
@@ -127,6 +130,7 @@ int main(int argc, char** argv) {
             };
             const auto* host = *static_cast<const ForgeSdkWorldV1* const*>(
                 ecs_get_id(w.c_ptr(), w.lookup("sdk.host").id(), w.lookup("sdk.HostProbe").id()));
+            test_sdk_resources(host, engine.services());
             sdk::Client client(host);
             check(client.valid() && client.available(sdk::Capability::Ui) &&
                       !(host->capabilities & FORGE_SDK_UI),

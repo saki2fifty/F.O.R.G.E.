@@ -2,6 +2,7 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "mesh_draw_shader.hpp"
+#include "render_backend.hpp"
 #include "texture_gpu.hpp"
 #include <algorithm>
 #include <bit>
@@ -46,21 +47,20 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     const auto profile = prepare_pbr_material(source);
     const auto fetch = mesh_vertex_fetch(mesh, profile, enable_skin);
 
-    const auto program = mesh_draw_shader(fetch, profile, shadow_pass_);
+    const auto sampler_binding = emulated_resource_arrays(presentation.device()->GetDeviceInfo())
+                                     ? MaterialSamplerBinding::NamedElements
+                                     : MaterialSamplerBinding::Array;
+    const auto program = mesh_draw_shader(fetch, profile, shadow_pass_, sampler_binding);
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
         ci.Desc.Name = "FORGE prepared mesh draw";
         ci.Desc.ShaderType = stage;
         ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-        // Explicit backend-private compiler selection permits an identical-source
-        // native diagnostic comparison. Production callers retain the FXC profile.
-        require(compiler == SHADER_COMPILER_FXC || compiler == SHADER_COMPILER_DXC,
-                "unsupported mesh shader compiler");
+        // Normal passes use the presentation owner's backend policy. An explicit
+        // compiler remains available for identical-source native diagnostics.
         ci.ShaderCompiler = compiler;
         ci.ShaderOptimizationLevel = optimization;
-        ci.HLSLVersion =
-            compiler == SHADER_COMPILER_DXC ? ShaderVersion{6, 0} : ShaderVersion{5, 1};
         ci.EntryPoint = "main";
         ci.Source = code.c_str();
         ci.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();

@@ -165,10 +165,11 @@ const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
 #ifdef FORGE_SDK_SCHEMA_PHYSICS
                               FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PHYSICS,
                               FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI |
-                                  FORGE_SDK_PHYSICS,
+                                  FORGE_SDK_RESOURCES | FORGE_SDK_PHYSICS,
 #else
                               FORGE_SDK_DIAGNOSTICS,
-                              FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI,
+                              FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI |
+                                  FORGE_SDK_RESOURCES,
 #endif
                               &ecs_init,
                               &ecs_os_api,

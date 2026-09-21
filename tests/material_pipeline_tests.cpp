@@ -3,6 +3,7 @@
 #include "material_selection.hpp"
 #include "material_watch_tests.hpp"
 #include "model_render_resource.hpp"
+#include "runtime_resource_tests.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/material_source.hpp>
 #include <fstream>
@@ -82,6 +83,7 @@ AssetId texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material pipeline scratch directory");
+        forge::test::runtime_resource_services(std::filesystem::absolute(argv[1]));
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);

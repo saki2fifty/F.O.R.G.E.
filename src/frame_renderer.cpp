@@ -7,8 +7,6 @@ FrameRenderer::FrameRenderer(DiligentPresentation& presentation)
       sky_(presentation, TEX_FORMAT_RGBA16_FLOAT) {
     ShaderCreateInfo ci;
     ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-    ci.HLSLVersion = {5, 1};
-    ci.ShaderCompiler = SHADER_COMPILER_FXC;
     ci.EntryPoint = "main";
     ci.Desc.Name = "FORGE camera rectangle clear VS";
     ci.Desc.ShaderType = SHADER_TYPE_VERTEX;

@@ -1,11 +1,13 @@
 #pragma once
 #include "presentation_diligent.hpp"
+#include "render_backend_tests.hpp"
 #include <cmath>
 #include <cstring>
 // Included after the viewport fixture's readback/require helpers.
 void check_native_pbr(forge::DiligentPresentation& presentation,
                       Diligent::IDeviceContext* context) {
     using namespace Diligent;
+    check_renderer_backend_policy();
     auto* device = presentation.device();
     auto& pbr = presentation.pbr(context);
     require(&pbr == &presentation.pbr(context), "PBR resources recreated on repeated access");

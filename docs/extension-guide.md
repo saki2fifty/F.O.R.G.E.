@@ -124,3 +124,50 @@ still apply. The editor's worker supervisor additionally enforces cancellation a
 resource limits before owner-thread schema admission. This extraction checkpoint
 alone does not make a custom component editable, persisted or prefab-aware; those
 consumers are still under implementation. Rebuild modules after this exact SDK change.
+
+## Cooked render resources in gameplay
+
+The exact SDK exposes CPU resource admission through `sdk::Client`. Add
+`FORGE_SDK_RESOURCES` to the module's allowed capabilities. If startup requires
+it, also add it to required capabilities and declare `forge.resources` as a
+module dependency. Project runtimes compose this provider; schema inspection
+and authoring worlds do not activate it.
+
+```cpp
+forge::sdk::Client client(host);
+auto token = client.request_resource(FORGE_SDK_RESOURCE_MESH, mesh_uuid);
+ForgeSdkResourceV1 status{};
+if (token && client.inspect_resource(token, status)) {
+    // status.state describes the requested CPU load.
+    // retained_revision identifies pinned last-good bytes, if any.
+}
+client.release_resource(token);
+```
+
+Supported kinds are Mesh, Material, Texture and Shader. Typed identity is checked
+before dispatch. Only already-cooked content is loaded; gameplay does not invoke
+source importers or shader compilers. Texture requests default to color (HDR where
+available). Pass `FORGE_SDK_TEXTURE_COLOR`, `FORGE_SDK_TEXTURE_DATA`,
+`FORGE_SDK_TEXTURE_NORMAL` or `FORGE_SDK_TEXTURE_HDR_COLOR` as the optional third
+`request_resource` argument for a specific published variant. This does not
+generate a missing variant or reinterpret color data. Non-texture requests accept
+only the default `FORGE_SDK_TEXTURE_AUTOMATIC` value. A ready material does not assert that all its
+textures or shader pipelines are draw-ready. `Rendering` remains unavailable in
+the headless simulation worker.
+
+Requests and observations are owner-thread operations during native startup or
+running state; they do not require a fixed tick. Adoption occurs before fixed
+simulation and during presentation extraction, including while paused. The
+existing asset-publication notification refreshes the captured catalog. Compare
+revision strings to detect a successful replacement. While it is pending or
+failed, `retained_revision` can still identify the previous usable resource.
+A failed catalog refresh keeps the prior selection and emits a diagnostic.
+
+Tokens belong only to the creating module and world, have no persistent meaning,
+and must never be serialized. Releasing one subscription does not cancel another
+subscriber's load. Stop releases outstanding subscriptions automatically. World
+shutdown closes the resource scopes and drains workers. Limits are64subscriptions
+per SDK module,256per world and128MiB CPU bytes per resource family. Token0 or a
+false callback result means rejected/unavailable; output observations are cleared
+on rejected inspections. These callbacks change the exact SDK fingerprint and
+require rebuilding native modules; ABI1 is unchanged.

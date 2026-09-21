@@ -204,6 +204,13 @@ class ContentThumbnails {
     void after_submission() { retired_.clear(); }
     std::size_t size() const { return entries_.size(); }
     std::uint64_t completed() const { return completed_; }
+    std::size_t ready_count() const {
+        return std::count_if(entries_.begin(), entries_.end(), [&](const auto& item) {
+            const auto& entry = item.second;
+            return catalog_ && catalog_->records().contains(item.first) && entry.image &&
+                   entry.verified == epoch_ && entry.error.empty();
+        });
+    }
 
   private:
     struct Entry {

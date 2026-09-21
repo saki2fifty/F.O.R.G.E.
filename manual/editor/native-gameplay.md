@@ -113,3 +113,12 @@ adds worker supervision and transactional admission around that extraction.
 For manifest fields, ownership and the installed sample, see the SDK installation's
 `sdk/docs/extension-guide.md`. Compiler output stays in your build terminal; runtime
 module messages appear in FORGE's diagnostics.
+
+Exact SDK gameplay can request cooked Mesh, Material, Texture and Shader assets
+through the host's Resources capability and inspect their load state and revision.
+Texture requests can choose published color, data, normal-map or HDR variants.
+Failed replacements keep the last usable revision. These requests load CPU data;
+they do not grant access to the graphics device or guarantee a complete draw is
+ready. The packaged SDK extension guide documents the
+callback contract, lifetime and limits. Rebuild native modules when the exact SDK
+fingerprint changes.

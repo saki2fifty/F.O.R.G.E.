@@ -12,5 +12,6 @@ struct MeshDrawShader {
 };
 // Pure source/binding preparation; no device, pipeline or source importer.
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile&,
-                                bool shadow_pass = false);
+                                bool shadow_pass = false,
+                                MaterialSamplerBinding = MaterialSamplerBinding::Array);
 } // namespace forge

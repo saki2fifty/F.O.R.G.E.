@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
     sidecar = source.with_name(source.name + '.forge-import.json')
     before = ((project / 'forge.assets.json').read_bytes(), sidecar.read_bytes())
     call(project, {'unknown-setting': 3}, success=False)
-    call(project, {'anisotropy': 999}, success=False)
+    call(project, {'anisotropy': 0}, success=False)
     source.write_bytes(bytes(pixels[:18]))
     call(project, success=False)
     assert before == ((project / 'forge.assets.json').read_bytes(), sidecar.read_bytes())

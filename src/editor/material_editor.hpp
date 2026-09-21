@@ -711,8 +711,8 @@ inline void MaterialEditor::fields() {
             edited |=
                 ImGui::InputScalar("Anisotropy", ImGuiDataType_U32, &slot.sampler.anisotropy,
                                    nullptr, nullptr, "%u", ImGuiInputTextFlags_EnterReturnsTrue);
-            ui::help("1 disables anisotropy. Values 2–16 improve oblique surface sampling with "
-                     "linear filters.");
+            ui::help("1 disables anisotropy. Higher values request sharper oblique sampling with "
+                     "linear filters. The active device's limit is checked before rendering.");
             edited |= ImGui::InputFloat("LOD bias", &slot.sampler.lod_bias, 0, 0, "%.4g",
                                         ImGuiInputTextFlags_EnterReturnsTrue);
             ui::help("Offset the sampled mip level; invalid device/profile bounds are diagnosed.");

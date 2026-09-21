@@ -30,6 +30,7 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_UI 64u
 /* Intrinsic fixed-input query ID, not a descriptor permission/provider bit. */
 #define FORGE_SDK_INPUT 128u
+#define FORGE_SDK_RESOURCES 256u
 #define FORGE_SDK_CAPABILITY_VERSION 1u
 #define FORGE_SDK_FIXED_ONLY 1u
 #define FORGE_SDK_OWNER_THREAD 2u
@@ -65,6 +66,22 @@ typedef struct ForgeSdkNavResultV1 {
     uint32_t size, status, count, capacity;
     double* xyz; /* Caller-owned capacity*3 doubles; capacity 1..64. */
 } ForgeSdkNavResultV1;
+/* CPU admission states use the engine resource state names. A retained revision
+   can remain usable while a replacement is pending/failed. No GPU readiness claim. */
+#define FORGE_SDK_RESOURCE_MESH 1u
+#define FORGE_SDK_RESOURCE_MATERIAL 2u
+#define FORGE_SDK_RESOURCE_TEXTURE 3u
+#define FORGE_SDK_RESOURCE_SHADER 4u
+#define FORGE_SDK_TEXTURE_AUTOMATIC 0u
+#define FORGE_SDK_TEXTURE_COLOR 1u
+#define FORGE_SDK_TEXTURE_DATA 2u
+#define FORGE_SDK_TEXTURE_NORMAL 3u
+#define FORGE_SDK_TEXTURE_HDR_COLOR 4u
+typedef struct ForgeSdkResourceV1 {
+    uint32_t size;
+    char state[32], requested_revision[65], retained_revision[65], diagnostic[1024];
+    uint64_t source_generation;
+} ForgeSdkResourceV1;
 typedef struct ForgeSdkWorldV1 {
     uint32_t size, version;
     ecs_world_t* world; /* borrowed; module must not destroy it */
@@ -120,6 +137,15 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* authoring_type)(void*, uint64_t native_type, const char* type_key,
                                             uint32_t schema_version, const char* defaults_json,
                                             const char* category, char* error, uint32_t capacity);
+    /* Runtime owner thread, start/running only. Zero is rejection. Tokens belong
+       only to this module/world; release on stop is automatic. Maximum64/module,
+       256/world. Copied observation only; never native data/device ownership. */
+    /* Texture variant: 0 automatic HDR/color, 1 color, 2 data, 3 normal, 4 HDR.
+       Non-texture requests require0. Variants must already be published. */
+    uint64_t(FORGE_SDK_CALL* resource_request)(void*, uint32_t kind, const char* asset_uuid,
+                                               uint32_t texture_variant);
+    int32_t(FORGE_SDK_CALL* resource_inspect)(void*, uint64_t token, ForgeSdkResourceV1*);
+    int32_t(FORGE_SDK_CALL* resource_release)(void*, uint64_t token);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

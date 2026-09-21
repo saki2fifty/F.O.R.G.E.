@@ -1,4 +1,5 @@
 #include "texture_gpu.hpp"
+#include "render_backend.hpp"
 #include "texture_formats.hpp"
 #include <bit>
 #include <stdexcept>
@@ -49,15 +50,6 @@ COMPARISON_FUNCTION comparison(TextureCompare mode) {
 RefCntAutoPtr<ISampler> upload_sampler(IRenderDevice* device, const SamplerState& input) {
     require(device != nullptr, "Texture sampler requires a render device");
     validate_sampler(input);
-    const auto& limits = device->GetAdapterInfo().Sampler;
-    require(input.anisotropy <= limits.MaxAnisotropy,
-            "Sampler anisotropy exceeds this device's capability");
-    require(input.lod_bias == 0 || limits.LODBiasSupported,
-            "This device does not support sampler LOD bias");
-    require(limits.BorderSamplingModeSupported ||
-                (input.u != TextureWrap::ClampBorder && input.v != TextureWrap::ClampBorder &&
-                 input.w != TextureWrap::ClampBorder),
-            "This device does not support border sampling");
     const bool compare = input.compare != TextureCompare::None;
     auto filter = [&](TextureFilter f) {
         if (input.anisotropy > 1)
@@ -80,6 +72,8 @@ RefCntAutoPtr<ISampler> upload_sampler(IRenderDevice* device, const SamplerState
     desc.MaxLOD = input.max_lod;
     for (unsigned i = 0; i < 4; ++i)
         desc.BorderColor[i] = input.border[i];
+    prepare_renderer_sampler(device->GetAdapterInfo().Sampler, sampler_backend_limits(device),
+                             desc);
     RefCntAutoPtr<ISampler> candidate;
     device->CreateSampler(desc, &candidate);
     require(bool(candidate), "Diligent sampler allocation failed");

@@ -245,6 +245,22 @@ No dependency pin changes or DXC/DXIL support are implied. CPU admission tests p
 the native Windows adapter is undergoing execution validation. See
 [shader asset contracts and remaining integration](shader-assets.md).
 
+### Optional Vulkan portability compiler — verified 2026-09-21
+
+The optional Linux Vulkan probe uses Microsoft's official DXC release
+[`v1.8.2505.1`](https://github.com/microsoft/DirectXShaderCompiler/releases/tag/v1.8.2505.1),
+commit `b106a961d09221b3c5bdb37be45b679257da08b8`. The official
+`linux_dxc_2025_07_14.x86_64.tar.gz` archive SHA256 is
+`f2213da1fc99dc8778c8823078e16ba97c7f80f86a1d4520ab1adf4b462bc48c`.
+Its version banner says `1.9(dev;4950-b106a961)` despite that stable release tag;
+the exact release/commit/checksum identifies the tool. No development branch was
+selected. The executable is supplied explicitly to the test and is not downloaded
+or shipped by FORGE. Its MIT/LLVM notices remain with the local tool installation.
+Probe flags are `-spirv -fspv-target-env=vulkan1.1 -T vs_6_0/ps_6_0`; compiled
+SPIR-V passes through the pinned Diligent Vulkan interfaces. This does not change
+the shipping Shader asset cook profile or the Diligent pin. See the
+[backend matrix](render-backends.md) for the precise execution boundary.
+
 ### Native PBR/cache composition — verified source2026-09-20
 
 Exact Core/FX revisions above are unchanged. `DILIGENT_BUILD_FX=OFF` avoids the

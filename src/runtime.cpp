@@ -275,6 +275,8 @@ void RuntimeSimulation::tick(float dt) {
     auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
     stage_error_ = nullptr;
     input_.latch(++input_tick_);
+    if (context_.services().available(Capability::Resources))
+        context_.services().resources()->synchronize();
     if (navigation_)
         navigation_->synchronize();
     context_.modules().begin_tick(input_.snapshot());
@@ -313,6 +315,8 @@ void RuntimeSimulation::reset_presentation() {
 Json RuntimeSimulation::presentation(double alpha) const {
     // Owner-boundary resource adoption also proceeds while Play is paused.
     // Synchronization does not advance the runtime clock or animation time.
+    if (context_.services().available(Capability::Resources))
+        context_.services().resources()->synchronize();
     if (animation_)
         animation_->synchronize();
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);

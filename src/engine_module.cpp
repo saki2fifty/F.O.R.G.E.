@@ -90,7 +90,7 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
                 current = entry.module.id;
                 for (auto cap : {Capability::Diagnostics, Capability::Profiling,
                                  Capability::Rendering, Capability::Physics, Capability::Audio,
-                                 Capability::Navigation, Capability::Ui})
+                                 Capability::Navigation, Capability::Ui, Capability::Resources})
                     if (entry.module.required_services & capability(cap))
                         entry.context->services.require(cap);
                 entry.started = true; // Stop must handle partial startup.

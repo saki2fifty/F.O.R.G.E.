@@ -2576,7 +2576,7 @@ int main(int argc, char** argv) {
                  (model_viewer && model_viewer->ready())) &&
                 ((fixture.stage < 32 || fixture.stage > 35) || asset_view_document.ready()) &&
                 ((fixture.stage != 36 && fixture.stage != 37) ||
-                 (content_thumbnails && content_thumbnails->completed() >= 5)) &&
+                 (content_thumbnails && content_thumbnails->ready_count() >= 5)) &&
                 (fixture.stage < 38 ||
                  (content_files.operation() &&
                   content_files.operation()->state() == forge::AssetFileState::Review))) {

@@ -4,7 +4,7 @@
 #include <stdexcept>
 namespace forge {
 MaterialShader material_shader(const PbrMaterialProfile& material,
-                               std::span<const unsigned> uv_sets) {
+                               std::span<const unsigned> uv_sets, MaterialSamplerBinding binding) {
     MaterialShader result;
     const auto canonical = prepare_pbr_material(material.values);
     const auto& values = canonical.values;
@@ -42,8 +42,10 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
         const auto sampler_slot = selected->second;
         if (inserted)
             result.samplers.push_back(slot.sampler);
-        const auto sampler =
-            std::string(material_sampler_variable) + "[" + std::to_string(sampler_slot) + "]";
+        const auto sampler = std::string(material_sampler_variable) +
+                             (binding == MaterialSamplerBinding::NamedElements
+                                  ? "_" + std::to_string(sampler_slot)
+                                  : "[" + std::to_string(sampler_slot) + "]");
         result.textures.push_back({role, texture, uv_slot, sampler_slot, slot});
         declarations += "Texture2D<float4> " + texture + ";\n";
         const auto offset = result.uniforms.size();
@@ -70,9 +72,13 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
                      ",transformed,dx,dy);valid=all(isfinite(value));"
                      "return valid?value:0;}\n";
     }
-    if (!result.samplers.empty())
+    if (binding == MaterialSamplerBinding::NamedElements) {
+        for (unsigned i = 0; i < result.samplers.size(); ++i)
+            declarations += std::string("SamplerState ") + material_sampler_variable + "_" +
+                            std::to_string(i) + ";\n";
+    } else if (!result.samplers.empty())
         declarations += std::string("SamplerState ") + material_sampler_variable + "[" +
-                        std::to_string(result.samplers.size()) + "] : register(s0,space1);\n";
+                        std::to_string(result.samplers.size()) + "];\n";
     require(result.uniforms.size() <= 128, "material uniform block exceeds the built-in profile");
     result.source = "cbuffer ForgeMaterialValues {float4 g_MaterialValues[" +
                     std::to_string(result.uniforms.size()) + "];};\n" + declarations + functions;

@@ -1,5 +1,7 @@
 # Rendering foundation contract
 
+Backend contract: [D3D12-first validation and backend-neutral architecture](render-backends.md).
+
 This document describes the shared Scene/Game renderer and its asset/resource
 boundaries. Phase7 source implements the paths detailed below; final package and
 native acceptance gates remain in progress. Primitive/Tint compatibility remains

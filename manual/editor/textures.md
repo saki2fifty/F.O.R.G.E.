@@ -37,7 +37,11 @@ already selected as primary is included once.
 
 **Flip normal green** converts the opposite normal-map Y convention and applies
 only to normal variants. **Premultiply alpha** affects color/HDR variants.
-Anisotropy requires linear filtering. Image maximum size selects the first standard
+Anisotropy requires linear filtering and support from the active graphics device.
+An imported texture can be valid while its sampling settings or storage format are
+unsupported by that device. The preview reports the problem and keeps its previous
+usable image; it does not silently clamp sampling or change the saved settings.
+Image maximum size selects the first standard
 mip level that fits. BC compression currently accepts 8-bit normalized images;
 it does not silently reduce HDR or 16-bit pixels to 8-bit.
 

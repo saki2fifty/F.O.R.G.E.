@@ -184,6 +184,15 @@ int main() {
             import_texture_ktx1(fixture1(3, 5, 2, 0, 1, 2), TextureSemantic::Data);
         require(legacy_volume.depth == 2 && legacy_volume.subresources[0].size() == 30,
                 "KTX1 volume/row-padding conversion failed");
+        for (const auto format : {VK_FORMAT_BC1_RGB_UNORM_BLOCK, VK_FORMAT_BC7_UNORM_BLOCK}) {
+            const auto compressed_volume =
+                import_texture_ktx2(fixture(format, 4, 4, 4, 0, 1, 3, 0), TextureSemantic::Data);
+            require(compressed_volume.dimension == TextureDimension::D3 &&
+                        compressed_volume.depth == 4 && compressed_volume.mips == 3 &&
+                        compressed_volume.subresources.front().size() ==
+                            texture_layout(compressed_volume, 0).bytes,
+                    "KTX compressed volume layout changed");
+        }
         const auto oriented = fixture1(3, 5, 0, 0, 1, 1, true);
         require(import_texture_ktx1(oriented, TextureSemantic::Data).width == 3,
                 "KTX1 canonical orientation failed");

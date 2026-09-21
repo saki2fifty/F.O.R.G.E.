@@ -34,8 +34,6 @@ TexturePreviewRenderer::Pipeline& TexturePreviewRenderer::pipeline(unsigned dime
     Pipeline candidate;
     ShaderCreateInfo shader;
     shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-    shader.ShaderCompiler = SHADER_COMPILER_FXC;
-    shader.HLSLVersion = {5, 1};
     shader.EntryPoint = "main";
     shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
     shader.Desc.Name = "FORGE texture preview fullscreen triangle";

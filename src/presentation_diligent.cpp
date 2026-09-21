@@ -1,5 +1,6 @@
 #include "presentation_diligent.hpp"
 #include "Graphics/Archiver/interface/ArchiverFactoryLoader.h"
+#include "render_backend.hpp"
 #include <stdexcept>
 namespace forge {
 using namespace Diligent;
@@ -31,7 +32,9 @@ void DiligentPresentation::shader(const ShaderCreateInfo& info, IShader** result
     if (!result)
         throw std::runtime_error("Presentation output pointer is null");
     trim();
-    const bool hit = cache_->CreateShader(info, result);
+    auto selected = info;
+    prepare_renderer_shader(device_->GetDeviceInfo(), selected);
+    const bool hit = cache_->CreateShader(selected, result);
     if (!result || !*result)
         throw std::runtime_error("Diligent presentation shader creation failed");
     hits_ += hit;

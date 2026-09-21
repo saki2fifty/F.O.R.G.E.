@@ -10,7 +10,7 @@ These classifications describe supported ownership, not a promise of permanent C
 
 | Contract | Class | Boundary and actual consumers |
 |---|---|---|
-| EntityId, AssetId, EntityRef, AssetRef | A; value subset B | Durable identity/typed asset expectations unchanged. SDK Values supplies UUID generation/parsing/formatting; no asset loading. |
+| EntityId, AssetId, EntityRef, AssetRef | A; value subset B | Durable identity/typed asset expectations unchanged. SDK Values supplies UUID generation/parsing/formatting; runtime loading uses the separate checked Resources callbacks. |
 | PrefabMemberId/Ref, StableId | A; value subset B | Authored prefab identity/textual entity mirror. SDK never rewrites unknown payloads. |
 | EngineModule / ModuleContext / ModuleLifecycle | C | Source modules compose dependencies, schemas, role-specific startup/stop and code leases. |
 | WorldContext / EngineContext | C | Own world, scene membership, transforms and module/service lifetime. Not a client-owned object or DLL factory. |
@@ -41,7 +41,7 @@ These classifications describe supported ownership, not a promise of permanent C
 
 ## Services and capability discovery
 
-Built-ins use `ServiceAccess`: `available(Capability)`, `require`, and typed `physics/audio/navigation/ui` acquisition. One templated slot implements publication checks; the four typed methods remain readable and source-compatible. Access is owner-thread only; availability is false on a foreign thread, invalid/composite capability, expired engine, missing provider or denied permission. Slots are separate per world. A retained service object does not keep its world operational: module shutdown stops its implementation before world retirement.
+Built-ins use `ServiceAccess`: `available(Capability)`, `require`, and typed `physics/audio/navigation/ui/resources` acquisition. One templated slot implements publication checks; typed methods retain explicit provider boundaries. Access is owner-thread only; availability is false on a foreign thread, invalid/composite capability, expired engine, missing provider or denied permission. Slots are separate per world. A retained service object does not keep its world operational: module shutdown stops its implementation before world retirement.
 
 Exact clients use `sdk::Client::query(Capability)` or `query_capability`. Result version describes the recognized contract; `available` means a live allowed provider, and `callable` additionally checks fixed-tick context for simulation operations. Version mismatch returns the supported version with both booleans false. Unknown/composite IDs and invalid result layouts fail. Do not cache availability across startup, Stop or ticks. The old `host.capabilities` bitmap is a startup snapshot retained for existing rebuilt consumers, not the authoritative live query.
 
@@ -72,7 +72,7 @@ Runtime velocities/contact state, decoded PCM/voices, Ozz sampling buffers, Deto
 
 ## AssetHandle decision
 
-Still deferred. Current consumers resolve AssetIds into subsystem-owned immutable bytes/caches and private implementation handles. No cross-module loaded-resource lifetime needs a general shared handle. Adding one now would freeze Phase7 loading/streaming policy without a consumer.
+A universal persistent `AssetHandle<T>` remains deferred. Phase7 uses typed process-local `ResourceLease<T>` internally and module/world-scoped subscription tokens in the exact SDK. A token observes a requested CPU load and pins its last-good revision through the host; it is neither an AssetId nor a pointer and is never serialized. See [runtime resources](runtime-resources.md) and the [extension guide](extension-guide.md).
 
 ## Flecs integration configuration
 

@@ -29,9 +29,9 @@ static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
               unsigned(NavStatus::Limit) == FORGE_SDK_NAV_LIMIT &&
               unsigned(NavStatus::Invalid) == FORGE_SDK_NAV_INVALID &&
               unsigned(NavStatus::Unavailable) == FORGE_SDK_NAV_UNAVAILABLE);
-const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
-                                     "forge.input",     "forge.physics",    "forge.audio",
-                                     "forge.animation", "forge.navigation", "forge.ui"};
+const std::set<std::string> builtins{
+    "forge.core",  "forge.transforms", "forge.prefabs",    "forge.input", "forge.physics",
+    "forge.audio", "forge.animation",  "forge.navigation", "forge.ui",    "forge.resources"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
@@ -68,6 +68,17 @@ struct Bridge {
             throw std::runtime_error("SDK requires its owner thread");
         return bridge;
     }
+    std::set<std::uint64_t> resources;
+    void release_resources() {
+        if (context.services.available(Capability::Resources))
+            for (auto token : resources)
+                context.services.resources()->release(token);
+        resources.clear();
+    }
+    bool resources_callable() const {
+        return context.role == WorldRole::Runtime && runtime_active() &&
+               context.services.available(Capability::Resources);
+    }
     bool runtime_active() const { return stage == Stage::Starting || stage == Stage::Running; }
 
     explicit Bridge(ModuleContext& c) : context(c) {
@@ -83,6 +94,64 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.resource_request = [](void* p, uint32_t kind, const char* id,
+                                   uint32_t texture_variant) -> uint64_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.resources_callable() || b.resources.size() >= 64)
+                    return 0;
+                auto service = b.context.services.resources();
+                auto token = service->request(static_cast<RuntimeResourceKind>(kind),
+                                              AssetId::parse(bounded(id, 36)),
+                                              static_cast<RuntimeTextureVariant>(texture_variant));
+                try {
+                    b.resources.insert(token);
+                } catch (...) {
+                    service->release(token);
+                    throw;
+                }
+                return token;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.resource_inspect = [](void* p, uint64_t token, ForgeSdkResourceV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return 0;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.resources_callable() || !b.resources.contains(token))
+                    return 0;
+                const auto value = b.context.services.resources()->inspect(token);
+                auto copy = [](auto& dest, const std::string& source) {
+                    const auto n = std::min(source.size(), sizeof(dest) - 1);
+                    std::memcpy(dest, source.data(), n);
+                    dest[n] = 0;
+                };
+                copy(out->state, value.state);
+                copy(out->requested_revision, value.requested_revision);
+                copy(out->retained_revision, value.retained_revision);
+                copy(out->diagnostic, value.diagnostic);
+                out->source_generation = value.source_generation;
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.resource_release = [](void* p, uint64_t token) -> int32_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.resources_callable() || !b.resources.contains(token))
+                    return 0;
+                const bool released = b.context.services.resources()->release(token);
+                b.resources.erase(token);
+                return released ? 1 : 0;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.authoring_type = [](void* p, uint64_t type, const char* key, uint32_t version,
                                  const char* defaults, const char* category, char* error,
                                  uint32_t capacity) -> int32_t {
@@ -130,6 +199,8 @@ struct Bridge {
                 bool available = cap == FORGE_SDK_INPUT
                                      ? b.context.role == WorldRole::Runtime && b.runtime_active()
                                      : b.context.services.available(static_cast<Capability>(cap));
+                if (cap == FORGE_SDK_RESOURCES)
+                    available = b.resources_callable();
                 if (fixed && !b.runtime_active())
                     available = false;
                 out->available = available;
@@ -440,8 +511,8 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
         result.start = [api](ModuleContext& c) {
             auto& bridge = *static_cast<Bridge*>(c.state.get());
             bridge.stage = Bridge::Stage::Starting;
-            for (auto cap :
-                 {Capability::Physics, Capability::Audio, Capability::Navigation, Capability::Ui})
+            for (auto cap : {Capability::Physics, Capability::Audio, Capability::Navigation,
+                             Capability::Ui, Capability::Resources})
                 if (c.services.available(cap))
                     static_cast<Bridge*>(c.state.get())->host.capabilities |= capability(cap);
             char error[1024]{};
@@ -455,8 +526,11 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             bridge.stage = Bridge::Stage::Running;
         };
         result.stop = [api](ModuleContext& c) {
-            if (c.state)
-                static_cast<Bridge*>(c.state.get())->stage = Bridge::Stage::Stopped;
+            if (c.state) {
+                auto& bridge = *static_cast<Bridge*>(c.state.get());
+                bridge.release_resources();
+                bridge.stage = Bridge::Stage::Stopped;
+            }
             if (api->stop && c.state)
                 api->stop(&static_cast<Bridge*>(c.state.get())->host);
         };

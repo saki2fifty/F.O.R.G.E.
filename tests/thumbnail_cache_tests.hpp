@@ -36,6 +36,8 @@ inline void check_thumbnail_cache(forge::DiligentPresentation& presentation,
     const auto initial = pump(catalog, false);
     const auto completed = preview.completed();
     require(completed == 1 && initial.image, "Real Texture thumbnail was not rendered");
+    require(preview.ready_count() == 1,
+            "Ready thumbnail count must describe unique current assets");
     auto unrelated = std::make_shared<AssetCatalog>(*catalog);
     unrelated->add({AssetId::generate(), "texture", "Assets/unrelated.png"});
     const auto unchanged = pump(unrelated, false);
@@ -50,6 +52,8 @@ inline void check_thumbnail_cache(forge::DiligentPresentation& presentation,
     const auto failed = pump(broken, true);
     require(failed.image == initial.image && preview.completed() == completed,
             "Failed thumbnail replacement discarded or overwrote its previous good image");
+    require(preview.ready_count() == 0,
+            "Retained old thumbnail was incorrectly counted as a ready current revision");
     // Metadata admission is bounded even before any decoded/GPU candidate exists.
     auto many = std::make_shared<AssetCatalog>(*catalog);
     std::vector<AssetId> ids;

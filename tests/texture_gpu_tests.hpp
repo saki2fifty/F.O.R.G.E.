@@ -114,6 +114,26 @@ void check_texture_upload(forge::DiligentPresentation& presentation,
     require(anisotropic->GetDesc().MaxAnisotropy == 4 &&
                 anisotropic->GetDesc().MinFilter == FILTER_TYPE_ANISOTROPIC,
             "GPU sampler lost anisotropy");
+    const auto reject_sampler = [&](forge::SamplerState candidate) {
+        bool rejected = false;
+        try {
+            forge::upload_sampler(device, candidate);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected, "Unsupported sampler was accepted before native allocation");
+        require(anisotropic && anisotropic->GetDesc().MaxAnisotropy == 4,
+                "Failed sampler admission changed the retained usable resource");
+    };
+    auto unsupported = sampler;
+    unsupported.anisotropy = unsigned(device->GetAdapterInfo().Sampler.MaxAnisotropy) + 1;
+    reject_sampler(unsupported);
+    unsupported = sampler;
+    unsupported.lod_bias = 100;
+    reject_sampler(unsupported);
+    unsupported = sampler;
+    unsupported.border[0] = 2;
+    reject_sampler(unsupported);
     forge::TextureData invalid;
     invalid.width = invalid.height = 2;
     invalid.subresources = {{std::byte{1}}};

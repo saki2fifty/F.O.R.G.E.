@@ -21,7 +21,7 @@ float4 ForgeProject(float3 p) {
 )";
 } // namespace
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
-                                bool shadow_pass) {
+                                bool shadow_pass, MaterialSamplerBinding sampler_binding) {
     const auto& source = profile.values;
     const bool transmission = !shadow_pass && material_transmits(profile);
     const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
@@ -58,7 +58,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         require((fetch.normal && fetch.tangent) ||
                     profile.values.textures.contains("normalTexture"),
                 "anisotropy requires authored normal/tangent or a base normal map");
-    const auto material = material_shader(profile, fetch.uv_sets);
+    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding);
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string skin = fetch.skin ? R"(
 // Common positive normalization avoids overflowing weighted linear matrices.

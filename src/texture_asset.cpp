@@ -61,8 +61,6 @@ void validate_header(const TextureData& t, TextureLimits l) {
                 t.dimension == TextureDimension::CubeArray || t.layers == 1,
             "Only array textures have layers");
     require(!cube(t.dimension) || t.width == t.height, "Cubemap faces must be square");
-    require(t.dimension != TextureDimension::D3 || !f.compressed,
-            "Block-compressed volume textures are not in the D3D12 profile");
     require(!f.srgb || t.semantic == TextureSemantic::Color,
             "Data/normal/HDR textures cannot use sRGB storage");
     require(t.semantic != TextureSemantic::Normal || f.channels >= 2,
@@ -149,8 +147,7 @@ void validate_sampler(const SamplerState& s) {
                 unsigned(s.u) <= 3 && unsigned(s.v) <= 3 && unsigned(s.w) <= 3 &&
                 unsigned(s.compare) <= 8,
             "Invalid sampler enum");
-    require(s.anisotropy >= 1 && s.anisotropy <= 16 && std::isfinite(s.lod_bias) &&
-                s.lod_bias >= -16 && s.lod_bias <= 15.99f && std::isfinite(s.min_lod) &&
+    require(s.anisotropy >= 1 && std::isfinite(s.lod_bias) && std::isfinite(s.min_lod) &&
                 std::isfinite(s.max_lod) && s.max_lod >= s.min_lod,
             "Invalid sampler range");
     for (float x : s.border)
@@ -183,7 +180,7 @@ void from_json(const nlohmann::json& sj, SamplerState& result) {
     s.v = TextureWrap(number(sj.at("v"), 3));
     s.w = TextureWrap(number(sj.at("w"), 3));
     s.compare = TextureCompare(number(sj.at("compare"), 8));
-    s.anisotropy = unsigned(number(sj.at("anisotropy"), 16));
+    s.anisotropy = unsigned(number(sj.at("anisotropy"), std::numeric_limits<unsigned>::max()));
     s.lod_bias = scalar(sj.at("lod_bias"));
     s.min_lod = scalar(sj.at("min_lod"));
     s.max_lod = scalar(sj.at("max_lod"));

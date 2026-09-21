@@ -20,7 +20,8 @@ Lengths, dimensions, mip count, enums, semantic compatibility and the exact
 expected subresource bytes are validated before allocation/copy. Complete payload
 consumption is required. Default budgets are512MiB payload,16384 width/height,
 2048 depth/layers and32768 subresources. Device capabilities still require a
-separate realization check. D3D12-profile compressed volume textures reject.
+separate realization check. Block-compressed volumes have a backend-neutral byte
+layout; upload requires the selected device to support that format/dimension.
 
 Represented formats cover R/RG/RGBA8/16 normalized, half/float channels,
 BC1/2/3/4/5/6H/7 including applicable signed and sRGB variants. BC block extents
@@ -38,10 +39,18 @@ premultiplied, unknown and custom data. DDS custom alpha means the fourth channe
 is data, not opacity; encoding must not silently replace that intent. Material alpha testing/blending remains material intent.
 
 Sampler state includes independent min/mag/mip filters, wrap U/V/W, anisotropy,
-comparison, LOD bias/range and border color. Validation uses finite values and the
-D3D12-profile bias/anisotropy bounds. It permits negative minimum LOD and finite
-HDR border colors, as the native sampler contract does. Anisotropy requires linear
-filters. GPU sampler deduplication is not yet provided by the CPU structure.
+comparison, LOD bias/range and border color. Logical validation requires finite
+values, positive integer anisotropy, ordered LOD bounds and linear filters for
+anisotropic sampling. It does not impose one graphics API's numeric bounds.
+Negative minimum LOD and finite HDR border colors remain representable. At GPU
+admission, Diligent adapter properties supply anisotropy and support flags;
+the narrow backend adapter supplies missing numeric LOD-bias/border rules.
+Unsupported sampling rejects before allocation, preserving authored settings and
+the previous usable draw bundle. D3D12 uses its SDK bias range and unit-range
+border color; the Linux Vulkan probe queries the physical device bias limit and
+enforces the pinned three-color border palette. Unused native border values are
+zeroed without editing the asset. Other hosts cannot enable unverified optional
+states. See [backend capabilities](render-backends.md).
 
 ## Image preparation
 
@@ -129,8 +138,9 @@ Admission checks the complete header, native-format descriptor, sizes, nonoverla
 ranges, mip ordering, metadata, dimensions and ETC1S image/codebook extents before
 native parsing. File and decoded byte budgets are checked independently. KTX1 GL
 format/type fields, padded rows and endian metadata are checked before native
-conversion to KTX2. One-dimensional textures and compressed volumes are outside the
-current texture contract. Orientation must be right/down/in; nonidentity channel
+conversion to KTX2. One-dimensional textures and Basis volume transcoding are outside
+the current adapter profile. Raw block-compressed volumes retain their native byte
+layout, subject to GPU format/dimension admission. Orientation must be right/down/in; nonidentity channel
 swizzles and other color primaries/transfer functions require explicit conversion.
 They receive diagnostics rather than silently displaying incorrectly.
 

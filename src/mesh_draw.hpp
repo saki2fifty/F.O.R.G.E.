@@ -8,7 +8,7 @@
 #include "transmission_background.hpp"
 #include <forge/render_view.hpp>
 namespace forge {
-// Backend-private prepared draw. The caller owns scene extraction, typed resource
+// Diligent prepared draw. The caller owns scene extraction, typed resource
 // leases, sorting, target/pass composition and publication of complete candidates.
 // No source parser, entity registry or second material interpretation lives here.
 class MeshDraw {
@@ -23,7 +23,7 @@ class MeshDraw {
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
              Diligent::TEXTURE_FORMAT depth_format, bool enable_skin = true,
-             Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC,
+             Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_DEFAULT,
              Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
                  Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT);
     void bind_environment(const GpuEnvironment*);

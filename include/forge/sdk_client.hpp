@@ -11,7 +11,8 @@ enum class Capability : uint32_t {
     Audio = FORGE_SDK_AUDIO,
     Navigation = FORGE_SDK_NAVIGATION,
     Ui = FORGE_SDK_UI,
-    Input = FORGE_SDK_INPUT
+    Input = FORGE_SDK_INPUT,
+    Resources = FORGE_SDK_RESOURCES
 };
 class Client {
   public:
@@ -67,6 +68,22 @@ class Client {
         return callable(Capability::Ui)
                    ? host_->ui_poll_action(host_->context, name, entity, capacity)
                    : 0;
+    }
+    uint64_t request_resource(uint32_t kind, const char* asset,
+                              uint32_t texture_variant = 0) const {
+        return callable(Capability::Resources) && host_->resource_request
+                   ? host_->resource_request(host_->context, kind, asset, texture_variant)
+                   : 0;
+    }
+    bool inspect_resource(uint64_t token, ForgeSdkResourceV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Resources) && host_->resource_inspect &&
+               host_->resource_inspect(host_->context, token, &out) == 1;
+    }
+    bool release_resource(uint64_t token) const {
+        return callable(Capability::Resources) && host_->resource_release &&
+               host_->resource_release(host_->context, token) == 1;
     }
     bool authoring_type(uint64_t native_type, const char* key, uint32_t version,
                         const char* defaults_json, const char* category, char* error,

@@ -5,6 +5,7 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <forge/runtime.hpp>
+#include <forge/runtime_resources.hpp>
 #include <forge/runtime_ui.hpp>
 #include <iostream>
 #include <random>
@@ -99,6 +100,8 @@ int main(int argc, char** argv) {
                     const std::filesystem::path& project, bool ui)
                 : engine(forge::WorldRole::Runtime, false,
                          [&] {
+                             if (!project.empty())
+                                 modules.push_back(forge::runtime_resources_module(project));
                              modules.push_back(forge::physics_module(physics));
                              modules.push_back(forge::animation_module(project));
                              modules.push_back(forge::navigation_module(project));
@@ -291,6 +294,8 @@ int main(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Model asset refresh requires a project runtime");
                         animation->refresh_assets();
+                        if (runtime->engine.services().available(forge::Capability::Resources))
+                            runtime->engine.services().resources()->refresh();
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();

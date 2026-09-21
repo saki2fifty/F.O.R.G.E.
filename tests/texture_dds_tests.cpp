@@ -105,8 +105,11 @@ int main() {
                 format == TextureFormat::BC6Unsigned || format == TextureFormat::RGBA32Float
                     ? TextureSemantic::HdrColor
                     : TextureSemantic::Color;
-            const auto t = import_texture_dds(fixture(dxgi, format), semantic);
-            require(t.format == format && t.mips == 3, "DDS compressed/float format changed");
+            for (const auto dimension : {TextureDimension::D2, TextureDimension::D3}) {
+                const auto t = import_texture_dds(fixture(dxgi, format, dimension), semantic);
+                require(t.format == format && t.mips == 3 && t.dimension == dimension,
+                        "DDS compressed/float format or dimension changed");
+            }
         }
         const auto premul = import_texture_dds(
             fixture(DXGI_FORMAT_R8G8B8A8_UNORM, TextureFormat::RGBA8, TextureDimension::D2, 2),

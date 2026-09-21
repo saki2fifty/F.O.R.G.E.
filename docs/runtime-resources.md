@@ -203,3 +203,31 @@ the model to discover a layout first. Its explicit `builtin:gltf-pbr-v1` resourc
 variant is separate from requests made against an externally supplied reflected
 layout. Both preserve original material values and typed texture bindings and
 validate the same selected model family; custom shader compatibility is not bypassed.
+
+## Runtime SDK resource provider
+
+`forge.resources` composes the existing cooked Mesh/Material/Texture/Shader
+providers into a world-scoped CPU service. `RuntimeResourceService` is the internal
+source interface; the exact SDK receives copied statuses through checked host
+callbacks. Each subscription holds an actual typed strong lease, independently
+of the current request ticket. Failed replacement therefore preserves the prior
+revision, and a newly admitted revision replaces that subscription's lease only
+at the owner synchronization boundary.
+
+The provider uses four pools with one preparation worker,64in-flight requests,
+256asset slots and128MiB resident CPU budget each. Subscriptions are bounded to
+256per world and64per exact SDK module. Releasing a subscription releases its
+pin; the ordinary pool cache can retain selected bytes until eviction or close.
+CPU readiness does not represent GPU upload, dependency-complete material draws,
+or shader pipeline readiness. No Diligent object crosses this contract.
+Texture subscriptions retain an explicit optional color/data/normal/HDR variant;
+the automatic choice is HDR when published, otherwise color. Refresh preserves
+that choice. A missing variant fails without treating another semantic as equivalent.
+
+Catalog refresh captures a new immutable selection on a file-only worker and
+reissues existing subscriptions on the owner. A selection failure reports an
+error while retaining the previous lease; a whole-catalog read failure emits a
+diagnostic and leaves the old selection intact. Source generations remain
+monotonic: restoring old source bytes requires a new publication generation.
+Paused presentation still pumps adoption. Shutdown revokes access even for a
+retained C++ service pointer, then joins workers and closes all pool scopes.
