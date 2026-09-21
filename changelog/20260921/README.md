@@ -953,3 +953,9 @@
 - Qualified the Scene Viewport fixture type after MSVC identified a name collision with Diligent's Viewport. The prior local syntax adapter did not reproduce that namespace collision.
 - The model-family regression now passes in both direct and isolated-worker import profiles. Direct/worker model validation passes2/2 (80.94s), and editor input/Inspector tests pass (14.98s); this establishes the scheduling correction locally, while native Windows preview acceptance remains pending.
 - Inspector no longer labels effective legacy TRS compatibility values as missing plugin components. Canonical LocalTranslation/LocalRotation/LocalScale remain the only authored transform channels; unknown plugin payloads remain visible and preserved.
+- Source e6b40ff passes all four core/shared-SDK CI profiles and format. Its native audit captures Model, Mesh and imported Material previews at both scales, then exposes an unpublished fixture material while waiting for five Content thumbnails. The fixture now uses the genuine Material Save/publication route; it retains the five-thumbnail acceptance condition. Native rerun is pending.
+
+## Cross-backend rendering validation
+
+- Added the Phase 7 requirement for D3D12-first validation and backend-neutral Diligent architecture to the active audit. Logical rendering assets must remain independent of graphics API bindings; backend-specific cooked artifacts remain valid.
+- Strengthened the standalone Windows compiler probe: success now requires a register-free bounded array of 19 material samplers plus environment and comparison samplers under the default SM5.1 compiler flags. Historical register-space alternatives remain diagnostics and cannot make the gate pass. Execution is pending; this is not a renderer portability claim.

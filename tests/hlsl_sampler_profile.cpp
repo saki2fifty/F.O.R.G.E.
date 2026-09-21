@@ -6,11 +6,14 @@
 #include <wrl/client.h>
 int main() {
     using Microsoft::WRL::ComPtr;
-    bool supported = false;
-    for (const std::string mode : {"scalar", "spaces", "array", "mixed"}) {
+    bool register_free_default = false;
+    for (const std::string mode : {"scalar", "spaces", "array", "mixed", "portable"}) {
         for (const bool unbounded : {false, true}) {
             std::string source = "Texture2D<float4> texture0;\n";
-            if (mode == "mixed")
+            if (mode == "portable")
+                source += "SamplerState sampler0[19];\nSamplerState environmentSampler;\n"
+                          "SamplerComparisonState shadowSampler;\nTexture2D<float> depth;\n";
+            else if (mode == "mixed")
                 source += "SamplerState sampler0[17] : register(s0,space1);\nSamplerState "
                           "sampler17,sampler18;\n";
             else if (mode == "array")
@@ -24,10 +27,13 @@ int main() {
             source += "float4 main(float2 uv:TEXCOORD0):SV_Target0 {float4 value=0;\n";
             for (unsigned i = 0; i < 19; ++i)
                 source += "value+=texture0.Sample(" +
-                          ((mode == "array" || (mode == "mixed" && i < 17))
+                          ((mode == "array" || mode == "portable" || (mode == "mixed" && i < 17))
                                ? "sampler0[" + std::to_string(i) + "]"
                                : "sampler" + std::to_string(i)) +
                           ",uv)/19;\n";
+            if (mode == "portable")
+                source += "value+=texture0.Sample(environmentSampler,uv)*"
+                          "depth.SampleCmpLevelZero(shadowSampler,uv,.5);\n";
             source += "return value;}\n";
             const auto name = mode + (unbounded ? "-unbounded" : "-default");
             std::ofstream(name + ".hlsl") << source;
@@ -43,12 +49,15 @@ int main() {
                           static_cast<std::streamsize>(messages->GetBufferSize()));
             }
             if (SUCCEEDED(result)) {
-                supported = true;
+                if (mode == "portable" && !unbounded)
+                    register_free_default = true;
                 std::ofstream output(name + ".dxbc", std::ios::binary);
                 output.write(static_cast<const char*>(code->GetBufferPointer()),
                              static_cast<std::streamsize>(code->GetBufferSize()));
             }
         }
     }
-    return supported ? 0 : 1;
+    // Historical alternatives are diagnostic evidence only. Passing a register-space
+    // workaround must not mask failure of the backend-neutral production declaration.
+    return register_free_default ? 0 : 1;
 }

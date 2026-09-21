@@ -1384,6 +1384,9 @@ int main(int argc, char** argv) {
                     });
                     source->save();
                     material_editor.open(files.document, source->locator());
+                    // The preview can render an unpublished draft. Content tiles
+                    // require the cooked revision produced by the real Save route.
+                    material_editor.request_save();
                     break;
                 }
                 case 29:

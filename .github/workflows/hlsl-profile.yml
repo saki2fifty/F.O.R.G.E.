@@ -47,7 +47,7 @@ jobs:
           Push-Location $output
           try {
             & ./probe.exe | Tee-Object results.txt
-            if ($LASTEXITCODE) { throw 'No tested SM5.1 binding supports the material sampler count' }
+            if ($LASTEXITCODE) { throw 'Register-free bounded sampler array plus environment/comparison samplers failed SM5.1 compilation' }
           } finally { Pop-Location }
       - name: Preserve compiler evidence
         if: always()
