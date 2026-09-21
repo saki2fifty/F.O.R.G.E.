@@ -20,8 +20,10 @@ inline const std::vector<EntityRecipe>& entity_recipes() {
                                kind,
                                {}});
         for (auto recipe :
-             {EntityRecipe{"audio.source", "Audio Source", "Audio", no_primitive,
-                           "forge.audio_source"},
+             {EntityRecipe{"render.camera", "Camera", "Rendering", no_primitive, "forge.camera"},
+              {"render.light", "Light", "Rendering", no_primitive, "forge.light"},
+              {"render.mesh", "Mesh Renderer", "Rendering", no_primitive, "forge.mesh_renderer"},
+              {"audio.source", "Audio Source", "Audio", no_primitive, "forge.audio_source"},
               {"audio.listener", "Audio Listener", "Audio", no_primitive, "forge.audio_listener"},
               {"navigation.surface", "Navigation Surface", "Navigation", 3,
                "forge.navigation_surface"},

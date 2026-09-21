@@ -528,3 +528,47 @@ and requires no authored transform inverse or fabricated scene hierarchy. CPU te
 cover infinite far, large origins, orthographic views, flips and invalid projection.
 Native sky tests check radiance, depth coverage, foreground protection and visibility;
 Windows execution of these additions remains required.
+
+## Authored Game camera composition — Phase7 implementation
+
+`FrameRenderer` composes detached `RenderScene` values without editor UI, an editor
+camera, or ownership of an ECS world. Game uses enabled authored cameras in their
+validated order with entity identity as a deterministic tie-break. No valid camera
+produces a black frame and an actionable diagnostic. Projection, spatial pose,
+viewport, fixed-aspect fitting, layer filtering and clear flags belong to each camera.
+
+Native Diligent whole-view clears ignore viewport/scissor rectangles. Camera-local
+color/depth clearing therefore uses a rectangle-constrained draw with explicit color
+write masks and depth `ALWAYS`. A whole-frame initial clear defines uncovered regions;
+HDR composition and scene exposure resolve once after all cameras. Infinite-far sky
+sampling uses the existing finite camera-relative ray adapter. Debug overlays project
+through the actual Game camera rectangles. Windows pixel acceptance is tracked with
+the corresponding build; Linux syntax checking alone is not GPU execution.
+
+## Engine asset provider and legacy blockout compatibility
+
+`engine_assets.hpp` allocates fixed UUIDv4 identities for the established primitive
+catalog and engine materials. The immutable table is separate from project records:
+`AssetCatalog::resolve` can resolve and type-check an engine asset without a source
+file, but project registration cannot replace its identity. Virtual engine metadata
+has an empty filesystem source and an explicit `engine` marker; it is not a locator
+that an importer may open. Project serialization contains no injected engine rows.
+
+The provider feeds the existing CPU `ResourcePool` and complete draw-candidate path,
+then the existing GPU residency and mesh/material pipeline. No second cache, entity
+hierarchy, resource-handle identity family or graphics pointer is persisted. Recipe
+versions have separate digest identities and must change when generated content
+changes. The `surface` material binding is stable across these generated revisions.
+
+The compatibility adapter derives a built-in mesh selection and legacy material from
+existing Primitive/Tint values. Missing Primitive retains the existing default cube;
+None suppresses geometry. An explicit MeshRenderer takes precedence, including when
+it is disabled or invalid. Tint is a transient draw input to the legacy unlit material
+adapter; its established directional blockout shading remains independent of newly
+authored PBR lights. This does not materialize inherited authored overrides, dirty a
+scene, create project materials, or claim to migrate a saved document. PBR engine
+materials and the legacy compatibility material remain distinct. The legacy host is
+retained for compatibility tests until migration/visual acceptance is complete.
+
+Phase7 provides reusable frame composition and cooked runtime asset contracts. The
+full standalone exporter remains future work under the explicit phase scope.

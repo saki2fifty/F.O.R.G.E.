@@ -48,5 +48,6 @@ inspect your work without changing the game's authored exposure. See [Viewport](
 
 The new lighting path applies to imported PBR meshes. Legacy blockout primitives still
 use their existing preview lighting until their Mesh/Material migration is complete.
-The current Game preview uses its existing viewing camera; authored-camera composition
-is still being integrated. New sky and lighting paths are undergoing Windows validation.
+Game uses authored Camera components; add an enabled camera before starting Play.
+See [Play mode](play-mode.md). The new camera/engine-mesh integration is undergoing
+Windows validation.

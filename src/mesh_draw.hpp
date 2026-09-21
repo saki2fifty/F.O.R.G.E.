@@ -16,7 +16,8 @@ class MeshDraw {
              Diligent::TEXTURE_FORMAT depth_format);
     void bind_environment(const GpuEnvironment*);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
-              std::span<const LightView>, const EnvironmentLighting* = nullptr);
+              std::span<const LightView>, const EnvironmentLighting* = nullptr,
+              const std::array<float, 3>* legacy_tint = nullptr);
 
   private:
     GpuMeshPart mesh_;

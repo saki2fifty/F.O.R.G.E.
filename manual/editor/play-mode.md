@@ -56,7 +56,11 @@ Project [Simulation Hz](project-settings.md) sets the next Play session’s freq
 
 ## Scene and Game are separate views
 
-**Scene** always shows the authored world and editor tools. **Game** shows the snapshot from the one isolated Play process. Starting Play opens Game; switching tabs does not start another simulation. The Game camera begins from the Scene camera position. This remains the current block-preview renderer, not a finished game-camera/rendering pipeline.
+**Scene** always shows the authored world and editor tools. **Game** shows the snapshot from the one isolated Play process. Starting Play opens Game; switching tabs does not start another simulation. Game renders through the scene's enabled **Camera** components. It does not borrow the Scene navigation camera. If no valid camera is enabled, Game stays black and reports the missing camera.
+
+To add a view, stop Play, create **Camera** from the Create menu or command palette, and position it with its Transform. Configure projection and clipping in Inspector. FORGE cameras look along their local **+Z** axis. Start Play to check the result. Moving the Scene navigation camera changes only your editing view.
+
+Several enabled cameras render in their **Order**, with their own viewport rectangles, layer masks and color/depth clear choices. A fixed aspect ratio fits inside the assigned rectangle with uncovered areas left black. See [Scene lighting](lighting.md) for Game exposure and environment settings.
 
 Global Play/Pause/Step/Stop are also in **Run**, the command palette and the **More** (three-dot) button at narrow widths. Game labels Starting, Playing, Paused, Stopped or Crashed/Recovery available; the permanent status bar also identifies runtime state.
 

@@ -3,6 +3,7 @@
 #include <cctype>
 #include <forge/assets.hpp>
 #include <forge/audio_components.hpp>
+#include <forge/engine_assets.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
 #include <forge/schema.hpp>
@@ -21,6 +22,8 @@ Json parse_index(std::span<const std::byte> bytes) {
                        });
 }
 std::filesystem::path normalize_record(AssetRecord& record, const ProjectPaths& paths) {
+    if (engine_asset(record.id))
+        throw std::runtime_error("Engine asset identities are reserved and immutable");
     if (!record.id || record.type.empty() || record.type == "legacy-untyped" ||
         record.type.size() > 256 || !record.schema_version || !record.metadata.is_object())
         throw std::runtime_error("Invalid asset metadata");
@@ -38,6 +41,9 @@ std::filesystem::path normalize_record(AssetRecord& record, const ProjectPaths& 
         for (const auto& edge : record.dependency_edges) {
             if (edge.expected_type == "legacy-untyped")
                 throw std::runtime_error("Typed dependencies cannot use the legacy untyped marker");
+            if (const auto* builtin = engine_asset(edge.target);
+                builtin && edge.expected_type != builtin->type)
+                throw std::runtime_error("Engine asset dependency type mismatch");
             targets.insert(edge.target);
             if (edge.target == record.id && edge.expected_type != record.type)
                 throw std::runtime_error("Self reference has an incompatible asset type");
@@ -303,6 +309,15 @@ AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
     return record;
 }
 AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_type) const {
+    if (const auto* builtin = engine_asset(id)) {
+        // Engine records are virtual metadata, never project file locators. They
+        // are excluded from the project index and cannot be replaced/relocated.
+        AssetRecord record{id, builtin->type, {}, 1, {}};
+        record.metadata = {{"engine", true}, {"name", builtin->name}, {"recipe_version", 1u}};
+        if (expected_type != builtin->type)
+            return {AssetState::Incompatible, record, "Engine asset type mismatch"};
+        return {AssetState::Available, record, {}};
+    }
     const auto it = records_.find(id);
     if (it == records_.end())
         return {AssetState::Unresolved, {}, "Asset identity is not registered"};

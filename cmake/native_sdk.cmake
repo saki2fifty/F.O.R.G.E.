@@ -20,7 +20,7 @@ if(FORGE_ENABLE_NATIVE_SDK AND NOT CMAKE_BUILD_TYPE MATCHES "^(Release|Debug|Rel
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _forge_config)
 # One explicit installed value boundary drives installation and compatibility hashing.
-set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp ui_components.hpp render_components.hpp model_asset.hpp)
+set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp ui_components.hpp render_components.hpp model_asset.hpp engine_assets.hpp primitive_catalog.hpp)
 set(FORGE_SDK_CONTRACT_HASHES "")
 foreach(header IN LISTS FORGE_SDK_HEADERS)
  set(path "${PROJECT_SOURCE_DIR}/include/forge/${header}")

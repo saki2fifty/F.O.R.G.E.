@@ -129,7 +129,8 @@ class NavigationTools {
         ui::help("Changes to included geometry or these settings require an explicit rebuild. "
                  "Dynamic obstacles and crowd avoidance are not supported.");
     }
-    void draw(const Json& doc, const EditorCamera& camera, ImVec2 origin, ImVec2 size) const {
+    template <class View>
+    void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size) const {
         if (!show_)
             return;
         auto* draw = ImGui::GetWindowDrawList();

@@ -17,6 +17,8 @@ result=subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(bad),'-G','Ni
 assert result.returncode!=0 and 'compiler flags mismatch' in result.stdout+result.stderr,result.stdout+result.stderr
 assert not (stage/'sdk/include/forge/assets.hpp').exists(), 'Private AssetCatalog leaked into installed SDK'
 assert (stage/'sdk/docs/extension-guide.md').exists()
+assert (stage/'sdk/include/forge/engine_assets.hpp').exists()
+assert (stage/'sdk/include/forge/primitive_catalog.hpp').exists()
 subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,'-DFORGE_NATIVE_SDK='+str(stage)],check=True)
 subprocess.run([cmake,'--build',str(client),'--parallel','2'],check=True)
 windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'

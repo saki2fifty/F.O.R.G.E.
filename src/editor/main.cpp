@@ -17,6 +17,7 @@
 #include "ecs_tools.hpp"
 #include "files.hpp"
 #include "flecs_script.hpp"
+#include "frame_renderer.hpp"
 #include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
@@ -264,7 +265,8 @@ int main(int argc, char** argv) {
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
         forge::DiligentPresentation presentation(device);
-        forge::Viewport viewport(presentation, true), game_viewport(presentation, true);
+        forge::Viewport viewport(presentation, true);
+        forge::FrameRenderer game_viewport(presentation);
         std::shared_ptr<forge::MeshResourceHost> mesh_resources;
         auto reset_mesh_resources = [&] {
             viewport.resources({});
@@ -291,7 +293,6 @@ int main(int argc, char** argv) {
         forge::AuthoringSnapshot authoring_snapshot;
         forge::PrefabEditor prefab_editor;
         forge::PreviewSnapshot preview_snapshot, game_preview_snapshot;
-        forge::EditorCamera game_camera;
         bool game_visible = false, focus_game = false;
         forge::EditorCamera camera;
         try {
@@ -693,7 +694,6 @@ int main(int argc, char** argv) {
                                        "Select a matching Native SDK installation in Gameplay "
                                        "Code. Its bin/forge_runtime.exe is missing.");
                            }
-                           game_camera = camera;
                            play.configure(files.document.settings().simulation_hz(),
                                           files.document.settings().input(),
                                           files.document.settings().physics().gravity,
@@ -1310,8 +1310,7 @@ int main(int argc, char** argv) {
             game_visible = false;
             for (const bool game_view : {false, true}) {
                 auto& view_open = game_view ? workspace.game : workspace.scene;
-                auto& view_camera = game_view ? game_camera : camera;
-                auto& view_renderer = game_view ? game_viewport : viewport;
+                auto& view_camera = camera;
                 auto& view_cache = game_view ? game_preview_snapshot : preview_snapshot;
                 if (!view_open)
                     continue;
@@ -1489,22 +1488,15 @@ int main(int argc, char** argv) {
                             });
                     };
                     const auto& preview = read_preview();
-                    if (game_view) {
-                        try {
-                            game_viewport.exposure(forge::scene_render_settings(preview).exposure);
-                        } catch (const std::exception&) {
-                            // Extraction reports the malformed producer settings in Problems.
-                            game_viewport.exposure(0);
-                        }
-                    }
                     auto size = ImGui::GetContentRegionAvail();
                     if (size.x > 1 && size.y > 1) {
-                        if (frame_selected &&
+                        if (!game_view && frame_selected &&
                             (selected.empty() ||
                              !view_camera.frame(preview, selected, size.x / size.y)))
                             message =
                                 "Selected entity has no visible block, or exceeds camera range.";
-                        if (fit_scene && !view_camera.frame(preview, "", size.x / size.y))
+                        if (!game_view && fit_scene &&
+                            !view_camera.frame(preview, "", size.x / size.y))
                             message = "No visible blocks to frame, or scene exceeds camera range.";
                         const auto image_origin = ImGui::GetCursorScreenPos();
 #ifdef FORGE_UI_FIXTURE
@@ -1527,7 +1519,7 @@ int main(int argc, char** argv) {
                         forge::ui::ViewportInput input;
                         const bool was_modal = modal.active();
                         if (forge::ui::camera_controls(view_camera, size, focused, &input,
-                                                       gizmo || was_modal || popup ||
+                                                       game_view || gizmo || was_modal || popup ||
                                                            game_input.captured())) {
                             if (selected.empty() ||
                                 !view_camera.frame(preview, selected, size.x / size.y))
@@ -1563,11 +1555,15 @@ int main(int argc, char** argv) {
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
                         const auto scene_submit = forge::ui::Performance::Clock::now();
-                        auto* texture = view_renderer.render(
-                            context, rendered, unsigned(std::max(1.0f, size.x * render_scale)),
-                            unsigned(std::max(1.0f, size.y * render_scale)), view_camera,
-                            view_cache.generation(), game_view || performance.continuous,
-                            {!game_view && scene_tools.grid, scene_tools.grid_step});
+                        const auto render_width = unsigned(std::max(1.0f, size.x * render_scale));
+                        const auto render_height = unsigned(std::max(1.0f, size.y * render_scale));
+                        auto* texture =
+                            game_view
+                                ? game_viewport.game(context, rendered, render_width, render_height)
+                                : viewport.render(context, rendered, render_width, render_height,
+                                                  view_camera, view_cache.generation(),
+                                                  performance.continuous,
+                                                  {scene_tools.grid, scene_tools.grid_step});
                         performance.scene_ms = forge::ui::Performance::milliseconds(
                             scene_submit, forge::ui::Performance::Clock::now());
                         if (game_view)
@@ -1580,8 +1576,24 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active());
-                        forge::draw_animation_debug(rendered, view_camera, image_origin, size);
-                        navigation_tools.draw(rendered, view_camera, image_origin, size);
+                        if (game_view) {
+                            for (const auto& active : game_viewport.cameras()) {
+                                const auto& area = active.view.viewport;
+                                const ImVec2 low{image_origin.x + size.x * area.x / render_width,
+                                                 image_origin.y + size.y * area.y / render_height};
+                                const ImVec2 high{low.x + size.x * area.width / render_width,
+                                                  low.y + size.y * area.height / render_height};
+                                ImGui::GetWindowDrawList()->PushClipRect(low, high, true);
+                                const forge::GameDebugView debug{active.view, render_width,
+                                                                 render_height};
+                                forge::draw_animation_debug(rendered, debug, image_origin, size);
+                                navigation_tools.draw(rendered, debug, image_origin, size);
+                                ImGui::GetWindowDrawList()->PopClipRect();
+                            }
+                        } else {
+                            forge::draw_animation_debug(rendered, view_camera, image_origin, size);
+                            navigation_tools.draw(rendered, view_camera, image_origin, size);
+                        }
                         if (!game_view)
                             orientation.draw(view_camera, image_origin, size);
                         if (!game_view)
@@ -1591,7 +1603,14 @@ int main(int argc, char** argv) {
                              image_origin.y + 8 +
                                  (modal.active() ? ImGui::GetTextLineHeight() + 20 : 0)},
                             IM_COL32(185, 200, 215, 255),
-                            (std::string(view_camera.view_name()) + " | Perspective").c_str());
+                            (game_view
+                                 ? (game_viewport.cameras().empty()
+                                        ? std::string("No active Camera. Use Entity > Create > "
+                                                      "Rendering > Camera.")
+                                        : "Game cameras: " +
+                                              std::to_string(game_viewport.cameras().size()))
+                                 : std::string(view_camera.view_name()) + " | Perspective")
+                                .c_str());
 
                     } else if (!game_view) {
                         scene_tools.move.cancel();
@@ -1883,6 +1902,12 @@ int main(int argc, char** argv) {
             if (const auto* rendered = viewport.meshes()) {
                 forge::Json records = forge::Json::array();
                 for (const auto& diagnostic : rendered->diagnostics())
+                    records.push_back(forge::diagnostic_json(diagnostic));
+                collect_diagnostics(records);
+            }
+            if (play.ready()) {
+                forge::Json records = forge::Json::array();
+                for (const auto& diagnostic : game_viewport.diagnostics())
                     records.push_back(forge::diagnostic_json(diagnostic));
                 collect_diagnostics(records);
             }

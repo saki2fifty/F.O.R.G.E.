@@ -130,6 +130,20 @@ an omitted far clipping plane, and directional, point and spot lights. Source no
 transforms remain unchanged. Camera and light directions follow glTF's local minus-Z
 convention when the internal placement path creates their scene components.
 
-These components do not yet drive the current Game preview. Camera/light creation
-controls and the production renderer are still being connected. Importing a model
-successfully does not mean those rendered workflows are ready for use.
+Enabled scene Camera components now drive [Game](play-mode.md), and Light components
+illuminate PBR meshes. Use **Create > Rendering** to add a Camera, Light or Mesh Renderer.
+Model placement and its complete user workflow are still being integrated; importing
+a source alone does not instantiate its nodes into the scene.
+
+
+## Built-in meshes
+
+A **Mesh Renderer** can use engine shapes without importing a model. In its **Mesh**
+field, search for **Engine /** and choose a shape. The built-in mesh supplies its
+shared default surface material. PBR surfaces need a light or environment to be lit;
+use [Scene lighting](lighting.md) to add one.
+
+Engine assets are read-only and do not create files in your project. Existing
+blockout objects keep their Primitive and Color controls and their familiar preview
+shading. Their compatibility rendering uses the shared mesh path without rewriting
+saved scenes or creating material files.

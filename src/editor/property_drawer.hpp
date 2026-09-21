@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
+#include <forge/engine_assets.hpp>
 #include <forge/project_paths.hpp>
 #include <map>
 namespace forge {
@@ -25,6 +26,8 @@ inline std::string property_label(const Json& field) {
     return label;
 }
 inline std::string asset_display(const AssetRecord& record) {
+    if (const auto* builtin = engine_asset(record.id))
+        return std::string("Engine / ") + builtin->name;
     auto name = path_utf8(record.source);
     if (record.metadata.contains("clip_name"))
         name += " / " + record.metadata.at("clip_name").get<std::string>();
@@ -58,6 +61,20 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             ui::help(
                 "Clear this reference. Required resources will report a missing-asset diagnostic.");
             unsigned count = 0;
+            for (const auto& asset : engine_assets()) {
+                const auto display = std::string("Engine / ") + asset.name;
+                if (type != asset.type ||
+                    search_key(display).find(search_key(search.data())) == std::string::npos)
+                    continue;
+                ui::IdScope item(asset.id.str().c_str());
+                if (ImGui::Selectable(display.c_str(), value == Json(asset.id))) {
+                    value = asset.id;
+                    changed = true;
+                }
+                ui::help("Assign this built-in engine asset. Its shared source is read-only and "
+                         "requires no project import.");
+                ++count;
+            }
             for (const auto& [id, record] : catalog.records()) {
                 if (record.type != type ||
                     search_key(asset_display(record)).find(search_key(search.data())) ==
@@ -86,8 +103,10 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                     const auto id =
                         AssetId::parse(std::string(static_cast<const char*>(payload->Data), 36));
                     const auto it = catalog.records().find(id);
+                    const auto* builtin = engine_asset(id);
                     const bool compatible =
-                        it != catalog.records().end() && it->second.type == type;
+                        builtin ? type == builtin->type
+                                : it != catalog.records().end() && it->second.type == type;
                     if (!compatible)
                         ImGui::SetTooltip("This field requires %s", type.c_str());
                     if (compatible && payload->IsDelivery()) {
@@ -98,7 +117,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             }
             ImGui::EndDragDropTarget();
         }
-        if (!value.is_null() && ui::editor_context) {
+        if (!value.is_null() && ui::editor_context && !engine_asset(value.get<AssetId>())) {
             if (ui::button("Reveal in Content",
                            "Inspect this asset in Content. Scene reference stays unchanged.")) {
                 ui::editor_context->selection.select_asset(value.get<AssetId>());

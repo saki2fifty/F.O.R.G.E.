@@ -76,6 +76,7 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
     return result;
 }
 } // namespace
+#include "engine_resource_tests.hpp"
 #include "model_animation_runtime.hpp"
 #include "model_placement.hpp"
 #include "model_placement_tests.hpp"
@@ -89,6 +90,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root / "Assets");
         std::filesystem::copy(argv[3], root / "Assets/Model",
                               std::filesystem::copy_options::recursive);
+        check_engine_resources(root);
         const auto converter = std::filesystem::absolute(argv[5]);
         auto importer = model_importer(std::filesystem::absolute(argv[2]), converter);
         if (direct)

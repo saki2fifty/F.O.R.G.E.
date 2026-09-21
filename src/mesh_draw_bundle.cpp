@@ -74,8 +74,8 @@ void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransfo
 }
 void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTransform& world,
                                const CameraView& camera, std::span<const LightView> lights,
-                               unsigned lod, unsigned part,
-                               const EnvironmentLighting* environment) {
+                               unsigned lod, unsigned part, const EnvironmentLighting* environment,
+                               const std::array<float, 3>* legacy_tint) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -83,6 +83,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
         (void)key;
         (void)texture.get();
     }
-    selected->draw(context, world, camera, lights, environment);
+    selected->draw(context, world, camera, lights, environment, legacy_tint);
 }
 } // namespace forge

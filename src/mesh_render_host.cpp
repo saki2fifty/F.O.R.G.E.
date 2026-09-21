@@ -290,9 +290,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     for (const auto& item : queue) {
         const auto& object = objects[item.object];
         try {
-            object.bundle->draw_part(host_->context_, object.mesh->world, camera, object.lights,
-                                     object.lod, item.key.part,
-                                     environment_ready_ ? &lighting : nullptr);
+            object.bundle->draw_part(
+                host_->context_, object.mesh->world, camera, object.lights, object.lod,
+                item.key.part, environment_ready_ ? &lighting : nullptr,
+                object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr);
         } catch (const std::exception& e) {
             report(object.mesh->entity, e.what());
         }

@@ -1,4 +1,5 @@
 #include "model_render_resource.hpp"
+#include "engine_render_resource.hpp"
 #include "pbr_material.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/model_asset.hpp>
@@ -179,6 +180,8 @@ ResourceTicket request_texture(ResourcePool<TextureAsset>& pool, std::filesystem
 ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem::path project,
                                   std::shared_ptr<const AssetCatalog> catalog,
                                   AssetRef<MeshAsset> mesh) {
+    if (engine_asset(mesh.id))
+        return request_engine_mesh(pool, mesh);
     require(bool(catalog), "Model mesh requires a selected catalog");
     const auto selected = selected_member(*catalog, mesh.id, MeshAsset::type);
     return pool.request(mesh, selected.revision, selected.generation,
@@ -196,6 +199,8 @@ ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>& pool,
                                           std::filesystem::path project,
                                           std::shared_ptr<const AssetCatalog> catalog,
                                           AssetRef<MaterialAsset> material) {
+    if (engine_asset(material.id))
+        return request_engine_material(pool, material);
     require(bool(catalog), "Model PBR material requires a selected catalog");
     const auto selected = selected_member(*catalog, material.id, MaterialAsset::type);
     return pool.request(

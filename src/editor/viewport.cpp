@@ -208,7 +208,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
                forward = camera.forward();
     for (const auto& entity : scene.at("entities")) {
-        if (meshes_ && entity.at("components").contains("forge.mesh_renderer"))
+        if (meshes_)
             continue;
         if (entity.value("prefab", false) || !entity.at("components").contains("forge.position") ||
             primitive_kind(entity) == no_primitive)

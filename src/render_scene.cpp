@@ -1,6 +1,7 @@
 #include "builtins.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/engine_assets.hpp>
 #include <forge/render_scene.hpp>
 #include <set>
 namespace forge {
@@ -90,6 +91,31 @@ RenderScene extract_render_scene(const Json& source) {
             if (l.enabled)
                 result.lights.push_back({id, light_view(l, world_transform(row))});
         });
+        // Build-63 compatibility: an explicit MeshRenderer owns rendering when
+        // present, including disabled/missing assignments. Do not create a cube
+        // behind an intentionally invisible or invalid renderer.
+        if (!values.contains("forge.mesh_renderer") &&
+            (values.contains("forge.local_translation") || values.contains("forge.position"))) {
+            try {
+                const auto primitive = values.contains("forge.primitive")
+                                           ? component<Primitive>(values, "forge.primitive")
+                                           : Primitive{};
+                if (primitive.kind != no_primitive) {
+                    const auto tint = values.contains("forge.tint")
+                                          ? component<Tint>(values, "forge.tint")
+                                          : Tint{};
+                    MeshRenderer renderer;
+                    renderer.mesh = engine_primitive(primitive.kind);
+                    renderer.materials.push_back(
+                        {"surface", engine_material(EngineMaterial::LegacyBlockout)});
+                    result.meshes.push_back(
+                        {id, renderer, world_transform(row), {{tint.r, tint.g, tint.b}}});
+                }
+            } catch (const std::exception& e) {
+                report(result, diagnostic(result.scene, id, "render.primitive.invalid", e.what(),
+                                          "forge.primitive"));
+            }
+        }
         admit("forge.mesh_renderer", "render.mesh.invalid", [&] {
             const auto mesh = component<MeshRenderer>(values, "forge.mesh_renderer");
             if (mesh.enabled && mesh.visible) {

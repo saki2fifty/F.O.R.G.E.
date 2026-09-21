@@ -8,7 +8,7 @@ void require(bool ok, const std::string& message) {
         throw std::runtime_error("Mesh draw: " + message);
 }
 constexpr const char* object_source = R"(
-cbuffer ForgeObject {float4 g_Object[14];};
+cbuffer ForgeObject {float4 g_Object[15];};
 float3 ForgePoint(float3 p) {
     float4 v=float4(p,1);
     return float3(dot(g_Object[0],v),dot(g_Object[1],v),dot(g_Object[2],v));
@@ -125,7 +125,14 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     if (source.alpha != MaterialAlpha::Blend)
         ps += "base.a=1;\n";
     if (profile.workflow == PbrWorkflow::Unlit)
-        ps += "return all(isfinite(base))?base:float4(1,0,1,1);}\n";
+        ps += R"(
+    if(g_Object[14].w!=0) {
+        float3 n=ForgeUnit(input.Normal);
+        if(!any(n!=0)) n=ForgeUnit(cross(dpdx,dpdy));
+        base.rgb*=g_Object[14].rgb*(0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5)))));
+    }
+    return all(isfinite(base))?base:float4(1,0,1,1);}
+)";
     else {
         ps += R"(
     SurfaceShadingInfo s=(SurfaceShadingInfo)0;

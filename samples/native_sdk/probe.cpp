@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <flecs.h>
+#include <forge/engine_assets.hpp>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
 #include <memory>

@@ -18,6 +18,7 @@ struct RenderMesh {
     EntityId entity;
     MeshRenderer renderer;
     AffineTransform world;
+    std::optional<std::array<float, 3>> legacy_tint;
 };
 struct RenderScene {
     AssetId scene;

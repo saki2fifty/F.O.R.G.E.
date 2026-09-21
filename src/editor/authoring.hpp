@@ -1,4 +1,5 @@
 #pragma once
+#include "../render_projection.hpp"
 #include "camera.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
@@ -22,6 +23,21 @@ inline std::optional<Vec3> entity_position(const Json& doc, const std::string& i
         if (e.at("id") == id)
             return block_position(e);
     return {};
+}
+// CameraView uses physical pixels; overlays are drawn in logical ImGui pixels.
+struct GameDebugView {
+    const CameraView& view;
+    unsigned width, height;
+};
+inline std::optional<std::array<float, 2>> project_point(const GameDebugView& camera, Vec3 point,
+                                                         float width, float height) {
+    if (!camera.width || !camera.height)
+        return {};
+    const auto projected = project_render_point(camera.view, {point[0], point[1], point[2]});
+    if (!projected)
+        return {};
+    return std::array<float, 2>{float((*projected)[0] * width / camera.width),
+                                float((*projected)[1] * height / camera.height)};
 }
 // Coordinates are relative to the viewport image, in logical pixels.
 inline std::optional<std::array<float, 2>> project_point(const EditorCamera& camera, Vec3 p,

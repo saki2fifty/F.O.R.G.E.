@@ -22,7 +22,8 @@ class MeshDrawBundle {
               std::span<const LightView>, const EnvironmentLighting* = nullptr, unsigned lod = 0);
     void draw_part(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
                    std::span<const LightView>, unsigned lod, unsigned part,
-                   const EnvironmentLighting* = nullptr);
+                   const EnvironmentLighting* = nullptr,
+                   const std::array<float, 3>* legacy_tint = nullptr);
     std::span<const PartInfo> parts(unsigned lod) const { return info_.at(lod); }
     const std::vector<std::string>& unresolved_slots() const { return unresolved_; }
     const ResourceIdentity& mesh_identity() const { return mesh_.source(); }

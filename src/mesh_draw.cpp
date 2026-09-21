@@ -77,7 +77,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         sheen = presentation.pbr(context).GetPreintegratedSheen_SRV();
         require(bool(sheen), "native sheen lookup resource unavailable");
     }
-    object_ = buffer(device, "FORGE camera-relative object", 14 * sizeof(Row));
+    object_ = buffer(device, "FORGE camera-relative object", 15 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
     auto values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
                          material.uniforms.data());
@@ -167,10 +167,20 @@ void MeshDraw::bind_environment(const GpuEnvironment* maps) {
                 variable->Set(value);
 }
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
-                    std::span<const LightView> lights, const EnvironmentLighting* environment) {
+                    std::span<const LightView> lights, const EnvironmentLighting* environment,
+                    const std::array<float, 3>* legacy_tint) {
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
-    std::array<Row, 14> object{};
+    std::array<Row, 15> object{};
+    if (legacy_tint) {
+        for (unsigned i = 0; i < 3; ++i) {
+            require(std::isfinite((*legacy_tint)[i]) && (*legacy_tint)[i] >= 0 &&
+                        (*legacy_tint)[i] <= 1,
+                    "invalid legacy blockout color");
+            object[14][i] = (*legacy_tint)[i];
+        }
+        object[14][3] = 1;
+    }
     double largest = 0;
     for (unsigned r = 0; r < 3; ++r)
         for (unsigned c = 0; c < 3; ++c)

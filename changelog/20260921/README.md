@@ -136,7 +136,7 @@
   far-depth drawing, with camera-relative rays safe for infinite-far cameras.
 - Add Scene lighting controls and the shared asset picker catalog-snapshot overload.
   Scene and the current Game preview share prepared mesh/environment resources; Game
-  uses authored scene exposure. Full authored-camera/standalone integration remains in progress.
+  uses authored scene exposure. Authored-camera integration remains in progress. A full standalone exporter is future work under the approved scope.
 - Local normal checks pass4/4: render bounds/sky rays, texture recipe, model recipe and
   authoring API in35.02s. Initial command-catalog count assertion was updated for the
   new shared command and rerun successfully. Native C++ syntax including unmodified
@@ -157,3 +157,38 @@
   did not run its rendering tests. Core/SDK push validation forbd6df54 passed.
 - Supersede the queued8ea0067 source audit containing the same collision. This is
   a test portability correction, not a dependency or renderer contract change.
+
+### Authored cameras and shared engine meshes
+
+- Compose Game from authored camera poses, projection, viewport/aspect, order, clear
+  settings and layers; report missing cameras without substituting editor navigation.
+- Use HDR frame composition with camera-rectangle clear draws, one final display
+  resolve, authored exposure and the shared native sky/mesh resource host.
+- Add Camera, Light and Mesh Renderer creation recipes. Project animation/navigation
+  debug overlays through the Game camera that owns each rectangle.
+- Allocate immutable engine asset UUIDs for all20 existing nonempty primitive kinds
+  and default/two-sided/legacy materials. Resolve typed engine references without
+  project source files; reject project attempts to replace reserved identities.
+- Route legacy Primitive/Tint presentation through the same CPU resource pools,
+  complete draw candidates, GPU residency and mesh draw pipeline as imported meshes.
+  Preserve authored components and default-cube/None semantics; explicit MeshRenderer
+  always takes precedence. Keep compatibility shading and transient tint intent.
+- Add camera pixel fixtures for composition, clear flags, aspect, no-camera behavior,
+  exposure, retained targets and mirrored/collapsed legacy geometry. Add CPU checks
+  for the complete primitive catalog, resource sharing, type rejection and unchanged
+  project/scene metadata. Native execution and full regression results are pending.
+- Prior camera/recipe local checks passed2/2 normally and2/2 with strict sanitizers
+  (3.60s). No numbered Windows package has been created for these source checkpoints.
+- Expose the immutable engine asset reference helpers in the exact-version SDK,
+  including their primitive-name dependency, and include both headers in its existing
+  compatibility fingerprint. Installed-client compilation checks the public include.
+  ABI1 and persistent identity formats are unchanged.
+- Shared asset pickers include readable engine selections and suppress filesystem
+  Reveal for these virtual assets. Model/lighting/Play manual pages describe the
+  actual camera and built-in mesh workflows.
+- Local normal regressions pass3/3 in30.83s; all16 generated HLSL stages, native C++
+  syntax (including Windows near/far macro emulation), and full editor UI syntax pass.
+  Strict sanitizer and native Windows results remain pending for this checkpoint.
+- Strict ASan/UBSan/LSan regressions pass3/3 in78.05s with leak detection enabled.
+  Keep Scene frame/fit actions from operating on runtime snapshots while Game is
+  also visible. Manual3/3 and formatting checks pass; native pixel tests remain pending.

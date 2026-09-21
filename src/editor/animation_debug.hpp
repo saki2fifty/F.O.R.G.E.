@@ -3,7 +3,8 @@
 #include <imgui.h>
 namespace forge {
 // Same camera projection and overlay convention as the existing transform gizmos.
-inline void draw_animation_debug(const Json& document, const EditorCamera& camera, ImVec2 origin,
+template <class View>
+inline void draw_animation_debug(const Json& document, const View& camera, ImVec2 origin,
                                  ImVec2 size) {
     auto* draw = ImGui::GetWindowDrawList();
     draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);

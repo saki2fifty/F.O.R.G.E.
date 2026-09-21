@@ -1,4 +1,5 @@
 #include "render_bounds.hpp"
+#include "render_projection.hpp"
 #include "render_sort.hpp"
 #include "sky_view.hpp"
 #include <cmath>
@@ -112,6 +113,11 @@ int main() {
         auto bad_sky = view;
         bad_sky.projection[0] = 0;
         rejects([&] { sky_ray_matrix(bad_sky); });
+        const auto projected = project_render_point(distant, {1e12, 1e12, 1e12 + 5});
+        check(projected && (*projected)[0] == 200 && (*projected)[1] == 200,
+              "Game overlay projection lost camera-relative placement");
+        check(!project_render_point(view, {0, 0, -1}) && !project_render_point(view, {0, 0, 1000}),
+              "Game overlay projection admitted points outside depth range");
         const auto first = EntityId::parse("00000000-0000-4000-8000-000000000001");
         const auto second = EntityId::parse("00000000-0000-4000-8000-000000000002");
         RenderSortKey opaque, mask, near, far, tied;
