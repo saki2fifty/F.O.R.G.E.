@@ -63,7 +63,7 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; preview thumbnails and broader source operations are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
-Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 16 directory levels, 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
+Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discovery is bounded to 64 directory levels, 110,000 directory/file entries and 64 MiB of JSON reads, with an 8 MiB per-file limit. Registered non-scene sources, the catalog, project metadata and import sidecars are excluded from those JSON reads. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
@@ -84,8 +84,7 @@ read version 2. This does not change scene or prefab identities.
 
 Content discovers saved scenes and registered assets in the background.
 **Refreshing...** means a scan is running; you can continue using the existing
-list. Repeated **Refresh** clicks are combined. A failed scan reports its error
-and keeps the last good results. Opening another project clears the old list
+list. Repeated **Refresh** clicks are combined. A failed catalog scan reports its error and keeps the last good results. If only optional scene discovery fails, registered assets still refresh while the last complete discovered-scene list is retained. Opening another project clears the old list
 and discards any unfinished results belonging to the previous project.
 
 ## Source files and automatic updates

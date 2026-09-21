@@ -183,8 +183,15 @@ class ContentView {
             if (ui::button(
                     "Reimport selected",
                     "Queue selected registered assets through their existing importer. Shared "
-                    "source owners are processed once; dirty source drafts delay publication."))
-                reimport(selected_assets());
+                    "source owners are processed once; dirty source drafts delay publication.")) {
+                const auto assets = selected_assets();
+                if (assets.size() != selected_.size())
+                    ui::report_error("content_reimport",
+                                     "Import selected source files before requesting Reimport "
+                                     "selected. No assets were queued.");
+                else
+                    reimport(assets);
+            }
             ImGui::EndDisabled();
         }
         query_.folder = locations_.current();

@@ -63,6 +63,29 @@ int main(int argc, char** argv) {
         require(initial.files.at("Assets/A.PNG").digest ==
                     "a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e",
                 "Incorrect source content digest");
+#ifdef _WIN32
+        const ProjectLocatorLess less;
+        require(!less("Assets/A.PNG", "assets\\a.png") && !less("assets\\a.png", "Assets/A.PNG"),
+                "Equivalent Windows separators split one source locator");
+        require(std::filesystem::exists(project / "assets/a.png") &&
+                    initial.files.contains("assets/a.png") &&
+                    initial.files.contains("assets\\a.png"),
+                "Source lookup disagrees with Windows project locator case semantics");
+        {
+            SourceChangeTracker own(initial, 0ms);
+            auto replacement = initial;
+            const std::string digest(64, 'f');
+            replacement.files.at("Assets/A.PNG").digest = digest;
+            own.acknowledge_write("assets/a.png", digest);
+            const auto now = SourceChangeTracker::Clock::now();
+            own.observe(std::move(replacement), now);
+            require(own.drain(now).empty(),
+                    "Case-equivalent self-write triggered a redundant Windows reimport");
+        }
+#else
+        require(!initial.files.contains("assets/a.png"),
+                "POSIX source lookup incorrectly folded case");
+#endif
         auto repeated = scan_asset_sources(project);
         require(repeated.files.begin()->first == initial.files.begin()->first &&
                     repeated.files.at("Assets/A.PNG").digest ==

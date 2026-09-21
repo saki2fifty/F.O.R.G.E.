@@ -108,3 +108,18 @@ dependents. Failed candidates retain the catalog and cooked selection and report
 diagnostics. Manual retry clears failed work; unchanged startup observations do
 not needlessly publish new generations. Full scans/hash copies are bounded by
 existing scan limits, not a claim of constant-time or production-scale throughput.
+
+Snapshot lookup and self-write acknowledgements use `ProjectLocatorLess`, matching
+the project locator contract: ordinal case-insensitive on Windows, exact on POSIX.
+A differently cased Windows locator does not imply a missing source or a different
+asset. This is an ephemeral index convention, not a rewrite of source paths or IDs.
+
+Content's optional scene discovery is separate from reading the committed catalog.
+If a scene is invalid or discovery exceeds its bounded read budget, the browser
+keeps the last complete discovered-scene additions and still adopts valid registered
+assets. A newly registered locator/identity takes precedence over retained discovery
+metadata. This projection creates no new identity and writes no project files.
+
+Windows locator equality compares generic separators before ordinal case folding,
+so a caller-created forward-slash path and an OS-normalized backslash path do
+not create duplicate source rows or miss publisher acknowledgements.

@@ -807,6 +807,9 @@ int main(int argc, char** argv) {
                 ImGui::GetIO().ConfigInputTrickleEventQueue = false;
                 ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
                 gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
+                // Pinned IsItemHovered also considers the keyboard navigation cursor.
+                // Static captures have no active keyboard gesture; keep production help intact.
+                ImGui::SetNavCursorVisible(false);
             } else
 #endif
                 gui->NewFrame(width, height, swap->GetDesc().PreTransform);

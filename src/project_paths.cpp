@@ -17,7 +17,11 @@ std::string path_utf8(const std::filesystem::path& path) {
 bool ProjectLocatorLess::operator()(const std::filesystem::path& a,
                                     const std::filesystem::path& b) const {
 #ifdef _WIN32
-    const auto comparison = CompareStringOrdinal(a.c_str(), -1, b.c_str(), -1, TRUE);
+    // Both separators name the same Windows locator. lexically_normal() can
+    // choose '\\' while caller-created paths retain '/'; compare generic paths
+    // before applying the host's ordinal case policy.
+    const auto left = a.generic_wstring(), right = b.generic_wstring();
+    const auto comparison = CompareStringOrdinal(left.c_str(), -1, right.c_str(), -1, TRUE);
     if (!comparison)
         throw std::runtime_error("Cannot compare project locators");
     return comparison == CSTR_LESS_THAN;

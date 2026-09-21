@@ -812,3 +812,13 @@
 - Windows core/SDK validation of the preceding source-file bundle exposed overly long temporary filenames: a valid 239-character stored blob became a 284-character staging path. Atomic storage now uses a UUID-named sibling without repeating the destination basename, retaining exclusive creation, file flush and atomic replacement. Added replacement regression near the traditional Windows path bound. This fixes staging-name growth; it does not claim unrestricted long-path support across every dependency.
 
 - Staging fix: file-operation/recovery tests pass normally (2/2 within the 23.99 s selected run) and strictly instrumented (2/2, 17.88 s). Freshly relinked shared publication regression passes normally (4.58 s) and with sanitizers (6.01 s). The Windows correction still requires a new native/core run.
+
+
+### Content discovery and capture follow-up
+
+- Separated optional scene discovery failure from catalog adoption; retain the last complete discovered-scene list while current registered assets remain available. Recognize uppercase JSON, exclude known non-scene sources/catalog/sidecars, and align traversal with existing source-scan entry/depth bounds.
+- Source lookup and publisher self-write acknowledgements now use the established Windows/POSIX locator comparison policy. Added Windows case-equivalent lookup/acknowledgement coverage and a physical project with over10,000 unrelated sources.
+- Reimport selected rejects a selection containing unimported sources without silently submitting a subset.
+- Static UI captures clear the ImGui navigation cursor as well as the mouse pointer, following pinned source hover behavior. Production keyboard navigation and help remain unchanged.
+- Follow-up validation passes locally: editor/browser 2/2 (12.47 s), asset discovery/file operations/material pipeline 3/3 (30.12 s), and strict ASan/UBSan/LSan 3/3 (31.32 s). Windows follow-up remains pending; no final-package claim.
+- The preceding Windows audit passed 50/51 tests and all core/SDK profiles passed. The remaining browser failure exposed raw slash versus backslash comparison in Windows locators, creating a duplicate source row beside its registered asset. Ordinal case comparison now uses generic separators; a Windows regression checks both spellings. The near-limit atomic staging regressions now pass on Windows.

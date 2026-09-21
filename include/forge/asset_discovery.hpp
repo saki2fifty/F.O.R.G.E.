@@ -23,7 +23,8 @@ struct SourceScanDiagnostic {
     bool error = false;
 };
 struct SourceSnapshot {
-    std::map<std::filesystem::path, SourceFile> files;
+    // Match the project locator policy: Windows ordinal case-insensitive; POSIX exact.
+    std::map<std::filesystem::path, SourceFile, ProjectLocatorLess> files;
     std::vector<SourceScanDiagnostic> diagnostics;
     std::uint64_t bytes_read = 0;
     std::size_t filtered = 0;
@@ -70,7 +71,7 @@ class SourceChangeTracker {
     SourceSnapshot baseline_, latest_;
     std::chrono::milliseconds debounce_;
     Clock::time_point changed_{};
-    std::map<std::filesystem::path, std::string> writes_;
+    std::map<std::filesystem::path, std::string, ProjectLocatorLess> writes_;
     std::uint64_t generation_ = 1;
     bool pending_ = false, complete_ = true;
 };

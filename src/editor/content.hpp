@@ -12,8 +12,9 @@
 #include <set>
 #include <stop_token>
 namespace forge {
-inline std::vector<std::filesystem::path> scene_files(const std::filesystem::path& root,
-                                                      std::stop_token stop = {}) {
+inline std::vector<std::filesystem::path>
+scene_files(const std::filesystem::path& root, std::stop_token stop = {},
+            const std::set<std::filesystem::path, ProjectLocatorLess>& excluded = {}) {
     std::vector<std::filesystem::path> result;
     std::error_code error;
     std::filesystem::recursive_directory_iterator it(
@@ -21,13 +22,16 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
         end;
     if (error)
         throw std::runtime_error("Cannot read project folder: " + error.message());
-    unsigned visited = 0;
+    const SourceScanOptions bounds;
+    const auto entry_limit = bounds.max_files + bounds.max_directories;
+    std::size_t visited = 0;
     std::uintmax_t scanned_bytes = 0;
     for (; it != end; it.increment(error)) {
         if (stop.stop_requested())
             throw std::runtime_error("Content scan cancelled");
-        if (++visited > 10000)
-            throw std::runtime_error("Scene scan exceeds 10000 entries; use File > Open scene");
+        if (++visited > entry_limit)
+            throw std::runtime_error("Scene scan exceeds " + std::to_string(entry_limit) +
+                                     " entries; use File > Open scene");
         if (error)
             throw std::runtime_error("Scene scan failed: " + error.message());
         const auto& entry = *it;
@@ -37,19 +41,22 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
             continue;
         }
         if (entry.is_directory()) {
-            if (name == ".forge" || name == ".git" || it.depth() >= 16)
+            if (name == ".forge" || name == ".git" || std::size_t(it.depth()) >= bounds.max_depth)
                 it.disable_recursion_pending();
             continue;
         }
-        if (entry.is_regular_file() && entry.path().extension() == ".json" &&
-            name != "forge.project.json") {
+        const auto relative = entry.path().lexically_relative(root);
+        const auto filename = search_key(path_text(name));
+        if (entry.is_regular_file() && search_key(path_text(entry.path().extension())) == ".json" &&
+            filename != "forge.project.json" && filename != "forge.assets.json" &&
+            !filename.ends_with(".forge-import.json") && !excluded.contains(relative)) {
             // Recognize legacy/custom .json scenes by structure, not just the extension.
             const auto bytes = entry.file_size();
+            if (bytes > 8 * 1024 * 1024)
+                continue;
             scanned_bytes += bytes;
             if (scanned_bytes > 64 * 1024 * 1024)
                 throw std::runtime_error("Scene scan exceeds 64 MiB; use File > Open scene");
-            if (bytes > 8 * 1024 * 1024)
-                continue;
             try {
                 const auto candidate = read_json(entry.path());
                 if (!candidate.is_object() || !candidate.contains("version") ||
@@ -59,9 +66,9 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
                 continue;
             }
             result.push_back(entry.path().lexically_relative(root));
-            if (result.size() >= 4096)
+            if (result.size() > 4096)
                 throw std::runtime_error(
-                    "Project has more than 4096 JSON files; use File > Open scene");
+                    "Project has more than 4096 scene files; use File > Open scene");
         }
     }
     if (error)
@@ -69,6 +76,61 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
     std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
         return search_key(path_text(a)) < search_key(path_text(b));
     });
+    return result;
+}
+struct ContentCatalogScan {
+    AssetCatalog catalog;
+    std::shared_ptr<const std::vector<AssetRecord>> scenes;
+    std::string diagnostic;
+};
+inline ContentCatalogScan
+scan_content_catalog(const std::filesystem::path& root,
+                     std::shared_ptr<const std::vector<AssetRecord>> previous = {},
+                     std::stop_token stop = {}) {
+    ContentCatalogScan result{AssetCatalog::open_project(root), std::move(previous), {}};
+    try {
+        std::set<std::filesystem::path, ProjectLocatorLess> excluded;
+        for (const auto& [id, record] : result.catalog.records()) {
+            (void)id;
+            if (record.type != "scene")
+                excluded.insert(record.source);
+        }
+        AssetCatalog discovered(root);
+        auto scenes = std::make_shared<std::vector<AssetRecord>>();
+        for (const auto& path : scene_files(root, stop, excluded)) {
+            if (stop.stop_requested())
+                throw std::runtime_error("Content scan cancelled");
+            const auto doc = read_json(root / path);
+            if (!doc.contains("asset_id"))
+                continue;
+            auto record = discovered.add_scene(path);
+            const auto known = result.catalog.records().find(record.id);
+            if (known != result.catalog.records().end() &&
+                (known->second.type != record.type ||
+                 !ProjectPaths(root).same_locator(known->second.source, record.source)))
+                throw std::runtime_error(
+                    "Discovered scene identity conflicts with registered asset: " +
+                    path_text(path));
+            scenes->push_back(std::move(record));
+        }
+        result.scenes = std::move(scenes);
+    } catch (const std::exception& e) {
+        if (stop.stop_requested())
+            throw;
+        result.diagnostic = std::string("Scene discovery: ") + e.what() +
+                            ". Registered assets remain available; retaining the last complete "
+                            "discovered-scene list.";
+    }
+    std::set<std::filesystem::path, ProjectLocatorLess> indexed_sources;
+    for (const auto& [id, record] : result.catalog.records()) {
+        (void)id;
+        indexed_sources.insert(record.source);
+    }
+    if (result.scenes)
+        for (const auto& record : *result.scenes)
+            if (!result.catalog.records().contains(record.id) &&
+                !indexed_sources.contains(record.source))
+                result.catalog.add(record);
     return result;
 }
 class ContentBrowser {
@@ -138,22 +200,10 @@ class ContentBrowser {
         refresh_again_ = false;
         stop_ = std::stop_source{};
         scan_project_ = root_;
-        scan_ = std::async(std::launch::async, [root = root_, stop = stop_.get_token()] {
-            auto candidate = AssetCatalog::open_project(root);
-            // Scenes carry their own AssetIds. Browsing creates no new identity
-            // and writes no replacement asset database.
-            for (const auto& path : scene_files(root, stop)) {
-                if (stop.stop_requested())
-                    throw std::runtime_error("Content scan cancelled");
-                const auto doc = read_json(root / path);
-                if (!doc.contains("asset_id"))
-                    continue;
-                const auto id = doc.at("asset_id").get<AssetId>();
-                if (!candidate.records().contains(id))
-                    candidate.add_scene(path);
-            }
-            return candidate;
-        });
+        scan_ = std::async(std::launch::async,
+                           [root = root_, previous = discovered_scenes_, stop = stop_.get_token()] {
+                               return scan_content_catalog(root, previous, stop);
+                           });
     }
     void poll(EditorFiles& files) {
         select_project(files);
@@ -168,10 +218,11 @@ class ContentBrowser {
         try {
             auto candidate = scan_.get();
             if (!stop_.stop_requested() && scan_project_ == root_) {
-                merge_prefabs(candidate, files);
-                catalog_ = std::make_shared<AssetCatalog>(std::move(candidate));
+                merge_prefabs(candidate.catalog, files);
+                catalog_ = std::make_shared<AssetCatalog>(std::move(candidate.catalog));
+                discovered_scenes_ = std::move(candidate.scenes);
                 index_dirty_ = true;
-                error_.clear();
+                error_ = std::move(candidate.diagnostic);
                 refreshed_ = SDL_GetTicks();
             }
         } catch (const std::exception& e) {
@@ -443,13 +494,15 @@ class ContentBrowser {
     bool refresh_again_ = false;
     std::filesystem::path scan_project_;
     std::stop_source stop_;
-    std::future<AssetCatalog> scan_;
+    std::future<ContentCatalogScan> scan_;
+    std::shared_ptr<const std::vector<AssetRecord>> discovered_scenes_;
     void select_project(EditorFiles& files) {
         if (root_ == files.document.project())
             return;
         stop_.request_stop();
         root_ = files.document.project();
         catalog_.reset();
+        discovered_scenes_.reset();
         sources_.reset();
         index_stop_.request_stop();
         index_.reset();
