@@ -59,3 +59,19 @@ must already have succeeded. The package job checks that run's source SHA agains
 the package manifest and still executes relocation before upload. Build/source
 identity stays embedded in the binaries; the packaging workflow commit is recorded
 separately. This option does not rebuild or relabel a previous delivery.
+
+## Content-verified incremental Windows inputs
+
+The audit and package editor jobs store `forge-source-stamps.json` with the build
+cache after configuration/build work. It records SHA-256, byte size and modification
+time for tracked regular source files. On compatible cache restore, unchanged bytes
+recover their original input times, so a fresh Git checkout does not force Ninja to
+recompile the whole project. Changed/new inputs are newer than the cached completed
+build even if a file copy preserved an older timestamp. Deleted files remain deleted;
+symlinks and paths outside the checkout are not modified.
+
+This does not change dependency/toolchain/CRT compatibility keys or skip configure,
+build or tests. An older cache without a manifest uses normal rebuild behavior and
+records a manifest for subsequent runs. `clean_build` bypasses this optimization.
+`tests/ci_cache_test.py` runs a real Ninja dependency check, including modified header
+bytes with a deliberately preserved timestamp. Cache reuse is not validation evidence.

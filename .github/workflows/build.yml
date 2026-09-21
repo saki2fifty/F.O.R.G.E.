@@ -211,7 +211,12 @@ jobs:
             $cachePath = Join-Path $env:RUNNER_TEMP "forge-work/AgentFiles/$directory"
             if (Test-Path $cachePath) { Remove-Item -LiteralPath $cachePath -Recurse -Force }
           }
-      - run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
+      - name: Restore timestamps of content-identical cached sources
+        if: ${{ !inputs.clean_build }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_source_stamps.py restore ../AgentFiles/b/forge-source-stamps.json
+      - id: editor-configure
+        run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build process controllers before renderer
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -264,6 +269,10 @@ jobs:
       - name: Verify packaged animation converter after relocation
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/animation_package_test.py "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip" ../AgentFiles/b/forge_animation_tests.exe
+      - name: Record source content and input timestamps for incremental reuse
+        if: ${{ always() && !inputs.clean_build && steps.editor-configure.outcome == 'success' }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_source_stamps.py record ../AgentFiles/b/forge-source-stamps.json
       - name: Save verified Windows build cache
         continue-on-error: true
         if: ${{ !inputs.clean_build && steps.editor-cache.outputs.cache-hit != 'true' }}

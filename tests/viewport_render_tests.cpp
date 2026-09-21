@@ -11,6 +11,7 @@
 // Renderer interfaces.
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
+#include "Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
 #include "shader_diligent_tests.hpp"
@@ -19,6 +20,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 using namespace Diligent;
 using Microsoft::WRL::ComPtr;
 namespace {
@@ -65,7 +67,16 @@ Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* vi
     context->WaitForIdle();
     MappedTextureSubresource data;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, data);
-    require(data.pData != nullptr, "Readback map failed");
+    if (!data.pData) {
+        RefCntAutoPtr<IRenderDeviceD3D12> native(device, IID_RenderDeviceD3D12);
+        std::ostringstream message;
+        message << "Readback map failed for " << texture->GetDesc().Name;
+        if (native)
+            message << "; GetDeviceRemovedReason=0x" << std::hex
+                    << static_cast<unsigned long>(
+                           native->GetD3D12Device()->GetDeviceRemovedReason());
+        throw std::runtime_error(message.str());
+    }
     Pixels result(desc.Width * desc.Height);
     for (unsigned y = 0; y < desc.Height; ++y)
         std::memcpy(result.data() + y * desc.Width,
@@ -81,6 +92,7 @@ void save(const Pixels& pixels, unsigned width, unsigned height,
     output << "P6\n" << width << ' ' << height << "\n255\n";
     for (auto p : pixels)
         output.write(reinterpret_cast<const char*>(p.data()), 3);
+    require(bool(output.flush()), "Render evidence could not be written");
 }
 void check_imgui(IRenderDevice* device, IDeviceContext* context,
                  const std::filesystem::path& images) {

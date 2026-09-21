@@ -56,6 +56,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     const auto view = camera_view(lens, AffineTransform{}, 32, 32);
     AffineTransform world;
     world.m[11] = 2;
+    std::string stage = "rest weights";
     auto render = [&](MeshDraw& selected, std::span<const float> weights,
                       std::span<const LightView> lights = std::span<const LightView>{}) {
         context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -67,10 +68,15 @@ void check_morph_render(forge::DiligentPresentation& presentation,
         context->SetViewports(1, &area, 32, 32);
         selected.draw(context, world, view, lights, nullptr, nullptr, nullptr, {}, nullptr,
                       weights);
-        return readback(presentation.device(), context, rtv);
+        try {
+            return readback(presentation.device(), context, rtv);
+        } catch (const std::exception& error) {
+            throw std::runtime_error("Morph " + stage + ": " + error.what());
+        }
     };
     std::array<float, 5> weights{};
     const auto rest = render(draw, weights);
+    save(rest, 32, 32, images / "morph-rest.ppm");
     auto center_x = [](const auto& image) {
         double total = 0, count = 0;
         for (unsigned y = 0; y < 32; ++y)
@@ -82,15 +88,18 @@ void check_morph_render(forge::DiligentPresentation& presentation,
         require(count > 0, "Morphed geometry disappeared");
         return total / count;
     };
+    stage = "default weights";
     const auto moved = render(draw, {});
     require(center_x(moved) > center_x(rest) + 3, "Default morph weight did not move geometry");
     weights[0] = -1;
+    stage = "negative weights";
     const auto negative = render(draw, weights);
     require(center_x(negative) < center_x(rest) - 3,
             "Negative morph weight was clamped or ignored");
     save(moved, 32, 32, images / "morph-positive.ppm");
     save(negative, 32, 32, images / "morph-negative.ppm");
     weights = {0, 1, 0, 0, 0};
+    stage = "color weights";
     const auto colored = render(draw, weights);
     require(colored[16 * 32 + 16] == std::array<unsigned char, 4>{0, 0, 255, 255},
             "Morphed color was not added then clamped");
@@ -110,8 +119,10 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     textures["baseColorTexture"] = image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     MeshDraw textured(presentation, context, gpu.lods[0].parts[0], material, textures,
                       TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    stage = "UV rest";
     const auto red = render(textured, weights);
     weights[2] = 1;
+    stage = "UV changed";
     const auto blue = render(textured, weights);
     require(red[16 * 32 + 16][0] > 240 && blue[16 * 32 + 16][2] > 240 && blue[16 * 32 + 16][0] < 10,
             "Morph UV19 did not route through material sampling");
@@ -124,8 +135,10 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     light.intensity = 2;
     const auto illumination = light_view(light, AffineTransform{});
     weights = {};
+    stage = "normal rest";
     const auto bright = render(lit, weights, std::span(&illumination, 1));
     weights[3] = 1;
+    stage = "normal changed";
     const auto dark = render(lit, weights, std::span(&illumination, 1));
     require(bright[16 * 32 + 16][0] > 50 && dark[16 * 32 + 16][0] < 10,
             "Morph normal did not reach native lighting");
@@ -143,8 +156,10 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     auto side = illumination;
     side.direction = {0, -1, 0};
     weights = {};
+    stage = "tangent rest";
     const auto tangent_x = render(mapped, weights, std::span(&side, 1));
     weights[4] = 1;
+    stage = "tangent changed";
     const auto tangent_y = render(mapped, weights, std::span(&side, 1));
     require(tangent_x[16 * 32 + 16][0] > 50 && tangent_y[16 * 32 + 16][0] < 15,
             "Morphed tangent or preserved handedness failed normal mapping");
