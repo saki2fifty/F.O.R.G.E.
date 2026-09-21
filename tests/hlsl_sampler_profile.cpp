@@ -7,10 +7,13 @@
 int main() {
     using Microsoft::WRL::ComPtr;
     bool supported = false;
-    for (const std::string mode : {"scalar", "spaces", "array"}) {
+    for (const std::string mode : {"scalar", "spaces", "array", "mixed"}) {
         for (const bool unbounded : {false, true}) {
             std::string source = "Texture2D<float4> texture0;\n";
-            if (mode == "array")
+            if (mode == "mixed")
+                source += "SamplerState sampler0[17] : register(s0,space1);\nSamplerState "
+                          "sampler17,sampler18;\n";
+            else if (mode == "array")
                 source += "SamplerState sampler0[19] : register(s0);\n";
             else
                 for (unsigned i = 0; i < 19; ++i)
@@ -21,8 +24,9 @@ int main() {
             source += "float4 main(float2 uv:TEXCOORD0):SV_Target0 {float4 value=0;\n";
             for (unsigned i = 0; i < 19; ++i)
                 source += "value+=texture0.Sample(" +
-                          (mode == "array" ? "sampler0[" + std::to_string(i) + "]"
-                                           : "sampler" + std::to_string(i)) +
+                          ((mode == "array" || (mode == "mixed" && i < 17))
+                               ? "sampler0[" + std::to_string(i) + "]"
+                               : "sampler" + std::to_string(i)) +
                           ",uv)/19;\n";
             source += "return value;}\n";
             const auto name = mode + (unbounded ? "-unbounded" : "-default");
