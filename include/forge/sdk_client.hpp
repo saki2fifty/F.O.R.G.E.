@@ -68,6 +68,13 @@ class Client {
                    ? host_->ui_poll_action(host_->context, name, entity, capacity)
                    : 0;
     }
+    bool authoring_type(uint64_t native_type, const char* key, uint32_t version,
+                        const char* defaults_json, const char* category, char* error,
+                        uint32_t capacity) const {
+        return valid() && host_->authoring_type &&
+               host_->authoring_type(host_->context, native_type, key, version, defaults_json,
+                                     category, error, capacity) == 1;
+    }
     bool diagnostic(uint32_t severity, const char* text) const {
         return callable(Capability::Diagnostics) &&
                host_->diagnostic(host_->context, severity, text) == 1;

@@ -1,3 +1,5 @@
+#include "authored_schema.hpp"
+#include "bounded_json.hpp"
 #include <cstring>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk.hpp>
@@ -57,7 +59,7 @@ struct Bridge {
     ModuleContext& context;
     ForgeSdkWorldV1 host{};
     std::thread::id owner = std::this_thread::get_id();
-    enum class Stage { Schema, Starting, Running, Stopped } stage = Stage::Schema;
+    enum class Stage { Schema, Registered, Starting, Running, Stopped } stage = Stage::Schema;
     static Bridge& get(void* p) {
         if (!p)
             throw std::runtime_error("Null SDK context");
@@ -81,6 +83,32 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.authoring_type = [](void* p, uint64_t type, const char* key, uint32_t version,
+                                 const char* defaults, const char* category, char* error,
+                                 uint32_t capacity) -> int32_t {
+            if (!error || !capacity || capacity > 8192)
+                return 0;
+            error[0] = 0;
+            try {
+                auto& b = Bridge::get(p);
+                if (b.stage != Stage::Schema)
+                    throw std::runtime_error("Authoring opt-in is schema-registration-only");
+                const auto bytes = bounded(defaults, 65536);
+                auto value = asset_detail::parse_bounded_json(std::as_bytes(std::span(bytes)),
+                                                              65536, 16384, 8);
+                detail::opt_in_authoring(b.context.world, type, bounded(key, 128), b.context.id,
+                                         version, std::move(value), bounded(category, 255));
+                return 1;
+            } catch (const std::exception& e) {
+                const auto n = std::min(std::strlen(e.what()), std::size_t(capacity - 1));
+                std::memcpy(error, e.what(), n);
+                error[n] = 0;
+                return 0;
+            } catch (...) {
+                error[0] = 0;
+                return 0;
+            }
+        };
         host.query_capability = [](void* p, uint32_t cap, uint32_t version,
                                    ForgeSdkCapabilityV1* out) -> int32_t {
             if (!out || out->size != sizeof(*out))
@@ -407,6 +435,7 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
                 throw std::runtime_error(std::string("Native schema registration failed: ") +
                                          error);
             }
+            bridge->stage = Bridge::Stage::Registered;
         };
         result.start = [api](ModuleContext& c) {
             auto& bridge = *static_cast<Bridge*>(c.state.get());

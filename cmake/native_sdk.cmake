@@ -29,7 +29,7 @@ foreach(header IN LISTS FORGE_SDK_HEADERS)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${header}:${hash};")
 endforeach()
 # Exact bridge and value-support semantics are part of this private SDK contract.
-foreach(source src/native_sdk.cpp src/identity.cpp)
+foreach(source src/native_sdk.cpp src/identity.cpp src/authored_schema.cpp src/authored_schema.hpp src/reflected_value.cpp src/reflected_native.cpp src/reconstructed_meta.cpp src/reflected_extensions.cpp)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/${source}")
  file(SHA256 "${PROJECT_SOURCE_DIR}/${source}" hash)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${source}:${hash};")

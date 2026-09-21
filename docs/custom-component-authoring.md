@@ -231,3 +231,47 @@ metadata. Numeric inline-array value ranges apply to each element. Reconstructed
 range metadata must satisfy the same interval containment as pinned `struct_ts.c`.
 This private adapter remains a prerequisite; it alone does not admit project types
 into Add Component or complete SDK inspection, persistence or prefab integration.
+
+### Isolated SDK extraction checkpoint
+
+The exact shared SDK host supplies a schema-stage `authoring_type` callback (also
+available through `forge::sdk::Client`). A project passes its registered native type,
+stable namespaced key, positive schema version, category and declared JSON defaults.
+The host derives structure from native Meta, validates defaults in detached storage,
+and attaches an engine-owned admission annotation to the native type entity. Duplicate
+keys/types, reserved `forge.*` keys, unsupported reflection and unknown default fields
+are rejected. Defaults normalize to native storage, including f32 rounding.
+
+`forge_runtime --inspect-sdk <project-root>` uses the matching shared SDK profile
+and existing module fingerprint checks. It registers schemas in a disposable Validation
+world, disables module runtime startup callbacks, and exports copied metadata to stdout.
+It exports no native IDs, offsets or callbacks. Component structure digests exclude
+physical field order and presentation labels; stable field identities, types, bounds,
+units and collection semantics remain significant. Defaults remain separately versioned
+admission values rather than changes to already authored state.
+
+The worker's current component limit is256 and copied output limit16MiB. Individual
+native reconstruction and value bounds still apply. The SDK headers and implementation
+are part of the exact compatibility fingerprint; clients must rebuild against the same
+SDK. This does not change portable gameplay ABI1. The private application worker wrapper adds fixed-command process supervision,
+cancellation,30-second wall/25-second CPU/512MiB memory limits and bounded output.
+It checks SDK provenance and unchanged project module settings, then returns copied
+metadata. Native reconstruction and complete type/default/digest validation run on
+the receiving owning thread before admission; the background task creates no editor
+Flecs world or registrations. Failed/crashed/incompatible workers leave the caller's
+previous copied metadata untouched and retire only their unique staging folder.
+
+For schema-only inspection, original descriptor permissions and Runtime activation
+checks remain intact, but runtime subsystem requirements are excluded from the
+Validation-only composition. Its bridge reports those services unavailable. The
+worker therefore does not start physics/audio/navigation/UI merely to inspect
+plain-value schemas. Schema callbacks must be able to register metadata without
+simulation services. Scene/schema publication, Inspector discovery and prefab/runtime
+value integration remain in progress; extraction alone does not complete authoring.
+
+The named-value transport keeps EntityRef and AssetRef representations distinct.
+Native opaque AssetRef serialization matches existing engine adapters (one UUID
+string); copied value transport uses typed JSON references. The private duplication
+helper visits declared EntityRef fields through structs/arrays/vectors only, leaving
+unknown payload, asset references and foreign/unmapped entity targets untouched.
+Its helper tests do not yet establish complete scene-duplication integration.

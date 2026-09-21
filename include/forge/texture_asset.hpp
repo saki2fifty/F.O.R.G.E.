@@ -4,9 +4,6 @@
 #include <vector>
 
 namespace forge {
-struct TextureAsset {
-    static constexpr const char* type = "texture";
-};
 enum class TextureDimension { D2, D2Array, Cube, CubeArray, D3 };
 enum class TextureFormat {
     R8,

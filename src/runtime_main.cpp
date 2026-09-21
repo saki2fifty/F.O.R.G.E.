@@ -1,3 +1,4 @@
+#include "authored_inspection.hpp"
 #include "runtime_io.hpp"
 #include <forge/build.hpp>
 #include <forge/native_sdk.hpp>
@@ -25,6 +26,15 @@ int main(int argc, char** argv) {
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
     try {
+        if (argc == 2 && std::string(argv[1]) == "--inspect-sdk-worker")
+            return forge::detail::authored_inspection_worker();
+        if (argc == 3 && std::string(argv[1]) == "--inspect-sdk") {
+            std::cout << forge::detail::export_project_authoring(
+                             std::filesystem::absolute(std::filesystem::u8path(argv[2])))
+                             .dump()
+                      << '\n';
+            return 0;
+        }
         forge::RuntimeConfig config;
         std::vector<forge::EngineModule> sdk_modules;
         std::optional<forge::ProjectSettings> sdk_project;

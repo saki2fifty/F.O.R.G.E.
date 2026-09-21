@@ -7,6 +7,14 @@ struct MeshAsset {
 struct MaterialAsset {
     static constexpr const char* type = "material";
 };
+// Value-only tags are available to the exact SDK without importing compiler,
+// image-decoder or resource-manager implementation contracts.
+struct TextureAsset {
+    static constexpr const char* type = "texture";
+};
+struct ShaderAsset {
+    static constexpr const char* type = "shader";
+};
 struct SceneAsset {
     static constexpr const char* type = "scene";
 };

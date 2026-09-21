@@ -112,6 +112,14 @@ typedef struct ForgeSdkWorldV1 {
     /* Bounded copied CPU timing sample. Instrumentation only, never gameplay time.
        Returns 1 accepted (also when recording disabled), 0 invalid/unavailable. */
     int32_t(FORGE_SDK_CALL* profile_sample)(void*, const char* name, double seconds);
+    /* Schema stage only. Opts a fully reflected plain-value native component into
+       safe authoring. Native ID stays process-local; defaults are bounded JSON.
+       Structure is read from native Meta. No project code runs in the editor.
+       Returns1 accepted;0 rejected with caller-owned diagnostic (capacity1..8192).
+       This does not enable arbitrary pointers, resources or opaque project values. */
+    int32_t(FORGE_SDK_CALL* authoring_type)(void*, uint64_t native_type, const char* type_key,
+                                            uint32_t schema_version, const char* defaults_json,
+                                            const char* category, char* error, uint32_t capacity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

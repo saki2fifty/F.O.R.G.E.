@@ -1,9 +1,6 @@
 #pragma once
 #include <forge/asset_build.hpp>
 namespace forge {
-struct ShaderAsset {
-    static constexpr const char* type = "shader";
-};
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };

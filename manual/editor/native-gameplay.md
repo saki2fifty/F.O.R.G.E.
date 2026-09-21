@@ -47,8 +47,12 @@ it could restore arbitrary custom C++ state.
 
 Custom runtime components are not automatically Inspector-editable or persisted.
 Reflected C++ registration alone does not create a supported authored component.
-The bounded custom authoring contract is architecture work; existing built-in
-components keep their normal Inspector and prefab behavior.
+The SDK now has explicit authoring opt-in and a developer inspection command:
+`bin/forge_runtime --inspect-sdk <project-folder>`. It checks the matching SDK and
+prints the opted-in component metadata/defaults without starting gameplay. This is
+a diagnostic step; custom Add Component, persistence and prefab authoring remain
+under implementation. Existing built-in components keep their normal Inspector and
+prefab behavior.
 
 For manifest fields, ownership and the installed sample, see the SDK installation's
 `sdk/docs/extension-guide.md`. Compiler output stays in your build terminal; runtime

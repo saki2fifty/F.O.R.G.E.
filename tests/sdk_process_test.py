@@ -1,5 +1,5 @@
 """Rich registration is startup-only; a module crash stays in the disposable runtime."""
-import json,subprocess,sys,tempfile
+import json,subprocess,sys,tempfile,os
 from pathlib import Path
 runtime,good,crash=map(lambda p:Path(p).resolve(),sys.argv[1:4])
 fingerprint=json.loads(subprocess.check_output([runtime,'--sdk-info'],text=True))['fingerprint']
@@ -23,6 +23,17 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as work:
   if p.poll() is None:p.kill();p.wait()
  p=launch(good)
  try:
+  trace=root/'inspection-trace.txt'
+  inspected=subprocess.run([runtime,'--inspect-sdk',root],text=True,capture_output=True,timeout=30,
+      env=dict(os.environ,FORGE_SDK_TRACE=str(trace)))
+  assert inspected.returncode==0,inspected.stderr
+  manifest=json.loads(inspected.stdout)
+  assert manifest['format']=='forge.authored-types' and manifest['fingerprint']==fingerprint,manifest
+  assert len(manifest['components'])==1,manifest
+  health=manifest['components'][0]
+  assert health['id']=='project.health' and health['schema_version']==1 and health['defaults']==dict(health=100,lives=3),health
+  assert len(health['digest'])==64 and health['module']=='project.sdk_probe',health
+  assert 'start' not in trace.read_text().splitlines() and 'tick' not in trace.read_text().splitlines()
   session=hello(p)
   for i,command in enumerate(['reload_sdk','step','quit'],2):
    p.stdin.write(json.dumps(dict(protocol=2,id=i,session=session,command=command))+'\n');p.stdin.flush();r=json.loads(p.stdout.readline())

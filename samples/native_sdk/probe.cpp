@@ -24,6 +24,10 @@ struct LibrarySentinel {
 struct HostProbe {
     const ForgeSdkWorldV1* host;
 };
+struct AuthoredHealth {
+    double health = 100;
+    uint64_t lives = 3;
+};
 struct Probe {
     uint64_t ticks = 0, presses = 0;
     double dt = 0;
@@ -50,6 +54,9 @@ struct ProbeModule {
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char* error, uint32_t n) {
     try {
         flecs::world w(host->world);
+#ifdef FORGE_SDK_SCHEMA_CRASH
+        std::abort(); // Deliberate worker-isolation regression, never a shipped module.
+#endif
         w.import<ProbeModule>();
         auto marker = std::make_shared<Marker>("observer_context", host);
         w.observer<Probe>().event(flecs::OnAdd).each([marker](Probe&) {
@@ -59,6 +66,15 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char* error, uint32_
         w.entity("sdk.failed").set<Probe>({});
         throw std::runtime_error("intentional unpublished bootstrap failure");
 #endif
+        const auto health = w.component<AuthoredHealth>("sdk.AuthoredHealth")
+                                .member<double>("health")
+                                .member<uint64_t>("lives");
+        ecs_doc_set_name(w, health, "SDK Health");
+        ecs_doc_set_brief(w, health, "Reflected project health used by the SDK authoring proof.");
+        if (!host->authoring_type ||
+            !host->authoring_type(host->context, health, "project.health", 1,
+                                  R"({"health":100,"lives":3})", "Gameplay", error, n))
+            return 0;
         trace("schema");
         return 1;
     } catch (const std::exception& e) {
@@ -74,6 +90,11 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char* error, uint32_
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t n) {
     try {
         flecs::world w(host->world);
+        char late[256]{};
+        if (host->authoring_type(host->context, w.id<AuthoredHealth>(), "project.late", 1,
+                                 R"({"health":100,"lives":3})", "Gameplay", late, sizeof(late)) ||
+            !std::strstr(late, "schema-registration-only"))
+            throw std::runtime_error("Late authoring opt-in escaped schema-stage guard");
         w.component<HostProbe>("sdk.HostProbe");
         w.entity("sdk.host").set<HostProbe>({host});
         auto marker = std::make_shared<Marker>("system_context", host);
@@ -109,7 +130,11 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
     }
 }
 void FORGE_SDK_CALL stop(const ForgeSdkWorldV1*) { trace("stop"); }
+#ifdef FORGE_SDK_SCHEMA_PHYSICS
+const char* deps[] = {"forge.input", "forge.transforms", "forge.physics"};
+#else
 const char* deps[] = {"forge.input", "forge.transforms"};
+#endif
 const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
                               FORGE_NATIVE_SDK_ABI,
 #ifdef FORGE_SDK_BAD
@@ -120,11 +145,17 @@ const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
                               "project.sdk_probe",
                               "1",
                               deps,
-                              2,
+                              uint32_t(sizeof(deps) / sizeof(deps[0])),
                               FORGE_SDK_RUNTIME | FORGE_SDK_VALIDATION,
                               FORGE_SDK_RUNTIME,
+#ifdef FORGE_SDK_SCHEMA_PHYSICS
+                              FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PHYSICS,
+                              FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI |
+                                  FORGE_SDK_PHYSICS,
+#else
                               FORGE_SDK_DIAGNOSTICS,
                               FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI,
+#endif
                               &ecs_init,
                               &ecs_os_api,
                               schemas,

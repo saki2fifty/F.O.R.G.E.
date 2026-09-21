@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <stop_token>
 namespace forge::asset_detail {
-enum class WorkerKind { Animation, Navigation, Script, Import };
+enum class WorkerKind { Animation, Navigation, Script, Import, Schema };
 struct WorkerLimits {
     std::uint64_t memory_bytes = 512ull * 1024 * 1024;
     std::uint64_t file_bytes = 16ull * 1024 * 1024;

@@ -49,6 +49,10 @@ assert info['profile']=='shared-native-sdk'
 action='12345678-1234-4234-8234-123456789abc'
 manifest=dict(version=2,name='SDK test',startup_scene=None,simulation_hz=120,input=dict(version=1,actions=[dict(id=action,name='Probe',kind='digital',bindings=[dict(control='key.space')])]),modules=[dict(id='project.sdk_probe',sdk='experimental-1',implementation='1',fingerprint=info['fingerprint'],library=module.name,dependencies=['forge.input','forge.transforms'])])
 (project/'forge.project.json').write_text(json.dumps(manifest))
+inspected=json.loads(subprocess.check_output([str(runtime),'--inspect-sdk',str(project)],env=env,cwd=stage,text=True))
+assert inspected['fingerprint']==info['fingerprint'] and inspected['components'][0]['id']=='project.health',inspected
+# Inspection closes its own module/world; keep the runtime lifetime trace separate.
+(stage/'trace.txt').unlink()
 p=subprocess.Popen([str(runtime),'--sdk-project',str(project)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env,cwd=stage)
 session='';seq=0
 def request(command,**extra):

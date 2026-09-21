@@ -103,3 +103,24 @@ Register useful Meta/Doc/Units metadata and explicit member entities on custom t
 Native timers/rate filters advance underneath fixed ticks. Gameplay systems still require the supplied fixed phase and tag. Do not call `world.progress`, change the pipeline, or turn on world threading from an arbitrary module callback. Scheduling configuration belongs to the runtime composition owner. The isolated multithreading probe does not change provider call permissions. Native scene roots now have an internal membership parent for sibling ordering; use authored references rather than interpreting `parent() != 0` as an authored hierarchy test.
 
 Flecs Script editor previews own temporary worlds and do not implicitly become runtime gameplay. Native JSON and read-only REST are development inspection surfaces. The full source contract is documented in `docs/flecs-integration.md` in the source checkout.
+
+## Opting a value component into schema inspection
+
+During `register_schema`, register complete native Meta fields, then call the host's
+`authoring_type` callback or `forge::sdk::Client::authoring_type`. Supply the native
+type ID (worker-local only), stable namespaced type key, positive schema version,
+bounded JSON defaults, category and a caller-owned error buffer. The host derives
+structure and Doc/Units/ranges from native metadata. It does not accept a second
+project-defined field description. Do not opt in pointers, resource owners, callback
+objects or incompletely reflected values. Unknown default fields reject; f32 defaults
+normalize to their actual native representation. Late opt-in outside registration
+rejects. `probe.cpp` contains the `project.health` extraction regression example.
+
+Run `bin/forge_runtime --inspect-sdk <project-folder>` for copied schema/default
+output. The inspection world runs schema callbacks only; it does not start gameplay
+or provide simulation services. Schema registrations must support the Validation role
+and declare compatible dependencies. SDK fingerprint and library identity checks
+still apply. The editor's worker supervisor additionally enforces cancellation and
+resource limits before owner-thread schema admission. This extraction checkpoint
+alone does not make a custom component editable, persisted or prefab-aware; those
+consumers are still under implementation. Rebuild modules after this exact SDK change.
