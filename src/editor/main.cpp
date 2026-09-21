@@ -8,6 +8,7 @@
 #include "actions.hpp"
 #include "animation_debug.hpp"
 #include "animation_tools.hpp"
+#include "authored_components.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
 #include "camera_controls.hpp"
@@ -319,6 +320,8 @@ int main(int argc, char** argv) {
         forge::RuntimeUiTools runtime_ui_tools;
         forge::AuthoringSnapshot authoring_snapshot;
         forge::PrefabEditor prefab_editor;
+        forge::AuthoredComponents authored_components;
+        authored_components.project_changed(scene, files.document);
         forge::PreviewSnapshot preview_snapshot, game_preview_snapshot;
         bool game_visible = false, focus_game = false;
         forge::EditorCamera camera;
@@ -412,7 +415,7 @@ int main(int argc, char** argv) {
         };
         forge::ContentImports content_imports;
         forge::ContentFiles content_files;
-        files.external_busy = [&] { return content_files.busy(); };
+        files.external_busy = [&] { return content_files.busy() || authored_components.busy(); };
         content.file_actions = [&](const auto& asset, bool locked) {
             content_files.menu(asset, locked);
         };
@@ -832,6 +835,7 @@ int main(int argc, char** argv) {
                 }
                 if (active_project != files.document.project()) {
                     active_project = files.document.project();
+                    perform([&] { authored_components.project_changed(scene, files.document); });
                     reset_mesh_resources();
                     editor.problems.reset();
                     editor.log.clear();
@@ -858,6 +862,7 @@ int main(int argc, char** argv) {
                 continue;
             }
             play.pump();
+            authored_components.poll(scene, files.document);
             runtime_ui.sync(play, files.document.project(), workspace.game);
             native->simulation_hz = files.document.settings().simulation_hz();
             native->gravity = files.document.settings().physics().gravity;
@@ -1127,13 +1132,31 @@ int main(int argc, char** argv) {
             commands.actions = &actions;
 #ifdef FORGE_UI_FIXTURE
             if (SDL_GetTicks() - fixture.started > 240000 ||
-                SDL_GetTicks() - fixture.stage_started > 45000)
+                SDL_GetTicks() - fixture.stage_started > 45000) {
+                forge::Json stalled{
+                    {"stage", fixture.stage},
+                    {"frames", fixture.frames},
+                    {"ui_frame", ImGui::GetFrameCount()},
+                    {"model_open", model_imports.is_open()},
+                    {"model_import_pending", model_imports.pending()},
+                    {"model_import_error", model_imports.diagnostic()},
+                    {"model_preview", model_viewer ? model_viewer->loading_state() : "absent"},
+                    {"status", message}};
+                if (auto* w = ImGui::FindWindowByName("###Model import"))
+                    stalled["model_window"] = {{"active", w->Active},
+                                               {"hidden", w->Hidden},
+                                               {"tab_visible", w->DockTabIsVisible}};
+                forge::atomic_write(fixture.output / "stalled-state.json", stalled.dump(2));
+                fixture.capture(device, context, swap->GetCurrentBackBufferRTV(), false);
                 throw std::runtime_error(
                     "Editor fixture timed out at stage " + std::to_string(fixture.stage) +
                     " after " + std::to_string(fixture.frames) + " frames; model ready=" +
                     std::to_string(model_viewer && model_viewer->ready()) + "; material pending=" +
                     std::to_string(material_preview && material_preview->pending()) +
-                    "; member ready=" + std::to_string(asset_view_document.ready()));
+                    "; member ready=" + std::to_string(asset_view_document.ready()) +
+                    "; model state=" + (model_viewer ? model_viewer->loading_state() : "absent") +
+                    "; import=" + model_imports.diagnostic());
+            }
             if (!fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
@@ -2243,11 +2266,18 @@ int main(int argc, char** argv) {
                             "Use your project's CMake build in an external developer "
                             "terminal. Keep the last good module when compilation fails. "
                             "Rich SDK registration is restart-bound, not ABI1 hot reload.");
-                        ImGui::TextWrapped("Runtime-only custom components remain in the runtime. "
-                                           "They are not automatically added to Inspector or scene "
-                                           "persistence. See Help > User Manual > Gameplay code.");
+                        ImGui::TextWrapped("Runtime-only types remain in gameplay. Types that "
+                                           "explicitly opt into authoring can be inspected below.");
                         forge::ui::help("Flecs reflection alone does not make arbitrary native "
                                         "C++ objects serializable or safely editable.");
+                        const auto sdk_root = exact_sdk_root[0]
+                                                  ? std::filesystem::u8path(exact_sdk_root)
+                                                  : std::filesystem::path(base) / "NativeSdk";
+                        authored_components.draw(scene, files.document, prefab_editor,
+                                                 sdk_root / "bin/forge_runtime.exe",
+                                                 play.active() || native->busy() ||
+                                                     modal.active() || scene_tools.move.active() ||
+                                                     blockout.active() || content_files.busy());
                     } else {
                         ImGui::BeginDisabled(native->busy() || modal.active() ||
                                              scene_tools.move.active() || blockout.active());

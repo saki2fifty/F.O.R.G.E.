@@ -60,7 +60,7 @@ struct EditorFixture {
         factory->AttachToD3D12Device(native.Get(), 1, queues, {}, device, context);
     }
     void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
-                 Diligent::ITextureView* view) {
+                 Diligent::ITextureView* view, bool complete = true) {
         using namespace Diligent;
         const char* names[] = {"default-scene-inspector",
                                "add-component",
@@ -124,8 +124,9 @@ struct EditorFixture {
                                        data);
         if (!data.pData)
             throw std::runtime_error("Editor fixture readback map failed");
-        std::ofstream image(output / (std::string("editor-") + names[stage] + ".ppm"),
-                            std::ios::binary);
+        std::ofstream image(
+            output / (std::string(complete ? "editor-" : "stalled-") + names[stage] + ".ppm"),
+            std::ios::binary);
         image << "P6\n" << desc.Width << ' ' << desc.Height << "\n255\n";
         for (unsigned y = 0; y < desc.Height; ++y)
             for (unsigned x = 0; x < desc.Width; ++x)
@@ -133,9 +134,11 @@ struct EditorFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         if (!image)
             throw std::runtime_error("Editor fixture image write failed");
-        std::cout << "Captured editor stage " << stage << " (" << names[stage] << ") in "
-                  << SDL_GetTicks() - stage_started << " ms\n"
+        std::cout << (complete ? "Captured editor stage " : "Captured stalled backbuffer ") << stage
+                  << " (" << names[stage] << ") in " << SDL_GetTicks() - stage_started << " ms\n"
                   << std::flush;
+        if (!complete)
+            return;
         ++stage;
         stage_started = SDL_GetTicks();
         frames = 0;

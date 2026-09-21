@@ -1,4 +1,5 @@
 #include "authored_component.hpp"
+#include "authored_generation.hpp"
 #include "authored_schema.hpp"
 #include "builtins.hpp"
 #include <forge/world.hpp>
@@ -248,7 +249,11 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
         throw;
     }
 }
-WorldContext::~WorldContext() { modules_.stop(); }
+WorldContext::~WorldContext() {
+    modules_.stop();
+    if (authored_generation_)
+        authored_generation_->release_to_world();
+}
 LocalTransform WorldContext::get_local_transform(flecs::entity e) const {
     LocalTransform result;
     if (e.has<LocalTranslation>())

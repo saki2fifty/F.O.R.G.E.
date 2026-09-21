@@ -1,4 +1,5 @@
 #pragma once
+#include "../json_value_equal.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/prefab_authoring.hpp>
@@ -38,7 +39,7 @@ inline std::filesystem::path project_file(const std::filesystem::path& root,
 #endif
     if (relative.empty() || relative.is_absolute() || *relative.begin() == ".." ||
         first_part == ".forge" || relative_text == "forge.project.json" ||
-        resolved.extension() != ".json")
+        relative_text == "forge.components.json" || resolved.extension() != ".json")
         throw std::runtime_error("Choose a JSON scene file inside the current project");
     return resolved;
 }
@@ -82,7 +83,7 @@ class SceneDocument {
     bool on_disk() const { return persisted_; }
     bool dirty() {
         if (seen_ != scene_.revision()) {
-            dirty_ = !saved_ || scene_.document() != *saved_;
+            dirty_ = !saved_ || !detail::json_value_equal(scene_.document(), *saved_);
             seen_ = scene_.revision();
         }
         return dirty_;
@@ -192,7 +193,8 @@ class SceneDocument {
         const auto next_path = project_file(root_, path);
         if (next_path == path_ && saved_) {
             const bool exists = std::filesystem::exists(path_);
-            if ((persisted_ && !exists) || (exists && (!disk_ || read_json(path_) != *disk_)))
+            if ((persisted_ && !exists) ||
+                (exists && (!disk_ || !detail::json_value_equal(read_json(path_), *disk_))))
                 throw std::runtime_error(
                     "Scene changed on disk. Use Save As to preserve both versions");
         }
@@ -201,7 +203,9 @@ class SceneDocument {
                 "Save As needs a new filename; an existing scene has its own identity");
         const auto old_recovery = recovery_path();
         const bool copy = persisted_ && next_path != path_;
-        const auto output = copy ? duplicate_scene_asset(scene_.document()) : scene_.document();
+        const auto output =
+            copy ? duplicate_scene_asset(scene_.document(), AssetId::generate(), scene_.schema())
+                 : scene_.document();
         write_scene_file(next_path, output);
         if (copy)
             scene_.reset(output); // New logical asset/history after successful disk commit.
@@ -273,11 +277,12 @@ class SceneDocument {
         const auto data = read_json(recovery_path());
         const auto expected = path_.empty() ? "" : path_text(path_.lexically_relative(root_));
         if (data.at("version") != 1 || data.at("scene") != expected ||
-            (data.at("base") != (saved_ ? *saved_ : Json{}) &&
-             data.at("base") != (disk_ ? *disk_ : Json{})))
+            (!detail::json_value_equal(data.at("base"), saved_ ? *saved_ : Json{}) &&
+             !detail::json_value_equal(data.at("base"), disk_ ? *disk_ : Json{})))
             throw std::runtime_error(
                 "Recovery does not match the current disk scene; recovery file preserved");
-        scene_.edit(reconcile_prefab_intent(data.at("document"), scene_.prefab_sources()));
+        scene_.edit(
+            reconcile_prefab_intent(data.at("document"), scene_.prefab_sources(), scene_.schema()));
         seen_ = 0;
     }
     void recover_untitled() {

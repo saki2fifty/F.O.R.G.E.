@@ -139,6 +139,16 @@ class AssetScenePreview {
         return prepared_ ? &*prepared_ : nullptr;
     }
     const std::string& error() const { return error_; }
+    std::string loading_state() const {
+        std::string state = "queued=" + std::to_string(queued_) +
+                            "; metadata job=" + std::to_string(job_.valid()) +
+                            "; metadata=" + std::to_string(prepared_.has_value()) +
+                            "; render pending=" + std::to_string(frame_.pending()) +
+                            "; rendered frames=" + std::to_string(frame_.frames);
+        for (const auto& diagnostic : frame_.diagnostics())
+            state += "; " + diagnostic.text;
+        return state;
+    }
     bool pending() const {
         return queued_ || job_.valid() || (prepared_ && !preparation_failed_ && frame_.pending());
     }
@@ -191,8 +201,13 @@ class AssetScenePreview {
                     PreparedCamera{camera_, lens, camera_view(lens, world, width, height)}};
             };
             auto* rendered = frame_.render(context_, scene, view(), width, height, exposure);
-            if (frame_.pending())
+            if (frame_.pending()) {
+                // A retryable resource/pose failure can still be pending. Surface
+                // its diagnostic while retaining the last complete image.
+                if (!frame_.diagnostics().empty())
+                    error_ = frame_.diagnostics().front().text;
                 return output();
+            }
             if (!frame_.diagnostics().empty())
                 throw std::runtime_error(frame_.diagnostics().front().text);
             if (auto_frame_) {

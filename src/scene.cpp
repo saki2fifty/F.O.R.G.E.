@@ -1,5 +1,8 @@
 #include "authored_component.hpp"
+#include "authored_generation.hpp"
+#include "authored_schema.hpp"
 #include "builtins.hpp"
+#include "json_value_equal.hpp"
 #include "reflected_extensions.hpp"
 #include "reflected_references.hpp"
 #include "relationship_graph.hpp"
@@ -22,6 +25,13 @@
 #endif
 namespace forge {
 namespace {
+bool same_prefab_sources(const PrefabSources& a, const PrefabSources& b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(), [](const auto& left, const auto& right) {
+               return left.first == right.first &&
+                      detail::json_value_equal(left.second, right.second);
+           });
+}
 void validate(const Json& doc) {
     if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
         (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3 &&
@@ -538,14 +548,15 @@ void Scene::set_prefab_sources(const PrefabSources& sources) {
 }
 void Scene::publish_prefab_sources(const PrefabSources& sources,
                                    const std::function<void()>& durable_write) {
-    if (sources == prefab_sources_) {
+    if (same_prefab_sources(sources, prefab_sources_)) {
         durable_write();
         return;
     }
     replace_prefab_sources(sources, document(), durable_write, false);
 }
 void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& source_document,
-                                   const std::function<void()>& durable_write, bool all) {
+                                   const std::function<void()>& durable_write, bool all,
+                                   bool refresh_native_types) {
     auto profile = context_.services().profile("prefab", "PrefabReconciliation");
     std::set<AssetId> visiting, done;
     std::function<void(AssetId)> dependencies = [&](AssetId asset) {
@@ -571,17 +582,19 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
         if (parsed.asset() != asset)
             throw std::runtime_error("Prefab source AssetId mismatch");
         const auto old = prefab_templates_.find(asset);
-        if (old != prefab_templates_.end() && old->second->document.source == source)
+        if (!refresh_native_types && old != prefab_templates_.end() &&
+            detail::json_value_equal(old->second->document.source, source))
             candidate[asset] = old->second;
         else {
             if (old != prefab_templates_.end() &&
+                !detail::json_value_equal(old->second->document.source, source) &&
                 parsed.revision() <= old->second->document.revision())
                 throw std::runtime_error(
                     "Prefab revisions must advance; an existing revision is immutable");
             candidate[asset] = std::make_shared<CompiledPrefab>(context_, std::move(parsed));
         }
     }
-    const auto before = document();
+    const auto before = refresh_native_types ? source_document : document();
     const auto intended = reconcile_prefab_intent(source_document, sources, schema());
     validate(intended);
     detail::validate_spatial(project_prefab_intent(intended, sources, schema()));
@@ -598,7 +611,7 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
             const auto asset = item.at("prefab_instance").at("asset").get<AssetId>();
             if (prefab_sources_.contains(asset) != sources.contains(asset) ||
                 (prefab_sources_.contains(asset) && sources.contains(asset) &&
-                 prefab_sources_.at(asset) != sources.at(asset)))
+                 !detail::json_value_equal(prefab_sources_.at(asset), sources.at(asset))))
                 roots.insert(item.at("id"));
         }
     auto collect = [&](const Json& doc) {
@@ -751,7 +764,7 @@ void Scene::restore_snapshot(const Json& source) {
     }
     doc.erase("_prefab_sources");
     validate(doc);
-    if (definitions == prefab_sources_)
+    if (same_prefab_sources(definitions, prefab_sources_))
         replace(reconcile_prefab_intent(doc, definitions, schema()));
     else
         replace_prefab_sources(definitions, doc, [] {}, true);
@@ -788,7 +801,10 @@ void Scene::restore_child_order(const Json& document) {
 Json Scene::serialize(bool effective) const {
     if (effective)
         context_.evaluate_world_transforms();
-    auto doc = opaque_;
+    // Seed only the copied view with source/instance extensions. Known values
+    // below are still read from native Flecs storage; authored serialization
+    // never materializes inherited payloads as instance ownership.
+    auto doc = effective ? project_prefab_intent(opaque_, prefab_sources_, schema()) : opaque_;
     auto output = Json::array();
     std::map<std::string, const Json*> fragments;
     for (const auto& item : opaque_.at("entities"))
@@ -922,6 +938,64 @@ Json Scene::serialize(bool effective) const {
 Json Scene::document() const { return serialize(false); }
 Json Scene::effective_document() const { return serialize(true); }
 Json Scene::schema() const { return context_.schema(); }
+void Scene::publish_component_schemas(const Json& copied,
+                                      const std::function<void()>& durable_write) {
+    if (context_.role_ != WorldRole::Authoring ||
+        context_.owner_thread_ != std::this_thread::get_id())
+        throw std::runtime_error(
+            "Component schema publication requires the authoring owner thread");
+    // The editor currently owns one authored scene per project world. Never
+    // invalidate another scene's template/value bindings through this operation.
+    if (context_.content_.size() != 1)
+        throw std::runtime_error("Component schema publication requires exclusive scene ownership "
+                                 "of this authoring world");
+    if (!context_.authored_generation_ && !context_.authored_codecs_.empty())
+        throw std::runtime_error(
+            "Bootstrap-native authored schemas are owned by their module composition");
+    // Validate before any no-op comparison: JSON's mixed signed/unsigned
+    // equality can equate UINT64_MAX with -1 through integer conversion.
+    detail::validate_authored_types(world(), copied);
+    auto active = Json::array();
+    for (const auto& codec : context_.authored_codecs_)
+        active.push_back(codec.declaration);
+    if (active.dump() == copied.dump()) {
+        if (durable_write)
+            durable_write();
+        return;
+    }
+    const auto authored = document();
+    auto previous_undo = undo_, previous_redo = redo_;
+    auto candidate = std::make_shared<detail::AuthoredGeneration>(world(), copied);
+    auto next_codecs = candidate->codecs();
+    auto next_schema = schema();
+    auto& components = next_schema["components"];
+    components.erase(std::remove_if(components.begin(), components.end(),
+                                    [](const auto& type) { return type.value("custom", false); }),
+                     components.end());
+    for (const auto& codec : next_codecs)
+        components.push_back(codec.editor_schema());
+    // All discovery and publications are owner-thread operations. These bindings
+    // select the candidate solely while realizing its detached scene/templates.
+    context_.authored_codecs_.swap(next_codecs);
+    context_.schema_.swap(next_schema);
+    try {
+        replace_prefab_sources(
+            prefab_sources_, authored,
+            [&] {
+                if (durable_write)
+                    durable_write();
+            },
+            true, true);
+    } catch (...) {
+        context_.schema_.swap(next_schema);
+        context_.authored_codecs_.swap(next_codecs);
+        throw;
+    }
+    undo_.swap(previous_undo);
+    redo_.swap(previous_redo);
+    // The handoff retired every old entity/template before releasing its types.
+    context_.authored_generation_ = std::move(candidate);
+}
 detail::SceneDraft::SceneDraft(const Scene& source)
     : document_(source.document()), schema_(source.schema()), prefabs_(source.prefab_sources()) {}
 void detail::SceneDraft::edit(const Json& document) {
@@ -1058,7 +1132,7 @@ void Scene::load(const std::filesystem::path& path) {
 }
 void Scene::edit(const Json& doc) {
     auto before = document();
-    if (before == (doc.at("version") < 3 ? migrate_scene(doc, &before) : doc))
+    if (detail::json_value_equal(before, doc.at("version") < 3 ? migrate_scene(doc, &before) : doc))
         return;
     replace(doc);
     undo_.push_back(std::move(before));

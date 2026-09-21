@@ -1,4 +1,6 @@
+#include "../src/authored_inspection.hpp"
 #include "play.hpp"
+#include <forge/authoring.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <iostream>
@@ -19,7 +21,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         forge::EngineContext engine;
         forge::Scene authored(engine.world());
-        const auto original = authored.snapshot();
+        auto original = authored.snapshot();
         auto settings = forge::ProjectSettings::defaults("SDK editor test");
         auto install = [&](const char* path) {
             const auto library = std::filesystem::path(path).filename();
@@ -50,6 +52,25 @@ int main(int argc, char** argv) {
         require(!play.can_recover() &&
                     play.status().find("SDK runtime does not match") != std::string::npos,
                 "An incompatible runtime was accepted for SDK Editor Play: " + play.status());
+        const auto inspected = forge::detail::inspect_project_authoring(
+            std::filesystem::absolute(argv[1]), root, FORGE_NATIVE_SDK_FINGERPRINT);
+        authored.publish_component_schemas(inspected.at("components"));
+        const std::string entity =
+            forge::authoring_command(authored, "entity.create").at("selected");
+        forge::authoring_command(authored, "component.add",
+                                 {{"entity", entity}, {"component", "project.health"}});
+        const forge::Json edited_values{{"health", 73.0}, {"lives", UINT64_MAX}};
+        for (const auto& [field, value] : edited_values.items())
+            forge::authoring_command(authored, "property.set",
+                                     {{"entity", entity},
+                                      {"component", "project.health"},
+                                      {"field", field},
+                                      {"value", value}});
+        original = authored.snapshot();
+        authored.save(root / "authored.scene.json");
+        authored.load(root / "authored.scene.json");
+        require(authored.snapshot() == original,
+                "Authored SDK values changed during scene save/reopen");
         play.start(argv[1], original, {}, true);
         wait([&] { return !play.active() || play.ready(); });
         require(play.ready() && play.paused(), "SDK Editor Play failed: " + play.status());
@@ -58,6 +79,10 @@ int main(int argc, char** argv) {
         wait([&] { return play.timing().value("tick", 0) == 1; });
         require(play.log().find("SDK fixed tick") != std::string::npos,
                 "Project SDK system did not execute through Editor Play");
+        require(play.log().find("SDK authored health 73 lives 18446744073709551615") !=
+                    std::string::npos,
+                "Matching SDK runtime did not consume persisted authoring values exactly: " +
+                    play.log());
         require(authored.snapshot() == original, "SDK Play modified authoring");
         try {
             play.reload("unused");

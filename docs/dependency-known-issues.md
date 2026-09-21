@@ -98,3 +98,21 @@ renderer's diagnostics are already connected. A WARP compute reproduction compar
 the corrected spotlight to the position-derived native point BRDF multiplied by
 the squared cone factor, and covers coincident/opposite/overflow cases. Native
 execution of this newly added fixture is pending.
+
+## nlohmann/json mixed-number equality
+
+Exact selected commit `55f93686c01528224f448c19128836e7df245f72`,
+`include/nlohmann/json.hpp:3664–3670`, verified2026-09-21: mixed signed/unsigned
+`operator==` converts the unsigned operand to the signed integer type. On FORGE's
+supported compilers this can make `UINT64_MAX` compare equal to `-1`. Integer/float
+comparison also converts to floating point and can hide differences above2^53.
+This is not a validation primitive.
+
+FORGE validates schema candidates before their unchanged fast path. Authoring
+scene/prefab comparisons use a narrow value comparator that preserves integer
+width, permits equal nonnegative signed/unsigned representations, and distinguishes
+integer from floating-point storage. Prefab conflict checks and draft dirty state
+use that same rule. Named native transport still validates storage bounds before
+assignment. No dependency patch or version change is made. Regression cases cover
+invalid unsigned defaults, direct scene edits and prefab publication that must not
+be mistaken for no-ops or reach a durable writer.

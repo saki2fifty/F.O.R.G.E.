@@ -88,3 +88,8 @@ Source members use **+ Add Component** and the same typed fields as the entity I
 ## Member order
 
 Select a member in the prefab source document and use **Move member up** or **Move member down** to change its order among siblings. Publishing propagates the source order to instances. Identity, overrides and dynamic scene attachments remain independent. Failed publication keeps the previous order. Scene Undo does not reverse prefab-source publication.
+
+Unavailable component schemas are shown read-only in the source member Inspector.
+Their values remain in the prefab when you publish unrelated changes. A missing
+module does not replace those values with defaults. Inherited unknown data also
+remains visible on scene instances without becoming a local override.

@@ -6,13 +6,16 @@
 #include <forge/services.hpp>
 #include <forge/transform.hpp>
 #include <map>
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
+#include <thread>
 namespace forge {
 namespace detail {
 struct AuthoredCodec;
-}
+class AuthoredGeneration;
+} // namespace detail
 using Json = nlohmann::json;
 struct Tint {
     float r = 0.2f, g = 0.6f, b = 0.7f;
@@ -85,6 +88,7 @@ class WorldContext {
     bool evaluating_transforms_ = false;
     ServiceAccess services_;
     WorldRole role_;
+    const std::thread::id owner_thread_ = std::this_thread::get_id();
     std::map<flecs::entity_t, Content> content_;
     Json schema_;
     // Destroy the world before state used by its observers/hooks.
@@ -92,6 +96,7 @@ class WorldContext {
     flecs::world world_;
     // Derived native bindings contain no values/hooks and retire before the world.
     std::vector<detail::AuthoredCodec> authored_codecs_;
+    std::shared_ptr<detail::AuthoredGeneration> authored_generation_;
     // Queries are destroyed before their world; callback providers remain alive.
     flecs::query<const LocalTranslation> local_transforms_;
     flecs::query<const WorldTransform> derived_transforms_;

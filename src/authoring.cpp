@@ -452,6 +452,31 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             throw CommandError("unsupported_property",
                                "Only admitted optional components can be added here");
         scene.edit(doc);
+    } else if (op == "component.override") {
+        const std::string key = a.at("component");
+        const auto schema = scene.schema();
+        bool known = false;
+        for (const auto& type : schema.at("components"))
+            known |= type.at("id") == key && type.value("optional", false);
+        if (!known)
+            throw CommandError("unsupported_property",
+                               "Only admitted optional components can be overridden here");
+        auto doc = scene.document();
+        auto& row = entity(doc, id);
+        const auto shown = effective(scene, id);
+        require_editable_component(schema, row, key);
+        require_editable_component(schema, shown, key);
+        if (!(row.contains("prefab_instance") || row.contains("prefab_member") ||
+              row.contains("base")) ||
+            !shown.at("components").contains(key))
+            throw CommandError("unavailable",
+                               "Select an inherited component to create an override");
+        if (row.at("components").contains(key))
+            return result;
+        row["components"][key] = shown.at("components").at(key);
+        if (row.contains("property_overrides"))
+            row["property_overrides"].erase(key);
+        scene.edit(doc);
     } else if (op == "component.revert") {
         auto component = a.at("component").get<std::string>();
         if (component == "forge.position")
@@ -646,8 +671,12 @@ Json authoring_commands() {
     component["component"] = text_type();
     add("component.add", "Add component", "Add an optional reflected component with its defaults.",
         component, {"entity", "component"});
+    add("component.override", "Override component",
+        "Own this inherited component's effective values, including equal values, in one scene "
+        "Undo step.",
+        component, {"entity", "component"});
     add("component.revert", "Remove component override",
-        "Remove an owned built-in component; inherited values may become visible.", component,
+        "Remove an admitted owned component; inherited values may become visible.", component,
         {"entity", "component"});
     return commands;
 }

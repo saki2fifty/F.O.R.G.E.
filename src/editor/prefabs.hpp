@@ -1,4 +1,5 @@
 #pragma once
+#include "../json_value_equal.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
@@ -46,8 +47,24 @@ inline std::string prefab_member_label(const Json& document, const std::string& 
 }
 class PrefabEditor {
   public:
-    bool dirty() const { return open_ && draft_ != baseline_; }
+    bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
+    Json migration_document() const {
+        if (!open_)
+            throw std::runtime_error("Open a prefab source before preparing its migration");
+        return draft_;
+    }
+    void accept_migration(const Json& before, const Json& candidate) {
+        if (!open_ || !detail::json_value_equal(before, draft_))
+            throw std::runtime_error(
+                "Prefab draft changed during migration; prepare a fresh candidate");
+        PrefabDocument::validate(candidate);
+        if (candidate.at("asset_id") != draft_.at("asset_id") ||
+            candidate.at("revision") != draft_.at("revision"))
+            throw std::runtime_error(
+                "Migration cannot change prefab source identity or publication revision");
+        draft_ = candidate;
+    }
     bool close_cancelled = false;
     void request_close() {
         if (dirty())
@@ -535,6 +552,24 @@ class PrefabEditor {
                                 auto value = m["components"][key][f];
                                 if (property_field(project.project(), field, value, false))
                                     set_property(key, f, value);
+                            }
+                        }
+                        for (const auto& [key, value] : m.at("components").items()) {
+                            (void)value;
+                            const bool known = std::any_of(
+                                schema.at("components").begin(), schema.at("components").end(),
+                                [&](const auto& type) { return type.at("id") == key; });
+                            if (!known) {
+                                ui::IdScope unknown_scope(key.c_str());
+                                ui::heading(
+                                    (key + " (unavailable)").c_str(),
+                                    "Stored prefab component data with no admitted schema.");
+                                ImGui::TextWrapped(
+                                    "Its values are preserved and read only. Inspect the matching "
+                                    "gameplay schema or explicitly migrate before editing.");
+                                ui::help(
+                                    "Publishing unrelated prefab changes retains this payload. "
+                                    "It is never replaced with new defaults.");
                             }
                         }
                     }

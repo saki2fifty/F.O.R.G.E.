@@ -28,6 +28,7 @@ class AssetImportEditor {
     AssetId selected_asset() const { return draft_ ? draft_->ticket.owner : AssetId{}; }
     std::uint64_t selection_generation() const { return selection_generation_; }
     bool pending() const { return job_ != 0; }
+    const std::string& diagnostic() const { return error_; }
     std::vector<AssetReimportRoute> automatic_routes() const {
         const auto registry = profile_.registry();
         const auto prepare = profile_.publish;

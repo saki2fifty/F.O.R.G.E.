@@ -100,14 +100,14 @@ A source edit alone never migrates a project on editor startup. Exact SDK finger
 compatibility checks native code layout/toolchain; it is distinct from authored value
 schema compatibility.
 
-## Delivery gate for the future implementation
+## Delivery evidence requirements
 
 Before Add Component advertises a project type, require executable evidence for:
 worker metadata export, incompatible/missing module rejection, cross-layout values,
 integer/enum/string/container bounds, unknown preservation, scene and prefab round
 trips, equal-value intent, Revert/Undo, source propagation, failed migration rollback,
 module lifetime and rich Editor Play. A standalone SDK registration example does not
-satisfy this gate. Phase 7 asset code may not assume this implementation already exists.
+satisfy this gate. Final Phase 7 acceptance must verify these paths together with the native editor.
 
 ## Phase 7 implementation checkpoint: native metadata and value admission
 
@@ -129,11 +129,10 @@ payloads retain their older scene-envelope limits; only known builtin fields ent
 this new bounded reflected-value validator.
 
 These checks do **not** prove that arbitrary C++ padding contains no unreflected
-members, authorize project hooks, or load project code into the editor. Explicit
-SDK opt-in, isolated extraction, schema digest/admission, reconstructed Meta storage,
-value transport, containers in the Inspector, custom persistence/migrations and
-matching SDK Play remain required before project types are advertised as authorable.
-No dependency pin or scene/identity/ABI1 format changed in this checkpoint.
+members, authorize project hooks, or load project code into the editor. The SDK
+opt-in, isolated extraction, admission, value transport, Inspector, persistence,
+migration and Play paths are described below. No dependency pin or
+scene/identity/ABI1 format changed.
 
 Source evidence: exact Flecs4.1.6 `include/flecs/addons/meta.h`,
 `src/addons/meta/type_support/{struct_ts,enum_ts,array_ts}.c`, and
@@ -266,15 +265,16 @@ checks remain intact, but runtime subsystem requirements are excluded from the
 Validation-only composition. Its bridge reports those services unavailable. The
 worker therefore does not start physics/audio/navigation/UI merely to inspect
 plain-value schemas. Schema callbacks must be able to register metadata without
-simulation services. Scene/schema publication, Inspector discovery and prefab/runtime
-value integration remain in progress; extraction alone does not complete authoring.
+simulation services. Publication separately validates and reconstructs the copied
+metadata before exposing types in the Inspector; extraction alone never activates them.
 
 The named-value transport keeps EntityRef and AssetRef representations distinct.
 Native opaque AssetRef serialization matches existing engine adapters (one UUID
 string); copied value transport uses typed JSON references. The private duplication
 helper visits declared EntityRef fields through structs/arrays/vectors only, leaving
 unknown payload, asset references and foreign/unmapped entity targets untouched.
-Its helper tests do not yet establish complete scene-duplication integration.
+Scene Save As, subtree duplication and asset-file operations pass the admitted
+metadata to the same reference-remapping boundary.
 
 ### Native scene and prefab transport checkpoint
 
@@ -283,8 +283,8 @@ to scene commands, serialization and compiled prefab instances. A copied module 
 bootstrap an authoring/validation world with engine-owned native lifecycle only.
 Gameplay runtime worlds bind the same named transport to their actual opted-in C++
 component types. Known fields live in Flecs; unknown extensions remain in the
-existing authored envelope. This checkpoint does not yet activate project schemas
-from the editor UI or complete explicit schema migrations.
+existing authored envelope. Gameplay Code activates project schemas through the
+inspection/publication workflow described below.
 
 Each custom component stores a reserved root `$forge` identity containing format
 `forge.authored-component`, version1, owner module, authored schema version and
@@ -307,5 +307,73 @@ fixed-width integers and bit flags. Text uses the pinned Dear ImGui std::string
 wrapper, avoiding truncation at the previous4096-byte UI buffer. New collection
 entries are detached drafts validated against the complete collection before
 publication. Unknown/incompatible components have a read-only presentation.
-End-to-end project schema publication, explicit migration and SDK Play proof remain
-required before this work package is complete.
+The separate tests exercise editor publication, explicit migration and actual
+shared-SDK Play consumption. Native Windows acceptance remains a delivery gate.
+
+### Schema generations and explicit migration
+
+Owning-thread schema refresh stages a new native Meta generation and all affected
+scene/prefab values before handoff. It preserves authored bytes and scene history.
+Old types retire after their values and templates. The current editor world owns
+one authored Scene; publication rejects an additional active Scene rather than
+invalidating its bindings. Bootstrap-native module-owned types are not replaced
+through this reconstructed-editor path. Gameplay registrations remain restart-bound.
+
+Private migration adapters now prepare a forward-only move between two versions
+of the same immutable type key and module owner. The isolated worker verifies the
+target against freshly exported module metadata. It validates both copied native
+projections and source values before conversion, and the complete result afterward.
+One candidate supports up to4096 component values and16MiB of value output, within
+separate bounded request/result envelopes and the existing process limits.
+
+Rules explicitly name source-field paths and destination member names. Collection
+paths use `*` for an element; nested aliases use the original source path. Ambiguous
+aliases, cycles and collisions with retained unknown data reject the candidate.
+Removed fields remain opaque. Changed defaults never overwrite existing fields.
+New fields use the target version's declared defaults; new fields within vector
+entries need explicit per-element defaults when the declaration supplies no such
+value. Partial property intent never gains absent top-level overrides. Implicit
+representation, unit or typed-reference-kind conversions are rejected.
+
+A scene candidate rechecks its revision, exact original values and active target
+schema before one `Scene::edit` history entry. A prefab candidate is a source draft
+for the existing single-asset revision/publication boundary; it cannot be applied
+through scene history. Migrating the source and then instance overrides is not
+one atomic operation and does not implement Apply to Prefab. Undo may restore an
+older, now-incompatible payload read-only without losing it. Gameplay Code presents
+explicit inspection and migration review; only successfully admitted opted-in types
+appear in Add Component. Prior declarations come from durable project history.
+
+Whole-component override is now an explicit shared authoring command. It copies
+the effective native value, retains opaque extensions, replaces any partial intent
+for that same component and records ownership even for equal values. Its Undo
+restores the prior partial/inherited state. Other components and local TRS channels
+retain their ownership.
+
+### Project history and editor task ownership
+
+Gameplay Code now supervises component inspection and explicit migration review.
+A successful inspection stages native metadata plus a single durable
+`forge.components.json` update before activating the new generation. Failure of
+that file replacement preserves the prior live types, scene revision, values and
+history. External changes to the history file reject rather than overwrite it.
+The project file records copied schemas; it is not a second structural authority
+or executable module registry. Current structure still comes from native Meta
+exported by the isolated matching SDK module.
+
+History retains prior versions and reserves each observed type key for its module
+owner, including when temporarily absent. The same version cannot acquire a
+different structural digest. Presentation/default updates do not rewrite existing
+scene values. History is bounded to4096 identity records,1024 declarations and32MiB;
+exceeding a bound fails without evicting needed prior schemas. The history file is
+project metadata to keep in source control, not disposable `.forge` cache data or
+a logical scene asset. It cannot be saved over through the scene Save As action.
+
+Worker completion publishes admitted metadata on the owner thread. Migration
+completion only prepares a reviewable candidate; Apply checks current document
+identity/revision and module settings. Prefab migration updates its existing source
+draft and still requires separate ordinary publication. Project changes cancel
+old tasks and clear copied native admission, preserving unknown authored payload.
+Tests cover copied worker/UI admission separately from actual shared-SDK module
+inspection and Editor Play consumption. Final native Windows UX acceptance and the
+complete Phase7 package remain required.

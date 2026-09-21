@@ -98,7 +98,8 @@ class ComponentInspector {
             const bool partial = masks.contains(key);
             const bool expanded =
                 ImGui::CollapsingHeader(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
-            ui::help("Component properties. Right-click this header for Remove or Revert. Revert "
+            ui::help("Component properties. Right-click this header for Override, Remove or "
+                     "Revert. Revert "
                      "resumes inherited values; it does not delete shared prefab source data.");
             bool compatible = true;
             if (type.value("custom", false)) {
@@ -119,6 +120,15 @@ class ComponentInspector {
                 continue;
             }
             if (ImGui::BeginPopupContextItem("component-actions")) {
+                if (prefab) {
+                    ImGui::BeginDisabled(whole);
+                    if (ImGui::MenuItem("Override component"))
+                        apply(scene, entity, key, "", "component.override", {});
+                    ui::help("Own all effective values of this component, even when equal to the "
+                             "prefab. "
+                             "Other components keep inheriting. One scene Undo step.");
+                    ImGui::EndDisabled();
+                }
                 ImGui::BeginDisabled(!whole && !partial);
                 if (ImGui::MenuItem(prefab ? "Revert component" : "Remove component"))
                     apply(scene, entity, key, "", "component.revert", {});

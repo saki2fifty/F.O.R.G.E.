@@ -71,8 +71,13 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char* error, uint32_
                                 .member<uint64_t>("lives");
         ecs_doc_set_name(w, health, "SDK Health");
         ecs_doc_set_brief(w, health, "Reflected project health used by the SDK authoring proof.");
+#ifdef FORGE_SDK_SCHEMA_MIGRATE
+        constexpr uint32_t authored_version = 2;
+#else
+        constexpr uint32_t authored_version = 1;
+#endif
         if (!host->authoring_type ||
-            !host->authoring_type(host->context, health, "project.health", 1,
+            !host->authoring_type(host->context, health, "project.health", authored_version,
                                   R"({"health":100,"lives":3})", "Gameplay", error, n))
             return 0;
         trace("schema");
@@ -116,6 +121,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             })
             .add(host->fixed_tag);
         w.entity("sdk.subject").set<Probe>({});
+        w.system<const AuthoredHealth>()
+            .kind(host->fixed_phase)
+            .each([host](const AuthoredHealth& value) {
+                char message[160]{};
+                std::snprintf(message, sizeof(message), "SDK authored health %.17g lives %llu",
+                              value.health, static_cast<unsigned long long>(value.lives));
+                host->diagnostic(host->context, 1, message);
+            })
+            .add(host->fixed_tag);
         host->diagnostic(host->context, 1, "SDK started");
         trace("start");
         return 1;

@@ -1,6 +1,8 @@
 #pragma once
+#include "../src/authored_schema.hpp"
 #include "files.hpp"
 #include <chrono>
+#include <forge/authoring.hpp>
 void require(bool condition, const char* message);
 inline void test_documents() {
     const auto root = std::filesystem::current_path() /
@@ -244,4 +246,57 @@ inline void test_documents() {
         require(forge::read_json(legacy_path.string() + ".v1.backup") == v1,
                 "Original backup lost");
     }
+    // The actual Save As route must carry admitted reference metadata, while
+    // dirty/external-conflict checks must distinguish UINT64_MAX from signed -1.
+    const auto custom_project = root / "Custom";
+    forge::SceneDocument::create_project(custom_project, "Custom components");
+    forge::Json declarations;
+    {
+        struct Links {
+            forge::EntityRef target;
+        };
+        forge::EngineContext producer(forge::WorldRole::Validation);
+        auto& world = producer.world().world();
+        const auto native = world.component<Links>().member<forge::EntityRef>("target");
+        forge::detail::opt_in_authoring(world, native, "project.link", "project.game", 1,
+                                        {{"target", nullptr}}, "Gameplay");
+        declarations = forge::detail::export_authored_types(world);
+    }
+    forge::EngineContext custom_engine;
+    forge::Scene custom_scene(custom_engine.world());
+    forge::SceneDocument custom_document(custom_scene);
+    custom_document.open_project(custom_project);
+    custom_scene.publish_component_schemas(declarations);
+    const std::string custom_entity =
+        forge::authoring_command(custom_scene, "entity.create").at("selected");
+    forge::authoring_command(custom_scene, "component.add",
+                             {{"entity", custom_entity}, {"component", "project.link"}});
+    const auto old_reference = custom_scene.reference(custom_entity);
+    forge::authoring_command(custom_scene, "property.set",
+                             {{"entity", custom_entity},
+                              {"component", "project.link"},
+                              {"field", "target"},
+                              {"value", old_reference}});
+    auto custom = custom_scene.document();
+    custom["entities"][0]["components"]["project.link"]["unknown"] = {{"count", UINT64_MAX},
+                                                                      {"target", old_reference}};
+    custom_scene.edit(custom);
+    custom_document.save();
+    custom["entities"][0]["components"]["project.link"]["unknown"]["count"] = -1;
+    custom_scene.edit(custom);
+    require(custom_document.dirty(),
+            "Signed/unsigned comparison hid an unsaved unknown field edit");
+    require(custom_scene.undo() && !custom_document.dirty(),
+            "Exact unknown-value Undo lost save baseline");
+    auto changed_disk = custom_scene.document();
+    changed_disk["entities"][0]["components"]["project.link"]["unknown"]["count"] = -1;
+    forge::atomic_write(custom_document.path(), changed_disk.dump());
+    expect_failure([&] { custom_document.save(); });
+    custom_document.save_as(custom_project / "Scenes/custom-copy.scene.json");
+    const auto copied = custom_scene.document();
+    const auto& copied_component = copied.at("entities")[0].at("components").at("project.link");
+    require(copied_component.at("target") ==
+                    forge::Json(custom_scene.reference(copied.at("entities")[0].at("id"))) &&
+                copied_component.at("unknown").at("target") == forge::Json(old_reference),
+            "Save As failed to remap declared EntityRef or rewrote opaque references");
 }

@@ -33,6 +33,11 @@ class Scene {
     void reset(const Json& document);
     std::size_t entity_count() const;
     Json schema() const;
+    // Owner-thread authoring-world activation of copied worker metadata. Native
+    // values/templates are staged before handoff; authored bytes and scene history
+    // are preserved. This does not migrate schema-incompatible values.
+    void publish_component_schemas(const Json& copied,
+                                   const std::function<void()>& durable_write = {});
     const PrefabSources& prefab_sources() const { return prefab_sources_; }
     void set_prefab_sources(const PrefabSources& sources);
     // Owner-thread, single-asset publication. Durable write runs only after the
@@ -68,7 +73,7 @@ class Scene {
     std::uint64_t order_signature() const;
     void restore_child_order(const Json& document);
     void replace_prefab_sources(const PrefabSources&, const Json&, const std::function<void()>&,
-                                bool);
+                                bool, bool refresh_native_types = false);
     std::vector<Json> undo_, redo_;
     PrefabSources prefab_sources_;
     PrefabTemplates prefab_templates_;

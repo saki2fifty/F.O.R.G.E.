@@ -233,8 +233,8 @@ void validate_authored_types(flecs::world& world, const Json& copied) {
         if (item.at("digest") != authored_structure_digest(structure))
             throw std::runtime_error("Copied authored structure digest mismatch");
         const ReflectedCandidate defaults(world, type.native_type(), item.at("defaults"), refs);
-        if (read_reflected_native(world, type.native_type(), defaults.data(), refs) !=
-            item.at("defaults"))
+        if (read_reflected_native(world, type.native_type(), defaults.data(), refs).dump() !=
+            item.at("defaults").dump())
             throw std::runtime_error("Copied defaults are not canonical native values");
     }
 }

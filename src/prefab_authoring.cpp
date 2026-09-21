@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "json_value_equal.hpp"
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
@@ -201,7 +202,7 @@ void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate) 
     const PrefabDocument parsed(candidate);
     candidate = parsed.source;
     const auto path = locate(records_.at(old.asset()).source);
-    if (source(old.asset()) != expected)
+    if (!detail::json_value_equal(source(old.asset()), expected))
         throw std::runtime_error("Prefab changed on disk; reopen its source before publishing");
     auto sources = scene.prefab_sources();
     sources[old.asset()] = candidate;
@@ -214,7 +215,7 @@ void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate) 
         catalog.add(record);
     }
     scene.publish_prefab_sources(sources, [&] {
-        if (read_prefab(path) != expected)
+        if (!detail::json_value_equal(read_prefab(path), expected))
             throw std::runtime_error("Prefab changed while preparing the candidate");
         atomic_write(path, candidate.dump(2));
     });

@@ -67,5 +67,18 @@ schema's declared default. On a prefab instance it records an explicit override;
 A component whose schema is missing or incompatible is labeled unavailable or
 shown with a read-only explanation. Its stored data remains preserved. It does not
 become editable merely because a similarly named component exists in another build.
-The separate exact-SDK authoring admission workflow is still under implementation;
-these generic controls do not automatically admit arbitrary C++ types.
+Use [Gameplay Code](native-gameplay.md) to inspect
+explicitly opted-in exact-SDK types. These controls do not automatically admit
+arbitrary C++ objects.
+
+### Override a complete inherited component
+
+Right-click the inherited component's heading and choose **Override component**.
+FORGE keeps its current values as this instance's own values, even if they equal
+the prefab. Later prefab changes no longer change that component on this instance.
+Other components keep inheriting normally. **Revert component** follows the prefab
+again; scene **Undo** restores the previous ownership and values.
+
+If you previously overrode only a few fields, Override component replaces that
+partial intent with ownership of the whole component. Undo restores the original
+field-level intent. This action does not write to the prefab asset.

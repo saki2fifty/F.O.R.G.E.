@@ -11,6 +11,9 @@ class ModelViewer {
     const std::filesystem::path& project() const { return preview_.project(); }
     bool ready() const { return preview_.output() && !preview_.pending(); }
     const std::string& error() const { return preview_.error(); }
+    std::string loading_state() const {
+        return "last UI frame=" + std::to_string(last_frame_) + "; " + preview_.loading_state();
+    }
     void draw(std::shared_ptr<const AssetCatalog> catalog, AssetId asset, bool draft = false) {
         if (last_frame_ + 1 != ImGui::GetFrameCount())
             orbiting_ = false;

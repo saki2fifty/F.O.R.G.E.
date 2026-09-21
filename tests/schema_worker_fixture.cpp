@@ -37,5 +37,9 @@ int main(int argc, char** argv) {
             {"components", Json::array()}}.dump();
         return 0;
     }
+    if (mode == "manifest") {
+        std::filesystem::copy_file(root / "fixture-manifest.json", "result.json");
+        return 0;
+    }
     return 4;
 }

@@ -1,4 +1,5 @@
 #include "../src/asset_worker.hpp"
+#include "../src/authored_component.hpp"
 #include "../src/authored_inspection.hpp"
 #include "../src/authored_schema.hpp"
 #include <forge/native_sdk_identity.h>
@@ -15,9 +16,9 @@ static void check(bool ok, const char* why) {
 }
 int main(int argc, char** argv) {
     try {
-        if (argc != 7)
+        if (argc != 8)
             throw std::runtime_error("Need runtime, good, failed, schema-crash, physics-required "
-                                     "modules and worker fixture");
+                                     "modules, worker fixture and migration module");
         const auto runtime = std::filesystem::absolute(argv[1]);
         const auto root =
             runtime.parent_path() / ("schema-inspection-" + AssetId::generate().str());
@@ -129,6 +130,50 @@ int main(int argc, char** argv) {
         check(detail::inspect_project_authoring(runtime, root, FORGE_NATIVE_SDK_FINGERPRINT) ==
                   result,
               "Clean retry did not preserve deterministic copied metadata");
+        install(argv[7]);
+        const auto current =
+            detail::inspect_project_authoring(runtime, root, FORGE_NATIVE_SDK_FINGERPRINT);
+        const auto target = current.at("components")[0];
+        auto source = result.at("components")[0];
+        for (auto& field : source["structure"]["fields"])
+            if (field.at("id") == "health")
+                field["id"] = "hitpoints";
+        source["defaults"]["hitpoints"] = source["defaults"].at("health");
+        source["defaults"].erase("health");
+        source["digest"] = detail::authored_structure_digest(source.at("structure"));
+        auto value = detail::AuthoredCodec{0, source, {}}.defaults();
+        value["hitpoints"] = 73.0;
+        value["lives"] = UINT64_MAX;
+        value["opaque"] = {{"hitpoints", "keep"}};
+        Json values =
+            Json::array({{{"value", value}, {"property_intent", false}},
+                         {{"value", {{"$forge", value.at("$forge")}, {"hitpoints", 73.0}}},
+                          {"property_intent", true}}});
+        Json rules{{"aliases", Json::array({{{"path", {"hitpoints"}}, {"name", "health"}}})}};
+        const auto migrated = detail::migrate_project_authoring(
+            runtime, root, FORGE_NATIVE_SDK_FINGERPRINT, source, target, rules, values);
+        check(migrated[0]["value"]["health"] == 73.0 &&
+                  migrated[0]["value"]["lives"].get<std::uint64_t>() == UINT64_MAX &&
+                  migrated[0]["value"]["opaque"] == value.at("opaque") &&
+                  !migrated[1]["value"].contains("lives") &&
+                  !migrated[0]["value"].contains("hitpoints"),
+              "Isolated migration lost exact values, extensions or partial override intent");
+        auto stale_target = target;
+        stale_target["defaults"]["lives"] = 4u;
+        rejects([&] {
+            detail::migrate_project_authoring(runtime, root, FORGE_NATIVE_SDK_FINGERPRINT, source,
+                                              stale_target, rules, values);
+        });
+        auto collision = values;
+        collision[0]["value"]["health"] = "opaque collision";
+        rejects([&] {
+            detail::migrate_project_authoring(runtime, root, FORGE_NATIVE_SDK_FINGERPRINT, source,
+                                              target, rules, collision);
+        });
+        rejects([&] {
+            detail::migrate_project_authoring(runtime, root, FORGE_NATIVE_SDK_FINGERPRINT, source,
+                                              target, rules, values, stopped.get_token());
+        });
         std::cout
             << "Bounded isolated SDK schema extraction, crash/failure/cancel and retry passed\n";
     } catch (const std::exception& e) {
