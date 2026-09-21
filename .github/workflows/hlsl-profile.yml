@@ -1,0 +1,57 @@
+name: HLSL sampler profile
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compiler:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Windows source without trailing-dot paths
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        env:
+          FORGE_COMMIT: ${{ github.sha }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:FORGE_COMMIT -notmatch '^[0-9a-f]{40}$') { throw 'A full immutable source commit is required' }
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+      - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c
+        with:
+          vsversion: '2022'
+          toolset: '14.44.35207'
+          sdk: '10.0.26100.0'
+      - name: Compile and exercise the SDK compiler
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'forge-sampler-profile'
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+          cl /nologo /EHsc /std:c++20 tests/hlsl_sampler_profile.cpp "/Fo$output/probe.obj" "/Fe$output/probe.exe" /link d3dcompiler.lib
+          if ($LASTEXITCODE) { throw 'Sampler profile probe did not compile' }
+          (Get-Item "$env:WINDIR/System32/d3dcompiler_47.dll").VersionInfo | Format-List | Out-File "$output/compiler-version.txt"
+          Push-Location $output
+          try {
+            & ./probe.exe | Tee-Object results.txt
+            if ($LASTEXITCODE) { throw 'No tested SM5.1 binding supports the material sampler count' }
+          } finally { Pop-Location }
+      - name: Preserve compiler evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hlsl-sampler-profile-${{ github.sha }}
+          path: ${{ runner.temp }}/forge-sampler-profile
+          retention-days: 14

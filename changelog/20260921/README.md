@@ -315,3 +315,8 @@
 - This prepares the animated model bridge; it does not yet claim live model-node application or rendered skinning. The existing source-hashed recipe prevents new cooks from reusing the previous metadata contract.
 - Added private skin-pose palette preparation and conservative bounds based on selected joint-world/inverse-bind products. Tests cover palette reordering, unused joints, negative and zero scales, large coordinates, invalid counts/indices and nonfinite matrices. GPU skin submission remains pending.
 - Validation: normal converter, worker model pipeline and skin bounds pass. Strict ASan/UBSan/LSan converter and bounds pass (2 tests, 7.70 seconds); the direct model recipe/resource regression passes separately (72.16 seconds). Full source formatting passes. These checks do not constitute Windows skin-render acceptance.
+
+### Focused Windows shader-profile validation
+
+- Added a small dispatch-only Windows SDK compiler check for the 19-sampler material/lighting profile. It compares scalar declarations, explicit register spaces and a bounded sampler array, with and without the native unbounded-table compile option, and retains compiler identity and diagnostics. It does not build or publish an editor ZIP.
+- Native source audit 84e713 built successfully and passed 36 of 37 tests. Its viewport test reached the fully layered material fixture and failed FXC compilation at the 16-sampler register limit. Earlier morph and individual optical fixtures ran successfully; camera/shadow fixtures after that failure remain unverified in this run. This is a pending renderer correction, not a reason to merge different sampler settings.
