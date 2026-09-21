@@ -2,12 +2,16 @@
 #include "../texture_authoring.hpp"
 #include "document.hpp"
 #include "import_settings.hpp"
+#include <utility>
 namespace forge {
 class TextureImportEditor {
   public:
     explicit TextureImportEditor(std::filesystem::path worker) : worker_(std::move(worker)) {}
     bool close_cancelled = false;
     bool is_open() const { return open_; }
+    std::shared_ptr<const AssetCatalog> take_catalog() {
+        return std::exchange(published_catalog_, {});
+    }
     bool dirty() const {
         return job_ || (draft_ && (!saved_ || Json(draft_->request.settings) != baseline_));
     }
@@ -49,6 +53,7 @@ class TextureImportEditor {
         if (!service_)
             return;
         if (project_ != document.project()) {
+            published_catalog_.reset();
             service_.reset(); // Cancels/joins old work before releasing its writer lease.
             draft_.reset();
             job_ = 0;
@@ -62,6 +67,8 @@ class TextureImportEditor {
                 continue;
             job_ = 0;
             if (result.published) {
+                published_catalog_ =
+                    std::make_shared<const AssetCatalog>(result.publication->catalog);
                 baseline_ = draft_->request.settings;
                 saved_ = true;
                 error_.clear();
@@ -225,6 +232,7 @@ class TextureImportEditor {
     }
 
   private:
+    std::shared_ptr<const AssetCatalog> published_catalog_;
     std::filesystem::path worker_, project_;
     std::unique_ptr<AssetImportService> service_;
     std::optional<AssetImportDraft> draft_;

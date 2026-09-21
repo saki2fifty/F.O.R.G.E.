@@ -261,6 +261,24 @@ int main(int argc, char** argv) {
         bool initialize_layout = startup_layout.text.empty();
         forge::DiligentPresentation presentation(device);
         forge::Viewport viewport(presentation), game_viewport(presentation);
+        std::shared_ptr<forge::MeshResourceHost> mesh_resources;
+        auto reset_mesh_resources = [&] {
+            viewport.resources({});
+            game_viewport.resources({});
+            mesh_resources.reset();
+            try {
+                auto host = std::make_shared<forge::MeshResourceHost>(presentation, context,
+                                                                      files.document.project());
+                host->catalog(std::make_shared<const forge::AssetCatalog>(
+                    forge::AssetCatalog::open_project(files.document.project())));
+                viewport.resources(host);
+                mesh_resources = std::move(host);
+            } catch (const std::exception& e) {
+                message = std::string("Mesh resources unavailable: ") + e.what();
+                forge::ui::report_error("render.mesh.resource", message);
+            }
+        };
+        reset_mesh_resources();
         forge::RuntimeUiHost runtime_ui(window.get(), device,
                                         std::filesystem::path(base) /
                                             "resources/ui/LatoLatin-Regular.ttf");
@@ -464,6 +482,7 @@ int main(int argc, char** argv) {
                 }
                 if (active_project != files.document.project()) {
                     active_project = files.document.project();
+                    reset_mesh_resources();
                     editor.problems.reset();
                     editor.log.clear();
                     editor.last_status.clear();
@@ -1035,6 +1054,8 @@ int main(int argc, char** argv) {
             animation_tools.poll(files.document, message);
             try {
                 texture_imports.poll(files.document, message);
+                if (auto catalog = texture_imports.take_catalog(); catalog && mesh_resources)
+                    mesh_resources->catalog(std::move(catalog));
             } catch (const std::exception& e) {
                 message = e.what();
                 forge::ui::report_error("texture_import", message);
@@ -1831,6 +1852,12 @@ int main(int argc, char** argv) {
             };
             collect_diagnostics(scene_engine.services().diagnostics());
             collect_diagnostics(play.diagnostics());
+            if (const auto* rendered = viewport.meshes()) {
+                forge::Json records = forge::Json::array();
+                for (const auto& diagnostic : rendered->diagnostics())
+                    records.push_back(forge::diagnostic_json(diagnostic));
+                collect_diagnostics(records);
+            }
             if (panels_before != workspace.settings()) {
                 try {
                     perform(save_preferences);
@@ -1883,6 +1910,8 @@ int main(int argc, char** argv) {
             }
 #endif
             const auto present = forge::ui::Performance::Clock::now();
+            if (mesh_resources)
+                mesh_resources->submit();
             swap->Present(0);
             performance.finish(ui_submit, present);
         }

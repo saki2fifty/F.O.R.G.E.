@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
 #include "model_authoring.hpp"
+#include "model_draw_candidate.hpp"
 #include "model_importer.hpp"
 #include "model_render_resource.hpp"
 #include "model_selection.hpp"
@@ -210,6 +211,64 @@ int main(int argc, char** argv) {
                     texture_lease.identity().revision == mesh_lease.identity().revision,
                 "Model render resource family mixed revisions or color semantics");
         const auto image_bytes = texture_lease->byte_size();
+        ModelDrawCandidate complete(root, first_catalog, 1, selected_mesh, {}, mesh_resources);
+        require(!complete.ready(), "Draw published before dependency adoption");
+        complete.advance(1, mesh_resources, material_resources, texture_resources);
+        require(complete.ready() && complete.ready()->mesh.identity() == mesh_lease.identity() &&
+                    complete.ready()->materials.at(first_slot.material.id).identity() ==
+                        builtin_lease.identity() &&
+                    complete.ready()->textures.at({texture_ref.id, texture_semantic}).identity() ==
+                        texture_lease.identity(),
+                "Complete draw did not retain exact immutable resource revisions");
+        const auto previous_draw = *complete.ready();
+        {
+            ResourcePool<MaterialAsset> cold_materials({1, 64, 64, 16 * 1024 * 1024});
+            ResourcePool<TextureAsset> cold_textures({1, 64, 64, 64 * 1024 * 1024});
+            ModelDrawCandidate cold(root, first_catalog, 1, selected_mesh, {}, mesh_resources);
+            cold.advance(1, mesh_resources, cold_materials, cold_textures);
+            require(!cold.ready() && cold.state() == ResourceState::Loading,
+                    "Pending material dependency exposed a partial draw");
+            const auto deadline = std::chrono::steady_clock::now() + 30s;
+            while (cold.state() == ResourceState::Loading &&
+                   std::chrono::steady_clock::now() < deadline) {
+                cold_materials.pump();
+                cold_textures.pump();
+                cold.advance(1, mesh_resources, cold_materials, cold_textures);
+                if (!cold.ready())
+                    std::this_thread::sleep_for(2ms);
+            }
+            require(cold.ready() && !cold.ready()->materials.empty() &&
+                        !cold.ready()->textures.empty(),
+                    "Asynchronous complete draw did not wait for all dependencies");
+        }
+        ModelDrawCandidate failed_draw(root, first_catalog, 1, selected_mesh,
+                                       {{first_slot.key, {AssetId::generate()}}}, mesh_resources);
+        failed_draw.advance(1, mesh_resources, material_resources, texture_resources);
+        require(failed_draw.state() == ResourceState::DependencyFailed && !failed_draw.ready() &&
+                    !failed_draw.diagnostic().empty() && previous_draw.mesh &&
+                    previous_draw.textures.at({texture_ref.id, texture_semantic})->byte_size() ==
+                        image_bytes,
+                "Failed complete candidate published partial data or invalidated previous draw");
+        ModelDrawCandidate cancelled_draw(root, first_catalog, 1, selected_mesh, {},
+                                          mesh_resources);
+        cancelled_draw.cancel();
+        cancelled_draw.advance(1, mesh_resources, material_resources, texture_resources);
+        require(cancelled_draw.state() == ResourceState::Cancelled && !cancelled_draw.ready() &&
+                    mesh_resources.acquire(mesh_request),
+                "Consumer cancellation cancelled a coalesced resource request");
+        complete.advance(2, mesh_resources, material_resources, texture_resources);
+        require(complete.state() == ResourceState::Stale && !complete.ready() && previous_draw.mesh,
+                "Catalog replacement admitted a stale complete draw");
+        bool wrong_thread_rejected = false;
+        std::thread wrong_thread([&] {
+            try {
+                complete.ready();
+            } catch (const std::exception&) {
+                wrong_thread_rejected = true;
+            }
+        });
+        wrong_thread.join();
+        require(wrong_thread_rejected, "Draw candidate allowed off-owner access");
         auto missing_variant = request_model_texture(texture_resources, root, first_catalog,
                                                      texture_ref, TextureSemantic::HdrColor);
         require(!texture_resources.wait(missing_variant, 10s) &&

@@ -325,3 +325,41 @@ authored frame is absent or collapsed; supplied tangents are ignored when source
 normals are absent. Double-sided shading reverses the complete perturbed normal.
 A constant-UV native fixture uses opposite tangent signs under directional light
 to expose an implementation that silently substitutes screen-space derivatives.
+
+`ModelDrawCandidate` coordinates CPU preparation against one copied catalog and
+caller-owned publication epoch. It captures exact mesh/material/texture revision
+leases and exposes them only after all dependencies are ready. The presentation
+owner must keep its previous GPU bundle until complete GPU construction succeeds,
+then adopt only if that epoch still matches. Cancellation releases this consumer's
+references without cancelling shared pool requests. Changed catalog epochs reject
+unpublished candidates; unresolved authored material-slot names remain diagnostics.
+This internal coordinator is not yet the Scene/Game render owner and does not claim
+that CPU readiness is GPU publication. Its epoch is process-local publication
+tracking, not a new persistent identity or catalog authority.
+
+`MeshDrawBundle` performs detached native construction for the complete candidate,
+including every LOD/material part and its texture bindings. It retains GPU leases
+before native draw members so destruction releases SRBs first. Each draw validates
+owner lifetime and marks leased resources for fence retirement. CPU scopes may close
+after upload without invalidating that physical bundle. Failed construction never
+changes the caller's previous bundle. Host integration, production pass ordering,
+extended materials and deformed draw support remain separate acceptance work.
+
+### Scene host connection — validation in progress
+
+The private `MeshResourceHost` shares the existing typed CPU pools and physical
+residency owners within one project/device/context. A copied catalog publication
+advances its process-local epoch. Each `MeshSceneRenderer` retains complete GPU
+candidates per extracted entity without owning a second authored hierarchy.
+Per-view caches retain prior draws on preparation failure, report entity-specific
+Problems, filter light/camera layers, and use full-affine bounds and LOD thresholds.
+The Scene viewport invalidates a retained EDIT image on resource adoption. Model
+components take precedence over legacy Primitive/Tint for that entity.
+
+Project changes release scene bundles before replacing the host. Texture-import
+publication feeds its admitted catalog snapshot to the host. External model reimport
+watching and model import UI still require their shared publication connection.
+The current host uses RGBA8/D32 targets; HDR, transparent pass ordering, shadow/IBL,
+advanced material and deformation consumers, authored Game cameras and standalone
+presentation remain unfinished Phase7 work. This connection does not declare the
+production renderer complete or imply unvalidated Windows acceptance.

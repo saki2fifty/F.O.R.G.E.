@@ -172,6 +172,13 @@ template <class T> class GpuResidency {
     // signals only when context work is flushed; flush is explicit here.
     void submit() {
         scope_->check();
+        const bool pending =
+            std::any_of(entries_.begin(), entries_.end(),
+                        [](const auto& item) { return item.second->pending_submission; }) ||
+            std::any_of(failed_.begin(), failed_.end(),
+                        [](const auto& item) { return !item.fence; });
+        if (!pending)
+            return;
         if (submitted_ == std::numeric_limits<std::uint64_t>::max())
             throw std::runtime_error("GPU fence sequence exhausted");
         context_->EnqueueSignal(fence_, ++submitted_);

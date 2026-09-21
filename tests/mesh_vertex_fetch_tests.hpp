@@ -50,8 +50,9 @@ void check_mesh_vertex_fetch(forge::DiligentPresentation& presentation,
         require(bool(result), "Vertex-fetch shader compilation failed");
         return result;
     };
-    const auto vs = shader(SHADER_TYPE_VERTEX, fetch.source + R"(
-struct Output {float4 Position:SV_Position; float4 Color:COLOR0;};
+    const std::string varying =
+        "struct Output {float4 Position:SV_Position; float4 Color:COLOR0;};\n";
+    const auto vs = shader(SHADER_TYPE_VERTEX, fetch.source + varying + R"(
 Output main(uint id:SV_VertexID) {
     ForgeMeshVertex v=ForgeLoadMeshVertex(id);
     Output o; o.Position=float4(v.Position,1);
@@ -60,8 +61,8 @@ Output main(uint id:SV_VertexID) {
         o.Color=float4(1,0,1,1);
     return o;
 })");
-    const auto ps =
-        shader(SHADER_TYPE_PIXEL, "float4 main(float4 color:COLOR0):SV_Target0 {return color;}");
+    const auto ps = shader(SHADER_TYPE_PIXEL,
+                           varying + "float4 main(Output input):SV_Target0 {return input.Color;}");
     GraphicsPipelineStateCreateInfo pso;
     pso.PSODesc.Name = "FORGE indexed raw vertex draw";
     pso.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
@@ -135,10 +136,10 @@ Output main(uint id:SV_VertexID) {
             first_source = program.source;
         require(program.source == first_source,
                 "Material value or sampler edit changed shader layout");
-        auto material_ps = shader(SHADER_TYPE_PIXEL, program.source + R"(
-float4 main(float4 color:COLOR0):SV_Target0 {
+        auto material_ps = shader(SHADER_TYPE_PIXEL, program.source + varying + R"(
+float4 main(Output input):SV_Target0 {
     bool valid;
-    float4 value=ForgeSample_baseColorTexture(color.xy,valid);
+    float4 value=ForgeSample_baseColorTexture(input.Color.xy,valid);
     return valid ? value*ForgeParameter_baseColorFactor() : float4(1,0,1,1);
 })");
         pso.pPS = material_ps;

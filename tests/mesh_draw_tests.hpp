@@ -1,5 +1,6 @@
 #pragma once
 #include "mesh_draw.hpp"
+#include "mesh_draw_bundle.hpp"
 void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDeviceContext* context) {
     using namespace Diligent;
     forge::MeshPart part;
@@ -43,7 +44,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     world.m[3] = 1e12;
     world.m[7] = -1e12;
     world.m[11] = 2;
-    auto render = [&](forge::MeshDraw& prepared, std::span<const forge::LightView> lights = {}) {
+    auto render = [&](auto& prepared, std::span<const forge::LightView> lights = {}) {
         context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float clear[4]{0, 0, 0, 1};
         context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -58,6 +59,59 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     require(reference[16 * 32 + 16] == std::array<unsigned char, 4>{51, 153, 26, 255} ||
                 reference[16 * 32 + 16] == std::array<unsigned char, 4>{51, 153, 25, 255},
             "Prepared unlit mesh did not render with camera-relative placement");
+    {
+        using namespace std::chrono_literals;
+        forge::ResourcePool<forge::MeshAsset> cpu_mesh;
+        forge::ResourcePool<forge::MaterialAsset> cpu_material;
+        const forge::AssetRef<forge::MeshAsset> mesh_id{forge::AssetId::generate()};
+        const forge::AssetRef<forge::MaterialAsset> material_id{forge::AssetId::generate()};
+        auto mesh_ticket = cpu_mesh.request(
+            mesh_id, std::string(64, 'a'), 1, [mesh, material_id](std::stop_token) {
+                auto value = std::make_unique<forge::MeshResourceData>();
+                value->mesh = mesh;
+                value->materials = {{0, "default", material_id}};
+                const auto bytes = value->resident_bytes();
+                return forge::ResourceCandidate<forge::MeshAsset>{std::move(value), {bytes}};
+            });
+        auto material_ticket =
+            cpu_material.request(material_id, std::string(64, 'b'), 1, [material](std::stop_token) {
+                auto value = std::make_unique<forge::MaterialResourceData>();
+                value->values = material;
+                const auto bytes = value->resident_bytes();
+                return forge::ResourceCandidate<forge::MaterialAsset>{std::move(value), {bytes}};
+            });
+        require(cpu_mesh.wait(mesh_ticket, 5s) && cpu_material.wait(material_ticket, 5s),
+                "Bundle CPU fixtures failed");
+        forge::asset_detail::PreparedModelDraw prepared;
+        prepared.mesh = cpu_mesh.acquire(mesh_ticket);
+        prepared.selection = forge::select_mesh_materials(prepared.mesh.get(), {});
+        prepared.materials.emplace(material_id.id, cpu_material.acquire(material_ticket));
+        forge::GpuResidency<forge::MeshAsset> meshes(presentation.device(), context, 4096);
+        forge::GpuResidency<forge::TextureAsset> textures(presentation.device(), context, 4096);
+        auto bundle = std::make_unique<forge::MeshDrawBundle>(
+            presentation, prepared, meshes, textures, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        require(render(*bundle) == reference && bundle->mesh_identity() == prepared.mesh.identity(),
+                "Complete bundle changed the selected mesh draw");
+        auto invalid = prepared;
+        invalid.materials.clear();
+        bool rejected = false;
+        try {
+            auto replacement = std::make_unique<forge::MeshDrawBundle>(
+                presentation, invalid, meshes, textures, TEX_FORMAT_RGBA8_UNORM,
+                TEX_FORMAT_D32_FLOAT);
+            bundle = std::move(replacement);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected && render(*bundle) == reference,
+                "Failed whole GPU candidate replaced the previous complete draw");
+        cpu_mesh.close();
+        cpu_material.close();
+        require(render(*bundle) == reference, "GPU bundle retained invalid CPU-owner dependence");
+        meshes.submit();
+        textures.submit();
+        bundle.reset(); // SRBs before leases, bundles before residency owners.
+    }
     world.m[0] = -1;
     require(render(draw) == reference,
             "Reflected draw changed coverage or disappeared through culling");

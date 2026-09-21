@@ -1,5 +1,6 @@
 #include "viewport.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include <cmath>
 #include <forge/geometry.hpp>
 #include <stdexcept>
 using namespace Diligent;
@@ -154,6 +155,15 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
                                unsigned height, const EditorCamera& camera,
                                std::uint64_t generation, bool live, GridSettings grid) {
+    if (meshes_) {
+        if (!mesh_scene_ || live || mesh_generation_ != generation) {
+            mesh_scene_ = extract_render_scene(scene);
+            mesh_generation_ = generation;
+        }
+        if (meshes_->update(*mesh_scene_))
+            frame_.reset();
+        live = live || meshes_->pending();
+    }
     const auto key = viewport_frame_key(generation, width, height, camera, grid);
     // Static blockout preview only. Play renders continuously; future time-dependent
     // materials/effects must also opt out of retained EDIT frames.
@@ -193,6 +203,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
                forward = camera.forward();
     for (const auto& entity : scene.at("entities")) {
+        if (meshes_ && entity.at("components").contains("forge.mesh_renderer"))
+            continue;
         if (entity.value("prefab", false) || !entity.at("components").contains("forge.position") ||
             primitive_kind(entity) == no_primitive)
             continue;
@@ -251,6 +263,23 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         draw.StartVertexLocation = starts_.at(kind);
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->Draw(draw);
+    }
+    if (meshes_ && mesh_scene_) {
+        Camera lens;
+        lens.vertical_fov = 2 * std::atan(1.0 / EditorCamera::focal);
+        lens.near_plane = EditorCamera::near_plane;
+        lens.far_plane = EditorCamera::far_plane;
+        AffineTransform camera_world;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            camera_world.m[axis * 4] = right[axis];
+            camera_world.m[axis * 4 + 1] = up[axis];
+            camera_world.m[axis * 4 + 2] = forward[axis];
+            camera_world.m[axis * 4 + 3] = eye[axis];
+        }
+        const auto view = camera_view(lens, camera_world, width, height);
+        Diligent::Viewport area{0.f, 0.f, float(width), float(height), 0.f, 1.f};
+        context->SetViewports(1, &area, width, height);
+        meshes_->draw(*mesh_scene_, view, UINT32_MAX);
     }
     if (grid.visible) {
         {

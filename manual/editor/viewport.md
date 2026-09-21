@@ -78,3 +78,18 @@ Runtime output and HUD now appear in the separate **Game** tab; Scene remains au
 The **+** is Add Entity. Pointer, arrows, ring and diagonal-box icons select Select/Move or start Rotate/Scale. The selected icon is highlighted; Rotate/Scale returns to the resting tool when its modal gesture ends. The magnet toggles move snapping. The eye opens View settings. Hover for names, shortcuts and purpose. Existing camera and R/S/XYZ shortcuts are unchanged. The Scene tab carries the filename and unsaved `*`.
 
 Transform icons also have named entries under **Entity > Transform tools** and in the Command Palette.
+
+## Imported mesh loading — integration in progress
+
+The Scene view can prepare an entity's assigned **Mesh Renderer** from imported
+model resources. Its material and textures load together. An incomplete replacement
+keeps the previous complete draw; an initial failure is reported in **Problems**.
+Moving the camera is not required to reveal a completed load. A Mesh Renderer takes
+precedence over the same entity's older primitive preview.
+
+This path is still undergoing native rendering validation. The current adapter
+handles static meshes with basic unlit or PBR materials and explicit scene lights.
+Advanced material effects and skinned/morphed draws are not yet connected. The Game
+preview still uses its existing rendering path. Model placement, mesh picking and
+production render controls remain part of the ongoing integration; importing a file
+alone does not place an object in the scene. See [Models](models.md).
