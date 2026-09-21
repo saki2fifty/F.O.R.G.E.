@@ -18,7 +18,8 @@ class MeshDrawBundle {
     MeshDrawBundle(DiligentPresentation&, Diligent::IDeviceContext*,
                    const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,
                    GpuResidency<TextureAsset>&, Diligent::TEXTURE_FORMAT color,
-                   Diligent::TEXTURE_FORMAT depth, bool skinned = false);
+                   Diligent::TEXTURE_FORMAT depth, bool skinned = false,
+                   std::shared_ptr<const MeshPoseGeometry> geometry = {});
     void environment(const EnvironmentLease&);
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
@@ -37,14 +38,15 @@ class MeshDrawBundle {
     const std::vector<std::string>& unresolved_slots() const { return unresolved_; }
     const ResourceIdentity& mesh_identity() const { return mesh_.source(); }
     const asset_detail::PreparedModelDraw& prepared() const { return prepared_; }
-    const MeshPoseGeometry& geometry() const { return geometry_; }
+    const MeshPoseGeometry& geometry() const { return *geometry_; }
+    std::shared_ptr<const MeshPoseGeometry> geometry_owner() const { return geometry_; }
     bool skinned() const { return skinned_; }
     std::size_t lod_count() const { return lods_.size(); }
 
   private:
     // CPU revision leases survive every derived pose and native binding.
     asset_detail::PreparedModelDraw prepared_;
-    MeshPoseGeometry geometry_;
+    std::shared_ptr<const MeshPoseGeometry> geometry_;
     bool skinned_ = false;
     EnvironmentLease environment_;
     GpuLease<MeshAsset> mesh_;

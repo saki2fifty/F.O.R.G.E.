@@ -67,6 +67,34 @@ inline void check_model_instance_poses() {
               bounds_b.minimum[0] > -18.01 && bounds_b.maximum[0] < -16.99,
           "Morphed/skinned bounds used singular mesh-node transform or another instance");
     const auto retained = a;
+    // Replacement admission includes temporary joint data; excluding that data
+    // must fail without modifying the previous pose. The exact payload fits.
+    const auto pose_bytes = mesh_pose_bytes(a);
+    const auto scratch_bytes = sizeof(AffineTransform) + sizeof(AssetId);
+    rejects([&] {
+        a = prepare_mesh_instance_pose(resource, geometry, first, ModelSceneIndex(scene),
+                                       pose_bytes + scratch_bytes - 1);
+    });
+    check(a == retained, "Payload rejection changed the previous model pose");
+    check(prepare_mesh_instance_pose(resource, geometry, first, ModelSceneIndex(scene),
+                                     pose_bytes + scratch_bytes) == retained,
+          "Exact pose payload admission rejected a fitting candidate");
+    const auto geometry_bytes = mesh_pose_bytes(geometry);
+    rejects([&] { (void)prepare_mesh_pose_geometry(resource.mesh, geometry_bytes - 1); });
+    check(mesh_pose_bytes(prepare_mesh_pose_geometry(resource.mesh, geometry_bytes)) ==
+              geometry_bytes,
+          "Exact geometry payload admission failed");
+    // Budget admission precedes reading malformed delta data or computing a
+    // palette. This small fixture tests the ordering without huge allocations.
+    auto invalid_geometry = resource.mesh;
+    invalid_geometry.lods[0].parts[0].morph_targets[0][0].components = 1;
+    try {
+        (void)prepare_mesh_pose_geometry(invalid_geometry, 0);
+        check(false, "Zero geometry budget accepted an allocation");
+    } catch (const std::exception& error) {
+        check(std::string(error.what()).find("payload budget") != std::string::npos,
+              "Geometry allocation/validation preceded payload admission");
+    }
     auto failed_candidate = [&] {
         rejects([&] { a = prepare(first); });
         check(a == retained, "Failed candidate changed the previous complete pose");

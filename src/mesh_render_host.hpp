@@ -38,7 +38,8 @@ class MeshResourceHost {
 class MeshSceneRenderer {
   public:
     explicit MeshSceneRenderer(std::shared_ptr<MeshResourceHost>,
-                               Diligent::TEXTURE_FORMAT color = Diligent::TEX_FORMAT_RGBA8_UNORM);
+                               Diligent::TEXTURE_FORMAT color = Diligent::TEX_FORMAT_RGBA8_UNORM,
+                               std::uint64_t pose_budget = mesh_pose_payload_limit);
     bool update(const RenderScene&);
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
@@ -46,6 +47,7 @@ class MeshSceneRenderer {
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     bool pending() const;
+    std::uint64_t pose_payload_bytes() const;
     const EnvironmentLease& environment() const { return environment_ready_; }
 
   private:
@@ -56,10 +58,11 @@ class MeshSceneRenderer {
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
         std::unique_ptr<MeshDrawBundle> ready;
         MeshInstancePose pose;
-        std::optional<MeshPoseGeometry> candidate_geometry;
+        std::shared_ptr<const MeshPoseGeometry> candidate_geometry;
         std::vector<float> thresholds;
         std::string error, pose_error;
         std::optional<bool> failed_skin_mode;
+        std::uint64_t pose_bytes() const;
     };
     bool update_environment(const RenderScene&);
     void report(EntityId, const std::string&);
@@ -67,6 +70,7 @@ class MeshSceneRenderer {
     std::unique_ptr<ShadowRenderer> shadows_;
     std::unique_ptr<TransmissionBackground> transmission_;
     Diligent::TEXTURE_FORMAT color_;
+    const std::uint64_t pose_budget_;
     AssetId scene_;
     AssetRef<TextureAsset> environment_source_;
     std::uint64_t environment_epoch_ = 0;

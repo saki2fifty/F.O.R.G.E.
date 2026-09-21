@@ -815,3 +815,49 @@ each camera before conversion to UI pixels. No extra scene extraction occurs per
 camera. Malformed optional debug data is omitted without terminating the editor.
 CPU tests cover actual world positions at large coordinates, root isolation,
 ambiguous/unavailable poses, legacy owner transforms and malformed parent/pose data.
+
+
+### Derived scene pose payload admission
+
+Each visual scene has a separate 512 MiB CPU derived-pose payload profile. It
+accounts for retained pose vectors, per-part palette matrices and immutable morph
+intervals. A replacement must fit while its previous good value remains alive;
+ordered joint matrices and sorted duplicate-check IDs are included in candidate
+admission. Checked arithmetic and explicit reservations precede payload allocation.
+Actual retained vector capacities are counted. Bounds intervals transfer by shared
+immutable ownership into the physical draw bundle, avoiding a second vertex scan
+and duplicate interval allocation during adoption.
+
+Deleting instances releases their payload before retries in the same update.
+Admission failure preserves the previous complete draw/pose and emits a structured
+entity diagnostic; a refused candidate can succeed after memory is released. This
+is an engine capacity profile, not a geometric validity test or a promise that
+process RSS stays below 512 MiB. It excludes allocator bookkeeping, stack frames,
+snapshot/index metadata, other CPU resource pools and GPU resources, which have
+separate ownership and limits. It never narrows the accepted LocalScale range.
+
+On the current x64 build an AffineTransform occupies 96 bytes. Just 65,536 parts
+with 256 palette matrices each would require 1,610,612,736 bytes, before container
+costs; finite part/joint counts alone were therefore insufficient admission.
+CPU tests exercise exact payload limits, rejection before malformed geometry is
+read, temporary scratch accounting and last-good retention. A native scene fixture
+also checks aggregate rejection, deletion and retry; Windows execution is pending.
+
+### Isolated Windows audit follow-up
+
+Source `1c0ae36` built successfully and passed 37 of 41 selected Windows tests.
+Its independent frame test passed. The full viewport and isolated morph tests
+failed at the first zero-weight morph draw with device removal; the isolated skin
+shader failed FXC X4580 at indirect input-vertex emission. Geometry output now
+uses explicit constant-index Append branches with identical winding semantics.
+The morph loop now predicates its body instead of using continue; this is a
+controlled equivalent-source experiment, not an established driver/compiler fix.
+Neither change is accepted as native-correct until the rerun succeeds.
+
+The transmission crop fixture incorrectly expected saturated 1.0 primaries to
+remain saturated after the pinned PBR Neutral highlight desaturation. Its camera
+isolation checks now use .5 primaries below compression and expect the one-transfer
+sRGB value of 188 (one UNORM step allowed), with zero cross-channel leakage.
+Display resolve also now sizes output from the source view's selected mip,
+rather than always using the underlying texture's base dimensions. The last-mip
+fixture requires exactly one pixel as well as its expected color.

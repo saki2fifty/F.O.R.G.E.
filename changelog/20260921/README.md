@@ -363,3 +363,23 @@
 
 - Model bone overlays now use actual resolved scene-node WorldTransforms from the rendering snapshot, with root-scoped identity lookup. They preserve inherited/spatial behavior, omit ambiguous/missing/unready joints and keep the standalone Ozz preview path.
 - Bone preparation runs once before multi-camera projection, preserving double world coordinates until projection. Normal CPU overlay regression and native header/editor syntax checks pass; strict overlay checks also pass; Windows acceptance of this follow-up remains pending.
+
+
+### Pose memory admission and isolated graphics follow-up
+
+- Add a separate 512 MiB per-scene derived CPU pose payload profile, checked before
+  allocation. Count retained plus candidate data and temporary joint scratch;
+  share immutable morph intervals with the adopted GPU bundle. Release deleted
+  instance payload before retrying refused candidates. Preserve last-good draws.
+- Add CPU exact-budget/retention regressions and a Windows aggregate scene budget,
+  deletion and retry fixture. No authored scale or persistent-format change.
+- Source `1c0ae36` passed 37/41 Windows checks; the isolated camera/frame test passed.
+  Morph device removal, FXC skin geometry compilation and transmission crop test
+  failures were isolated. Explicit constant-index geometry emission addresses the
+  compiler path; the equivalent predicated morph loop awaits controlled native
+  execution. Do not interpret supplementary DXC compilation as Windows acceptance.
+- Correct the crop test's assumption about native PBR Neutral highlight
+  desaturation. Use .5 primary radiance and checked sRGB values instead. Fix display
+  resolve dimensions for a selected mip and require a one-pixel last-mip result.
+- Validation and the complete Phase7 work package remain in progress. No new
+  numbered package is reserved or delivered by this follow-up.

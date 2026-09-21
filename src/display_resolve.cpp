@@ -1,6 +1,7 @@
 #include "display_resolve.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -84,13 +85,17 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
         (input.Format != TEX_FORMAT_RGBA16_FLOAT && input.Format != TEX_FORMAT_RGBA32_FLOAT))
         throw std::runtime_error(
             "Display resolve requires a single-sample linear floating-point RGBA target");
-    if (!output_ || output_->GetDesc().Width != input.Width ||
-        output_->GetDesc().Height != input.Height) {
+    const auto& view = source->GetDesc();
+    if (view.ViewType != TEXTURE_VIEW_SHADER_RESOURCE || view.MostDetailedMip >= input.MipLevels)
+        throw std::runtime_error("Display resolve requires a valid shader-resource mip view");
+    const auto width = std::max(1u, input.Width >> view.MostDetailedMip);
+    const auto height = std::max(1u, input.Height >> view.MostDetailedMip);
+    if (!output_ || output_->GetDesc().Width != width || output_->GetDesc().Height != height) {
         TextureDesc desc;
         desc.Name = "FORGE sRGB-encoded display output";
         desc.Type = RESOURCE_DIM_TEX_2D;
-        desc.Width = input.Width;
-        desc.Height = input.Height;
+        desc.Width = width;
+        desc.Height = height;
         desc.Format = TEX_FORMAT_RGBA8_UNORM;
         desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
         RefCntAutoPtr<ITexture> candidate;
@@ -109,8 +114,8 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
     binding_->GetVariableByName(SHADER_TYPE_PIXEL, "g_HDR")->Set(source);
     context->SetPipelineState(pipeline_);
     context->CommitShaderResources(binding_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    Diligent::Viewport area{0, 0, float(input.Width), float(input.Height), 0, 1};
-    context->SetViewports(1, &area, input.Width, input.Height);
+    Diligent::Viewport area{0, 0, float(width), float(height), 0, 1};
+    context->SetViewports(1, &area, width, height);
     DrawAttribs draw;
     draw.NumVertices = 3;
     draw.Flags = DRAW_FLAG_VERIFY_ALL;

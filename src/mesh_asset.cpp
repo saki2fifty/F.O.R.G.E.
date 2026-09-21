@@ -198,6 +198,7 @@ MeshBounds mesh_bounds(const MeshPart& part) {
 MorphBoundsData prepare_morph_bounds(const MeshPart& part) {
     require(part.morph_targets.size() <= 256, "Morph bounds target count exceeds profile");
     MorphBoundsData result{part.bounds, {}};
+    result.positions.reserve(part.morph_targets.size());
     for (const auto& target : part.morph_targets) {
         auto& bounds = result.positions.emplace_back();
         for (const auto& stream : target) {

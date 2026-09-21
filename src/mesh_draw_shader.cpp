@@ -134,7 +134,10 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
         float projected=dot(a/largest,cross(b/largest,c/largest));
         swap=(projected<0)!=(g_SkinInfo.y!=0);
     }
-    output.Append(input[0]);output.Append(input[swap?2:1]);output.Append(input[swap?1:2]);
+    // Literal vertex indices keep every SV_Position assignment visible to FXC.
+    output.Append(input[0]);
+    if(swap) {output.Append(input[2]);output.Append(input[1]);}
+    else {output.Append(input[1]);output.Append(input[2]);}
     output.RestartStrip();
 }
 )";

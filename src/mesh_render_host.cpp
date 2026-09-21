@@ -43,12 +43,33 @@ void MeshResourceHost::submit() {
     gpu_textures_.submit();
 }
 MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
-                                     Diligent::TEXTURE_FORMAT color)
-    : host_(std::move(host)), color_(color) {
+                                     Diligent::TEXTURE_FORMAT color, std::uint64_t pose_budget)
+    : host_(std::move(host)), color_(color), pose_budget_(pose_budget) {
     if (!host_)
         throw std::runtime_error("Mesh scene requires a presentation resource host");
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
     transmission_ = std::make_unique<TransmissionBackground>(host_->presentation_);
+}
+std::uint64_t MeshSceneRenderer::Entry::pose_bytes() const {
+    // The inline empty pose already belongs to the entry, not an allocation.
+    std::uint64_t bytes = ready ? mesh_pose_bytes(pose) : 0;
+    if (ready)
+        bytes += mesh_pose_bytes(ready->geometry());
+    if (candidate_geometry && (!ready || candidate_geometry != ready->geometry_owner()))
+        bytes += mesh_pose_bytes(*candidate_geometry);
+    return bytes;
+}
+std::uint64_t MeshSceneRenderer::pose_payload_bytes() const {
+    host_->check_thread();
+    std::uint64_t bytes = 0;
+    for (const auto& [id, entry] : entries_) {
+        (void)id;
+        const auto count = entry.pose_bytes();
+        if (count > pose_budget_ - bytes)
+            throw std::runtime_error("Retained mesh poses exceed the scene payload budget");
+        bytes += count;
+    }
+    return bytes;
 }
 void MeshSceneRenderer::report(EntityId entity, const std::string& text) {
     if (diagnostics_.size() >= 256) {
@@ -79,9 +100,22 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     changed |= update_environment(scene);
     const ModelSceneIndex model_index(scene);
     std::set<EntityId> used;
-    for (const auto& mesh : scene.meshes) {
+    for (const auto& mesh : scene.meshes)
         used.insert(mesh.entity);
+    // Reclaim deleted instances before admitting this frame's replacements.
+    std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
+    auto resident = pose_payload_bytes();
+    for (const auto& mesh : scene.meshes) {
         auto& entry = entries_[mesh.entity];
+        const auto previous_bytes = entry.pose_bytes();
+        auto available = [&] {
+            const auto other = resident - previous_bytes;
+            const auto own = entry.pose_bytes();
+            if (own > pose_budget_ - other)
+                throw std::runtime_error("Retained mesh poses exceed the scene payload budget");
+            return pose_budget_ - other - own;
+        };
+        bool adopted = false;
         const auto& renderer = mesh.renderer;
         if (entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
             entry.overrides != renderer.materials) {
@@ -108,14 +142,16 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 bool pose_validated = false;
                 try {
                     if (!entry.candidate_geometry)
-                        entry.candidate_geometry =
-                            prepare_mesh_pose_geometry(candidate->mesh->mesh);
-                    auto pose = prepare_mesh_instance_pose(
-                        candidate->mesh.get(), *entry.candidate_geometry, mesh, model_index);
+                        entry.candidate_geometry = std::make_shared<const MeshPoseGeometry>(
+                            prepare_mesh_pose_geometry(candidate->mesh->mesh, available()));
+                    auto pose =
+                        prepare_mesh_instance_pose(candidate->mesh.get(), *entry.candidate_geometry,
+                                                   mesh, model_index, available());
                     pose_validated = true;
                     auto native = std::make_unique<MeshDrawBundle>(
                         host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
-                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned);
+                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned,
+                        entry.candidate_geometry);
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
                         thresholds.push_back(lod.screen_coverage);
@@ -124,6 +160,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.pose = std::move(pose);
                     entry.thresholds = std::move(thresholds);
                     entry.error.clear();
+                    entry.pose_error.clear();
+                    adopted = true;
                     entry.candidate.reset();
                     entry.candidate_geometry.reset();
                     changed = true;
@@ -140,10 +178,11 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate.reset();
             }
         }
-        if (entry.ready) {
+        if (entry.ready && !adopted) {
             try {
                 auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
-                                                       entry.ready->geometry(), mesh, model_index);
+                                                       entry.ready->geometry(), mesh, model_index,
+                                                       available());
                 if (pose.skinned != entry.ready->skinned()) {
                     if (entry.failed_skin_mode == pose.skinned)
                         throw std::runtime_error(entry.pose_error);
@@ -151,7 +190,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     auto native = std::make_unique<MeshDrawBundle>(
                         host_->presentation_, host_->context_, entry.ready->prepared(),
                         host_->gpu_meshes_, host_->gpu_textures_, color_,
-                        Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned);
+                        Diligent::TEX_FORMAT_D32_FLOAT, pose.skinned,
+                        entry.ready->geometry_owner());
                     native->environment(environment_ready_);
                     entry.ready = std::move(native);
                 }
@@ -163,6 +203,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.pose_error = e.what();
             }
         }
+        resident = resident - previous_bytes + entry.pose_bytes();
         if (!entry.pose_error.empty())
             report(mesh.entity, entry.pose_error + " (previous complete pose retained)");
         if (!entry.error.empty())

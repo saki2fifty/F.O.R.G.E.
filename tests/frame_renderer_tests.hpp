@@ -131,6 +131,44 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
     const auto collapsed = render();
     require(renderer.diagnostics().empty() && collapsed[16 * 64 + 32][0] > 50,
             "Rank-two engine primitive failed safe normal/visibility handling");
+    {
+        auto scene = extract_render_scene(document);
+        require(scene.meshes.size() == 1, "Pose-budget fixture requires one engine mesh");
+        MeshSceneRenderer measured(host);
+        measured.update(scene); // Its engine CPU revision is already resident.
+        require(!measured.pending() && measured.diagnostics().empty(),
+                "Pose-budget baseline was not ready");
+        const auto one = measured.pose_payload_bytes();
+        require(one > 0, "Retained mesh pose payload was not accounted");
+        MeshSceneRenderer limited(host, Diligent::TEX_FORMAT_RGBA8_UNORM, 2 * one);
+        limited.update(scene);
+        require(limited.pose_payload_bytes() == one && limited.diagnostics().empty(),
+                "Fitting pose was rejected by the scene budget");
+        const auto original = scene.meshes[0];
+        for (unsigned i = 0; i < 2; ++i) {
+            auto copy = original;
+            copy.entity = EntityId::generate();
+            scene.meshes.push_back(copy);
+        }
+        limited.update(scene);
+        const auto budget_error = std::any_of(
+            limited.diagnostics().begin(), limited.diagnostics().end(), [](const auto& value) {
+                return value.text.find("payload budget") != std::string::npos;
+            });
+        require(budget_error && limited.pose_payload_bytes() >= one &&
+                    limited.pose_payload_bytes() <= 2 * one,
+                "Aggregate scene pose admission exceeded its budget or lost retained poses");
+        // The last object was refused. Removing the others releases their
+        // payload before its retry, without changing source IDs or catalog.
+        scene.meshes = {scene.meshes.back()};
+        limited.update(scene);
+        require(!limited.pending() && limited.diagnostics().empty() &&
+                    limited.pose_payload_bytes() == one,
+                "Freed scene pose payload did not permit the refused instance to retry");
+        scene.meshes.clear();
+        limited.update(scene);
+        require(limited.pose_payload_bytes() == 0, "Removed mesh poses retained payload");
+    }
     host->submit();
     renderer.resources({});
 }

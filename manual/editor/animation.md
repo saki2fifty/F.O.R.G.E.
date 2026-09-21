@@ -131,3 +131,11 @@ inherited transforms and their spatial bindings. It does not apply the model roo
 transform twice. Missing or ambiguous joints are omitted. Standalone animation
 previews still show the clip's skeleton relative to the selected Animator entity.
 The overlay remains a diagnostic display that can be seen through geometry.
+
+
+Imported model drawing uses a bounded memory allowance for prepared poses. If a
+new pose or model revision cannot fit alongside the previous good pose, Problems
+reports the affected entity and the previous drawing remains visible. Removing
+other model instances can free the allowance so the pending instance can retry.
+This affects derived drawing data; it does not change saved transforms or assets.
+The full native animated-model workflow is still under validation.

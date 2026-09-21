@@ -56,7 +56,7 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
             "return asfloat(g_ForgeMorphDeltas.Load4(at));}\n";
         result.source = prefix + result.source;
         result.source += "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
-                         ";t++) {float w=g_MorphWeights[t/4][t%4];if(w==0)continue;\n"
+                         ";t++) {float w=g_MorphWeights[t/4][t%4];if(w!=0) {\n"
                          "v.Position+=ForgeMorphDelta(t,0,id).xyz*w;\n";
         if (result.normal)
             result.source += "v.Normal+=ForgeMorphDelta(t,1,id).xyz*w;\n";
@@ -67,7 +67,7 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
         for (unsigned u = 0; u < result.uv_sets.size(); ++u)
             result.source += "v.UV[" + std::to_string(u) + "]+=ForgeMorphDelta(t," +
                              std::to_string(u + 4) + ",id).xy*w;\n";
-        result.source += "}v.Color=saturate(v.Color);\n";
+        result.source += "}}v.Color=saturate(v.Color);\n";
     }
 }
 } // namespace

@@ -5,8 +5,12 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                const asset_detail::PreparedModelDraw& prepared,
                                GpuResidency<MeshAsset>& meshes,
                                GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
-                               Diligent::TEXTURE_FORMAT depth, bool skinned)
-    : prepared_(prepared), geometry_(prepare_mesh_pose_geometry(prepared.mesh->mesh)),
+                               Diligent::TEXTURE_FORMAT depth, bool skinned,
+                               std::shared_ptr<const MeshPoseGeometry> geometry)
+    : prepared_(prepared),
+      geometry_(geometry ? std::move(geometry)
+                         : std::make_shared<const MeshPoseGeometry>(
+                               prepare_mesh_pose_geometry(prepared.mesh->mesh))),
       skinned_(skinned) {
     const auto& source = prepared.mesh.get();
     validate_mesh_material_bindings(source);
