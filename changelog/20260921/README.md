@@ -822,3 +822,15 @@
 - Static UI captures clear the ImGui navigation cursor as well as the mouse pointer, following pinned source hover behavior. Production keyboard navigation and help remain unchanged.
 - Follow-up validation passes locally: editor/browser 2/2 (12.47 s), asset discovery/file operations/material pipeline 3/3 (30.12 s), and strict ASan/UBSan/LSan 3/3 (31.32 s). Windows follow-up remains pending; no final-package claim.
 - The preceding Windows audit passed 50/51 tests and all core/SDK profiles passed. The remaining browser failure exposed raw slash versus backslash comparison in Windows locators, creating a duplicate source row beside its registered asset. Ordinal case comparison now uses generic separators; a Windows regression checks both spellings. The near-limit atomic staging regressions now pass on Windows.
+
+
+## Texture inspection (continuing Phase 7)
+
+- Added a cached presentation preview over verified cooked textures, using the existing async resource pool and GPU lease/fence path. Failed replacements retain the previous usable revision; asset/variant changes clear inappropriate fallback.
+- Added mip, array layer, cube face, volume depth, channel, color/data/HDR, exposure, alpha/checkerboard and nearest/linear viewing controls. Zoom renders only the visible crop rather than downsampling an entire large texture before inspection.
+- Standalone textures show preview and a separate import-settings foldout in their central document. Generated model texture members open a read-only central Texture tab instead of being sent to the standalone image importer.
+- Added native GPU readback regressions for dimensions/subresources, transfer, alpha, filtering, crop, HDR, revision refresh, failed replacement and missing semantic variants. Extended actual editor captures to import and show a four-color texture at 100%/200% UI scale. Native execution and visual review are pending; no numbered package.
+- Local shared-document/editor regressions pass 4/4 (14.43 s), including actual import/reimport and preview accessibility outside disabled import controls. Generic presentation/main syntax checks and manual tests pass; these do not substitute for Windows GPU execution.
+- Exact D3D12 backend inspection corrected the initial generic-view assumption: array/cube face previews use one-slice 2D-array SRVs and matching shaders because non-array SRVs cannot address an offset array slice on this backend. No dependency pin changed.
+- The preceding Content correction now passes all 51 Windows native tests (187.45 s); its actual material captures confirm keyboard tooltips no longer obscure the screenshot. The 200% narrow capture exposed a clipped preview geometry label, now changed to the shared stacked property row. Texture preview fields use the same layout.
+- Final local document pass is 4/4 (14.70 s), with generic renderer/test/main syntax, manual and format checks passing. The preceding Content checkpoint also completed all Linux/Windows core and exact SDK profiles successfully. Texture-preview native rendering remains pending.

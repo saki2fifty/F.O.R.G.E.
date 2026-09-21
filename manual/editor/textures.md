@@ -3,7 +3,8 @@
 Import prepares an image for use as a texture and gives it a durable asset identity.
 The original image stays unchanged. Texture import is available in the current
 Phase7 source. Assign textures to surface roles in the [Material editor](materials.md);
-its surface preview shows them on geometry. A dedicated texture preview is still being built.
+its surface preview shows them on geometry. The Texture import document also displays
+the last published texture.
 
 ## Import an image
 
@@ -44,7 +45,7 @@ container's declared color space is rejected.
 
 ## Change settings later
 
-Double-click a texture in Content, or select it and choose **Import settings** in
+Double-click a texture in Content, or select it and choose **Open texture** in
 Inspector. The same Texture import document opens with its saved settings.
 
 Edits stay in this draft until **Import / Reimport** succeeds. **Use default** removes
@@ -69,3 +70,27 @@ Keep each source's adjacent `.forge-import.json` file and `forge.assets.json` wi
 the project. They preserve identity and settings. `.forge/cache` is disposable
 prepared data; removing it causes a verified rebuild. Do not copy a sidecar to
 create a different logical asset with the same ID.
+
+## Inspect the published texture
+
+Double-click a standalone texture in Content to open its import document and preview.
+Textures generated inside a model open a read-only **Texture** tab. Change those
+textures through the owning model source/import rather than importing the model as an image.
+
+The preview uses the **published** asset. Unapplied import settings do not change
+it. A failed replacement keeps the previous good revision visible with an error.
+Viewing never changes scene content or creates an Undo entry.
+
+- **Variant** chooses color, data, normal or HDR interpretation. A missing variant reports an error; it is not silently replaced with color.
+- Expand **View controls** for **Mip**, **Array layer**, **Cube face** or **Depth slice**, as appropriate to the texture.
+- **Channels** isolates red, green, blue or alpha as grayscale. Isolated RGB channels show sampled linear values; alpha has no gamma transfer.
+- **Display** chooses raw data, ordinary color or HDR with PBR Neutral tone mapping. **Exposure (stops)** changes brightness without changing the pixels on disk.
+- **Checkerboard** reveals transparency in RGBA mode. **Nearest pixels** shows individual texels instead of filtering between them.
+- **Signed values to 0..1** makes negative numeric values visible by mapping −1 to black and +1 to white. Alpha is unchanged.
+- **Fit image** fits the image. **1:1 pixels** shows one cooked texel per screen pixel; **Image zoom** and the scrollbars let you inspect other magnifications and regions. Ctrl+Plus/Minus still scales the whole editor.
+
+Only the visible image region is rendered. Preview output is limited to 2048 pixels
+per axis; exceptionally large visible areas are downsampled. This viewer has separate
+256 MiB CPU and GPU texture payload budgets. An asset exceeding the preview budget
+can remain valid for another consumer; the preview reports the limitation.
+Import settings are under the separate **Import settings** foldout.

@@ -89,8 +89,9 @@ class MaterialPreview {
         ui::heading("Preview", "Unsaved material preview uses isolated resources and the same "
                                "renderer as Scene and Game. It never edits scene content.");
         int kind = shape == 0 ? 1 : shape == 3 ? 2 : 0;
-        ImGui::SetNextItemWidth(150 * ui::interface_scale);
-        if (ImGui::Combo("Geometry", &kind, "Sphere\0Cube\0Plane\0"))
+        ui::property_label_row("Geometry",
+                               "Select the geometry used only for this material preview.");
+        if (ImGui::Combo("##Geometry", &kind, "Sphere\0Cube\0Plane\0"))
             shape = kind == 0 ? 1 : kind == 1 ? 0 : 3;
         ui::help("Select engine preview geometry with the same UV/tangent streams used by authored "
                  "meshes.");

@@ -44,6 +44,7 @@
 #include "shader_imports.hpp"
 #include "status_bar.hpp"
 #include "texture_imports.hpp"
+#include "texture_viewer.hpp"
 #include "transform_gesture.hpp"
 #include "view_state.hpp"
 #include "viewport.hpp"
@@ -325,6 +326,18 @@ int main(int argc, char** argv) {
         forge::ui::FlecsScriptEditor script_editor(std::filesystem::path(base) / "forge_tools.exe");
         forge::TextureImportEditor texture_imports(std::filesystem::path(base) /
                                                    "forge_asset_build.exe");
+        std::unique_ptr<forge::TextureViewer> texture_viewer;
+        forge::TextureViewerDocument texture_view_document(presentation, context);
+        texture_imports.preview_before_settings = true;
+        texture_imports.draw_extension = [&](auto& document, bool draft) {
+            if (!mesh_resources || !texture_imports.selected_asset())
+                return;
+            if (!texture_viewer || texture_viewer->project() != document.project())
+                texture_viewer = std::make_unique<forge::TextureViewer>(presentation, context,
+                                                                        document.project());
+            texture_viewer->draw(mesh_resources->catalog(), {texture_imports.selected_asset()},
+                                 draft);
+        };
         forge::ModelImportEditor model_imports(
             std::filesystem::path(base) / "forge_asset_build.exe",
             std::filesystem::path(base) / "tools/gltf2ozz.exe", scene, editor.selection);
@@ -600,8 +613,26 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(texture_imports.close_cancelled, false); }});
-        asset_editors.add({"texture", "Import settings", [&](const forge::AssetRecord& asset) {
-                               texture_imports.open(files.document, asset.source);
+        documents.add({"texture_viewer",
+                       "Texture",
+                       "Texture###Texture viewer",
+                       true,
+                       [&] { return texture_view_document.is_open(); },
+                       {},
+                       [&] {
+                           texture_view_document.draw(files.document.project(),
+                                                      mesh_resources ? mesh_resources->catalog()
+                                                                     : nullptr);
+                       },
+                       {},
+                       {},
+                       {},
+                       [&] { texture_view_document.close(); }});
+        asset_editors.add({"texture", "Open texture", [&](const forge::AssetRecord& asset) {
+                               if (asset.subasset)
+                                   texture_view_document.open(files.document.project(), asset.id);
+                               else
+                                   texture_imports.open(files.document, asset.source);
                            }});
         documents.add({"model_import",
                        "Model import",
@@ -1189,9 +1220,12 @@ int main(int argc, char** argv) {
                     image[14] = 2;
                     image[16] = 24;
                     image[17] = 32;
-                    image.append(12, char(255));
+                    for (unsigned char value : std::array<unsigned char, 12>{
+                             0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255})
+                        image.push_back(char(value));
                     forge::atomic_write(files.document.project() / "Assets/texture.tga", image);
                     texture_imports.open(files.document, "Assets/texture.tga");
+                    texture_imports.request_save();
                     break;
                 }
                 case 27:
@@ -2287,6 +2321,8 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             ++fixture.frames;
             if (fixture.prepared && fixture.frames > 12 &&
+                ((fixture.stage != 26 && fixture.stage != 27) ||
+                 (texture_viewer && texture_viewer->ready())) &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
                 (fixture.stage < 28 || (material_preview && !material_preview->pending())) &&
@@ -2295,6 +2331,10 @@ int main(int argc, char** argv) {
                   content_files.operation()->state() == forge::AssetFileState::Review))) {
                 if (fixture.stage >= 28 && !material_preview->diagnostics().empty())
                     throw std::runtime_error("Material editor fixture preview failed");
+                if ((fixture.stage == 26 || fixture.stage == 27) &&
+                    !texture_viewer->error().empty())
+                    throw std::runtime_error("Texture viewer fixture failed: " +
+                                             texture_viewer->error());
                 if (fixture.stage == 0) {
                     auto* content_window = ImGui::FindWindowByName("Content");
                     if (!content_window || !content_window->DockTabIsVisible)
@@ -2326,6 +2366,10 @@ int main(int argc, char** argv) {
             const auto present = forge::ui::Performance::Clock::now();
             if (mesh_resources)
                 mesh_resources->submit();
+            if (!texture_imports.is_open() ||
+                (texture_viewer && texture_viewer->project() != files.document.project()))
+                texture_viewer.reset();
+            texture_view_document.after_submission(files.document.project());
             swap->Present(0);
             performance.finish(ui_submit, present);
         }

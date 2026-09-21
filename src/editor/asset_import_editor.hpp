@@ -24,6 +24,7 @@ class AssetImportEditor {
         std::copy(profile_.source_example.begin(), profile_.source_example.end(), source_);
     }
     std::function<void(SceneDocument&, bool)> draw_extension;
+    bool preview_before_settings = false;
     AssetId selected_asset() const { return draft_ ? draft_->ticket.owner : AssetId{}; }
     std::uint64_t selection_generation() const { return selection_generation_; }
     bool pending() const { return job_ != 0; }
@@ -216,11 +217,24 @@ class AssetImportEditor {
                                                     "draft. Import applies the change."))
                     draft_->request.settings =
                         draft_->importer->settings().reset(draft_->request.settings);
-                ui::heading("Import settings",
+                ImGui::EndDisabled();
+                if (draw_extension && preview_before_settings)
+                    draw_extension(document, job_ || dirty());
+                ImGui::BeginDisabled(locked || job_);
+                const bool show_settings =
+                    !preview_before_settings || ImGui::CollapsingHeader("Import settings");
+                if (preview_before_settings)
+                    ui::help("Edit source cooking settings. These remain a draft until Import "
+                             "succeeds.");
+                if (show_settings) {
+                    if (!preview_before_settings)
+                        ui::heading(
+                            "Import settings",
                             "These fields come from the selected importer schema. Changes remain a "
                             "draft until Import succeeds.");
-                ui::import_settings_fields(draft_->importer->settings(), draft_->request.settings,
-                                           error_);
+                    ui::import_settings_fields(draft_->importer->settings(),
+                                               draft_->request.settings, error_);
+                }
                 ImGui::EndDisabled();
             }
             if (job_) {
@@ -239,7 +253,7 @@ class AssetImportEditor {
             draw_conflicts(locked || job_);
             if (!error_.empty())
                 ui::field_error(error_);
-            if (draw_extension)
+            if (draw_extension && !preview_before_settings)
                 draw_extension(document, locked || job_ || dirty());
         }
         ImGui::End();

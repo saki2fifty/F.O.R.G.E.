@@ -235,8 +235,8 @@ The private `forge.texture.image` and `forge.texture.container` importers now
 connect discovery, a supervised `forge_asset_build` process, parent-side cooked
 validation, immutable cache publication and CPU resource loading. The worker
 receives owned input snapshots; it never receives a project writer lease, ECS
-world or graphics device. These factories are being connected to editor commands;
-they are not yet a complete Content import workflow.
+world or graphics device. Content and the central Texture import document use these factories; broader batch
+file import and browser thumbnails remain tracked separately.
 
 An imported texture publishes one `forge.texture-bundle` version1 index named
 `texture.json`, plus canonical `texture-color.ftex`, `texture-data.ftex`,
@@ -280,3 +280,39 @@ Production process limits are not weakened for sanitizer tests. Direct recipes a
 codecs run with ASan/UBSan/LeakSanitizer; ordinary builds separately exercise actual
 supervised processes because ASan's shadow reservation exceeds the production
 virtual-memory limit on Linux.
+
+## Presentation preview
+
+`TexturePreviewRenderer` is a private presentation adapter over admitted Diligent
+textures, independent of ImGui and asset identity. Exact DiligentCore
+744f079f61cdbda15d371383682418fc927e4a61 generic validation permits a single
+cube/array slice as a 2D SRV, but `TextureD3D12Impl.cpp` rejects a nonzero first
+slice on that non-array view. Preview therefore uses a one-slice **2D-array SRV**
+and matching array shader for cubes/arrays; ordinary 2D and volume textures use
+their matching shaders. Volumes sample the selected depth center. One-mip views prevent implicit selection of another mip. Settings validate
+indices, finite exposure (±20 stops), normalized nonempty crop, and nonzero output
+dimensions up to 2048 per axis before replacing output.
+
+Color textures use hardware sRGB decoding and the pinned DiligentFX sRGB output
+transfer exactly once. Data previews display sampled numeric values. HDR uses the
+same pinned PBR Neutral implementation as display resolve. Isolated channels show
+sampled linear values directly; alpha is unsigned and not gamma-transformed.
+Premultiplied input is unpremultiplied for display, with a defined zero-alpha path.
+The optional checkerboard composites in linear space for color/HDR views. Unknown
+or custom alpha modes display as straight alpha; they are not a custom blend evaluator.
+
+`TextureAssetPreview` reuses `request_texture`, `ResourcePool<TextureAsset>` and
+`GpuResidency<TextureAsset>`; it is not another asset database or resource identity.
+Selected DDC receipts and hashes are verified by a worker. GPU realization stays
+on the presentation thread. One worker/eight requests/sixteen slots and 256 MiB
+CPU/GPU payload budgets bound each preview owner. The underlying decoder still
+has its existing independent temporary-admission bounds. Previous good revisions
+survive failed replacement, while switching asset/semantic clears that fallback.
+Native SRBs release source bindings after draw; accounted leases and fences retain
+submitted inputs. Closed viewer resources retire after ImGui submission. Cached
+output is reused while selected resource revision, dimensions, crop and controls
+are unchanged. This is a live document preview, not yet the browser thumbnail cache.
+
+The standalone texture import document owns its draft/save workflow and shows its
+preview before a collapsed import-settings section. Generated model textures use
+a read-only central document. Neither view creates a Flecs world or authored data.

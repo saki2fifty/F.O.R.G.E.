@@ -188,6 +188,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "skin_render_tests.hpp"
 #include "surface_frame_tests.hpp"
 #include "texture_gpu_tests.hpp"
+#include "texture_preview_tests.hpp"
 #include "transmission_background_tests.hpp"
 #include "transmission_render_tests.hpp"
 int main(int argc, char** argv) {
@@ -247,6 +248,7 @@ int main(int argc, char** argv) {
             else if (selected == "frame")
                 check_frame_renderer(isolated, context, images);
             else if (selected == "optics") {
+                check_texture_preview(isolated, context, images);
                 check_display_resolve(isolated, context, images);
                 check_transmission_background(isolated, context);
                 check_transmission_render(isolated, context, images);
@@ -304,6 +306,7 @@ int main(int argc, char** argv) {
         check_shadow_render(presentation, context, images);
         check_gpu_residency(presentation, context);
         check_texture_upload(presentation, context);
+        check_texture_preview(presentation, context, images);
         check_native_pbr(presentation, context);
         auto original = render("grid");
         check_axes(original, width, height, camera);

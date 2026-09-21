@@ -42,6 +42,13 @@ int main(int argc, char** argv) {
         ui::EditorUiContext context;
         ui::ContextScope scope(context);
         TextureImportEditor editor(std::filesystem::absolute(argv[1]));
+        editor.preview_before_settings = true;
+        unsigned preview_calls = 0;
+        editor.draw_extension = [&](auto&, bool) {
+            require((ImGui::GetCurrentContext()->CurrentItemFlags & ImGuiItemFlags_Disabled) == 0,
+                    "Preview navigation was disabled with import settings");
+            ++preview_calls;
+        };
         std::string message;
         auto frame = [&] {
             editor.poll(document, message);
@@ -54,6 +61,7 @@ int main(int argc, char** argv) {
             std::cerr << problem.text << '\n';
         require(editor.dirty(), "New import is not pending");
         frame();
+        require(preview_calls == 1, "Texture preview was omitted or duplicated in its document");
         editor.request_close();
         frame();
         require(ImGui::GetTopMostPopupModal() != nullptr, "Close skipped unpublished import guard");
