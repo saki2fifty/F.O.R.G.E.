@@ -172,6 +172,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "punctual_light_tests.hpp"
 #include "shadow_render_tests.hpp"
 #include "shadow_view_tests.hpp"
+#include "skin_render_tests.hpp"
 #include "surface_frame_tests.hpp"
 #include "texture_gpu_tests.hpp"
 #include "transmission_background_tests.hpp"
@@ -254,6 +255,7 @@ int main(int argc, char** argv) {
         check_transmission_background(presentation, context);
         check_transmission_render(presentation, context, images);
         check_frame_renderer(presentation, context, images);
+        check_skin_draw(presentation, context, images);
         check_shadow_views(presentation);
         check_shadow_render(presentation, context, images);
         check_gpu_residency(presentation, context);

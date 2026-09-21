@@ -3,6 +3,7 @@
 #include "material_shader.hpp"
 #include "mesh_vertex_fetch.hpp"
 #include "presentation_diligent.hpp"
+#include "render_bounds.hpp"
 #include "shadow_lighting.hpp"
 #include "transmission_background.hpp"
 #include <forge/render_view.hpp>
@@ -24,7 +25,7 @@ class MeshDraw {
               const std::array<float, 3>* legacy_tint = nullptr,
               const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
               const TransmissionLighting* transmission = nullptr,
-              std::span<const float> morph_weights = {});
+              std::span<const float> morph_weights = {}, const SkinPose* skin = nullptr);
 
   private:
     GpuMeshPart mesh_;
@@ -37,6 +38,6 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
     float volume_thickness_{};
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_;
 };
 } // namespace forge

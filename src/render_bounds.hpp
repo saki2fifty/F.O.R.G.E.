@@ -12,6 +12,7 @@ RenderBounds transform_bounds(const MeshBounds&, const AffineTransform&);
 // already in world space (joint world * inverse bind); no inverse of the mesh
 // node is needed or permitted. Bounds enclose every positive normalized blend.
 struct SkinPose {
+    MeshBounds source_bounds;
     std::vector<AffineTransform> palette;
     RenderBounds bounds;
 };

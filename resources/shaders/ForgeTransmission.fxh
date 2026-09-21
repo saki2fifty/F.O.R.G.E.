@@ -7,13 +7,12 @@ cbuffer ForgeTransmission {float4 g_TransmissionViewport;float4 g_TransmissionIn
 float3 ForgeBackground(float2 uv,float lod) {
     return g_ForgeTransmission.SampleLevel(g_ForgeLightSampler,uv,lod).rgb;
 }
-float ForgeNormalThickness(float thickness,float3 geometric) {
+float ForgeNormalThickness(float thickness,float3 geometric,float3x3 basis,float largest,bool singular) {
     // A = largest * basis. ||A^T N|| is the affine scale of normal
     // thickness. This supports shear/reflections without an inverse. A surviving
     // rank-two surface has zero normal thickness; keep it a thin surface.
-    if(g_Object[13].w!=0 || thickness==0)return 0;
-    float3x3 basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_Object[5].xyz);
-    return thickness*g_Object[13].y*length(mul(geometric,basis));
+    if(singular || thickness==0)return 0;
+    return thickness*largest*length(mul(geometric,basis));
 }
 float3 ForgeTransportChannel(float3 position,float3 view,float3 normal,float3 geometric,
                               float2 sightline,float normalThickness,float ior,float roughness,
@@ -56,9 +55,10 @@ float3 ForgeTransportChannel(float3 position,float3 view,float3 normal,float3 ge
 }
 float3 ForgeTransport(float3 position,float3 view,float3 normal,float3 geometric,
                       float2 pixel,float thickness,float ior,float dispersion,float roughness,
-                      float attenuationDistance,float3 attenuationColor,bool front) {
+                      float attenuationDistance,float3 attenuationColor,bool front,
+                      float3x3 basis,float largest,bool singular) {
     float2 uv=(pixel-g_TransmissionViewport.xy)*g_TransmissionViewport.zw;
-    float worldThickness=ForgeNormalThickness(thickness,geometric);
+    float worldThickness=ForgeNormalThickness(thickness,geometric,basis,largest,singular);
     if(dispersion==0 || worldThickness==0)
         return ForgeTransportChannel(position,view,normal,geometric,uv,worldThickness,ior,
                                       roughness,attenuationDistance,attenuationColor,front);

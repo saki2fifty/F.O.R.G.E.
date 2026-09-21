@@ -59,22 +59,85 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                 "anisotropy requires authored normal/tangent or a base normal map");
     const auto material = material_shader(profile, fetch.uv_sets);
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
-    const std::string varyings =
+    const std::string skin = fetch.skin ? R"(
+// Common positive normalization avoids overflowing weighted linear matrices.
+// Translations are independently camera relative before upload.
+cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
+)"
+                                        : "";
+    std::string varyings =
         "struct ForgeVarying {float4 Position:SV_Position;float3 World:TEXCOORD0;"
         "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
         "float4 Color:COLOR0;float2 UV[" +
-        std::to_string(uv_count) + "]:TEXCOORD4;};\n";
-    const std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source +
-                           fetch.source + varyings + R"(
+        std::to_string(uv_count) + "]:TEXCOORD4;";
+    if (fetch.skin)
+        varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) +
+                    ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
+    varyings += "};\n";
+    std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source + skin +
+                     fetch.source + varyings + R"(
 ForgeVarying main(uint id:SV_VertexID) {
     ForgeMeshVertex v=ForgeLoadMeshVertex(id);
     ForgeVarying o=(ForgeVarying)0;
-    o.World=ForgePoint(v.Position);o.Position=ForgeProject(o.World);o.Color=v.Color;
-    float3x3 basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_Object[5].xyz);
+    float3x3 basis;
+)";
+    if (fetch.skin) {
+        vs += R"(
+    float4 weights=v.Weights/dot(v.Weights,float4(1,1,1,1));
+    float4 rows[3];
+    [unroll]for(uint r=0;r<3;r++) {
+        rows[r]=weights.x*g_SkinRows[3*v.Joints.x+r]+weights.y*g_SkinRows[3*v.Joints.y+r]+
+                weights.z*g_SkinRows[3*v.Joints.z+r]+weights.w*g_SkinRows[3*v.Joints.w+r];
+    }
+    basis=float3x3(rows[0].xyz,rows[1].xyz,rows[2].xyz);
+    o.World=mul(basis,v.Position)*g_SkinInfo.x+float3(rows[0].w,rows[1].w,rows[2].w);
+)";
+        vs += "o.Source=v.Position;[unroll]for(uint k=0;k<3;k++)o.SkinRows[k]=basis[k];\n";
+    } else
+        vs += "o.World=ForgePoint(v.Position);basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_"
+              "Object[5].xyz);\n";
+    vs += R"(
+    o.Position=ForgeProject(o.World);o.Color=v.Color;
     ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
-    )" + "[unroll]for(uint i=0;i<" +
-                           std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
+)"
+          "[unroll]for(uint i=0;i<" +
+          std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
+    std::string geometry;
+    if (fetch.skin && fetch.triangles)
+        geometry = std::string("#include \"ForgeSurface.fxh\"\n") + skin + varyings + R"(
+float ForgeMagnitude(float3 a) {return max(abs(a.x),max(abs(a.y),abs(a.z)));}
+[maxvertexcount(3)]
+void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> output) {
+    float sourceScale=max(ForgeMagnitude(input[0].Source),max(ForgeMagnitude(input[1].Source),ForgeMagnitude(input[2].Source)));
+    float worldScale=max(ForgeMagnitude(input[0].World),max(ForgeMagnitude(input[1].World),ForgeMagnitude(input[2].World)));
+    if(!(sourceScale>0) || !(worldScale>0))return;
+    float3 p0=input[0].Source/sourceScale,p1=input[1].Source/sourceScale,p2=input[2].Source/sourceScale;
+    float3 q0=input[0].World/worldScale,q1=input[1].World/worldScale,q2=input[2].World/worldScale;
+    float3 n=ForgeUnit(cross(ForgeUnit(p1-p0),ForgeUnit(p2-p0)));
+    float3 area=cross(ForgeUnit(q1-q0),ForgeUnit(q2-q0));
+    if(!any(n!=0) || !any(area!=0))return;
+    float3 extension=0;
+    [unroll]for(uint i=0;i<3;i++)
+        extension+=mul(float3x3(input[i].SkinRows[0],input[i].SkinRows[1],input[i].SkinRows[2]),n)/3;
+    // Piecewise affine triangle map extended in its source-normal direction.
+    // For uniform A this is det(A)*|n|², including shear and reflection.
+    float orientation=dot(area,extension);
+    float error=32*1.192092896e-7*dot(abs(area),abs(extension));
+    bool swap=orientation < -error;
+    if(abs(orientation)<=error) {
+        // A surviving rank-two surface has no volume side. Emit its camera-facing
+        // winding instead of disabling culling for every skinned triangle.
+        float3 a=input[0].Position.xyw,b=input[1].Position.xyw,c=input[2].Position.xyw;
+        float largest=max(ForgeMagnitude(a),max(ForgeMagnitude(b),ForgeMagnitude(c)));
+        if(!(largest>0))return;
+        float projected=dot(a/largest,cross(b/largest,c/largest));
+        swap=(projected<0)!=(g_SkinInfo.y!=0);
+    }
+    output.Append(input[0]);output.Append(input[swap?2:1]);output.Append(input[swap?1:2]);
+    output.RestartStrip();
+}
+)";
     if (shadow_pass) {
         std::string depth = varyings + material.source + "void main(ForgeVarying input) {\n";
         if (source.alpha == MaterialAlpha::Mask) {
@@ -86,7 +149,7 @@ ForgeVarying main(uint id:SV_VertexID) {
             depth += "if(alpha<ForgeAlphaCutoff())discard;\n";
         }
         depth += "}\n";
-        return {vs, depth, material, false};
+        return {vs, depth, material, false, false, geometry};
     }
     std::string ps =
         "#define USE_IBL 1\n#define USE_HDR_IBL_CUBEMAPS 1\n#define TEX_COLOR_CONVERSION_MODE 0\n";
@@ -100,7 +163,7 @@ ForgeVarying main(uint id:SV_VertexID) {
     ps += "#include \"ForgeSurface.fxh\"\n#include \"ForgeLighting.fxh\"\n";
     if (profile.workflow == PbrWorkflow::MetallicRoughness)
         ps += "#include \"Iridescence.fxh\"\n";
-    ps += object_source + varyings + material.source;
+    ps += object_source + skin + varyings + material.source;
     if (sheen)
         ps += "Texture2D g_ForgeSheen;\n";
     if (profile.workflow != PbrWorkflow::Unlit)
@@ -303,13 +366,28 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             const std::string attenuation = source.parameters.contains("attenuationDistance")
                                                 ? "ForgeParameter_attenuationDistance()"
                                                 : "0";
+            if (fetch.skin)
+                ps +=
+                    "float3x3 "
+                    "volumeBasis=float3x3(input.SkinRows[0],input.SkinRows[1],input.SkinRows[2]);\n"
+                    "float volumeDet=dot(volumeBasis[0],cross(volumeBasis[1],volumeBasis[2]));\n"
+                    "float "
+                    "volumeError=32*1.192092896e-7*dot(abs(volumeBasis[0]),abs(volumeBasis[1].yzx*"
+                    "volumeBasis[2].zxy)+abs(volumeBasis[1].zxy*volumeBasis[2].yzx));\n"
+                    "bool volumeSingular=abs(volumeDet)<=volumeError;float "
+                    "volumeScale=g_SkinInfo.x;\n";
+            else
+                ps += "float3x3 "
+                      "volumeBasis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_Object[5].xyz);\n"
+                      "bool volumeSingular=g_Object[13].w!=0;float volumeScale=g_Object[13].y;\n";
             ps += "float3 transported=ForgeTransport(input.World,s.View,n,geometric*face,"
                   "input.Position.xy,volumeThickness,ForgeParameter_ior(),ForgeParameter_"
                   "dispersion(),"
                   "s.BaseLayer.Srf.PerceptualRoughness," +
                   attenuation +
                   ","
-                  "ForgeParameter_attenuationColor(),front);\n";
+                  "ForgeParameter_attenuationColor(),front,volumeBasis,volumeScale,volumeSingular);"
+                  "\n";
             ps += R"(
     IBLSamplingInfo reflection=GetIBLSamplingInfo(s.BaseLayer.Srf,g_ForgeGGX,
         g_ForgeLightSampler,n,s.View);
@@ -334,6 +412,6 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 })";
     }
 
-    return {vs, ps, material, sheen, transmission};
+    return {vs, ps, material, sheen, transmission, geometry};
 }
 } // namespace forge

@@ -81,6 +81,7 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProf
                 desc.Size <= std::numeric_limits<std::uint32_t>::max(),
             "raw vertex buffer range is unavailable");
     MeshVertexFetch result;
+    result.triangles = mesh.topology == PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     std::set<unsigned> uv_sets;
     for (const auto& [name, texture] : material.values.textures) {
         (void)name;

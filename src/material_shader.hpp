@@ -1,15 +1,17 @@
 #pragma once
 #include "pbr_material.hpp"
 namespace forge {
+inline constexpr const char* material_sampler_variable = "g_MaterialSamplers";
 struct MaterialShaderTexture {
-    std::string role, texture_variable, sampler_variable;
-    unsigned uv_slot{};
+    std::string role, texture_variable;
+    unsigned uv_slot{}, sampler_slot{};
     MaterialTextureSlot settings;
 };
 struct MaterialShader {
     std::string source;
     std::vector<std::array<float, 4>> uniforms;
     std::vector<MaterialShaderTexture> textures;
+    std::vector<SamplerState> samplers;
 };
 // Engine-owned shader binding adapter. Parameter values and UV transforms are
 // uniforms, so changing a factor never creates a new shader permutation.

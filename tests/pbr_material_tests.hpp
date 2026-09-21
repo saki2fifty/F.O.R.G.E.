@@ -63,11 +63,11 @@ inline void test_pbr_material_profile() {
     shared_sampler.textures["occlusionTexture"].semantic = TextureSemantic::Data;
     const auto shared = material_shader(prepare_pbr_material(shared_sampler), uv_sets);
     check(shared.textures.size() >= 2 &&
-              shared.textures.front().sampler_variable == shared.textures.back().sampler_variable,
+              shared.textures.front().sampler_slot == shared.textures.back().sampler_slot,
           "Identical sampler states did not share a binding");
     shared_sampler.textures["occlusionTexture"].sampler.u = TextureWrap::ClampEdge;
     const auto separate = material_shader(prepare_pbr_material(shared_sampler), uv_sets);
-    check(separate.textures.front().sampler_variable != separate.textures.back().sampler_variable,
+    check(separate.textures.front().sampler_slot != separate.textures.back().sampler_slot,
           "Different texture wrap semantics were merged");
     check(shader.textures.size() == 1 && shader.textures[0].uv_slot == 1 &&
               shader.textures[0].settings == slot,

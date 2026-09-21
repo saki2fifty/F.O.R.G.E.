@@ -64,6 +64,7 @@ SkinPose prepare_skin_pose(std::span<const AffineTransform> joint_world,
                 draw_palette.size() <= 256,
             "Invalid skin joint, inverse-bind or draw-palette count");
     SkinPose result;
+    result.source_bounds = morphed_bounds;
     result.palette.reserve(draw_palette.size());
     for (const auto joint : draw_palette) {
         require(joint < joint_world.size(), "Skin draw palette exceeds binding joints");

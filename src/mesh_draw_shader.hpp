@@ -7,6 +7,7 @@ struct MeshDrawShader {
     std::string vertex, pixel;
     MaterialShader material;
     bool sheen{}, transmission{};
+    std::string geometry;
 };
 // Pure source/binding preparation; no device, pipeline or source importer.
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile&,

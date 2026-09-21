@@ -720,3 +720,48 @@ admitted UV/color contract. No vendor patch or dependency change. Local bounds t
 and supplementary HLSL compilation pass for1 and256 targets; Windows fixtures for
 movement, signed weights, colors, UV19, normals and tangent handedness are pending.
 This does not establish GPU skinning or complete animated model placement.
+
+### Prepared skin draw (integration in progress)
+
+The backend-private draw now accepts a complete copied world-space skin palette.
+It applies normalized four-influence linear blend skinning after morph evaluation,
+using a common positive linear normalization and camera-relative translations.
+The source mesh-node transform is ignored. The existing cofactor surface-frame
+adapter receives the complete blended linear matrix; no inverse of a zero-scale
+joint or mesh-node matrix is evaluated. Color and shadow draws use the same
+vertex deformation. GPU admission rejects invalid palette counts, nonfinite
+matrices and derived arithmetic overflow before submission.
+
+For triangular skins a geometry stage determines the orientation of the deformed
+triangle map, rather than assuming that joint determinant signs determine the
+blend. It uses actual deformed edges and the source-normal-direction derivative
+averaged across the three vertex blends. A negative orientation reverses emitted
+winding while preserving hardware back-face culling. A rank-deficient surviving
+surface emits its camera-facing winding. The uniform-affine reduction is
+`((A*u) × (A*v)) · (A*(u × v)) = det(A) * |u × v|²`.
+This is a FORGE adapter, not a claimed native Diligent skin-parity implementation.
+
+The shader source and CPU pose preparation have local compile/math tests. Native
+Windows fixtures now cover asymmetric reflection, sequential zero crossing,
+positive-joint/negative-blend orientation, ignored singular mesh nodes, large
+coordinates, invalid palettes and matching shadow depth. Their GPU execution is
+pending. Scene/model instance bindings and runtime-driven palettes remain to be
+connected; this section does not claim the complete animated-model workflow.
+
+
+### Sampler-array admission correction
+
+Adding shadow comparison to the 15-texture reflection fixture exceeded FXC's
+scalar sampler declaration limit. A focused Windows SDK compiler probe verified
+that a bounded 19-element sampler array compiles under SM5.1; 19 separate scalar
+declarations failed even with separate register spaces or the unbounded-table flag.
+The material adapter therefore uses one bounded array with deterministic indices.
+Equal sampler states share an index; different wrap/filter/LOD settings remain
+independent. Native SRB `SetArray` binds the checked reflected extent.
+
+This does not change physical hardware limits: Tier1 still has a 16-sampler
+per-stage descriptor-table limit. Broader combinations require a device supporting
+the corresponding binding profile and successful native pipeline creation. The
+mixed array/lighting compiler check also passes with the default FXC flags. Full
+Diligent rendering regression remains pending; compiler success alone does not
+establish native binding or hardware compatibility.

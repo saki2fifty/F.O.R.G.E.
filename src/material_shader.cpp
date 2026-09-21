@@ -29,7 +29,7 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
                      std::to_string(index) + "]" + lanes[width] + ";}\n";
     }
     std::string declarations;
-    std::map<SamplerState, std::string> samplers;
+    std::map<SamplerState, unsigned> samplers;
     for (const auto& [role, slot] : values.textures) {
         const auto found = std::lower_bound(uv_sets.begin(), uv_sets.end(), slot.uv_set);
         require(found != uv_sets.end() && *found == slot.uv_set,
@@ -37,13 +37,15 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
         const auto uv_slot = static_cast<unsigned>(found - uv_sets.begin());
         const auto index = result.textures.size();
         const auto texture = "g_MaterialTexture" + std::to_string(index);
-        auto [selected, inserted] = samplers.try_emplace(
-            slot.sampler, "g_MaterialSampler" + std::to_string(samplers.size()));
-        const auto& sampler = selected->second;
-        result.textures.push_back({role, texture, sampler, uv_slot, slot});
-        declarations += "Texture2D<float4> " + texture + ";\n";
+        auto [selected, inserted] =
+            samplers.try_emplace(slot.sampler, static_cast<unsigned>(samplers.size()));
+        const auto sampler_slot = selected->second;
         if (inserted)
-            declarations += "SamplerState " + sampler + ";\n";
+            result.samplers.push_back(slot.sampler);
+        const auto sampler =
+            std::string(material_sampler_variable) + "[" + std::to_string(sampler_slot) + "]";
+        result.textures.push_back({role, texture, uv_slot, sampler_slot, slot});
+        declarations += "Texture2D<float4> " + texture + ";\n";
         const auto offset = result.uniforms.size();
         const auto c = std::cos(double(slot.rotation)), s = std::sin(double(slot.rotation));
         result.uniforms.push_back(
@@ -68,6 +70,9 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
                      ",transformed,dx,dy);valid=all(isfinite(value));"
                      "return valid?value:0;}\n";
     }
+    if (!result.samplers.empty())
+        declarations += std::string("SamplerState ") + material_sampler_variable + "[" +
+                        std::to_string(result.samplers.size()) + "] : register(s0,space1);\n";
     require(result.uniforms.size() <= 128, "material uniform block exceeds the built-in profile");
     result.source = "cbuffer ForgeMaterialValues {float4 g_MaterialValues[" +
                     std::to_string(result.uniforms.size()) + "];};\n" + declarations + functions;

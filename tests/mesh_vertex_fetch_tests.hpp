@@ -157,8 +157,8 @@ float4 main(Output input):SV_Target0 {
             material_binding->GetVariableByName(SHADER_TYPE_VERTEX, "g_MeshVertices");
         auto* texture_var = material_binding->GetVariableByName(
             SHADER_TYPE_PIXEL, program.textures[0].texture_variable.c_str());
-        auto* sampler_var = material_binding->GetVariableByName(
-            SHADER_TYPE_PIXEL, program.textures[0].sampler_variable.c_str());
+        auto* sampler_var = material_binding->GetVariableByName(SHADER_TYPE_PIXEL,
+                                                                forge::material_sampler_variable);
         auto* values_var =
             material_binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeMaterialValues");
         require(vertex_var && texture_var && sampler_var && values_var,
@@ -175,7 +175,8 @@ float4 main(Output input):SV_Target0 {
         const auto gpu_sampler = forge::upload_sampler(presentation.device(), texture.sampler);
         vertex_var->Set(uploaded.vertices->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
         texture_var->Set(gpu_texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
-        sampler_var->Set(gpu_sampler);
+        IDeviceObject* sampler_objects[]{gpu_sampler};
+        sampler_var->SetArray(sampler_objects, 0, 1);
         values_var->Set(values_buffer);
         context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

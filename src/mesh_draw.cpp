@@ -44,7 +44,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
     const auto profile = prepare_pbr_material(source);
     const auto fetch = mesh_vertex_fetch(mesh, profile);
-    require(!fetch.skin, "deformed draw requires an admitted pose binding");
+
     const auto program = mesh_draw_shader(fetch, profile, shadow_pass_);
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
@@ -61,6 +61,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         presentation.shader(ci, &result);
         return result;
     };
+    RefCntAutoPtr<IShader> geometry;
+    if (!program.geometry.empty())
+        geometry = compile(SHADER_TYPE_GEOMETRY, program.geometry);
     auto vertex = compile(SHADER_TYPE_VERTEX, program.vertex),
          pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     auto* device = presentation.device();
@@ -84,6 +87,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         sheen = presentation.pbr(context).GetPreintegratedSheen_SRV();
         require(bool(sheen), "native sheen lookup resource unavailable");
     }
+    if (fetch.skin)
+        skin_ = buffer(device, "FORGE copied camera-relative skin", 769 * sizeof(Row));
     RefCntAutoPtr<IBuffer> morph_offsets;
     if (fetch.morph_count) {
         require(mesh.morph_defaults.size() == fetch.morph_count,
@@ -98,6 +103,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
     auto values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
                          material.uniforms.data());
+    std::vector<RefCntAutoPtr<ISampler>> samplers;
+    std::vector<IDeviceObject*> sampler_objects;
+    for (const auto& state : material.samplers) {
+        samplers.push_back(upload_sampler(device, state));
+        sampler_objects.push_back(samplers.back());
+    }
     GraphicsPipelineStateCreateInfo ci;
     ci.PSODesc.Name = "FORGE prepared mesh draw";
     ci.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
@@ -118,6 +129,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         ci.PSODesc.ResourceLayout.NumVariables = Uint32(environment_variables.size());
     }
 
+    ci.pGS = geometry;
     ci.pVS = vertex;
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;
@@ -152,6 +164,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         bind(SHADER_TYPE_VERTEX, "g_MeshVertices",
              mesh.vertices->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
         bind(SHADER_TYPE_VERTEX, "ForgeObject", object_);
+        if (skin_) {
+            bind(SHADER_TYPE_VERTEX, "ForgeSkin", skin_);
+            bind(SHADER_TYPE_GEOMETRY, "ForgeSkin", skin_, false);
+            bind(SHADER_TYPE_PIXEL, "ForgeSkin", skin_, false);
+        }
         if (fetch.morph_count) {
             bind(SHADER_TYPE_VERTEX, "g_ForgeMorphDeltas",
                  mesh.morphs->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
@@ -194,6 +211,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         if (program.sheen) {
             bind(SHADER_TYPE_PIXEL, "g_ForgeSheen", sheen);
         }
+        if (auto* variable = bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL,
+                                                                  material_sampler_variable)) {
+            ShaderResourceDesc desc;
+            variable->GetResourceDesc(desc);
+            require(desc.ArraySize > 0 && desc.ArraySize <= sampler_objects.size(),
+                    "material sampler array differs from the admitted binding table");
+            variable->SetArray(sampler_objects.data(), 0, desc.ArraySize);
+        }
         for (const auto& slot : material.textures) {
             const auto found = textures.find(slot.role);
             require(found != textures.end() && found->second,
@@ -201,8 +226,6 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             const auto& desc = found->second->GetTexture()->GetDesc();
             require(desc.Type == RESOURCE_DIM_TEX_2D, "material texture requires a 2D resource");
             bind(SHADER_TYPE_PIXEL, slot.texture_variable.c_str(), found->second, false);
-            auto sampler = upload_sampler(device, slot.settings.sampler);
-            bind(SHADER_TYPE_PIXEL, slot.sampler_variable.c_str(), sampler, false);
         }
     }
 }
@@ -243,11 +266,13 @@ void MeshDraw::bind_transmission(const TransmissionLighting* lighting) {
     for (auto& binding : bindings_)
         binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeTransmission")->Set(view);
 }
-void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
-                    std::span<const LightView> lights, const EnvironmentLighting* environment,
-                    const std::array<float, 3>* legacy_tint, const ShadowLighting* shadows,
-                    std::span<const int> shadow_slots, const TransmissionLighting* transmission,
-                    std::span<const float> morph_weights) {
+void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world,
+                    const CameraView& view, std::span<const LightView> lights,
+                    const EnvironmentLighting* environment, const std::array<float, 3>* legacy_tint,
+                    const ShadowLighting* shadows, std::span<const int> shadow_slots,
+                    const TransmissionLighting* transmission, std::span<const float> morph_weights,
+                    const SkinPose* skin) {
+    const auto world = skin_ ? AffineTransform{} : object_world;
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
@@ -266,6 +291,57 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
     } else {
         require(morph_weights.empty(), "morph weights supplied to a mesh without targets");
     }
+    if (skin_) {
+        require(skin && skin->palette.size() == mesh_.joint_palette.size(),
+                "skin draw requires the complete admitted palette");
+        double largest = 0;
+        for (const auto& matrix : skin->palette)
+            for (unsigned r = 0; r < 3; ++r)
+                for (unsigned c = 0; c < 4; ++c) {
+                    require(std::isfinite(matrix.m[4 * r + c]), "nonfinite skin matrix");
+                    if (c < 3)
+                        largest = std::max(largest, std::abs(matrix.m[4 * r + c]));
+                }
+        std::array<Row, 769> values{};
+        values[0] = {gpu(largest), view.orientation_reversed ? 1.f : 0.f, 0, 0};
+        require(largest == 0 || values[0][0] != 0, "skin linear scale underflows the GPU profile");
+        std::array<double, 3> extents{};
+        for (unsigned c = 0; c < 3; ++c) {
+            require(std::isfinite(skin->source_bounds.minimum[c]) &&
+                        std::isfinite(skin->source_bounds.maximum[c]) &&
+                        skin->source_bounds.minimum[c] <= skin->source_bounds.maximum[c],
+                    "skin draw has invalid morphed source bounds");
+            extents[c] = std::max(std::abs(double(skin->source_bounds.minimum[c])),
+                                  std::abs(double(skin->source_bounds.maximum[c])));
+        }
+        for (std::size_t i = 0; i < skin->palette.size(); ++i) {
+            const auto& matrix = skin->palette[i];
+            double norm = 0;
+            for (unsigned r = 0; r < 3; ++r) {
+                double products = 0;
+                auto& row = values[1 + 3 * i + r];
+                for (unsigned c = 0; c < 3; ++c) {
+                    const double scaled = largest > 0 ? matrix.m[4 * r + c] / largest : 0;
+                    row[c] = gpu(scaled);
+                    products += std::abs(scaled) * extents[c];
+                    norm = std::hypot(norm, matrix.m[4 * r + c]);
+                }
+                row[3] = gpu(matrix.m[4 * r + 3] - view.position[r]);
+                // Bound intermediate dot products as well as the final position,
+                // including float accumulation slack. Reject derived GPU overflow
+                // without changing authored transforms or the previously bound pose.
+                const double limit = std::numeric_limits<float>::max() /
+                                     (1 + 64 * double(std::numeric_limits<float>::epsilon()));
+                require(products <= limit && products * largest + std::abs(double(row[3])) <= limit,
+                        "skinned positions exceed the finite GPU profile");
+            }
+            require(double(volume_thickness_) * norm <= std::numeric_limits<float>::max(),
+                    "skinned volume thickness exceeds the finite GPU profile");
+        }
+        MapHelper<Row> mapped(context, skin_, MAP_WRITE, MAP_FLAG_DISCARD);
+        std::copy(values.begin(), values.end(), static_cast<Row*>(mapped));
+    } else
+        require(!skin, "skin pose supplied to an unskinned mesh");
     std::array<Row, 15> object{};
     if (legacy_tint) {
         for (unsigned i = 0; i < 3; ++i) {
@@ -341,7 +417,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
         MapHelper<Row> values(context, lights_, MAP_WRITE, MAP_FLAG_DISCARD);
         std::copy(packed.begin(), packed.end(), static_cast<Row*>(values));
     }
-    const auto parity = transform_parity(world);
+    const auto parity = skin_ ? TransformParity::Positive : transform_parity(world);
     const unsigned index =
         parity == TransformParity::Singular
             ? 2
