@@ -382,7 +382,7 @@ subasset identities nor a second binding registry.
 
 ## Scene placement ownership
 
-The internal placement command prepares ordinary scene entities from one selected
+The shared placement command prepares ordinary scene entities from one selected
 Model revision. Each placed node gets a fresh EntityId, independent owned
 LocalTranslation/LocalRotation/LocalScale, and a MeshRenderer where applicable.
 Explicit source TRS is copied through the existing scene numerical admission;
@@ -521,5 +521,36 @@ and checks the runtime animation's model revision before adopting its morph weig
 Per-instance color, shadow and deformed bounds consume one complete prepared pose.
 A failed binding/revision/weight candidate retains the previous pose and resources.
 See [the rendering integration status](rendering-foundation.md#scene-to-mesh-pose-integration--2026-09-21)
-for validation and pending native acceptance; public animated placement is not yet
-claimed complete.
+for validation and pending native acceptance. The model document now exposes
+explicit scene/clip selection and placement; complete Windows visual acceptance
+remains separate from the passing authoring and UI-service tests.
+
+
+## Editor model document
+
+Content registers a Model import document through the existing DocumentWorkspace
+and AssetEditors registries. Texture and Model documents share AssetImportEditor
+for schema-based settings, isolated worker jobs, cancellation, publication receipts,
+Save focus and dirty/close/project-switch guards. Profiles supply exact importer
+registries and family publication functions; no parallel asset catalog is introduced.
+
+Ambiguous family publication exposes candidate addresses and permitted previous
+identities. Explicit decisions are captured by value for the next job and tied to
+the reviewed build-input key. A changed source/settings/tool input rejects those
+decisions before publication. Catalog/sidecar concurrency checks remain enforced by
+AssetPublisher. Decisions are a dirty draft; unresolved validation never becomes a
+partially published family. Texture behavior remains covered by its real-worker
+editor regression.
+
+The Model document asynchronously validates selected immutable metadata and
+releases cooked blob storage before retaining placement metadata. One cancellable
+load runs per document, with project/generation checks before adoption. Source
+scene and optional clip are explicit. Place invokes the existing prepare/commit
+operation, rechecks the current catalog and project writer, and selects the new
+root. Import history and scene history remain independent. A flat clipped source
+node listing is inspection only; it is not another editable runtime hierarchy.
+
+Real-process ImGui tests cover successful import/guarded close, focus, ambiguous
+reimport, stale-decision rejection, new review/publication, signed/zero root scale,
+selection, single-step Undo/Redo and corrupt-source last-good retention. Windows
+visual/render acceptance and further asset-editor preview work remain in progress.

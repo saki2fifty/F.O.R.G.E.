@@ -33,6 +33,8 @@ void check_shadow_views(forge::DiligentPresentation& presentation) {
             "Directional cascade blend regions have no fitted overlap");
     bool covered = false;
     for (const auto& cascade : cascades) {
+        require(cascade.camera.orientation_reversed,
+                "Native left-handed shadow basis lost its winding reversal");
         require(cascade.end > cascade.begin && cascade.camera.position == camera.position,
                 "Shadow cascade lost its camera-relative origin or split order");
         for (auto value : cascade.camera.projection)
@@ -76,6 +78,8 @@ void check_shadow_views(forge::DiligentPresentation& presentation) {
     const auto spot = punctual_shadow_views(light, settings);
     require(spot.size() == 1 && project_render_point(spot[0].camera, {1e12, 1e12, 5}),
             "Spot shadow camera failed perspective depth projection");
+    require(!spot[0].camera.orientation_reversed,
+            "FORGE punctual basis incorrectly adopted native cascade parity");
     const auto& projection = spot[0].camera.projection;
     const double clip_z = 5 * projection[10] + projection[11];
     const double w = 5 * projection[14] + projection[15];

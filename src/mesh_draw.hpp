@@ -17,7 +17,9 @@ class MeshDraw {
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
              Diligent::TEXTURE_FORMAT depth_format, bool enable_skin = true,
-             Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC);
+             Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC,
+             Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
+                 Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT);
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);

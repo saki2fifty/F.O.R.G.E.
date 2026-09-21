@@ -47,22 +47,17 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
             std::to_string((result.morph_count + 3) / 4) +
             "];};\n"
             "float4 ForgeMorphDelta(uint target,uint channel,uint vertex) {\n"
-            "uint4 offsets=g_MorphOffsets[target*" +
+            "uint packed=g_MorphOffsets[target*" +
             std::to_string(rows) +
-            "+channel/4];uint lane=channel%4;\n"
-            "uint packed=lane==0?offsets.x:lane==1?offsets.y:lane==2?offsets.z:offsets.w;\n"
-            "if(packed==0xffffffffu)return 0;\n"
+            "+channel/4][channel%4];if(packed==0xffffffffu)return 0;\n"
             "uint width=(packed&3)+1;uint at=(packed&~3u)+vertex*width*4;\n"
             "if(width==2)return float4(asfloat(g_ForgeMorphDeltas.Load2(at)),0,0);\n"
             "if(width==3)return float4(asfloat(g_ForgeMorphDeltas.Load3(at)),0);\n"
             "return asfloat(g_ForgeMorphDeltas.Load4(at));}\n";
         result.source = prefix + result.source;
-        result.source +=
-            "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
-            ";t++) {float4 weights=g_MorphWeights[t/4];uint lane=t%4;\n"
-            "float w=lane==0?weights.x:lane==1?weights.y:lane==2?weights.z:weights.w;\n"
-            "if(w!=0) {\n"
-            "v.Position+=ForgeMorphDelta(t,0,id).xyz*w;\n";
+        result.source += "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
+                         ";t++) {float w=g_MorphWeights[t/4][t%4];if(w!=0) {\n"
+                         "v.Position+=ForgeMorphDelta(t,0,id).xyz*w;\n";
         if (result.normal)
             result.source += "v.Normal+=ForgeMorphDelta(t,1,id).xyz*w;\n";
         if (result.tangent)

@@ -41,7 +41,7 @@ using Row = std::array<float, 4>;
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
-                   SHADER_COMPILER compiler)
+                   SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
     const auto profile = prepare_pbr_material(source);
     const auto fetch = mesh_vertex_fetch(mesh, profile, enable_skin);
@@ -58,6 +58,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         require(compiler == SHADER_COMPILER_FXC || compiler == SHADER_COMPILER_DXC,
                 "unsupported mesh shader compiler");
         ci.ShaderCompiler = compiler;
+        ci.ShaderOptimizationLevel = optimization;
         ci.HLSLVersion =
             compiler == SHADER_COMPILER_DXC ? ShaderVersion{6, 0} : ShaderVersion{5, 1};
         ci.EntryPoint = "main";
@@ -120,20 +121,29 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     ci.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
     // Environment revisions change on a live SRB. Mutable means set-once in
     // Diligent; dynamic bindings are copied safely for each committed draw.
-    std::vector<ShaderResourceVariableDesc> environment_variables{
-        {SHADER_TYPE_PIXEL, "g_ForgeDiffuse", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_ForgeSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_ForgeShadows", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_ForgeCharlie", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+    std::vector<ShaderResourceVariableDesc> resource_variables{
+        {SHADER_TYPE_VERTEX, "g_MeshVertices", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
+         SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS}};
+    if (fetch.morph_count)
+        resource_variables.push_back({SHADER_TYPE_VERTEX, "g_ForgeMorphDeltas",
+                                      SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
+                                      SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS});
+    // Immutable raw buffers use bounded descriptor-table views on D3D12.
+    // Root SRVs omit the view size and cannot check out-of-range shader loads.
     if (lit) {
-        if (!program.sheen)
-            environment_variables.pop_back();
+        const ShaderResourceVariableDesc environment_variables[]{
+            {SHADER_TYPE_PIXEL, "g_ForgeDiffuse", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_PIXEL, "g_ForgeSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_PIXEL, "g_ForgeShadows", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_PIXEL, "g_ForgeCharlie", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+        resource_variables.insert(resource_variables.end(), std::begin(environment_variables),
+                                  std::end(environment_variables) - (program.sheen ? 0 : 1));
         if (program.transmission)
-            environment_variables.push_back(
+            resource_variables.push_back(
                 {SHADER_TYPE_PIXEL, "g_ForgeTransmission", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-        ci.PSODesc.ResourceLayout.Variables = environment_variables.data();
-        ci.PSODesc.ResourceLayout.NumVariables = Uint32(environment_variables.size());
     }
+    ci.PSODesc.ResourceLayout.Variables = resource_variables.data();
+    ci.PSODesc.ResourceLayout.NumVariables = Uint32(resource_variables.size());
 
     ci.pGS = geometry;
     ci.pVS = vertex;

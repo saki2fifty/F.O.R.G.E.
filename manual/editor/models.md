@@ -1,19 +1,47 @@
-# Importing models with the tools command
+# Importing and placing models
 
-The current Phase7 source can prepare glTF models from `.gltf` or `.glb` files.
-It registers meshes, materials, referenced textures and, when present, a skeleton
-and animation clips together with the model.
-The original source files stay unchanged.
+FORGE imports `.gltf` and `.glb` models as a complete asset family: meshes,
+materials, referenced textures and, when present, a skeleton and animation clips.
+Original source files stay unchanged. Importing prepares assets; **Place model**
+creates ordinary entities in your current scene.
 
-**Current limitation:** this is a tools command workflow. Placing imported models
-in a scene and the model editor are still being implemented. Prepared mesh
-materials can render through the shared Scene/Game mesh path. Imported Skeleton and Clip assets can now drive the existing
-[Animator bone preview](animation.md). Cameras, punctual lights, node
-visibility/selectability and material variants are retained in imported model data;
-their complete model-placement workflow is not available yet.
-This page describes the working model preparation path only.
+## Import from Content
 
-## Prepare a model
+1. Put the model and its external buffers/images inside the project's **Assets** folder.
+2. In **Content**, open **Create / Register > Import model...**.
+3. Enter the project-relative source path and choose **Review settings**.
+4. Review the settings, then choose **Import / Reimport**. Progress appears in the document; **Cancel import** retains the previous usable import.
+5. After publication succeeds, the model's placement controls load its validated metadata.
+
+To reopen an imported model, select its model asset in Content and use
+**Import settings / Place** in the Inspector. The model import document owns its
+settings Save action. Closing or switching projects with pending work offers
+Apply, Discard or Keep editing. Scene Undo does not undo asset publication.
+
+## Place a model
+
+1. Open the model's **Import settings / Place** document.
+2. Under **Place in scene**, enter the new root's **Name**.
+3. Choose **Source scene**. A file with several scenes and no declared default requires an explicit choice.
+4. Leave **Animation** at **None — source pose**, or choose a matching clip explicitly.
+5. Choose **Place model**. A new root and its selected source nodes appear in Hierarchy at the world origin.
+
+Every placement receives new entity identities. Mesh/material/skeleton references
+continue to point to the imported asset family. Move the root using the viewport
+or Inspector. One scene Undo removes the entire placement; Redo restores the same
+entity identities. Save the scene normally when you want to keep it.
+
+Selecting an animation adds an Animator with the matching skeleton and clip.
+Press **Play** to begin playback. No first clip is chosen automatically. A model
+with no selected clip uses its source pose and default morph weights.
+
+**Source hierarchy** lists source node names and parent indices for inspection.
+Edit placed entities in Hierarchy and Inspector. Reimport can refresh referenced
+resources; it does not silently rewrite an already authored scene hierarchy.
+If the selected source revision changes before placement, FORGE rejects the stale
+placement. Reload the saved settings to load the current revision.
+
+## Prepare from a terminal
 
 1. Put the model and its external buffers/images inside the project's **Assets** folder.
 2. Close the editor for this project so the tools command can obtain writer ownership.
@@ -47,8 +75,7 @@ An optional JSON object after the source path changes these settings:
 - **animation_optimize:** `true` / `false`. Use the official converter's animation optimization; default `true`.
 
 Animated models require the packaged `tools/gltf2ozz.exe` converter. If conversion
-fails, the previous complete model import remains selected. Importing a skeleton
-and clips does not yet place or play the model in a scene.
+fails, the previous complete model import remains selected. Use **Place model** to create scene entities and choose their optional animation.
 
 The default normal/tangent choice is `missing`. Exact merging and vertex-fetch
 optimization default to `true`. Compression defaults to `none`; maximum size is16384.
@@ -61,7 +88,14 @@ geometry or usage information. Indistinguishable meshes or source nodes may requ
 FORGE stops with `subasset.identity-ambiguous` and leaves the previous import usable.
 Its `identity_conflicts` list shows candidate addresses and previous same-type IDs.
 
-The command accepts a second optional JSON argument containing explicit decisions:
+In the editor, **Subasset identity needs review** lists the ambiguous candidate
+members. For each one, choose a previous same-type identity or **New logical asset**.
+Then choose **Import / Reimport** again. Decisions apply only to the exact reviewed
+source and settings. If either changes, review the new conflict before publishing.
+A previous identity cannot be claimed twice. Failed review leaves the earlier model
+usable. Identity choices are guarded as a pending document draft.
+
+The tools command accepts a second optional JSON argument containing explicit decisions:
 
 ```
 [{"address":"/meshes/1","previous":"<previous mesh UUID>"}]
@@ -128,12 +162,11 @@ until you resolve the conflict.
 Model preparation preserves perspective and orthographic camera settings, including
 an omitted far clipping plane, and directional, point and spot lights. Source node
 transforms remain unchanged. Camera and light directions follow glTF's local minus-Z
-convention when the internal placement path creates their scene components.
+convention when placement creates their scene components.
 
 Enabled scene Camera components now drive [Game](play-mode.md), and Light components
 illuminate PBR meshes. Use **Create > Rendering** to add a Camera, Light or Mesh Renderer.
-Model placement and its complete user workflow are still being integrated; importing
-a source alone does not instantiate its nodes into the scene.
+Importing a source alone does not instantiate its nodes; use **Place model**.
 
 
 ## Built-in meshes
@@ -175,23 +208,9 @@ change shape, surface directions, vertex colors and texture coordinates. Negativ
 weights are preserved. Scene and Game use bounds that include the changed shape;
 the shadow pass uses the same deformation.
 
-Interactive morph controls and animation-driven model placement are still being
-integrated. This source checkpoint does not yet provide a morph-editing panel or
-establish skeletal mesh playback. The native rendering checks for this addition
-are tracked separately from the completed model-import checks.
-
-
-## Animation selection during placement
-
-The internal placement command now accepts a specific clip from the imported model.
-It checks the clip and skeleton together before creating an Animator on the model's
-root. Without a selected clip, placement creates the model without starting an
-animation. There is no implicit “first animation” choice in a glTF file.
-
-This connection is undergoing integration; the public placement controls remain
-unavailable in this source checkpoint. Existing import commands do not place models
-or start playback. Once placement is exposed, scene Undo will remove the complete
-placed subtree, while the imported asset files remain in the project.
+A dedicated morph-editing panel is not available yet. Choosing a clip during
+placement connects its supported animation to the model; native rendering validation
+is tracked separately in the technical documentation.
 
 
 ## Hide a subtree or exclude it from viewport selection
@@ -207,9 +226,9 @@ independent: hiding a shape does not make it unselectable, and making it
 unselectable does not hide it. Each property edit supports scene Undo/Redo.
 Prefab instances use the same property Revert controls to follow their source again.
 
-Imported node flags feed these components through the internal placement path.
+Imported node flags feed these components during placement.
 The retained mesh and legacy blockout selection paths observe this selection
-switch. Public imported-model placement remains under integration.
+switch.
 
 ## Selecting model geometry
 
@@ -225,5 +244,4 @@ loading has no substitute selection cube.
 
 For an exceptionally expensive click, FORGE leaves the previous selection in place
 and reports that the selection work budget was exceeded. Use Hierarchy for that
-entity. The imported-model placement controls are still undergoing integration in
-this source checkpoint.
+entity.

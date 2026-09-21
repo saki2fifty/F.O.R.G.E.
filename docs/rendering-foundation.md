@@ -590,7 +590,9 @@ light/mesh/camera layers remain separate. Off-camera casters whose light-space X
 bounds overlap a directional cascade extend its depth extent.
 
 The pinned FX `ShadowMapManager` allocates array textures and fits directional
-cascades. Perspective fitting uses its stabilized extents; orthographic fitting uses
+cascades. Its selected light basis reverses Y; derived shadow cameras preserve
+that orientation flag so the shared mesh path applies the correct winding/culling.
+Perspective fitting uses its stabilized extents; orthographic fitting uses
 native inverse-frustum bounds and uniform depth intervals. Native logarithmic
 splitting always evaluates far/near, so the adapter supplies a finite positive native
 range then overrides orthographic intervals. This supports authored orthographic
@@ -946,3 +948,11 @@ status; Hierarchy remains available. This is a current interaction bound, not an
 asset rejection or a claim of bounded milliseconds. A 100,000-triangle fixture
 (300,000 units) measured 35–40 ms in the local normal build and 162 ms under strict
 sanitizers. Dense asynchronous/BVH selection remains future optimization.
+
+### Raw mesh buffer views
+
+Immutable mesh and morph buffers use Diligent's
+`SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS`. At the pinned D3D12 revision this
+selects bounded descriptor-table SRVs instead of size-less root SRVs. They do
+not require dynamic offsets. CPU admission still checks every stream range;
+the descriptor boundary is additional GPU protection, not asset validation.

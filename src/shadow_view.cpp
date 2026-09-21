@@ -39,6 +39,10 @@ CameraView view_from_basis(const Double3& origin, const Double3& right, const Do
     result.right = right;
     result.up = up;
     result.forward = forward;
+    // Pinned Diligent BasisFromDirection(..., false) negates its Y basis.
+    // Preserve that view parity so the shared draw path selects matching culling.
+    result.orientation_reversed =
+        (dot(cross(right, up), forward) < 0) != ((projection._11 < 0) != (projection._22 < 0));
     result.viewport = {0, 0, resolution, resolution};
     for (unsigned r = 0; r < 3; ++r) {
         const auto& axis = r == 0 ? right : r == 1 ? up : forward;

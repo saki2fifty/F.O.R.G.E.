@@ -5,6 +5,7 @@
 // Native declarations must precede Diligent's native command queue interface.
 #include <d3d12.h>
 #include <d3d12sdklayers.h>
+#include <d3dcompiler.h>
 #include <dxgi1_4.h>
 #include <wrl/client.h>
 
@@ -236,6 +237,10 @@ int main(int argc, char** argv) {
                 std::filesystem::create_directories(images / "dxc");
                 check_morph_render(isolated, context, images / "dxc", SHADER_COMPILER_DXC);
                 std::cout << "DXC morph comparison passed\n";
+                std::filesystem::create_directories(images / "fxc-disabled");
+                check_morph_render(isolated, context, images / "fxc-disabled", SHADER_COMPILER_FXC,
+                                   SHADER_OPTIMIZATION_LEVEL_DISABLED);
+                std::cout << "FXC disabled-optimization morph comparison passed\n";
                 check_morph_render(isolated, context, images);
             } else if (selected == "skin")
                 check_skin_draw(isolated, context, images);

@@ -486,3 +486,46 @@
   sanitizers (0.22 seconds). Native backend, editor-main and fixture-header syntax
   checks pass; manual checks pass 3/3 and formatting passes. Windows execution
   remains a separate pending gate.
+
+### Native shadow orientation correction
+
+- The Windows audit confirms that explicit vector-lane selection did not fix the
+  FXC morph failure; DXC continues to pass the same fixtures. Extend the diagnostic
+  comparison to FXC with optimization disabled and retain generated source and
+  disassembly. Production compiler/optimization defaults remain unchanged.
+- Identify the directional shadow integration defect from pinned Diligent source:
+  its selected light basis reverses Y, but FORGE omitted the camera orientation
+  flag used by mesh culling. Derive that flag from the basis and projection; add
+  cascade/punctual parity checks. Native pixel confirmation is pending.
+
+### Model import and placement document
+
+- Content now opens a Model import document with reflected import settings,
+  worker progress/cancellation, source scene and optional animation choices,
+  source-hierarchy inspection and a Place model operation.
+- Reuse one import-editor controller for texture/model Save focus, dirty-state
+  guards, cancellation and publication. Keep asset publication separate from
+  scene history; placement creates/selects ordinary entities in one Undo step.
+- Present ambiguous subasset correspondence explicitly. Bind chosen mappings to
+  the reviewed build-input key; changed input requires a fresh review before
+  publication, and failed candidates preserve the prior family.
+- Validate model metadata asynchronously with project/generation checks. Release
+  cooked blobs after validation and retain only the metadata needed for placement.
+- Real-process texture and model ImGui regressions pass 2/2 in 1.80 seconds,
+  covering guarded close, Save focus, identity ambiguity/stale decisions,
+  signed/zero-scale placement, Undo/Redo and corrupt-source failure retention.
+- Include the model editor regression in both native audit and packaging CI target
+  lists and test filters. Update the models/Content manual; native rerun pending.
+- Refresh Content immediately after texture/model publication. Clear pending
+  identity decisions when the project changes. Remove the ineffective morph
+  vector-lane experiment after the native comparison disproved it as a fix.
+
+- Bind immutable raw mesh/morph buffers through Diligent's existing bounded
+  descriptor-table option. Native FXC comparison remains pending; production
+  shader compiler/profile are unchanged.
+- The instrumented editor-controller harness passes 2/2 in 3.47 seconds with
+  matching normal importer adapters/native workers and sanitized publication,
+  core and placement libraries. Initial mixed-profile rejection was a harness
+  configuration error; production fingerprint and worker memory checks remain.
+  This is not a claim of sanitizer coverage inside the child process.
+- Manual checks pass 3/3; formatting and platform-neutral presentation syntax pass.

@@ -21,6 +21,7 @@
 #include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
+#include "model_imports.hpp"
 #include "native_build.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
@@ -303,6 +304,9 @@ int main(int argc, char** argv) {
         forge::ui::FlecsScriptEditor script_editor(std::filesystem::path(base) / "forge_tools.exe");
         forge::TextureImportEditor texture_imports(std::filesystem::path(base) /
                                                    "forge_asset_build.exe");
+        forge::ModelImportEditor model_imports(
+            std::filesystem::path(base) / "forge_asset_build.exe",
+            std::filesystem::path(base) / "tools/gltf2ozz.exe", scene, editor.selection);
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
@@ -310,7 +314,7 @@ int main(int argc, char** argv) {
         std::optional<forge::EditorFiles::Action> pending_switch;
         files.before_request = [&](const forge::EditorFiles::Action& action) {
             if (!prefab_editor.dirty() && !project_settings.dirty() && !script_editor.dirty() &&
-                !texture_imports.dirty())
+                !texture_imports.dirty() && !model_imports.dirty())
                 return true;
             pending_switch = action;
             if (prefab_editor.dirty())
@@ -319,8 +323,10 @@ int main(int argc, char** argv) {
                 project_settings.request_close();
             else if (script_editor.dirty())
                 script_editor.request_close();
-            else
+            else if (texture_imports.dirty())
                 texture_imports.request_close();
+            else
+                model_imports.request_close();
             return false;
         };
         documents.add({"scene",
@@ -408,6 +414,24 @@ int main(int argc, char** argv) {
         asset_editors.add({"texture", "Import settings", [&](const forge::AssetRecord& asset) {
                                texture_imports.open(files.document, asset.source);
                            }});
+        documents.add({"model_import",
+                       "Model import",
+                       "Model import###Model import",
+                       true,
+                       [&] { return model_imports.is_open(); },
+                       [&] { return model_imports.dirty(); },
+                       [&] { model_imports.draw(files.document, document_locked); },
+                       [&] { model_imports.request_save(); },
+                       {},
+                       {},
+                       [&] { model_imports.request_close(); },
+                       {},
+                       {},
+                       {}});
+        asset_editors.add(
+            {"model", "Import settings / Place", [&](const forge::AssetRecord& asset) {
+                 model_imports.open(files.document, asset.source);
+             }});
         files.save_active = [&] {
             if (!documents.save(editor.task.id()))
                 throw std::runtime_error("Active document cannot save");
@@ -1067,11 +1091,20 @@ int main(int argc, char** argv) {
             animation_tools.poll(files.document, message);
             try {
                 texture_imports.poll(files.document, message);
-                if (auto catalog = texture_imports.take_catalog(); catalog && mesh_resources)
-                    mesh_resources->catalog(std::move(catalog));
+                if (auto catalog = texture_imports.take_catalog()) {
+                    if (mesh_resources)
+                        mesh_resources->catalog(std::move(catalog));
+                    content.refresh(files);
+                }
+                model_imports.poll(files.document, message);
+                if (auto catalog = model_imports.take_catalog()) {
+                    if (mesh_resources)
+                        mesh_resources->catalog(std::move(catalog));
+                    content.refresh(files);
+                }
             } catch (const std::exception& e) {
                 message = e.what();
-                forge::ui::report_error("texture_import", message);
+                forge::ui::report_error("asset_import", message);
             }
             navigation_tools.poll(scene, files.document, play.active(), message);
             automation.draw(scene, files.document, automation_busy);
@@ -1647,6 +1680,7 @@ int main(int argc, char** argv) {
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
                         texture_imports.content(files.document, edit_locked);
+                        model_imports.content(files.document, edit_locked);
                         script_editor.content(files.document, edit_locked, editor.selection,
                                               message);
                         animation_tools.content(files.document, edit_locked, message);
@@ -1869,10 +1903,12 @@ int main(int argc, char** argv) {
             }
 
             if (prefab_editor.close_cancelled || project_settings.close_cancelled ||
-                script_editor.close_cancelled || texture_imports.close_cancelled) {
+                script_editor.close_cancelled || texture_imports.close_cancelled ||
+                model_imports.close_cancelled) {
                 pending_switch.reset();
                 prefab_editor.close_cancelled = project_settings.close_cancelled =
-                    script_editor.close_cancelled = texture_imports.close_cancelled = false;
+                    script_editor.close_cancelled = texture_imports.close_cancelled =
+                        model_imports.close_cancelled = false;
             }
             if (pending_switch) {
                 if (!prefab_editor.dirty() && project_settings.dirty())
@@ -1884,7 +1920,12 @@ int main(int argc, char** argv) {
                          !script_editor.dirty() && texture_imports.dirty())
                     texture_imports.request_close();
                 else if (!prefab_editor.dirty() && !project_settings.dirty() &&
-                         !script_editor.dirty() && !texture_imports.dirty()) {
+                         !script_editor.dirty() && !texture_imports.dirty() &&
+                         model_imports.dirty())
+                    model_imports.request_close();
+                else if (!prefab_editor.dirty() && !project_settings.dirty() &&
+                         !script_editor.dirty() && !texture_imports.dirty() &&
+                         !model_imports.dirty()) {
                     auto action = *pending_switch;
                     pending_switch.reset();
                     files.request(action);

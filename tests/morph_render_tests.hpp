@@ -1,9 +1,13 @@
 #pragma once
+#include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "mesh_draw.hpp"
+#include "mesh_draw_shader.hpp"
 #include "texture_gpu.hpp"
 void check_morph_render(forge::DiligentPresentation& presentation,
                         Diligent::IDeviceContext* context, const std::filesystem::path& images,
-                        Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC) {
+                        Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC,
+                        Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
+                            Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT) {
     using namespace forge;
     using namespace Diligent;
     MeshPart part;
@@ -35,8 +39,40 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     require(gpu.lods[0].parts[0].bounds.maximum[0] >= 1, "GPU draw retained unmorphed bounds");
     MaterialData material;
     material.model = "forge.gltf.unlit.v1";
+#ifdef _WIN32
+    // Keep exact generated source and original DXBC for compiler-failure evidence.
+    // This fixture reuses the same pinned compiler/cache path as production.
+    if (compiler == SHADER_COMPILER_FXC) {
+        const auto profile = prepare_pbr_material(material);
+        const auto program =
+            mesh_draw_shader(mesh_vertex_fetch(gpu.lods[0].parts[0], profile), profile);
+        std::ofstream(images / "morph-vertex.hlsl") << program.vertex;
+        ShaderCreateInfo info;
+        info.Desc.Name = "FORGE morph diagnostic vertex";
+        info.Desc.ShaderType = SHADER_TYPE_VERTEX;
+        info.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+        info.ShaderCompiler = compiler;
+        info.ShaderOptimizationLevel = optimization;
+        info.HLSLVersion = {5, 1};
+        info.Source = program.vertex.c_str();
+        info.EntryPoint = "main";
+        info.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
+        RefCntAutoPtr<IShader> shader;
+        presentation.shader(info, &shader);
+        const void* bytes = nullptr;
+        Uint64 count = 0;
+        shader->GetBytecode(&bytes, count);
+        Microsoft::WRL::ComPtr<ID3DBlob> assembly;
+        require(SUCCEEDED(D3DDisassemble(bytes, SIZE_T(count), 0, nullptr, &assembly)),
+                "Morph diagnostic disassembly failed");
+        std::ofstream output(images / "morph-vertex.asm");
+        output.write(static_cast<const char*>(assembly->GetBufferPointer()),
+                     assembly->GetBufferSize());
+        require(bool(output.flush()), "Morph diagnostic assembly could not be saved");
+    }
+#endif
     MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, {}, TEX_FORMAT_RGBA8_UNORM,
-                  TEX_FORMAT_D32_FLOAT, true, compiler);
+                  TEX_FORMAT_D32_FLOAT, true, compiler, optimization);
     TextureDesc desc;
     desc.Name = "FORGE morph channel acceptance";
     desc.Type = RESOURCE_DIM_TEX_2D;
@@ -121,7 +157,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     MeshDraw::Textures textures;
     textures["baseColorTexture"] = image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     MeshDraw textured(presentation, context, gpu.lods[0].parts[0], material, textures,
-                      TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true, compiler);
+                      TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true, compiler, optimization);
     stage = "UV rest";
     const auto red = render(textured, weights);
     weights[2] = 1;
@@ -133,7 +169,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     material.model = "forge.gltf.metallic-roughness.v1";
     material.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
     MeshDraw lit(presentation, context, gpu.lods[0].parts[0], material, {}, TEX_FORMAT_RGBA8_UNORM,
-                 TEX_FORMAT_D32_FLOAT, true, compiler);
+                 TEX_FORMAT_D32_FLOAT, true, compiler, optimization);
     Light light;
     light.intensity = 2;
     const auto illumination = light_view(light, AffineTransform{});
@@ -155,7 +191,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     textures.clear();
     textures["normalTexture"] = image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     MeshDraw mapped(presentation, context, gpu.lods[0].parts[0], material, textures,
-                    TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true, compiler);
+                    TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true, compiler, optimization);
     auto side = illumination;
     side.direction = {0, -1, 0};
     weights = {};
