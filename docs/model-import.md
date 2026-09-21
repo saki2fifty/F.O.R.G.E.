@@ -458,3 +458,43 @@ morphed AABBs, which conservatively enclose every nonnegative normalized linear
 blend. This includes reflections, shear and collapsed axes. The helper alone is
 not a rendered-skin consumer; camera-relative GPU admission, revision-safe instance
 binding and color/shadow submission remain part of the pending bridge.
+
+`skin_bounds_for_camera` adds a conservative binary32 arithmetic allowance to those
+mathematical bounds for each view origin. It covers palette normalization/conversion,
+four positive influence weights, position multiplication and relative translation;
+morph bounds already cover source deformation arithmetic. It uses outward double
+rounding and includes a minimum-normal allowance. A deterministic 2,000-case CPU
+float emulation regression exercises large coordinates, reflection and collapsed
+linear transforms. The scene renderer still needs to consume these prepared bounds
+with the matching palette in its color and shadow views.
+
+### Fixed runtime node animation
+
+Model skeleton resources retain durable ModelNode AssetIds in native joint order
+alongside the source-node indices. An Animator on a matching ordinary model root
+binds only nodes structurally beneath that root. Another model root ends traversal,
+including another instance of the same model. Flecs' native `target(ChildOf)` resolves
+both ChildOf and Parent storage at the pinned revision. Effective inherited
+ModelSource values participate; no second hierarchy or persistent instance ID is added.
+
+Only source channels recorded by companion version2 write runtime local components.
+A translation channel owns LocalTranslation without owning inherited LocalRotation
+or LocalScale. Ozz rest/filler tracks do not become writes. Prepared channel values
+and the resulting spatial transforms are validated before that player's ECS writes.
+Ambiguous node identity rejects the player update with an `animation.binding`
+diagnostic; repairing the binding allows the next tick to resume. Detached model
+nodes produce `animation.node_scope` and are not silently bound elsewhere. A shared
+rig's optional targets outside the selected source scene remain inactive.
+
+Sampling/application runs after Gameplay and before Navigation and pre-physics
+synchronization. Final transforms and presentation pose capture therefore see the
+same completed simulation state. Presentation never writes those local components.
+Disabled animation holds the last runtime values; it does not revert authoring
+ownership or advance time. Stop discards the runtime world. Invalid bindings cannot
+advertise a recovery checkpoint; recovery validates candidate sample times and
+instance scopes before replacing any player's state.
+
+Legacy Animators without ModelSource retain standalone pose/debug behavior. Older
+companions without channel intent require reimport before model-node application.
+Rendered skin/morph binding and public animated-model placement remain ongoing
+Phase7 integration; these runtime contracts alone do not claim that full workflow.

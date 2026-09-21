@@ -4,7 +4,7 @@
 
 The headless runtime owns a `std::chrono::steady_clock` driver. The editor controls it through protocol 2; editor frame deltas and message arrival intervals are never simulation deltas. The runtime main thread owns Flecs mutation, control handling, sampling and extraction. There is no simulation thread added for transport, SDL runtime dependency, window or GPU requirement.
 
-`RuntimeClock` accumulates monotonic elapsed time. Each completed tick calls `RuntimeSimulation`, which runs an explicit Flecs pipeline selecting `FixedSimulation` systems and ordering their Phase/DependsOn relationships. Current stages are **Input** (the fixed-tick action monitor), **Gameplay** (ABI v1 callback), then **Transforms** (final world evaluation). RuntimeInput latches an immutable snapshot immediately before this pipeline. These immediate systems operate on the owning world; no Flecs worker threads are enabled. Effective local-pose capture follows completion. Presentation is an explicitly separate extraction stage on snapshot requests, not another gameplay tick. Flecs `progress(fixed_dt)` updates its frame/time metadata using the same explicit delta passed to the native callback. No physics or animation placeholder systems exist.
+`RuntimeClock` accumulates monotonic elapsed time. Each completed tick calls `RuntimeSimulation`, which runs an explicit Flecs pipeline selecting `FixedSimulation` systems and ordering their Phase/DependsOn relationships. Current stages are **Input → Gameplay → Animation → Navigation → PrePhysics → Physics → PhysicsAdoption → PostPhysics → Transforms**. Animation applies explicit model-node channels; physics synchronizes, simulates and adopts before final world evaluation. RuntimeInput latches an immutable snapshot immediately before this pipeline. These immediate systems operate on the owning world; no Flecs worker threads are enabled. Effective local-pose capture follows completion. Presentation is an explicitly separate extraction stage on snapshot requests, not another gameplay tick. Flecs `progress(fixed_dt)` updates its frame/time metadata using the same explicit delta passed to the native callback.
 
 The pipeline is intentionally restricted to tagged simulation systems. General native system registration, timer/rate-filter integration and a public gameplay SDK are not exposed by ABI v1. Presentation never runs simulation systems. Fixed timestep guarantees a stable interval and ordered execution, not cross-platform or lockstep determinism.
 
@@ -71,6 +71,13 @@ Project simulation_hz and input map are provided at protocol2 Hello. Omitting th
 ## Physics and recovery
 
 The fixed pipeline now includes pre-physics synchronization, Jolt Update, adoption and PostPhysics before final transforms. Private physics-aware recovery restores a completed tick and resets interpolation/elapsed debt. See [Physics](physics.md).
+
+The current complete order is Input → Gameplay → Animation → Navigation →
+PrePhysics → Physics → PhysicsAdoption → PostPhysics → Transforms. Animation
+advances and applies explicitly animated model-node local channels before physics
+synchronization, using the same fixed delta. Presentation interpolates the captured
+local transforms without a second ECS animation write. Legacy standalone Animator
+debug sampling remains a read-only presentation consumer.
 
 ## Runtime UI presentation
 

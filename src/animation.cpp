@@ -2,6 +2,7 @@
 #include "animation_resource.hpp"
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/animation.hpp>
 #include <forge/assets.hpp>
@@ -41,6 +42,8 @@ struct AnimationRuntime::Impl {
     std::map<flecs::entity_t, Playback> states;
     std::set<flecs::entity_t> pending;
     std::map<flecs::entity_t, std::string> errors;
+    std::map<flecs::entity_t, std::string> binding_errors;
+    std::set<flecs::entity_t> orphan_nodes;
     std::map<flecs::entity_t, Animator> failed_configurations;
     std::size_t cache_bytes = 0;
     Impl(WorldContext& c, std::filesystem::path p) : context(c), project(std::move(p)) {}
@@ -48,6 +51,160 @@ struct AnimationRuntime::Impl {
         states.clear();
         if (model_resources)
             model_resources->close();
+    }
+    void apply_model_poses(bool commit = true,
+                           const std::map<flecs::entity_t, double>& times = {}) {
+        // One derived instance index per fixed tick. Native ChildOf lookup also
+        // resolves Flecs Parent storage at the pinned revision. Nested roots are
+        // boundaries, including roots belonging to another model.
+        std::map<flecs::entity_t, std::map<AssetId, flecs::entity_t>> instances;
+        std::set<flecs::entity_t> ambiguous;
+        std::set<flecs::entity_t> orphans;
+        context.world().each([&](flecs::entity node, const ModelSource& source) {
+            if (node.has(flecs::Prefab) || !source.node.id || !context.reference(node.id()))
+                return;
+            auto parent = node.target(flecs::ChildOf);
+            bool associated = false;
+            std::set<flecs::entity_t> visited{node.id()};
+            while (parent && visited.insert(parent.id()).second) {
+                if (parent.has<ModelSource>()) {
+                    const auto& owner = parent.get<ModelSource>();
+                    if (!owner.node.id) {
+                        if (owner.model == source.model && context.reference(parent.id())) {
+                            associated = true;
+                            if (!instances[parent.id()].emplace(source.node.id, node.id()).second)
+                                ambiguous.insert(parent.id());
+                        }
+                        break;
+                    }
+                }
+                parent = parent.target(flecs::ChildOf);
+            }
+            if (!associated)
+                orphans.insert(node.id());
+        });
+        if (commit) {
+            for (const auto id : orphans)
+                if (!orphan_nodes.contains(id)) {
+                    Diagnostic diagnostic{Severity::Warning,
+                                          "animation.node_scope",
+                                          "Model node is outside its matching instance root; "
+                                          "animation does not retarget it",
+                                          {}};
+                    diagnostic.context.entity = context.reference(id)->entity;
+                    diagnostic.context.module = "forge.animation";
+                    context.services().emit(std::move(diagnostic));
+                }
+            orphan_nodes = std::move(orphans);
+        }
+        for (auto& [id, playback] : states) {
+            if (!playback.config.enabled || errors.contains(id) || pending.contains(id)) {
+                if (commit)
+                    binding_errors.erase(id);
+                continue;
+            }
+            const auto root = context.world().entity(id);
+            if (!root.has<ModelSource>()) {
+                // Legacy standalone Animator remains a pose-inspection consumer.
+                if (commit)
+                    binding_errors.erase(id);
+                continue;
+            }
+            try {
+                const auto& source = root.get<ModelSource>();
+                if (source.node.id || !playback.assets.model ||
+                    source.model.id != playback.assets.model.skeleton->model)
+                    throw ArchiveError(
+                        "Model Animator must be on its matching model instance root");
+                const auto& skeleton = playback.assets.model.skeleton.get();
+                const auto& clip = playback.assets.model.clip.get();
+                if (skeleton.joint_assets.size() != skeleton.joint_nodes.size() ||
+                    !clip.has_transform_channels)
+                    throw ArchiveError(
+                        "Reimport model animation to obtain durable nodes and channel intent");
+                if (ambiguous.contains(id))
+                    throw ArchiveError("Model instance has duplicate source node identities");
+                std::unique_ptr<Sampler> prepared_sampler;
+                auto* sampler = playback.sampler.get();
+                if (!commit) {
+                    prepared_sampler =
+                        std::make_unique<Sampler>(playback.assets.skeleton, playback.assets.clip);
+                    sampler = prepared_sampler.get();
+                }
+                const auto time = times.contains(id) ? times.at(id) : playback.time;
+                sampler->sample(float(time / playback.assets.clip->info().duration));
+                const auto locals = sampler->local_pose();
+                struct Write {
+                    flecs::entity entity;
+                    LocalTransform value;
+                    unsigned channels = 0;
+                };
+                std::map<flecs::entity_t, Write> writes;
+                auto candidate = context.transform_nodes();
+                for (const auto& channel : clip.transform_channels) {
+                    const auto found = std::find(skeleton.joint_nodes.begin(),
+                                                 skeleton.joint_nodes.end(), channel.node);
+                    if (found == skeleton.joint_nodes.end())
+                        throw ArchiveError("Animation channel has no joint mapping");
+                    const auto index = std::size_t(found - skeleton.joint_nodes.begin());
+                    const auto target = instances[id].find(skeleton.joint_assets.at(index));
+                    // A selected glTF scene can omit nodes from the shared rig.
+                    // Missing optional targets never bind another instance.
+                    if (target == instances[id].end())
+                        continue;
+                    const auto entity = context.world().entity(target->second);
+                    if (!candidate.contains(entity.id()))
+                        throw ArchiveError("Animated model node has no local transform");
+                    auto [entry, inserted] = writes.try_emplace(
+                        entity.id(), Write{entity, context.get_local_transform(entity)});
+                    (void)inserted;
+                    auto& value = entry->second.value;
+                    const auto& local = locals.at(index);
+                    if (channel.path == AnimatedTransformPath::Translation) {
+                        value.translation = {local.translation[0], local.translation[1],
+                                             local.translation[2]};
+                        detail::validate_reflected_value(entity, value.translation);
+                        entry->second.channels |= unsigned(TransformChannel::Translation);
+                    } else if (channel.path == AnimatedTransformPath::Rotation) {
+                        value.rotation = normalized({local.rotation[0], local.rotation[1],
+                                                     local.rotation[2], local.rotation[3]});
+                        detail::validate_reflected_value(entity, value.rotation);
+                        entry->second.channels |= unsigned(TransformChannel::Rotation);
+                    } else {
+                        value.scale =
+                            checked_local_scale({local.scale[0], local.scale[1], local.scale[2]});
+                        detail::validate_reflected_value(entity, value.scale);
+                        entry->second.channels |= unsigned(TransformChannel::Scale);
+                    }
+                    candidate.at(entity.id()).local = value;
+                }
+                // Validate the complete prepared pose before any ECS mutation.
+                (void)evaluate_transforms(candidate);
+                if (!commit)
+                    continue;
+                for (auto& [target, write] : writes) {
+                    (void)target;
+                    if (write.channels & unsigned(TransformChannel::Translation))
+                        write.entity.set(write.value.translation);
+                    if (write.channels & unsigned(TransformChannel::Rotation))
+                        write.entity.set(write.value.rotation);
+                    if (write.channels & unsigned(TransformChannel::Scale))
+                        write.entity.set(write.value.scale);
+                }
+                binding_errors.erase(id);
+            } catch (const std::exception& ex) {
+                if (!commit)
+                    throw;
+                if (binding_errors[id] != ex.what()) {
+                    Diagnostic diagnostic{Severity::Error, "animation.binding", ex.what(), {}};
+                    diagnostic.context.entity = playback.reference.entity;
+                    diagnostic.context.asset = playback.config.clip.id;
+                    diagnostic.context.module = "forge.animation";
+                    context.services().emit(std::move(diagnostic));
+                    binding_errors[id] = ex.what();
+                }
+            }
+        }
     }
     std::optional<Pair> acquire_model(const ModelAnimationRequest& request) {
         auto loaded = model_resources->acquire(request);
@@ -230,6 +387,8 @@ struct AnimationRuntime::Impl {
         }
         std::erase_if(states, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(errors, [&](const auto& entry) { return !alive.contains(entry.first); });
+        std::erase_if(binding_errors,
+                      [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(failed_configurations,
                       [&](const auto& entry) { return !alive.contains(entry.first); });
     }
@@ -266,6 +425,7 @@ void AnimationRuntime::tick(float dt) {
             p.playing = false;
         }
     }
+    impl_->apply_model_poses();
 }
 void AnimationRuntime::reset_presentation() {
     if (!impl_)
@@ -282,7 +442,7 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
         throw ArchiveError("Invalid animation presentation alpha");
     if (!impl_ || !impl_->states.contains(id) || impl_->errors.contains(id) ||
-        impl_->pending.contains(id))
+        impl_->binding_errors.contains(id) || impl_->pending.contains(id))
         return nullptr;
     auto profile = impl_->context.services().profile("animation", "SampleAndLocalToModel");
     auto& p = impl_->states.at(id);
@@ -314,6 +474,7 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
         result["model_asset"] = p.assets.model.skeleton->model;
         result["model_revision"] = p.assets.skeleton_revision;
         result["joint_nodes"] = p.assets.model.skeleton->joint_nodes;
+        result["joint_assets"] = p.assets.model.skeleton->joint_assets;
         if (p.assets.model.clip->has_transform_channels) {
             auto channels = Json::array();
             for (const auto& channel : p.assets.model.clip->transform_channels)
@@ -328,7 +489,8 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     return result;
 }
 bool AnimationRuntime::checkpoint_ready() const {
-    return !impl_ || (impl_->pending.empty() && impl_->errors.empty());
+    return !impl_ ||
+           (impl_->pending.empty() && impl_->errors.empty() && impl_->binding_errors.empty());
 }
 Json AnimationRuntime::checkpoint() const {
     // A partial binding is not a recoverable playback state. Runtime IPC preserves
@@ -337,6 +499,8 @@ Json AnimationRuntime::checkpoint() const {
         return nullptr;
     if (impl_ && !impl_->errors.empty())
         throw ArchiveError("Cannot checkpoint an Animator with invalid asset configuration");
+    if (impl_ && !impl_->binding_errors.empty())
+        throw ArchiveError("Cannot checkpoint an Animator with invalid model instance binding");
     auto entries = Json::array();
     if (impl_)
         for (const auto& [id, p] : impl_->states) {
@@ -381,6 +545,7 @@ void AnimationRuntime::restore(const Json& data) {
         std::unique_ptr<Sampler> sampler;
     };
     std::vector<RestoreValue> values;
+    std::map<flecs::entity_t, double> times;
     for (const auto& entry : data.at("entries")) {
         auto ref = entry.at("entity").get<EntityRef>();
         auto entity = impl_->context.resolve(ref);
@@ -397,8 +562,12 @@ void AnimationRuntime::restore(const Json& data) {
             throw ArchiveError("Animation recovery asset revision or playback state differs");
         auto sampler = std::make_unique<Sampler>(p.assets.skeleton, p.assets.clip);
         sampler->sample(static_cast<float>(time / p.assets.clip->info().duration));
+        times.emplace(entity.entity, time);
         values.push_back({&p, time, entry.at("playing").get<bool>(), std::move(sampler)});
     }
+    // Validate recovered channel values and instance scopes with temporary
+    // samplers before replacing any playback state or mutating the world.
+    impl_->apply_model_poses(false, times);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;
@@ -408,6 +577,7 @@ void AnimationRuntime::restore(const Json& data) {
         p.advance = 0;
         p.sampler = std::move(value.sampler);
     }
+    impl_->binding_errors.clear();
 }
 EngineModule animation_module(std::filesystem::path project) {
     auto module = animation_schema_module();

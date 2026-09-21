@@ -9,6 +9,8 @@ struct SkeletonResourceData {
     std::shared_ptr<const Skeleton> native;
     AssetId model;
     std::vector<std::size_t> joint_nodes;
+    // Same order as joint_nodes/native joints, scoped by this immutable model revision.
+    std::vector<AssetId> joint_assets;
     std::size_t resident_bytes() const;
 };
 enum class AnimatedTransformPath { Translation, Rotation, Scale };

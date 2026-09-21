@@ -194,8 +194,10 @@ Sampling exposes local TRS copied directly from Ozz's sampled SoA lanes. It does
 not decompose model matrices, so signed and zero local scale remain representable.
 Companion morph curves use the same interpolated runtime time as the Ozz sample.
 Node indices in this transient pose refer to the selected immutable model revision;
-they are not persistent EntityIds. Binding these samples to rendered model instances
-remains part of the ongoing Phase7 renderer/instantiation integration.
+they are not persistent EntityIds. Model-node resources additionally retain durable
+node AssetIds. The fixed runtime applies explicit source channels to matching model
+instance nodes; see [model binding](model-import.md#fixed-runtime-node-animation).
+Binding the resulting poses to rendered skins remains ongoing Phase7 integration.
 
 Pending bindings yield a null recovery checkpoint instead of claiming a complete
 snapshot. The runtime response retains the `recovery` field with that null value.

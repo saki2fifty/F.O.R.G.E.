@@ -27,6 +27,10 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
                 held.clip->transform_channels[0].node == 1 &&
                 held.clip->transform_channels[0].path == AnimatedTransformPath::Translation,
             "Clip resource lost independent animated translation intent");
+    require(held.skeleton->joint_assets == std::vector<AssetId>{members.at("/nodes/0"),
+                                                                members.at("/nodes/1"),
+                                                                members.at("/nodes/2")},
+            "Skeleton resource lost durable node mapping");
     require(resources.skeleton_statistics().memory.animation > 0 &&
                 resources.clip_statistics().memory.animation > 0,
             "Animation resident allocations not accounted");
@@ -168,5 +172,97 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
     recovered.animation->synchronize();
     require(recovered.animation->checkpoint().at("entries").empty(),
             "Removed model players retained playback state");
+    // Real scene-node application uses one root scope per model instance. A
+    // nested instance, Parent storage and inherited ModelSource/TRS are included.
+    auto bound_document = document;
+    for (auto& actor : bound_document["entities"])
+        actor["components"]["forge.model_source"] = {{"model", request.model}, {"node", nullptr}};
+    bound_document["entities"][1]["parent"] = "actor";
+    bound_document["entities"][1]["components"]["forge.animator"]["playback_speed"] = .5;
+    for (const auto& [name, parent] :
+         std::vector<std::pair<std::string, std::string>>{{"joint", "actor"}, {"joint2", "actor2"}})
+        bound_document["entities"].push_back(
+            {{"id", name},
+             {"name", name},
+             {"parent", parent},
+             {"components",
+              {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}}},
+               {"forge.model_source",
+                {{"model", request.model}, {"node", members.at("/nodes/1")}}}}}});
+    Runtime bound(project);
+    bound.scene.restore_snapshot(bound_document);
+    auto joint = bound.scene.entity("joint"), joint2 = bound.scene.entity("joint2");
+    auto base = bound.engine.world()
+                    .world()
+                    .prefab()
+                    .set<LocalRotation>(rotation_from_euler({0, 0, 20}))
+                    .set<LocalScale>({2, 3, 4})
+                    .set<ModelSource>({{request.model}, {members.at("/nodes/1")}});
+    joint.remove<LocalRotation>().remove<LocalScale>().remove<ModelSource>().is_a(base);
+    joint2.remove(flecs::ChildOf, flecs::Wildcard)
+        .set<flecs::Parent>({bound.scene.entity("actor2").id()});
+    bound.simulation.reset_presentation();
+    const auto binding_deadline = std::chrono::steady_clock::now() + 10s;
+    while (bound.pose().is_null() && std::chrono::steady_clock::now() < binding_deadline) {
+        bound.simulation.presentation(0);
+        std::this_thread::sleep_for(1ms);
+    }
+    require(!bound.pose().is_null(), "Model binding resources did not load");
+    double pre_physics_x = -1;
+    auto monitor = bound.engine.world()
+                       .world()
+                       .system()
+                       .kind(bound.engine.world().world().entity("forge.runtime.PrePhysics"))
+                       .immediate()
+                       .run([&](flecs::iter&) { pre_physics_x = joint.get<LocalTranslation>().x; });
+    monitor.add<FixedSimulation>();
+    bound.simulation.tick(.5f);
+    require(std::abs(joint.get<LocalTranslation>().x - .5) < .002 &&
+                std::abs(joint2.get<LocalTranslation>().x - .25) < .002 &&
+                std::abs(pre_physics_x - .5) < .002,
+            "Animation did not precede physics or crossed a nested model instance boundary");
+    require(joint.owns<LocalTranslation>() && !joint.owns<LocalRotation>() &&
+                !joint.owns<LocalScale>() && !joint.owns<ModelSource>() &&
+                joint.get<LocalScale>() == LocalScale{2, 3, 4},
+            "Translation-only animation materialized unrelated prefab overrides");
+    base.set<LocalScale>({3, 4, 5});
+    bound.simulation.tick(.1f);
+    require(joint.get<LocalScale>() == LocalScale{3, 4, 5},
+            "Animated node stopped inheriting scale changes");
+    // Moving a node outside its source root must never target the other instance.
+    const auto detached_position = joint.get<LocalTranslation>();
+    joint.remove(flecs::ChildOf, flecs::Wildcard);
+    bound.simulation.tick(.1f);
+    require(joint.get<LocalTranslation>() == detached_position &&
+                std::abs(joint2.get<LocalTranslation>().x - .35) < .002,
+            "Detached node retargeted another model instance");
+    joint.child_of(bound.scene.entity("actor"));
+    const auto good_binding_checkpoint = bound.animation->checkpoint();
+    // Ambiguous provenance rejects the complete instance update and can recover
+    // when the conflicting node is removed; no arbitrary first-match binding.
+    joint2.remove<flecs::Parent>().child_of(bound.scene.entity("actor"));
+    const auto before_bad_binding = joint.get<LocalTranslation>();
+    bound.simulation.tick(.1f);
+    require(joint.get<LocalTranslation>() == before_bad_binding &&
+                !bound.animation->checkpoint_ready(),
+            "Ambiguous model binding changed live channels or advertised recovery");
+    rejects([&] { bound.animation->restore(good_binding_checkpoint); });
+    require(joint.get<LocalTranslation>() == before_bad_binding,
+            "Rejected binding recovery wrote an animated channel");
+    joint2.child_of(bound.scene.entity("actor2"));
+    bound.simulation.tick(.1f);
+    require(bound.animation->checkpoint_ready() &&
+                std::abs(joint.get<LocalTranslation>().x - .9) < .002,
+            "Repaired model binding did not recover");
+    const auto repaired_checkpoint = bound.animation->checkpoint();
+    joint2.child_of(bound.scene.entity("actor"));
+    bound.simulation.tick(.05f);
+    require(!bound.animation->checkpoint_ready(), "Repeated invalid binding was not rejected");
+    joint2.child_of(bound.scene.entity("actor2"));
+    bound.animation->restore(repaired_checkpoint);
+    require(bound.animation->checkpoint_ready() &&
+                bound.animation->checkpoint() == repaired_checkpoint,
+            "Valid binding recovery retained a stale error or changed checkpoint values");
+    monitor.destruct();
     std::filesystem::rename(moved_source, source_path);
 }

@@ -151,8 +151,18 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
         physics_ = std::static_pointer_cast<PhysicsRuntime>(context.services().physics());
     if (context.services().available(Capability::Audio))
         audio_ = std::static_pointer_cast<AudioRuntime>(context.services().audio());
+    animation_phase_ =
+        world.entity("forge.runtime.Animation").add(flecs::Phase).depends_on(gameplay_phase_);
+    animation_system_ = world.system("forge.runtime.AnimationUpdate")
+                            .kind(animation_phase_)
+                            .immediate()
+                            .run([this](flecs::iter& it) {
+                                if (animation_)
+                                    stage([&] { animation_->tick(it.delta_time()); });
+                            });
+    animation_system_.add<FixedSimulation>();
     navigation_phase_ =
-        world.entity("forge.runtime.Navigation").add(flecs::Phase).depends_on(gameplay_phase_);
+        world.entity("forge.runtime.Navigation").add(flecs::Phase).depends_on(animation_phase_);
     navigation_system_ =
         world.system("forge.runtime.NavigationUpdate")
             .kind(navigation_phase_)
@@ -226,6 +236,8 @@ RuntimeSimulation::~RuntimeSimulation() {
         navigation_->bind(nullptr);
     navigation_system_.destruct();
     navigation_phase_.destruct();
+    animation_system_.destruct();
+    animation_phase_.destruct();
     pre_physics_.destruct();
     physics_step_.destruct();
     physics_adopt_.destruct();
@@ -260,8 +272,6 @@ void RuntimeSimulation::tick(float dt) {
     context_.modules().end_tick();
     if (stage_error_)
         std::rethrow_exception(stage_error_);
-    if (animation_)
-        animation_->tick(dt);
     poses_.capture(context_.transform_nodes());
     sync_audio();
     if (physics_)

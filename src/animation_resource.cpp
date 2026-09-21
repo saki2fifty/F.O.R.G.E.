@@ -27,7 +27,8 @@ void pending_or_failed(const ResourceTicket& ticket) {
 }
 } // namespace
 std::size_t SkeletonResourceData::resident_bytes() const {
-    return sizeof(*this) + native->resident_bytes() + joint_nodes.capacity() * sizeof(std::size_t);
+    return sizeof(*this) + native->resident_bytes() + joint_nodes.capacity() * sizeof(std::size_t) +
+           joint_assets.capacity() * sizeof(AssetId);
 }
 std::size_t ClipResourceData::resident_bytes() const {
     return sizeof(*this) + native->resident_bytes() + morphs->resident_bytes() +
@@ -78,6 +79,22 @@ ModelAnimationRequest ModelAnimationResources::request(std::shared_ptr<const Ass
                                     .at("plan")
                                     .at("joint_nodes")
                                     .get<std::vector<std::size_t>>();
+            std::map<std::size_t, AssetId> node_assets;
+            for (const auto& value : selection.index.members)
+                if (value.node)
+                    require(node_assets
+                                .emplace(*value.node, selection.bindings.at(value.identity.address))
+                                .second,
+                            "Duplicate model node identity in skeleton selection");
+            // Older cooked bundles remain useful for pose inspection but cannot
+            // bind scene nodes without durable node identities. Never bind by name.
+            if (selection.index.version >= 3) {
+                for (const auto node : data->joint_nodes) {
+                    require(node_assets.contains(node),
+                            "Skeleton joint has no durable model node identity");
+                    data->joint_assets.push_back(node_assets.at(node));
+                }
+            }
             require(!stop.stop_requested(), "Skeleton load cancelled");
             const auto bytes = data->resident_bytes();
             return ResourceCandidate<SkeletonAsset>{std::move(data), {0, 0, 0, 0, bytes}};

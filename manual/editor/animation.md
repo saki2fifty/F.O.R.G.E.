@@ -89,6 +89,14 @@ Loading also completes while paused; it does not advance animation time. If load
 fails, the Console reports the affected asset. Restart Play after reimporting to
 select the new model revision.
 
+When an Animator belongs to a model instance, a translation-only clip leaves the
+nodes' rotation and scale alone, including values inherited from a prefab. Two
+instances can use different playback speeds. A node moved outside its model root
+stops receiving that model's animation and produces a warning. Duplicate source-node
+identities within one instance produce an error instead of choosing an arbitrary
+object. Public animated-model placement and skinned rendering are still being
+integrated; the existing standalone bone-preview workflow remains available.
+
 This addition supplies playback poses and morph weights. Drawing an imported
 skinned or morphed mesh is still being integrated.
 

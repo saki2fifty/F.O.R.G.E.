@@ -55,6 +55,50 @@ RenderBounds transform_bounds(const MeshBounds& bounds, const AffineTransform& w
     }
     return result;
 }
+RenderBounds skin_bounds_for_camera(const SkinPose& pose, Double3 origin) {
+    require(!pose.palette.empty() && pose.palette.size() <= 256, "Invalid skin bounds palette");
+    validate(pose.bounds);
+    const auto& source = pose.source_bounds;
+    double position_magnitude = 0, largest = 0;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        require(std::isfinite(origin[axis]) && std::isfinite(source.minimum[axis]) &&
+                    std::isfinite(source.maximum[axis]) &&
+                    source.minimum[axis] <= source.maximum[axis],
+                "Skin camera/source bounds are invalid");
+        position_magnitude += std::max(std::abs(double(source.minimum[axis])),
+                                       std::abs(double(source.maximum[axis])));
+    }
+    Double3 translations{};
+    for (const auto& matrix : pose.palette)
+        for (unsigned row = 0; row < 3; ++row) {
+            for (unsigned col = 0; col < 3; ++col) {
+                const auto value = matrix.m[row * 4 + col];
+                require(std::isfinite(value), "Skin bounds matrix is nonfinite");
+                largest = std::max(largest, std::abs(value));
+            }
+            const auto relative = matrix.m[row * 4 + 3] - origin[row];
+            require(std::isfinite(relative), "Skin camera-relative translation is nonfinite");
+            translations[row] = std::max(translations[row], std::abs(relative));
+        }
+    auto result = pose.bounds;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        // Covers palette normalization/conversion, positive four-weight
+        // renormalization, three-term dot, scale restoration and translation.
+        // 128 eps is larger than gamma_64 with binary32 unit roundoff. The
+        // minimum-normal term also covers flush-to-zero of tiny GPU values.
+        const double magnitude = largest * position_magnitude + translations[axis];
+        const double error =
+            128 * std::numeric_limits<float>::epsilon() * magnitude +
+            64 * std::numeric_limits<float>::min() * (1 + largest * position_magnitude);
+        require(std::isfinite(error), "Skin float arithmetic bounds overflow");
+        result.minimum[axis] =
+            std::nextafter(result.minimum[axis] - error, -std::numeric_limits<double>::infinity());
+        result.maximum[axis] =
+            std::nextafter(result.maximum[axis] + error, std::numeric_limits<double>::infinity());
+    }
+    validate(result);
+    return result;
+}
 SkinPose prepare_skin_pose(std::span<const AffineTransform> joint_world,
                            std::span<const AffineTransform> inverse_bind,
                            std::span<const std::uint32_t> draw_palette,

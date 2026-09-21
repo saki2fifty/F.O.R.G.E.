@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <numbers>
+#include <random>
 namespace {
 void check(bool ok, const char* why) {
     if (!ok)
@@ -26,6 +27,58 @@ int main() {
     try {
         using namespace forge;
         const MeshBounds unit{{-1, -1, -1}, {1, 1, 1}};
+        {
+            std::mt19937 random(47181);
+            std::uniform_real_distribution<float> value(-1, 1), positive(0, 1);
+            const Double3 origin{1e12, -1e12, 2e12};
+            for (unsigned trial = 0; trial < 2000; ++trial) {
+                std::array<AffineTransform, 4> joints{}, binds{};
+                double largest = 0;
+                for (auto& matrix : joints)
+                    for (unsigned row = 0; row < 3; ++row) {
+                        for (unsigned col = 0; col < 3; ++col) {
+                            const auto v = trial % 11 ? double(value(random)) * 1000 : 0;
+                            matrix.m[row * 4 + col] = v;
+                            largest = std::max(largest, std::abs(v));
+                        }
+                        matrix.m[row * 4 + 3] = origin[row] + double(value(random)) * 1e5;
+                    }
+                const auto pose = prepare_skin_pose(joints, binds,
+                                                    std::array<std::uint32_t, 4>{0, 1, 2, 3}, unit);
+                const auto bounds = skin_bounds_for_camera(pose, origin);
+                const std::array<float, 3> point{value(random), value(random), value(random)};
+                std::array<float, 4> weights{positive(random), positive(random), positive(random),
+                                             positive(random)};
+                const float sum = weights[0] + weights[1] + weights[2] + weights[3];
+                for (auto& weight : weights)
+                    weight /= sum;
+                for (unsigned row = 0; row < 3; ++row) {
+                    std::array<float, 3> basis{};
+                    float translation = 0;
+                    for (unsigned joint = 0; joint < 4; ++joint) {
+                        for (unsigned col = 0; col < 3; ++col)
+                            basis[col] +=
+                                weights[joint] *
+                                float(largest ? joints[joint].m[row * 4 + col] / largest : 0);
+                        translation +=
+                            weights[joint] * float(joints[joint].m[row * 4 + 3] - origin[row]);
+                    }
+                    const float gpu =
+                        (basis[0] * point[0] + basis[1] * point[1] + basis[2] * point[2]) *
+                            float(largest) +
+                        translation;
+                    const double world = origin[row] + gpu;
+                    check(world >= bounds.minimum[row] && world <= bounds.maximum[row],
+                          "Camera-relative float skin blend escaped conservative bounds");
+                }
+            }
+            auto pose = prepare_skin_pose(std::array<AffineTransform, 1>{},
+                                          std::array<AffineTransform, 1>{},
+                                          std::array<std::uint32_t, 1>{0}, unit);
+            rejects([&] { skin_bounds_for_camera(pose, {INFINITY, 0, 0}); });
+            pose.palette[0].m[0] = NAN;
+            rejects([&] { skin_bounds_for_camera(pose, {}); });
+        }
         {
             MeshPart part;
             part.vertices = 2;
