@@ -26,7 +26,8 @@ void validate_model_animation(const Json& meta, std::span<const ArtifactFile> fi
         require(!stop.stop_requested(), "Model animation validation cancelled");
     };
     cancelled();
-    require(meta.at("version") == 1, "Unsupported model animation plan");
+    require(meta.at("version") == 1 || meta.at("version") == 2, "Unsupported model animation plan");
+    const bool explicit_channels = meta.at("version") == 2;
     const auto& joints = meta.at("joint_nodes");
     const auto& nodes = meta.at("nodes");
     const auto& parents = meta.at("joint_parents");
@@ -137,6 +138,22 @@ void validate_model_animation(const Json& meta, std::span<const ArtifactFile> fi
         require(valid_content_digest(entry.at("content_evidence").get<std::string>()) &&
                     valid_content_digest(entry.at("semantic_evidence").get<std::string>()),
                 "Invalid clip identity evidence");
+        if (explicit_channels) {
+            const auto& channels = entry.at("transform_channels");
+            require(channels.is_array() && channels.size() <= joints.size() * 3,
+                    "Invalid animated transform channel count");
+            std::set<std::pair<std::size_t, std::string>> unique;
+            for (const auto& channel : channels) {
+                const auto node = index(channel.at("node"), 100000);
+                const auto path = channel.at("path").get<std::string>();
+                require(node_set.contains(node) &&
+                            (path == "translation" || path == "rotation" || path == "scale") &&
+                            unique.emplace(node, path).second,
+                        "Invalid or duplicate animated transform channel");
+            }
+        } else
+            require(!entry.contains("transform_channels"),
+                    "Legacy animation plan cannot declare transform channel intent");
         const auto duration = entry.at("duration").get<double>();
         require(std::isfinite(duration) && duration >= double(.0001f) && duration <= 3600,
                 "Invalid model clip duration");

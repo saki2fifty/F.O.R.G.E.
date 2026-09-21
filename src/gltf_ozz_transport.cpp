@@ -178,7 +178,7 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
         const auto name = "forge_clip_" + std::to_string(c);
         const auto duration = clip.duration > 0 ? clip.duration : options.constant_duration;
         Json animation{{"name", name}, {"samplers", Json::array()}, {"channels", Json::array()}};
-        Json morphs = Json::array();
+        Json morphs = Json::array(), transform_channels = Json::array();
         std::vector<std::string> content_evidence, semantic_evidence;
         std::set<std::pair<std::size_t, NativeAnimationPath>> bound;
         double trs_duration = 0;
@@ -229,7 +229,13 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
                                   {"values", *track.values}});
                 continue;
             }
-            bound.emplace(track.node, track.path);
+            require(bound.emplace(track.node, track.path).second,
+                    "Duplicate animated transform channel");
+            transform_channels.push_back(
+                {{"node", track.node},
+                 {"path", track.path == NativeAnimationPath::Translation ? "translation"
+                          : track.path == NativeAnimationPath::Rotation  ? "rotation"
+                                                                         : "scale"}});
             trs_duration = std::max(trs_duration, double(track.times->back()));
             // Extend one existing channel with its clamped final value when
             // morph channels are longer. Cubic keeps the preceding segment's
@@ -296,6 +302,7 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
                                  {"name", animations[c].value("name", std::string{})},
                                  {"duration", duration},
                                  {"morph_tracks", std::move(morphs)},
+                                 {"transform_channels", std::move(transform_channels)},
                                  {"content_evidence", digest_sorted(std::move(content_evidence))},
                                  {"semantic_evidence", digest_sorted(std::move(semantic_evidence))},
                                  {"diagnostics", clip.diagnostics}});
@@ -372,7 +379,7 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
         if (hierarchy.nodes[original].parent == gltf_no_index)
             rig_roots.push_back(subtree.at(original));
     }
-    result.metadata = {{"version", 1},
+    result.metadata = {{"version", 2},
                        {"nodes", result.nodes},
                        {"joint_nodes", result.joint_nodes},
                        {"joint_parents", parents},

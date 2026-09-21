@@ -55,6 +55,40 @@ RenderBounds transform_bounds(const MeshBounds& bounds, const AffineTransform& w
     }
     return result;
 }
+SkinPose prepare_skin_pose(std::span<const AffineTransform> joint_world,
+                           std::span<const AffineTransform> inverse_bind,
+                           std::span<const std::uint32_t> draw_palette,
+                           const MeshBounds& morphed_bounds) {
+    require(!joint_world.empty() && joint_world.size() <= 32768 &&
+                inverse_bind.size() == joint_world.size() && !draw_palette.empty() &&
+                draw_palette.size() <= 256,
+            "Invalid skin joint, inverse-bind or draw-palette count");
+    SkinPose result;
+    result.palette.reserve(draw_palette.size());
+    for (const auto joint : draw_palette) {
+        require(joint < joint_world.size(), "Skin draw palette exceeds binding joints");
+        for (const auto* matrix : {&joint_world[joint], &inverse_bind[joint]})
+            for (const auto value : matrix->m)
+                require(std::isfinite(value), "Skin pose contains a nonfinite matrix");
+        result.palette.push_back(joint_world[joint] * inverse_bind[joint]);
+        const auto bounds = transform_bounds(morphed_bounds, result.palette.back());
+        if (result.palette.size() == 1)
+            result.bounds = bounds;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result.bounds.minimum[axis] =
+                    std::min(result.bounds.minimum[axis], bounds.minimum[axis]);
+                result.bounds.maximum[axis] =
+                    std::max(result.bounds.maximum[axis], bounds.maximum[axis]);
+            }
+    }
+    // A normalized nonnegative weighted point is inside the convex hull of its
+    // transformed joint points. Their union AABB therefore conservatively
+    // encloses LBS without a per-frame scan of every mesh vertex. Morph admission
+    // supplies its already expanded bounds; GPU arithmetic needs its own padding
+    // after the camera-relative palette conversion at submission.
+    return result;
+}
 bool bounds_visible(const RenderBounds& bounds, const CameraView& camera) {
     const auto corners = clip_corners(bounds, camera);
     for (unsigned plane = 0; plane < 6; ++plane) {

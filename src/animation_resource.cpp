@@ -30,7 +30,8 @@ std::size_t SkeletonResourceData::resident_bytes() const {
     return sizeof(*this) + native->resident_bytes() + joint_nodes.capacity() * sizeof(std::size_t);
 }
 std::size_t ClipResourceData::resident_bytes() const {
-    return sizeof(*this) + native->resident_bytes() + morphs->resident_bytes();
+    return sizeof(*this) + native->resident_bytes() + morphs->resident_bytes() +
+           transform_channels.capacity() * sizeof(AnimatedTransformChannel);
 }
 ModelAnimationResources::ModelAnimationResources(std::filesystem::path project)
     : project_(std::move(project)), skeletons_({1, 64, 64, 64 * 1024 * 1024}),
@@ -94,11 +95,22 @@ ModelAnimationRequest ModelAnimationResources::request(std::shared_ptr<const Ass
             data->native = std::make_shared<Clip>(selection.bytes(clip_member));
             data->model = model;
             data->skeleton = skeleton.id;
-            for (const auto& entry :
-                 selection.index.hierarchy.at("animation").at("plan").at("clips"))
-                if (entry.at("file") == clip_member.artifact.file)
+            const auto& plan = selection.index.hierarchy.at("animation").at("plan");
+            for (const auto& entry : plan.at("clips"))
+                if (entry.at("file") == clip_member.artifact.file) {
                     data->morphs = std::make_unique<const asset_detail::MorphAnimation>(
                         entry.at("morph_tracks"));
+                    data->has_transform_channels = plan.at("version") == 2;
+                    if (data->has_transform_channels)
+                        for (const auto& channel : entry.at("transform_channels")) {
+                            const auto path = channel.at("path").get<std::string>();
+                            data->transform_channels.push_back(
+                                {channel.at("node").get<std::size_t>(),
+                                 path == "translation" ? AnimatedTransformPath::Translation
+                                 : path == "rotation"  ? AnimatedTransformPath::Rotation
+                                                       : AnimatedTransformPath::Scale});
+                        }
+                }
             require(bool(data->morphs) && !stop.stop_requested(),
                     "Clip morph plan missing or load cancelled");
             const auto bytes = data->resident_bytes();

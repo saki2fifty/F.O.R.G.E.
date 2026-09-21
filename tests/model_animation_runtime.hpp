@@ -23,6 +23,10 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
     auto held = resources.acquire(request);
     require(bool(held) && held.skeleton->joint_nodes == std::vector<std::size_t>{0, 1, 2},
             "Native model joint mapping lost");
+    require(held.clip->has_transform_channels && held.clip->transform_channels.size() == 1 &&
+                held.clip->transform_channels[0].node == 1 &&
+                held.clip->transform_channels[0].path == AnimatedTransformPath::Translation,
+            "Clip resource lost independent animated translation intent");
     require(resources.skeleton_statistics().memory.animation > 0 &&
                 resources.clip_statistics().memory.animation > 0,
             "Animation resident allocations not accounted");

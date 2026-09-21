@@ -432,3 +432,29 @@ source node TRS and uses an explicit glTF -Z camera/light basis. Infinite perspe
 negative orthographic magnification and punctual-light units retain their specified
 semantics. See[camera and light contracts](cameras-lights.md). Rendering consumption
 and editor creation controls are still being connected; this is CPU/authoring evidence.
+
+## Animated transform ownership
+
+New model cooks use animation companion version2. Each clip records its original
+`transform_channels` as unique source-node/path pairs (`translation`, `rotation`,
+`scale`). The list excludes rest channels synthesized solely to preserve converter
+duration. Equal-value authored tracks remain present. Admission verifies the list,
+its bounds and its membership in the same rig before constructing the native clip.
+
+The immutable CPU clip resource owns the validated channel list and reports its
+resident allocation. Presentation copies the list with the clip's selected model
+revision. This is intent metadata, not a second transform authority. The live-node
+application and rendered skin bridge are still pending integration in this package.
+An absent list in a legacy version1 companion means unknown intent; it must never
+be interpreted as permission to overwrite all three local components. Version1
+remains readable for its existing pose/debug consumers. Reimport produces version2;
+the existing source-hashed model recipe changes its cache identity automatically.
+No authored scene, identity, module ABI or dependency pin changes are involved.
+
+The private skin-pose preparation helper remaps the admitted per-draw palette and
+composes each selected joint-world matrix with its corresponding inverse bind.
+It never inverts the skinned mesh node. Its bounds are the union of transformed
+morphed AABBs, which conservatively enclose every nonnegative normalized linear
+blend. This includes reflections, shear and collapsed axes. The helper alone is
+not a rendered-skin consumer; camera-relative GPU admission, revision-safe instance
+binding and color/shadow submission remain part of the pending bridge.

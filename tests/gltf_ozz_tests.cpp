@@ -34,6 +34,18 @@ int main(int argc, char** argv) {
             NativeGltfDocument source(std::move(captured));
             auto prepared = prepare_gltf_ozz_transport(source, {30, false, 1.f});
             require(source.source().document == original, "Transport rewrote source");
+            require(prepared.metadata.at("version") == 2, "Missing channel-intent companion");
+            for (std::size_t c = 0; c < original.value("animations", Json::array()).size(); ++c) {
+                auto expected_channels = Json::array();
+                for (const auto& channel : original.at("animations")[c].at("channels"))
+                    if (channel.at("target").at("path") != "weights")
+                        expected_channels.push_back(channel.at("target"));
+                auto actual_channels = prepared.metadata.at("clips")[c].at("transform_channels");
+                std::sort(expected_channels.begin(), expected_channels.end());
+                std::sort(actual_channels.begin(), actual_channels.end());
+                require(actual_channels == expected_channels,
+                        "Converter filler channels changed authored animation intent");
+            }
             if (root.filename() == "matrix") {
                 auto two = source.source();
                 auto second = two.document["animations"][0];
@@ -148,6 +160,31 @@ int main(int argc, char** argv) {
                 }
                 require(rejected, "Invalid model animation candidate accepted");
             };
+            auto legacy = meta;
+            legacy["version"] = 1;
+            for (auto& entry : legacy["clips"])
+                entry.erase("transform_channels");
+            validate_model_animation(legacy, files);
+            if (!meta.at("clips").empty()) {
+                legacy["clips"][0]["transform_channels"] = Json::array();
+                reject(legacy, files);
+                auto invalid_channels = meta;
+                invalid_channels["clips"][0].erase("transform_channels");
+                reject(invalid_channels, files);
+                for (const auto& channel :
+                     {Json{{"node", 99999}, {"path", "translation"}},
+                      Json{{"node", meta.at("nodes")[0]}, {"path", "weights"}},
+                      Json{{"node", -1}, {"path", "rotation"}}}) {
+                    invalid_channels = meta;
+                    invalid_channels["clips"][0]["transform_channels"] = Json::array({channel});
+                    reject(invalid_channels, files);
+                }
+                invalid_channels = meta;
+                const Json duplicate{{"node", meta.at("nodes")[0]}, {"path", "scale"}};
+                invalid_channels["clips"][0]["transform_channels"] =
+                    Json::array({duplicate, duplicate});
+                reject(invalid_channels, files);
+            }
             if (!meta.at("skins").empty()) {
                 auto bad_skin = meta;
                 bad_skin["skins"][0]["joints"][0] = 99999;

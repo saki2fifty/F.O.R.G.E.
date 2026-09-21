@@ -307,3 +307,11 @@
 ### Windows fixture portability follow-up
 
 - Renamed a transmission resize-fixture local that collided with the Windows RPC `small` macro. The optical source audit stopped at compilation; no optical or shadow GPU pass is claimed from that run.
+
+### Imported animation channel ownership
+
+- Model animation companions now preserve exactly which translation, rotation and scale channels the source clip animates. Converter-only rest channels do not acquire animation ownership; equal-value source tracks retain their intent.
+- The admission boundary rejects missing, duplicate, foreign-node and unsupported channel declarations. Legacy companions remain readable without fabricating channel intent. CPU clip resources and detached presentation carry the validated metadata.
+- This prepares the animated model bridge; it does not yet claim live model-node application or rendered skinning. The existing source-hashed recipe prevents new cooks from reusing the previous metadata contract.
+- Added private skin-pose palette preparation and conservative bounds based on selected joint-world/inverse-bind products. Tests cover palette reordering, unused joints, negative and zero scales, large coordinates, invalid counts/indices and nonfinite matrices. GPU skin submission remains pending.
+- Validation: normal converter, worker model pipeline and skin bounds pass. Strict ASan/UBSan/LSan converter and bounds pass (2 tests, 7.70 seconds); the direct model recipe/resource regression passes separately (72.16 seconds). Full source formatting passes. These checks do not constitute Windows skin-render acceptance.

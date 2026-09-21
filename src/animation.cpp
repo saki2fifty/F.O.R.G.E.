@@ -314,6 +314,16 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
         result["model_asset"] = p.assets.model.skeleton->model;
         result["model_revision"] = p.assets.skeleton_revision;
         result["joint_nodes"] = p.assets.model.skeleton->joint_nodes;
+        if (p.assets.model.clip->has_transform_channels) {
+            auto channels = Json::array();
+            for (const auto& channel : p.assets.model.clip->transform_channels)
+                channels.push_back(
+                    {{"node", channel.node},
+                     {"path", channel.path == AnimatedTransformPath::Translation ? "translation"
+                              : channel.path == AnimatedTransformPath::Rotation  ? "rotation"
+                                                                                 : "scale"}});
+            result["transform_channels"] = std::move(channels);
+        }
     }
     return result;
 }

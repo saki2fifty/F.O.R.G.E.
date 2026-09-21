@@ -8,6 +8,17 @@ struct RenderBounds {
 };
 // Conservative affine AABB; works with reflection, shear and zero scale.
 RenderBounds transform_bounds(const MeshBounds&, const AffineTransform&);
+// Copied, transient skin data. Matrices are ordered by the prepared draw palette,
+// already in world space (joint world * inverse bind); no inverse of the mesh
+// node is needed or permitted. Bounds enclose every positive normalized blend.
+struct SkinPose {
+    std::vector<AffineTransform> palette;
+    RenderBounds bounds;
+};
+SkinPose prepare_skin_pose(std::span<const AffineTransform> joint_world,
+                           std::span<const AffineTransform> inverse_bind,
+                           std::span<const std::uint32_t> draw_palette,
+                           const MeshBounds& morphed_bounds);
 // Projection is the actual admitted camera projection, not a second camera model.
 bool bounds_visible(const RenderBounds&, const CameraView&);
 double bounds_camera_depth(const RenderBounds&, const CameraView&);

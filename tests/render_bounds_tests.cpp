@@ -46,6 +46,39 @@ int main() {
             });
         }
 
+        {
+            std::array<AffineTransform, 3> joints{}, inverse_bind{};
+            joints[0].m = {-2, 0, 0, 1e12, 0, 3, 0, 4, 0, 0, 0, 8};
+            joints[1].m = {1, 0, 0, 1e12 + 10, 0, -1, 0, 0, 0, 0, 2, 0};
+            joints[2].m[3] = -1e12; // Not in this draw's palette.
+            inverse_bind[0].m[3] = -3;
+            const std::array<std::uint32_t, 2> order{1, 0};
+            const auto pose = prepare_skin_pose(joints, inverse_bind, order, unit);
+            check(pose.palette[0] == joints[1] && pose.palette[1] == joints[0] * inverse_bind[0] &&
+                      pose.bounds.minimum[0] == 1e12 + 4 && pose.bounds.maximum[0] == 1e12 + 11,
+                  "Skin inverse bind/palette order or unused-joint exclusion changed");
+            for (unsigned corner = 0; corner < 8; ++corner) {
+                const Double3 p{corner & 1 ? 1. : -1., corner & 2 ? 1. : -1.,
+                                corner & 4 ? 1. : -1.};
+                const auto a = pose.palette[0].point(p), b = pose.palette[1].point(p);
+                for (double weight : {0., .125, .5, 1.})
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        const double value = weight * a[axis] + (1 - weight) * b[axis];
+                        check(value >= pose.bounds.minimum[axis] &&
+                                  value <= pose.bounds.maximum[axis],
+                              "Conservative skin bounds omitted a reflected/singular blend");
+                    }
+            }
+            rejects([&] {
+                prepare_skin_pose(joints, inverse_bind, std::array<std::uint32_t, 1>{3}, unit);
+            });
+            rejects([&] {
+                prepare_skin_pose(joints, std::span<const AffineTransform>{}, order, unit);
+            });
+            joints[0].m[3] = INFINITY;
+            rejects([&] { prepare_skin_pose(joints, inverse_bind, order, unit); });
+        }
+
         AffineTransform world;
         world.m = {-2, .5, 0, 3, 0, 0, 0, 7, 0, 0, 3, 5};
         const auto transformed = transform_bounds(unit, world);

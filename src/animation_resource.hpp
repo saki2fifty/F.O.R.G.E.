@@ -11,10 +11,18 @@ struct SkeletonResourceData {
     std::vector<std::size_t> joint_nodes;
     std::size_t resident_bytes() const;
 };
+enum class AnimatedTransformPath { Translation, Rotation, Scale };
+struct AnimatedTransformChannel {
+    std::size_t node = 0;
+    AnimatedTransformPath path = AnimatedTransformPath::Translation;
+};
 struct ClipResourceData {
     std::shared_ptr<const Clip> native;
     std::unique_ptr<const asset_detail::MorphAnimation> morphs;
     AssetId model, skeleton;
+    // Legacy companions have no channel intent. Never infer it from sampled values.
+    bool has_transform_channels = false;
+    std::vector<AnimatedTransformChannel> transform_channels;
     std::size_t resident_bytes() const;
 };
 } // namespace forge::animation_detail
