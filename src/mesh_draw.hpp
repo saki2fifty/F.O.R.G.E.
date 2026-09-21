@@ -10,8 +10,9 @@ namespace forge {
 class MeshDraw {
   public:
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
-    MeshDraw(DiligentPresentation&, const GpuMeshPart&, const MaterialData&, const Textures&,
-             Diligent::TEXTURE_FORMAT color_format, Diligent::TEXTURE_FORMAT depth_format);
+    MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
+             const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
+             Diligent::TEXTURE_FORMAT depth_format);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>);
 

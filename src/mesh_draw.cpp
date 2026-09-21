@@ -38,8 +38,8 @@ RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const char* name, Uint64 by
 using Row = std::array<float, 4>;
 
 } // namespace
-MeshDraw::MeshDraw(DiligentPresentation& presentation, const GpuMeshPart& mesh,
-                   const MaterialData& source, const Textures& textures,
+MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
+                   const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format)
     : mesh_(mesh) {
     const auto profile = prepare_pbr_material(source);
@@ -65,6 +65,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, const GpuMeshPart& mesh,
     auto vertex = compile(SHADER_TYPE_VERTEX, program.vertex),
          pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     auto* device = presentation.device();
+    RefCntAutoPtr<ITextureView> sheen;
+    RefCntAutoPtr<ISampler> sheen_sampler;
+    if (program.sheen) {
+        sheen = presentation.pbr(context).GetPreintegratedSheen_SRV();
+        SamplerDesc sampler;
+        sampler.MinFilter = sampler.MagFilter = sampler.MipFilter = FILTER_TYPE_LINEAR;
+        sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
+        device->CreateSampler(sampler, &sheen_sampler);
+        require(sheen && sheen_sampler, "native sheen lookup resources unavailable");
+    }
     object_ = buffer(device, "FORGE camera-relative object", 14 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
     auto values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
@@ -108,6 +118,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, const GpuMeshPart& mesh,
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeLights", lights_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values);
+        if (program.sheen) {
+            bind(SHADER_TYPE_PIXEL, "g_ForgeSheen", sheen);
+            bind(SHADER_TYPE_PIXEL, "g_ForgeSheen_sampler", sheen_sampler);
+        }
         for (const auto& slot : material.textures) {
             const auto found = textures.find(slot.role);
             require(found != textures.end() && found->second,

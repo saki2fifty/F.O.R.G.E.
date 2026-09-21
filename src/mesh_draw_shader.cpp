@@ -23,16 +23,16 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     const auto& source = profile.values;
     // These checks remain until the full extended lighting/pass consumer is wired.
     // Never render authored extension controls as if ignored values were supported.
-    for (const char* name : {"sheenRoughnessFactor", "anisotropyStrength", "iridescenceFactor",
-                             "transmissionFactor", "thicknessFactor", "dispersion"}) {
+    for (const char* name : {"transmissionFactor", "thicknessFactor", "dispersion"}) {
         auto found = profile.values.parameters.find(name);
         require(found == profile.values.parameters.end() || found->second.value[0] == 0,
                 std::string("extended lighting consumer unavailable: ") + name);
     }
-    if (auto found = profile.values.parameters.find("sheenColorFactor");
-        found != profile.values.parameters.end())
-        require(found->second.value == std::array<float, 4>{},
-                "sheen lighting consumer unavailable");
+    const bool sheen =
+        profile.workflow == PbrWorkflow::MetallicRoughness &&
+        profile.values.parameters.at("sheenColorFactor").value != std::array<float, 4>{};
+    const bool anisotropy = profile.workflow == PbrWorkflow::MetallicRoughness &&
+                            profile.values.parameters.at("anisotropyStrength").value[0] > 0;
     for (const auto& [role, slot] : profile.values.textures) {
         (void)slot;
         require(role == "baseColorTexture" || role == "diffuseTexture" ||
@@ -40,13 +40,20 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                     role == "normalTexture" || role == "occlusionTexture" ||
                     role == "emissiveTexture" || role == "specularTexture" ||
                     role == "specularColorTexture" || role == "clearcoatTexture" ||
-                    role == "clearcoatRoughnessTexture" || role == "clearcoatNormalTexture",
+                    role == "clearcoatRoughnessTexture" || role == "clearcoatNormalTexture" ||
+                    role == "iridescenceTexture" || role == "iridescenceThicknessTexture" ||
+                    role == "sheenColorTexture" || role == "sheenRoughnessTexture" ||
+                    role == "anisotropyTexture",
                 "extended texture consumer unavailable: " + role);
     }
     if (profile.values.textures.contains("clearcoatNormalTexture"))
         require((fetch.normal && fetch.tangent) ||
                     profile.values.textures.contains("normalTexture"),
                 "clearcoat normal map requires authored normal/tangent or a base normal map");
+    if (anisotropy || profile.values.textures.contains("anisotropyTexture"))
+        require((fetch.normal && fetch.tangent) ||
+                    profile.values.textures.contains("normalTexture"),
+                "anisotropy requires authored normal/tangent or a base normal map");
     const auto material = material_shader(profile, fetch.uv_sets);
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string varyings =
@@ -68,8 +75,16 @@ ForgeVarying main(uint id:SV_VertexID) {
     std::string ps = "#define USE_IBL 0\n#define TEX_COLOR_CONVERSION_MODE 0\n";
     ps += std::string("#define ENABLE_CLEAR_COAT ") +
           (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
+    ps += std::string("#define ENABLE_IRIDESCENCE ") +
+          (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
+    ps += std::string("#define ENABLE_SHEEN ") + (sheen ? "1\n" : "0\n");
+    ps += std::string("#define ENABLE_ANISOTROPY ") + (anisotropy ? "1\n" : "0\n");
     ps += "#include \"ForgeSurface.fxh\"\n#include \"ForgeLighting.fxh\"\n";
+    if (profile.workflow == PbrWorkflow::MetallicRoughness)
+        ps += "#include \"Iridescence.fxh\"\n";
     ps += object_source + varyings + material.source;
+    if (sheen)
+        ps += "Texture2D g_ForgeSheen;SamplerState g_ForgeSheen_sampler;\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
           "];};\n";
     ps += R"(
@@ -134,6 +149,13 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         mapped_normal("normalTexture", "normalScale", "n");
         ps += "n*=face;s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
         if (profile.workflow == PbrWorkflow::MetallicRoughness) {
+            if (sheen) {
+                ps += "s.Sheen.Color=ForgeParameter_sheenColorFactor();"
+                      "s.Sheen.Roughness=ForgeParameter_sheenRoughnessFactor();\n";
+                sample("sheenColorTexture", "s.Sheen.Color*=sample_sheenColorTexture.rgb");
+                sample("sheenRoughnessTexture",
+                       "s.Sheen.Roughness*=sample_sheenRoughnessTexture.a");
+            }
             ps += "float "
                   "rough=ForgeParameter_roughnessFactor(),metal=ForgeParameter_metallicFactor();\n"
                   "float weight=ForgeParameter_specularFactor();float3 "
@@ -146,8 +168,26 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                 "s.BaseLayer.Metallic=metal;\n"
                 // Native five-argument MR fixes dielectric F0 at .04. Adapt its
                 // color input to the admitted IOR F0 without copying the BRDF.
+                "float3 dielectric=min(ForgeDielectricF0()*specular,1)*weight;\n"
                 "specular=min(ForgeDielectricF0()*specular,1)/.04;\n"
                 "s.BaseLayer.Srf=GetSurfaceReflectanceMR(base.rgb,metal,rough,specular,weight);\n";
+            ps += "float film=ForgeParameter_iridescenceFactor();"
+                  "float thickness=ForgeParameter_iridescenceThicknessMaximum();\n";
+            sample("iridescenceTexture", "film*=sample_iridescenceTexture.r");
+            sample("iridescenceThicknessTexture",
+                   "thickness=lerp(ForgeParameter_iridescenceThicknessMinimum(),"
+                   "ForgeParameter_iridescenceThicknessMaximum(),sample_"
+                   "iridescenceThicknessTexture.g)");
+            ps += R"(
+    if(film>0 && thickness>0) {
+        float filmIor=ForgeParameter_iridescenceIor();
+        float3 dielectricFilm=EvalIridescence(1,filmIor,s.BaseLayer.NdotV,thickness,dielectric);
+        float3 metallicFilm=EvalIridescence(1,filmIor,s.BaseLayer.NdotV,thickness,base.rgb);
+        s.BaseLayer.Srf.IridescenceFresnel=lerp(dielectricFilm,metallicFilm,metal);
+        s.BaseLayer.Srf.IridescenceFactor=film;
+        s.Iridescence.Thickness=thickness;
+    }
+)";
         } else {
             ps += "float4 "
                   "physical=float4(ForgeParameter_specularFactor(),ForgeParameter_glossinessFactor("
@@ -155,6 +195,31 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             sample("specularGlossinessTexture", "physical*=sample_specularGlossinessTexture");
             ps += "s.BaseLayer.Srf=GetSurfaceReflectance(PBR_WORKFLOW_SPECULAR_GLOSSINESS,base,"
                   "physical,s.BaseLayer.Metallic);\n";
+        }
+        if (anisotropy) {
+            const std::string derivatives = profile.values.textures.contains("normalTexture")
+                                                ? "dx_normalTexture,dy_normalTexture"
+                                                : "float2(0,0),float2(0,0)";
+            ps += "ForgeSurfaceFrame anisoFrame=ForgePixelFrame(geometric,input.Tangent,"
+                  "input.Bitangent,dpdx,dpdy," +
+                  derivatives + ");\n";
+            ps += "float2 direction=float2(1,0);float "
+                  "strength=ForgeParameter_anisotropyStrength();\n";
+            sample(
+                "anisotropyTexture",
+                "direction=sample_anisotropyTexture.rg*2-1;strength*=sample_anisotropyTexture.b");
+            ps += R"(
+    float rotation=ForgeParameter_anisotropyRotation();
+    direction=float2(direction.x*cos(rotation)-direction.y*sin(rotation),
+                     direction.x*sin(rotation)+direction.y*cos(rotation));
+    if(!anisoFrame.TangentValid||!any(direction!=0))return float4(1,0,1,1);
+    s.Anisotropy.Direction=direction;s.Anisotropy.Strength=strength;
+    s.Anisotropy.Tangent=ForgeUnit(anisoFrame.Tangent*direction.x+anisoFrame.Bitangent*direction.y)*face;
+    s.Anisotropy.Bitangent=ForgeUnit(cross(geometric*face,s.Anisotropy.Tangent));
+    float alpha=s.BaseLayer.Srf.PerceptualRoughness*s.BaseLayer.Srf.PerceptualRoughness;
+    s.Anisotropy.AlphaRoughnessT=lerp(alpha,1,strength*strength);
+    s.Anisotropy.AlphaRoughnessB=alpha;
+)";
         }
         if (profile.workflow == PbrWorkflow::MetallicRoughness) {
             ps += "float "
@@ -174,13 +239,17 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         sample("emissiveTexture", "s.Emissive*=sample_emissiveTexture.rgb");
         ps += R"(
     SurfaceLightingInfo lighting=GetDefaultSurfaceLightingInfo();
-    [loop]for(uint i=0;i<(uint)g_Object[13].x;i++)valid=ForgeApplyPunctualLight(s,g_Lights[i],lighting)&&valid;
+    [loop]for(uint i=0;i<(uint)g_Object[13].x;i++)valid=ForgeApplyPunctualLight(s,g_Lights[i],
+#if ENABLE_SHEEN
+        g_ForgeSheen,g_ForgeSheen_sampler,
+#endif
+        lighting)&&valid;
     float3 color=ResolveLighting(s,lighting);
     if(!valid||!all(isfinite(color)))return float4(1,0,1,1);
     return float4(color,base.a);
 })";
     }
 
-    return {vs, ps, material};
+    return {vs, ps, material, sheen};
 }
 } // namespace forge

@@ -74,3 +74,18 @@
 - Clearcoat checkpoint: local14-stage HLSL compilation and native C++ header/source
   syntax checks passed, including textured coat branches and Scene host wiring.
   Format and manual3/3 passed. Native FXC/WARP execution remains required.
+
+### Iridescence, sheen and directional reflections
+
+- Connect iridescence factor/thickness textures to the pinned spectral evaluator.
+  Preserve actual IOR/specular reflectance when combining material extensions.
+- Connect sheen color/roughness to native layer shading and its shared preintegrated
+  lookup resource. Keep context/resource ownership explicit across complete bundles.
+- Connect anisotropy strength, rotation and texture direction to the native BRDF,
+  preserving tangent handedness and requiring the specified tangent-space inputs.
+- Add native effect, zero-film/zero-sheen, directional-rotation and missing-frame
+  regressions. Windows execution is pending; local14-stage shader compilation passed.
+- All four core/SDK jobs passed for189051f. The corresponding rendering audit is
+  still running; these results do not claim Windows validation of later layers.
+- Reflection-layer checkpoint: native C++ syntax checks, all14 local shader stages,
+  format and manual3/3 passed. FXC/WARP tests remain pending.

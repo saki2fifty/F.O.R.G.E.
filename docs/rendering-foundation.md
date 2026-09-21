@@ -377,3 +377,38 @@ mapping. Clearcoat normal admission requires an authored normal/tangent frame or
 base normal map, matching the exact glTF extension. Both normal-map consumers share
 pixel-frame orthogonalization and safe derivative fallback. Native visual acceptance
 is still pending for this increment.
+
+### Extended reflection layers
+
+The metallic-roughness adapter now supplies the pinned native iridescence, sheen
+and anisotropic BRDFs. These are shading consumers, not new material authorities.
+Iridescence uses red intensity and green thickness interpolation, including
+reversed authored thickness endpoints. Zero thickness removes the film. Its
+incident dielectric reflectance includes the admitted material IOR, specular color
+and specular weight; the pinned RenderPBR sample's fixed .04 input would lose those
+combined-extension semantics. The native `EvalIridescence` spectral calculation is
+used unchanged. No dependency patch or local replacement BRDF is introduced.
+
+Sheen uses linear color after one sRGB texture decode and the roughness texture's
+alpha channel. Its native directional-albedo compensation uses the presentation
+owner's `PBR_Renderer` preintegrated sheen texture with linear/clamp sampling.
+Construction receives the actual device context explicitly; bindings retain native
+resources. Zero sheen color omits the layer and lookup binding. Clearcoat remains
+above sheen in the native resolve order.
+
+Anisotropy requires authored normal/tangent attributes or a base normal map, as
+specified by glTF. Red/green encode tangent-space direction; blue multiplies
+strength; authored rotation is in radians. Frame reconstruction preserves tangent
+handedness and world reflection. The native anisotropic BRDF receives the required
+strength-squared roughness interpolation. A genuinely collapsed directional frame
+produces the existing diagnostic color, rather than choosing an arbitrary tangent.
+No visual LocalScale is clamped or rejected by this shading rule.
+
+Exact evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
+`Shaders/PBR/private/{RenderPBR.psh,Iridescence.fxh}`,
+`Shaders/PBR/public/PBR_Shading.fxh`, `Shaders/Common/public/PBR_Common.fxh`, and
+Khronos glTF `c18432787e6d545a1218c1926ccdcfaffd4c116b` extension specifications
+for iridescence, sheen and anisotropy. Verified2026-09-21. Native FXC/WARP execution
+of these new consumers remains pending; local compilation is not GPU acceptance.
+Transmission, volume/dispersion and the HDR/IBL/shadow pass connections remain
+ongoing work in the authorized batch.

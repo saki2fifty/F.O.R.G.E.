@@ -8,9 +8,10 @@ namespace forge {
 // before residency owners; native bindings die before their GPU leases.
 class MeshDrawBundle {
   public:
-    MeshDrawBundle(DiligentPresentation&, const asset_detail::PreparedModelDraw&,
-                   GpuResidency<MeshAsset>&, GpuResidency<TextureAsset>&,
-                   Diligent::TEXTURE_FORMAT color, Diligent::TEXTURE_FORMAT depth);
+    MeshDrawBundle(DiligentPresentation&, Diligent::IDeviceContext*,
+                   const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,
+                   GpuResidency<TextureAsset>&, Diligent::TEXTURE_FORMAT color,
+                   Diligent::TEXTURE_FORMAT depth);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, unsigned lod = 0);
     const std::vector<std::string>& unresolved_slots() const { return unresolved_; }

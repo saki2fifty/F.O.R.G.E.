@@ -1,6 +1,7 @@
 #include "mesh_draw_bundle.hpp"
 namespace forge {
 MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
+                               Diligent::IDeviceContext* context,
                                const asset_detail::PreparedModelDraw& prepared,
                                GpuResidency<MeshAsset>& meshes,
                                GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
@@ -47,7 +48,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                             ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
                 }
             }
-            output.push_back(std::make_unique<MeshDraw>(presentation, part, *values,
+            output.push_back(std::make_unique<MeshDraw>(presentation, context, part, *values,
                                                         native_textures, color, depth));
         }
     }

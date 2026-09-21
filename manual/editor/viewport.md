@@ -88,8 +88,9 @@ Moving the camera is not required to reveal a completed load. A Mesh Renderer ta
 precedence over the same entity's older primitive preview.
 
 This path is still undergoing native rendering validation. The current adapter
-handles static meshes with unlit or basic PBR/clearcoat materials and explicit scene lights.
-Other material extensions and skinned/morphed draws are not yet connected. The Game
+handles static meshes with unlit or PBR materials, including clearcoat, iridescence,
+sheen and anisotropy, under explicit scene lights. Transmission and skinned/morphed
+draws are not yet connected. The Game
 preview still uses its existing rendering path. Model placement, mesh picking and
 production render controls remain part of the ongoing integration; importing a file
 alone does not place an object in the scene. See [Models](models.md).

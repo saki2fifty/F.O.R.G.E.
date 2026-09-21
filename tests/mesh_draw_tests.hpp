@@ -16,8 +16,8 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     material.model = "forge.gltf.unlit.v1";
     material.parameters["baseColorFactor"] = {forge::MaterialParameterType::LinearColor4,
                                               {.2f, .6f, .1f, 1}};
-    forge::MeshDraw draw(presentation, gpu.lods[0].parts[0], material, {}, TEX_FORMAT_RGBA8_UNORM,
-                         TEX_FORMAT_D32_FLOAT);
+    forge::MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, {},
+                         TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     TextureDesc desc;
     desc.Name = "FORGE prepared draw acceptance";
     desc.Type = RESOURCE_DIM_TEX_2D;
@@ -89,7 +89,8 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         forge::GpuResidency<forge::MeshAsset> meshes(presentation.device(), context, 4096);
         forge::GpuResidency<forge::TextureAsset> textures(presentation.device(), context, 4096);
         auto bundle = std::make_unique<forge::MeshDrawBundle>(
-            presentation, prepared, meshes, textures, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+            presentation, context, prepared, meshes, textures, TEX_FORMAT_RGBA8_UNORM,
+            TEX_FORMAT_D32_FLOAT);
         require(render(*bundle) == reference && bundle->mesh_identity() == prepared.mesh.identity(),
                 "Complete bundle changed the selected mesh draw");
         auto invalid = prepared;
@@ -97,7 +98,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         bool rejected = false;
         try {
             auto replacement = std::make_unique<forge::MeshDrawBundle>(
-                presentation, invalid, meshes, textures, TEX_FORMAT_RGBA8_UNORM,
+                presentation, context, invalid, meshes, textures, TEX_FORMAT_RGBA8_UNORM,
                 TEX_FORMAT_D32_FLOAT);
             bundle = std::move(replacement);
         } catch (const std::exception&) {
@@ -136,8 +137,8 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     material.model = "forge.gltf.metallic-roughness.v1";
     material.parameters["metallicFactor"] = {forge::MaterialParameterType::Scalar, {0}};
     material.parameters["roughnessFactor"] = {forge::MaterialParameterType::Scalar, {.7f}};
-    forge::MeshDraw lit(presentation, gpu.lods[0].parts[0], material, {}, TEX_FORMAT_RGBA8_UNORM,
-                        TEX_FORMAT_D32_FLOAT);
+    forge::MeshDraw lit(presentation, context, gpu.lods[0].parts[0], material, {},
+                        TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     forge::Light authored;
     authored.intensity = 1;
     auto light = forge::light_view(authored, forge::AffineTransform{});
@@ -160,7 +161,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     coated_material.parameters["clearcoatFactor"] = {forge::MaterialParameterType::Scalar, {1}};
     coated_material.parameters["clearcoatRoughnessFactor"] = {forge::MaterialParameterType::Scalar,
                                                               {.35f}};
-    forge::MeshDraw coated(presentation, gpu.lods[0].parts[0], coated_material, {},
+    forge::MeshDraw coated(presentation, context, gpu.lods[0].parts[0], coated_material, {},
                            TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     const auto coating = render(coated, std::span(&light, 1));
     const auto coated_pixel = coating[16 * 32 + 16];
@@ -174,6 +175,38 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     // A valid authored frame on constant UVs: screen-gradient reconstruction
     // cannot substitute for the supplied tangent or silently lose tangent.w.
     world.m[10] = 1;
+    auto film_material = material;
+    film_material.parameters["iridescenceFactor"] = {forge::MaterialParameterType::Scalar, {1}};
+    film_material.parameters["iridescenceThicknessMaximum"] = {forge::MaterialParameterType::Scalar,
+                                                               {350}};
+    forge::MeshDraw film(presentation, context, gpu.lods[0].parts[0], film_material, {},
+                         TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    const auto film_image = render(film, std::span(&light, 1));
+    require(film_image[16 * 32 + 16] != pixel &&
+                film_image[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
+            "Iridescence did not change the native reflection response");
+    auto zero_film_material = film_material;
+    zero_film_material.parameters["iridescenceThicknessMaximum"].value[0] = 0;
+    forge::MeshDraw zero_film(presentation, context, gpu.lods[0].parts[0], zero_film_material, {},
+                              TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    require(render(zero_film, std::span(&light, 1)) == illuminated,
+            "Zero film thickness changed the base material");
+    auto sheen_material = material;
+    sheen_material.parameters["sheenColorFactor"] = {forge::MaterialParameterType::LinearColor3,
+                                                     {.8f, .3f, .1f}};
+    sheen_material.parameters["sheenRoughnessFactor"] = {forge::MaterialParameterType::Scalar,
+                                                         {.6f}};
+    forge::MeshDraw sheen(presentation, context, gpu.lods[0].parts[0], sheen_material, {},
+                          TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    const auto sheen_image = render(sheen, std::span(&light, 1));
+    require(sheen_image[16 * 32 + 16] != pixel &&
+                sheen_image[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
+            "Sheen factor/roughness/native lookup did not affect the base layer");
+    sheen_material.parameters["sheenRoughnessFactor"].value[0] = 0;
+    forge::MeshDraw zero_sheen(presentation, context, gpu.lods[0].parts[0], sheen_material, {},
+                               TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    require(render(zero_sheen, std::span(&light, 1)) == illuminated,
+            "Zero sheen roughness did not follow the native limiting behavior");
     material.textures["normalTexture"].semantic = forge::TextureSemantic::Normal;
     forge::TextureData normal;
     normal.width = normal.height = 1;
@@ -187,17 +220,44 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         {"TANGENT", 4, std::vector<float>{0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1}});
     mesh.lods[0].parts[0] = part;
     auto tangent_gpu = forge::upload_mesh(presentation.device(), mesh);
-    forge::MeshDraw tangent_draw(presentation, tangent_gpu.lods[0].parts[0], material, bindings,
-                                 TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    forge::MeshDraw tangent_draw(presentation, context, tangent_gpu.lods[0].parts[0], material,
+                                 bindings, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     light.direction = {.8, 0, .6};
     const auto handed = render(tangent_draw, std::span(&light, 1));
     auto& tangents = std::get<std::vector<float>>(mesh.lods[0].parts[0].streams.back().values);
     for (unsigned i = 3; i < tangents.size(); i += 4)
         tangents[i] = 1;
     auto opposite_gpu = forge::upload_mesh(presentation.device(), mesh);
-    forge::MeshDraw opposite_draw(presentation, opposite_gpu.lods[0].parts[0], material, bindings,
-                                  TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    forge::MeshDraw opposite_draw(presentation, context, opposite_gpu.lods[0].parts[0], material,
+                                  bindings, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
     const auto opposite = render(opposite_draw, std::span(&light, 1));
     require(handed[16 * 32 + 16][1] > opposite[16 * 32 + 16][1] + 15,
             "Normal-map draw ignored the authored tangent frame or tangent.w");
+    auto anisotropic_material = material;
+    anisotropic_material.textures.clear();
+    anisotropic_material.parameters["roughnessFactor"] = {forge::MaterialParameterType::Scalar,
+                                                          {.35f}};
+    anisotropic_material.parameters["metallicFactor"] = {forge::MaterialParameterType::Scalar, {1}};
+    anisotropic_material.parameters["anisotropyStrength"] = {forge::MaterialParameterType::Scalar,
+                                                             {.9f}};
+    forge::MeshDraw aniso(presentation, context, opposite_gpu.lods[0].parts[0],
+                          anisotropic_material, {}, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    const auto directional = render(aniso, std::span(&light, 1));
+    anisotropic_material.parameters["anisotropyRotation"] = {forge::MaterialParameterType::Scalar,
+                                                             {1.57079632679f}};
+    forge::MeshDraw rotated_aniso(presentation, context, opposite_gpu.lods[0].parts[0],
+                                  anisotropic_material, {}, TEX_FORMAT_RGBA8_UNORM,
+                                  TEX_FORMAT_D32_FLOAT);
+    const auto rotated = render(rotated_aniso, std::span(&light, 1));
+    require(directional[16 * 32 + 16] != rotated[16 * 32 + 16] &&
+                rotated[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
+            "Anisotropy direction/rotation did not reach native shading");
+    bool missing_frame_rejected = false;
+    try {
+        forge::MeshDraw invalid(presentation, context, gpu.lods[0].parts[0], anisotropic_material,
+                                {}, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+    } catch (const std::exception&) {
+        missing_frame_rejected = true;
+    }
+    require(missing_frame_rejected, "Anisotropic material accepted a mesh with no tangent space");
 }

@@ -108,8 +108,9 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         }
                     }
                     auto native = std::make_unique<MeshDrawBundle>(
-                        host_->presentation_, *candidate, host_->gpu_meshes_, host_->gpu_textures_,
-                        Diligent::TEX_FORMAT_RGBA8_UNORM, Diligent::TEX_FORMAT_D32_FLOAT);
+                        host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
+                        host_->gpu_textures_, Diligent::TEX_FORMAT_RGBA8_UNORM,
+                        Diligent::TEX_FORMAT_D32_FLOAT);
                     entry.ready = std::move(native);
                     entry.bounds = bounds;
                     entry.thresholds = std::move(thresholds);
