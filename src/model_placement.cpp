@@ -1,8 +1,10 @@
 #include "model_placement.hpp"
 #include "model_view_components.hpp"
 #include "render_values.hpp"
+#include "scene_draft.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
+#include <forge/authoring.hpp>
 #include <forge/model_asset.hpp>
 #include <forge/primitive_catalog.hpp>
 #include <set>
@@ -251,5 +253,43 @@ EntityId instantiate_model(Scene& scene, const AssetCatalog& catalog,
             "Model placement exceeds the scene byte profile");
     scene.edit(document);
     return candidate.root;
+}
+EntityId instantiate_mesh(Scene& scene, const AssetCatalog& catalog, AssetRef<MeshAsset> mesh,
+                          LocalTranslation position, const std::string& name) {
+    const auto resolved = catalog.resolve(mesh);
+    if (resolved.state != AssetState::Available)
+        throw std::runtime_error("Mesh placement rejected: " + resolved.diagnostic);
+    auto document =
+        preview_authoring(scene, Json::array({{{"operation", "entity.create"},
+                                               {"arguments",
+                                                {{"recipe", "render.mesh"},
+                                                 {"name", name},
+                                                 {"position", detail::encode(position)}}}}}));
+    auto& entity = document["entities"].back();
+    entity["components"]["forge.mesh_renderer"]["mesh"] = mesh.id;
+    const auto id = entity.at("id").get<EntityId>();
+    scene.edit(document);
+    return id;
+}
+EntityId instantiate_prefab_at(Scene& scene, AssetId asset, LocalTranslation position) {
+    detail::SceneDraft draft(scene);
+    const auto id = draft.instantiate_prefab(asset);
+    const auto effective = draft.effective_document();
+    AffineTransform desired;
+    for (const auto& entity : effective.at("entities"))
+        if (entity.at("id") == id) {
+            require(entity.value("spatial_resolved", false),
+                    "Prefab placement has an unresolved spatial parent");
+            desired.m = entity.at("world_affine").get<std::array<double, 12>>();
+        }
+    desired.m[3] = position.x;
+    desired.m[7] = position.y;
+    desired.m[11] = position.z;
+    auto document = draft.document();
+    detail::write_world(document, effective, id, desired, TransformChannel::Translation);
+    require(document.at("entities").size() <= 10000 && document.dump().size() <= 8 * 1024 * 1024,
+            "Prefab placement exceeds the scene authoring profile");
+    scene.edit(document);
+    return EntityId::parse(id);
 }
 } // namespace forge::asset_detail

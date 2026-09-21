@@ -113,3 +113,36 @@ names and deep project roots must not acquire avoidable staging-name length.
 Exclusive creation, file flush and same-directory replacement remain required.
 The Windows regression includes a valid destination near its traditional path
 bound; broader long-path behavior still depends on the particular platform API.
+
+
+## External raw-source admission
+
+The private `SourceCopyPlan`/`commit_source_copy` application operation copies selected
+raw sources into a new folder; it does not copy catalog entries, sidecars or durable
+asset identities. The editor currently admits supported model/texture importer routes.
+Model sources use the existing pinned glTF capture/admission code to gather contained
+buffers/images. Each selection has a separate relative root. Bounds are256 source
+selections/8192 files/512MiB per file/2GiB total, plus existing glTF capture bounds.
+Preparation reads and hashes without writing. Commit retains the project writer lease,
+revalidates all reviewed bytes, stages under an owned hidden sibling directory, flushes
+files/directories and atomically renames to the previously absent destination.
+
+Linux uses `renameat2(RENAME_NOREPLACE)`: ordinary rename can replace an existing empty
+directory despite earlier preflight. Windows uses `MoveFileExW` without replacement or
+cross-volume copy flags. The regression inserts an empty competing destination between
+final preflight and rename; it must remain untouched. Sources are never moved/deleted.
+See [Linux rename specification](https://man7.org/linux/man-pages/man2/rename.2.html)
+and [Windows MoveFileExW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw).
+
+Cancellation/failure cleans only verified bytes and empty directories created by that
+operation. Externally modified staging survives with a diagnostic. Process interruption
+may leave hidden staging; startup does not automatically discard it. Publication followed
+by a directory-flush failure explicitly reports the published folder. This is separate
+from catalog publication/recovery: subsequent imports use AssetImportService individually,
+retain earlier successes on a later failure, and do not promise cross-asset Scene Undo.
+
+The modal review is asynchronous, cancellable and scrollable at100%/200% UI scale.
+Background reimports drain before copying; individual import jobs publish only through
+the existing owning-thread service. Copied SDL dialog/drop strings outlive SDL callbacks.
+The pinned SDL Windows OLE path supplies drop coordinates; its legacy WM_DROPFILES path
+does not, so only that no-position case uses the current window-relative mouse position.

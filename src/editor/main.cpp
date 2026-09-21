@@ -41,11 +41,13 @@
 #include "project_settings.hpp"
 #include "runtime_ui_host.hpp"
 #include "runtime_ui_tools.hpp"
+#include "scene_asset_drop.hpp"
 #include "scene_cache.hpp"
 #include "scene_lighting.hpp"
 #include "scene_tools.hpp"
 #include "shader_diligent.hpp"
 #include "shader_imports.hpp"
+#include "source_import.hpp"
 #include "status_bar.hpp"
 #include "texture_imports.hpp"
 #include "texture_viewer.hpp"
@@ -321,6 +323,7 @@ int main(int argc, char** argv) {
         forge::AuthoringSnapshot authoring_snapshot;
         forge::PrefabEditor prefab_editor;
         forge::AuthoredComponents authored_components;
+        forge::SceneAssetDrop scene_asset_drop;
         authored_components.project_changed(scene, files.document);
         forge::PreviewSnapshot preview_snapshot, game_preview_snapshot;
         bool game_visible = false, focus_game = false;
@@ -415,7 +418,13 @@ int main(int argc, char** argv) {
         };
         forge::ContentImports content_imports;
         forge::ContentFiles content_files;
-        files.external_busy = [&] { return content_files.busy() || authored_components.busy(); };
+        forge::SourceImport source_import;
+        std::vector<std::filesystem::path> dropped_sources;
+        bool source_drop_rejected = false, source_drop_position = false;
+        files.external_busy = [&] {
+            return content_files.busy() || authored_components.busy() || scene_asset_drop.busy() ||
+                   source_import.busy();
+        };
         content.file_actions = [&](const auto& asset, bool locked) {
             content_files.menu(asset, locked);
         };
@@ -515,6 +524,9 @@ int main(int argc, char** argv) {
             content.refresh(files);
         };
         content.rescan_sources = [&] { content_imports.rescan(); };
+        source_import.routes = content_imports.routes;
+        source_import.published = content_imports.published;
+        content.import_files = [&] { source_import.picker(files.document, window.get()); };
         content.reimport = [&](const auto& assets) { content_imports.reimport(assets); };
         content.import_status = [&] { content_imports.status(); };
         content.import_activity = [&] {
@@ -784,6 +796,41 @@ int main(int argc, char** argv) {
                                                                  ImGuiPopupFlags_AnyPopupLevel) &&
                                 (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS));
             while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_EVENT_DROP_BEGIN) {
+                    dropped_sources.clear();
+                    source_drop_rejected = false;
+                    source_drop_position = false;
+                }
+                if (event.type == SDL_EVENT_DROP_POSITION)
+                    source_drop_position = true;
+                if (event.type == SDL_EVENT_DROP_FILE) {
+                    const auto origin = ImGui::GetMainViewport()->Pos;
+                    float drop_x = event.drop.x, drop_y = event.drop.y;
+                    // SDL3's legacy Windows WM_DROPFILES path emits no DROP_POSITION.
+                    // Use the current window-relative pointer only for that path.
+                    if (!source_drop_position)
+                        SDL_GetMouseState(&drop_x, &drop_y);
+                    if (files.busy() || native->busy() || play.active() ||
+                        !content.accepts_file_drop({origin.x + drop_x, origin.y + drop_y}) ||
+                        dropped_sources.size() >= 256 || !event.drop.data) {
+                        source_drop_rejected = true;
+                        message =
+                            "Drop up to 256 raw source files onto Content after finishing the "
+                            "current operation.";
+                    } else {
+                        dropped_sources.push_back(std::filesystem::u8path(event.drop.data));
+                    }
+                }
+                if (event.type == SDL_EVENT_DROP_COMPLETE) {
+                    if (!source_drop_rejected && !dropped_sources.empty()) {
+                        try {
+                            source_import.select(files.document, std::move(dropped_sources));
+                        } catch (const std::exception& e) {
+                            message = e.what();
+                        }
+                    }
+                    dropped_sources.clear();
+                }
                 const bool zoom_key =
                     (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) &&
                     (event.key.mod & SDL_KMOD_CTRL) &&
@@ -820,6 +867,10 @@ int main(int argc, char** argv) {
                 if (event.type == SDL_EVENT_QUIT)
                     files.request({forge::EditorFiles::Command::Quit, {}, {}});
             }
+            scene_asset_drop.poll(scene, files, editor.selection,
+                                  play.active() || native->busy() || content_files.busy() ||
+                                      authored_components.busy(),
+                                  message);
             files.pump(!native->busy());
             if (files.changed) {
                 play.stop();
@@ -1143,9 +1194,9 @@ int main(int argc, char** argv) {
                     {"model_preview", model_viewer ? model_viewer->loading_state() : "absent"},
                     {"status", message}};
                 if (auto* w = ImGui::FindWindowByName("###Model import"))
-                    stalled["model_window"] = {{"active", w->Active},
-                                               {"hidden", w->Hidden},
-                                               {"tab_visible", w->DockTabIsVisible}};
+                    stalled["model_window"] = {{"active", bool(w->Active)},
+                                               {"hidden", bool(w->Hidden)},
+                                               {"tab_visible", bool(w->DockTabIsVisible)}};
                 forge::atomic_write(fixture.output / "stalled-state.json", stalled.dump(2));
                 fixture.capture(device, context, swap->GetCurrentBackBufferRTV(), false);
                 throw std::runtime_error(
@@ -1618,6 +1669,8 @@ int main(int argc, char** argv) {
                 forge::ui::report_error("asset_import", message);
             }
             content_files.poll(files.document, scene, content_imports, message);
+            content_imports.suspend(content_files.busy() || source_import.busy());
+            source_import.poll(files.document, content_imports, message);
             content_imports.poll(files.document, message);
             content.source_snapshot(content_imports.sources());
             if (content.take_settings_changed())
@@ -1897,6 +1950,7 @@ int main(int argc, char** argv) {
                     }
                     bool frame_selected = false, fit_scene = false;
                     if (!game_view) {
+                        scene_asset_drop.controls();
                         if (forge::ui::icon_button(
                                 "##scene-add", forge::ui::Icon::Add,
                                 "Add Entity\nCreate at World Origin or the Scene view target."))
@@ -2080,6 +2134,9 @@ int main(int argc, char** argv) {
                             !files.busy() && !blockout.active() &&
                             !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
                                                              ImGuiPopupFlags_AnyPopupLevel);
+                        scene_asset_drop.target(
+                            scene, files, content, view_camera, image_origin, size,
+                            can_edit && !modal.active() && !scene_tools.move.active() && !gizmo);
                         const auto mouse = ImGui::GetIO().MousePos;
                         const bool over_image =
                             ImGui::IsWindowHovered() && mouse.x >= image_origin.x &&
@@ -2217,6 +2274,8 @@ int main(int argc, char** argv) {
             script_editor.poll(files.document, editor.problems);
             documents.draw();
             content_files.draw(content_imports);
+            source_import.draw(play.active() || native->busy() || content_files.busy() ||
+                               authored_components.busy() || scene_asset_drop.busy());
             script_editor.draw_source_viewer(files.document);
             if (editor.reveal_content) {
                 workspace.content = true;

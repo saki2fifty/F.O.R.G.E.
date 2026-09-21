@@ -6,6 +6,8 @@ Phase7 source. Assign textures to surface roles in the [Material editor](materia
 its surface preview shows them on geometry. The Texture import document also displays
 the last published texture.
 
+For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
+
 ## Import an image
 
 1. Copy the source into your project's **Assets** folder.

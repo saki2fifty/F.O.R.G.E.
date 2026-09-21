@@ -29,4 +29,9 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection&, AssetId t
 // Shared owner-thread scene command. One validated Scene::edit / undo step;
 // import publication and scene history remain separate owners.
 EntityId instantiate_model(Scene&, const AssetCatalog&, const ModelPlacementCandidate&);
+// Immediate owner-thread placement of one typed mesh or a linked prefab. The
+// detached candidate commits once; only translation is overridden on prefabs.
+EntityId instantiate_mesh(Scene&, const AssetCatalog&, AssetRef<MeshAsset>, LocalTranslation,
+                          const std::string& name);
+EntityId instantiate_prefab_at(Scene&, AssetId, LocalTranslation);
 } // namespace forge::asset_detail

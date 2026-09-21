@@ -61,6 +61,34 @@ Select the destination entity and find its component field in Inspector. Drag a 
 
 Alternatively open the field's picker, search, and choose a compatible asset. **None / Clear** removes the reference; **Reveal in Content** selects the referenced asset without modifying the scene. Fields validate expected asset type. Assignment is a scene edit and supports Undo/Redo; asset creation and external file edits do not.
 
+## Drop content into the Scene
+
+Drag a **Model**, **Mesh** or **Prefab** from Content onto the Scene image. Placement uses a camera-facing plane through the current view target, so it also works in front and side views. It creates fresh entity identities, selects the new root and records one scene Undo step. Save the scene to keep the placement.
+
+Model drops use the source's default scene, or its only scene, without autoplay. If a model has several scenes and no default, open [Model import](models.md) and choose **Source scene** before using **Place model**. Models prepare in the background; **Cancel placement** appears in the Scene while work is pending. A changed scene, cancelled task or failed preparation leaves the scene unchanged.
+
+A Mesh drop assigns that typed mesh to a new Mesh Renderer. A Prefab drop creates a linked instance and overrides only its root translation; inherited rotation and scale remain inherited. A **Scene** drop opens the ordinary scene workflow, including the prompt for unsaved changes.
+
+Other asset types belong on their compatible [Inspector fields](inspector.md). A texture or material dropped on empty Scene space does not create an unrelated object.
+
+## Bring files in from your computer
+
+1. Stop Play and choose **Import files** in Content, or drag source files from your desktop/file manager onto Content.
+2. Review the selected files. Use **Remove** for any entry you do not want.
+3. Choose an unused **New project folder** below `Assets`; its parent folder must already exist.
+4. Choose **Prepare import**. FORGE reads the files and finds the model's required buffers and images without copying anything yet.
+5. Review the file count, total size and destination. Leave **Import with defaults after copying** enabled to prepare assets immediately, or disable it to adjust each source's settings later.
+6. Choose **Copy sources**. Each selection gets its own `Source-1`, `Source-2`, and so on inside the new folder.
+7. Check each result, then choose **Close**. Successfully imported assets appear in Content; copied-only or failed sources remain available through **Open import / source**.
+
+This workflow accepts supported glTF models and texture sources. It copies glTF buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
+
+Existing destinations are never replaced. If source bytes change after review, prepare again. FORGE does not copy project catalogs, import sidecars or authored Scene/Prefab/Material/Shader identities through this workflow; use their own creation or duplication actions.
+
+**Cancel batch** stops pending work. Completed copies and successfully published assets remain. Each asset imports independently: a failure in the second source does not undo the first successful import. Source copying and asset publication do not belong to Scene Undo. For different import settings, disable automatic import, then open each copied source through its own [Model](models.md) or [Texture](textures.md) settings.
+
+Limits are 256 selected sources, 8,192 copied files, 512 MiB per file and 2 GiB total, together with the existing format-specific import limits. Closing FORGE or losing power during copying can leave a hidden `.forge-import-*` staging folder. It is not imported content; do not treat it as a completed destination. No automatic cleanup of interrupted source-copy staging is claimed.
+
 ## Create or register supported content
 
 Open **Create / Register**:
@@ -78,7 +106,7 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 ## Current limits
 
-Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; broader source operations are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; unsupported formats still require their existing registration workflows. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discovery is bounded to 64 directory levels, 110,000 directory/file entries and 64 MiB of JSON reads, with an 8 MiB per-file limit. Registered non-scene sources, the catalog, project metadata and import sidecars are excluded from those JSON reads. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 

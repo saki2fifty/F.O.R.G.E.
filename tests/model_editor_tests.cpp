@@ -1,5 +1,7 @@
 #include "content.hpp"
 #include "model_imports.hpp"
+#include "scene_asset_drop.hpp"
+#include "source_import.hpp"
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -72,7 +74,9 @@ int main(int argc, char** argv) {
         save(path, source);
         EngineContext engine;
         Scene scene(engine.world());
-        SceneDocument document(scene);
+        std::vector<std::string> recent;
+        EditorFiles files(scene, nullptr, recent);
+        auto& document = files.document;
         document.open_project(root, true);
         ImGui::CreateContext();
         auto& io = ImGui::GetIO();
@@ -187,6 +191,125 @@ int main(int argc, char** argv) {
         wait([&] { return !editor.pending(); });
         require(read_json(root / "forge.assets.json") == catalog && scene.document() == after,
                 "Invalid model reimport replaced usable assets or mutated the scene");
+        // Content-to-Scene uses deferred owner-thread commands and one history
+        // boundary. The published last-good model remains placeable after failure.
+        SceneAssetDrop drop;
+        files.external_busy = [&] { return drop.busy(); };
+        auto placement_wait = [&] {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            while (drop.busy() && std::chrono::steady_clock::now() < deadline) {
+                drop.poll(scene, files, context.selection, false, message);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            require(!drop.busy(), "Deferred model placement did not settle");
+        };
+        const auto assets = AssetCatalog::open_project(root);
+        const auto model_record = assets.records().at(owner);
+        drop.queue(model_record, scene, document, {7, 8, 9});
+        require(scene.document() == after, "Drop mutated the scene while drawing");
+        placement_wait();
+        require(scene.entity_count() == 6, message.c_str());
+        require(scene.undo() && scene.document() == after,
+                "Deferred model drop was not one undoable scene placement");
+        drop.queue(model_record, scene, document, {});
+        authoring_command(scene, "entity.rename", {{"entity", placed}, {"name", "Newer edit"}});
+        const auto newer = scene.document();
+        placement_wait();
+        require(scene.document() == newer, "Stale drop overwrote a newer scene edit");
+        require(scene.undo() && scene.document() == after, "Drop cancellation modified history");
+        drop.queue(model_record, scene, document, {});
+        drop.cancel();
+        placement_wait();
+        require(scene.document() == after, "Cancelled drop changed the scene");
+        auto wrong = model_record;
+        wrong.type = "mesh";
+        drop.queue(wrong, scene, document, {});
+        placement_wait();
+        require(scene.document() == after, "Model was silently coerced into a Mesh");
+        const auto builtin = assets.resolve(engine_primitive(0));
+        drop.queue(*builtin.record, scene, document, {2, 3, 4});
+        placement_wait();
+        auto mesh_doc = scene.document();
+        const auto& mesh_row = mesh_doc.at("entities").back();
+        require(mesh_row.at("components").at("forge.mesh_renderer").at("mesh") ==
+                        Json(builtin.record->id) &&
+                    mesh_row.at("components").at("forge.local_translation").at("x") == 2,
+                "Mesh drop lost the typed reference or placement");
+        require(scene.undo() && scene.document() == after, "Mesh drop was not one Undo step");
+        const auto prefab = document.prefabs().create(
+            scene, create_prefab_source(scene, placed.str()), "Assets/drop.prefab.json");
+        const auto before_prefab = scene.document();
+        drop.queue(document.prefabs().records().at(prefab), scene, document, {4, 5, 6});
+        placement_wait();
+        const auto prefab_doc = scene.document();
+        const auto root_id = context.selection.entity();
+        bool prefab_root = false;
+        for (const auto& row : prefab_doc.at("entities"))
+            if (row.at("id") == root_id) {
+                const auto& owned = row.at("components");
+                prefab_root =
+                    row.contains("prefab_instance") && owned.contains("forge.local_translation") &&
+                    !owned.contains("forge.local_rotation") && !owned.contains("forge.local_scale");
+            }
+        require(prefab_root, "Prefab placement accidentally owned rotation or scale");
+        require(scene.undo() && scene.document() == before_prefab,
+                "Prefab placement and translation were not one Undo step");
+        AssetRecord scene_record{scene.asset_id(), "scene", "Dropped.scene.json", 3, {}};
+        save(root / scene_record.source, scene.document());
+        drop.queue(scene_record, scene, document, {});
+        placement_wait();
+        require(files.busy() && scene.document() == before_prefab,
+                "Scene drop bypassed the unsaved document guard");
+        files.resolve_pending(EditorFiles::Resolution::Cancel);
+        require(!files.busy() && scene.document() == before_prefab,
+                "Cancelling scene Open lost the current document");
+        const auto incoming = root / "Incoming";
+        std::filesystem::create_directory(incoming);
+        save(incoming / "first.gltf",
+             {{"asset", {{"version", "2.0"}}}, {"nodes", Json::array({{{"name", "Imported"}}})}});
+        save(incoming / "bad.gltf",
+             {{"asset", {{"version", "2.0"}}},
+              {"meshes",
+               Json::array({{{"primitives", Json::array({{{"attributes", Json::object()}}})}}})},
+              {"nodes", Json::array({{{"mesh", 0}}})}});
+        SourceImport incoming_import;
+        ContentImports background;
+        incoming_import.routes = [&] { return editor.automatic_routes(); };
+        incoming_import.select(document, {incoming / "first.gltf", incoming / "bad.gltf"});
+        incoming_import.prepare();
+        auto import_frame = [&] {
+            incoming_import.poll(document, background, message);
+            ImGui::NewFrame();
+            incoming_import.draw(false);
+            ImGui::Render();
+        };
+        auto import_wait = [&](auto done) {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            do {
+                import_frame();
+                require(incoming_import.diagnostic().empty(), incoming_import.diagnostic().c_str());
+                if (done())
+                    return;
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            } while (std::chrono::steady_clock::now() < deadline);
+            throw std::runtime_error("Source import UI did not settle");
+        };
+        import_wait([&] { return incoming_import.review_ready(); });
+        ui::style(2);
+        io.DisplaySize = {1920, 1080};
+        import_frame();
+        ui::style(1);
+        io.DisplaySize = {1100, 1000};
+        require(!std::filesystem::exists(root / "Assets/Imported"),
+                "Preparing source import copied files without confirmation");
+        incoming_import.copy_sources(true);
+        import_wait([&] { return incoming_import.finished(); });
+        require(incoming_import.published_count() == 1 &&
+                    std::filesystem::exists(root / "Assets/Imported/Source-2/bad.gltf") &&
+                    scene.document() == before_prefab,
+                "Batch did not retain first success/failed source or changed scene history");
+        incoming_import.close();
+        import_frame();
         editor.request_close();
         frame();
         ImGui::DestroyContext();

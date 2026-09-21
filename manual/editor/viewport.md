@@ -110,3 +110,7 @@ sorting artifacts; this is conventional transparency, not order-independent rend
 These new display and queue paths are undergoing Windows rendering validation.
 
 Use [Scene lighting](lighting.md) for authored environment maps and Game exposure.
+
+## Place assets from Content
+
+Drag a Model, Mesh or Prefab onto the Scene image to place it at the cursor on a plane through the view target. Each placement is one Undo step. Drag a Scene asset to open it through the normal unsaved-changes workflow. Materials, textures, clips and audio belong on compatible Inspector fields. See [Content browser](content-browser.md) for placement and cancellation details.

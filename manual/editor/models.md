@@ -5,6 +5,8 @@ materials, referenced textures and, when present, a skeleton and animation clips
 Original source files stay unchanged. Importing prepares assets; **Place model**
 creates ordinary entities in your current scene.
 
+For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
+
 ## Import from Content
 
 1. Put the model and its external buffers/images inside the project's **Assets** folder.
@@ -40,6 +42,10 @@ These controls only change the view. They create no scene entities and have no
 Scene Undo entry. Preparation runs asynchronously. A failed replacement keeps the
 previous complete image and shows a diagnostic; **Retry preview** retries inspection.
 Switching to another asset clears the previous asset's image.
+
+## Drag a model into the Scene
+
+Drag the model asset from Content onto the Scene image for a default-scene placement without animation. The cursor places its root on a camera-facing plane through the view target. One Undo removes it. Use **Cancel placement** in Scene while loading if needed. For a different source scene or an explicit animation, use the placement controls below.
 
 ## Place a model
 

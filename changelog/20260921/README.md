@@ -909,3 +909,19 @@
 - Windows source audit fb9f37a compiled and passed50/51 checks; its Model-preview capture stalled at stage30. This remains unresolved. Added detailed loading/tab/import diagnostics, a stalled-frame capture and visible pending-render diagnostics for the next audit; no passing native capture claim is made.
 
 - The latest schema-history/migration tests pass with strict ASan/UBSan/LSan (2/2, 2.94 s). The offline manual checks pass after correcting an unsupported fragment link. Windows audit target/filter lists now include the new migration and editor-admission fixtures; actual Windows execution remains required.
+
+## Content-to-Scene placement
+
+- Added typed Model/Mesh/Prefab Scene drops and Scene-file Open drops. Model metadata prepares asynchronously; publication rechecks project/document/scene revision and the selected model revision. Cancellation and stale results do not edit the scene.
+- Mesh and prefab placement share UI-independent operations and one Scene Undo step. Prefab position changes own only translation; rotation/scale retain inheritance. Scene Open retains its existing unsaved-changes guard.
+- Placement uses the camera-facing plane through the view target, with pending-work cancellation in Scene. Other assets remain assignments through compatible Inspector fields.
+- Component-authoring checkpoint8fde30c passed the rebuilt local shared-SDK inspection/process/Editor Play checks (3/3,2.54s). Its Windows/Linux CI and unnumbered native audit are running. Scene-drop tests are being validated; no numbered package has been created.
+
+
+## External source import and Content placement validation
+
+- Added **Import files** and desktop-file drops onto Content, a bounded asynchronous review, an explicit new destination, model dependency copying, optional default imports, progress/cancellation and per-source results. Failed imports retain copied sources and earlier successful assets; these operations do not claim Scene Undo or a cross-asset transaction.
+- Source-folder publication refuses existing destinations atomically, including a competing empty directory created after preflight. Changed reviewed bytes, escaping paths, duplicate selections, metadata/sidecars and symbolic links are rejected. Cleanup removes only verified staging owned by the operation; interrupted-process staging may remain hidden for inspection.
+- Pinned SDL evidence requires a pointer-position fallback for the legacy Windows drop path; ordinary positioned drag/drop retains event coordinates. New Scene drops preserve typed identity and independent prefab transform ownership.
+- Normal source-copy failure/race tests pass (0.86s); strict ASan/UBSan/LSan passes (0.56s). Updated model/editor controls and batch partial-failure tests pass (2.51s), including100%/200% rendering. Actual native Windows execution of this bundle remains pending.
+- The prior8fde30c Windows audit stopped at an MSVC compile error in newly added stalled-preview JSON diagnostics. Converted ImGui bit-fields to bool before forwarding into JSON. That compile fix does not establish that the unresolved Model-preview capture timeout is fixed.

@@ -143,6 +143,11 @@ class ContentBrowser {
     std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const AssetRecord&, bool)> file_actions;
     std::function<void()> rescan_sources, import_status;
+    std::function<void()> import_files;
+    bool accepts_file_drop(ImVec2 screen) const {
+        return drop_frame_ + 1 >= ImGui::GetFrameCount() && screen.x >= drop_min_.x &&
+               screen.y >= drop_min_.y && screen.x < drop_max_.x && screen.y < drop_max_.y;
+    }
     std::function<std::map<AssetId, ContentState>()> import_activity;
     std::function<void(const std::vector<AssetId>&)> reimport;
     std::function<bool(const std::filesystem::path&, const std::string&, bool)> open_source;
@@ -360,6 +365,10 @@ class ContentBrowser {
             ImGui::End();
             return;
         }
+        drop_frame_ = ImGui::GetFrameCount();
+        drop_min_ = ImGui::GetWindowPos();
+        const auto extent = ImGui::GetWindowSize();
+        drop_max_ = {drop_min_.x + extent.x, drop_min_.y + extent.y};
         auto& selection = ui::editor_context ? ui::editor_context->selection : fallback_;
         if (ui::editor_context)
             ui::editor_context->task.focus(ui::DocumentTask::Scene);
@@ -368,6 +377,15 @@ class ContentBrowser {
                                             "operations are separate from scene Undo."))
             ImGui::OpenPopup("Asset operations");
         ImGui::SameLine();
+        if (import_files) {
+            ImGui::BeginDisabled(locked);
+            if (ui::button("Import files...",
+                           "Choose external source files, review a new project folder, then copy "
+                           "and import. Existing files are never overwritten."))
+                import_files();
+            ImGui::EndDisabled();
+            ui::next_text_button("Refresh");
+        }
         if (ui::button("Refresh",
                        "Refresh registered assets and discover saved scene documents.")) {
             rescan = true;
@@ -481,6 +499,8 @@ class ContentBrowser {
     }
 
   private:
+    ImVec2 drop_min_{}, drop_max_{};
+    int drop_frame_ = -2;
     std::filesystem::path root_;
     std::shared_ptr<AssetCatalog> catalog_;
     std::shared_ptr<const ContentIndex> index_;

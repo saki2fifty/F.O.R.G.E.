@@ -4,13 +4,15 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <vector>
 namespace forge {
 class FileDialog {
   public:
-    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent };
+    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent, ImportFiles };
     struct Result {
         Kind kind;
         std::string path, error;
+        std::vector<std::string> paths;
     };
     bool busy() const { return busy_; }
     void show(Kind kind, SDL_Window* window, std::string location) {
@@ -21,7 +23,10 @@ class FileDialog {
         state_->kind = kind;
         auto* owned = new std::shared_ptr<State>(state_);
         static const SDL_DialogFileFilter filter{"FORGE scene", "json"};
-        if (kind == Kind::OpenScene)
+        if (kind == Kind::ImportFiles)
+            SDL_ShowOpenFileDialog(callback, owned, window, nullptr, 0, state_->location.c_str(),
+                                   true);
+        else if (kind == Kind::OpenScene)
             SDL_ShowOpenFileDialog(callback, owned, window, &filter, 1, state_->location.c_str(),
                                    false);
         else if (kind == Kind::SaveScene)
@@ -52,8 +57,18 @@ class FileDialog {
         Result result{state.kind, {}, {}};
         if (!files)
             result.error = SDL_GetError();
-        else if (*files)
+        else if (*files) {
             result.path = *files;
+            for (std::size_t i = 0; files[i]; ++i) {
+                if (i == 256) {
+                    result.paths.clear();
+                    result.path.clear();
+                    result.error = "Select no more than256 source files per import.";
+                    break;
+                }
+                result.paths.emplace_back(files[i]);
+            }
+        }
         std::lock_guard lock(state.mutex);
         state.result = std::move(result);
     }

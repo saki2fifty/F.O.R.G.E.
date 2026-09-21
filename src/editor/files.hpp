@@ -96,6 +96,8 @@ class EditorFiles {
                 try {
                     const auto path = std::filesystem::u8path(result->path);
                     switch (result->kind) {
+                    case FileDialog::Kind::ImportFiles:
+                        throw std::runtime_error("Source imports belong to the Content workflow");
                     case FileDialog::Kind::OpenScene:
                         request({Command::OpenScene, path, {}});
                         break;
