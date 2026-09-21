@@ -24,7 +24,10 @@ class EditorFiles {
         recovery_prompt_ = document.has_recovery() || recovery_untitled_;
         remember();
     }
-    bool busy() const { return dialog_.busy() || pending_.has_value(); }
+    std::function<bool()> external_busy;
+    bool busy() const {
+        return dialog_.busy() || pending_.has_value() || (external_busy && external_busy());
+    }
     std::function<bool(const Action&)> before_request;
     std::function<void()> save_active;
     void request(Action action) {
@@ -43,6 +46,10 @@ class EditorFiles {
             execute();
     }
     void save(bool save_as = false) {
+        if (external_busy && external_busy()) {
+            status = "Finish the Content file operation before saving";
+            return;
+        }
         try {
             if (save_as || document.path().empty()) {
                 dialog_.show(FileDialog::Kind::SaveScene, window_,
@@ -116,7 +123,7 @@ class EditorFiles {
             }
         }
         const auto now = SDL_GetTicks();
-        if (now - last_autosave_ >= 30000) {
+        if (!(external_busy && external_busy()) && now - last_autosave_ >= 30000) {
             last_autosave_ = now;
             try {
                 if (document.autosave())

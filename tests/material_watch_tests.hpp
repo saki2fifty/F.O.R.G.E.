@@ -129,6 +129,16 @@ inline void test_material_watch(const std::filesystem::path& root) {
     draft_open = false;
     finish();
     check(factor() == .33f, "Deferred source did not import after document guard released");
+    automatic.suspend(true);
+    check(automatic.quiescent(), "Idle watcher did not yield project write ownership");
+    change(.41f);
+    for (int i = 0; i < 5; ++i)
+        poll();
+    check(automatic.jobs().empty() && factor() == .33f,
+          "Suspended watcher published another writer's sources");
+    automatic.suspend(false);
+    finish();
+    check(factor() == .41f, "Resumed watcher missed source changes");
     change(.52f);
     const auto active_deadline = std::chrono::steady_clock::now() + 5s;
     do {
@@ -136,6 +146,16 @@ inline void test_material_watch(const std::filesystem::path& root) {
         check(std::chrono::steady_clock::now() < active_deadline, "Expected automatic candidate");
         std::this_thread::sleep_for(1ms);
     } while (automatic.jobs().empty());
+    automatic.suspend(true);
+    const auto drain_deadline = std::chrono::steady_clock::now() + 5s;
+    while (!automatic.quiescent()) {
+        poll();
+        check(std::chrono::steady_clock::now() < drain_deadline,
+              "Active import did not drain for source operation");
+        std::this_thread::sleep_for(1ms);
+    }
+    check(factor() == .41f, "Suspending active candidate still published it");
+    automatic.suspend(false);
     // New bytes arrive after submission but before the owner drains publication.
     change(.88f);
     finish();
@@ -174,4 +194,32 @@ inline void test_material_watch(const std::filesystem::path& root) {
     } while (!restarted.complete() || restarted.scanning() || restarted.queued() ||
              !restarted.jobs().empty());
     check(factor() == .91f, "Startup ignored a stale cooked dependency revision");
+    const auto before_delete = AssetCatalog::open_project(root);
+    auto after_delete = AssetCatalog(root);
+    std::vector<AssetRecord> retained;
+    for (const auto& [id, record] : before_delete.records())
+        if (id != source.asset())
+            retained.push_back(record);
+    after_delete.replace_all(retained);
+    after_delete.save(AssetCatalog::project_index(root));
+    restarted.catalog_changed(std::make_shared<const AssetCatalog>(after_delete));
+    check(restarted.queued() != 0, "Removed base asset did not invalidate its prior dependents");
+    std::vector<AssetImportOutcome> missing;
+    const auto removal_deadline = std::chrono::steady_clock::now() + 10s;
+    do {
+        for (auto& receipt : restarted.poll())
+            missing.push_back(std::move(receipt));
+        check(std::chrono::steady_clock::now() < removal_deadline,
+              "Missing dependency admission stalled");
+        std::this_thread::sleep_for(1ms);
+    } while (restarted.queued() || !restarted.jobs().empty());
+    check(!missing.empty() && !missing.back().published && !missing.back().diagnostic.empty() &&
+              AssetCatalog::open_project(root).document() == after_delete.document(),
+          "Removed dependency was silently ignored or erased its dependent's last-good selection");
+    restarted.suspend(true);
+    restarted.catalog_changed(std::make_shared<const AssetCatalog>(before_delete));
+    check(restarted.queued() != 0, "Restored base did not queue its dependent");
+    restarted.catalog_changed(std::make_shared<const AssetCatalog>(root));
+    check(restarted.queued() == 0 && restarted.quiescent(),
+          "Removed queued assets survived catalog reconciliation");
 }

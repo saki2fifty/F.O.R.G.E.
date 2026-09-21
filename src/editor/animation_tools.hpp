@@ -7,6 +7,7 @@
 namespace forge {
 class AnimationTools {
   public:
+    bool pending() const { return job_.valid(); }
     explicit AnimationTools(std::filesystem::path executable) : converter_(std::move(executable)) {}
     ~AnimationTools() { cancel_.request_stop(); }
     void poll(SceneDocument& project, std::string& message) {

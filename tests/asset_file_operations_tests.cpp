@@ -1,4 +1,5 @@
 #include "asset_file_operations.hpp"
+#include "asset_file_service_tests.hpp"
 #include "asset_storage.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
@@ -249,6 +250,7 @@ int main(int argc, char** argv) {
                   prefab_document.at("root").get<PrefabMemberId>() != prefab_member &&
                   prefab_document.at("revision") == 1,
               "Prefab copy reused its member identity or revision");
+        test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;
     } catch (const std::exception& e) {

@@ -90,6 +90,28 @@ inline void test_documents() {
                     edited["entities"][0]["components"],
             "Save As did not preserve content with fresh identity");
     const auto copy_id = scene.document()["entities"][0]["id"].get<std::string>();
+    scene.rename_entity(copy_id, "Unsaved move");
+    const auto move_document = scene.document();
+    const auto move_identity = scene.asset_id();
+    const auto move_old = doc->path();
+    const auto move_next = project / "Scenes/moved.scene.json";
+    doc->source_relocated("Assets/unrelated.png", "Assets/renamed.png");
+    require(doc->path() == move_old, "Non-scene move changed active scene document");
+    require(doc->autosave(), "Move fixture could not save recovery");
+    const auto move_recovery = doc->recovery_path();
+    std::filesystem::rename(move_old, move_next);
+    doc->source_relocated(move_old.lexically_relative(project),
+                          move_next.lexically_relative(project));
+    require(doc->path() == move_next && doc->dirty() && scene.asset_id() == move_identity &&
+                scene.document() == move_document,
+            "Source move changed scene identity, draft or dirty state");
+    require(doc->has_recovery() && !std::filesystem::exists(move_recovery),
+            "Moving a dirty scene lost its recovery snapshot or retained a stale locator");
+    require(scene.undo() && !doc->dirty(), "Source move destroyed scene Undo/save baseline");
+    scene.redo();
+    std::filesystem::rename(move_next, move_old);
+    doc->source_relocated(move_next.lexically_relative(project),
+                          move_old.lexically_relative(project));
     doc->new_scene();
     require(doc->path().empty() && doc->dirty() && !scene.undo(),
             "New scene carried history or a filename");
@@ -125,6 +147,16 @@ inline void test_documents() {
     forge::EditorFiles files(scene, nullptr, recent);
     files.start(project);
     scene.rename_entity("55555555-5555-4555-8555-555555555555", "Pending");
+    files.external_busy = [] { return true; };
+    const auto locked_document = scene.document();
+    const auto locked_disk = forge::read_json(files.document.path());
+    files.save();
+    files.request({forge::EditorFiles::Command::NewScene, {}, {}});
+    require(files.busy() && scene.document() == locked_document &&
+                forge::read_json(files.document.path()) == locked_disk,
+            "Content writer lock allowed scene save/switch");
+    files.external_busy = {};
+
     files.request({forge::EditorFiles::Command::Quit, {}, {}});
     require(!files.quit && files.busy(), "Dirty quit bypassed save guard");
     files.resolve_pending(forge::EditorFiles::Resolution::Cancel);

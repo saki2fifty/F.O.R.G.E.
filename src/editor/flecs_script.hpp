@@ -8,6 +8,7 @@
 namespace forge::ui {
 class FlecsScriptEditor {
   public:
+    bool pending() const { return job_.valid(); }
     explicit FlecsScriptEditor(std::filesystem::path executable)
         : executable_(std::move(executable)), text_(1024 * 1024 + 1, 0) {}
     ~FlecsScriptEditor() { cancel_.request_stop(); }

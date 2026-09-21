@@ -9,6 +9,7 @@
 namespace forge {
 class NavigationTools {
   public:
+    bool pending() const { return job_.valid(); }
     void overlay_control() {
         ImGui::Checkbox("Navigation overlay", &show_);
         ui::help("Show or hide navigation triangles and paths in the viewport; this does not "

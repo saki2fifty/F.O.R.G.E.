@@ -358,6 +358,15 @@ int main(int argc, char** argv) {
         authored.replace(original);
         {
             forge::EditorCamera camera;
+            require(camera.frame_sphere({0, 0, 0}, .5, 1), "Preview sphere fit failed");
+            require(camera.distance > 1 && camera.distance < 1.2,
+                    "Preview sphere does not fill the 60-degree camera");
+            const auto square = camera.distance;
+            require(camera.frame_sphere({0, 0, 0}, .5, .25f) && camera.distance > square * 3,
+                    "Preview framing ignored portrait dimensions");
+            const auto valid = camera.distance;
+            require(!camera.frame_sphere({0, 0, 0}, .5, 0) && camera.distance == valid,
+                    "Invalid preview fit mutated camera");
             const auto before = original;
             require(camera.frame(authored.effective_document(),
                                  "66666666-6666-4666-8666-666666666666", 0.4f),

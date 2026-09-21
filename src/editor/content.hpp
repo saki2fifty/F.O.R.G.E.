@@ -73,6 +73,7 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 class ContentBrowser {
   public:
     const ui::AssetEditors* editors = nullptr;
+    std::function<void(const AssetRecord&, bool)> file_actions;
     std::function<void()> rescan_sources, import_status;
     std::function<bool(const std::filesystem::path&, const std::string&, bool)> open_source;
     void source_snapshot(std::shared_ptr<const SourceSnapshot> snapshot) {
@@ -432,6 +433,8 @@ class ContentBrowser {
                         if (ImGui::MenuItem("Reveal source folder"))
                             SDL_OpenURL(
                                 ui::local_file_url((root_ / a.source).parent_path()).c_str());
+                        if (file_actions)
+                            file_actions(a, locked);
                         if (a.type == "prefab" && prefab_controls) {
                             selection.select_asset(id);
                             prefab_controls();

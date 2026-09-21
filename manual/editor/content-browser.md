@@ -90,3 +90,38 @@ The watcher uses bounded content-hash polling, including sources outside the
 Assets folder but inside the project. It ignores hidden, temporary and cache
 entries. It does not rely on timestamps alone. General rename/move reconciliation
 and thumbnail browsing remain under development.
+
+
+## Rename, move, duplicate or delete a source
+
+Right-click the owning asset row in Content. Generated mesh/material/clip members
+belong to their source; choose the model/container row to operate on that family.
+
+1. Choose **Rename / Move...**, **Duplicate source...**, or **Delete source...**.
+2. For a move or copy, enter a new project-relative filename, including its extension. Choose an existing folder. Existing files are never overwritten.
+3. Click **Prepare review**. FORGE pauses automatic imports and checks the files and known references in the background. A discovered scene/prefab may be registered with its existing identity during this step; no source is changed yet.
+4. Read the affected-asset count, catalog dependents, and references. **Uninspected data** identifies unknown data that cannot be treated as a typed reference.
+5. For deletion, check **I understand the deletion impact**, then click **Confirm file changes**. Otherwise confirm when the reviewed destination is correct.
+6. Wait for the result, then **Close** to resume automatic source updates.
+
+A move preserves identities and scene references. Moving the active scene preserves
+its unsaved draft and Undo history. A duplicate copies the **saved source**, allocates
+new asset identities, and gives a copied scene new entity identities. Imported copies
+need their own validated import before use; open the new source and publish it.
+
+Deletion keeps the original files in the backup folder shown in the result. Known
+references remain explicit missing references; FORGE does not redirect them to another
+file with the same name. These file operations are **not scene Undo**. There is no
+one-click backup restore yet. Open another scene before deleting the active scene.
+
+Save or discard open source-document drafts and finish current import/build jobs
+before starting. While this dialog owns the source files, Save, project switching,
+automation writes and other authoring actions wait. **Cancel job** requests safe
+cancellation; an already completed disk commit remains completed. Changed references
+or source bytes invalidate the review and require preparing it again.
+
+Current source adapters cover Scene, Prefab, Material, Shader program, glTF model/
+animation source, Texture and WAV. Unsupported formats report an error during
+preparation. Case-only renames require a different intermediate filename. These
+workflows describe the Phase7 source under validation; the final numbered package
+has not been delivered yet.

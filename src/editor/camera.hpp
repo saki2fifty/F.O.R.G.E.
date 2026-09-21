@@ -88,6 +88,18 @@ class EditorCamera {
             distance = std::clamp(distance * std::exp(-std::clamp(wheel, -20.0f, 20.0f) * 0.15f),
                                   0.25f, 100000.0f);
     }
+    bool frame_sphere(Vec center, double radius, float aspect) {
+        if (!std::isfinite(radius) || radius < 0 || !std::isfinite(aspect) || aspect <= 0 ||
+            !std::all_of(center.begin(), center.end(), [](float v) { return std::isfinite(v); }))
+            return false;
+        const double angle = std::atan(std::min(1.0f, aspect) / focal);
+        const double required = radius / std::sin(angle) * 1.1;
+        if (!std::isfinite(required) || required > 100000)
+            return false;
+        target = center;
+        distance = std::max(0.25f, float(required));
+        return true;
+    }
     bool frame(const Json& doc, const std::string& selected, float aspect) {
         if (!std::isfinite(aspect) || aspect <= 0)
             return false;
@@ -115,13 +127,7 @@ class EditorCamera {
             const double half = (double(hi[i]) - double(lo[i])) * 0.5;
             radius_squared += half * half;
         }
-        const double angle = std::atan(std::min(1.0f, aspect) / focal);
-        const double required = std::sqrt(radius_squared) / std::sin(angle) * 1.1;
-        if (!std::isfinite(required) || required > 100000)
-            return false;
-        target = middle;
-        distance = std::max(0.25f, float(required));
-        return true;
+        return frame_sphere(middle, std::sqrt(radius_squared), aspect);
     }
 };
 } // namespace forge

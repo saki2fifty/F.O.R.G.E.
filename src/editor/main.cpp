@@ -1,5 +1,6 @@
 #ifdef FORGE_UI_FIXTURE
 #include "editor_fixture.hpp"
+#include <backends/imgui_impl_sdl3.h>
 #endif
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
@@ -12,6 +13,7 @@
 #include "command_workspace.hpp"
 #include "component_inspector.hpp"
 #include "content.hpp"
+#include "content_files.hpp"
 #include "content_imports.hpp"
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
@@ -351,6 +353,74 @@ int main(int argc, char** argv) {
             material_preview_catalog.reset();
         };
         forge::ContentImports content_imports;
+        forge::ContentFiles content_files;
+        files.external_busy = [&] { return content_files.busy(); };
+        content.file_actions = [&](const auto& asset, bool locked) {
+            content_files.menu(asset, locked);
+        };
+        content_files.unavailable = [&](const forge::AssetRecord& asset,
+                                        forge::AssetFileAction action) -> std::string {
+            if (play.active())
+                return "Stop Play before changing source files.";
+            if (native->busy() || files.busy() || animation_tools.pending() ||
+                navigation_tools.pending() || script_editor.pending() ||
+                texture_imports.pending() || model_imports.pending() || shader_imports.pending() ||
+                material_editor.pending())
+                return "Finish the current file/import/build job before changing source files.";
+            if (documents.source_drafts_dirty())
+                return "Save or discard open source-document drafts before reviewing file changes.";
+            if (action == forge::AssetFileAction::Delete && asset.id == scene.asset_id())
+                return "Open another scene before deleting the active scene asset.";
+            return {};
+        };
+        content_files.adopted = [&](const auto& review, const auto&, auto catalog) {
+            const auto& plan = review.plan;
+            if (plan.request.action == forge::AssetFileAction::Move) {
+                const auto old = std::find_if(plan.changes.begin(), plan.changes.end(),
+                                              [](const auto& c) { return c.before && !c.after; });
+                if (old != plan.changes.end())
+                    files.document.source_relocated(old->source, plan.request.destination);
+            }
+            if (plan.request.action != forge::AssetFileAction::Duplicate) {
+                const auto id = plan.request.asset;
+                const auto refresh_import = [&](auto& document) {
+                    if (document.selected_asset() == id) {
+                        document.request_close();
+                        if (plan.request.action == forge::AssetFileAction::Move)
+                            document.open(files.document, plan.request.destination);
+                    }
+                };
+                refresh_import(texture_imports);
+                refresh_import(model_imports);
+                refresh_import(shader_imports);
+                if (material_editor.document() &&
+                    material_editor.document()->source().asset() == id) {
+                    material_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        material_editor.open(files.document, plan.request.destination);
+                }
+                if (files.document.prefabs().records().contains(id))
+                    prefab_editor.request_close();
+            }
+            if (mesh_resources)
+                mesh_resources->catalog(catalog);
+            material_editor.asset_catalog_changed(catalog);
+            play.model_assets_changed();
+            if (plan.request.action == forge::AssetFileAction::Delete) {
+                if (editor.selection.kind() == forge::ui::SelectionKind::Asset &&
+                    std::find(plan.affected.begin(), plan.affected.end(),
+                              editor.selection.asset()) != plan.affected.end())
+                    editor.selection.clear();
+            } else
+                editor.selection.select_asset(plan.result);
+            content.refresh(files);
+            // Refresh only the affected prefab family, preserving the usual missing-reference
+            // diagnostics.
+            if (files.document.prefabs().records().contains(plan.request.asset) ||
+                (catalog->records().contains(plan.result) &&
+                 catalog->records().at(plan.result).type == "prefab"))
+                files.document.prefabs().refresh(scene);
+        };
         content_imports.routes = [&] {
             auto routes = texture_imports.automatic_routes();
             for (auto route : model_imports.automatic_routes())
@@ -422,6 +492,11 @@ int main(int argc, char** argv) {
         std::string name_entity, authored_name;
         std::optional<forge::EditorFiles::Action> pending_switch;
         files.before_request = [&](const forge::EditorFiles::Action& action) {
+            if (content_files.busy()) {
+                message =
+                    "Finish or cancel the Content file operation before switching or closing.";
+                return false;
+            }
             if (documents.close_pending_sources())
                 return true;
             pending_switch = action;
@@ -577,6 +652,8 @@ int main(int argc, char** argv) {
                      material_editor.open(files.document, asset.source);
              }});
         files.save_active = [&] {
+            if (content_files.busy())
+                throw std::runtime_error("Finish the Content file operation before saving");
             if (!documents.save(editor.task.id()))
                 throw std::runtime_error("Active document cannot save");
         };
@@ -710,7 +787,17 @@ int main(int argc, char** argv) {
                     ? "Finish the active UI interaction"
                     : "";
             automation.pump(files.document, automation_busy);
-            gui->NewFrame(width, height, swap->GetDesc().PreTransform);
+#ifdef FORGE_UI_FIXTURE
+            if (fixture.stage >= 26) {
+                // Run the platform update once, then override its real desktop pointer
+                // before Dear ImGui consumes queued input for these static captures.
+                ImGui_ImplSDL3_NewFrame();
+                ImGui::GetIO().ConfigInputTrickleEventQueue = false;
+                ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+                gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
+            } else
+#endif
+                gui->NewFrame(width, height, swap->GetDesc().PreTransform);
             // Preserve live numeric edits; ImGui 1.92.9 changed its default to commit-on-exit.
             ImGui::PushItemFlag(ImGuiItemFlags_LiveEditOnInputScalar, true);
             telemetry.frame();
@@ -1118,6 +1205,33 @@ int main(int argc, char** argv) {
                     forge::ui::style(2);
                     SDL_SetWindowSize(window.get(), 960, 640);
                     break;
+                case 30: {
+                    if (texture_imports.dirty() || material_editor.dirty()) {
+                        if (texture_imports.dirty() && !texture_imports.pending())
+                            texture_imports.request_save();
+                        if (material_editor.dirty() && !material_editor.pending())
+                            material_editor.request_save();
+                        ready = false;
+                        break;
+                    }
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    auto reviewed = forge::empty_scene();
+                    const auto id = reviewed.at("asset_id").get<forge::AssetId>();
+                    forge::atomic_write(files.document.project() / "Assets/File-review.scene.json",
+                                        reviewed.dump(2));
+                    if (!content_files.begin({id, "scene", "Assets/File-review.scene.json", 3, {}},
+                                             forge::AssetFileAction::Delete))
+                        throw std::runtime_error("Content fixture could not open its file review");
+                    content_files.prepare_review();
+                    break;
+                }
+                case 31:
+                    forge::ui::style(2);
+                    SDL_SetWindowSize(window.get(), 960, 640);
+                    ImGui::SetWindowPos("Asset source files", {15, 15});
+                    ImGui::SetWindowSize("Asset source files", {930, 610});
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -1294,6 +1408,7 @@ int main(int argc, char** argv) {
                 message = e.what();
                 forge::ui::report_error("asset_import", message);
             }
+            content_files.poll(files.document, scene, content_imports, message);
             content_imports.poll(files.document, message);
             content.source_snapshot(content_imports.sources());
             navigation_tools.poll(scene, files.document, play.active(), message);
@@ -1884,6 +1999,7 @@ int main(int argc, char** argv) {
             }
             script_editor.poll(files.document, editor.problems);
             documents.draw();
+            content_files.draw(content_imports);
             script_editor.draw_source_viewer(files.document);
             if (editor.reveal_content) {
                 workspace.content = true;
@@ -2156,7 +2272,10 @@ int main(int argc, char** argv) {
             if (fixture.prepared && fixture.frames > 12 &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
-                (fixture.stage < 28 || (material_preview && !material_preview->pending()))) {
+                (fixture.stage < 28 || (material_preview && !material_preview->pending())) &&
+                (fixture.stage < 30 ||
+                 (content_files.operation() &&
+                  content_files.operation()->state() == forge::AssetFileState::Review))) {
                 if (fixture.stage >= 28 && !material_preview->diagnostics().empty())
                     throw std::runtime_error("Material editor fixture preview failed");
                 if (fixture.stage == 0) {
@@ -2181,7 +2300,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 30) {
+                if (fixture.stage == 32) {
                     play.stop();
                     running = false;
                 }

@@ -217,6 +217,26 @@ class SceneDocument {
         std::filesystem::remove(old_recovery, ignored);
         std::filesystem::remove(recovery_path(), ignored);
     }
+    // Adopt an already committed identity-preserving source move without resetting
+    // scene state/history or allocating the Save As copy identity.
+    void source_relocated(const std::filesystem::path& old_path,
+                          const std::filesystem::path& next_path) {
+        if (path_.empty() || path_ != ProjectPaths(root_).resolve(old_path))
+            return;
+        check_ownership();
+        const auto next = project_file(root_, next_path);
+        const auto old_recovery = recovery_path();
+        path_ = next;
+        ++generation_;
+        // Preserve disk baseline: later external changes still conflict on Save.
+        // Keep a dirty draft recoverable under its new locator before dropping the
+        // previous snapshot. A recovery write failure leaves the old snapshot intact.
+        autosaved_revision_ = 0;
+        if (dirty())
+            autosave();
+        std::error_code ignored;
+        std::filesystem::remove(old_recovery, ignored);
+    }
     void save() {
         if (path_.empty())
             throw std::runtime_error("Choose a location using Save As");

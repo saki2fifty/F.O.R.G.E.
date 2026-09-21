@@ -8,6 +8,12 @@ class ContentImports {
     std::function<std::vector<AssetReimportRoute>()> routes;
     std::function<bool(AssetId)> blocked;
     std::function<void(AssetId, std::shared_ptr<const AssetCatalog>)> published;
+    void suspend(bool value) {
+        suspended_ = value;
+        if (service_)
+            service_->suspend(value);
+    }
+    bool quiescent() const { return !service_ || service_->quiescent(); }
     void rescan() {
         if (service_)
             service_->rescan();
@@ -36,6 +42,7 @@ class ContentImports {
                 options.include_project_root = true;
                 service_ = std::make_unique<AssetReimportService>(project.writer_guard(), routes(),
                                                                   options);
+                service_->suspend(suspended_);
                 service_->blocked = [this](auto id) { return blocked && blocked(id); };
             }
             if (!service_)
@@ -114,7 +121,7 @@ class ContentImports {
     std::filesystem::path project_;
     std::unique_ptr<AssetReimportService> service_;
     std::uint64_t observed_ = 0;
-    bool attempted_ = false;
+    bool attempted_ = false, suspended_ = false;
     std::string error_;
 };
 } // namespace forge

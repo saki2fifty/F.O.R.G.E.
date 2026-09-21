@@ -19,7 +19,7 @@ class MaterialPreview {
         camera.target = {0, 0, 0};
         camera.yaw = -.5f;
         camera.pitch = -.25f;
-        camera.distance = 3.5f;
+
         scene_.scene = AssetId::generate();
         scene_.settings.shadows.enabled = false;
         object_.entity = EntityId::generate();
@@ -39,6 +39,19 @@ class MaterialPreview {
         object_.renderer.materials = {{"surface", ref}};
     }
     Diligent::ITextureView* render(unsigned width, unsigned height) {
+        if (shape != framed_shape_ ||
+            (auto_frame_ && (width != framed_width_ || height != framed_height_))) {
+            double radius = 0;
+            for (const auto& vertex : primitive_meshes().at(shape))
+                radius = std::max(radius, double(std::hypot(vertex.position[0], vertex.position[1],
+                                                            vertex.position[2])));
+            if (!height || !camera.frame_sphere({0, 0, 0}, radius, float(width) / height))
+                throw std::runtime_error("Material preview framing dimensions are invalid");
+            framed_shape_ = shape;
+            framed_width_ = width;
+            framed_height_ = height;
+            auto_frame_ = true;
+        }
         object_.renderer.mesh = engine_primitive(shape);
         scene_.meshes = {object_};
         scene_.settings.environment = environment;
@@ -81,6 +94,12 @@ class MaterialPreview {
             shape = kind == 0 ? 1 : kind == 1 ? 0 : 3;
         ui::help("Select engine preview geometry with the same UV/tangent streams used by authored "
                  "meshes.");
+        ui::next_text_button("Frame view");
+        if (ui::button("Frame view", "Fit the preview geometry to this image. Restores automatic "
+                                     "fitting after manual zoom.")) {
+            auto_frame_ = true;
+            framed_width_ = 0;
+        }
         if (ImGui::TreeNode("Preview lighting and background")) {
             ui::help("Personal preview controls; these do not become authored scene or material "
                      "values.");
@@ -116,8 +135,10 @@ class MaterialPreview {
             orbiting_ = false;
         if (orbiting_)
             camera.orbit(ImGui::GetIO().MouseDelta.x, ImGui::GetIO().MouseDelta.y);
-        if (hovered && !ImGui::GetIO().KeyCtrl)
+        if (hovered && !ImGui::GetIO().KeyCtrl && ImGui::GetIO().MouseWheel != 0) {
+            auto_frame_ = false;
             camera.zoom(ImGui::GetIO().MouseWheel);
+        }
         if (pending()) {
             ImGui::TextUnformatted("Preparing preview resources...");
             ui::help("The last complete preview remains usable while new resources are prepared.");
@@ -133,6 +154,7 @@ class MaterialPreview {
     RenderScene scene_;
     RenderMesh object_;
     EntityId camera_id_, light_id_;
-    bool orbiting_ = false;
+    bool orbiting_ = false, auto_frame_ = true;
+    unsigned framed_shape_ = no_primitive, framed_width_ = 0, framed_height_ = 0;
 };
 } // namespace forge

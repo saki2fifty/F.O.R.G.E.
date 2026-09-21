@@ -78,6 +78,16 @@ void AssetReimportService::rescan(bool retry_failed) {
         failed_.clear();
     }
 }
+void AssetReimportService::suspend(bool value) {
+    check();
+    if (suspended_ == value)
+        return;
+    suspended_ = value;
+    if (value)
+        cancel_active();
+    else
+        rescan(false);
+}
 void AssetReimportService::catalog_changed(std::shared_ptr<const AssetCatalog> next) {
     check();
     if (!next || next == catalog_)
@@ -88,7 +98,22 @@ void AssetReimportService::catalog_changed(std::shared_ptr<const AssetCatalog> n
         if (prior == catalog_->records().end() || revision(prior->second) != revision(record))
             changed.push_back(id);
     }
+    // Removal is absent from the new records, but its old Build dependents still
+    // need admission/diagnostics. Retain that invalidation evidence before swapping.
+    std::set<AssetId> removed_dependents;
+    for (const auto& [id, record] : catalog_->records()) {
+        (void)record;
+        if (!next->records().contains(id))
+            for (const auto dependent : catalog_->dependency_graph().invalidated_by(id))
+                removed_dependents.insert(dependent);
+    }
+    if (active_ && !next->records().contains(active_->asset))
+        cancel_active();
     catalog_ = std::move(next);
+    std::erase_if(queue_, [&](auto id) { return !catalog_->records().contains(id); });
+    std::erase_if(failed_, [&](auto id) { return !catalog_->records().contains(id); });
+    for (const auto id : removed_dependents)
+        enqueue(id);
     for (const auto id : changed) {
         if (active_ && root(id) == active_->asset)
             cancel_active();
@@ -172,8 +197,9 @@ std::vector<AssetJobInfo> AssetReimportService::jobs() const {
 }
 std::vector<AssetImportOutcome> AssetReimportService::poll() {
     check();
-    if (auto update = watch_.poll())
-        observe(*update);
+    if (!suspended_)
+        if (auto update = watch_.poll())
+            observe(*update);
     if (active_ && blocked && blocked(active_->asset))
         cancel_active();
     std::vector<AssetImportOutcome> outcomes;
@@ -198,7 +224,7 @@ std::vector<AssetImportOutcome> AssetReimportService::poll() {
                 outcomes.push_back(std::move(outcome));
         }
     }
-    if (active_ || !watch_.complete() || queue_.empty())
+    if (suspended_ || active_ || !watch_.complete() || queue_.empty())
         return outcomes;
     // Bound UI-thread scheduling work, including when many documents are held
     // dirty. Round-robin consideration avoids a blocked prefix starving others.

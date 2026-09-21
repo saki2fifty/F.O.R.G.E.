@@ -1,8 +1,8 @@
 # Asset source file operations
 
 **Phase7 implementation in progress.** The private application operations described
-here have portable tests; Content menus/job integration and full source-format
-coverage remain in progress. This is not a public plugin ABI or scene Undo system.
+here have portable tests and Content menu/job integration. Full source-format
+coverage and native Windows acceptance remain in progress. This is not a public plugin ABI or scene Undo system.
 
 ## Identity and typed preparation
 
@@ -20,9 +20,13 @@ opaque source fields while replacing the known source-owned identity. No arbitra
 UUID-looking string search/replacement is performed. Source format adapters must
 validate their own identity and locator conventions; absent adapters fail clearly.
 
-Plans report catalog graph dependents and explicitly warn that this is not complete
-reference coverage of unopened authored documents or opaque plugin data. Full editor
-delete-impact scanning and confirmation remain required before exposing these actions.
+Plans report catalog graph dependents. The asynchronous file service additionally
+inspects unopened JSON sources, Material base/texture bindings, structured prefab
+instances, the project startup scene, and a detached current scene draft. Component
+references follow the copied native Meta projection recursively through structs,
+arrays and vectors; EntityRef records the target scene AssetId. Opaque data is listed
+as uninspected, never searched/replaced as UUID-looking strings. This is deliberately
+not a claim of complete opaque/plugin reference coverage.
 Directories must exist; destinations/sidecars must be absent. An imported member is
 operated on through its owning source. Source suffix changes are not format conversion.
 
@@ -70,3 +74,35 @@ Evidence: exact selected Khronos glTF specification commit
 `c18432787e6d545a1218c1926ccdcfaffd4c116b`, URI and GLB chunk sections; no dependency
 pin was changed. The shared FORGE profile still rejects unsupported absolute/network
 URI forms rather than broadening source access for a move operation.
+
+
+## Job and editor ownership
+
+`AssetFileService` runs preparation, reference scanning and durable IO on one joined
+worker at a time. It exposes Preparing/Review/Committing and terminal receipts to its
+owning application thread. Review is a real pause before source mutation. Commit
+re-scans JSON inputs and refuses changed/new/removed reference sources, then uses the
+transaction's exact source/sidecar/catalog checks. A successful receipt is prepared
+before the commit point so later catalog IO cannot misreport it as a rollback.
+
+Reference scan limits: existing source-discovery bounds, 64 MiB per JSON source,
+256 MiB aggregate JSON source bytes, 1,048,576 inspected nodes, depth32 and 65,536
+matching references/opaque coverage entries. Documents are inspected individually;
+unknown malformed JSON is reported as uninspected. Malformed recognized authored
+sources block preparation. These are payload limits, not a process-RSS guarantee.
+
+A discovered Scene/Prefab may be explicitly indexed as a precursor using its existing
+validated source UUID. Cancelling the later file review does not undo registration.
+It does not allocate an identity or modify source bytes. Current file operations
+require existing destination directories; backup restore UI and additional source
+adapters remain outstanding.
+
+Content suspends and cancels/drains automatic reimport before starting its worker.
+It excludes other editor writes through the shared file-busy state, rejects pending
+conversion/build jobs and unresolved source drafts, and blocks project switch/quit
+until the operation is closed. Scene Save and recovery autosave honor that exclusion.
+Catalog removal prunes queued automatic imports. On resume the watcher rescans.
+Moving the active scene adopts its new locator without resetting history or invoking
+Save As identity duplication. A dirty draft writes recovery at the new locator before
+its old recovery snapshot is removed; a failed recovery write retains the old snapshot. Deleting the active scene requires opening another scene.
+Independent external programs are still outside cooperative project writer ownership.

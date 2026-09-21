@@ -90,7 +90,9 @@ struct EditorFixture {
                                "texture-import",
                                "texture-import-200",
                                "material-editor",
-                               "material-editor-200"};
+                               "material-editor-200",
+                               "content-file-review",
+                               "content-file-review-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

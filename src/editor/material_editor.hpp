@@ -443,12 +443,30 @@ inline void MaterialEditor::fields() {
         "Choose an implemented built-in material shader. Incompatible inherited "
         "parameters/textures report an error; arbitrary Shader assets are not substituted here.");
     const auto revert = [&](const char* key) {
+        // The field itself owns its context action. Unowned fields do not consume
+        // an entire disabled button row; inherited state remains explicit.
+        const bool owns = overrides.contains(key);
+        if (ImGui::BeginPopupContextItem(key)) {
+            if (ImGui::MenuItem("Revert to inherited / default", nullptr, false, owns))
+                mutate(std::string("Revert ") + key, [&](auto& j) { j["overrides"].erase(key); });
+            ui::help("Remove only this field's explicit override intent.");
+            ImGui::TextUnformatted(owns            ? "Explicit override"
+                                   : source.base() ? "Inherited"
+                                                   : "Model default");
+            ImGui::EndPopup();
+        }
         ui::IdScope scope(key);
-        ImGui::BeginDisabled(!overrides.contains(key));
-        if (ui::button("Revert",
-                       "Remove this field's override and follow the base material again."))
-            mutate(std::string("Revert ") + key, [&](auto& j) { j["overrides"].erase(key); });
-        ImGui::EndDisabled();
+        if (owns) {
+            ui::next_text_button("Revert");
+            if (ui::button("Revert", "Remove this field's override and follow the base material or "
+                                     "model default again."))
+                mutate(std::string("Revert ") + key, [&](auto& j) { j["overrides"].erase(key); });
+        } else if (source.base()) {
+            ui::next_text_button("Inherited");
+            ImGui::TextDisabled("Inherited");
+            ui::help("This field follows the base material. Editing it creates an independent "
+                     "override, even when the value is equal.");
+        }
     };
     revert("model");
     ui::heading("Surface state",

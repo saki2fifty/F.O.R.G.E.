@@ -751,3 +751,51 @@
 - Source-watch checkpoint5827579 passes all Linux/Windows core and exact-SDK CI
   profiles. Its native editor audit is still running; file-operation UI integration
   and Windows execution of this later source remain pending.
+
+
+### Content source-file review and authoring guards — ongoing Phase7
+
+- Wire Rename / Move, Duplicate source and Delete source into Content's owner-asset
+  context menu, with asynchronous preparation, reference review, explicit delete
+  acknowledgement, cancellation, retained backups and separate commit/refresh errors.
+- Inspect known Meta AssetRef/EntityRef fields, nested collections, prefab instances,
+  Material references and project startup identity across saved sources and the current
+  scene draft. Report opaque coverage honestly; refuse a stale reference review.
+- Index discovered scene/prefab UUIDs without allocating replacements. Pause and drain
+  automatic imports while the file dialog owns sources. Block competing Save, recovery
+  autosave, project-switch and authoring writes. Preserve scene identity/draft/history
+  when adopting an identity-preserving file move. Prune removed queued import records.
+- Initial service/watch tests pass 2/2 (18.15 s); refined reference/index/delete tests
+  pass 1/1 (10.45 s). Current changes still require strict, editor and Windows checks.
+- Source checkpoint5827579's native Windows audit has now passed 47/47 (179.74 s),
+  including material preview/render/editor capture and discovery. This evidence does
+  not cover the newer file-operation source changes.
+
+### Material preview polish
+
+- Fit preview geometry using the actual primitive vertices and the camera's limiting
+  field of view. Preserve deliberate manual zoom and provide Frame view to restore fit.
+- Remove unused disabled surface-state Revert rows. Keep explicit/inherited ownership,
+  actionable Revert and per-field context actions.
+- Clear incidental runner mouse input after the SDL backend update for static asset
+  screenshots, using the exact pinned ImGui/Diligent APIs. New native captures pending.
+- The source-level Material editor test passes (1/1, 1.08 s). No new numbered package.
+
+### Combined Content and Material validation
+
+- Combined source-operation/recovery/publication/watch tests pass normally 4/4
+  (32.77 s) and under strict ASan/UBSan/LeakSanitizer 4/4 (37.54 s).
+- Final opaque JSON-kind handling passes normal/strict file-operation checks
+  (8.31 s / 8.41 s). Dirty-scene move now saves recovery under the new locator before
+  removing the old snapshot. Updated editor-process/Content-dialog tests pass 2/2
+  (10.99 s), including 100%/200% layout, guarded Delete and Cancel.
+- Manual3/3, formatting and runtime/presentation target boundaries pass. Extend both
+  native audit and final packaging test lists for file transactions, file operations
+  and Content dialogs. Add actual native Content-review capture stages; Windows
+  execution of this bundle remains pending. No build number has been reserved.
+
+- Final source review also fixed removal invalidation: retain the old dependency
+  graph's affected consumers when an asset disappears from the new catalog. Missing
+  base materials now produce an admission diagnostic without replacing a dependent's
+  last published selection; removed queued assets are pruned. Normal regression
+  passes (9.68 s), as does the strict sanitizer follow-up (8.95 s).

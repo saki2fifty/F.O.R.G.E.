@@ -93,3 +93,16 @@ a conflict instead of assuming the editor can merge another writer's edits.
 The current editor exposes built-in material models and numeric/texture properties.
 It does not expose a node graph or let an arbitrary Shader asset replace the mesh
 renderer's shader contract. See [Shader import](shaders.md) for that separate workflow.
+
+
+### Preview framing and field ownership
+
+The preview initially fits its geometry to the available image. Changing geometry
+fits it again; **Frame view** restores fitting after you zoom manually. Hold MMB to
+orbit and scroll over the image to zoom. Ctrl+Plus/Minus continues to scale the editor
+interface. Preview framing and lighting do not change the scene or material source.
+
+Surface-state fields show **Revert** when they own an override. Unmodified base values
+show **Inherited**. You can also right-click a surface field to inspect its ownership
+and choose **Revert to inherited / default**. Unmodified fields no longer use a separate
+disabled Revert-button row.
