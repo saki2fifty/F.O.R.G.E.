@@ -179,3 +179,16 @@ Interactive morph controls and animation-driven model placement are still being
 integrated. This source checkpoint does not yet provide a morph-editing panel or
 establish skeletal mesh playback. The native rendering checks for this addition
 are tracked separately from the completed model-import checks.
+
+
+## Animation selection during placement
+
+The internal placement command now accepts a specific clip from the imported model.
+It checks the clip and skeleton together before creating an Animator on the model's
+root. Without a selected clip, placement creates the model without starting an
+animation. There is no implicit “first animation” choice in a glTF file.
+
+This connection is undergoing integration; the public placement controls remain
+unavailable in this source checkpoint. Existing import commands do not place models
+or start playback. Once placement is exposed, scene Undo will remove the complete
+placed subtree, while the imported asset files remain in the project.

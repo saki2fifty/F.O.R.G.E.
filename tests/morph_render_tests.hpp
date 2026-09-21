@@ -2,7 +2,8 @@
 #include "mesh_draw.hpp"
 #include "texture_gpu.hpp"
 void check_morph_render(forge::DiligentPresentation& presentation,
-                        Diligent::IDeviceContext* context, const std::filesystem::path& images) {
+                        Diligent::IDeviceContext* context, const std::filesystem::path& images,
+                        Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC) {
     using namespace forge;
     using namespace Diligent;
     MeshPart part;
@@ -35,7 +36,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     MaterialData material;
     material.model = "forge.gltf.unlit.v1";
     MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, {}, TEX_FORMAT_RGBA8_UNORM,
-                  TEX_FORMAT_D32_FLOAT);
+                  TEX_FORMAT_D32_FLOAT, true, compiler);
     TextureDesc desc;
     desc.Name = "FORGE morph channel acceptance";
     desc.Type = RESOURCE_DIM_TEX_2D;
@@ -71,7 +72,9 @@ void check_morph_render(forge::DiligentPresentation& presentation,
         try {
             return readback(presentation.device(), context, rtv);
         } catch (const std::exception& error) {
-            throw std::runtime_error("Morph " + stage + ": " + error.what());
+            throw std::runtime_error(
+                std::string(compiler == SHADER_COMPILER_DXC ? "DXC morph " : "FXC morph ") + stage +
+                ": " + error.what());
         }
     };
     std::array<float, 5> weights{};
@@ -118,7 +121,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     MeshDraw::Textures textures;
     textures["baseColorTexture"] = image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     MeshDraw textured(presentation, context, gpu.lods[0].parts[0], material, textures,
-                      TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+                      TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true, compiler);
     stage = "UV rest";
     const auto red = render(textured, weights);
     weights[2] = 1;
@@ -130,7 +133,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     material.model = "forge.gltf.metallic-roughness.v1";
     material.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
     MeshDraw lit(presentation, context, gpu.lods[0].parts[0], material, {}, TEX_FORMAT_RGBA8_UNORM,
-                 TEX_FORMAT_D32_FLOAT);
+                 TEX_FORMAT_D32_FLOAT, true, compiler);
     Light light;
     light.intensity = 2;
     const auto illumination = light_view(light, AffineTransform{});
@@ -152,7 +155,7 @@ void check_morph_render(forge::DiligentPresentation& presentation,
     textures.clear();
     textures["normalTexture"] = image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     MeshDraw mapped(presentation, context, gpu.lods[0].parts[0], material, textures,
-                    TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+                    TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true, compiler);
     auto side = illumination;
     side.direction = {0, -1, 0};
     weights = {};

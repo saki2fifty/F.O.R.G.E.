@@ -126,3 +126,94 @@ void test_model_placement(const forge::asset_detail::ModelSelection& selected,
     const auto collapsed = prepare_model_placement(tiny, scene.asset_id(), scene.revision());
     require(!collapsed.entities.empty(), "Explicit zero-scale source could not be placed");
 }
+
+void test_model_animation_placement(const forge::asset_detail::ModelSelection& selected,
+                                    const forge::AssetCatalog& catalog) {
+    using namespace forge;
+    using namespace forge::asset_detail;
+    auto check = [](bool value, const char* why) {
+        if (!value)
+            throw std::runtime_error(why);
+    };
+    EngineContext engine;
+    Scene scene(engine.world());
+    scene.reset(empty_scene());
+    auto rejects = [&](auto action) {
+        const auto before = scene.document();
+        const auto revision = scene.revision();
+        bool failed = false;
+        try {
+            action();
+        } catch (const std::exception&) {
+            failed = true;
+        }
+        check(failed && scene.document() == before && scene.revision() == revision,
+              "Rejected animated placement changed scene or history");
+    };
+    const auto& animation = selected.index.hierarchy.at("animation");
+    const auto skeleton = selected.bindings.at(animation.at("skeleton"));
+    const auto clip = selected.bindings.at(animation.at("clips").at(0));
+    const auto static_candidate =
+        prepare_model_placement(selected, scene.asset_id(), scene.revision());
+    const auto static_root = instantiate_model(scene, catalog, static_candidate);
+    check(!scene.entity(static_root.str()).has<Animator>(),
+          "Static skin placement invented a default autoplay animation");
+    engine.world().evaluate_world_transforms();
+    for (const auto& row : static_candidate.entities)
+        check(scene.entity(row.at("id")).get<WorldTransform>().resolved,
+              "Static skin placement left an unresolved source transform");
+    scene.undo();
+    check(scene.entity_count() == 0, "Static model placement undo left source nodes");
+    ModelPlacementOptions options;
+    options.name = "Animated instance";
+    options.clip = {clip};
+    const auto candidate =
+        prepare_model_placement(selected, scene.asset_id(), scene.revision(), options);
+    const auto root = instantiate_model(scene, catalog, candidate);
+    const auto original = scene.document();
+    const auto settings = scene.entity(root.str()).get<Animator>();
+    check(settings.clip.id == clip && settings.skeleton.id == skeleton && settings.play_on_start &&
+              settings.enabled,
+          "Explicit model clip did not bind its own typed skeleton on the wrapper");
+    scene.undo();
+    check(scene.entity_count() == 0, "Animated placement undo was incomplete");
+    scene.redo();
+    check(scene.document() == original, "Animated placement redo changed source references/IDs");
+    const auto duplicate = scene.duplicate_subtree(root.str());
+    check(scene.entity(duplicate).get<Animator>() == settings && duplicate != root.str(),
+          "Model duplication changed animation assets or reused the root identity");
+    scene.undo();
+    const auto prefab = create_prefab_source(scene, root.str());
+    scene.publish_prefab_sources({{prefab.asset(), prefab.source}}, [] {});
+    const auto instance = instantiate_prefab(scene, prefab.asset());
+    check(scene.entity(instance).get<Animator>() == settings &&
+              !scene.entity(instance).owns<Animator>(),
+          "Model animation references failed native prefab inheritance");
+    options.clip = {AssetId::generate()};
+    rejects(
+        [&] { prepare_model_placement(selected, scene.asset_id(), scene.revision(), options); });
+    options.clip = {skeleton};
+    rejects(
+        [&] { prepare_model_placement(selected, scene.asset_id(), scene.revision(), options); });
+    options.clip = {clip};
+    auto prepared = prepare_model_placement(selected, scene.asset_id(), scene.revision(), options);
+    auto corrupt = prepared;
+    corrupt.entities[0]["components"]["forge.animator"]["clip"] = skeleton;
+    rejects([&] { instantiate_model(scene, catalog, corrupt); });
+    auto stale = catalog;
+    auto record = stale.records().at(clip);
+    record.metadata["forge.import"]["generation"] = selected.generation + 1;
+    stale.replace(record);
+    rejects([&] { instantiate_model(scene, stale, prepared); });
+    stale = catalog;
+    record = stale.records().at(skeleton);
+    record.subasset->removed = true;
+    stale.replace(record);
+    rejects([&] { instantiate_model(scene, stale, prepared); });
+    stale = catalog;
+    record = stale.records().at(clip);
+    record.dependency_edges.front().target = AssetId::generate();
+    record.dependencies = {record.dependency_edges.front().target};
+    stale.replace(record);
+    rejects([&] { instantiate_model(scene, stale, prepared); });
+}

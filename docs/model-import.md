@@ -417,11 +417,19 @@ an over-depth candidate rejects before creating entities. Every placed node also
 explicitly selects the legacy `no_primitive` value, so the compatibility
 blockout path cannot mistake a mesh node or empty transform node for a cube.
 
-This internal checkpoint supports static mesh hierarchies with camera/light components.
-It deliberately rejects special visibility, morph and animated placement until their
-ECS consumers are connected in the same Phase7 package. No placement UI is exposed
-yet, and no complete model-placement or rendering claim follows from these helpers.
-Those consumers remain required Phase7 work, not deferred delivery scope.
+The internal command supports mesh hierarchies, node-default morphs, skin bindings,
+and camera/light components. An optional typed Clip AssetRef explicitly selects an
+Animator on the wrapper; an omitted clip places the model without an Animator.
+glTF does not declare a default animation or autoplay/loop policy. The selected clip
+must belong to this exact model revision and its declared skeleton, and every skin
+joint needed by the selected source scene must be included. Commit rechecks active
+clip/skeleton types, owner generation/revision, and the typed skeleton dependency.
+A failed candidate changes neither scene state nor its revision/history.
+
+Special false visibility/selectability values still require their structural
+consumers before placement. The public placement UI is not exposed yet; the internal
+helpers and CPU tests do not establish the complete Place-to-Play workflow or GPU
+acceptance. Those consumers remain required Phase7 work, not deferred delivery scope.
 
 
 ### Camera and light placement

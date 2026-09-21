@@ -106,7 +106,18 @@ void check_skin_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         joint.m[10] = 0;
     pose = prepare_skin_pose(joints, inverse_bind, part.joint_palette, part.bounds);
     const auto flat = render(pose);
+    save(flat, 64, 64, images / "skin-rank-two.ppm");
     require(std::abs(count(flat) - count(positive)) < 8, "Rank-two skin lost a surviving surface");
+    // A reflected camera projection changes the PSO front side too. Surviving
+    // singular surfaces remain visible from both sides, with culling enabled.
+    auto reversed_lens = camera;
+    reversed_lens.flip_y = true;
+    view = camera_view(reversed_lens, eye, 64, 64);
+    const auto reversed_flat = render(pose);
+    save(reversed_flat, 64, 64, images / "skin-rank-two-reversed-camera.ppm");
+    require(std::abs(count(reversed_flat) - count(positive)) < 8,
+            "Rank-two skin disagreed with reflected-camera raster winding");
+    view = camera_view(camera, eye, 64, 64);
     reset();
     for (auto& joint : joints)
         joint.m[0] = 0;

@@ -40,7 +40,8 @@ using Row = std::array<float, 4>;
 } // namespace
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
-                   TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin)
+                   TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
+                   SHADER_COMPILER compiler)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
     const auto profile = prepare_pbr_material(source);
     const auto fetch = mesh_vertex_fetch(mesh, profile, enable_skin);
@@ -52,8 +53,13 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         ci.Desc.Name = "FORGE prepared mesh draw";
         ci.Desc.ShaderType = stage;
         ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-        ci.ShaderCompiler = SHADER_COMPILER_FXC;
-        ci.HLSLVersion = {5, 1};
+        // Explicit backend-private compiler selection permits an identical-source
+        // native diagnostic comparison. Production callers retain the FXC profile.
+        require(compiler == SHADER_COMPILER_FXC || compiler == SHADER_COMPILER_DXC,
+                "unsupported mesh shader compiler");
+        ci.ShaderCompiler = compiler;
+        ci.HLSLVersion =
+            compiler == SHADER_COMPILER_DXC ? ShaderVersion{6, 0} : ShaderVersion{5, 1};
         ci.EntryPoint = "main";
         ci.Source = code.c_str();
         ci.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();

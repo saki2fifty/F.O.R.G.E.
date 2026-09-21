@@ -406,3 +406,36 @@
   39.85s; strict ASan/UBSan/LSan passed 3/3 in 87.31s after moving allocating
   interpolation bookkeeping before ECS writes. Manual checks passed 3/3; format
   passed. Windows execution of this follow-up is still pending.
+
+
+### Animated model placement admission
+
+- Connect the internal model placement command to optional typed clip selection,
+  same-revision skeleton compatibility, required skin joints, and an ordinary
+  root Animator. Omitted selection does not invent a default clip.
+- Revalidate active clip/skeleton members and dependency identity before the scene
+  transaction. Preserve one-step undo/redo, duplicate identities and prefab
+  inheritance; reject stale, removed, wrongly typed or foreign candidates.
+- Normal model-pipeline regression passed 1/1 in 36.96s; strict ASan/UBSan/LSan
+  model-recipe regression passed 1/1 in 83.33s. Public placement controls and final
+  GPU acceptance remain required ongoing Phase7 work.
+
+
+### Native renderer validation follow-up
+
+- Windows source 0d722a9 built and passed 37/41 selected tests. Isolated Frame
+  rendering passed, including bounded pose admission and capacity recovery.
+- The skin geometry shader now passes native compilation, positive/reflected
+  coverage and matching shadow depth. Correct its surviving rank-two winding
+  sign to match the actual front-face convention, with a flipped-camera fixture.
+- Camera-crop/mipmap acceptance passes. Keep Beer attenuation endpoint evidence
+  below the tonemapper's deliberate highlight desaturation; retain raw captures.
+- Morph rendering still reports WARP device removal at its first zero-weight
+  draw. Add an identical-source DXC/FXC diagnostic comparison using the pinned
+  Diligent compiler API; production selection stays FXC pending actual evidence.
+- These follow-ups need native rerun. No numbered package or complete renderer
+  acceptance is claimed.
+
+- Local follow-up checks: all 48 generated HLSL stages compiled with the
+  supplementary Linux DXC tool; backend and native-fixture header syntax checks
+  passed. Manual checks passed 3/3. These do not substitute for Windows execution.

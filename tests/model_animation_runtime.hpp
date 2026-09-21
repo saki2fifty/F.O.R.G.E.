@@ -1,5 +1,6 @@
 #pragma once
 #include "animation_resource.hpp"
+#include "model_placement_tests.hpp"
 #include <forge/animation.hpp>
 #include <forge/runtime.hpp>
 #include <thread>
@@ -73,6 +74,7 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
             "Replacement retargeted an old lease or mixed generations");
     auto weak = newer.clip.weak();
     const auto selected = load_model_selection(project, catalog, request.model);
+    test_model_animation_placement(selected, catalog);
     const auto mesh_resource = model_mesh_resource(selected, {members.at("/meshes/0")});
     require(mesh_resource.model && mesh_resource.model->model == request.model &&
                 mesh_resource.model->revision == request.revision &&

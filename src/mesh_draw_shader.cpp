@@ -132,7 +132,9 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
         float largest=max(ForgeMagnitude(a),max(ForgeMagnitude(b),ForgeMagnitude(c)));
         if(!(largest>0))return;
         float projected=dot(a/largest,cross(b/largest,c/largest));
-        swap=(projected<0)!=(g_SkinInfo.y!=0);
+        // FORGE's admitted +Z-front source triangle has negative signed
+        // projected area. The ordinary PSO treats this as its front side.
+        swap=(projected>0)!=(g_SkinInfo.y!=0);
     }
     // Literal vertex indices keep every SV_Position assignment visible to FXC.
     output.Append(input[0]);

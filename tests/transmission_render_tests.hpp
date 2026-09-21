@@ -50,7 +50,7 @@ void check_transmission_render(forge::DiligentPresentation& presentation,
     glass.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {0}};
     glass.parameters["transmissionFactor"] = {MaterialParameterType::Scalar, {1}};
     glass.parameters["ior"] = {MaterialParameterType::Scalar, {1}};
-    const float white[]{1, 1, 1, 1};
+    float white[]{1, 1, 1, 1};
     auto render = [&](const MaterialData& material, const MeshDraw::Textures& textures = {},
                       ITexture* source = nullptr) {
         MeshDraw draw(presentation, context, native.lods[0].parts[0], material, textures,
@@ -95,9 +95,15 @@ void check_transmission_render(forge::DiligentPresentation& presentation,
     require(render(glass) == clear, "Rank-two surviving surface retained nonzero volume thickness");
     world.m[10] = 1;
     glass.parameters["attenuationColor"].value = {0, 1, 1, 0};
+    // Keep endpoint evidence below PBRNeutral's highlight compression, which
+    // deliberately desaturates cyan at unit intensity. 0.5 linear -> 188 sRGB.
+    white[0] = white[1] = white[2] = .5f;
     const auto endpoints = render(glass);
-    require(endpoints[center][0] < 10 && endpoints[center][1] > 225 && endpoints[center][2] > 225,
+    save(endpoints, 32, 32, images / "transmission-beer-endpoints.ppm");
+    require(endpoints[center][0] < 2 && std::abs(int(endpoints[center][1]) - 188) <= 1 &&
+                std::abs(int(endpoints[center][2]) - 188) <= 1,
             "Zero/one Beer attenuation endpoints generated invalid shading");
+    white[0] = white[1] = white[2] = 1;
     glass.parameters.erase("attenuationDistance");
     require(render(glass) == clear, "Omitted attenuation distance did not mean no absorption");
     // Alternating opaque bands distinguish spatial refraction/roughness from a

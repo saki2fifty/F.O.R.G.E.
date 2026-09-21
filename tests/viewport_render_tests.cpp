@@ -229,9 +229,15 @@ int main(int argc, char** argv) {
         if (argc == 3) {
             const std::string selected = argv[2];
             forge::DiligentPresentation isolated(device);
-            if (selected == "morph")
+            if (selected == "morph") {
+                // Same fixture and generated source on the same WARP adapter.
+                // Retain both compiler results/captures without changing the
+                // production compiler or accepting an FXC device removal.
+                std::filesystem::create_directories(images / "dxc");
+                check_morph_render(isolated, context, images / "dxc", SHADER_COMPILER_DXC);
+                std::cout << "DXC morph comparison passed\n";
                 check_morph_render(isolated, context, images);
-            else if (selected == "skin")
+            } else if (selected == "skin")
                 check_skin_draw(isolated, context, images);
             else if (selected == "frame")
                 check_frame_renderer(isolated, context, images);

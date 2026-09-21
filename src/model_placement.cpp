@@ -78,15 +78,22 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
         require(order.size() <= 9999, "Model placement exceeds the scene entity profile");
         order.insert(order.end(), children[node].begin(), children[node].end());
     }
-    // Temporary internal admission gate until the corresponding ECS consumers
-    // land in this same Phase7 package. No public placement UI is exposed yet.
-    require(!hierarchy.contains("animation"),
-            "Animated model placement requires its instance animation binding consumer");
+    // Visibility/selectability still need their structural-ancestry consumers.
+    // Morph defaults and node-scoped skin/animation consumers are now connected.
     for (const auto index : order) {
         const auto& node = nodes[index];
-        require(node.value("visible", true) && node.value("selectable", true) &&
-                    node.at("weights").empty(),
-                "Model placement requires visibility/morph scene consumers");
+        require(node.value("visible", true) && node.value("selectable", true),
+                "Model placement requires visibility/selectability scene consumers");
+        if (hierarchy.contains("animation")) {
+            const auto& plan = hierarchy.at("animation").at("plan");
+            const auto& skin = plan.at("node_skins").at(index);
+            if (!skin.is_null())
+                for (const auto& joint : plan.at("skins").at(skin.get<std::size_t>()).at("joints"))
+                    require(
+                        included.contains(
+                            plan.at("joint_nodes").at(joint.get<std::size_t>()).get<std::size_t>()),
+                        "Selected model scene omits a required skin joint");
+        }
     }
     ModelPlacementCandidate result;
     result.scene = scene;
@@ -97,6 +104,24 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
     result.root = EntityId::generate();
     auto root_components = components(options.transform);
     root_components["forge.model_source"] = {{"model", selected.owner}, {"node", nullptr}};
+    if (options.clip.id) {
+        require(hierarchy.contains("animation"), "Selected model has no animation family");
+        const auto& clip = selected.member(options.clip.id);
+        require(clip.identity.type == AnimationClipAsset::type,
+                "Selected model animation is not a clip");
+        const auto& animation = hierarchy.at("animation");
+        const auto skeleton_address = animation.at("skeleton").get<std::string>();
+        require(clip.bindings.at("skeleton") == skeleton_address &&
+                    std::find(animation.at("clips").begin(), animation.at("clips").end(),
+                              clip.identity.address) != animation.at("clips").end(),
+                "Selected clip does not belong to the model animation family");
+        const auto skeleton = selected.bindings.at(skeleton_address);
+        require(selected.member(skeleton).identity.type == SkeletonAsset::type,
+                "Selected model skeleton has the wrong asset type");
+        root_components["forge.animator"] = {{"skeleton", skeleton}, {"clip", options.clip.id},
+                                             {"enabled", true},      {"play_on_start", true},
+                                             {"loop", true},         {"playback_speed", 1}};
+    }
     result.entities = Json::array({{{"id", result.root},
                                     {"name", options.name},
                                     {"spatial", {{"mode", "follow_structure"}}},
@@ -190,6 +215,18 @@ EntityId instantiate_model(Scene& scene, const AssetCatalog& catalog,
         if (entity.at("id").get<EntityId>() == candidate.root) {
             require(source.at("node").is_null() && !values.contains("forge.mesh_renderer"),
                     "Model placement wrapper must not impersonate a source node");
+            if (values.contains("forge.animator")) {
+                const auto& animator = values.at("forge.animator");
+                const auto skeleton = animator.at("skeleton").get<AssetId>();
+                (void)member(skeleton, SkeletonAsset::type);
+                const auto& clip =
+                    member(animator.at("clip").get<AssetId>(), AnimationClipAsset::type);
+                const auto dependency =
+                    std::find_if(clip.dependency_edges.begin(), clip.dependency_edges.end(),
+                                 [](const auto& edge) { return edge.role == "skeleton"; });
+                require(dependency != clip.dependency_edges.end() && dependency->target == skeleton,
+                        "Placed clip and skeleton belong to different animation families");
+            }
             continue;
         }
         const auto& node = member(source.at("node").get<AssetId>(), ModelNodeAsset::type);
