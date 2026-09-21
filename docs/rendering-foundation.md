@@ -995,3 +995,17 @@ limits PSO/SRB/constant-buffer fan-out separately from the mesh/texture byte bud
 it is not a measurement of driver VRAM. Refused candidates retain the old draw and
 retry after another bundle releases capacity. Current instancing uploads use at most
 7168 bytes per eligible prepared part per pass (64 instances × seven float4 rows).
+
+
+## Editor mesh framing
+
+Scene Frame Selected and Fit Scene synchronize the current detached snapshot into
+MeshSceneRenderer before querying its complete retained poses. Bounds therefore use
+the same immutable geometry, morph intervals and joint palettes as drawing, with
+camera-relative skin padding. There is no fallback cube for an imported resource.
+Frame Selected expands structural descendants, independent of spatial binding; Fit
+Scene excludes invisible meshes while explicit selection permits hidden meshes.
+An unready member rejects the entire frame request instead of moving the camera to
+an incomplete subset. Last-good complete draws remain frameable during replacement.
+Empty/nonrendering selections may still frame their transform point. This changes
+only personal camera state; it adds no authored transform or Undo entry.

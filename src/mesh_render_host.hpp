@@ -58,6 +58,10 @@ class MeshSceneRenderer {
     DrawStats draw_stats() const { return draw_stats_; }
     std::size_t bundle_count() const;
     std::optional<RenderBounds> bounds() const;
+    // Current rendered poses only; an unready member rejects partial framing.
+    // Empty selection fits visible scene meshes, explicit selection also permits hidden ones.
+    std::optional<RenderBounds> bounds(const RenderScene&, const std::set<EntityId>&,
+                                       Double3 camera_origin) const;
 
     std::uint64_t pose_payload_bytes() const;
     EntityId pick(const RenderScene&, const CameraView&, double x, double y,

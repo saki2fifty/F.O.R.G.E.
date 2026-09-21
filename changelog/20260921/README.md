@@ -936,3 +936,12 @@
 - Normal authoring tests pass (1.58s); navigation/model scene checks pass2/2 (0.34s). Rebuilt editor process/input and Content/model tests pass2/2 (17.82s). The initial run exposed a legacy-only palette assertion and a stale worker revision; both were corrected before the passing rerun. Strict sanitizer and Windows checks remain required.
 
 - Primitive compatibility also passes strict ASan/UBSan/LSan (authoring/navigation2/2,10.34s) and rebuilt core/structured-prefab/hierarchical-transform regressions (3/3,5.86s). Updated manual checks pass. Final Windows acceptance remains pending.
+
+
+## Scene framing of imported content
+
+- Connected Frame Selected/Fit Scene to current retained mesh/morph/skinning bounds. Selected model roots include their structural descendants; fitting the whole scene excludes hidden meshes, while explicit hidden selections can be framed.
+- Unready geometry refuses partial framing and leaves the camera unchanged. Nonrendering selections retain point framing; no imported mesh is approximated as a cube.
+- Added CPU selection and native retained-pose/hidden/partial-readiness regressions. Native header compilation and local input tests are being validated; actual Windows execution remains required.
+
+- Updated editor input/framing tests pass (15.54s). Native presentation implementation, native render-test headers and platform-adapted editor main compile in local syntax checks. These checks do not replace Windows draw execution.

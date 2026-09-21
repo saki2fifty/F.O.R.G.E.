@@ -30,6 +30,7 @@ class Viewport {
     }
     const MeshSceneRenderer* meshes() const { return meshes_.get(); }
     const RenderScene* render_scene() const { return mesh_scene_ ? &*mesh_scene_ : nullptr; }
+    bool frame(const Json&, const std::string& selected, EditorCamera&, float aspect);
     std::string pick(const Json&, const EditorCamera&, unsigned width, unsigned height, double x,
                      double y, double point_line_radius = 5);
     Diligent::ITextureView* render(Diligent::IDeviceContext* context, const Json& scene,

@@ -1,6 +1,7 @@
 #include "viewport.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "authoring.hpp"
+#include "framing.hpp"
 #include <cmath>
 #include <forge/geometry.hpp>
 #include <stdexcept>
@@ -36,6 +37,31 @@ std::string Viewport::pick(const Json& source, const EditorCamera& camera, unsig
     const auto id =
         meshes_->pick(snapshot, scene_camera(camera, width, height), x, y, UINT32_MAX, radius);
     return id ? id.str() : std::string{};
+}
+bool Viewport::frame(const Json& source, const std::string& selected, EditorCamera& camera,
+                     float aspect) {
+    if (!meshes_)
+        return camera.frame(source, selected, aspect);
+    const auto selection = framing_entities(source, selected);
+    const auto snapshot = extract_render_scene(source);
+    if (meshes_->update(snapshot))
+        frame_.reset();
+    const auto eye = camera.eye();
+    const auto bounds = meshes_->bounds(snapshot, selection, {eye[0], eye[1], eye[2]});
+    if (bounds) {
+        EditorCamera::Vec center;
+        Double3 half;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            center[axis] = float(bounds->minimum[axis] * .5 + bounds->maximum[axis] * .5);
+            half[axis] = bounds->maximum[axis] * .5 - bounds->minimum[axis] * .5;
+        }
+        return camera.frame_sphere(center, std::hypot(half[0], half[1], half[2]), aspect);
+    }
+    // Loading/failed geometry never substitutes a cube or frames only a ready subset.
+    for (const auto& mesh : snapshot.meshes)
+        if (selection.empty() ? mesh.renderer.visible : selection.contains(mesh.entity))
+            return false;
+    return !selected.empty() && camera.frame(source, selected, aspect);
 }
 Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
     : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),

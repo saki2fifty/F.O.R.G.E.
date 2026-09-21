@@ -18,7 +18,9 @@ Gestures that begin outside the image do not acquire viewport navigation. Losing
 
 ## Frame what you need
 
-Select an entity in Hierarchy, hover the Scene image, and press F to frame its visible block. **View → Frame selected** provides the same command. **Fit scene** frames the visible blocks together; **Reset view** restores the default camera.
+Select an entity in Hierarchy, hover the Scene image, and press F to frame its geometry and structural descendants. **View → Frame selected** provides the same command. Imported models use their current loaded mesh, morph and skeletal bounds; a model root frames its complete placed subtree. **Fit scene** frames visible meshes together; an explicitly selected hidden mesh can still be framed. **Reset view** restores the default camera.
+
+If part of the requested geometry is still loading or has failed, framing preserves the camera and reports that it is not ready. Retry after loading completes. It does not fit an incomplete subset or substitute a cube for a missing model. Very large extents can exceed the current camera framing range.
 
 Left-click a visible block to select the nearest block under the pointer. Clicking empty space clears selection. The selected object has an amber outline of its rotated bounds; it can show through other blocks to help locate the selection. Selection changes Inspector and Hierarchy. Selection through this view is disabled during Play.
 

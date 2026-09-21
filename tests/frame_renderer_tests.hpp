@@ -1,6 +1,7 @@
 #pragma once
 #include "frame_renderer.hpp"
 #include "render_values.hpp"
+#include "viewport.hpp"
 #include <forge/engine_assets.hpp>
 #include <fstream>
 void check_frame_renderer(forge::DiligentPresentation& presentation,
@@ -140,9 +141,31 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         require(!measured.pending() && measured.diagnostics().empty(),
                 "Pose-budget baseline was not ready");
         const auto view = camera_view(base, {}, 64, 32);
+        const auto framed_bounds = measured.bounds(scene, {scene.meshes[0].entity}, view.position);
+        require(framed_bounds && framed_bounds == measured.bounds(scene, {}, view.position),
+                "Selected mesh framing did not use complete retained pose bounds");
+        Viewport scene_view(presentation, true);
+        scene_view.resources(host);
+        EditorCamera scene_camera;
+        require(scene_view.frame(document, scene.meshes[0].entity.str(), scene_camera, 2) &&
+                    std::abs(scene_camera.target[2] - 3) < 1e-5,
+                "Scene camera framing did not use current mesh world bounds");
         require(measured.pick(scene, view, 32, 16) == scene.meshes[0].entity,
                 "Retained singular mesh pose was not selectable");
         scene.meshes[0].renderer.visible = false;
+        require(!measured.bounds(scene, {}, view.position) &&
+                    measured.bounds(scene, {scene.meshes[0].entity}, view.position) ==
+                        framed_bounds,
+                "Fit scene included hidden geometry or selected-hidden framing was lost");
+        auto partial = scene;
+        partial.meshes[0].renderer.visible = true;
+        auto unready = partial.meshes[0];
+        unready.entity = EntityId::generate();
+        partial.meshes.push_back(unready);
+        require(!measured.bounds(partial, {}, view.position) &&
+                    measured.bounds(partial, {scene.meshes[0].entity}, view.position) ==
+                        framed_bounds,
+                "Framing silently accepted a partial unready group");
         require(measured.pick(scene, view, 32, 16) == scene.meshes[0].entity,
                 "Hidden geometry lost independent selectability");
         scene.meshes[0].selectable = false;

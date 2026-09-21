@@ -9,6 +9,7 @@
 #include "ecs_workspace_tests.hpp"
 #include "editor_redesign_tests.hpp"
 #include "editor_refinement_tests.hpp"
+#include "framing_tests.hpp"
 #include "game_input_tests.hpp"
 #include "help.hpp"
 #include "interaction_tests.hpp"
@@ -347,6 +348,7 @@ int main(int argc, char** argv) {
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_interaction_input(scale);
         test_camera_input();
+        test_framing_selection();
         test_telemetry_and_status();
         test_tooltip_placement();
         forge::EngineContext authored_engine;

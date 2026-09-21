@@ -2095,12 +2095,13 @@ int main(int argc, char** argv) {
                     if (size.x > 1 && size.y > 1) {
                         if (!game_view && frame_selected &&
                             (selected.empty() ||
-                             !view_camera.frame(preview, selected, size.x / size.y)))
-                            message =
-                                "Selected entity has no visible block, or exceeds camera range.";
+                             !viewport.frame(preview, selected, view_camera, size.x / size.y)))
+                            message = "Cannot frame selection: geometry is not ready or exceeds "
+                                      "camera range.";
                         if (!game_view && fit_scene &&
-                            !view_camera.frame(preview, "", size.x / size.y))
-                            message = "No visible blocks to frame, or scene exceeds camera range.";
+                            !viewport.frame(preview, "", view_camera, size.x / size.y))
+                            message = "Cannot fit scene: visible geometry is not ready or exceeds "
+                                      "camera range.";
                         const auto image_origin = ImGui::GetCursorScreenPos();
 #ifdef FORGE_UI_FIXTURE
                         if (!game_view)
@@ -2125,9 +2126,10 @@ int main(int argc, char** argv) {
                                                        game_view || gizmo || was_modal || popup ||
                                                            game_input.captured())) {
                             if (selected.empty() ||
-                                !view_camera.frame(preview, selected, size.x / size.y))
-                                message = "Selected entity has no visible block, or exceeds camera "
-                                          "range.";
+                                !viewport.frame(preview, selected, view_camera, size.x / size.y))
+                                message =
+                                    "Cannot frame selection: geometry is not ready or exceeds "
+                                    "camera range.";
                         }
                         const bool can_edit =
                             !game_view && focused && !play.active() && !native->busy() &&

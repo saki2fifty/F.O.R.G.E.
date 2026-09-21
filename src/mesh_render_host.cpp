@@ -24,6 +24,30 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
     }
     return result;
 }
+std::optional<RenderBounds> MeshSceneRenderer::bounds(const RenderScene& scene,
+                                                      const std::set<EntityId>& selected,
+                                                      Double3 origin) const {
+    host_->check_thread();
+    if (scene.scene != scene_)
+        return {};
+    std::optional<RenderBounds> result;
+    for (const auto& mesh : scene.meshes) {
+        if (selected.empty() ? !mesh.renderer.visible : !selected.contains(mesh.entity))
+            continue;
+        const auto found = entries_.find(mesh.entity);
+        if (found == entries_.end() || !found->second.ready)
+            return {};
+        const auto box = mesh_instance_bounds(found->second.pose, origin);
+        if (!result)
+            result = box;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+            }
+    }
+    return result;
+}
 namespace {
 struct DrawCapacityError : std::runtime_error {
     using std::runtime_error::runtime_error;
