@@ -61,7 +61,7 @@ target_link_libraries(forge_assets PUBLIC forge_asset_build PRIVATE forge_asset_
 add_library(forge_asset_build src/asset_build.cpp src/derived_cache.cpp src/asset_jobs.cpp)
 target_link_libraries(forge_asset_build PUBLIC forge_core PRIVATE forge_asset_bytes Threads::Threads)
 add_library(forge_mesh src/mesh_asset.cpp)
-add_library(forge_render_bounds src/render_bounds.cpp src/model_instance_pose.cpp)
+add_library(forge_render_bounds src/render_bounds.cpp src/model_instance_pose.cpp src/animation_debug_pose.cpp)
 target_include_directories(forge_render_bounds PUBLIC src)
 target_link_libraries(forge_render_bounds PUBLIC forge_core forge_mesh)
 target_link_libraries(forge_mesh PUBLIC forge_identity)

@@ -353,3 +353,13 @@
 - Prepared morph intervals eliminate vertex rescans when weights change. Deformed bounds drive culling, LOD and transparent sorting, including per-camera skin rounding bounds in shadow views.
 - Normal CPU bounds, model pipeline and authoring regression tests pass (3/3, 33.88 seconds). Native-header syntax passes. Strict ASan/UBSan/LSan checks also pass (3/3, 80.08 seconds). A follow-up malformed-readiness regression and Windows validation remain pending.
 - Windows source audit abc5956 built successfully and passed 36/37 tests. The first zero-weight morph draw fails with device removal 0x887a0005; no morph/skin/optics acceptance is claimed. Added separate native morph, skin, frame and optics cases alongside the full viewport test to isolate subsequent failures.
+
+### Animation and physics ownership
+
+- Added a host-only validation boundary before model animation writes any local TRS channel. It reuses the existing Jolt-backed configuration, spatial ancestry and Dynamic ownership checks; no implicit teleport or collider rewrite is introduced.
+- The same candidate validation runs during animation recovery before playback state is committed. Invalid animated collider scales and Dynamic movement retain previous transforms and solver bodies; repaired bindings can resume.
+- Normal model pipeline, physics and animation regressions pass (3/3, 34.51 seconds), including Kinematic/Dynamic cases before/after body realization, ownership repair, failed recovery and a nonuniform sphere-scale clip. Strict ASan/UBSan/LSan validation also passes (3/3, 86.59 seconds); the additional successful full scene/physics/animation reconstruction case also passes normal and strict validation (final strict model recipe plus bounds: 2/2, 75.95 seconds).
+- The preceding model-rendering checkpoint's final malformed-readiness follow-up passes normal and strict authoring regression checks (0.59 and 3.81 seconds). Windows audit for source 1c0ae36 is running independently.
+
+- Model bone overlays now use actual resolved scene-node WorldTransforms from the rendering snapshot, with root-scoped identity lookup. They preserve inherited/spatial behavior, omit ambiguous/missing/unready joints and keep the standalone Ozz preview path.
+- Bone preparation runs once before multi-camera projection, preserving double world coordinates until projection. Normal CPU overlay regression and native header/editor syntax checks pass; strict overlay checks also pass; Windows acceptance of this follow-up remains pending.

@@ -349,6 +349,20 @@ struct PhysicsRuntime::Impl {
             throw std::runtime_error("Physics body limit exceeded (8192)");
         return result;
     }
+    using Desired = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
+    void validate_dynamic_writes(const Desired& desired,
+                                 const std::set<std::uint64_t>& commanded = {}) {
+        for (const auto& [entity, value] : desired) {
+            const auto it = bodies.find(entity);
+            if (value.first.body.motion == 2 && it != bodies.end() &&
+                it->second.config.body.motion == 2 && !commanded.contains(entity) &&
+                (!equivalent(value.second.translation, it->second.last.translation) ||
+                 !equivalent(value.second.rotation, it->second.last.rotation)))
+                throw std::runtime_error(
+                    "Dynamic pose is solver-owned; use Physics teleport instead "
+                    "of direct transform writes");
+        }
+    }
     Body create(std::uint64_t entity, const Configuration& c, const LocalTransform& pose,
                 std::optional<JPH::BodyID> requested = {}) {
         JPH::BodyCreationSettings settings(
@@ -392,6 +406,27 @@ void PhysicsRuntime::configure(PhysicsConfig config) {
     s.system.SetGravity(
         JPH::Vec3(float(config.gravity[0]), float(config.gravity[1]), float(config.gravity[2])));
 }
+void PhysicsRuntime::validate_transform_candidate(
+    const std::map<std::uint64_t, TransformNode>& nodes) {
+    auto& s = *impl_;
+    s.check();
+    const auto candidate = s.desired(&nodes);
+    s.validate_dynamic_writes(candidate);
+    // Before first realization a Dynamic body is still an authored starting pose,
+    // not a license for animation to acquire its translation/rotation authority.
+    std::optional<Impl::Desired> initial;
+    for (const auto& [id, value] : candidate) {
+        if (value.first.body.motion != 2 || s.bodies.contains(id))
+            continue;
+        if (!initial)
+            initial = s.desired();
+        const auto& current = initial->at(id).second;
+        if (!equivalent(value.second.translation, current.translation) ||
+            !equivalent(value.second.rotation, current.rotation))
+            throw std::runtime_error("Dynamic starting pose cannot be driven by model animation; "
+                                     "use a Kinematic body or a separate visual child");
+    }
+}
 void PhysicsRuntime::synchronize(float dt) {
     auto& s = *impl_;
     s.check();
@@ -422,16 +457,8 @@ void PhysicsRuntime::synchronize(float dt) {
         commanded.insert(id);
     }
     const auto desired = s.desired(&nodes);
-    // Preflight direct Dynamic writes and all target geometry before any ECS/Jolt mutation.
-    for (const auto& [entity, value] : desired) {
-        const auto it = s.bodies.find(entity);
-        if (value.first.body.motion == 2 && it != s.bodies.end() &&
-            it->second.config.body.motion == 2 && !commanded.contains(entity) &&
-            (!equivalent(value.second.translation, it->second.last.translation) ||
-             !equivalent(value.second.rotation, it->second.last.rotation)))
-            throw std::runtime_error("Dynamic pose is solver-owned; use Physics teleport instead "
-                                     "of direct transform writes");
-    }
+    // Same solver ownership check used by reject-before-write animation admission.
+    s.validate_dynamic_writes(desired, commanded);
     for (auto id : commanded) {
         auto e = s.context.world().entity(id);
         const auto before = s.context.get_local_transform(e);

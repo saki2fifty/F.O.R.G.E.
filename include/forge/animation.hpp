@@ -1,12 +1,17 @@
 #pragma once
 #include <forge/animation_components.hpp>
 #include <forge/world.hpp>
+#include <functional>
 namespace forge {
 EngineModule animation_module(std::filesystem::path project);
 class AnimationRuntime {
   public:
     AnimationRuntime(WorldContext&, std::filesystem::path project);
     ~AnimationRuntime();
+    // Host composition only: validate a complete model pose before writes and
+    // recovery admission. No solver ownership or native pointers cross the SDK.
+    using PoseValidator = std::function<void(const std::map<std::uint64_t, TransformNode>&)>;
+    void pose_validator(PoseValidator);
     void synchronize();
     void tick(float dt);
     void reset_presentation();

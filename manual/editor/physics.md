@@ -73,3 +73,16 @@ This integration supports boxes, spheres, capsules, a default static/moving coll
 See [Play mode](play-mode.md), [Transforms](transforms.md), and [Prefabs](prefabs.md).
 
 A newly instantiated prefab root keeps the existing per-instance spatial attachment policy. If its body is Dynamic, set that instance root's **Spatial binding** to **World** before Play. FORGE does not silently detach it. Duplicating a configured instance retains its binding.
+
+## Physics on animated model nodes
+
+Use **Kinematic** for a body that should follow an imported model animation. **Dynamic**
+means physics controls movement; FORGE rejects animation that tries to move or rotate
+that same body. A separate visual child can follow a Dynamic parent under the existing
+spatial-binding rules.
+
+Collider shape restrictions still apply. For example, an animation that stretches a
+Sphere Collider unevenly cannot be applied. FORGE reports the problem and keeps the
+previous pose and collider. Change the body/collider arrangement, or remove physics
+from a node intended only for visual animation. The source clip is not rewritten.
+The complete animated-model placement/rendering workflow is still under integration.

@@ -1576,6 +1576,9 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active());
+                        const auto animation_debug = forge::prepare_animation_debug(
+                            rendered,
+                            game_view ? game_viewport.game_scene() : viewport.render_scene());
                         if (game_view) {
                             for (const auto& active : game_viewport.cameras()) {
                                 const auto& area = active.view.viewport;
@@ -1586,12 +1589,14 @@ int main(int argc, char** argv) {
                                 ImGui::GetWindowDrawList()->PushClipRect(low, high, true);
                                 const forge::GameDebugView debug{active.view, render_width,
                                                                  render_height};
-                                forge::draw_animation_debug(rendered, debug, image_origin, size);
+                                forge::draw_animation_debug(animation_debug, debug, image_origin,
+                                                            size);
                                 navigation_tools.draw(rendered, debug, image_origin, size);
                                 ImGui::GetWindowDrawList()->PopClipRect();
                             }
                         } else {
-                            forge::draw_animation_debug(rendered, view_camera, image_origin, size);
+                            forge::draw_animation_debug(animation_debug, view_camera, image_origin,
+                                                        size);
                             navigation_tools.draw(rendered, view_camera, image_origin, size);
                         }
                         if (!game_view)

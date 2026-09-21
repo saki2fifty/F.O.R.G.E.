@@ -114,3 +114,20 @@ complete rendered pose. It does not borrow a joint from another copy of the mode
 Restore the matching hierarchy or restart Play after a successful reimport. A
 failed pose does not change the authored scene. Native acceptance of this rendering
 path and the complete animated-model placement workflow are still pending.
+
+### Physics conflicts
+
+An animated model node with a **Dynamic** Physics Body cannot also take movement or
+rotation from a clip. Use a suitable **Kinematic** body for animation-driven motion,
+or keep the animation on a separate visual child. If an animated scale is invalid
+for its collider, FORGE keeps the previous pose and reports the reason. Fixing the
+conflicting component lets the animation resume. Scene source values remain intact
+when Play stops.
+
+### Bones on model instances
+
+For a model instance, the bone overlay follows the actual scene nodes, including
+inherited transforms and their spatial bindings. It does not apply the model root
+transform twice. Missing or ambiguous joints are omitted. Standalone animation
+previews still show the clip's skeleton relative to the selected Animator entity.
+The overlay remains a diagnostic display that can be seen through geometry.

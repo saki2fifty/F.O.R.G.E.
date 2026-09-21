@@ -113,12 +113,13 @@ void FrameRenderer::report(const Diagnostic& value) {
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, const nlohmann::json& source,
                                   unsigned width, unsigned height) {
-    const auto scene = extract_render_scene(source);
+    auto scene = extract_render_scene(source);
     const auto cameras = prepare_game_cameras(scene, width, height);
     auto* result = render(context, scene, cameras.cameras, width, height, scene.settings.exposure);
     for (const auto& error : cameras.diagnostics)
         report(error);
     omitted_ += cameras.omitted_diagnostics;
+    game_scene_ = std::move(scene);
     return result;
 }
 ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& scene,

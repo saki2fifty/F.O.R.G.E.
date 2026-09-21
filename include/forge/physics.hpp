@@ -17,6 +17,9 @@ class PhysicsRuntime : public PhysicsService {
     ~PhysicsRuntime() override;
     void stop() noexcept;
     void configure(PhysicsConfig);
+    // Read-only host admission of an animation transform candidate. Uses the
+    // same shape/spatial/solver ownership rules as realization, before ECS writes.
+    void validate_transform_candidate(const std::map<std::uint64_t, TransformNode>&);
     void synchronize(float dt);
     void step(float dt);
     void adopt();

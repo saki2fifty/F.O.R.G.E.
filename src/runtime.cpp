@@ -150,6 +150,18 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
                         .run([this](flecs::iter&) { input_monitor_.consume(input_.snapshot()); });
     if (context.services().available(Capability::Physics))
         physics_ = std::static_pointer_cast<PhysicsRuntime>(context.services().physics());
+    if (animation_) {
+        if (physics_)
+            animation_->pose_validator(
+                [weak = std::weak_ptr<PhysicsRuntime>(physics_)](const auto& candidate) {
+                    const auto physics = weak.lock();
+                    if (!physics)
+                        throw std::runtime_error("Animation physics validation owner expired");
+                    physics->validate_transform_candidate(candidate);
+                });
+        else
+            animation_->pose_validator({});
+    }
     if (context.services().available(Capability::Audio))
         audio_ = std::static_pointer_cast<AudioRuntime>(context.services().audio());
     animation_phase_ =
@@ -235,6 +247,8 @@ RuntimeSimulation::~RuntimeSimulation() {
         context_.world().entity(ecs_lookup(context_.world(), name)).remove<FixedSimulation>();
     if (navigation_)
         navigation_->bind(nullptr);
+    if (animation_)
+        animation_->pose_validator({});
     navigation_system_.destruct();
     navigation_phase_.destruct();
     animation_system_.destruct();

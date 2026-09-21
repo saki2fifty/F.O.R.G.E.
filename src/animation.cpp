@@ -46,6 +46,7 @@ struct AnimationRuntime::Impl {
     std::set<flecs::entity_t> orphan_nodes;
     std::map<flecs::entity_t, Animator> failed_configurations;
     std::size_t cache_bytes = 0;
+    AnimationRuntime::PoseValidator pose_validator;
     Impl(WorldContext& c, std::filesystem::path p) : context(c), project(std::move(p)) {}
     ~Impl() {
         states.clear();
@@ -180,6 +181,8 @@ struct AnimationRuntime::Impl {
                 }
                 // Validate the complete prepared pose before any ECS mutation.
                 (void)evaluate_transforms(candidate);
+                if (pose_validator)
+                    pose_validator(candidate);
                 if (!commit)
                     continue;
                 for (auto& [target, write] : writes) {
@@ -396,6 +399,10 @@ struct AnimationRuntime::Impl {
 AnimationRuntime::AnimationRuntime(WorldContext& c, std::filesystem::path p)
     : impl_(std::make_unique<Impl>(c, std::move(p))) {}
 AnimationRuntime::~AnimationRuntime() = default;
+void AnimationRuntime::pose_validator(PoseValidator validator) {
+    if (impl_)
+        impl_->pose_validator = std::move(validator);
+}
 void AnimationRuntime::shutdown() noexcept { impl_.reset(); }
 void AnimationRuntime::synchronize() {
     if (impl_)

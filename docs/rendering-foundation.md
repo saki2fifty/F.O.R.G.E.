@@ -801,3 +801,17 @@ Native-header compilation succeeds; full native execution remains pending. Sourc
 `GetDeviceRemovedReason=0x887a0005`. That HRESULT does not identify the cause.
 Independent native morph/skin/frame/optics cases now supplement the complete viewport
 suite so one device failure cannot conceal the other feature results.
+
+### Animation debug overlay
+
+Model-instance debug joints are prepared from the same extracted scene snapshot
+used by the mesh host, resolved through its ordinary model root and durable node
+mapping. This respects unanimated inherited TRS values and effective spatial bindings;
+raw Ozz model matrices are not multiplied by the root again. Missing optional joints
+are omitted, ambiguous/unready model poses are not drawn, and the legacy standalone
+Animator still uses owner-world times Ozz-model translation. The prepared bones are
+reused for all camera overlays, with double world positions projected relative to
+each camera before conversion to UI pixels. No extra scene extraction occurs per
+camera. Malformed optional debug data is omitted without terminating the editor.
+CPU tests cover actual world positions at large coordinates, root isolation,
+ambiguous/unavailable poses, legacy owner transforms and malformed parent/pose data.

@@ -1,31 +1,53 @@
 #pragma once
+#include "../animation_debug_pose.hpp"
 #include "authoring.hpp"
 #include <imgui.h>
+#include <limits>
 namespace forge {
-// Same camera projection and overlay convention as the existing transform gizmos.
+inline std::optional<std::array<float, 2>> debug_screen_point(double x, double y) {
+    if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > std::numeric_limits<float>::max() ||
+        std::abs(y) > std::numeric_limits<float>::max())
+        return {};
+    return std::array<float, 2>{float(x), float(y)};
+}
+inline std::optional<std::array<float, 2>> project_debug_point(const GameDebugView& camera,
+                                                               Double3 point, ImVec2 size) {
+    if (!camera.width || !camera.height)
+        return {};
+    const auto projected = project_render_point(camera.view, point);
+    if (!projected)
+        return {};
+    return debug_screen_point((*projected)[0] * size.x / camera.width,
+                              (*projected)[1] * size.y / camera.height);
+}
+inline std::optional<std::array<float, 2>> project_debug_point(const EditorCamera& camera,
+                                                               Double3 point, ImVec2 size) {
+    const auto eye = camera.eye();
+    for (unsigned c = 0; c < 3; ++c)
+        point[c] -= eye[c];
+    auto dot_axis = [&](const auto& axis) {
+        return point[0] * axis[0] + point[1] * axis[1] + point[2] * axis[2];
+    };
+    const auto depth = dot_axis(camera.forward());
+    if (size.x <= 0 || size.y <= 0 || depth < EditorCamera::near_plane ||
+        depth > EditorCamera::far_plane)
+        return {};
+    const double scale = EditorCamera::focal * size.y / (2 * depth);
+    return debug_screen_point(size.x / 2 + dot_axis(camera.right()) * scale,
+                              size.y / 2 - dot_axis(camera.up()) * scale);
+}
+// Project the same prepared skeleton for each camera; no JSON parsing or source
+// node resolution is repeated for additional camera viewports.
 template <class View>
-inline void draw_animation_debug(const Json& document, const View& camera, ImVec2 origin,
-                                 ImVec2 size) {
+inline void draw_animation_debug(std::span<const AnimationDebugSkeleton> skeletons,
+                                 const View& camera, ImVec2 origin, ImVec2 size) {
     auto* draw = ImGui::GetWindowDrawList();
     draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
-    for (const auto& item : document.at("entities")) {
-        if (!item.contains("animation_pose") || !item.value("spatial_resolved", true))
-            continue;
-        const ObjectTransform owner(item);
-        const auto& pose = item.at("animation_pose");
-        const auto& matrices = pose.at("model");
-        const auto& parents = pose.at("parents");
-        if (matrices.size() != parents.size() || matrices.size() > 1024)
-            continue;
+    for (const auto& skeleton : skeletons) {
+        const auto& parents = skeleton.parents;
         std::vector<std::optional<std::array<float, 2>>> points;
-        for (const auto& matrix : matrices) {
-            if (matrix.size() != 16) {
-                points.push_back({});
-                continue;
-            }
-            const auto world = owner.point({matrix.at(12), matrix.at(13), matrix.at(14)});
-            points.push_back(project_point(camera, world, size.x, size.y));
-        }
+        for (const auto& point : skeleton.positions)
+            points.push_back(point ? project_debug_point(camera, *point, size) : std::nullopt);
         for (std::size_t i = 0; i < points.size(); ++i) {
             if (!points[i])
                 continue;

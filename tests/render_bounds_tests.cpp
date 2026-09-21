@@ -1,3 +1,4 @@
+#include "animation_debug_pose_tests.hpp"
 #include "mesh_morph.hpp"
 #include "model_instance_pose_tests.hpp"
 #include "render_bounds.hpp"
@@ -28,6 +29,7 @@ int main() {
     try {
         using namespace forge;
         check_model_instance_poses();
+        check_animation_debug_poses();
         const MeshBounds unit{{-1, -1, -1}, {1, 1, 1}};
         {
             std::mt19937 random(47181);

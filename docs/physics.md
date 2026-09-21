@@ -77,3 +77,16 @@ Zero remains valid visual data but invalid physics configuration; failed candida
 synchronization leaves previously realized bodies intact. Recovery uses the same
 admission. Existing World-bound Dynamic policy and effective-spatial Dynamic
 ancestry restrictions remain unchanged.
+
+## Animated model transforms
+
+The runtime composition validates complete model animation poses before animation
+writes ECS channels. It reuses PhysicsRuntime's ordinary configuration and effective
+spatial-parent checks. The same Dynamic ownership predicate is shared with normal
+physics synchronization; animation is not translated into an implicit teleport.
+Before first body realization, animation also cannot change a Dynamic starting pose.
+Kinematic model nodes can receive representable animated transforms. Unsupported
+sphere/capsule world scale or any other existing configuration failure rejects the
+animation pose before mutation. This is host admission, not a new physics service,
+constraint system, matrix authority or scene-format revision. Animation recovery
+uses this boundary too.

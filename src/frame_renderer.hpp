@@ -18,6 +18,8 @@ class FrameRenderer {
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     const std::vector<PreparedCamera>& cameras() const { return cameras_; }
+    // Snapshot used by the last game() call, shared with optional debug overlays.
+    const RenderScene* game_scene() const { return game_scene_ ? &*game_scene_ : nullptr; }
     Diligent::ITextureView* depth() const;
     Diligent::ITextureView* output() const { return display_.output(); }
     std::uint64_t frames = 0;
@@ -35,6 +37,7 @@ class FrameRenderer {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> clear_color_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> clears_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> clear_bindings_;
+    std::optional<RenderScene> game_scene_;
     std::vector<PreparedCamera> cameras_;
     std::vector<Diagnostic> diagnostics_;
     std::size_t omitted_ = 0;

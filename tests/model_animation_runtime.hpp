@@ -118,9 +118,18 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
         Scene scene;
         RuntimeSimulation simulation;
         std::shared_ptr<AnimationRuntime> animation;
-        Runtime(const std::filesystem::path& project)
-            : engine(WorldRole::Runtime, false, {animation_module(project)}), scene(engine.world()),
-              simulation(engine.world(), scene, module),
+        Runtime(const std::filesystem::path& project, bool physics = false)
+            : engine(WorldRole::Runtime, false,
+                     [&] {
+                         std::vector<EngineModule> modules{animation_module(project)};
+                         if (physics) {
+                             PhysicsConfig config;
+                             config.gravity = {0, 0, 0};
+                             modules.push_back(physics_module(config));
+                         }
+                         return modules;
+                     }()),
+              scene(engine.world()), simulation(engine.world(), scene, module),
               animation(animation_runtime(engine.world())) {}
         Json pose() { return animation->presentation(scene.entity("actor").id(), 1); }
     };
@@ -276,5 +285,104 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
                 bound.animation->checkpoint() == repaired_checkpoint,
             "Valid binding recovery retained a stale error or changed checkpoint values");
     monitor.destruct();
+    auto physics_document = document;
+    physics_document["entities"].erase(physics_document["entities"].begin() + 1,
+                                       physics_document["entities"].end());
+    physics_document["entities"][0]["components"]["forge.model_source"] = {{"model", request.model},
+                                                                           {"node", nullptr}};
+    physics_document["entities"].push_back(
+        {{"id", "joint"},
+         {"name", "Joint"},
+         {"parent", "actor"},
+         {"components",
+          {{"forge.position", {{"x", 0}, {"y", 1}, {"z", 0}}},
+           {"forge.model_source", {{"model", request.model}, {"node", members.at("/nodes/1")}}}}}});
+    auto wait_for_model = [&](Runtime& runtime) {
+        const auto until = std::chrono::steady_clock::now() + 10s;
+        while (runtime.pose().is_null() && std::chrono::steady_clock::now() < until) {
+            runtime.simulation.presentation(0);
+            std::this_thread::sleep_for(1ms);
+        }
+        require(!runtime.pose().is_null(), "Animated physics resources did not load");
+    };
+    for (bool realize_first : {false, true})
+        for (unsigned motion : {1u, 2u}) {
+            Runtime physical(project, true);
+            physical.scene.restore_snapshot(physics_document);
+            auto node = physical.scene.entity("joint");
+            node.set<PhysicsBody>({motion}).set<BoxCollider>({}).set<SpatialBinding>(
+                {SpatialMode::World, {}});
+            auto physics = std::static_pointer_cast<PhysicsRuntime>(
+                physical.engine.world().services().physics());
+            if (realize_first)
+                physics->synchronize(0);
+            wait_for_model(physical);
+            const auto before = physical.engine.world().get_local_transform(node);
+            physical.simulation.tick(.25f);
+            if (motion == 2) {
+                require(physical.engine.world().get_local_transform(node) == before &&
+                            !physical.animation->checkpoint_ready(),
+                        "Animation wrote a solver-owned Dynamic pose before rejection");
+                node.set<PhysicsBody>({1});
+                physical.simulation.tick(.25f);
+                require(physical.animation->checkpoint_ready() &&
+                            std::abs(node.get<LocalTranslation>().x - .5) < .002,
+                        "Repairing animated body ownership did not resume playback");
+            } else {
+                require(physical.animation->checkpoint_ready() &&
+                            std::abs(node.get<LocalTranslation>().x - .25) < .002,
+                        "Valid animated Kinematic body was rejected");
+                const auto checkpoint = physical.animation->checkpoint();
+                {
+                    Runtime restored(project, true);
+                    restored.scene.restore_snapshot(physical.scene.snapshot());
+                    auto restored_physics = std::static_pointer_cast<PhysicsRuntime>(
+                        restored.engine.world().services().physics());
+                    restored_physics->restore(physics->checkpoint());
+                    restored.animation->restore(checkpoint);
+                    restored.simulation.reset_presentation();
+                    restored.simulation.tick(.1f);
+                    require(restored.animation->checkpoint_ready() &&
+                                std::abs(restored.scene.entity("joint").get<LocalTranslation>().x -
+                                         .35) < .002,
+                            "Valid physics-aware animation reconstruction did not resume");
+                }
+                node.set<PhysicsBody>({2});
+                physics->synchronize(0);
+                auto invalid_recovery = checkpoint;
+                invalid_recovery["entries"][0]["time"] = .75;
+                const auto pose = physical.engine.world().get_local_transform(node);
+                rejects([&] { physical.animation->restore(invalid_recovery); });
+                require(physical.animation->checkpoint() == checkpoint &&
+                            physical.engine.world().get_local_transform(node) == pose,
+                        "Physics-rejected animation recovery changed playback or transforms");
+            }
+        }
+    {
+        Runtime scaled(project, true);
+        auto input = physics_document;
+        input["entities"][0]["components"]["forge.animator"]["clip"] = members.at("/animations/1");
+        input["entities"][1]["components"]["forge.model_source"]["node"] = members.at("/nodes/2");
+        scaled.scene.restore_snapshot(input);
+        auto node = scaled.scene.entity("joint");
+        node.set<PhysicsBody>({1}).set<SphereCollider>({}).set<SpatialBinding>(
+            {SpatialMode::World, {}});
+        auto physics =
+            std::static_pointer_cast<PhysicsRuntime>(scaled.engine.world().services().physics());
+        physics->synchronize(0);
+        wait_for_model(scaled);
+        const auto before = scaled.engine.world().get_local_transform(node);
+        scaled.simulation.tick(.5f); // Scale channel requests(.5,1,1.5): not a sphere scale.
+        require(scaled.engine.world().get_local_transform(node) == before &&
+                    !scaled.animation->checkpoint_ready() && physics->status().at("bodies") == 1,
+                "Invalid animated sphere scale mutated ECS or destroyed the retained collider");
+        node.remove<PhysicsBody>().remove<SphereCollider>();
+        scaled.simulation.tick(.1f);
+        const auto scale = node.get<LocalScale>();
+        require(scaled.animation->checkpoint_ready() && std::abs(scale.x - .6f) < .002f &&
+                    std::abs(scale.y - 1.2f) < .002f && std::abs(scale.z - 1.8f) < .002f &&
+                    node.get<LocalTranslation>() == before.translation,
+                "Removing incompatible physics did not restore visual-only scale animation");
+    }
     std::filesystem::rename(moved_source, source_path);
 }

@@ -213,3 +213,25 @@ than treating serialized archive length as native memory use. Exact Ozz0.17
 `Skeleton::Allocate` supplies the skeleton layout; `Animation::size()` omits name
 storage, which FORGE adds explicitly. Allocator bookkeeping and preparation scratch
 are not presented as retained asset bytes.
+
+## Model animation and physics admission
+
+RuntimeSimulation installs an owner-thread host validator when both animation and
+physics modules are present. Animation passes its complete candidate transform graph
+through the existing PhysicsRuntime configuration checks before writing any animated
+TRS channel. The callback holds a weak physics reference and is cleared on simulation
+teardown; it adds no gameplay SDK service or ABI1 entry.
+
+This reuses Jolt-backed collider scale/shape admission, effective spatial ancestry,
+position/decomposition checks and Dynamic solver ownership. An animation cannot move
+or rotate an existing Dynamic body by writing its transform; the same restriction
+applies before first realization. Valid Static/Kinematic configurations keep their
+existing supported parenting semantics. A rejected instance pose preserves all its
+previous TRS values and the existing collider, emits an animation binding diagnostic,
+and keeps recovery unavailable until the binding is repaired. Playback time continues
+so a repaired binding can resume; no authored source or collider is silently rewritten.
+
+Recovery uses the same validator while sampling into temporary state. Failure leaves
+existing playback times and transforms unchanged. Complete runtime recovery still
+reconstructs the scene and physics before admitting animation; the animation section
+alone does not replace the scene or roll back solver state.
