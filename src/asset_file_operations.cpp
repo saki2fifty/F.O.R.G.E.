@@ -172,8 +172,8 @@ AssetFilePlan prepare_asset_file_operation(const std::filesystem::path& project,
                         edge.revision.clear();
                 }
                 // These are selection/provenance claims, not user extension payloads.
-                for (const auto* field :
-                     {"forge.import", "forge.model", "forge.texture", "forge.shader"})
+                for (const auto* field : {"forge.import", "forge.model", "forge.texture",
+                                          "forge.shader", "forge.audio"})
                     record.metadata.erase(field);
             }
             records.push_back(std::move(record));

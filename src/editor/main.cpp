@@ -8,6 +8,7 @@
 #include "actions.hpp"
 #include "animation_debug.hpp"
 #include "animation_tools.hpp"
+#include "audio_imports.hpp"
 #include "authored_components.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
@@ -336,6 +337,12 @@ int main(int argc, char** argv) {
         forge::ui::FlecsScriptEditor script_editor(std::filesystem::path(base) / "forge_tools.exe");
         forge::TextureImportEditor texture_imports(std::filesystem::path(base) /
                                                    "forge_asset_build.exe");
+        forge::AudioImportEditor audio_imports(std::filesystem::path(base) /
+                                               "forge_asset_build.exe");
+        audio_imports.draw_extension = [&](auto&, bool) {
+            if (const auto* record = content.record(audio_imports.selected_asset()))
+                forge::draw_audio_details(*record);
+        };
         std::unique_ptr<forge::TextureViewer> texture_viewer;
         forge::TextureViewerDocument texture_view_document(presentation, context);
         texture_imports.preview_before_settings = true;
@@ -434,8 +441,8 @@ int main(int argc, char** argv) {
                 return "Stop Play before changing source files.";
             if (native->busy() || files.busy() || animation_tools.pending() ||
                 navigation_tools.pending() || script_editor.pending() ||
-                texture_imports.pending() || model_imports.pending() || shader_imports.pending() ||
-                material_editor.pending())
+                texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
+                shader_imports.pending() || material_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -461,6 +468,7 @@ int main(int argc, char** argv) {
                     }
                 };
                 refresh_import(texture_imports);
+                refresh_import(audio_imports);
                 refresh_import(model_imports);
                 refresh_import(shader_imports);
                 if (material_editor.document() &&
@@ -493,6 +501,8 @@ int main(int argc, char** argv) {
         };
         content_imports.routes = [&] {
             auto routes = texture_imports.automatic_routes();
+            for (auto route : audio_imports.automatic_routes())
+                routes.push_back(std::move(route));
             for (auto route : model_imports.automatic_routes())
                 routes.push_back(std::move(route));
             for (auto route : shader_imports.automatic_routes())
@@ -507,6 +517,7 @@ int main(int argc, char** argv) {
         content_imports.blocked = [&](forge::AssetId id) {
             return files.busy() ||
                    (texture_imports.selected_asset() == id && texture_imports.dirty()) ||
+                   (audio_imports.selected_asset() == id && audio_imports.dirty()) ||
                    (model_imports.selected_asset() == id && model_imports.dirty()) ||
                    (shader_imports.selected_asset() == id && shader_imports.dirty()) ||
                    (material_editor.document() &&
@@ -514,6 +525,7 @@ int main(int argc, char** argv) {
         };
         content_imports.published = [&](forge::AssetId id, auto catalog) {
             texture_imports.source_published(id);
+            audio_imports.source_published(id);
             model_imports.source_published(id);
             shader_imports.source_published(id);
             material_editor.source_published(files.document, id);
@@ -545,6 +557,9 @@ int main(int argc, char** argv) {
             } else if (kind == "image") {
                 if (open)
                     texture_imports.open(files.document, path);
+            } else if (kind == "audio") {
+                if (open)
+                    audio_imports.open(files.document, path);
             } else if (kind == "material") {
                 if (open)
                     material_editor.open(files.document, path);
@@ -655,6 +670,24 @@ int main(int argc, char** argv) {
                            }});
         asset_editors.add({"prefab", "Edit prefab source", [&](const forge::AssetRecord& a) {
                                prefab_editor.edit_source(files.document, a.id);
+                           }});
+        documents.add({"audio_import",
+                       "Audio clip",
+                       "Audio clip###Audio clip",
+                       true,
+                       [&] { return audio_imports.is_open(); },
+                       [&] { return audio_imports.dirty(); },
+                       [&] { audio_imports.draw(files.document, asset_document_locked); },
+                       [&] { audio_imports.request_save(); },
+                       {},
+                       {},
+                       [&] { audio_imports.request_close(); },
+                       {},
+                       {},
+                       {},
+                       [&] { return std::exchange(audio_imports.close_cancelled, false); }});
+        asset_editors.add({"audio_clip", "Open audio clip", [&](const forge::AssetRecord& asset) {
+                               audio_imports.open(files.document, asset.source);
                            }});
         documents.add({"texture_import",
                        "Texture import",
@@ -1642,6 +1675,14 @@ int main(int argc, char** argv) {
                         mesh_resources->catalog(catalog);
                     content.refresh(files);
                 }
+                audio_imports.poll(files.document, message);
+                if (auto catalog = audio_imports.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    material_editor.asset_catalog_changed(catalog);
+                    content.refresh(files);
+                }
                 texture_imports.poll(files.document, message);
                 if (auto catalog = texture_imports.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -2265,6 +2306,7 @@ int main(int argc, char** argv) {
                     [&] {
                         material_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);
+                        audio_imports.content(files.document, edit_locked);
                         model_imports.content(files.document, edit_locked);
                         shader_imports.content(files.document, edit_locked);
                         script_editor.content(files.document, edit_locked, editor.selection,
@@ -2548,6 +2590,12 @@ int main(int argc, char** argv) {
             // Apply default focus after all first-use dock tabs have been created.
             if (rebuilt_workspace)
                 ImGui::SetWindowFocus("Content");
+#ifdef FORGE_UI_FIXTURE
+            // Count textures used by this UI frame, before advance can finish
+            // another tile. A newly completed image appears on the next frame.
+            const auto drawn_thumbnail_count =
+                content_thumbnails ? content_thumbnails->ready_count() : 0;
+#endif
             if (content_thumbnails)
                 content_thumbnails->advance();
             const auto ui_submit = forge::ui::Performance::Clock::now();
@@ -2576,7 +2624,7 @@ int main(int argc, char** argv) {
                  (model_viewer && model_viewer->ready())) &&
                 ((fixture.stage < 32 || fixture.stage > 35) || asset_view_document.ready()) &&
                 ((fixture.stage != 36 && fixture.stage != 37) ||
-                 (content_thumbnails && content_thumbnails->ready_count() >= 5)) &&
+                 (content_thumbnails && drawn_thumbnail_count >= 5)) &&
                 (fixture.stage < 38 ||
                  (content_files.operation() &&
                   content_files.operation()->state() == forge::AssetFileState::Review))) {

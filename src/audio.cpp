@@ -1,3 +1,4 @@
+#include "audio_selection.hpp"
 #include "builtins.hpp"
 #include <algorithm>
 #include <atomic>
@@ -12,8 +13,8 @@
 #include <thread>
 namespace forge {
 namespace {
-constexpr std::size_t max_voices = 256, max_commands = 1024, max_file = 16 * 1024 * 1024;
-constexpr std::size_t max_clip = 64 * 1024 * 1024, max_cache = 256 * 1024 * 1024;
+constexpr std::size_t max_voices = 256, max_commands = 1024;
+constexpr std::size_t max_cache = 256 * 1024 * 1024;
 void checked(ma_result r, const char* action) {
     if (r != MA_SUCCESS)
         throw std::runtime_error(std::string(action) + ": " + ma_result_description(r));
@@ -55,11 +56,7 @@ struct AudioRuntime::Impl {
     std::atomic<std::uint64_t> mixed_frames{0};
     static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
     std::thread::id owner = std::this_thread::get_id();
-    struct Clip {
-        std::vector<float> pcm;
-        ma_uint64 frames{};
-        ma_uint32 channels{}, rate{};
-    };
+    using Clip = asset_detail::AudioClipData;
     struct Voice {
         AudioSource authored;
         EntityRef ref;
@@ -193,49 +190,15 @@ struct AudioRuntime::Impl {
         if (clips.contains(ref.id))
             return clips.at(ref.id);
         auto scope = world.services().profile("audio", "AudioAssetResolve", tick);
-        const auto resolved = catalog.resolve(ref);
-        if (resolved.state != AssetState::Available)
-            throw std::runtime_error(resolved.diagnostic);
-        const auto path = ProjectPaths(config.project).resolve(resolved.record->source);
-        auto ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(),
-                       [](unsigned char c) { return char(std::tolower(c)); });
-        if (ext != ".wav")
-            throw std::runtime_error("Audio supports WAV clips only");
-        const auto size = std::filesystem::file_size(path);
-        if (size > max_file || size < 12)
-            throw std::runtime_error("WAV source must be 12 bytes to 16 MiB");
-        std::ifstream stream(path, std::ios::binary);
-        std::vector<char> bytes(static_cast<std::size_t>(size));
-        if (!stream.read(bytes.data(), static_cast<std::streamsize>(size)))
-            throw std::runtime_error("Cannot read AudioClip source");
-        ma_decoder decoder{};
-        auto dc = ma_decoder_config_init(ma_format_f32, 0, 0);
-        checked(ma_decoder_init_memory(bytes.data(), bytes.size(), &dc, &decoder), "WAV decode");
-        struct End {
-            ma_decoder* d;
-            ~End() { ma_decoder_uninit(d); }
-        } end{&decoder};
-        auto clip = std::make_shared<Clip>();
-        clip->channels = decoder.outputChannels;
-        clip->rate = decoder.outputSampleRate;
-        checked(ma_decoder_get_length_in_pcm_frames(&decoder, &clip->frames), "WAV length");
-        if (!clip->frames || !clip->rate || clip->channels < 1 || clip->channels > 2 ||
-            clip->frames > max_clip / (sizeof(float) * clip->channels))
-            throw std::runtime_error("WAV must be mono/stereo and decode to at most 64 MiB");
-        const auto n = std::size_t(clip->frames * clip->channels);
+        const auto record = catalog.records().find(ref.id);
+        if (record == catalog.records().end())
+            throw std::runtime_error("AudioClip is not registered");
+        auto clip =
+            std::make_shared<Clip>(asset_detail::load_audio_clip(config.project, record->second));
+        const auto n = clip->pcm.size();
         if (n * sizeof(float) > max_cache - cache_bytes)
             throw std::runtime_error(
                 "Audio decoded cache exceeds 256 MiB; restart Play with fewer clips");
-        clip->pcm.resize(n);
-        ma_uint64 got = 0;
-        checked(ma_decoder_read_pcm_frames(&decoder, clip->pcm.data(), clip->frames, &got),
-                "WAV samples");
-        if (got != clip->frames)
-            throw std::runtime_error("Truncated WAV samples");
-        for (float sample : clip->pcm)
-            if (!std::isfinite(sample))
-                throw std::runtime_error("Nonfinite WAV samples");
         cache_bytes += n * sizeof(float);
         clips.emplace(ref.id, clip);
         return clip;

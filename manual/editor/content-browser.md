@@ -81,7 +81,7 @@ Other asset types belong on their compatible [Inspector fields](inspector.md). A
 6. Choose **Copy sources**. Each selection gets its own `Source-1`, `Source-2`, and so on inside the new folder.
 7. Check each result, then choose **Close**. Successfully imported assets appear in Content; copied-only or failed sources remain available through **Open import / source**.
 
-This workflow accepts supported glTF models and texture sources. It copies glTF buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
+This workflow accepts supported glTF models, texture sources and mono/stereo WAV audio. It copies glTF buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
 
 Existing destinations are never replaced. If source bytes change after review, prepare again. FORGE does not copy project catalogs, import sidecars or authored Scene/Prefab/Material/Shader identities through this workflow; use their own creation or duplication actions.
 
@@ -98,7 +98,7 @@ Open **Create / Register**:
 - **New material...** creates a reusable source in the central [Material editor](materials.md).
 - **Import shader...** opens [Shader import](shaders.md) for an existing project program.
 - **New scene** creates an untitled scene through the save guard.
-- **Audio / Register WAV** registers a WAV already copied into this project. Enter its project-relative path and choose **Register WAV**.
+- **Import audio...** opens the central [Audio clip](audio.md) import document. Enter the project-relative WAV path, choose **Review settings**, then **Import / Reimport**. Select an imported clip to inspect its duration, channels, sample rate and format.
 - **Prefabs** contains Create from selection, Instantiate, Edit source and Duplicate asset.
 - The animation, navigation and Runtime UI sections expose their existing conversion, build and registration tools.
 
@@ -112,7 +112,7 @@ Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discov
 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
-Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their texture preview and import document; generated model textures open a read-only Texture viewer. Model assets open their preview, import and placement document. Mesh assets open read-only mesh inspection.
+Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their texture preview and import document; generated model textures open a read-only Texture viewer. Model assets open their preview, import and placement document. Mesh assets open read-only mesh inspection. AudioClips open the Audio clip import document; imported metadata also appears in Inspector.
 
 Project Material assets open their source editor; imported model Material members open a read-only Material preview with an Open source import action. Shader assets open compilation settings. Each source task has its own history/publication rules and close guard.
 

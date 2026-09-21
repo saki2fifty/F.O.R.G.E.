@@ -996,3 +996,33 @@
 - Exact SDK callbacks provide bounded module/world-owned subscriptions and copied state, requested/retained revision and diagnostic values. Requests reject wrong types, stale/foreign tokens, wrong threads/roles/stages and incompatible output sizes. Module/world shutdown releases subscriptions; GPU/device ownership stays outside gameplay. ABI1 remains unchanged; the exact SDK fingerprint changes.
 - Texture requests support explicit color, data, normal and HDR variants, retained across refresh. Automatic selection keeps the existing HDR/color behavior; missing variants are diagnosed and do not trigger import or implicit conversion.
 - Updated technical contracts, SDK usage and the gameplay manual. Normal provider/material plus Vulkan checks pass2/2 (13.55s); shared SDK resource checks pass1/1 (0.14s). Earlier provider/model sanitizer checks pass2/2 (126.96s); the expanded variant/texture sanitizer rebuild is in progress. Runtime-entity creation, installed/relocated SDK and full Phase7 validation remain outstanding. No numbered build or Phase8 work is included.
+
+## Audio assets in the shared Content workflow
+
+- Added WAV AudioClip import/reimport through the common registry, isolated worker,
+  DDC, transactional publication, source sidecar and source watcher. Duration,
+  channels, sample rate and format are visible in Inspector and the central
+  Audio clip document. External file import and the public asset CLI use the
+  same route; existing AudioSource typed picking/drop remain shared.
+- Reused the exact pinned miniaudio WAV decoder. Bounded immutable cooked PCM
+  now loads without the source WAV; registered-only legacy clips still work.
+  Failed/stale imports preserve the previous selection. Playing voices retain
+  their cached revision until Restart Play; there is no new audition engine or
+  claim of asynchronous runtime first-use loading.
+- Content moves preserve audio identity/selection. Duplicates allocate a new ID,
+  clear prior admission metadata and can import independently. No scene Undo,
+  dependency pin, scene identity, ABI1 or audio callback ownership changes.
+- Linux audio admission/worker/CLI/runtime4/4 passed; strict ASan/UBSan/LSan
+  audio2/2 passed. Additional Content move/duplicate/reimport/file-operation
+  checks passed normal3/3 and strict2/2. Manual links3/3 and adapted editor source
+  syntax passed. Native Windows audio workflow validation remains pending.
+
+## Windows renderer evidence follow-up
+
+- Source4078f08 unnumbered Windows audit35663697302 completed successfully,
+  including56 renderer/editor tests and fresh captures. Model thumbnails now
+  appear in the100% Content capture. Corrected the fixture capture boundary to
+  wait for textures used by the current UI frame, so a newly completed last tile
+  is visible before capture. This does not change product rendering.
+- This is an internal Phase7 checkpoint. No new numbered build or completion
+  claim; Build260919-000063 remains the last delivered package.

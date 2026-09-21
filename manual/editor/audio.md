@@ -5,7 +5,7 @@ An **Audio Source** plays a registered WAV clip during Play. An **Audio Listener
 ## Hear your first sound
 
 1. Copy the included `Examples/Audio/test-tone.wav` into your project's `Assets` folder. You can also use your own small mono or stereo WAV.
-2. Open **Content → Create / Register → Audio / Register WAV**, enter `Assets/test-tone.wav` in **Project WAV path**, then click **Register WAV**. The file must already be inside the project.
+2. Open **Content → Create / Register → Import audio...**, enter the project-relative `Assets/test-tone.wav` source, choose **Review settings**, then **Import / Reimport** in the central **Audio clip** document. Alternatively, **Content → Import files...** copies external WAVs into a new project folder and imports them after your review.
 3. Create a cube and select it. Use **+ Add Component → Audio / Audio Source** in Inspector.
 4. Select it in **Clip**. Enable **Play On Start** and **Loop**.
 5. Create another entity at the origin, select it, use **+ Add Component → Audio / Audio Listener**. Leave **Enabled** checked.
@@ -42,18 +42,48 @@ Use the existing prefab property **Revert** controls or the component header’s
 
 ## Registered clips
 
-Registration writes `forge.assets.json` in the project root using the existing asset catalog. Keep that file in version control with the WAV files. Registration does not import, transcode, copy, or modify the WAV and is separate from scene Undo. Registering the same source again returns its existing identity.
+Import runs in a separate worker. It validates the WAV, prepares immutable audio
+data, and records **Duration**, **Channels**, **Sample rate** and format. Select
+the AudioClip in Content to see these details in Inspector, or double-click it to
+open **Audio clip**. Drop it onto an Audio Source's **Clip** field to assign it;
+an incompatible asset type is rejected.
 
-Supported catalog relocation preserves identity; automatically detecting files moved outside FORGE is not implemented. Keep registered files at their listed paths unless updating their catalog locator through the supported asset API. Changing a WAV on disk requires restarting Play. A failed decode is not retried every tick.
+Keep `forge.assets.json`, the WAV and its `.forge-import.json` sidecar in source
+control. Import does not modify the WAV and is separate from scene Undo. Reimport
+preserves its AssetId and scene references. Existing clips created by the older
+Register WAV command still work; opening and importing one adds validated data
+without replacing its identity.
+
+The source watcher can reimport changed WAVs after a clip has been imported. Use
+Content's **Reimport** action to retry a failed source. A bad or stale candidate
+keeps the previously selected audio and metadata. **Restart Play** to hear a newly
+published revision; an active voice keeps its current decoded clip. There is no
+automatic replacement of a playing waveform. Runtime loading of imported clips
+uses the selected cooked data and does not require the source WAV.
+
+Supported Content file operations preserve or deliberately duplicate identity;
+automatic relocation of files moved outside FORGE is not implemented. Move the
+source through Content rather than renaming it externally. Missing/corrupt cooked
+data is diagnosed; reimport from the source to rebuild it.
 
 ## Recovery and limitations
 
 After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play On Start** voices restart from the beginning; other voices remain stopped. A paused recovery remains silent until Resume. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
 
-The tested source format is 16-bit PCM WAV, mono or stereo, at 24 or 48 kHz. Other WAV encodings are not yet an acceptance promise.
+The tested source format is 16-bit PCM WAV, mono or stereo, at24,48 or96kHz. Other
+WAV encodings supported by the selected miniaudio decoder still require admission;
+they are not all covered by the format acceptance fixtures.
 
-The initial limits are 256 source voices, mono/stereo WAV files up to 16 MiB, up to 64 MiB decoded per clip, and 256 MiB total decoded data per runtime. Repeated sources share decoded data. Assets are decoded on the runtime owner thread when first used, so initial loading can briefly delay that runtime; streaming and asynchronous importing are later work.
+The initial limits are256 source voices, mono/stereo WAV files up to16MiB, up to
+64MiB decoded per clip, and256MiB total decoded data per runtime. Repeated sources
+share decoded data. Import preparation runs off the editor thread in a supervised
+worker. Runtime first-use loading/admission remains on its owner thread and can
+briefly delay that runtime. Legacy registered-only WAVs also decode there.
 
-Missing clips, invalid files and unavailable devices appear in the existing Play log in **Console**. Optional device failure allows the game to continue silently. Restart Play after fixing files/device selection if the operating system does not recover playback. There is no device picker, editor audition window, mixer bus editor, one-shot pool, MP3/FLAC support, streaming music, audio cooking or audio-file hot reload yet.
+Missing clips, invalid files and unavailable devices appear in the existing Play
+log in **Console**. Optional device failure allows the game to continue silently.
+Restart Play after fixing files/device selection if the operating system does not
+recover playback. There is no editor audition player, device picker, mixer bus
+editor, one-shot pool, MP3/FLAC support, streaming music or live voice replacement.
 
 Headless runs can omit audio entirely. Automated offline/null-device tests verify logic and sample output; actual speakers/headphones require this manual test.

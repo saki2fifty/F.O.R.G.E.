@@ -45,7 +45,8 @@ FetchContent_Declare(jolt GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.g
  GIT_TAG e77f175595e64cb44218cc9d9d56fc365ad0e36a SOURCE_SUBDIR Build) # 5.6.0
 FetchContent_MakeAvailable(jolt)
 
-# miniaudio implementation is private to forge.audio. No headers installed in SDK.
+# miniaudio implementation is private to audio/runtime and the isolated WAV cooker.
+# No miniaudio headers or ownership types are installed in the SDK.
 FetchContent_Declare(miniaudio GIT_REPOSITORY https://github.com/mackron/miniaudio.git
  GIT_TAG 9634bedb5b5a2ca38c1ee7108a9358a4e233f14d SOURCE_SUBDIR forge-unused) # 0.11.25
 FetchContent_MakeAvailable(miniaudio)

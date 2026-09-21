@@ -1,4 +1,6 @@
 #include "import_authoring.hpp"
+#include "audio_authoring.hpp"
+#include "audio_importer.hpp"
 #include "model_authoring.hpp"
 #include "model_importer.hpp"
 #include "texture_authoring.hpp"
@@ -10,6 +12,7 @@ asset_import_registry(const std::filesystem::path& worker) {
     registry->add(asset_detail::texture_importer(worker, false));
     registry->add(asset_detail::texture_importer(worker, true));
     registry->add(asset_detail::model_importer(worker));
+    registry->add(asset_detail::audio_importer(worker));
     registry->seal();
     return registry;
 }
@@ -23,6 +26,10 @@ void prepare_asset_publication(AssetPublicationCandidate& candidate, const Asset
         if (!decisions.empty())
             throw std::runtime_error("Texture has no subasset correspondence decisions");
         prepare_texture_publication(candidate, plan);
+    } else if (plan.input.importer == "forge.audio.wav") {
+        if (!decisions.empty())
+            throw std::runtime_error("AudioClip has no subasset correspondence decisions");
+        prepare_audio_publication(candidate, plan);
     } else
         throw std::runtime_error("No publication adapter for this importer");
 }

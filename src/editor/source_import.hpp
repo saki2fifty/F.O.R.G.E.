@@ -54,6 +54,7 @@ class SourceImport {
         // graphs. Their document/file workflows, not raw source copying, own duplication.
         std::erase_if(profiles_, [](const auto& profile) {
             return profile.importer != "forge.model.gltf" &&
+                   profile.importer != "forge.audio.wav" &&
                    profile.importer != "forge.texture.image" &&
                    profile.importer != "forge.texture.container";
         });

@@ -78,7 +78,7 @@ Jolt is now pinned and integrated. See [Physics build/lifetime contract](physics
 
 ## Phase 6C audio selection
 
-miniaudio0.11.25 is the pinned audio implementation. See [Audio](audio.md) for enabled backends, tested PCM WAV formats, compile switches, threading/lifetime, bounds, paused playback and deferred capabilities. AudioClip identity uses the existing asset catalog; the generic AssetHandle remains deferred. Automated offline/null testing is distinct from physical speaker/headphone acceptance.
+miniaudio0.11.25 is the pinned audio implementation. See [Audio](audio.md) for enabled backends, tested PCM WAV formats, compile switches, threading/lifetime, bounds, paused playback and deferred capabilities. AudioClip identity uses the existing asset catalog. Phase7 adds a shared supervised WAV import/cook/reimport route and immutable PCM selection; runtime voices retain their existing cache/lifetime. Generic asynchronous AudioClip handles remain deferred. Exact source rechecked2026-09-21: WAV-specific decoder selection, frame-length/read/uninit and384000Hz upstream admission bound. No pin/build-option change. Automated offline/null testing is distinct from physical speaker/headphone acceptance.
 
 ## Phase6D animation dependency
 

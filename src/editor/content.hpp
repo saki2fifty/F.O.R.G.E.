@@ -1,4 +1,5 @@
 #pragma once
+#include "audio_details.hpp"
 #include "content_view.hpp"
 #include "document_workspace.hpp"
 #include "files.hpp"
@@ -287,6 +288,8 @@ class ContentBrowser {
                  "component properties.");
         ImGui::Text("Type: %s", asset->type.c_str());
         ImGui::TextWrapped("Source: %s", path_text(asset->source).c_str());
+        if (asset->type == "audio_clip")
+            draw_audio_details(*asset);
         auto resolution = catalog_->resolve(asset->id, asset->type);
         if (resolution.state != AssetState::Available)
             ui::field_error(resolution.diagnostic);
@@ -401,24 +404,6 @@ class ContentBrowser {
             ImGui::BeginDisabled(locked);
             if (ui::button("New scene", "Create an empty scene through the unsaved-change guard."))
                 files.request({EditorFiles::Command::NewScene, {}, {}});
-            if (ImGui::CollapsingHeader("Audio / Register WAV")) {
-                ImGui::InputText("Project WAV path", wav_, sizeof(wav_));
-                ui::help("Path relative to this project. Copy your WAV into Assets first; "
-                         "registration does not transcode or copy files.");
-                if (ui::button("Register WAV", "Register the WAV with an AssetId, then assign it "
-                                               "through an Audio Source field.")) {
-                    try {
-                        files.document.check_ownership();
-                        auto a =
-                            AssetCatalog::register_audio_clip(root_, std::filesystem::u8path(wav_));
-                        selection.select_asset(a.id);
-                        rescan = true;
-                    } catch (const std::exception& e) {
-                        error_ = e.what();
-                    }
-                }
-            }
-            ui::help("Register a supported existing WAV inside this project.");
             if (prefab_controls && ImGui::CollapsingHeader("Prefabs"))
                 prefab_controls();
             ui::help("Create a prefab from the selected entity, instantiate, duplicate or edit a "
@@ -513,7 +498,6 @@ class ContentBrowser {
     ui::EditorSelection fallback_;
     AssetId inspected_;
     std::string error_;
-    char wav_[1024] = "Assets/sound.wav";
     Uint64 refreshed_ = 0;
     bool refresh_again_ = false;
     std::filesystem::path scan_project_;
