@@ -1,4 +1,5 @@
 #include "cooked_envelope.hpp"
+#include "mesh_morph.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -191,6 +192,67 @@ MeshBounds mesh_bounds(const MeshPart& part) {
         require(std::isfinite(values[i]), "Non-finite mesh position");
         result.minimum[i % 3] = std::min(result.minimum[i % 3], values[i]);
         result.maximum[i % 3] = std::max(result.maximum[i % 3], values[i]);
+    }
+    return result;
+}
+MeshBounds morph_bounds(const MeshPart& part, std::span<const float> weights) {
+    require(weights.size() == part.morph_targets.size() && weights.size() <= 256,
+            "Morph bounds weight count differs from targets");
+    std::array<double, 3> minimum, maximum, magnitude;
+    unsigned operations = 0;
+    for (unsigned c = 0; c < 3; ++c) {
+        minimum[c] = part.bounds.minimum[c];
+        maximum[c] = part.bounds.maximum[c];
+        magnitude[c] = std::max(std::abs(minimum[c]), std::abs(maximum[c]));
+        require(std::isfinite(minimum[c]) && std::isfinite(maximum[c]) && minimum[c] <= maximum[c],
+                "Morph bounds require valid base bounds");
+    }
+    for (std::size_t t = 0; t < weights.size(); ++t) {
+        const double weight = weights[t];
+        require(std::isfinite(weight), "Nonfinite morph bounds weight");
+        if (weight == 0)
+            continue;
+        for (const auto& stream : part.morph_targets[t]) {
+            if (stream.semantic != "POSITION")
+                continue;
+            require(stream.components == 3 &&
+                        std::holds_alternative<std::vector<float>>(stream.values),
+                    "Invalid position morph layout");
+            const auto& values = std::get<std::vector<float>>(stream.values);
+            require(values.size() == std::size_t(part.vertices) * 3 && !values.empty(),
+                    "Invalid position morph count");
+            std::array<double, 3> lo{values[0], values[1], values[2]}, hi = lo;
+            for (std::size_t i = 0; i < values.size(); ++i) {
+                require(std::isfinite(values[i]), "Nonfinite position morph delta");
+                lo[i % 3] = std::min(lo[i % 3], double(values[i]));
+                hi[i % 3] = std::max(hi[i % 3], double(values[i]));
+            }
+            operations += 2; // One product and one sum per shader channel.
+            for (unsigned c = 0; c < 3; ++c) {
+                magnitude[c] += std::abs(weight) * std::max(std::abs(lo[c]), std::abs(hi[c]));
+                minimum[c] += weight * (weight > 0 ? lo[c] : hi[c]);
+                maximum[c] += weight * (weight > 0 ? hi[c] : lo[c]);
+            }
+        }
+    }
+    MeshBounds result;
+    const double accumulated = operations * double(std::numeric_limits<float>::epsilon());
+    const double gamma = accumulated / (1 - accumulated);
+    for (unsigned c = 0; c < 3; ++c) {
+        // Include the forward-error bound for float shader accumulation, not
+        // just rounding of the final double interval endpoints. FMA is no worse.
+        minimum[c] -= gamma * magnitude[c];
+        maximum[c] += gamma * magnitude[c];
+        const double limit = std::numeric_limits<float>::max();
+        require(std::isfinite(minimum[c]) && std::isfinite(maximum[c]) && minimum[c] >= -limit &&
+                    maximum[c] <= limit,
+                "Morphed positions exceed the finite GPU profile");
+        result.minimum[c] = float(minimum[c]);
+        result.maximum[c] = float(maximum[c]);
+        if (result.minimum[c] > minimum[c])
+            result.minimum[c] = std::nextafter(result.minimum[c], -INFINITY);
+        if (result.maximum[c] < maximum[c])
+            result.maximum[c] = std::nextafter(result.maximum[c], INFINITY);
     }
     return result;
 }

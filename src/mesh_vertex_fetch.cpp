@@ -4,12 +4,75 @@
 #include <set>
 #include <stdexcept>
 namespace forge {
+namespace {
+void require(bool ok, const std::string& why) {
+    if (!ok)
+        throw std::runtime_error("Mesh vertex fetch: " + why);
+}
+// Called while ForgeLoadMeshVertex is open, after base attributes and before
+// its return. Pure string/table preparation; device checks stay in the caller.
+void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
+                        std::uint64_t delta_bytes) {
+    if (!mesh.morph_targets.empty()) {
+        require(mesh.morph_targets.size() <= 256 && delta_bytes <= UINT32_MAX,
+                "morph draw exceeds buffer/target profile");
+        result.morph_count = static_cast<unsigned>(mesh.morph_targets.size());
+        std::vector<std::string> channels{"POSITION", "NORMAL", "TANGENT", "COLOR_0"};
+        for (auto uv : result.uv_sets)
+            channels.push_back("TEXCOORD_" + std::to_string(uv));
+        const unsigned rows = static_cast<unsigned>((channels.size() + 3) / 4);
+        result.morph_offsets.resize(rows * result.morph_count);
+        for (auto& row : result.morph_offsets)
+            row.fill(UINT32_MAX);
+        for (unsigned t = 0; t < result.morph_count; ++t)
+            for (unsigned c = 0; c < channels.size(); ++c) {
+                const auto* attribute = mesh.morph_targets[t].find(channels[c]);
+                if (!attribute)
+                    continue;
+                const unsigned width = c == 3 ? attribute->components : c >= 4 ? 2 : 3;
+                require(attribute->type == Diligent::VT_FLOAT32 && attribute->components == width &&
+                            width >= 2 && width <= 4 && (c != 3 || width >= 3) &&
+                            attribute->offset % 4 == 0 && attribute->offset <= delta_bytes &&
+                            std::uint64_t(mesh.vertex_count) * width * 4 <=
+                                delta_bytes - attribute->offset,
+                        "morph channel type/width/range is invalid: " + channels[c]);
+                result.morph_offsets[t * rows + c / 4][c % 4] = attribute->offset | (width - 1);
+            }
+        const auto prefix =
+            "ByteAddressBuffer g_ForgeMorphDeltas;\n"
+            "cbuffer ForgeMorphOffsets {uint4 g_MorphOffsets[" +
+            std::to_string(result.morph_offsets.size()) +
+            "];};\n"
+            "cbuffer ForgeMorphWeights {float4 g_MorphWeights[" +
+            std::to_string((result.morph_count + 3) / 4) +
+            "];};\n"
+            "float4 ForgeMorphDelta(uint target,uint channel,uint vertex) {\n"
+            "uint packed=g_MorphOffsets[target*" +
+            std::to_string(rows) +
+            "+channel/4][channel%4];if(packed==0xffffffffu)return 0;\n"
+            "uint width=(packed&3)+1;uint at=(packed&~3u)+vertex*width*4;\n"
+            "if(width==2)return float4(asfloat(g_ForgeMorphDeltas.Load2(at)),0,0);\n"
+            "if(width==3)return float4(asfloat(g_ForgeMorphDeltas.Load3(at)),0);\n"
+            "return asfloat(g_ForgeMorphDeltas.Load4(at));}\n";
+        result.source = prefix + result.source;
+        result.source += "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
+                         ";t++) {float w=g_MorphWeights[t/4][t%4];if(w==0)continue;\n"
+                         "v.Position+=ForgeMorphDelta(t,0,id).xyz*w;\n";
+        if (result.normal)
+            result.source += "v.Normal+=ForgeMorphDelta(t,1,id).xyz*w;\n";
+        if (result.tangent)
+            result.source += "v.Tangent.xyz+=ForgeMorphDelta(t,2,id).xyz*w;\n";
+        if (result.color)
+            result.source += "v.Color+=ForgeMorphDelta(t,3,id)*w;\n";
+        for (unsigned u = 0; u < result.uv_sets.size(); ++u)
+            result.source += "v.UV[" + std::to_string(u) + "]+=ForgeMorphDelta(t," +
+                             std::to_string(u + 4) + ",id).xy*w;\n";
+        result.source += "}v.Color=saturate(v.Color);\n";
+    }
+}
+} // namespace
 MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProfile& material) {
     using namespace Diligent;
-    const auto require = [](bool ok, const std::string& why) {
-        if (!ok)
-            throw std::runtime_error("Mesh vertex fetch: " + why);
-    };
     require(mesh.vertices && mesh.vertex_count && mesh.stride && mesh.stride % 4 == 0,
             "missing or invalid vertex buffer");
     const auto& desc = mesh.vertices->GetDesc();
@@ -70,6 +133,13 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProf
     for (std::size_t i = 0; i < result.uv_sets.size(); ++i)
         load("TEXCOORD_" + std::to_string(result.uv_sets[i]), "UV[" + std::to_string(i) + "]", 2, 2,
              VT_FLOAT32, true);
+    if (!mesh.morph_targets.empty()) {
+        require(bool(mesh.morphs), "morph draw requires a delta buffer");
+        const auto& delta = mesh.morphs->GetDesc();
+        require(delta.Mode == BUFFER_MODE_RAW && (delta.BindFlags & BIND_SHADER_RESOURCE),
+                "morph delta raw binding is invalid");
+        append_morph_fetch(result, mesh, delta.Size);
+    }
     result.source += "return v; }\n";
     return result;
 }

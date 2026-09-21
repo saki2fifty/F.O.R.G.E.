@@ -167,3 +167,15 @@ Mirroring an object preserves its optical thickness. Flattening its volume to a
 surviving plane makes it thin; FORGE does not secretly replace zero scale with a
 small positive number. Optical values outside the renderer's finite range produce
 a rendering diagnostic without changing the scene's authored transform.
+
+## Morph targets
+
+Prepared mesh surfaces now use their imported default morph weights. These can
+change shape, surface directions, vertex colors and texture coordinates. Negative
+weights are preserved. Scene and Game use bounds that include the changed shape;
+the shadow pass uses the same deformation.
+
+Interactive morph controls and animation-driven model placement are still being
+integrated. This source checkpoint does not yet provide a morph-editing panel or
+establish skeletal mesh playback. The native rendering checks for this addition
+are tracked separately from the completed model-import checks.

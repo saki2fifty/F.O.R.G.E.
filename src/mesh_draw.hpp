@@ -23,7 +23,8 @@ class MeshDraw {
               std::span<const LightView>, const EnvironmentLighting* = nullptr,
               const std::array<float, 3>* legacy_tint = nullptr,
               const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
-              const TransmissionLighting* transmission = nullptr);
+              const TransmissionLighting* transmission = nullptr,
+              std::span<const float> morph_weights = {});
 
   private:
     GpuMeshPart mesh_;
@@ -36,5 +37,6 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
     float volume_thickness_{};
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_;
 };
 } // namespace forge

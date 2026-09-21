@@ -44,8 +44,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
     const auto profile = prepare_pbr_material(source);
     const auto fetch = mesh_vertex_fetch(mesh, profile);
-    require(!fetch.skin && mesh.morph_targets.empty(),
-            "deformed draw requires an admitted pose binding");
+    require(!fetch.skin, "deformed draw requires an admitted pose binding");
     const auto program = mesh_draw_shader(fetch, profile, shadow_pass_);
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
@@ -84,6 +83,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (program.sheen) {
         sheen = presentation.pbr(context).GetPreintegratedSheen_SRV();
         require(bool(sheen), "native sheen lookup resource unavailable");
+    }
+    RefCntAutoPtr<IBuffer> morph_offsets;
+    if (fetch.morph_count) {
+        require(mesh.morph_defaults.size() == fetch.morph_count,
+                "morph defaults differ from the target count");
+        morph_offsets =
+            buffer(device, "FORGE immutable morph channel offsets",
+                   fetch.morph_offsets.size() * sizeof(Row), fetch.morph_offsets.data());
+        morph_weights_ = buffer(device, "FORGE copied morph weights",
+                                ((fetch.morph_count + 3) / 4) * sizeof(Row));
     }
     object_ = buffer(device, "FORGE camera-relative object", 15 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
@@ -143,6 +152,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         bind(SHADER_TYPE_VERTEX, "g_MeshVertices",
              mesh.vertices->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
         bind(SHADER_TYPE_VERTEX, "ForgeObject", object_);
+        if (fetch.morph_count) {
+            bind(SHADER_TYPE_VERTEX, "g_ForgeMorphDeltas",
+                 mesh.morphs->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+            bind(SHADER_TYPE_VERTEX, "ForgeMorphOffsets", morph_offsets);
+            bind(SHADER_TYPE_VERTEX, "ForgeMorphWeights", morph_weights_);
+        }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeLights", lights_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values, !shadow_pass_);
@@ -231,11 +246,26 @@ void MeshDraw::bind_transmission(const TransmissionLighting* lighting) {
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
                     std::span<const LightView> lights, const EnvironmentLighting* environment,
                     const std::array<float, 3>* legacy_tint, const ShadowLighting* shadows,
-                    std::span<const int> shadow_slots, const TransmissionLighting* transmission) {
+                    std::span<const int> shadow_slots, const TransmissionLighting* transmission,
+                    std::span<const float> morph_weights) {
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
             "shadow selections differ from the selected light list");
+    if (morph_weights_) {
+        if (morph_weights.empty())
+            morph_weights = mesh_.morph_defaults;
+        require(morph_weights.size() == mesh_.morph_targets.size() &&
+                    std::all_of(morph_weights.begin(), morph_weights.end(),
+                                [](float value) { return std::isfinite(value); }),
+                "morph weights must be finite and match every target");
+        MapHelper<Row> data(context, morph_weights_, MAP_WRITE, MAP_FLAG_DISCARD);
+        std::fill_n(static_cast<Row*>(data), (morph_weights.size() + 3) / 4, Row{});
+        for (std::size_t i = 0; i < morph_weights.size(); ++i)
+            data[i / 4][i % 4] = morph_weights[i];
+    } else {
+        require(morph_weights.empty(), "morph weights supplied to a mesh without targets");
+    }
     std::array<Row, 15> object{};
     if (legacy_tint) {
         for (unsigned i = 0; i < 3; ++i) {

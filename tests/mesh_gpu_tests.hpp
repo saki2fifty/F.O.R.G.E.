@@ -51,7 +51,9 @@ void check_mesh_upload(forge::DiligentPresentation& presentation,
         const auto& uploaded = lod.parts.at(0);
         require(uploaded.joint_palette == part.joint_palette && uploaded.vertex_count == 3 &&
                     uploaded.index_count == 3 && uploaded.material_slot == 0 &&
-                    uploaded.bounds == part.bounds,
+                    uploaded.morph_defaults == mesh.morph_defaults &&
+                    uploaded.bounds.minimum[2] <= -.75f && uploaded.bounds.minimum[2] > -.751f &&
+                    uploaded.bounds.maximum[2] >= -.25f && uploaded.bounds.maximum[2] < -.249f,
                 "GPU upload lost mesh draw/binding metadata");
         auto vertices = bytes(uploaded.vertices);
         for (const auto& stream : part.streams) {

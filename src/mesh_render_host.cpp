@@ -103,12 +103,16 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                                      host_->textures_);
             if (const auto* candidate = entry.candidate->ready()) {
                 try {
+                    auto native = std::make_unique<MeshDrawBundle>(
+                        host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
+                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT);
                     MeshBounds bounds;
                     bool first = true;
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods) {
                         thresholds.push_back(lod.screen_coverage);
-                        for (const auto& part : lod.parts) {
+                        for (const auto& part :
+                             native->parts(static_cast<unsigned>(thresholds.size() - 1))) {
                             for (unsigned axis = 0; axis < 3; ++axis) {
                                 bounds.minimum[axis] = first ? part.bounds.minimum[axis]
                                                              : std::min(bounds.minimum[axis],
@@ -120,9 +124,6 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                             first = false;
                         }
                     }
-                    auto native = std::make_unique<MeshDrawBundle>(
-                        host_->presentation_, host_->context_, *candidate, host_->gpu_meshes_,
-                        host_->gpu_textures_, color_, Diligent::TEX_FORMAT_D32_FLOAT);
                     native->environment(environment_ready_);
                     entry.ready = std::move(native);
                     entry.bounds = bounds;

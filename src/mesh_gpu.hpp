@@ -18,6 +18,7 @@ struct GpuMeshPart {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> vertices, indices, morphs;
     std::vector<GpuMeshAttribute> attributes;
     std::vector<GpuMorphTarget> morph_targets;
+    std::vector<float> morph_defaults;
     std::vector<std::uint32_t> joint_palette;
     Diligent::PRIMITIVE_TOPOLOGY topology = Diligent::PRIMITIVE_TOPOLOGY_UNDEFINED;
     unsigned stride{}, vertex_count{}, index_count{}, material_slot{};

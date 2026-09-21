@@ -1,3 +1,4 @@
+#include "mesh_morph.hpp"
 #include "render_bounds.hpp"
 #include "render_projection.hpp"
 #include "render_sort.hpp"
@@ -25,6 +26,26 @@ int main() {
     try {
         using namespace forge;
         const MeshBounds unit{{-1, -1, -1}, {1, 1, 1}};
+        {
+            MeshPart part;
+            part.vertices = 2;
+            part.bounds = {{0, 0, 0}, {1, 1, 1}};
+            part.morph_targets = {{{"POSITION", 3, std::vector<float>{-2, 0, 1, 3, 0, 2}}},
+                                  {{"POSITION", 3, std::vector<float>{0, -4, 0, 0, 4, 0}}}};
+            const std::array<float, 2> weights{-2, .5f};
+            const auto bounds = morph_bounds(part, weights);
+            check(bounds.minimum[0] <= -6 && bounds.minimum[0] > -6.001 &&
+                      bounds.minimum[1] <= -2 && bounds.minimum[2] <= -4 &&
+                      bounds.maximum[0] >= 5 && bounds.maximum[0] < 5.001 &&
+                      bounds.maximum[1] >= 3 && bounds.maximum[2] >= -1,
+                  "Signed morph interval bounds lost extrema or changed weights");
+            rejects([&] { morph_bounds(part, std::array<float, 1>{1}); });
+            rejects([&] { morph_bounds(part, std::array<float, 2>{INFINITY, 0}); });
+            rejects([&] {
+                morph_bounds(part, std::array<float, 2>{std::numeric_limits<float>::max(), 0});
+            });
+        }
+
         AffineTransform world;
         world.m = {-2, .5, 0, 3, 0, 0, 0, 7, 0, 0, 3, 5};
         const auto transformed = transform_bounds(unit, world);

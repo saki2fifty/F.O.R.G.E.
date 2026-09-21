@@ -282,3 +282,24 @@
   ASan/UBSan/LSan pass;28 generated HLSL stages compile; native-header C++ syntax,
   combined17-texture fixture syntax, manual3/3 and formatting pass. Native optical
   pixel execution remains pending.
+
+### Morph-target rendering integration
+
+- Apply prepared mesh default morph weights to position, normal, tangent, color and
+  material-selected UV channels before object transforms. Preserve signed weights
+  and tangent handedness; clamp vertex color after delta accumulation.
+- Bind all256 admitted targets through checked raw offsets and copied weight buffers.
+  Reuse the deformation in color and shadow vertex programs.
+- Derive conservative default-pose bounds with signed delta intervals, float
+  accumulation error and outward rounding. Whole-object and part culling now use
+  the morphed bounds; unrepresentable derived positions reject GPU adoption.
+- Add native visual fixtures for positive/negative motion, color, UV19, normal and
+  tangent changes, plus complete-vector validation. Update upload expectations to
+  distinguish immutable source bounds from the default deformed draw bounds.
+- Local bounds tests and supplementary HLSL checks for1/256 targets pass; native
+  rendering, animated weight extraction and skeletal integration remain pending.
+
+- Final local morph checks: mesh/bounds2/2 normal and2/2 strict
+  ASan/UBSan/LSan pass, native C++/fixture syntax passes,36 generated HLSL stages
+  compile including1/256-target color/shadow variants, and manual3/3 plus formatting
+  pass. Windows morph pixel execution remains pending.

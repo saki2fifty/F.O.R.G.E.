@@ -1,4 +1,5 @@
 #include "mesh_gpu.hpp"
+#include "mesh_morph.hpp"
 #include <bit>
 #include <cstring>
 #include <stdexcept>
@@ -47,7 +48,8 @@ GpuMesh upload_mesh(IRenderDevice* device, const MeshData& input) {
             part.vertex_count = source.vertices;
             part.index_count = static_cast<unsigned>(source.indices.size());
             part.material_slot = source.material_slot;
-            part.bounds = source.bounds;
+            part.bounds = morph_bounds(source, input.morph_defaults);
+            part.morph_defaults = input.morph_defaults;
             part.joint_palette = source.joint_palette;
             switch (source.topology) {
             case MeshTopology::Points:

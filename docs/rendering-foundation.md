@@ -689,3 +689,34 @@ FORGE supplies frame composition and optical transport without patching upstream
 Local CPU material tests and generated HLSL compile. New Windows pixel tests cover
 camera crop/mips, clear transmission, attenuation, roughness, refraction, dispersion,
 texture channels and signed/rank-two scale; execution is pending.
+
+### Morph draw consumer — validation in progress
+
+The shared vertex-fetch adapter now applies mesh morph defaults to POSITION,
+NORMAL, TANGENT.xyz, COLOR_0 and every UV set selected by the material. Deltas are
+applied before the object affine transform; tangent handedness is retained. Color
+is clamped after addition, as required by the exact glTF specification. Unused
+custom channels remain in the immutable resource for their own shader consumers.
+They are not reinterpreted as positions or silently dropped from the asset.
+
+All256 admitted target slots are addressable. Packed immutable channel offsets use
+four uint lanes per row; one copied float weight per target is packed into dynamic
+float4 rows. A draw requires either the complete finite supplied vector or the
+mesh's complete defaults. Negative weights are preserved. The native raw delta
+buffer and per-channel offset/width/range are checked before shader binding.
+The same vertex program is used for color and shadow depth.
+
+Default-pose bounds add each position-delta interval with the sign of its weight.
+They include an explicit float accumulation error bound and outward-rounded final
+endpoints. GPU admission rejects unrepresentable morphed bounds without modifying
+the asset. Whole-mesh culling and per-part queues use these derived bounds, not the
+unmorphed source bounds. Per-frame animated weight extraction and its updated bounds
+remain part of the model-animation bridge still in progress.
+
+Evidence: exact glTFc18432787e6d545a1218c1926ccdcfaffd4c116b morph-target section,
+including UV/color deltas; pinned FX RenderPBR.vsh's morph-before-skin order. The
+FORGE raw-buffer adapter extends native's fixed position/normal/tangent slots to the
+admitted UV/color contract. No vendor patch or dependency change. Local bounds tests
+and supplementary HLSL compilation pass for1 and256 targets; Windows fixtures for
+movement, signed weights, colors, UV19, normals and tangent handedness are pending.
+This does not establish GPU skinning or complete animated model placement.
