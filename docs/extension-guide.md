@@ -171,3 +171,55 @@ per SDK module,256per world and128MiB CPU bytes per resource family. Token0 or a
 false callback result means rejected/unavailable; output observations are cleared
 on rejected inspections. These callbacks change the exact SDK fingerprint and
 require rebuilding native modules; ABI1 is unchanged.
+
+## Creating registered runtime renderables
+
+Use `sdk::Client::request_entity(name, scene_uuid)` to queue an empty scene member.
+This is the intrinsic `RuntimeEntities` capability, not an optional provider or a
+descriptor permission bit. Calls are owner-thread only during startup/running;
+requests from deferred fixed systems are supported. The runtime publishes pending
+requests **before the next fixed tick**. Paused presentation does not create them;
+Step does. Startup may request before the scene has loaded.
+
+The optional scene UUID is a scene AssetId. Null/empty selects the only loaded
+scene at publication. An absent or ambiguous scene fails with a copied diagnostic;
+the host never guesses between multiple instances of the same scene asset. Names
+are1–255 UTF-8 bytes; the host generates a fresh EntityId. Poll the returned token:
+
+```cpp
+ForgeSdkEntityV1 entity{};
+if (client.inspect_entity(token, entity) && entity.state == FORGE_SDK_ENTITY_READY) {
+    forge::MeshRenderer renderer;
+    renderer.mesh = forge::engine_primitive(0);
+    world.entity(entity.native_entity)
+        .set<forge::MeshRenderer>(renderer)
+        .set<forge::LocalTranslation>({4, 5, 6});
+    client.release_entity(token);
+}
+```
+
+Include `forge/render_components.hpp`, `forge/transform_components.hpp` and
+`forge/engine_assets.hpp` for those value types. Use the fixed iterator's world
+when writing in a deferred system, and declare component writes in the Flecs
+system. LocalTranslation, LocalRotation and LocalScale remain separate components:
+a move must not write rotation or scale. Native trusted code must supply finite,
+valid values and a normalized quaternion. The exact SDK does not make arbitrary
+native mutations transactional or safe merely because they use reflected types.
+
+Ready copies a world-local borrowed Flecs handle plus scene/entity UUIDs. The
+handle is not persistent and must not be transferred to another world. Gone means
+the original entity or loaded scene retired; an old request never retargets a new
+scene instance. Failed requests retain their diagnostic until released. These
+entities use normal Scene membership, identity resolution and presentation;
+unregistered raw `world.entity()` objects are still valid internal ECS objects but
+do not automatically become authored-scene/presentation members.
+
+Releasing Pending cancels an unstarted request. Releasing Ready drops observation
+only; it does not delete the entity. Stop cancels pending requests and releases all
+observations; completed entities follow ordinary runtime-world lifetime. At most
+64 outstanding requests per module and256 per world are admitted; release completed
+tokens promptly. Token0/false reports rejection or unavailable context. This API
+does not alter the editor's authored scene, add scene Undo, write project files,
+or promise generic recovery of custom native runtime state. No Diligent pointer or
+resource ownership is exposed. The appended callbacks and value headers are part
+of the exact fingerprint; rebuild matching modules. ABI1 remains unchanged.

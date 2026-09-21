@@ -6,6 +6,9 @@
 #include <forge/engine_assets.hpp>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
+#include <forge/render_components.hpp>
+#include <forge/sdk_client.hpp>
+#include <forge/transform_components.hpp>
 #include <memory>
 #include <stdexcept>
 namespace forge_sdk_example {
@@ -102,6 +105,42 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             throw std::runtime_error("Late authoring opt-in escaped schema-stage guard");
         w.component<HostProbe>("sdk.HostProbe");
         w.entity("sdk.host").set<HostProbe>({host});
+        // Opt-in executable fixture, also built solely from the relocated SDK.
+        // Startup queues membership; the fixed system uses ordinary deferred
+        // Flecs writes after the engine reports the registered entity Ready.
+        if (const auto* enabled = std::getenv("FORGE_SDK_SPAWN_TEST");
+            enabled && std::strcmp(enabled, "1") == 0) {
+            const auto token = forge::sdk::Client(host).request_entity("SDK runtime mesh");
+            if (!token)
+                throw std::runtime_error("Startup runtime entity request rejected");
+            auto done = std::make_shared<bool>(false);
+            w.system()
+                .kind(host->fixed_phase)
+                .write<forge::MeshRenderer>()
+                .write<forge::LocalTranslation>()
+                .run([host, token, done](flecs::iter& it) {
+                    if (*done)
+                        return;
+                    forge::sdk::Client client(host);
+                    ForgeSdkEntityV1 result{};
+                    if (!client.inspect_entity(token, result))
+                        throw std::runtime_error("Lost startup entity request");
+                    if (result.state == FORGE_SDK_ENTITY_PENDING)
+                        return;
+                    if (result.state != FORGE_SDK_ENTITY_READY)
+                        throw std::runtime_error(result.diagnostic);
+                    forge::MeshRenderer renderer;
+                    renderer.mesh = forge::engine_primitive(0);
+                    it.world()
+                        .entity(result.native_entity)
+                        .set<forge::MeshRenderer>(renderer)
+                        .set<forge::LocalTranslation>({4, 5, 6});
+                    if (!client.release_entity(token))
+                        throw std::runtime_error("Cannot release entity observation");
+                    *done = true;
+                })
+                .add(host->fixed_tag);
+        }
         auto marker = std::make_shared<Marker>("system_context", host);
         w.system<Probe>()
             .kind(host->fixed_phase)

@@ -1,5 +1,27 @@
 # Changes — 2026-09-21
 
+## Registered runtime entities from the exact SDK — validation in progress
+
+- Added owner-thread requests for empty scene members, published before the next
+  fixed tick. Startup and deferred Flecs systems can request; paused presentation
+  waits for Step/Resume. Missing or ambiguous scene selection fails explicitly.
+- Host-generated EntityIds and existing Scene membership provide reference
+  resolution and presentation. No second entity graph or persistent instance ID.
+  Scene candidate realization preserves unrelated native components and independent
+  local-transform ownership. Runtime creation does not write editor Undo or files.
+- Exact SDK observes Pending/Ready/Failed/Gone, cancels unstarted requests, and
+  releases completed observations without deleting their entities. Tokens remain
+  module/world scoped; shutdown revokes outstanding requests. Value-only local
+  transform declarations are installed and fingerprinted with the new callbacks.
+- Added native fixed-boundary, cancellation, ambiguity, unload/reload, role/thread,
+  limit and presentation regressions plus a relocated-SDK render-entity fixture.
+  Local normal core/clock2/2 and shared-SDK/clock2/2 passed. Full shared SDK
+  passed72/74 initially; the two localhost-socket tests passed unchanged with
+  sandbox socket access (74/74 combined), including installed/relocated SDK.
+  The runtime creation/clock regression passed ASan/UBSan/LeakSanitizer outside
+  the ptrace sandbox. Windows validation and final Phase7 acceptance remain;
+  no new build number.
+
 ## Phase7 rendering integration — in progress
 
 ### Complete draw-resource preparation

@@ -1,3 +1,4 @@
+#include "runtime_entity_tests.hpp"
 #include <cmath>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
@@ -271,6 +272,7 @@ int main(int argc, char** argv) {
         signed_scale_interpolation();
         poses();
         live(argv[1]);
+        test_runtime_entities();
         std::cout << "Clock, poses, live pipeline/presentation passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

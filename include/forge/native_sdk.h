@@ -31,6 +31,8 @@ typedef struct ecs_world_t ecs_world_t;
 /* Intrinsic fixed-input query ID, not a descriptor permission/provider bit. */
 #define FORGE_SDK_INPUT 128u
 #define FORGE_SDK_RESOURCES 256u
+/* Intrinsic owner-thread runtime entity requests; not a descriptor permission bit. */
+#define FORGE_SDK_RUNTIME_ENTITIES 512u
 #define FORGE_SDK_CAPABILITY_VERSION 1u
 #define FORGE_SDK_FIXED_ONLY 1u
 #define FORGE_SDK_OWNER_THREAD 2u
@@ -82,6 +84,15 @@ typedef struct ForgeSdkResourceV1 {
     char state[32], requested_revision[65], retained_revision[65], diagnostic[1024];
     uint64_t source_generation;
 } ForgeSdkResourceV1;
+#define FORGE_SDK_ENTITY_PENDING 1u
+#define FORGE_SDK_ENTITY_READY 2u
+#define FORGE_SDK_ENTITY_FAILED 3u
+#define FORGE_SDK_ENTITY_GONE 4u
+typedef struct ForgeSdkEntityV1 {
+    uint32_t size, state;
+    char scene_uuid[37], entity_uuid[37], diagnostic[1024];
+    uint64_t native_entity; /* Borrowed Flecs handle in this world only when Ready. */
+} ForgeSdkEntityV1;
 typedef struct ForgeSdkWorldV1 {
     uint32_t size, version;
     ecs_world_t* world; /* borrowed; module must not destroy it */
@@ -146,6 +157,15 @@ typedef struct ForgeSdkWorldV1 {
                                                uint32_t texture_variant);
     int32_t(FORGE_SDK_CALL* resource_inspect)(void*, uint64_t token, ForgeSdkResourceV1*);
     int32_t(FORGE_SDK_CALL* resource_release)(void*, uint64_t token);
+    /* Queue an empty registered scene entity for the next fixed boundary.
+       NULL/empty scene UUID requires exactly one loaded scene at publication.
+       Name is1..255UTF-8 bytes. Host generates EntityId. Poll Ready, then set
+       native render/gameplay components through ordinary Flecs APIs.
+       Release cancels an unstarted request or drops a completed observation;
+       it never deletes an already-created entity. Limits64/module,256/world. */
+    uint64_t(FORGE_SDK_CALL* entity_request)(void*, const char* scene_uuid, const char* name);
+    int32_t(FORGE_SDK_CALL* entity_inspect)(void*, uint64_t token, ForgeSdkEntityV1*);
+    int32_t(FORGE_SDK_CALL* entity_release)(void*, uint64_t token);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

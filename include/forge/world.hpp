@@ -56,6 +56,7 @@ class WorldContext {
     WorldContext& operator=(const WorldContext&) = delete;
     flecs::world& world() { return world_; }
     WorldRole role() const { return role_; }
+    bool on_owner_thread() const { return owner_thread_ == std::this_thread::get_id(); }
     const Json& schema() const { return schema_; }
     const std::vector<detail::AuthoredCodec>& authored_codecs() const { return authored_codecs_; }
     enum class ResolveState { Available, Missing, Unresolved, Ambiguous };

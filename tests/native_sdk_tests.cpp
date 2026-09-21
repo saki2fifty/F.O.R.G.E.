@@ -1,8 +1,10 @@
+#include "sdk_entity_tests.hpp"
 #include "sdk_resource_tests.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
+#include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
 #include <forge/sdk_client.hpp>
@@ -113,8 +115,18 @@ int main(int argc, char** argv) {
         std::weak_ptr<void> lease = sdk.code;
         Module legacy;
         {
+#ifdef _WIN32
+            _putenv_s("FORGE_SDK_SPAWN_TEST", "1");
+#else
+            setenv("FORGE_SDK_SPAWN_TEST", "1", 1);
+#endif
             EngineContext engine(WorldRole::Runtime, true,
                                  {sdk, late_ui(), runtime_resources_module(root)});
+#ifdef _WIN32
+            _putenv_s("FORGE_SDK_SPAWN_TEST", "");
+#else
+            unsetenv("FORGE_SDK_SPAWN_TEST");
+#endif
             EngineContext second(WorldRole::Validation, false, {sdk});
             sdk = {};
             check(!lease.expired(), "Library not retained by world");
@@ -131,6 +143,7 @@ int main(int argc, char** argv) {
             const auto* host = *static_cast<const ForgeSdkWorldV1* const*>(
                 ecs_get_id(w.c_ptr(), w.lookup("sdk.host").id(), w.lookup("sdk.HostProbe").id()));
             test_sdk_resources(host, engine.services());
+            test_sdk_entities(host, engine.world());
             sdk::Client client(host);
             check(client.valid() && client.available(sdk::Capability::Ui) &&
                       !(host->capabilities & FORGE_SDK_UI),
@@ -187,6 +200,13 @@ int main(int argc, char** argv) {
             check(value().ticks == 0, "Paused SDK advanced");
             clock.step(tick);
             clock.step(tick);
+            const auto rendered = extract_render_scene(sim.presentation(1));
+            check(rendered.meshes.size() == 1 &&
+                      rendered.meshes.front().renderer.mesh == engine_primitive(0) &&
+                      rendered.meshes.front().world.m[3] == 4 &&
+                      rendered.meshes.front().world.m[7] == 5 &&
+                      rendered.meshes.front().world.m[11] == 6 && !scene.can_undo(),
+                  "SDK deferred native render writes did not reach presentation");
             check(value().ticks == 2 && value().presses == 1 &&
                       std::abs(value().dt - 1.0 / 60) < 1e-6,
                   "SDK fixed dt/input snapshot failed");
@@ -197,7 +217,13 @@ int main(int argc, char** argv) {
             check(value().ticks == 5 && value().presses == 1, "Resume/catch-up repeated edge");
             check(engine.services().diagnostics().back()["context"]["tick"] == 5,
                   "SDK diagnostic tick missing");
+            const auto cancelled_on_stop = client.request_entity("Never created after stop");
+            check(cancelled_on_stop != 0, "Could not queue shutdown cancellation fixture");
             engine.world().modules().stop();
+            detail::publish_runtime_entities(engine.world());
+            check(scene.entity_count() == 1 && !client.request_entity("Stopped") &&
+                      !client.available(sdk::Capability::RuntimeEntities),
+                  "Stopped SDK retained/published entity creation requests");
             check(!client.available(sdk::Capability::Ui) &&
                       !client.available(sdk::Capability::Input),
                   "Stopped SDK retains gameplay capability");

@@ -19,6 +19,7 @@ assert not (stage/'sdk/include/forge/assets.hpp').exists(), 'Private AssetCatalo
 assert (stage/'sdk/docs/extension-guide.md').exists()
 assert (stage/'sdk/include/forge/engine_assets.hpp').exists()
 assert (stage/'sdk/include/forge/primitive_catalog.hpp').exists()
+assert (stage/'sdk/include/forge/transform_components.hpp').exists()
 subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,'-DFORGE_NATIVE_SDK='+str(stage)],check=True)
 subprocess.run([cmake,'--build',str(client),'--parallel','2'],check=True)
 windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
@@ -44,6 +45,7 @@ stage.rename(relocated);stage=relocated;project=stage/'project';runtime=stage/'b
 env=os.environ.copy();env.pop('LD_LIBRARY_PATH',None);env.pop('LD_PRELOAD',None)
 env['PATH']=str(Path(env.get('SystemRoot','C:/Windows'))/'System32') if windows else '/usr/bin:/bin'
 env['FORGE_SDK_TRACE']=str(stage/'trace.txt')
+env['FORGE_SDK_SPAWN_TEST']='1'
 info=json.loads(subprocess.check_output([str(runtime),'--sdk-info'],env=env,cwd=stage,text=True))
 assert info['profile']=='shared-native-sdk'
 action='12345678-1234-4234-8234-123456789abc'
@@ -65,7 +67,14 @@ def request(command,**extra):
 try:
  r=request('hello');assert r['timing']['simulation_hz']==120
  request('step',input_events=[dict(control='key.space',value=1)])
- request('step');request('quit');assert p.wait(timeout=10)==0
+ r=request('step')
+ # The installed module creates registered runtime content and assigns native
+ # MeshRenderer/TRS without private engine headers or Diligent ownership.
+ r=request('snapshot')
+ meshes=[e for e in r['scene']['entities'] if e['name']=='SDK runtime mesh']
+ assert len(meshes)==1 and 'forge.mesh_renderer' in meshes[0]['components'],r
+ assert meshes[0]['components']['forge.local_translation']==dict(x=4,y=5,z=6),r
+ request('quit');assert p.wait(timeout=10)==0
 finally:
  if p.poll() is None:p.kill();p.wait()
 trace=(stage/'trace.txt').read_text();assert trace.count('tick\n')==2 and trace.endswith('unload\n'),trace

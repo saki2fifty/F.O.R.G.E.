@@ -6,6 +6,7 @@
 #include "reflected_extensions.hpp"
 #include "reflected_references.hpp"
 #include "relationship_graph.hpp"
+#include "runtime_entity_creation.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
 #include <array>
@@ -161,6 +162,7 @@ Scene::Scene(WorldContext& context)
       entities_(context.content_.at(membership_).entities), opaque_(empty_scene()) {
     context_.content_.at(membership_).asset = opaque_.at("asset_id").get<AssetId>();
     committed();
+    detail::attach_runtime_scene(*this);
 }
 Scene::~Scene() { context_.detach(membership_); }
 void Scene::validate_document(const Json& doc) { validate(doc); }

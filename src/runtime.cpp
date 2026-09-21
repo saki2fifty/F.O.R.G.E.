@@ -1,3 +1,4 @@
+#include "runtime_entity_creation.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/render_components.hpp>
@@ -275,6 +276,7 @@ void RuntimeSimulation::tick(float dt) {
     auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
     stage_error_ = nullptr;
     input_.latch(++input_tick_);
+    detail::publish_runtime_entities(context_);
     if (context_.services().available(Capability::Resources))
         context_.services().resources()->synchronize();
     if (navigation_)

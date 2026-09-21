@@ -122,3 +122,10 @@ they do not grant access to the graphics device or guarantee a complete draw is
 ready. The packaged SDK extension guide documents the
 callback contract, lifetime and limits. Rebuild native modules when the exact SDK
 fingerprint changes.
+
+SDK gameplay can also request a new runtime entity, wait until it is ready, and
+assign a MeshRenderer and local transform components using Flecs. It appears in
+Game presentation through the normal scene membership. Creation takes effect at
+the next game tick; when paused, use **Step** or **Resume**. It does not add an
+object to the editor's saved scene or its Undo history. The SDK guide includes the
+code, scene-selection rules, cancellation and lifetime details.

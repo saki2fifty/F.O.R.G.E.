@@ -12,7 +12,8 @@ enum class Capability : uint32_t {
     Navigation = FORGE_SDK_NAVIGATION,
     Ui = FORGE_SDK_UI,
     Input = FORGE_SDK_INPUT,
-    Resources = FORGE_SDK_RESOURCES
+    Resources = FORGE_SDK_RESOURCES,
+    RuntimeEntities = FORGE_SDK_RUNTIME_ENTITIES
 };
 class Client {
   public:
@@ -84,6 +85,21 @@ class Client {
     bool release_resource(uint64_t token) const {
         return callable(Capability::Resources) && host_->resource_release &&
                host_->resource_release(host_->context, token) == 1;
+    }
+    uint64_t request_entity(const char* name, const char* scene = nullptr) const {
+        return callable(Capability::RuntimeEntities) && host_->entity_request
+                   ? host_->entity_request(host_->context, scene, name)
+                   : 0;
+    }
+    bool inspect_entity(uint64_t token, ForgeSdkEntityV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::RuntimeEntities) && host_->entity_inspect &&
+               host_->entity_inspect(host_->context, token, &out) == 1;
+    }
+    bool release_entity(uint64_t token) const {
+        return callable(Capability::RuntimeEntities) && host_->entity_release &&
+               host_->entity_release(host_->context, token) == 1;
     }
     bool authoring_type(uint64_t native_type, const char* key, uint32_t version,
                         const char* defaults_json, const char* category, char* error,

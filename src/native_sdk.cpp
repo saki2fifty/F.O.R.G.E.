@@ -1,5 +1,6 @@
 #include "authored_schema.hpp"
 #include "bounded_json.hpp"
+#include "runtime_entity_creation.hpp"
 #include <cstring>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk.hpp>
@@ -69,6 +70,16 @@ struct Bridge {
         return bridge;
     }
     std::set<std::uint64_t> resources;
+    std::set<std::uint64_t> entity_requests;
+    bool entities_callable() const {
+        return context.owner && context.role == WorldRole::Runtime && runtime_active();
+    }
+    void release_entities() {
+        if (context.owner)
+            for (auto token : entity_requests)
+                detail::release_runtime_entity(*context.owner, context.id, token);
+        entity_requests.clear();
+    }
     void release_resources() {
         if (context.services.available(Capability::Resources))
             for (auto token : resources)
@@ -94,6 +105,67 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.entity_request = [](void* p, const char* scene, const char* name) -> uint64_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.entities_callable() || b.entity_requests.size() >= 64)
+                    return 0;
+                const auto scene_id =
+                    scene && *scene ? AssetId::parse(bounded(scene, 36)) : AssetId{};
+                const auto token = detail::request_runtime_entity(*b.context.owner, b.context.id,
+                                                                  scene_id, bounded(name, 255));
+                try {
+                    b.entity_requests.insert(token);
+                } catch (...) {
+                    detail::release_runtime_entity(*b.context.owner, b.context.id, token);
+                    throw;
+                }
+                return token;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.entity_inspect = [](void* p, uint64_t token, ForgeSdkEntityV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return 0;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.entities_callable() || !b.entity_requests.contains(token))
+                    return 0;
+                const auto value =
+                    detail::inspect_runtime_entity(*b.context.owner, b.context.id, token);
+                out->state = static_cast<uint32_t>(value.state);
+                out->native_entity = value.native_entity;
+                auto copy = [](auto& dest, const std::string& source) {
+                    const auto n = std::min(source.size(), sizeof(dest) - 1);
+                    std::memcpy(dest, source.data(), n);
+                    dest[n] = 0;
+                };
+                if (value.reference.scene)
+                    copy(out->scene_uuid, value.reference.scene.str());
+                if (value.reference.entity)
+                    copy(out->entity_uuid, value.reference.entity.str());
+                copy(out->diagnostic, value.diagnostic);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.entity_release = [](void* p, uint64_t token) -> int32_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.entities_callable() || !b.entity_requests.contains(token))
+                    return 0;
+                const bool released =
+                    detail::release_runtime_entity(*b.context.owner, b.context.id, token);
+                b.entity_requests.erase(token);
+                return released ? 1 : 0;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.resource_request = [](void* p, uint32_t kind, const char* id,
                                    uint32_t texture_variant) -> uint64_t {
             try {
@@ -185,7 +257,8 @@ struct Bridge {
             *out = {sizeof(*out), 0, 0, 0, 0};
             try {
                 auto& b = Bridge::get(p);
-                if (!cap || (cap & (cap - 1)) || (cap & ~(known_capabilities | FORGE_SDK_INPUT)))
+                if (!cap || (cap & (cap - 1)) ||
+                    (cap & ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES)))
                     return 0;
                 out->version = FORGE_SDK_CAPABILITY_VERSION;
                 out->flags = FORGE_SDK_OWNER_THREAD;
@@ -201,6 +274,8 @@ struct Bridge {
                                      : b.context.services.available(static_cast<Capability>(cap));
                 if (cap == FORGE_SDK_RESOURCES)
                     available = b.resources_callable();
+                if (cap == FORGE_SDK_RUNTIME_ENTITIES)
+                    available = b.entities_callable();
                 if (fixed && !b.runtime_active())
                     available = false;
                 out->available = available;
@@ -528,6 +603,7 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
         result.stop = [api](ModuleContext& c) {
             if (c.state) {
                 auto& bridge = *static_cast<Bridge*>(c.state.get());
+                bridge.release_entities();
                 bridge.release_resources();
                 bridge.stage = Bridge::Stage::Stopped;
             }

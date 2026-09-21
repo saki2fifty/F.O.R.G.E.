@@ -22,6 +22,8 @@ These classifications describe supported ownership, not a promise of permanent C
 | AssetCatalog / AssetResolution | A source | Project metadata/admission. Removed accidental declaration exposure from installed SDK; value-only AssetRef header replaces it. |
 | RuntimeInput / InputSnapshot / InputMonitor | C | Owner-thread latch/edge policy. SDK gets copied action values only during fixed execution. |
 | ForgeSdkActionV1 / read_action | B | Intrinsic fixed-input contract, discoverable separately from optional provider permission bits. |
+| LocalTranslation / LocalRotation / LocalScale | A authored; B values | Independent native component ownership/inheritance; SDK installs value-only declarations, not WorldContext or derived-transform writers. |
+| ForgeSdkEntityV1 / entity request, inspect, release | B | Intrinsic runtime-only, owner-thread requests published at the next fixed boundary. Scene membership/UUIDs remain authoritative; copied native handle is borrowed and world-local. |
 | PhysicsBody / Box, Sphere, CapsuleCollider | A authored; B values | No Jolt ID/pointer. Absent body means no separate simulation body; no invented enabled flag. |
 | PhysicsService / PhysicsHit / PhysicsContact | C | Source ray/pose/contact operations; SDK has copied ray hit + queued pose subset. Contact vectors remain built-in. |
 | Jolt world/body IDs/jobs/state recorder | D | World-owned implementation and private exact recovery. |
@@ -60,6 +62,7 @@ Optional provider bits are allowed permissions, not dependencies. A module can d
 | Navigation | Callback delivery boolean plus named NavStatus. Partial/failure gives no usable points; capacity limit never truncates a successful path. |
 | UI poll | 1 consumed matching event, 0 none/unavailable, -1 invalid. |
 | UI publish/allow | 1 accepted, 0 rejected. |
+| Runtime entity request | Nonzero process-local observation token,0 rejected. Pending/Ready/Failed/Gone are copied observations; release cancels an unstarted request or drops observation without deleting a created entity. |
 | Asset resolution/admission | Typed metadata state or source-located exception before publication. Not a physics miss or empty event. |
 
 No universal Result framework is introduced. Client convenience wrappers initialize outputs; C callbacks validate layout and catch C++ exceptions. These are cooperative trusted-code contracts, not a memory-safety sandbox for arbitrary pointers.
