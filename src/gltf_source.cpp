@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "gltf_container.hpp"
 #include "gltf_validation.hpp"
 #include <algorithm>
 #include <forge/gltf_source.hpp>
@@ -10,14 +11,6 @@ namespace {
 using Json = nlohmann::json;
 using namespace gltf_detail;
 using Bytes = std::vector<std::byte>;
-std::uint32_t u32(std::span<const std::byte> bytes, std::size_t offset) {
-    if (offset > bytes.size() || bytes.size() - offset < 4)
-        throw std::runtime_error("Truncated GLB integer");
-    std::uint32_t result = 0;
-    for (unsigned i = 0; i < 4; ++i)
-        result |= std::uint32_t(std::to_integer<unsigned char>(bytes[offset + i])) << (i * 8);
-    return result;
-}
 std::string text(const Json& value, std::size_t limit) {
     if (!value.is_string())
         throw std::runtime_error("glTF string has wrong type");
@@ -25,36 +18,6 @@ std::string text(const Json& value, std::size_t limit) {
     if (result.empty() || result.size() > limit || result.find('\0') != std::string::npos)
         throw std::runtime_error("glTF string is empty or exceeds limit");
     return result;
-}
-int hex(char c) {
-    return c >= '0' && c <= '9'   ? c - '0'
-           : c >= 'A' && c <= 'F' ? c - 'A' + 10
-           : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                                  : -1;
-}
-std::string decode_path_uri(std::string_view uri) {
-    if (uri.empty() || uri.size() > 12288 || uri.front() == '/' ||
-        uri.find_first_of(":?#\\") != std::string_view::npos)
-        throw std::runtime_error(
-            "glTF resource must use a relative URI without scheme/query/fragment");
-    std::string decoded;
-    for (std::size_t i = 0; i < uri.size(); ++i) {
-        auto c = static_cast<unsigned char>(uri[i]);
-        if (c == '%') {
-            if (uri.size() - i < 3 || hex(uri[i + 1]) < 0 || hex(uri[i + 2]) < 0)
-                throw std::runtime_error("Invalid percent encoding in glTF resource URI");
-            c = static_cast<unsigned char>((hex(uri[i + 1]) << 4) | hex(uri[i + 2]));
-            i += 2;
-        }
-        if (c < 32 || c == 127 || c == '\\' || c == ':' || c == '?' || c == '#')
-            throw std::runtime_error("Nonportable/unsafe glTF resource URI");
-        decoded += static_cast<char>(c);
-    }
-    if (decoded.size() > 4096 || decoded.front() == '/')
-        throw std::runtime_error("glTF resource URI exceeds bounds or names an absolute path");
-    // The JSON library's UTF-8 validation rejects invalid percent-decoded names.
-    (void)Json(decoded).dump();
-    return decoded;
 }
 std::pair<std::string, Bytes> decode_data(std::string_view uri, std::size_t limit) {
     const auto comma = uri.find(',');
@@ -69,9 +32,10 @@ std::pair<std::string, Bytes> decode_data(std::string_view uri, std::size_t limi
         for (std::size_t i = 0; i < input.size(); ++i) {
             auto value = static_cast<unsigned char>(input[i]);
             if (value == '%') {
-                if (input.size() - i < 3 || hex(input[i + 1]) < 0 || hex(input[i + 2]) < 0)
+                if (input.size() - i < 3 || uri_hex(input[i + 1]) < 0 || uri_hex(input[i + 2]) < 0)
                     throw std::runtime_error("Invalid percent encoding in glTF data URI");
-                value = static_cast<unsigned char>((hex(input[i + 1]) << 4) | hex(input[i + 2]));
+                value = static_cast<unsigned char>((uri_hex(input[i + 1]) << 4) |
+                                                   uri_hex(input[i + 2]));
                 i += 2;
             } else if (value < 33 || value > 126) {
                 throw std::runtime_error("glTF binary data URI bytes must be percent encoded");
@@ -167,44 +131,18 @@ GltfSourceBundle capture_gltf_source(const std::filesystem::path& project,
     };
     const auto container = read(result.source, "source");
     result.source_digest = asset_detail::content_digest(container.bytes());
-    auto json = container.bytes();
+    const auto admitted = gltf_container(container.bytes());
+    result.binary_container = admitted.binary;
+    auto json = admitted.json;
     std::optional<GltfByteRange> bin;
-    if (json.size() >= 4 && u32(json, 0) == 0x46546c67) {
-        result.binary_container = true;
-        if (json.size() < 20 || u32(json, 4) != 2 || u32(json, 8) != json.size())
-            throw std::runtime_error("Invalid GLB version/declared length");
-        const auto bytes = json;
-        std::size_t offset = 12, chunk_index = 0;
-        bool saw_json = false;
-        while (offset < bytes.size()) {
-            if (bytes.size() - offset < 8)
-                throw std::runtime_error("Truncated GLB chunk header");
-            const auto length = u32(bytes, offset), kind = u32(bytes, offset + 4);
-            offset += 8;
-            if (length % 4 || length > bytes.size() - offset)
-                throw std::runtime_error("GLB chunk length/alignment exceeds container");
-            if (kind == 0x4e4f534a) {
-                if (saw_json || chunk_index != 0 || !length)
-                    throw std::runtime_error("GLB JSON must be the first, unique, nonempty chunk");
-                json = bytes.subspan(offset, length);
-                saw_json = true;
-            } else if (kind == 0x004e4942) {
-                if (!saw_json || bin || chunk_index != 1)
-                    throw std::runtime_error("GLB BIN must be the unique second chunk");
-                bin = GltfByteRange{container.storage, offset, length};
-            } else {
-                if (!saw_json)
-                    throw std::runtime_error("GLB must begin with JSON");
-                if (result.diagnostics.size() < 128)
-                    result.diagnostics.push_back("Ignored unknown optional GLB chunk type " +
-                                                 std::to_string(kind));
-            }
-            offset += length;
-            ++chunk_index;
-            if (chunk_index > 4096)
-                throw std::runtime_error("GLB chunk count exceeds limit");
-        }
-    }
+    if (admitted.bin)
+        bin = GltfByteRange{container.storage,
+                            std::size_t(admitted.bin->data() - container.bytes().data()),
+                            admitted.bin->size()};
+    for (const auto& chunk : admitted.chunks)
+        if (chunk.kind != 0x4e4f534a && chunk.kind != 0x004e4942 && result.diagnostics.size() < 128)
+            result.diagnostics.push_back("Ignored unknown optional GLB chunk type " +
+                                         std::to_string(chunk.kind));
     if (json.empty() || json.size() > limits.json_bytes)
         throw std::runtime_error("glTF JSON exceeds byte limit");
     result.document = asset_detail::parse_bounded_json(json, limits.json_bytes);

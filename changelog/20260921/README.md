@@ -718,3 +718,36 @@
   target/filter lists. Windows validation of this source remains pending.
 - Whole Phase7 remains in progress. No numbered package, file-management completion
   or production-scale watcher performance claim is made by this checkpoint.
+
+### Asset file-operation foundation — in progress
+
+- Reuse the publication writer's durable filesystem IO for a private source/sidecar/
+  catalog transaction. Add exact revision checks, staged hash-verified backups,
+  precommit rollback, postcommit retention, cancellation and external-conflict refusal.
+- Recover interrupted file operations before importing; reject conflicting recovery
+  authorities. Retain delete backups and report cleanup separately from a committed
+  operation. This does not participate in scene Undo.
+- Add typed Move/Duplicate/Delete preparation, fresh owner/member identity families,
+  catalog dependency remapping and source-owned Scene/Prefab/Material/Shader adapters.
+  Do not clone a selected cooked binding for a new logical asset. Add a scene duplicate
+  overload that remaps known references to a caller-reserved new AssetId.
+- Initial normal transaction/publication/material tests pass 3/3 (23.16 s), strict
+  ASan/UBSan/LeakSanitizer 3/3 (24.98 s). Domain operation/identity tests pass 2/2
+  normally (3.41 s) and under strict sanitizers (3.88 s).
+- Add actual crash-boundary, stale deletion, corrupt-backup and Windows deletion-lock
+  regressions. The latter and newer glTF relocation/shared-admission work await their
+  next validation; current source is not delivered as a numbered build.
+- Content command/job integration, complete reference-impact scans, remaining source
+  adapters and final package validation are still in progress. No new menu availability
+  is claimed by this internal implementation checkpoint.
+- Share existing glTF URI decoding/container admission with the relocation adapter.
+  Rebase known external buffers/images; preserve data URIs, opaque JSON, BIN and
+  unknown GLB chunks. Normal glTF/fileops/recovery 3/3 pass (14.19 s); strict
+  glTF/fileops/recovery/publication 4/4 pass (20.20 s). Full source-format/UI work
+  remains ongoing; later adapter additions require their own validation.
+- Expanded source adapter tests now publish and load a duplicated Material under
+  its new identity, and validate Shader/Prefab source copies. These pass normally
+  (1/1, 6.85 s) and under ASan/UBSan/LeakSanitizer (1/1, 7.70 s).
+- Source-watch checkpoint5827579 passes all Linux/Windows core and exact-SDK CI
+  profiles. Its native editor audit is still running; file-operation UI integration
+  and Windows execution of this later source remain pending.

@@ -1,19 +1,11 @@
 #include "asset_bytes.hpp"
+#include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "import_cache_limits.hpp"
 #include <algorithm>
 #include <forge/asset_publication.hpp>
 #include <fstream>
 #include <set>
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#else
-#include <fcntl.h>
-#include <unistd.h>
-#endif
 
 namespace forge {
 #ifdef FORGE_ASSET_PUBLICATION_TESTING
@@ -23,104 +15,12 @@ namespace {
 using Json = nlohmann::json;
 constexpr auto journal_name = ".forge/asset-publication.json";
 constexpr std::size_t journal_limit = 256 * 1024 * 1024;
-void ordinary(const std::filesystem::path& path) {
-    if (std::filesystem::weakly_canonical(path) != path || std::filesystem::is_symlink(path))
-        throw std::runtime_error("Asset publication metadata must not redirect: " +
-                                 path_utf8(path));
-}
-std::optional<std::string> read(const std::filesystem::path& path,
-                                std::size_t limit = max_asset_index_bytes) {
-    ordinary(path);
-    if (!std::filesystem::exists(path))
-        return {};
-    const auto bytes = asset_detail::read_bytes(path, limit);
-    return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-}
+using asset_storage::erase_file;
+using asset_storage::ordinary;
+using asset_storage::read;
+using asset_storage::replace;
 Json parse(std::string_view bytes, std::size_t limit = max_asset_index_bytes) {
     return asset_detail::parse_bounded_json(std::as_bytes(std::span(bytes)), limit);
-}
-void sync_directory(const std::filesystem::path& path) {
-#ifndef _WIN32
-    const int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
-    if (fd < 0)
-        throw std::runtime_error("Cannot open asset publication directory for flush");
-    const auto error = fsync(fd) ? errno : 0;
-    close(fd);
-    if (error)
-        throw std::filesystem::filesystem_error("Asset publication directory flush failed", path,
-                                                std::error_code(error, std::generic_category()));
-#else
-    (void)path; // File flush and write-through MoveFileExW below.
-#endif
-}
-void replace(const std::filesystem::path& path, std::string_view bytes) {
-    ordinary(path);
-    const auto temp = path.parent_path() /
-                      (path.filename().string() + "." + AssetId::generate().str() + ".pending");
-    try {
-#ifdef _WIN32
-        HANDLE file = CreateFileW(temp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
-                                  FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (file == INVALID_HANDLE_VALUE)
-            throw std::filesystem::filesystem_error(
-                "Cannot stage asset metadata", temp,
-                std::error_code(GetLastError(), std::system_category()));
-        DWORD written = 0;
-        const bool ok =
-            bytes.size() <= MAXDWORD &&
-            WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr) &&
-            written == bytes.size() && FlushFileBuffers(file);
-        const auto error = ok ? 0 : GetLastError();
-        CloseHandle(file);
-        if (!ok)
-            throw std::filesystem::filesystem_error(
-                "Cannot flush staged asset metadata", temp,
-                std::error_code(error ? error : ERROR_WRITE_FAULT, std::system_category()));
-        if (!MoveFileExW(temp.c_str(), path.c_str(),
-                         MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-            throw std::filesystem::filesystem_error(
-                "Cannot replace asset metadata", temp, path,
-                std::error_code(GetLastError(), std::system_category()));
-#else
-        const int fd =
-            open(temp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
-        if (fd < 0)
-            throw std::filesystem::filesystem_error(
-                "Cannot stage asset metadata", temp,
-                std::error_code(errno, std::generic_category()));
-        std::size_t offset = 0;
-        int error = 0;
-        while (offset < bytes.size()) {
-            const auto count = write(fd, bytes.data() + offset, bytes.size() - offset);
-            if (count < 0 && errno == EINTR)
-                continue;
-            if (count <= 0) {
-                error = count == 0 ? EIO : errno;
-                break;
-            }
-            offset += static_cast<std::size_t>(count);
-        }
-        if (!error && fsync(fd))
-            error = errno;
-        if (close(fd) && !error)
-            error = errno;
-        if (error)
-            throw std::filesystem::filesystem_error(
-                "Cannot flush staged asset metadata", temp,
-                std::error_code(error, std::generic_category()));
-        std::filesystem::rename(temp, path);
-        sync_directory(path.parent_path());
-#endif
-    } catch (...) {
-        std::error_code ec;
-        std::filesystem::remove(temp, ec);
-        throw;
-    }
-}
-void erase_file(const std::filesystem::path& path) {
-    ordinary(path);
-    std::filesystem::remove(path);
-    sync_directory(path.parent_path());
 }
 Json optional_bytes(const std::optional<std::string>& value) {
     return value ? Json(*value) : Json();
@@ -246,7 +146,8 @@ std::filesystem::path AssetPublisher::sidecar_path(const std::filesystem::path& 
 AssetPublicationTicket AssetPublisher::capture(AssetId owner,
                                                const std::filesystem::path& source) const {
     check_owner();
-    if (std::filesystem::exists(paths_.resolve(journal_name)))
+    if (std::filesystem::exists(paths_.resolve(journal_name)) ||
+        std::filesystem::exists(paths_.resolve(".forge/asset-file-operation.json")))
         throw std::runtime_error("Recover interrupted asset publication before importing");
     AssetPublicationTicket result{owner, ProjectPaths::normalize(source),
                                   read(AssetCatalog::project_index(paths_.root())),

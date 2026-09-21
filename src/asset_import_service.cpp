@@ -1,4 +1,5 @@
 #include "asset_import_service.hpp"
+#include "asset_file_transaction.hpp"
 #include "bounded_json.hpp"
 #include "import_cache_limits.hpp"
 #include <algorithm>
@@ -55,6 +56,7 @@ AssetImportService::AssetImportService(std::shared_ptr<const ProjectLease> lease
       publisher_(required_lease(lease_)), owner_(std::this_thread::get_id()), queue_(workers) {
     require(registry_ && registry_->sealed(), "Asset import registry must be sealed");
     // Refuse new work if an interrupted publication has an unresolved conflict.
+    AssetFileTransaction(*lease_).recover();
     publisher_.recover();
 }
 AssetImportService::~AssetImportService() = default;

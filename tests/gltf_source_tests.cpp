@@ -1,3 +1,4 @@
+#include "gltf_container.hpp"
 #include <forge/gltf_source.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -97,6 +98,45 @@ int main(int argc, char** argv) {
         require(external.buffers[0].storage == external.buffers[1].storage &&
                     external.captured_bytes == doc.dump().size() + 8,
                 "Repeated dependency copied or counted twice");
+        {
+            std::filesystem::create_directories(root / "Moved");
+            auto authored = doc;
+            authored["extras"] = {{"uri", "../image.png"}};
+            const auto encoded = authored.dump(2);
+            const auto input = std::as_bytes(std::span(encoded));
+            const ProjectPaths paths(root);
+            const auto moved =
+                gltf_detail::relocate_gltf_source(paths, source, "Moved/model.gltf", input);
+            const auto edited = Json::parse(moved);
+            require(edited["buffers"][0]["uri"] == "../Assets/model/buffer%20data.bin" &&
+                        edited["images"][0]["uri"] == "../Assets/image.png" &&
+                        edited["extras"] == authored["extras"],
+                    "glTF relocation lost resource locators or changed opaque data");
+            atomic_write(root / "Moved/model.gltf", moved);
+            const auto adopted = capture_gltf_source(root, "Moved/model.gltf");
+            require(adopted.dependencies == external.dependencies &&
+                        std::equal(adopted.buffers[0].bytes().begin(),
+                                   adopted.buffers[0].bytes().end(),
+                                   external.buffers[0].bytes().begin()),
+                    "Relocated glTF did not capture identical external resources");
+            require(gltf_detail::relocate_gltf_source(paths, source, "Assets/model/renamed.gltf",
+                                                      input) == encoded,
+                    "Same-folder rename unnecessarily rewrote source bytes");
+            const auto at_root =
+                gltf_detail::relocate_gltf_source(paths, source, "root.gltf", input);
+            require(Json::parse(at_root)["images"][0]["uri"] == "Assets/image.png",
+                    "Project-root destination broke relative URI rebasing");
+            rejects([&] {
+                (void)gltf_detail::relocate_gltf_source(paths, source, "../escape.gltf", input);
+            });
+            auto unsafe = authored;
+            unsafe["buffers"][0]["uri"] = "../../../outside.bin";
+            const auto unsafe_text = unsafe.dump();
+            rejects([&] {
+                (void)gltf_detail::relocate_gltf_source(paths, source, "Moved/model.gltf",
+                                                        std::as_bytes(std::span(unsafe_text)));
+            });
+        }
         write(root / "Assets/model/buffer data.bin", Bytes{std::byte{9}});
         require(external.buffers[0].bytes()[1] == std::byte{1},
                 "Captured source changed after external overwrite");
@@ -120,6 +160,29 @@ int main(int argc, char** argv) {
         require(captured_binary.binary_container && captured_binary.buffers[0].length == 3 &&
                     captured_binary.diagnostics.size() == 1,
                 "GLB source/chunk/padding admission failed");
+        {
+            auto document = binary_doc;
+            document["images"] = Json::array({{{"uri", "../image.png"}}});
+            document["extras"] = {{"uri", "../image.png"}};
+            const auto original =
+                glb(document, Bytes{std::byte{0}, std::byte{1}, std::byte{2}}, true);
+            const auto moved = gltf_detail::relocate_gltf_source(
+                ProjectPaths(root), "Assets/model/source.glb", "Moved/source.glb", original);
+            const auto prior = gltf_detail::gltf_container(original);
+            const auto next = gltf_detail::gltf_container(std::as_bytes(std::span(moved)));
+            require(next.chunks.size() == prior.chunks.size() && next.json.size() % 4 == 0 &&
+                        Json::parse(next.json)["extras"] == document["extras"],
+                    "GLB relocation changed chunk set, alignment or opaque JSON");
+            for (std::size_t i = 1; i < prior.chunks.size(); ++i)
+                require(prior.chunks[i].kind == next.chunks[i].kind &&
+                            std::equal(prior.chunks[i].bytes.begin(), prior.chunks[i].bytes.end(),
+                                       next.chunks[i].bytes.begin(), next.chunks[i].bytes.end()),
+                        "GLB relocation changed BIN or unknown chunk bytes");
+            atomic_write(root / "Moved/source.glb", moved);
+            require(capture_gltf_source(root, "Moved/source.glb").buffers[0].bytes()[2] ==
+                        std::byte{2},
+                    "Relocated GLB no longer passed normal source admission");
+        }
         // Every truncated container must fail rather than reaching a native loader.
         for (std::size_t size = 0; size < binary.size(); ++size) {
             write(root / "Assets/model/truncated.glb",

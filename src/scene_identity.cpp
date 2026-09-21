@@ -71,11 +71,16 @@ Json migrate_scene(const Json& source, const Json* existing) {
     return result;
 }
 Json duplicate_scene_asset(const Json& source) {
+    return duplicate_scene_asset(source, AssetId::generate());
+}
+Json duplicate_scene_asset(const Json& source, AssetId destination) {
     Scene::validate_document(source);
     if (source.at("version") != 3 && source.at("version") != 4 && source.at("version") != 5)
         throw std::runtime_error("Migrate the scene before duplicating its asset");
+    if (!destination || destination == source.at("asset_id").get<AssetId>())
+        throw std::runtime_error("Duplicated scene requires a new asset identity");
     auto result = source;
-    result["asset_id"] = AssetId::generate();
+    result["asset_id"] = destination;
     std::map<std::string, std::string> remap;
     std::set<std::string> allocated;
     for (const auto& entity : source.at("entities"))
