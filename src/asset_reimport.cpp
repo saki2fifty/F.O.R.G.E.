@@ -59,8 +59,13 @@ void AssetReimportService::enqueue(AssetId id) {
         queue_.insert(id);
 }
 void AssetReimportService::dependents(AssetId id) {
+    const auto family = root(id);
     for (const auto dependent : catalog_->dependency_graph().invalidated_by(id))
-        enqueue(dependent);
+        // A model and its members publish as one validated family. Their internal
+        // runtime references must not schedule that same publication recursively.
+        // Referrers in OTHER families still invalidate through the complete graph.
+        if (root(dependent) != family)
+            enqueue(dependent);
 }
 void AssetReimportService::cancel_active() {
     if (!active_ || active_->superseded)

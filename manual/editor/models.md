@@ -311,3 +311,7 @@ child entity. Its source parent carries shared movement. The original mesh is
 not added as an extra copy. Negative and zero instance scale stay intact, and
 placement remains one Undo step. Custom instance attributes are retained in the
 source with a diagnostic; instanced skin bindings currently reject explicitly.
+
+A successful model import publishes its meshes, materials and other members together.
+Those internal references do not trigger another import of the same model. Other
+assets that depend on a changed member still receive source-update processing.

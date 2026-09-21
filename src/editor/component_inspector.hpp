@@ -76,6 +76,13 @@ class ComponentInspector {
         std::set<std::string> known_components;
         for (const auto& type : schema.at("components"))
             known_components.insert(type.at("id").get<std::string>());
+        // Effective Scene views expose these reserved aliases for legacy viewport
+        // consumers. They are assembled from canonical TRS, not missing plugins.
+        if (values.contains("forge.local_translation")) {
+            known_components.insert("forge.position");
+            known_components.insert("forge.rotation");
+            known_components.insert("forge.scale");
+        }
         unsigned visible_components = 0;
         for (const auto& type : schema.at("components")) {
             if (!type.value("optional", false))

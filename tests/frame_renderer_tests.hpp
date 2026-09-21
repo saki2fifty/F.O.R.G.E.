@@ -144,7 +144,7 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         const auto framed_bounds = measured.bounds(scene, {scene.meshes[0].entity}, view.position);
         require(framed_bounds && framed_bounds == measured.bounds(scene, {}, view.position),
                 "Selected mesh framing did not use complete retained pose bounds");
-        Viewport scene_view(presentation, true);
+        forge::Viewport scene_view(presentation, true);
         scene_view.resources(host);
         EditorCamera scene_camera;
         require(scene_view.frame(document, scene.meshes[0].entity.str(), scene_camera, 2) &&

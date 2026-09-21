@@ -183,6 +183,9 @@ inline void test_redesign_drawers() {
     require(unavailable_text.find("absent.plugin (unavailable)") != std::string::npos &&
                 scene.document() == opaque,
             "Inspector hid or rewrote a component whose module is unavailable");
+    for (const char* alias : {"forge.position", "forge.rotation", "forge.scale"})
+        require(unavailable_text.find(std::string(alias) + " (unavailable)") == std::string::npos,
+                "Inspector described an effective TRS compatibility alias as a missing plugin");
     ImGui::DestroyContext();
 }
 inline void test_draft_ownership() {

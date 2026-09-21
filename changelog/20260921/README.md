@@ -945,3 +945,11 @@
 - Added CPU selection and native retained-pose/hidden/partial-readiness regressions. Native header compilation and local input tests are being validated; actual Windows execution remains required.
 
 - Updated editor input/framing tests pass (15.54s). Native presentation implementation, native render-test headers and platform-adapted editor main compile in local syntax checks. These checks do not replace Windows draw execution.
+
+## Model preview reimport scheduling
+
+- The Windows editor capture exposed repeated Model preview/placement preparation. Publishing a model family scheduled that same family again through references from the model root to its own mesh/material members.
+- Automatic reimport now excludes invalidation within the family that just published. Other assets depending on those members still receive updates. A deterministic regression reproduced the loop before the correction; post-fix and Windows validation are in progress.
+- Qualified the Scene Viewport fixture type after MSVC identified a name collision with Diligent's Viewport. The prior local syntax adapter did not reproduce that namespace collision.
+- The model-family regression now passes in both direct and isolated-worker import profiles. Direct/worker model validation passes2/2 (80.94s), and editor input/Inspector tests pass (14.98s); this establishes the scheduling correction locally, while native Windows preview acceptance remains pending.
+- Inspector no longer labels effective legacy TRS compatibility values as missing plugin components. Canonical LocalTranslation/LocalRotation/LocalScale remain the only authored transform channels; unknown plugin payloads remain visible and preserved.

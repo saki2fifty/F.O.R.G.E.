@@ -82,3 +82,8 @@ again; scene **Undo** restores the previous ownership and values.
 If you previously overrode only a few fields, Override component replaces that
 partial intent with ownership of the whole component. Undo restores the original
 field-level intent. This action does not write to the prefab asset.
+
+Transform compatibility values used by older viewport consumers are displayed
+through the Transform section. They are not extra components or missing plugins.
+Unrecognized plugin components remain visible as unavailable until their matching
+schema is admitted; their stored data is preserved.

@@ -6,6 +6,7 @@
 #include "model_importer.hpp"
 #include "model_render_resource.hpp"
 #include "model_selection.hpp"
+#include "model_watch_tests.hpp"
 #include <forge/model_asset.hpp>
 #include <fstream>
 #include <iostream>
@@ -127,6 +128,7 @@ int main(int argc, char** argv) {
         require(first.publication->catalog.resolve(AssetRef<ModelAsset>{owner}).state ==
                     AssetState::Available,
                 "Model root unavailable");
+        test_model_family_watch(lease, registry, owner);
         auto before = bindings(first.publication->catalog, owner);
         require(before.size() == 30, "Complete model family missing");
         for (const auto& [address, id] : before) {
