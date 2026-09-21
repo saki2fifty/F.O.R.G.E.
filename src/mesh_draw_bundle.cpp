@@ -57,15 +57,16 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
 }
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
-                          unsigned lod) {
+                          const EnvironmentLighting* environment, unsigned lod) {
     if (lod >= lods_.size())
         throw std::runtime_error("Mesh draw LOD is outside the prepared candidate");
     for (unsigned part = 0; part < lods_[lod].size(); ++part)
-        draw_part(context, world, camera, lights, lod, part);
+        draw_part(context, world, camera, lights, lod, part, environment);
 }
 void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTransform& world,
                                const CameraView& camera, std::span<const LightView> lights,
-                               unsigned lod, unsigned part) {
+                               unsigned lod, unsigned part,
+                               const EnvironmentLighting* environment) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -73,6 +74,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
         (void)key;
         (void)texture.get();
     }
-    selected->draw(context, world, camera, lights);
+    selected->draw(context, world, camera, lights, environment);
 }
 } // namespace forge

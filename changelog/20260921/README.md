@@ -105,3 +105,20 @@
 - Earlier189051f source audit passed all37/37 Windows editor/render tests in53.16s,
   including complete GPU bundles, tangent-handedness and resource retirement. It
   predates advanced reflection layers, queue sorting and HDR display.
+
+### Environment resources and combined material bindings
+
+- Reuse the existing GPU residency owner for cached environment convolution. Keep
+  CPU revision identity, reserve source plus full output-mip payload bytes, and use
+  existing fence retirement and failed-candidate accounting.
+- Feed native diffuse/GGX/Charlie environment maps to prepared PBR draws, with
+  explicit intensity/rotation and a zero-light default. Scene environment selection
+  and sky authoring remain ongoing; this checkpoint does not expose them as complete.
+- Share identical material samplers and compatible lighting samplers while preserving
+  distinct state. Add combined15-texture native coverage, convolution reuse/budget,
+  disabled IBL, constant-environment rotation and retirement regressions.
+- The a3cf2ee Windows audit passed37/37 in58.10s, validating clearcoat/back-light,
+  iridescence, sheen and anisotropy. Its core/SDK checks also passed. HDR, queues and
+  environment consumers require the next Windows source audit.
+- IBL checkpoint: all16 local shader stages, native C++ syntax, normal/strict
+  material tests1/1 each, manual3/3 and format pass. Native validation remains pending.

@@ -1,4 +1,5 @@
 #pragma once
+#include "environment_gpu.hpp"
 #include "material_shader.hpp"
 #include "mesh_vertex_fetch.hpp"
 #include "presentation_diligent.hpp"
@@ -14,12 +15,13 @@ class MeshDraw {
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
              Diligent::TEXTURE_FORMAT depth_format);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
-              std::span<const LightView>);
+              std::span<const LightView>, const EnvironmentLighting* = nullptr);
 
   private:
     GpuMeshPart mesh_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> pipelines_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> bindings_;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> object_, lights_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> object_, lights_, environment_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
 };
 } // namespace forge

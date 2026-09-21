@@ -14,7 +14,8 @@ namespace gpu_detail {
 template <> struct Traits<GpuFailureAsset> {
     using Data = Diligent::RefCntAutoPtr<Diligent::IBuffer>;
     static std::uint64_t bytes(const GpuFailureData&) { return 64; }
-    static Data upload(Diligent::IRenderDevice* device, const GpuFailureData& value) {
+    static Data upload(Diligent::IRenderDevice* device, Diligent::IDeviceContext*,
+                       const GpuFailureData& value) {
         Diligent::BufferDesc desc;
         desc.Name = "FORGE partial GPU candidate";
         desc.Size = 64;

@@ -58,6 +58,17 @@ inline void test_pbr_material_profile() {
     prepared = prepare_pbr_material(source);
     const std::array<unsigned, 2> uv_sets{0, 19};
     const auto shader = material_shader(prepared, uv_sets);
+    auto shared_sampler = prepared.values;
+    shared_sampler.textures["occlusionTexture"] = shared_sampler.textures.begin()->second;
+    shared_sampler.textures["occlusionTexture"].semantic = TextureSemantic::Data;
+    const auto shared = material_shader(prepare_pbr_material(shared_sampler), uv_sets);
+    check(shared.textures.size() >= 2 &&
+              shared.textures.front().sampler_variable == shared.textures.back().sampler_variable,
+          "Identical sampler states did not share a binding");
+    shared_sampler.textures["occlusionTexture"].sampler.u = TextureWrap::ClampEdge;
+    const auto separate = material_shader(prepare_pbr_material(shared_sampler), uv_sets);
+    check(separate.textures.front().sampler_variable != separate.textures.back().sampler_variable,
+          "Different texture wrap semantics were merged");
     check(shader.textures.size() == 1 && shader.textures[0].uv_slot == 1 &&
               shader.textures[0].settings == slot,
           "Material shader lost UV routing or binding settings");

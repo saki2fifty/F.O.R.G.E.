@@ -449,3 +449,40 @@ Exact mapper evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
 and `Shaders/Common/public/SRGBUtilities.fxh`, verified2026-09-21. Local16-stage
 shader compilation, native C++ syntax and normal/strict-sanitizer queue tests pass;
 FXC/WARP validation of these changes is pending.
+
+### Cached environment realization and material lighting
+
+`EnvironmentResidency` specializes the existing GPU revision owner with an immutable
+convolution policy. It consumes the same admitted TextureAsset CPU lease, retaining
+its existing AssetId/revision/generation/variant identity. The policy is private to
+one owner scope; no new persistent environment handle or parallel cache lifecycle
+is introduced. Byte/count reservation, failure accounting, reuse, owner-thread
+access and fence retirement use the same implementation as mesh/texture uploads.
+
+Diligent's pinned `PrecomputeCubemaps` writes caller-owned diffuse irradiance, GGX
+and Charlie cubemaps. The adapter accepts color/HDR cube or equirectangular2D inputs,
+uses source rows with positiveY at the top for equirectangular maps, and counts the
+source upload plus all output faces/mips in its payload budget. The native zero
+MipLevels descriptor means the full chain and is accounted accordingly. Default
+quality is64 diffuse/256 specular pixels; quality policy changes use a distinct
+owner scope. Acquiring an unchanged revision reuses the generated maps.
+
+Prepared PBR draws now call native `ApplyIBL`, including clearcoat, sheen and
+anisotropic reflection. Intensity and world-Y rotation are per-draw values. An
+absent environment binds a shared black cube with zero IBL intensity; no implicit
+game lighting is added. The owning caller retains the environment lease while its
+bindings are live. Scene-level environment authoring, resource selection and sky
+composition are still required consumers in the ongoing Phase7 batch.
+
+Matching material sampler states share one shader binding. All native lighting
+lookups share their compatible linear/clamp sampler. Different material states stay
+independent. This reduces descriptor pressure without changing texture semantics.
+Microsoft's [D3D12 binding tiers](https://learn.microsoft.com/en-us/windows/win32/direct3d12/hardware-support)
+define16 per-stage table samplers on Tier1 and2048 on higher tiers; the new native
+fixture exercises all15 connected texture roles with distinct material samplers plus
+one lighting sampler. No sampler count or hardware compatibility is inferred solely
+from local shader compilation.
+
+Exact source: pinned PBR_Renderer.hpp/cpp caller-owned output APIs and PBR_Shading.fxh
+`ApplyIBL`, verified2026-09-21. The preceding a3cf2ee native audit passed37/37 in58.10s
+for reflection layers; environment/HDR/queue native execution is pending separately.

@@ -65,15 +65,17 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     auto vertex = compile(SHADER_TYPE_VERTEX, program.vertex),
          pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     auto* device = presentation.device();
+    const bool lit = profile.workflow != PbrWorkflow::Unlit;
+    RefCntAutoPtr<ITextureView> ggx;
+    if (lit) {
+        ggx = presentation.pbr(context).GetPreintegratedGGX_SRV();
+        black_environment_ = presentation.black_environment(context);
+        environment_ = buffer(device, "FORGE environment lighting", sizeof(Row));
+    }
     RefCntAutoPtr<ITextureView> sheen;
-    RefCntAutoPtr<ISampler> sheen_sampler;
     if (program.sheen) {
         sheen = presentation.pbr(context).GetPreintegratedSheen_SRV();
-        SamplerDesc sampler;
-        sampler.MinFilter = sampler.MagFilter = sampler.MipFilter = FILTER_TYPE_LINEAR;
-        sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
-        device->CreateSampler(sampler, &sheen_sampler);
-        require(sheen && sheen_sampler, "native sheen lookup resources unavailable");
+        require(bool(sheen), "native sheen lookup resource unavailable");
     }
     object_ = buffer(device, "FORGE camera-relative object", 14 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
@@ -118,9 +120,22 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeLights", lights_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values);
+        if (lit) {
+            bind(SHADER_TYPE_PIXEL, "ForgeEnvironment", environment_);
+            SamplerDesc sampler;
+            sampler.MinFilter = sampler.MagFilter = sampler.MipFilter = FILTER_TYPE_LINEAR;
+            sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
+            RefCntAutoPtr<ISampler> native;
+            device->CreateSampler(sampler, &native);
+            require(bool(native), "environment sampler allocation failed");
+            bind(SHADER_TYPE_PIXEL, "g_ForgeGGX", ggx);
+            bind(SHADER_TYPE_PIXEL, "g_ForgeLightSampler", native);
+            for (const auto* name : {"g_ForgeDiffuse", "g_ForgeSpecular", "g_ForgeCharlie"}) {
+                bind(SHADER_TYPE_PIXEL, name, black_environment_, false);
+            }
+        }
         if (program.sheen) {
             bind(SHADER_TYPE_PIXEL, "g_ForgeSheen", sheen);
-            bind(SHADER_TYPE_PIXEL, "g_ForgeSheen_sampler", sheen_sampler);
         }
         for (const auto& slot : material.textures) {
             const auto found = textures.find(slot.role);
@@ -135,7 +150,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     }
 }
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
-                    std::span<const LightView> lights) {
+                    std::span<const LightView> lights, const EnvironmentLighting* environment) {
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
     std::array<Row, 14> object{};
@@ -191,6 +206,32 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
         parity == TransformParity::Singular
             ? 2
             : unsigned((parity == TransformParity::Negative) != view.orientation_reversed);
+    if (environment_) {
+        Row params{0, 0, 1, 0};
+        ITextureView *diffuse = black_environment_, *specular = black_environment_,
+                     *charlie = black_environment_;
+        if (environment) {
+            require(environment->maps && std::isfinite(environment->intensity) &&
+                        environment->intensity >= 0 && std::isfinite(environment->rotation),
+                    "invalid environment lighting parameters");
+            const auto& maps = *environment->maps;
+            require(maps.diffuse && maps.specular && maps.sheen,
+                    "incomplete environment candidate");
+            diffuse = maps.diffuse->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            specular = maps.specular->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            charlie = maps.sheen->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            params = {environment->intensity, float(maps.specular->GetDesc().MipLevels - 1),
+                      float(std::cos(environment->rotation)),
+                      float(std::sin(environment->rotation))};
+        }
+        MapHelper<Row> values(context, environment_, MAP_WRITE, MAP_FLAG_DISCARD);
+        values[0] = params;
+        for (const auto& [name, value] :
+             {std::pair{"g_ForgeDiffuse", diffuse}, std::pair{"g_ForgeSpecular", specular},
+              std::pair{"g_ForgeCharlie", charlie}})
+            if (auto* variable = bindings_[index]->GetVariableByName(SHADER_TYPE_PIXEL, name))
+                variable->Set(value);
+    }
     context->SetPipelineState(pipelines_[index]);
     context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->SetIndexBuffer(mesh_.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

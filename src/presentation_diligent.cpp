@@ -83,4 +83,14 @@ PBR_Renderer& DiligentPresentation::pbr(IDeviceContext* context) {
     }
     return *pbr_;
 }
+ITextureView* DiligentPresentation::black_environment(IDeviceContext* context) {
+    if (!black_environment_) {
+        auto candidate = pbr(context).CreateIrradianceCube(context, "FORGE disabled environment",
+                                                           TEX_FORMAT_RGBA16_FLOAT, 1);
+        if (!candidate)
+            throw std::runtime_error("Default environment allocation failed");
+        black_environment_ = std::move(candidate);
+    }
+    return black_environment_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+}
 } // namespace forge

@@ -72,7 +72,8 @@ ForgeVarying main(uint id:SV_VertexID) {
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
     )" + "[unroll]for(uint i=0;i<" +
                            std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
-    std::string ps = "#define USE_IBL 0\n#define TEX_COLOR_CONVERSION_MODE 0\n";
+    std::string ps =
+        "#define USE_IBL 1\n#define USE_HDR_IBL_CUBEMAPS 1\n#define TEX_COLOR_CONVERSION_MODE 0\n";
     ps += std::string("#define ENABLE_CLEAR_COAT ") +
           (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_IRIDESCENCE ") +
@@ -84,7 +85,11 @@ ForgeVarying main(uint id:SV_VertexID) {
         ps += "#include \"Iridescence.fxh\"\n";
     ps += object_source + varyings + material.source;
     if (sheen)
-        ps += "Texture2D g_ForgeSheen;SamplerState g_ForgeSheen_sampler;\n";
+        ps += "Texture2D g_ForgeSheen;\n";
+    if (profile.workflow != PbrWorkflow::Unlit)
+        ps += "Texture2D g_ForgeGGX;SamplerState g_ForgeLightSampler;"
+              "TextureCube g_ForgeDiffuse,g_ForgeSpecular,g_ForgeCharlie;"
+              "cbuffer ForgeEnvironment {float4 g_Environment;};\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
           "];};\n";
     ps += R"(
@@ -232,7 +237,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             ps += "s.Clearcoat.Normal=coatNormal*face;s.Clearcoat.Factor=coat;"
                   "s.Clearcoat.Srf=GetSurfaceReflectanceClearCoat(coatRough,1.5);\n";
         }
-        ps += "s.Occlusion=1;s.IBLScale=0;\n"
+        ps += "s.Occlusion=1;s.IBLScale=g_Environment.x;\n"
               "s.Emissive=ForgeParameter_emissiveFactor()*ForgeParameter_emissiveStrength();\n";
         sample("occlusionTexture",
                "s.Occlusion=lerp(1,sample_occlusionTexture.r,ForgeParameter_occlusionStrength())");
@@ -241,9 +246,18 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     SurfaceLightingInfo lighting=GetDefaultSurfaceLightingInfo();
     [loop]for(uint i=0;i<(uint)g_Object[13].x;i++)valid=ForgeApplyPunctualLight(s,g_Lights[i],
 #if ENABLE_SHEEN
-        g_ForgeSheen,g_ForgeSheen_sampler,
+        g_ForgeSheen,g_ForgeLightSampler,
 #endif
         lighting)&&valid;
+    if(g_Environment.x>0) {
+        ApplyIBL(s,g_Environment.y,g_Environment.zw,
+                 g_ForgeGGX,g_ForgeLightSampler,g_ForgeDiffuse,g_ForgeLightSampler,
+                 g_ForgeSpecular,g_ForgeLightSampler,
+#if ENABLE_SHEEN
+                 g_ForgeSheen,g_ForgeLightSampler,g_ForgeCharlie,g_ForgeLightSampler,
+#endif
+                 lighting);
+    }
     float3 color=ResolveLighting(s,lighting);
     if(!valid||!all(isfinite(color)))return float4(1,0,1,1);
     return float4(color,base.a);

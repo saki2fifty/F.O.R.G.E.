@@ -46,7 +46,8 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     world.m[3] = 1e12;
     world.m[7] = -1e12;
     world.m[11] = 2;
-    auto render = [&](auto& prepared, std::span<const forge::LightView> lights = {}) {
+    auto render = [&](auto& prepared, std::span<const forge::LightView> lights = {},
+                      const forge::EnvironmentLighting* environment = nullptr) {
         context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float clear[4]{0, 0, 0, 1};
         context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -54,7 +55,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Viewport viewport{0.f, 0.f, 32.f, 32.f, 0.f, 1.f};
         context->SetViewports(1, &viewport, 32, 32);
-        prepared.draw(context, world, view, lights);
+        prepared.draw(context, world, view, lights, environment);
         return readback(presentation.device(), context, rtv);
     };
     const auto reference = render(draw);
@@ -189,6 +190,61 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     const auto dark = render(lit);
     require(dark[16 * 32 + 16] == std::array<unsigned char, 4>{0, 0, 0, 255},
             "Game draw invented an implicit light");
+    {
+        using namespace std::chrono_literals;
+        forge::TextureData source;
+        source.width = 4;
+        source.height = 2;
+        source.format = forge::TextureFormat::RGBA32Float;
+        source.semantic = forge::TextureSemantic::HdrColor;
+        source.subresources = {std::vector<std::byte>(4 * 2 * 16)};
+        const float radiance[4]{.25f, .5f, .75f, 1};
+        for (unsigned i = 0; i < 8; ++i)
+            std::memcpy(source.subresources[0].data() + i * 16, radiance, 16);
+        forge::ResourcePool<forge::TextureAsset> pool;
+        auto ticket = pool.request(forge::AssetRef<forge::TextureAsset>{forge::AssetId::generate()},
+                                   std::string(64, 'c'), 1, [source](std::stop_token) {
+                                       auto value = std::make_unique<forge::TextureData>(source);
+                                       return forge::ResourceCandidate<forge::TextureAsset>{
+                                           std::move(value), {source.resident_bytes()}};
+                                   });
+        require(pool.wait(ticket, 5s), "Environment CPU fixture failed");
+        auto cpu = pool.acquire(ticket);
+        forge::EnvironmentRealization policy{&presentation, 4, 8, 32, 32};
+        forge::EnvironmentResidency environments(presentation.device(), context, 1024 * 1024, 8,
+                                                 policy);
+        auto maps = environments.acquire(cpu);
+        auto same = environments.acquire(cpu);
+        require(&maps.get() == &same.get() && environments.statistics().resident == 1 &&
+                    environments.statistics().payload_bytes == 9056 && policy.bytes(source) == 9056,
+                "Environment revision was reconvolved or escaped the GPU budget");
+        forge::EnvironmentLighting environment{&maps.get(), 1, 0};
+        const auto indirect = render(lit, {}, &environment);
+        save(indirect, 32, 32, images / "mesh-native-ibl.ppm");
+        require(indirect[16 * 32 + 16] != dark[16 * 32 + 16] &&
+                    indirect[16 * 32 + 16][1] > indirect[16 * 32 + 16][0] &&
+                    indirect[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255},
+                "Native IBL did not illuminate a mesh without punctual lights");
+        environment.intensity = 0;
+        require(render(lit, {}, &environment) == dark, "Disabled IBL still contributed light");
+        environment.intensity = 1;
+        environment.rotation = 1.3;
+        const auto rotated = render(lit, {}, &environment);
+        for (unsigned channel = 0; channel < 3; ++channel)
+            require(std::abs(int(rotated[16 * 32 + 16][channel]) -
+                             int(indirect[16 * 32 + 16][channel])) <= 1,
+                    "Constant environment changed radiance with rotation");
+        // Reset SRBs to default maps before closing this derived-resource owner.
+        render(lit);
+        environments.submit();
+        maps = {};
+        same = {};
+        environments.unload(cpu.identity());
+        context->WaitForIdle();
+        environments.collect();
+        require(environments.statistics().payload_bytes == 0,
+                "Environment resources failed to retire");
+    }
     const auto illuminated = render(lit, std::span(&light, 1));
     const auto pixel = illuminated[16 * 32 + 16];
     require(pixel[1] > pixel[0] && pixel[0] > pixel[2] && pixel[2] > 0 && pixel[3] == 255,
@@ -310,4 +366,45 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         missing_frame_rejected = true;
     }
     require(missing_frame_rejected, "Anisotropic material accepted a mesh with no tangent space");
+    {
+        forge::MaterialData layered;
+        layered.model = "forge.gltf.metallic-roughness.v1";
+        const auto declaration = forge::prepare_pbr_material(layered);
+        forge::MeshDraw::Textures textures;
+        unsigned count = 0;
+        for (const auto& [role, layout] : declaration.layout.textures) {
+            if (role == "transmissionTexture" || role == "thicknessTexture")
+                continue;
+            auto& slot = layered.textures[role];
+            slot.semantic = layout.semantic;
+            slot.sampler.lod_bias = .01f * count++;
+            forge::TextureData tex;
+            tex.width = tex.height = 1;
+            tex.semantic = layout.semantic;
+            tex.format = layout.semantic == forge::TextureSemantic::Color
+                             ? forge::TextureFormat::RGBA8Srgb
+                             : forge::TextureFormat::RGBA8;
+            tex.subresources = {std::vector<std::byte>(4, std::byte{255})};
+            if (layout.semantic == forge::TextureSemantic::Normal)
+                tex.subresources[0][0] = tex.subresources[0][1] = std::byte{128};
+            auto native = forge::upload_texture(presentation.device(), tex);
+            textures[role] = native->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        }
+        layered.parameters["clearcoatFactor"] = {forge::MaterialParameterType::Scalar, {.3f}};
+        layered.parameters["clearcoatRoughnessFactor"] = {forge::MaterialParameterType::Scalar,
+                                                          {.4f}};
+        layered.parameters["iridescenceFactor"] = {forge::MaterialParameterType::Scalar, {.5f}};
+        layered.parameters["sheenColorFactor"] = {forge::MaterialParameterType::LinearColor3,
+                                                  {.3f, .2f, .1f}};
+        layered.parameters["sheenRoughnessFactor"] = {forge::MaterialParameterType::Scalar, {.6f}};
+        layered.parameters["anisotropyStrength"] = {forge::MaterialParameterType::Scalar, {.5f}};
+        forge::MeshDraw all(presentation, context, opposite_gpu.lods[0].parts[0], layered, textures,
+                            TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        const auto image = render(all, std::span(&light, 1));
+        save(image, 32, 32, images / "mesh-all-reflection-textures.ppm");
+        require(count == 15 &&
+                    image[16 * 32 + 16] != std::array<unsigned char, 4>{255, 0, 255, 255} &&
+                    image[16 * 32 + 16] != std::array<unsigned char, 4>{0, 0, 0, 255},
+                "Combined material textures/samplers/layers failed native shading");
+    }
 }
