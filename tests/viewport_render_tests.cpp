@@ -169,6 +169,8 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "mesh_vertex_fetch_tests.hpp"
 #include "presentation_diligent_tests.hpp"
 #include "punctual_light_tests.hpp"
+#include "shadow_render_tests.hpp"
+#include "shadow_view_tests.hpp"
 #include "surface_frame_tests.hpp"
 #include "texture_gpu_tests.hpp"
 int main(int argc, char** argv) {
@@ -246,6 +248,8 @@ int main(int argc, char** argv) {
         check_mesh_draw(presentation, context, images);
         check_display_resolve(presentation, context, images);
         check_frame_renderer(presentation, context, images);
+        check_shadow_views(presentation);
+        check_shadow_render(presentation, context, images);
         check_gpu_residency(presentation, context);
         check_texture_upload(presentation, context);
         check_native_pbr(presentation, context);

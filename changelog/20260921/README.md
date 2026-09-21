@@ -211,3 +211,25 @@
 - Corrected binding code and the resize regression pass the full local native C++
   syntax harness. Formatting and whitespace checks pass. These checks do not replace
   the queued D3D12 pixel and SDK execution checks.
+
+
+### Shadows — implementation and pending native acceptance
+
+- Connect a shared shadow pass to Scene and authored Game cameras using pinned
+  Diligent cascade allocation/fitting and PCF. Add spot maps and six point faces,
+  layer filtering, casting/receiving flags and structured per-light diagnostics.
+- Reuse mesh vertex fetch/full-affine/winding for depth draws. Match alpha-mask
+  base alpha/cutoff; blended materials do not cast opaque depth shadows.
+- Add camera-relative receiver matrices, off-camera directional caster depth
+  coverage, absolute texel snapping and zero-near orthographic fitting. Correct
+  perspective shadow Z/W in the FORGE adapter without modifying pinned upstream.
+- Add Scene lighting shadow quality controls with shared authoring validation,
+  Scene Undo/Redo and preserved unknown metadata. Document the bounded resource
+  profile, internal cascade overlap/blending and far-distance fade.
+- Normal authoring/bounds checks pass2/2. Supplementary DXC compiles28 HLSL stages,
+  including masked shadow programs. New native pixel fixtures and strict sanitizer
+  execution remain pending; no new numbered Windows package is allocated.
+- Strict ASan/UBSan/LSan authoring/bounds checks pass2/2 in3.43s with leak detection
+  enabled. The final28-stage HLSL check, native C++ syntax, editor UI syntax,
+  manual3/3 and repository formatting checks pass. Windows shadow pixel execution
+  remains pending; these local checks are not desktop acceptance.

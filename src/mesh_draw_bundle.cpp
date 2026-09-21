@@ -33,6 +33,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
     default_material.model = "forge.gltf.metallic-roughness.v1";
     for (const auto& lod : mesh_.get().lods) {
         auto& output = lods_.emplace_back();
+        auto& shadows = shadow_lods_.emplace_back();
         auto& info = info_.emplace_back();
         for (const auto& part : lod.parts) {
             const auto& binding = *bindings.at(part.material_slot);
@@ -51,9 +52,27 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             }
             output.push_back(std::make_unique<MeshDraw>(presentation, context, part, *values,
                                                         native_textures, color, depth));
+            // Blended surfaces do not have a single opaque shadow depth. Masked
+            // surfaces evaluate the same base alpha and cutoff as their color pass.
+            shadows.push_back(values->alpha == MaterialAlpha::Blend
+                                  ? nullptr
+                                  : std::make_unique<MeshDraw>(
+                                        presentation, context, part, *values, native_textures,
+                                        Diligent::TEX_FORMAT_UNKNOWN, depth));
             info.push_back({values->alpha, binding.material.id, part.bounds});
         }
     }
+}
+void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const AffineTransform& world,
+                                 const CameraView& camera, unsigned lod) {
+    (void)mesh_.get();
+    for (const auto& [key, texture] : textures_) {
+        (void)key;
+        (void)texture.get();
+    }
+    for (auto& part : shadow_lods_.at(lod))
+        if (part)
+            part->draw(context, world, camera, {});
 }
 void MeshDrawBundle::environment(const EnvironmentLease& lease) {
     const auto* maps = lease ? &lease.get() : nullptr;
@@ -63,6 +82,11 @@ void MeshDrawBundle::environment(const EnvironmentLease& lease) {
         for (auto& part : lod)
             part->bind_environment(maps);
     environment_ = lease;
+}
+void MeshDrawBundle::shadows(const ShadowLighting* lighting) {
+    for (auto& lod : lods_)
+        for (auto& part : lod)
+            part->bind_shadows(lighting);
 }
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
@@ -75,7 +99,8 @@ void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransfo
 void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTransform& world,
                                const CameraView& camera, std::span<const LightView> lights,
                                unsigned lod, unsigned part, const EnvironmentLighting* environment,
-                               const std::array<float, 3>* legacy_tint) {
+                               const std::array<float, 3>* legacy_tint,
+                               const ShadowLighting* shadows, std::span<const int> shadow_slots) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -83,6 +108,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
         (void)key;
         (void)texture.get();
     }
-    selected->draw(context, world, camera, lights, environment, legacy_tint);
+    selected->draw(context, world, camera, lights, environment, legacy_tint, shadows, shadow_slots);
 }
 } // namespace forge

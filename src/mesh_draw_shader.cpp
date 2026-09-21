@@ -19,7 +19,8 @@ float4 ForgeProject(float3 p) {
 }
 )";
 } // namespace
-MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile) {
+MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
+                                bool shadow_pass) {
     const auto& source = profile.values;
     // These checks remain until the full extended lighting/pass consumer is wired.
     // Never render authored extension controls as if ignored values were supported.
@@ -72,6 +73,19 @@ ForgeVarying main(uint id:SV_VertexID) {
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
     )" + "[unroll]for(uint i=0;i<" +
                            std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
+    if (shadow_pass) {
+        std::string depth = varyings + material.source + "void main(ForgeVarying input) {\n";
+        if (source.alpha == MaterialAlpha::Mask) {
+            depth += "float alpha=ForgeParameter_baseColorFactor().a*input.Color.a;\n";
+            for (const auto& slot : material.textures)
+                if (slot.role == "baseColorTexture" || slot.role == "diffuseTexture")
+                    depth += "bool valid;alpha*=ForgeSample_" + slot.role + "(input.UV[" +
+                             std::to_string(slot.uv_slot) + "],valid).a;if(!valid)discard;\n";
+            depth += "if(alpha<ForgeAlphaCutoff())discard;\n";
+        }
+        depth += "}\n";
+        return {vs, depth, material, false};
+    }
     std::string ps =
         "#define USE_IBL 1\n#define USE_HDR_IBL_CUBEMAPS 1\n#define TEX_COLOR_CONVERSION_MODE 0\n";
     ps += std::string("#define ENABLE_CLEAR_COAT ") +
@@ -87,9 +101,10 @@ ForgeVarying main(uint id:SV_VertexID) {
     if (sheen)
         ps += "Texture2D g_ForgeSheen;\n";
     if (profile.workflow != PbrWorkflow::Unlit)
-        ps += "Texture2D g_ForgeGGX;SamplerState g_ForgeLightSampler;"
-              "TextureCube g_ForgeDiffuse,g_ForgeSpecular,g_ForgeCharlie;"
-              "cbuffer ForgeEnvironment {float4 g_Environment;};\n";
+        ps +=
+            "#include \"ForgeShadows.fxh\"\nTexture2D g_ForgeGGX;SamplerState g_ForgeLightSampler;"
+            "TextureCube g_ForgeDiffuse,g_ForgeSpecular,g_ForgeCharlie;"
+            "cbuffer ForgeEnvironment {float4 g_Environment;};\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
           "];};\n";
     ps += R"(
@@ -251,11 +266,17 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         sample("emissiveTexture", "s.Emissive*=sample_emissiveTexture.rgb");
         ps += R"(
     SurfaceLightingInfo lighting=GetDefaultSurfaceLightingInfo();
-    [loop]for(uint i=0;i<(uint)g_Object[13].x;i++)valid=ForgeApplyPunctualLight(s,g_Lights[i],
+    [loop]for(uint i=0;i<(uint)g_Object[13].x;i++) {
+        PBRLightAttribs light=g_Lights[i];
+        float visibility=ForgeShadowVisibility(light.ShadowMapIndex,input.World,
+                                               geometric*face,dot(g_Object[8].xyz,input.World));
+        light.IntensityR*=visibility;light.IntensityG*=visibility;light.IntensityB*=visibility;
+        valid=ForgeApplyPunctualLight(s,light,
 #if ENABLE_SHEEN
         g_ForgeSheen,g_ForgeLightSampler,
 #endif
         lighting)&&valid;
+    }
     if(g_Environment.x>0) {
         ApplyIBL(s,g_Environment.y,g_Environment.zw,
                  g_ForgeGGX,g_ForgeLightSampler,g_ForgeDiffuse,g_ForgeLightSampler,

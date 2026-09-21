@@ -39,6 +39,37 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
             result.environment.sky = env.at("sky").template get<bool>();
         }
     }
+    if (settings.contains("shadows")) {
+        const auto& shadows = settings.at("shadows");
+        if (!shadows.is_object())
+            throw std::runtime_error("Scene shadows must be an object");
+        auto count = [&](const char* key, unsigned fallback, unsigned minimum, unsigned maximum) {
+            if (!shadows.contains(key))
+                return fallback;
+            const auto& value = shadows.at(key);
+            if ((!value.is_number_unsigned() && !value.is_number_integer()) ||
+                value.template get<double>() < minimum || value.template get<double>() > maximum)
+                throw std::runtime_error(
+                    std::string("Shadow setting exceeds the render profile: ") + key);
+            return value.template get<unsigned>();
+        };
+        // Native 3x3 PCF plus texel snapping needs a four-texel total margin.
+        result.shadows.resolution = count("resolution", result.shadows.resolution, 5, UINT32_MAX);
+        result.shadows.cascades =
+            count("cascades", result.shadows.cascades, 1, shadow_cascade_limit);
+        result.shadows.max_lights =
+            count("max_lights", result.shadows.max_lights, 1, shadow_light_limit);
+        result.shadows.distance = number(shadows, "distance", result.shadows.distance);
+        if (result.shadows.distance < std::numeric_limits<float>::min() ||
+            result.shadows.distance > std::numeric_limits<float>::max())
+            throw std::runtime_error(
+                "Shadow distance must be a positive normal finite float for GPU shadow projection");
+        if (shadows.contains("enabled")) {
+            if (!shadows.at("enabled").is_boolean())
+                throw std::runtime_error("Shadow enabled must be boolean");
+            result.shadows.enabled = shadows.at("enabled").template get<bool>();
+        }
+    }
     return result;
 }
 } // namespace forge

@@ -282,6 +282,11 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             camera_world.m[axis * 4 + 3] = eye[axis];
         }
         const auto view = camera_view(lens, camera_world, width, height);
+        meshes_->shadows(*mesh_scene_, view, UINT32_MAX);
+        auto* scene_target = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        context->SetRenderTargets(1, &scene_target,
+                                  depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
+                                  RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Diligent::Viewport area{0.f, 0.f, float(width), float(height), 0.f, 1.f};
         context->SetViewports(1, &area, width, height);
         sky_.draw(context, view, mesh_scene_->settings.environment);

@@ -579,3 +579,58 @@ variables. Diligent **mutable** means assign once per shader-resource binding;
 it does not permit ordinary live replacement. Fixed buffer identities remain
 mutable while their mapped contents change. Do not use an unsynchronized mutable
 `ALLOW_OVERWRITE` to replace an in-flight environment or resized HDR target.
+
+
+## Shadow integration — native validation in progress
+
+`ShadowRenderer` is shared by Scene and authored Game camera composition. It owns
+only transient shadow resources and camera-relative receiver packets. Existing mesh
+bundles provide the depth pass through the same vertex fetch, affine transform and
+winding selection as their color pass. Alpha-mask materials share base-alpha/cutoff;
+alpha blend does not pretend to provide opaque shadow depth. Cast/receive flags and
+light/mesh/camera layers remain separate. Off-camera casters whose light-space XY
+bounds overlap a directional cascade extend its depth extent.
+
+The pinned FX `ShadowMapManager` allocates array textures and fits directional
+cascades. Perspective fitting uses its stabilized extents; orthographic fitting uses
+native inverse-frustum bounds and uniform depth intervals. Native logarithmic
+splitting always evaluates far/near, so the adapter supplies a finite positive native
+range then overrides orthographic intervals. This supports authored orthographic
+near=0 without changing the camera. A positive normal float bounds the native first
+fit near value; receiver interval semantics still begin at zero.
+
+Native center callbacks receive a *previously rounded* center. To avoid double
+rounding in a large world, FORGE first obtains the unrounded native fit and then
+snaps once using the double-precision absolute light-space origin remainder. The
+native fitting coordinates stay camera-relative. Twenty-five subtexel camera moves
+are included in the GPU-host math fixture; native execution is pending.
+
+Spot maps and six point faces use existing CameraView projection conventions.
+Receiver transforms are composed in double precision before float admission. The
+pinned PBR convenience shadow path divides XY by W but leaves Z undivided; that is
+not valid for perspective spot/point projections. `ForgeShadows.fxh` divides all XYZ
+by W and calls pinned native `FilterShadowMapFixedPCF` with a 3x3 filter. Punctual
+visibility multiplies incident light before the existing native BRDF, without a
+vendor patch. Depth bias is in normalized shadow depth; normal bias is in metres.
+Neighboring cascades fit and blend a10% depth overlap. The last cascade fades over its
+final tenth. Shadow maps are derived, never serialized or inherited authored truth.
+
+Scene settings version1 adds an optional `shadows` object (enabled, resolution,
+cascades, max_lights, distance). Existing documents retain defaults. Known-field
+patches preserve unknown metadata and use the existing validation/history operation.
+One camera selects up to8 shadow lights and256 MiB of D32 payload; texture dimensions
+must fit device limits. These are logical resource-profile budgets, not a report of
+total driver VRAM or in-flight allocation overhead. Failed preparation emits an
+entity-addressed diagnostic and does not select an incomplete shadow. Native
+allocation is not a guarantee of recovery from driver/device loss or process OOM.
+
+Shadow SRV arrays use dynamic bindings. Every parity/LOD binding, including invisible
+meshes, is refreshed so obsolete maps cannot remain owned by unused bindings. One
+comparison sampler serves the maps; material sampler semantics stay unchanged.
+The additional comparison sampler requires checking the complete device binding
+profile rather than assuming the prior16-sampler worst case still applies.
+
+Normal authoring/bounds regressions pass2/2. All28 generated HLSL stages pass the
+supplementary DXC check, including masked depth programs. Native D3D12 tests exercise
+all three light kinds, alpha rejection, mirrored casters, large origins, oversized
+allocation rejection and camera fitting. Their Windows execution remains pending.

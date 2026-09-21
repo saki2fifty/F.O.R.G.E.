@@ -18,6 +18,7 @@ class DiligentPresentation {
     void clear_cache(); // Active native objects remain valid through their strong references.
     Diligent::PBR_Renderer& pbr(Diligent::IDeviceContext*);
     Diligent::ITextureView* black_environment(Diligent::IDeviceContext*);
+    Diligent::ITextureView* empty_shadow(Diligent::IDeviceContext*);
     std::uint64_t cache_hits() const { return hits_; }
     std::uint64_t cache_misses() const { return misses_; }
 
@@ -27,6 +28,7 @@ class DiligentPresentation {
     Diligent::RefCntAutoPtr<Diligent::IRenderStateCache> cache_;
     std::unique_ptr<Diligent::PBR_Renderer> pbr_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> black_environment_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> empty_shadow_;
     std::uint64_t hits_{}, misses_{};
     unsigned epoch_creations_{};
 };

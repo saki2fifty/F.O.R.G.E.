@@ -148,6 +148,9 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             area.width > width - area.x || area.height > height - area.y)
             throw std::runtime_error("Prepared camera viewport is outside its target");
         validate_camera(camera.settings);
+        if (meshes_)
+            meshes_->shadows(scene, camera.view, camera.settings.layers);
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Diligent::Viewport viewport{
             float(area.x), float(area.y), float(area.width), float(area.height), 0, 1};
         context->SetViewports(1, &viewport, width, height);

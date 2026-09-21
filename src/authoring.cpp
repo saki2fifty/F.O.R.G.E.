@@ -7,6 +7,7 @@
 #include <forge/authoring.hpp>
 #include <forge/entity_recipes.hpp>
 #include <forge/geometry.hpp>
+#include <forge/scene_render_settings.hpp>
 #include <set>
 namespace forge {
 namespace {
@@ -189,7 +190,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             rendering = {{"version", 1u}};
         // Patch known fields and retain unknown future/plugin metadata verbatim.
         for (const auto& [key, value] : a.items()) {
-            if (key == "environment") {
+            if (key == "environment" || key == "shadows") {
                 auto& env = rendering[key];
                 if (env.is_null())
                     env = Json::object();
@@ -465,9 +466,19 @@ Json authoring_commands() {
                             {"input_schema", object(properties, required)}});
     };
     add("scene.rendering.set", "Scene lighting and display",
-        "Change scene environment or game exposure in one undoable scene operation. Missing fields "
+        "Change scene lighting, shadows or game exposure in one undoable scene operation. Missing "
+        "fields "
         "remain unchanged.",
         {{"exposure", number(-20, 20)},
+         {"shadows",
+          object({{"enabled", {{"type", "boolean"}}},
+                  {"resolution", {{"type", "integer"}, {"minimum", 5}, {"maximum", UINT32_MAX}}},
+                  {"cascades",
+                   {{"type", "integer"}, {"minimum", 1}, {"maximum", shadow_cascade_limit}}},
+                  {"max_lights",
+                   {{"type", "integer"}, {"minimum", 1}, {"maximum", shadow_light_limit}}},
+                  {"distance",
+                   number(std::numeric_limits<float>::min(), std::numeric_limits<float>::max())}})},
          {"environment", object({{"texture", {{"anyOf", {text_type(), {{"type", "null"}}}}}},
                                  {"intensity", number(0, std::numeric_limits<float>::max())},
                                  {"rotation", number(-std::numeric_limits<double>::max(),

@@ -59,6 +59,37 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                 commit({{"exposure", exposure}});
             help("Game-camera exposure from -20 to +20 stops. +1 doubles linear light before tone "
                  "mapping. Enter commits.");
+            heading("Shadows", "Scene-wide shadow quality. Individual lights and mesh renderers "
+                               "control casting and receiving in the Inspector.");
+            bool enabled = settings.shadows.enabled;
+            if (ImGui::Checkbox("Enable shadows", &enabled))
+                commit({{"shadows", {{"enabled", enabled}}}});
+            help("Enable directional, spot and point-light shadow maps. Each light must also have "
+                 "Cast shadows enabled. Scene Save and Undo include these settings.");
+            auto integer = [&](const char* label, const char* key, unsigned value,
+                               const char* tip) {
+                auto edited = value;
+                if (ImGui::InputScalar(label, ImGuiDataType_U32, &edited, nullptr, nullptr, "%u",
+                                       ImGuiInputTextFlags_EnterReturnsTrue))
+                    commit({{"shadows", {{key, edited}}}});
+                help(tip);
+            };
+            integer("Map resolution", "resolution", settings.shadows.resolution,
+                    "Pixels per shadow-map side. Higher values improve detail and use more GPU "
+                    "memory. Device limits and a 256 MiB depth-payload budget are checked before "
+                    "allocation.");
+            integer("Directional cascades", "cascades", settings.shadows.cascades,
+                    "1–8 depth ranges per directional light. More ranges preserve nearby detail "
+                    "over longer distances. Spot lights use one map; point lights use six faces.");
+            integer("Maximum shadow lights", "max_lights", settings.shadows.max_lights,
+                    "1–8 shadow-casting lights per camera. Additional lights still illuminate the "
+                    "scene and report a shadow-budget diagnostic in Problems.");
+            double distance = settings.shadows.distance;
+            if (ImGui::InputDouble("Shadow distance (m)", &distance, 0, 0, "%.3f",
+                                   ImGuiInputTextFlags_EnterReturnsTrue))
+                commit({{"shadows", {{"distance", distance}}}});
+            help("Maximum camera depth for directional shadows, fading at the far end. Also bounds "
+                 "point and spot shadows when the light has no finite range. Enter commits.");
         } catch (const std::exception& e) {
             field_error(e.what());
             report_error("scene.lighting", e.what());

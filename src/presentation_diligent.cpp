@@ -93,4 +93,23 @@ ITextureView* DiligentPresentation::black_environment(IDeviceContext* context) {
     }
     return black_environment_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
+ITextureView* DiligentPresentation::empty_shadow(IDeviceContext* context) {
+    if (!empty_shadow_) {
+        TextureDesc desc;
+        desc.Name = "FORGE disabled shadow";
+        desc.Type = RESOURCE_DIM_TEX_2D_ARRAY;
+        desc.Width = desc.Height = desc.ArraySize = 1;
+        desc.Format = TEX_FORMAT_D32_FLOAT;
+        desc.BindFlags = BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE;
+        RefCntAutoPtr<ITexture> candidate;
+        device_->CreateTexture(desc, nullptr, &candidate);
+        if (!candidate)
+            throw std::runtime_error("Disabled shadow allocation failed");
+        context->ClearDepthStencil(candidate->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
+                                   CLEAR_DEPTH_FLAG, 1, 0,
+                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        empty_shadow_ = std::move(candidate);
+    }
+    return empty_shadow_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+}
 } // namespace forge

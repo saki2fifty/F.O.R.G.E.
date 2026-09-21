@@ -57,16 +57,37 @@ inline void test_render_scene() {
     auto unknown = scene.document();
     unknown["rendering"]["plugin"] = {{"unrecognized", 42}};
     unknown["rendering"]["environment"]["plugin"] = "retained";
+    unknown["rendering"]["shadows"] = {{"plugin", "retained"}};
     scene.reset(unknown);
     authoring_command(scene, "scene.rendering.set", {{"environment", {{"intensity", 3}}}});
     require(scene.document()["rendering"]["plugin"] == unknown["rendering"]["plugin"] &&
                 scene.document()["rendering"]["environment"]["plugin"] == "retained" &&
                 scene_render_settings(scene.document()).environment.texture.id == environment,
             "Environment patch rewrote unrelated authored metadata");
+    const auto before_shadows = scene.document();
+    authoring_command(scene, "scene.rendering.set",
+                      {{"shadows",
+                        {{"resolution", 2048},
+                         {"cascades", 3},
+                         {"max_lights", 2},
+                         {"distance", 250},
+                         {"enabled", false}}}});
+    const auto shadow_settings = scene_render_settings(scene.document()).shadows;
+    require(shadow_settings.resolution == 2048 && shadow_settings.cascades == 3 &&
+                shadow_settings.max_lights == 2 && shadow_settings.distance == 250 &&
+                !shadow_settings.enabled &&
+                scene.document()["rendering"]["shadows"]["plugin"] == "retained",
+            "Shadow settings patch lost authored values or opaque metadata");
+    require(scene.undo() && scene.document() == before_shadows && scene.redo() &&
+                scene_render_settings(scene.document()).shadows == shadow_settings,
+            "Shadow settings did not round trip through scene history");
     const auto good_settings = scene.document();
     for (const auto& patch :
          {Json{{"exposure", 21}}, Json{{"environment", {{"intensity", -1}}}},
-          Json{{"environment", {{"texture", "wrong-id"}}}}, Json{{"environment", {{"sky", 1}}}}}) {
+          Json{{"environment", {{"texture", "wrong-id"}}}}, Json{{"environment", {{"sky", 1}}}},
+          Json{{"shadows", {{"resolution", 4}}}}, Json{{"shadows", {{"cascades", 9}}}},
+          Json{{"shadows", {{"max_lights", 0}}}}, Json{{"shadows", {{"distance", 0}}}},
+          Json{{"shadows", {{"resolution", 1024.5}}}}, Json{{"shadows", {{"enabled", 1}}}}}) {
         rejects([&] { authoring_command(scene, "scene.rendering.set", patch); });
         require(scene.document() == good_settings, "Rejected environment edit changed scene");
     }

@@ -47,6 +47,7 @@ MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
     : host_(std::move(host)), color_(color) {
     if (!host_)
         throw std::runtime_error("Mesh scene requires a presentation resource host");
+    shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
 }
 void MeshSceneRenderer::report(EntityId entity, const std::string& text) {
     if (diagnostics_.size() >= 256) {
@@ -227,6 +228,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         MeshDrawBundle* bundle;
         unsigned lod;
         std::vector<LightView> lights;
+        std::vector<int> shadow_slots;
     };
     struct Item {
         RenderSortKey key;
@@ -251,13 +253,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (unsigned i = 0; i < entry.thresholds.size(); ++i)
                 if (coverage <= entry.thresholds[i])
                     lod = i;
-            Object object{&mesh, entry.ready.get(), lod, {}};
+            Object object{&mesh, entry.ready.get(), lod, {}, {}};
             for (const auto& light : scene.lights)
                 if (light.light.layers & mesh.renderer.layers & layers) {
                     if (object.lights.size() == mesh_draw_light_limit)
                         throw std::runtime_error(
                             "Visible light list exceeds the current draw profile");
                     object.lights.push_back(light.light);
+                    object.shadow_slots.push_back(
+                        mesh.renderer.receive_shadows ? shadows_->selection(light.entity) : -1);
                 }
             const auto parts = entry.ready->parts(lod);
             for (unsigned i = 0; i < parts.size(); ++i) {
@@ -293,10 +297,57 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             object.bundle->draw_part(
                 host_->context_, object.mesh->world, camera, object.lights, object.lod,
                 item.key.part, environment_ready_ ? &lighting : nullptr,
-                object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr);
+                object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
+                &shadows_->lighting(), object.shadow_slots);
         } catch (const std::exception& e) {
             report(object.mesh->entity, e.what());
         }
+    }
+}
+void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& camera,
+                                std::uint32_t layers) {
+    host_->check_thread();
+    if (scene.scene != scene_)
+        throw std::runtime_error("Shadow scene differs from prepared scene");
+    struct Caster {
+        const RenderMesh* source;
+        MeshDrawBundle* bundle;
+        RenderBounds bounds;
+    };
+    std::vector<Caster> casters;
+    std::vector<ShadowCasterBounds> bounds;
+    for (const auto& mesh : scene.meshes) {
+        if (!mesh.renderer.cast_shadows || !(mesh.renderer.layers & layers))
+            continue;
+        const auto found = entries_.find(mesh.entity);
+        if (found == entries_.end() || !found->second.ready)
+            continue;
+        try {
+            auto world_bounds = transform_bounds(found->second.bounds, mesh.world);
+            casters.push_back({&mesh, found->second.ready.get(), world_bounds});
+            bounds.push_back({world_bounds, mesh.renderer.layers});
+        } catch (const std::exception& error) {
+            report(mesh.entity, error.what());
+        }
+    }
+    shadows_->render(
+        host_->context_, scene, camera, layers, bounds,
+        [&](const CameraView& view, std::uint32_t mask) {
+            for (const auto& caster : casters)
+                if ((caster.source->renderer.layers & mask) && bounds_visible(caster.bounds, view))
+                    caster.bundle->draw_shadow(host_->context_, caster.source->world, view);
+        });
+    for (const auto& error : shadows_->diagnostics())
+        if (diagnostics_.size() < 256)
+            diagnostics_.push_back(error);
+        else
+            ++omitted_;
+    // Replace invisible/unused parity bindings too: a previous camera's maps must
+    // not remain retained indefinitely by a mesh that leaves the view.
+    for (auto& [entity, entry] : entries_) {
+        (void)entity;
+        if (entry.ready)
+            entry.ready->shadows(&shadows_->lighting());
     }
 }
 } // namespace forge

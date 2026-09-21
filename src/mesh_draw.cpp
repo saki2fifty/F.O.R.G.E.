@@ -41,12 +41,12 @@ using Row = std::array<float, 4>;
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format)
-    : mesh_(mesh) {
+    : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
     const auto profile = prepare_pbr_material(source);
     const auto fetch = mesh_vertex_fetch(mesh, profile);
     require(!fetch.skin && mesh.morph_targets.empty(),
             "deformed draw requires an admitted pose binding");
-    const auto program = mesh_draw_shader(fetch, profile);
+    const auto program = mesh_draw_shader(fetch, profile, shadow_pass_);
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
@@ -65,12 +65,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     auto vertex = compile(SHADER_TYPE_VERTEX, program.vertex),
          pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     auto* device = presentation.device();
-    const bool lit = profile.workflow != PbrWorkflow::Unlit;
+    const bool lit = !shadow_pass_ && profile.workflow != PbrWorkflow::Unlit;
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
         ggx = presentation.pbr(context).GetPreintegratedGGX_SRV();
         black_environment_ = presentation.black_environment(context);
         environment_ = buffer(device, "FORGE environment lighting", sizeof(Row));
+        shadows_ = buffer(device, "FORGE shadow receiver", sizeof(ShadowLighting::values));
+        empty_shadow_ = presentation.empty_shadow(context);
     }
     RefCntAutoPtr<ITextureView> sheen;
     if (program.sheen) {
@@ -89,22 +91,23 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     const ShaderResourceVariableDesc environment_variables[]{
         {SHADER_TYPE_PIXEL, "g_ForgeDiffuse", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ForgeSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ForgeShadows", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ForgeCharlie", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
     if (lit) {
         ci.PSODesc.ResourceLayout.Variables = environment_variables;
-        ci.PSODesc.ResourceLayout.NumVariables = program.sheen ? 3u : 2u;
+        ci.PSODesc.ResourceLayout.NumVariables = program.sheen ? 4u : 3u;
     }
 
     ci.pVS = vertex;
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;
-    g.NumRenderTargets = 1;
+    g.NumRenderTargets = shadow_pass_ ? 0 : 1;
     g.RTVFormats[0] = color_format;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
-    g.DepthStencilDesc.DepthEnable = source.depth_test;
-    g.DepthStencilDesc.DepthWriteEnable = source.depth_write;
-    if (source.alpha == MaterialAlpha::Blend) {
+    g.DepthStencilDesc.DepthEnable = shadow_pass_ || source.depth_test;
+    g.DepthStencilDesc.DepthWriteEnable = shadow_pass_ || source.depth_write;
+    if (!shadow_pass_ && source.alpha == MaterialAlpha::Blend) {
         auto& b = g.BlendDesc.RenderTargets[0];
         b.BlendEnable = true;
         b.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
@@ -130,9 +133,21 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         bind(SHADER_TYPE_VERTEX, "ForgeObject", object_);
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeLights", lights_, false);
-        bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values);
+        bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values, !shadow_pass_);
         if (lit) {
             bind(SHADER_TYPE_PIXEL, "ForgeEnvironment", environment_);
+            bind(SHADER_TYPE_PIXEL, "ForgeShadows", shadows_);
+            SamplerDesc comparison;
+            comparison.MinFilter = comparison.MagFilter = FILTER_TYPE_COMPARISON_LINEAR;
+            comparison.MipFilter = FILTER_TYPE_COMPARISON_POINT;
+            comparison.ComparisonFunc = COMPARISON_FUNC_LESS_EQUAL;
+            comparison.AddressU = comparison.AddressV = comparison.AddressW =
+                TEXTURE_ADDRESS_BORDER;
+            std::fill(std::begin(comparison.BorderColor), std::end(comparison.BorderColor), 1.f);
+            RefCntAutoPtr<ISampler> shadow_sampler;
+            device->CreateSampler(comparison, &shadow_sampler);
+            require(bool(shadow_sampler), "shadow comparison sampler allocation failed");
+            bind(SHADER_TYPE_PIXEL, "g_ForgeShadowSampler", shadow_sampler);
             SamplerDesc sampler;
             sampler.MinFilter = sampler.MagFilter = sampler.MipFilter = FILTER_TYPE_LINEAR;
             sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
@@ -177,11 +192,26 @@ void MeshDraw::bind_environment(const GpuEnvironment* maps) {
             if (auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, name))
                 variable->Set(value);
 }
+void MeshDraw::bind_shadows(const ShadowLighting* shadows) {
+    if (!shadows_)
+        return;
+    std::array<IDeviceObject*, shadow_light_limit> maps;
+    for (unsigned i = 0; i < shadow_light_limit; ++i)
+        maps[i] = shadows && shadows->maps[i] ? shadows->maps[i].RawPtr() : empty_shadow_.RawPtr();
+    for (auto& binding : bindings_) {
+        auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeShadows");
+        require(variable, "shadow resource array unavailable");
+        variable->SetArray(maps.data(), 0, shadow_light_limit);
+    }
+}
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const CameraView& view,
                     std::span<const LightView> lights, const EnvironmentLighting* environment,
-                    const std::array<float, 3>* legacy_tint) {
+                    const std::array<float, 3>* legacy_tint, const ShadowLighting* shadows,
+                    std::span<const int> shadow_slots) {
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
+    require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
+            "shadow selections differ from the selected light list");
     std::array<Row, 15> object{};
     if (legacy_tint) {
         for (unsigned i = 0; i < 3; ++i) {
@@ -221,7 +251,9 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
             rows[1][c] = gpu(light.direction[c]);
             rows[2][c] = gpu(double(light.color[c]) * light.intensity);
         }
-        rows[1][3] = std::bit_cast<float>(std::int32_t(-1));
+        const int slot = shadows && !shadow_slots.empty() ? shadow_slots[i] : -1;
+        require(slot >= -1 && slot < int(shadow_light_limit), "shadow light index out of range");
+        rows[1][3] = std::bit_cast<float>(std::int32_t(slot));
         const double range = light.range;
         rows[2][3] = gpu(range * range * range * range);
         require(range == 0 || rows[2][3] >= std::numeric_limits<float>::min(),
@@ -269,6 +301,17 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& world, const
               std::pair{"g_ForgeCharlie", charlie}})
             if (auto* variable = bindings_[index]->GetVariableByName(SHADER_TYPE_PIXEL, name))
                 variable->Set(value);
+    }
+    if (shadows_) {
+        {
+            MapHelper<Row> data(context, shadows_, MAP_WRITE, MAP_FLAG_DISCARD);
+            if (shadows)
+                std::copy(shadows->values.begin(), shadows->values.end(), static_cast<Row*>(data));
+            else
+                std::fill_n(static_cast<Row*>(data),
+                            shadow_light_limit * ShadowLighting::rows_per_light, Row{});
+        }
+        bind_shadows(shadows);
     }
     context->SetPipelineState(pipelines_[index]);
     context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
