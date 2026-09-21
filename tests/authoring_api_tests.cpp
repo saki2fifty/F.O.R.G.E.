@@ -1,5 +1,6 @@
 #include "entity_recipe_tests.hpp"
 #include "mesh_component_tests.hpp"
+#include "node_policy_tests.hpp"
 #include "ordered_hierarchy_tests.hpp"
 #include "relationship_tests.hpp"
 #include "render_scene_tests.hpp"
@@ -40,6 +41,7 @@ int main(int argc, char** argv) {
         test_mesh_component();
         test_render_views();
         test_render_scene();
+        test_node_policy();
         test_relationship_depth();
         test_entity_recipes();
         test_ordered_hierarchy();

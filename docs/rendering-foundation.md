@@ -888,3 +888,34 @@ visible with its current node transforms and the mesh's source-node morph defaul
 It does not rewrite transforms. Use **Pause** to hold the complete animated pose.
 Re-enabling Animator waits for the next successful fixed tick and then snaps to
 that tick's pose before normal interpolation resumes.
+
+
+## Structural visibility and selectability
+
+`NodeVisibility` (`forge.node_visibility.visible`) and `NodeSelectability`
+(`forge.node_selectability.selectable`) are independent optional native Flecs
+components. Both default to true. Their Meta bool members own validation, defaults,
+Inspector discovery and persistence; IsA retains normal component/property override
+intent. They own no resources or derived transforms and add no persistent identity.
+
+An effective policy is the conjunction of the entity's value and all structural
+ancestors. Spatial FollowStructure/Explicit/World does not change this chain. A
+missing component contributes true. Prefab declarations are not rendered but may
+still participate in an explicitly authored structural chain; native prefab
+inheritance has already been resolved in the effective snapshot. The bounded
+iterative resolver diagnoses malformed/cyclic/missing producer ancestry without
+recursion or scene mutation. Invalid policy suppresses its affected drawing/picking.
+
+Visibility suppresses meshes and lights, including their shadow contribution. It
+does not disable cameras, animation, physics, audio or selectability. The detached
+mesh record retains hidden geometry for selection; the shared renderer skips it in
+color and shadow queues. Selectability independently skips viewport ray selection,
+regardless of transparency/visibility; Hierarchy/API selection remains available.
+This is not a transform lock or implementation of KHR_interactivity event graphs.
+Imported false node flags become these authored components; source reimport does
+not rewrite an already placed scene hierarchy or its local policy.
+
+Rendering components Camera/Light/MeshRenderer and both node policies are marked
+optional in the existing shared component catalog. Core registration family does
+not imply that an authoring component is mandatory. ModelSource provenance stays
+internal; all edits use the existing scene command/revision/history boundary.

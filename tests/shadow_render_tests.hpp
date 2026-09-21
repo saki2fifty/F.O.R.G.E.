@@ -81,9 +81,31 @@ void check_shadow_render(forge::DiligentPresentation& presentation,
         Diligent::Viewport viewport{0, 0, 32, 32, 0, 1};
         context->SetViewports(1, &viewport, 32, 32);
         const int slot = renderer.selection(entity);
+        if (enabled) {
+            require(slot >= 0, "Shadow renderer did not select the requested light");
+            const auto& rows = renderer.lighting().values;
+            std::cout << "Shadow slot " << slot << " slices " << rows[40][0] << std::endl;
+            for (unsigned slice = 0; slice < unsigned(rows[40][0]); ++slice) {
+                std::array<float, 4> clip{};
+                for (unsigned row = 0; row < 4; ++row)
+                    clip[row] = rows[slice * 4 + row][2] * 4 + rows[slice * 4 + row][3];
+                std::cout << "  slice " << slice << " range " << rows[32 + slice][0] << ','
+                          << rows[32 + slice][1] << " receiver clip " << clip[0] << ',' << clip[1]
+                          << ',' << clip[2] << ',' << clip[3] << std::endl;
+            }
+        }
         receiver.draw(context, receiver_world, camera, std::span(&scene.lights[0].light, 1),
                       nullptr, nullptr, &renderer.lighting(), std::span(&slot, 1));
-        return readback(presentation.device(), context, rtv);
+        auto pixels = readback(presentation.device(), context, rtv);
+        if (enabled) {
+            const auto raw =
+                readback(presentation.device(), context, renderer.lighting().maps[slot]);
+            float minimum = 1;
+            for (auto pixel : raw)
+                minimum = std::min(minimum, std::bit_cast<float>(pixel));
+            std::cout << "  first shadow slice minimum depth " << minimum << std::endl;
+        }
+        return pixels;
     };
     for (auto kind : {LightKind::Directional, LightKind::Spot, LightKind::Point}) {
         light.kind = std::uint32_t(kind);
@@ -92,10 +114,13 @@ void check_shadow_render(forge::DiligentPresentation& presentation,
         const auto lit = render(caster, false);
         const auto shadowed = render(caster, true);
         const auto center = 16 * 32 + 16;
+        const auto suffix = std::to_string(unsigned(kind));
+        save(lit, 32, 32, images / ("shadow-lit-kind-" + suffix + ".ppm"));
+        save(shadowed, 32, 32, images / ("shadow-kind-" + suffix + ".ppm"));
+        std::cout << "Shadow kind " << suffix << ": lit=" << unsigned(lit[center][0])
+                  << ", shadowed=" << unsigned(shadowed[center][0]) << std::endl;
         require(lit[center][0] > 40 && shadowed[center][0] < lit[center][0] / 4,
                 "Shadow did not occlude the lit receiver at a large world origin");
-        const auto suffix = std::to_string(unsigned(kind));
-        save(shadowed, 32, 32, images / ("shadow-kind-" + suffix + ".ppm"));
         const auto transparent = render(cutout, true);
         require(transparent[center][0] == lit[center][0],
                 "Alpha-cutout caster made an opaque shadow");

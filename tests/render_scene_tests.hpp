@@ -144,7 +144,10 @@ inline void test_render_scene() {
     }
     partial = extract_render_scene(broken);
     const auto empty = prepare_game_cameras(partial, 800, 600);
-    require(partial.cameras.empty() && partial.lights.empty() && partial.meshes.empty() &&
+    require(partial.cameras.empty() && partial.lights.empty() && partial.meshes.size() == 3 &&
+                std::all_of(
+                    partial.meshes.begin(), partial.meshes.end(),
+                    [](const auto& mesh) { return !mesh.renderer.visible && mesh.selectable; }) &&
                 empty.cameras.empty() && empty.diagnostics.size() == 1 &&
                 empty.diagnostics[0].category == "render.camera.missing",
             "Disabled views were rendered or missing game camera silently substituted");

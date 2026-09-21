@@ -12,6 +12,16 @@ struct ModelSource {
     AssetRef<ModelNodeAsset> node;
     bool operator==(const ModelSource&) const = default;
 };
+// Authored local policy. Effective values also include structural ancestors,
+// independently of spatial binding and of native IsA component inheritance.
+struct NodeVisibility {
+    bool visible = true;
+    bool operator==(const NodeVisibility&) const = default;
+};
+struct NodeSelectability {
+    bool selectable = true;
+    bool operator==(const NodeSelectability&) const = default;
+};
 struct MaterialSlotOverride {
     std::string slot;
     // Explicit null chooses the built-in default. Absence follows the mesh.

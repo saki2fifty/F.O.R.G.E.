@@ -51,6 +51,76 @@ template <class T> T component(const Json& values, const char* name) {
     throw std::runtime_error("Render component is not registered");
 }
 } // namespace
+NodePolicies extract_node_policies(const Json& source) {
+    NodePolicies result;
+    const auto scene = source.at("asset_id").get<AssetId>();
+    const auto& entities = source.at("entities");
+    require(entities.is_array() && entities.size() <= 10000,
+            "Node policy snapshot exceeds the 10000-entity profile");
+    struct Entry {
+        EntityId parent;
+        NodePolicy own;
+        unsigned visit = 0;
+    };
+    std::map<EntityId, Entry> entries;
+    std::set<EntityId> identities;
+    for (const auto& row : entities) {
+        const auto id = row.at("id").get<EntityId>();
+        require(identities.insert(id).second, "Node policy snapshot repeats an entity identity");
+        auto& entry = entries[id];
+        try {
+            if (row.contains("parent") && !row.at("parent").is_null())
+                entry.parent = row.at("parent").get<EntityId>();
+            const auto& values = row.at("components");
+            require(values.is_object(), "Node policy components must be an object");
+            if (values.contains("forge.node_visibility"))
+                entry.own.visible =
+                    component<NodeVisibility>(values, "forge.node_visibility").visible;
+            if (values.contains("forge.node_selectability"))
+                entry.own.selectable =
+                    component<NodeSelectability>(values, "forge.node_selectability").selectable;
+        } catch (const std::exception& e) {
+            entry.own = {false, false, false};
+            report(result, diagnostic(scene, id, "render.node_policy.invalid", e.what()));
+        }
+    }
+    // Iterative DFS with memoization: no recursion proportional to an untrusted
+    // hierarchy, and shared ancestors are resolved only once.
+    std::vector<EntityId> path;
+    for (auto& [id, entry] : entries) {
+        if (entry.visit == 2)
+            continue;
+        path.clear();
+        EntityId cursor = id;
+        NodePolicy ancestor;
+        while (cursor) {
+            auto next = entries.find(cursor);
+            if (next == entries.end() || next->second.visit == 1) {
+                ancestor = {false, false, false};
+                report(result,
+                       diagnostic(scene, id, "render.node_policy.ancestry",
+                                  next == entries.end() ? "Structural parent is missing"
+                                                        : "Structural parent chain is cyclic"));
+                break;
+            }
+            if (next->second.visit == 2) {
+                ancestor = result.entities.at(cursor);
+                break;
+            }
+            next->second.visit = 1;
+            path.push_back(cursor);
+            cursor = next->second.parent;
+        }
+        for (auto it = path.rbegin(); it != path.rend(); ++it) {
+            auto& own = entries.at(*it);
+            ancestor = {ancestor.visible && own.own.visible,
+                        ancestor.selectable && own.own.selectable, ancestor.valid && own.own.valid};
+            result.entities.emplace(*it, ancestor);
+            own.visit = 2;
+        }
+    }
+    return result;
+}
 RenderScene extract_render_scene(const Json& source) {
     require(source.is_object(), "Presentation scene must be an object");
     RenderScene result;
@@ -64,6 +134,10 @@ RenderScene extract_render_scene(const Json& source) {
     const auto& entities = source.at("entities");
     require(entities.is_array(), "Presentation entities must be an array");
     require(entities.size() <= 10000, "Presentation scene exceeds the 10000-entity profile");
+    const auto policy = extract_node_policies(source);
+    for (const auto& error : policy.diagnostics)
+        report(result, error);
+    result.omitted_diagnostics += policy.omitted_diagnostics;
     std::set<EntityId> identities;
     std::map<EntityId, const Json*> rows;
     std::map<EntityId, ModelSource> models;
@@ -74,6 +148,7 @@ RenderScene extract_render_scene(const Json& source) {
         rows.emplace(id, &row);
         if (row.value("prefab", false))
             continue;
+        const auto state = policy.entities.at(id);
         const auto& values = row.at("components");
         require(values.is_object(), "Presentation components must be an object");
         auto admit = [&](const char* name, const char* category, auto read) {
@@ -98,7 +173,7 @@ RenderScene extract_render_scene(const Json& source) {
         });
         admit("forge.light", "render.light.invalid", [&] {
             const auto l = component<Light>(values, "forge.light");
-            if (l.enabled)
+            if (l.enabled && state.valid && state.visible)
                 result.lights.push_back({id, light_view(l, world_transform(row))});
         });
         // Build-63 compatibility: an explicit MeshRenderer owns rendering when
@@ -115,11 +190,15 @@ RenderScene extract_render_scene(const Json& source) {
                                           ? component<Tint>(values, "forge.tint")
                                           : Tint{};
                     MeshRenderer renderer;
+                    renderer.visible = state.valid && state.visible;
                     renderer.mesh = engine_primitive(primitive.kind);
                     renderer.materials.push_back(
                         {"surface", engine_material(EngineMaterial::LegacyBlockout)});
-                    result.meshes.push_back(
-                        {id, renderer, world_transform(row), {{tint.r, tint.g, tint.b}}});
+                    result.meshes.push_back({id,
+                                             renderer,
+                                             world_transform(row),
+                                             {{tint.r, tint.g, tint.b}},
+                                             state.valid && state.selectable});
                 }
             } catch (const std::exception& e) {
                 report(result, diagnostic(result.scene, id, "render.primitive.invalid", e.what(),
@@ -127,10 +206,12 @@ RenderScene extract_render_scene(const Json& source) {
             }
         }
         admit("forge.mesh_renderer", "render.mesh.invalid", [&] {
-            const auto mesh = component<MeshRenderer>(values, "forge.mesh_renderer");
-            if (mesh.enabled && mesh.visible) {
+            auto mesh = component<MeshRenderer>(values, "forge.mesh_renderer");
+            if (mesh.enabled) {
+                mesh.visible = mesh.visible && state.valid && state.visible;
                 require(bool(mesh.mesh.id), "Mesh Renderer has no assigned mesh asset");
-                result.meshes.push_back({id, mesh, world_transform(row)});
+                result.meshes.push_back(
+                    {id, mesh, world_transform(row), {}, state.valid && state.selectable});
             }
         });
     }

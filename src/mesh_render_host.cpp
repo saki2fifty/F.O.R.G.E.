@@ -309,7 +309,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     std::vector<Object> objects;
     std::vector<Item> queue;
     for (const auto& mesh : scene.meshes) {
-        if (!(mesh.renderer.layers & layers))
+        if (!mesh.renderer.visible || !(mesh.renderer.layers & layers))
             continue;
         const auto found = entries_.find(mesh.entity);
         if (found == entries_.end() || !found->second.ready)
@@ -427,7 +427,8 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
     std::vector<Caster> casters;
     std::vector<ShadowCasterBounds> bounds;
     for (const auto& mesh : scene.meshes) {
-        if (!mesh.renderer.cast_shadows || !(mesh.renderer.layers & layers))
+        if (!mesh.renderer.visible || !mesh.renderer.cast_shadows ||
+            !(mesh.renderer.layers & layers))
             continue;
         const auto found = entries_.find(mesh.entity);
         if (found == entries_.end() || !found->second.ready)

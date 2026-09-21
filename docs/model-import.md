@@ -426,8 +426,9 @@ joint needed by the selected source scene must be included. Commit rechecks acti
 clip/skeleton types, owner generation/revision, and the typed skeleton dependency.
 A failed candidate changes neither scene state nor its revision/history.
 
-Special false visibility/selectability values still require their structural
-consumers before placement. The public placement UI is not exposed yet; the internal
+False visibility/selectability values instantiate native NodeVisibility and
+NodeSelectability components, whose effective policy follows structural ancestry
+independently of spatial binding. The public placement UI is not exposed yet; the internal
 helpers and CPU tests do not establish the complete Place-to-Play workflow or GPU
 acceptance. Those consumers remain required Phase7 work, not deferred delivery scope.
 

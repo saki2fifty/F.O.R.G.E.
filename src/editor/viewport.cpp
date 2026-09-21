@@ -207,6 +207,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                               SET_VERTEX_BUFFERS_FLAG_RESET);
     const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
                forward = camera.forward();
+    const auto policies = meshes_ ? NodePolicies{} : extract_node_policies(scene);
     for (const auto& entity : scene.at("entities")) {
         if (meshes_)
             continue;
@@ -214,6 +215,10 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             primitive_kind(entity) == no_primitive)
             continue;
         if (!entity.value("spatial_resolved", true))
+            continue;
+        const auto policy =
+            policies.entities.find(EntityId::parse(entity.at("id").get<std::string>()));
+        if (policy == policies.entities.end() || !policy->second.valid || !policy->second.visible)
             continue;
         const ObjectTransform world_transform(entity);
         const auto draw_affine = world_transform.matrix();

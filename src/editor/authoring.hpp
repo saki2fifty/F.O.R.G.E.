@@ -3,6 +3,7 @@
 #include "camera.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
+#include <forge/render_scene.hpp>
 #include <optional>
 namespace forge {
 using Vec3 = EditorCamera::Vec;
@@ -65,10 +66,13 @@ inline std::string pick_block(const Json& doc, const EditorCamera& camera, float
     const auto ray = view_ray(camera, x, y, width, height), eye = camera.eye();
     float nearest = EditorCamera::far_plane;
     std::string selected;
+    const auto policy = extract_node_policies(doc);
     for (const auto& e : doc.at("entities")) {
         const auto id = e.at("id").get<std::string>();
         const auto center = block_position(e);
-        if (!center)
+        const auto state = policy.entities.find(EntityId::parse(id));
+        if (!center || state == policy.entities.end() || !state->second.valid ||
+            !state->second.selectable)
             continue;
         if (const auto distance = object_hit(e, eye, ray, EditorCamera::near_plane, nearest)) {
             nearest = *distance;

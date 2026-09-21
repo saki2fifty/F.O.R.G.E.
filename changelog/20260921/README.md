@@ -439,3 +439,32 @@
 - Local follow-up checks: all 48 generated HLSL stages compiled with the
   supplementary Linux DXC tool; backend and native-fixture header syntax checks
   passed. Manual checks passed 3/3. These do not substitute for Windows execution.
+
+
+### Structural visibility and selection policy
+
+- Add independent optional reflected Node Visibility and Node Selectability
+  components with ordinary persistence, prefab intent/Revert and scene history.
+- Resolve effective policy through structural ancestry, including non-rendering
+  intermediaries; World/Explicit spatial bindings do not bypass it. Diagnose
+  invalid producer ancestry with bounded iterative traversal.
+- Keep camera behavior and selectability independent of visibility. Hidden meshes
+  remain available to selection consumers but are excluded from color/shadow
+  queues; hidden lights are excluded. Existing blockout picking honors selection.
+- Preserve imported false flags during model placement. Correct the shared
+  component catalog so Camera, Light and Mesh Renderer are available to the
+  generic Inspector/Add Component workflow. Validation is in progress.
+
+- Focused model placement, authoring and core checks pass 3/3 (35.54 seconds).
+  Add legacy viewport visibility and selection-policy regression coverage.
+- Native source audit now passes 38/41 checks: all isolated skinning cases pass,
+  including mirrored/flattened poses and reflected cameras. The identical morph
+  fixtures pass with DXC but still lose the device with FXC. Keep production FXC
+  and test explicit vector-lane selection without changing the shader profile.
+- Transmission checks pass through the complete material-layer fixture. A later
+  shadow check still fails; retain per-light captures and projection/depth
+  diagnostics for investigation. This is unfinished native acceptance, not a
+  numbered release.
+- Strict address/undefined/leak sanitizer checks pass 3/3 (91.36 seconds), manual
+  checks pass 3/3, formatting passes, and all 48 supplementary generated HLSL
+  stages compile. Native fixture/backend syntax checks pass; Windows rerun pending.

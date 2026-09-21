@@ -17,7 +17,11 @@
 namespace forge::detail {
 namespace {
 template <class T> Json encode(const T& p) {
-    if constexpr (std::is_same_v<T, Camera>)
+    if constexpr (std::is_same_v<T, NodeVisibility>)
+        return {{"visible", p.visible}};
+    else if constexpr (std::is_same_v<T, NodeSelectability>)
+        return {{"selectable", p.selectable}};
+    else if constexpr (std::is_same_v<T, Camera>)
         return render_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return render_value(p);
@@ -95,7 +99,11 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
 }
 template <class T> Value decode(const Json& p) {
-    if constexpr (std::is_same_v<T, Camera>)
+    if constexpr (std::is_same_v<T, NodeVisibility>)
+        return T{p.at("visible").get<bool>()};
+    else if constexpr (std::is_same_v<T, NodeSelectability>)
+        return T{p.at("selectable").get<bool>()};
+    else if constexpr (std::is_same_v<T, Camera>)
         return camera_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return light_value(p);
@@ -223,7 +231,11 @@ template <class T> void register_asset_ref(flecs::world& w, const char* name) {
 }
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
-    if constexpr (std::is_same_v<T, Camera>) {
+    if constexpr (std::is_same_v<T, NodeVisibility>)
+        c.template member<bool>("visible");
+    else if constexpr (std::is_same_v<T, NodeSelectability>)
+        c.template member<bool>("selectable");
+    else if constexpr (std::is_same_v<T, Camera>) {
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("projection")
             .template member<std::uint32_t>("basis")
@@ -524,7 +536,22 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) { return register_type<Camera>(w, "forge.camera"); }),
         descriptor<Light>("forge.light", "Directional, point or spot light with physical intensity",
                           "unitless", {}, {},
-                          [](flecs::world& w) { return register_type<Light>(w, "forge.light"); })};
+                          [](flecs::world& w) { return register_type<Light>(w, "forge.light"); }),
+        descriptor<NodeVisibility>(
+            "forge.node_visibility",
+            "Show meshes and lights in this structural subtree. Does not disable cameras, "
+            "animation, physics or selection; a hidden ancestor still hides this entity.",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<NodeVisibility>(w, "forge.node_visibility"); }),
+        descriptor<NodeSelectability>(
+            "forge.node_selectability",
+            "Allow viewport selection in this structural subtree, independently of visibility. "
+            "Hierarchy selection remains available; an unselectable ancestor still takes "
+            "precedence.",
+            "unitless", {}, {}, [](flecs::world& w) {
+                return register_type<NodeSelectability>(w, "forge.node_selectability");
+            })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -959,13 +986,22 @@ Json register_builtins(flecs::world& world, unsigned family) {
         }
         const char* categories[] = {
             "Rendering / Transform", "Physics", "Audio", "Animation", "Navigation", "Runtime UI"};
-        components.push_back({{"id", type.name},
-                              {"display_name", ecs_doc_get_name(world.c_ptr(), c.id())},
-                              {"description", ecs_doc_get_brief(world.c_ptr(), c.id())},
-                              {"category", categories[category]},
-                              {"schema_version", 1},
-                              {"fields", fields},
-                              {"optional", category != 0}});
+        components.push_back(
+            {{"id", type.name},
+             {"display_name", ecs_doc_get_name(world.c_ptr(), c.id())},
+             {"description", ecs_doc_get_brief(world.c_ptr(), c.id())},
+             {"category", category == 0 && name != "forge.model_source" &&
+                                  name != "forge.local_translation" &&
+                                  name != "forge.local_rotation" && name != "forge.local_scale" &&
+                                  name != "forge.primitive" && name != "forge.tint"
+                              ? "Rendering"
+                              : categories[category]},
+             {"schema_version", 1},
+             {"fields", fields},
+             {"optional", category != 0 || name == "forge.mesh_renderer" ||
+                              name == "forge.camera" || name == "forge.light" ||
+                              name == "forge.node_visibility" ||
+                              name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();
         validation["type"] = "struct";

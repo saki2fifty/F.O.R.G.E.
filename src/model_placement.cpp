@@ -78,12 +78,7 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
         require(order.size() <= 9999, "Model placement exceeds the scene entity profile");
         order.insert(order.end(), children[node].begin(), children[node].end());
     }
-    // Visibility/selectability still need their structural-ancestry consumers.
-    // Morph defaults and node-scoped skin/animation consumers are now connected.
     for (const auto index : order) {
-        const auto& node = nodes[index];
-        require(node.value("visible", true) && node.value("selectable", true),
-                "Model placement requires visibility/selectability scene consumers");
         if (hierarchy.contains("animation")) {
             const auto& plan = hierarchy.at("animation").at("plan");
             const auto& skin = plan.at("node_skins").at(index);
@@ -144,6 +139,10 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
     for (const auto index : order) {
         const auto& source = nodes[index];
         auto values = components(local_transform(source));
+        if (!source.value("visible", true))
+            values["forge.node_visibility"] = {{"visible", false}};
+        if (!source.value("selectable", true))
+            values["forge.node_selectability"] = {{"selectable", false}};
         values["forge.model_source"] = {{"model", selected.owner}, {"node", node_assets.at(index)}};
         if (!source.at("mesh").is_null()) {
             const auto mesh = selected.bindings.at(source.at("mesh").get<std::string>());

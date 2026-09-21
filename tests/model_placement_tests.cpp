@@ -125,6 +125,28 @@ void test_model_placement(const forge::asset_detail::ModelSelection& selected,
     tiny.index.hierarchy["nodes"][0]["trs"]["scale"][0] = 0;
     const auto collapsed = prepare_model_placement(tiny, scene.asset_id(), scene.revision());
     require(!collapsed.entities.empty(), "Explicit zero-scale source could not be placed");
+    auto visibility = selected;
+    visibility.index.hierarchy["nodes"][0]["visible"] = false;
+    visibility.index.hierarchy["nodes"][0]["selectable"] = false;
+    const auto hidden_candidate =
+        prepare_model_placement(visibility, scene.asset_id(), scene.revision());
+    const auto hidden_root = instantiate_model(scene, catalog, hidden_candidate);
+    bool found_hidden = false;
+    for (const auto& row : hidden_candidate.entities) {
+        if (row.at("id").get<EntityId>() == hidden_root)
+            continue;
+        const auto entity = scene.entity(row.at("id"));
+        if (entity.has<NodeVisibility>()) {
+            require(!entity.get<NodeVisibility>().visible && entity.has<NodeSelectability>() &&
+                        !entity.get<NodeSelectability>().selectable,
+                    "Source node visibility/selectability was not placed as authored ECS data");
+            found_hidden = true;
+        }
+    }
+    require(found_hidden, "Hidden model node was dropped during placement");
+    scene.undo();
+    require(scene.document() == before_failure,
+            "Hidden model placement undo changed existing state");
 }
 
 void test_model_animation_placement(const forge::asset_detail::ModelSelection& selected,

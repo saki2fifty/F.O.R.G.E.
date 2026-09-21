@@ -6,6 +6,17 @@
 namespace forge {
 // Detached presentation values, never a second world or authored hierarchy.
 // Input is the existing bounded effective_scene transport used by Editor Play.
+struct NodePolicy {
+    bool visible = true, selectable = true, valid = true;
+};
+struct NodePolicies {
+    std::map<EntityId, NodePolicy> entities;
+    std::vector<Diagnostic> diagnostics;
+    std::size_t omitted_diagnostics = 0;
+};
+// Resolve structural ancestry in one bounded snapshot. Spatial World/Explicit
+// binding never breaks this policy chain; native IsA is already in effective data.
+NodePolicies extract_node_policies(const nlohmann::json& effective_scene);
 struct RenderCamera {
     EntityId entity;
     Camera camera;
@@ -20,6 +31,7 @@ struct RenderMesh {
     MeshRenderer renderer;
     AffineTransform world;
     std::optional<std::array<float, 3>> legacy_tint;
+    bool selectable = true;
 };
 struct RenderModelNode {
     EntityId entity;

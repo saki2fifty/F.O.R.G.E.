@@ -192,3 +192,21 @@ This connection is undergoing integration; the public placement controls remain
 unavailable in this source checkpoint. Existing import commands do not place models
 or start playback. Once placement is exposed, scene Undo will remove the complete
 placed subtree, while the imported asset files remain in the project.
+
+
+## Hide a subtree or exclude it from viewport selection
+
+Select an entity in **Hierarchy**, then use **Inspector > + Add Component**:
+
+- **Node Visibility:** turn **Visible** off to hide its meshes, lights and all structural children. Cameras keep working. Animation and physics keep running.
+- **Node Selectability:** turn **Selectable** off to skip the entity and its structural children when selecting in the Scene viewport. You can still select and edit them from Hierarchy. This does not lock their properties.
+
+A child cannot override an off switch on an ancestor. Changing a child's spatial
+space to **World** does not break these rules. Visibility and selectability are
+independent: hiding a shape does not make it unselectable, and making it
+unselectable does not hide it. Each property edit supports scene Undo/Redo.
+Prefab instances use the same property Revert controls to follow their source again.
+
+Imported node flags feed these components through the internal placement path.
+Public imported-model placement and precise mesh picking remain under integration;
+the existing blockout selection path already observes the node selection switch.

@@ -36,6 +36,15 @@ inline void test_authoring() {
     require(forge::pick_block(visual, camera, 0, 0, 800, 600).empty(),
             "Background pick did not clear");
     require(forge::pick_block(visual, camera, -1, 300, 800, 600).empty(), "Picked outside image");
+    auto policy = visual;
+    policy["entities"][0]["components"]["forge.node_visibility"] = {{"visible", false}};
+    require(forge::pick_block(policy, camera, 400, 300, 800, 600) ==
+                "11111111-1111-4111-8111-111111111111",
+            "Hidden but selectable geometry could not be picked");
+    policy["entities"][0]["components"]["forge.node_selectability"] = {{"selectable", false}};
+    policy["entities"][1]["spatial"] = {{"mode", "world"}};
+    require(forge::pick_block(policy, camera, 400, 300, 800, 600).empty(),
+            "Picking bypassed an unselectable structural ancestor");
     auto hidden = visual;
     hidden["entities"][0]["prefab"] = true;
     require(forge::pick_block(hidden, camera, 400, 300, 800, 600) ==
