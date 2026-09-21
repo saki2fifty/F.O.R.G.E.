@@ -159,3 +159,27 @@ selection. Missing/corrupt selected data throws a diagnostic without moving the
 entry; the authoring import path retains its separate quarantine-and-rebuild policy.
 Returned owned bytes survive disk eviction. Runtime callers must also verify the
 selected catalog binding and own adoption through their resource lifecycle.
+
+
+### Existing family graph integration (Phase7)
+
+Legacy Ozz conversion publishes typed Build dependencies on its Animation source,
+Runtime clip-to-Skeleton dependencies, and exact captured glTF/buffer source edges.
+It preserves its existing converter/admission/publication and rename-rejection
+contract. Model import's newer source-family mapping is separate; there is no
+silent migration of the legacy converter's generated identities.
+
+Navigation publication records its Scene as a typed Build dependency with the
+geometry revision. Its own bake and stale-geometry validation still govern
+publication; a generic source importer cannot substitute for scene-aware baking.
+Script registration records the root file's observed digest without executing it.
+Native includes stay in the existing disposable preview worker, including the
+approved pinned-source cleanup exception; no proprietary include parser or complete
+static include graph is added. Re-registering refreshes that source observation.
+
+UI source identity/observed dependency publication is described in
+[Runtime UI](runtime-ui.md#phase7-common-asset-integration). Audio uses the shared
+[cooked AudioClip route](audio.md#phase7-audioclip-import-and-selected-revisions).
+Content status checks recorded source edges across these families. Scene/Prefab
+continue their authored-document save/history and prefab candidate reconciliation;
+ordinary Save is not relabeled as a source import.

@@ -290,6 +290,21 @@ class ContentBrowser {
         ImGui::TextWrapped("Source: %s", path_text(asset->source).c_str());
         if (asset->type == "audio_clip")
             draw_audio_details(*asset);
+        if (const auto metadata = asset->metadata.find("forge.ui_source");
+            metadata != asset->metadata.end() && metadata->is_object()) {
+            const auto format = metadata->find("format");
+            ImGui::TextWrapped("UI source: %s", format != metadata->end() && format->is_string()
+                                                    ? format->get_ref<const std::string&>().c_str()
+                                                    : "unknown");
+            ui::help("Admitted source format. RML/RCSS/image replacement uses Reload UI in Play; "
+                     "changing a loaded font family requires restarting Play.");
+            if (metadata->contains("bytes") && metadata->at("bytes").is_number_unsigned()) {
+                ImGui::Text("Source size: %llu bytes",
+                            metadata->at("bytes").get<unsigned long long>());
+                ui::help("Size when metadata was last refreshed. Source changed status uses the "
+                         "shared watcher and the recorded source digest.");
+            }
+        }
         auto resolution = catalog_->resolve(asset->id, asset->type);
         if (resolution.state != AssetState::Available)
             ui::field_error(resolution.diagnostic);

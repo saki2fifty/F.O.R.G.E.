@@ -196,3 +196,21 @@ animation source, Texture and WAV. Unsupported formats report an error during
 preparation. Case-only renames require a different intermediate filename. These
 workflows describe the Phase7 source under validation; the final numbered package
 has not been delivered yet.
+
+
+### Existing subsystem sources
+
+The common catalog also lists legacy animation, navigation, UI and Flecs Script
+assets. Source status uses recorded file revisions where available, even when the
+asset has no general importer. **Source changed** means the recorded source or
+supporting file differs; it does not mean the old generated resource was replaced.
+Use the asset's existing conversion, bake, preview or reload workflow.
+
+Legacy animation conversion records its glTF/buffer sources and typed
+Skeleton/AnimationClip dependencies. Navigation records its source Scene dependency;
+rebaking still validates the current scene geometry. UI files and observed
+RmlUi dependencies use [Runtime UI's metadata refresh](runtime-ui.md).
+Registered Flecs Scripts record their root source revision. Native managed includes
+remain the Script preview worker's responsibility; registration does not execute
+Script or claim a complete static include graph. Scene and Prefab retain their
+own document save/publication/history rules.

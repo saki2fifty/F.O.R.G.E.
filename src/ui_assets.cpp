@@ -295,7 +295,31 @@ std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
     auto name = path_utf8(resolved.record->source);
     require(std::filesystem::u8path(name).extension() == ".rml", "UI asset must reference RML");
     (void)read(name);
+    documents_[ref.id] = resolved.record->source;
     return name;
+}
+UiAssetSnapshot UiResources::snapshot() const {
+    UiAssetSnapshot result{paths_.root(), documents_, {}};
+    for (const auto& [name, bytes] : files_) {
+        const auto source = std::filesystem::u8path(name);
+        const auto extension = lower(source.extension().string());
+        const std::string type = extension == ".rml"    ? "ui_document"
+                                 : extension == ".rcss" ? "ui_stylesheet"
+                                 : extension == ".tga"  ? "texture"
+                                                        : "ui_font";
+        UiSourceInfo info{source,
+                          type,
+                          asset_detail::content_digest(bytes),
+                          bytes.size(),
+                          {{"format", extension.substr(1)}}};
+        if (extension == ".tga") {
+            const auto image = decode_ui_image(bytes);
+            info.details["width"] = image.width;
+            info.details["height"] = image.height;
+        }
+        result.sources.push_back(std::move(info));
+    }
+    return result;
 }
 AssetRecord register_ui_document(const std::filesystem::path& root,
                                  const std::filesystem::path& source) {

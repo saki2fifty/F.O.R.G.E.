@@ -43,7 +43,7 @@ add_dependencies(forge_editor forge_shader_build_worker)
 target_include_directories(forge_editor PRIVATE src/editor "${diligent_SOURCE_DIR}/DiligentCore")
 target_compile_definitions(forge_editor PRIVATE UNICODE _UNICODE NOMINMAX)
 target_link_libraries(forge_editor PRIVATE forge_presentation_diligent forge_navigation_build forge_navigation_admission forge_animation_conversion forge_authoring SDL3::SDL3 imgui Diligent-Imgui Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings)
-target_link_libraries(forge_editor PRIVATE forge_shader_authoring forge_shader_diligent forge_material_authoring forge_asset_files forge_authored_inspection)
+target_link_libraries(forge_editor PRIVATE forge_shader_authoring forge_shader_diligent forge_material_authoring forge_asset_files forge_authored_inspection forge_ui_asset_catalog)
 copy_required_dlls(forge_editor)
 add_custom_command(TARGET forge_editor POST_BUILD
  COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:forge_editor>/sdk/include/forge" "$<TARGET_FILE_DIR:forge_editor>/sdk/samples/native"

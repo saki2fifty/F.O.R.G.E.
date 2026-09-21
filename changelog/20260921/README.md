@@ -1026,3 +1026,33 @@
   is visible before capture. This does not change product rendering.
 - This is an internal Phase7 checkpoint. No new numbered build or completion
   claim; Build260919-000063 remains the last delivered package.
+
+## Existing asset families and Runtime UI Content integration
+
+- Added explicit UI source registration/metadata refresh for RML, RCSS, project
+  fonts and TGA images. TGA uses the existing Texture type and identity, retaining
+  its normal texture importer path and any selected cooked output.
+- The RmlUi presenter exposes files admitted by its last successful candidate.
+  After Stop, Content's Refresh loaded resources action rechecks those exact
+  bytes and publishes stable identities, typed dependencies and source metadata
+  through the existing catalog. Failed/stale refresh retains previous records;
+  runtime rendering never writes the project catalog. Multiple active UI roots
+  conservatively share their observed supporting-resource set.
+- Content now reports changed recorded source dependencies for legacy families
+  without claiming a generic importer exists. Legacy animation conversion records
+  typed source/Skeleton edges and captured glTF/buffer digests. Navigation records
+  its source Scene as a typed Build dependency. Script registration records its
+  root-file revision without executing Script or inventing an include parser.
+- Added source/catalog and native RmlUi dependency regressions, including stable
+  identity, font/style reads, stale/corrupt input, unknown-metadata retention and
+  shared Content freshness. Kept the pure presenter test free of authoring links;
+  catalog publication has a separate integration executable.
+- Full rebuilt Linux suite:96/96 passed209.12s. Relinked editor workspace/scale
+  and runtime UI input tests:2/2 passed14.98s. Strict UI/catalog/runtime/animation
+  tests passed; direct strict Recast/Detour and strict-parent/normal-worker
+  navigation checks passed. ASan-instrumented worker startup cannot reserve its
+  shadow mapping under the512MiB worker limit; preserved that failed-run evidence
+  and the production limit. No sanitizer suppression or worker-limit relaxation.
+- Manual links3/3, formatting and adapted ordinary editor source syntax passed.
+  Native Windows validation of these additions and final Phase7 delivery remain
+  pending. No new dependency pin, scene identity, ABI1 or numbered package.

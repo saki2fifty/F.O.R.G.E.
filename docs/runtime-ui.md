@@ -14,7 +14,7 @@ A future standalone visual executable can compose gameplay, Diligent and the sam
 
 `UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, and `layer` (0–255). One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 
-The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, TGA and font files are contained dependencies of that document; they do not acquire separate durable IDs merely for symmetry. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. No generic importer, cooker, HTTP loader or Apply to Prefab is added.
+The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. No generic importer, cooker, HTTP loader or Apply to Prefab is added.
 
 ## Private copied-value protocol
 
@@ -64,3 +64,42 @@ Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, PNG/JPEG, R
 - [Pinned RenderInterface](https://github.com/mikke89/RmlUi/blob/ba95ffe8bfb6370efb2cdcca927eaad4710c5413/Include/RmlUi/Core/RenderInterface.h): required geometry/texture/scissor functions, optional transforms/masks/layers, premultiplied texture contract.
 - [Main loop](https://mikke89.github.io/RmlUiDoc/pages/cpp_manual/main_loop.html), [font interface](https://mikke89.github.io/RmlUiDoc/pages/cpp_manual/interfaces/font_engine.html), [SDL adapter source](https://github.com/mikke89/RmlUi/blob/ba95ffe8bfb6370efb2cdcca927eaad4710c5413/Backends/RmlUi_Platform_SDL.cpp).
 - [FreeType](https://freetype.org/), selected 2.14.3 at `0a0221a1347e2f1e07c395263540026e9a0aa7c7`, FreeType License option. Optional compression/image/shaping dependencies disabled.
+
+
+## Phase7 common asset integration
+
+Exact RmlUi6.3 source `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` rechecked
+2026-09-21: `XMLNodeHandlerHead.cpp` records linked styles, `StyleSheetParser.cpp`
+uses native `LoadFontFace`, and `FontEngineDefault/FontProvider.cpp` routes font
+bytes through the installed FileInterface. FORGE observes its existing
+`UiResources` admission cache. It does not add an RML/RCSS dependency parser.
+FreeType2.14.3 remains `0a0221a1347e2f1e07c395263540026e9a0aa7c7`.
+
+A successfully prepared presenter set holds a read-only `UiAssetSnapshot` of
+root document AssetIds and admitted resource locators/digests/format/size. Failed
+candidates preserve the prior observation; reset releases it. The host may copy
+it for a later explicit authoring action. No project catalog is mutated from
+RmlUi callbacks or runtime presentation. No new scene/ABI/IPC format is introduced.
+
+`forge_ui_asset_catalog` is an authoring-only operation over ProjectLease and the
+existing AssetCatalog. Register/Refresh admits one supported source. Refresh loaded
+resources re-admits the captured set and compares exact source metadata before
+one atomic catalog publication, with an external-index baseline check. Failures
+retain previous metadata/identities. Project switches discard the copied observation.
+The normal local single-writer/non-adversarial-filesystem contract still applies;
+this is not a filesystem-wide lock or cross-document transaction.
+
+Logical types are ui_document, ui_stylesheet, ui_font and the existing Texture
+type for TGA images. A TGA can subsequently use the ordinary Texture importer;
+a previously imported Texture retains its identity and cooked selection. Metadata is under `forge.ui_source`; source edges use ui.source and
+ui.observed. Documents have typed Runtime edges to supporting resources from their
+successfully loaded set. Multiple roots conservatively reference all non-document
+resources in that set, avoiding invented document cycles. The graph remains the
+one catalog-owned graph. Engine default font, future dynamically requested files,
+and parser-free static discovery are not advertised as complete project edges.
+
+Shared Content status compares nonempty recorded source revisions for these and
+other legacy families. No automatic UI cook or live font invalidation is claimed.
+Reload UI and restart-on-same-family-font-change behavior remain unchanged. Catalog
+metadata refresh is separate from scene Undo, UI replacement and native font caches.
+The end-user steps are in [Runtime UI](../manual/editor/runtime-ui.md).

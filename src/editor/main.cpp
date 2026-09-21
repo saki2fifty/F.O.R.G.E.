@@ -2312,7 +2312,8 @@ int main(int argc, char** argv) {
                         script_editor.content(files.document, edit_locked, editor.selection,
                                               message);
                         animation_tools.content(files.document, edit_locked, message);
-                        runtime_ui_tools.content(files.document, edit_locked, message);
+                        runtime_ui_tools.content(files.document, edit_locked, message,
+                                                 runtime_ui.asset_snapshot());
                         navigation_tools.content(scene, files.document, edit_locked, message);
                     },
                     edit_locked);

@@ -41,6 +41,8 @@ class UiPresenter {
     const std::string& diagnostic() const;
     std::size_t document_count() const;
     std::uint64_t presentation_revision() const;
+    // Last successfully published set only; borrowed until replacement/reset.
+    const UiAssetSnapshot* asset_snapshot() const;
 
   private:
     struct Impl;

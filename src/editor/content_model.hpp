@@ -108,12 +108,15 @@ struct ContentIndex {
                     if (digest != imported->end() && digest->is_string() &&
                         digest->get_ref<const std::string&>() != source->second.digest)
                         state = ContentState::Changed;
+                }
+                if (state != ContentState::Missing)
                     for (const auto& dep : owner->source_dependencies) {
+                        if (dep.revision.empty())
+                            continue;
                         const auto found = sources->files.find(dep.source);
                         if (found == sources->files.end() || found->second.digest != dep.revision)
                             state = ContentState::Changed;
                     }
-                }
             }
             if (const auto job = activity.find(owner->id); job != activity.end())
                 state = job->second;

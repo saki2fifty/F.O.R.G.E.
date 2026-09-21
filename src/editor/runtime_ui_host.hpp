@@ -21,8 +21,16 @@ class RuntimeUiHost {
     RuntimeUiInput input_;
     std::string error_;
     bool creation_failed_ = false, suspended_ = true;
+    std::optional<UiAssetSnapshot> observed_assets_;
+    void capture_assets() {
+        if (const auto* snapshot = presenter_ ? presenter_->asset_snapshot() : nullptr)
+            observed_assets_ = *snapshot;
+    }
 
   public:
+    const UiAssetSnapshot* asset_snapshot() const {
+        return observed_assets_ ? &*observed_assets_ : nullptr;
+    }
     std::string diagnostic() const {
         return !error_.empty() ? error_ : presenter_ ? presenter_->diagnostic() : std::string{};
     }
@@ -39,6 +47,9 @@ class RuntimeUiHost {
         input_.reset(play);
     }
     void sync(PlaySession& play, const std::filesystem::path& project, bool visible) {
+        if (project_ != project) {
+            observed_assets_.reset();
+        }
         if (!play.active()) {
             clear(play);
             return;
@@ -102,6 +113,7 @@ class RuntimeUiHost {
             presenter_->accept(state);
             if (before != presenter_->presentation_revision()) {
                 input_.reset(play);
+                capture_assets();
             }
             if (!play.ui_ack().is_null())
                 presenter_->acknowledge(play.ui_ack());
@@ -164,7 +176,8 @@ class RuntimeUiHost {
             presenter_->release_input();
             input_.reset(play);
             error_.clear();
-            presenter_->reload();
+            if (presenter_->reload())
+                capture_assets();
         }
         const auto& why = error_.empty() ? presenter_->diagnostic() : error_;
         if (!why.empty()) {

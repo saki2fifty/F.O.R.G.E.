@@ -22,6 +22,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         std::string name;
         Rml::Context* context = nullptr;
         std::shared_ptr<UiResources> resources;
+        UiAssetSnapshot assets;
         std::vector<std::unique_ptr<Doc>> docs;
     };
     struct File {
@@ -379,6 +380,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                     d->document->Hide();
             if (!error.empty())
                 throw std::runtime_error(error);
+            candidate->assets = candidate->resources->snapshot();
             held_keys.clear();
             retire(live);
             live = std::move(candidate);
@@ -401,6 +403,10 @@ UiPresenter::UiPresenter(Rml::RenderInterface& r, std::filesystem::path p,
     : impl_(std::make_unique<Impl>(r, std::move(p), std::move(font), std::move(hooks),
                                    text_handler)) {}
 UiPresenter::~UiPresenter() = default;
+const UiAssetSnapshot* UiPresenter::asset_snapshot() const {
+    impl_->check();
+    return impl_->live ? &impl_->live->assets : nullptr;
+}
 void UiPresenter::reset(std::string session, std::uint64_t generation) {
     auto& s = *impl_;
     s.check();

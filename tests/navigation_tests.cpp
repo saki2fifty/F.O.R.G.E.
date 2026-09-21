@@ -78,6 +78,11 @@ int main(int argc, char** argv) {
                                       std::filesystem::absolute(argv[2]));
         };
         auto record = prepare().publish(effective);
+        check(record.dependency_edges.size() == 1 &&
+                  record.dependency_edges.front().kind == AssetDependencyKind::Build &&
+                  record.dependency_edges.front().expected_type == "scene" &&
+                  record.dependency_edges.front().target == effective.at("asset_id").get<AssetId>(),
+              "Navigation lost its typed source-scene dependency");
         auto baseline = read(AssetCatalog::project_index(root));
         check(navigation_triangles(root, {record.id}).size() > 0, "Missing debug mesh");
         auto candidate = prepare();

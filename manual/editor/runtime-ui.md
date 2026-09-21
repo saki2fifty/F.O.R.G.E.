@@ -25,7 +25,7 @@ Resize the viewport and editor window. The HUD remains positioned within the gam
 
 ## Use your own document
 
-Put an `.rml` file and its resources inside the project. Enter its project-relative path in **Content → Create / Register → Runtime UI → RML in project**, then click **Register RML**. Assign it through the Document picker.
+Put an `.rml` file and its resources inside the project. Enter its project-relative path in **Content → Create / Register → Runtime UI → Project UI file**, then click **Register / Refresh**. Assign it through the Document picker.
 
 RML resembles HTML; RCSS resembles CSS, but this is not a web browser. Link each stylesheet from the document:
 
@@ -94,3 +94,37 @@ Stopping Play destroys the live UI. Starting again rebuilds it from the saved co
 Create the example, assign it, Play, capture input, Pause, type, Step once and Resume. Resize the viewport, press Escape, Stop, then save/reopen the scene. Finally create a prefab from the UI entity and try a visibility override and Revert. No C++ changes are needed.
 
 See also [Play mode](play-mode.md), [Gameplay input](input.md), [Prefabs](prefabs.md), and [Content browser](content-browser.md).
+
+
+## UI files in Content
+
+**Register / Refresh** also accepts project RCSS styles, TTF/OTF fonts and TGA
+images. Each registered file gets a stable identity; refreshing preserves it.
+Select the asset in Content to see its admitted format, source size and source
+status. This action validates source admission and records metadata. It does not
+load a HUD, replace a live font or cook image data. TGA registration uses the
+existing Texture asset type, so it can later use the normal texture import
+workflow. An already imported Texture keeps its settings and selected output.
+
+To record the files your HUD actually uses:
+
+1. Run **Play** and show the HUD in Game. Resolve loading errors first.
+2. If you edited the files, use **Reload UI** and verify the replacement succeeds.
+3. **Stop** Play.
+4. Open **Content → Create / Register → Runtime UI** and choose **Refresh loaded resources**.
+5. Refresh Content and inspect the document's dependencies and their referrers.
+
+This uses the last successful UI load in this editor session. It records the
+files RmlUi read, including linked styles, project fonts and images. With several
+simultaneous documents, their observed supporting resources are conservatively
+shared in the dependency list. This is not a claim to discover every resource
+that a later dynamic UI state might request. Engine-provided Lato has no project
+AssetId.
+
+A file edited since that load rejects the metadata refresh; the previous catalog
+stays intact. Load the edited HUD successfully before retrying. Switching projects
+clears the remembered set. Content source status changes when a recorded source
+or dependency differs; that status does not automatically reload presentation.
+Use **Reload UI** for RML/RCSS/images and restart Play for changed font families.
+The generic asset **Reimport** command is for cooked importer routes and does not
+replace this UI workflow. Metadata publication is separate from scene Undo.

@@ -1,3 +1,6 @@
+#ifdef FORGE_UI_CATALOG_TEST
+#include "ui_asset_catalog.hpp"
+#endif
 #include <RmlUi/Core.h>
 #include <forge/ui_presenter.hpp>
 #include <fstream>
@@ -93,6 +96,10 @@ int main(int argc, char** argv) {
             p.render();
             check(renderer.draws > 0 && !renderer.textures.empty(), "Text and geometry render");
             check(p.document_count() == 1, "One document loaded");
+            check(p.asset_snapshot() && p.asset_snapshot()->documents.contains(asset.id) &&
+                      p.asset_snapshot()->sources.size() == 1,
+                  "Successful presenter exposes admitted source observation");
+            const auto initial_sources = p.asset_snapshot()->sources;
             auto* context = Rml::GetContext(0);
             auto* button = context->GetDocument(0)->GetElementById("pause");
             check(button, "Button loaded");
@@ -132,6 +139,8 @@ int main(int argc, char** argv) {
             check(!p.accept(stale), "Reject foreign generation");
             std::ofstream(root / "hud.rml") << "<rml><body><div></body>";
             check(!p.reload(), "Malformed replacement rejected");
+            check(p.asset_snapshot() && p.asset_snapshot()->sources == initial_sources,
+                  "Failed reload replaced the last-good resource observation");
             check(p.document_count() == 1, "Previous document retained");
             p.update(4, 420, 320);
             p.render();
@@ -178,6 +187,35 @@ int main(int argc, char** argv) {
             if (!p.accept(state))
                 throw std::runtime_error("Multiple UI documents: " + p.diagnostic());
             check(p.document_count() == 2, "Multiple UI documents count");
+#ifdef FORGE_UI_CATALOG_TEST
+            {
+                const auto* observed = p.asset_snapshot();
+                check(
+                    observed && observed->sources.size() == 3 && observed->documents.size() == 1,
+                    "RmlUi stylesheet/font dependencies not captured or repeated root duplicated");
+                ProjectLease writer(root);
+                const auto catalog = refresh_ui_asset_catalog(writer, *observed);
+                const auto& root_record = catalog.records().at(asset.id);
+                check(root_record.dependency_edges.size() == 2 &&
+                          root_record.source_dependencies.size() == 3,
+                      "Native UI dependencies were not published through the common graph");
+                const auto first = catalog.document();
+                check(refresh_ui_asset_catalog(writer, *observed).document() == first,
+                      "UI metadata refresh changed stable source identities");
+                const auto old_style = read(root / "hud.rcss");
+                std::ofstream(root / "hud.rcss", std::ios::app) << "\n/* external edit */";
+                bool rejected = false;
+                try {
+                    refresh_ui_asset_catalog(writer, *observed);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                check(rejected && AssetCatalog::open_project(root).document() == first,
+                      "Stale native UI observation modified the catalog");
+                std::ofstream restored(root / "hud.rcss", std::ios::binary | std::ios::trunc);
+                restored.write(reinterpret_cast<const char*>(old_style.data()), old_style.size());
+            }
+#endif
             p.update(7, 640, 480);
             p.render();
             context = Rml::GetContext(0);
@@ -192,6 +230,7 @@ int main(int argc, char** argv) {
                       std::string::npos,
                   "Latest copied string displayed");
             p.reset("recovered", 2);
+            check(!p.asset_snapshot(), "Reset kept a borrowed old UI observation");
             check(p.document_count() == 0 && !p.pending_command(),
                   "Recovery clears stale presentation/commands");
             state["session"] = "recovered";

@@ -231,6 +231,22 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
     }
     source_record.metadata = {{"version", 1}, {"source_sha256", candidate->inputs.front().digest}};
     candidate->records.push_back(source_record);
+    for (auto& record : candidate->records) {
+        record.source_dependencies.clear();
+        for (const auto& input : candidate->inputs)
+            record.source_dependencies.push_back({input.path, "animation.source", input.digest});
+        if (record.id != source_record.id) {
+            record.dependency_edges = {{source_record.id,
+                                        "animation_source",
+                                        AssetDependencyKind::Build,
+                                        "animation.source",
+                                        {}}};
+            if (record.type == AnimationClipAsset::type)
+                record.dependency_edges.push_back({skeleton_id, SkeletonAsset::type,
+                                                   AssetDependencyKind::Runtime,
+                                                   "animation.skeleton", skeleton_digest});
+        }
+    }
     for (const auto& record : candidate->records)
         if (candidate->catalog.records().contains(record.id))
             candidate->catalog.replace(record);

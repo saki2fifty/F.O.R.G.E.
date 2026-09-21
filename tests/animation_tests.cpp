@@ -52,6 +52,12 @@ int main(int argc, char** argv) {
             return prepare_animation_conversion(root, source, std::filesystem::absolute(argv[2]));
         };
         auto records = convert().publish();
+        for (const auto& record : records) {
+            check(!record.source_dependencies.empty(), "Legacy animation lacks source graph edges");
+            if (record.type != "animation_source")
+                check(record.dependency_edges.size() == record.dependencies.size(),
+                      "Legacy animation dependency types missing");
+        }
         AssetRecord skeleton, clip, source;
         for (const auto& record : records) {
             if (record.type == SkeletonAsset::type)
@@ -324,7 +330,8 @@ int main(int argc, char** argv) {
         auto dependencies = convert("Assets/external.gltf").publish();
         for (const auto& record : dependencies)
             if (record.type == AnimationClipAsset::type)
-                check(record.metadata.at("source_dependencies").size() == 1,
+                check(record.metadata.at("source_dependencies").size() == 1 &&
+                          record.source_dependencies.size() == 2,
                       "Relative buffer provenance missing");
         const auto before_rename = read(AssetCatalog::project_index(root));
         auto weights = external;

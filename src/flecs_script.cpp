@@ -1,3 +1,5 @@
+#include "asset_bytes.hpp"
+#include "asset_storage.hpp"
 #include "asset_worker.hpp"
 #include <forge/flecs_script.hpp>
 #include <forge/project_paths.hpp>
@@ -118,20 +120,34 @@ AssetRecord register_flecs_script(const std::filesystem::path& project,
     if (locator.extension() != ".flecs" || !std::filesystem::is_regular_file(file) ||
         std::filesystem::file_size(file) > text_limit)
         throw std::runtime_error("Choose a project-contained .flecs file of at most 1 MiB");
+    const auto digest = asset_detail::content_digest(asset_detail::read_bytes(file, text_limit));
+    const auto index = AssetCatalog::project_index(project);
+    const auto baseline = asset_storage::read(index, max_asset_index_bytes);
     auto catalog = AssetCatalog::open_project(project);
-    for (const auto& [id, record] : catalog.records()) {
+    AssetRecord record{AssetId::generate(), FlecsScriptAsset::type, locator};
+    bool existed = false;
+    for (const auto& [id, previous] : catalog.records()) {
         (void)id;
-        if (paths.same_locator(record.source, locator)) {
-            if (record.type != FlecsScriptAsset::type)
+        if (paths.same_locator(previous.source, locator)) {
+            if (previous.type != FlecsScriptAsset::type)
                 throw std::runtime_error("Source is registered as another asset type");
-            return record;
+            record = previous;
+            existed = true;
         }
     }
-    AssetRecord record{AssetId::generate(), FlecsScriptAsset::type, locator};
-    record.metadata = {{"flecs_revision", "fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8"},
-                       {"language", "Flecs Script"}};
-    catalog.add(record);
-    catalog.save(AssetCatalog::project_index(project));
+    record.metadata["flecs_revision"] = "fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8";
+    record.metadata["language"] = "Flecs Script";
+    std::erase_if(record.source_dependencies,
+                  [](const auto& edge) { return edge.role == "script.registered"; });
+    record.source_dependencies.push_back({locator, "script.registered", digest});
+    if (existed)
+        catalog.replace(record);
+    else
+        catalog.add(record);
+    if (asset_storage::read(index, max_asset_index_bytes) != baseline ||
+        asset_detail::content_digest(asset_detail::read_bytes(file, text_limit)) != digest)
+        throw std::runtime_error("Script source/catalog changed during registration; retry");
+    catalog.save(index);
     return record;
 }
 Json evaluate_flecs_script_worker(const Json& request) {

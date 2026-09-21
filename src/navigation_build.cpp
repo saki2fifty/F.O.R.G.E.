@@ -108,6 +108,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  {g.scene},
                  admitted.metadata};
     c->record.metadata["sha256"] = content_digest(data);
+    c->record.dependency_edges = {
+        {g.scene, "scene", AssetDependencyKind::Build, "navigation.scene", g.digest}};
     if (cancel.stop_requested())
         throw std::runtime_error("Navigation build cancelled");
     return NavigationCandidate(std::move(c));
