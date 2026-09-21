@@ -1,9 +1,11 @@
+#include "gltf_instance_fixture.hpp"
 #include "gltf_native.hpp"
 #include <bit>
 #include <cmath>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <tiny_gltf.h>
 
 using namespace forge;
@@ -132,6 +134,86 @@ int main(int argc, char** argv) {
                              {1, 0, 0, 0, 0, 0, 128, 63});
         require(sparse.floats(0).values == std::vector<float>{0, 1, 0},
                 "Native sparse patches or zero-backed values are incorrect");
+        {
+            auto input = gltf_instance_fixture();
+            const auto captured = input.document;
+            asset_detail::NativeGltfDocument copies(input);
+            require(copies.source().document == captured && copies.model().nodes.size() == 1 &&
+                        copies.scene_source().document.at("nodes").size() == 3,
+                    "Instance expansion changed captured source/native provenance");
+            const auto& hierarchy = copies.hierarchy();
+            require(hierarchy.nodes[0].mesh == asset_detail::gltf_no_index &&
+                        hierarchy.nodes[1].parent == 0 && hierarchy.nodes[2].parent == 0 &&
+                        hierarchy.nodes[1].matrix[12] == 2 && hierarchy.nodes[2].matrix[12] == -2 &&
+                        hierarchy.nodes[2].matrix[0] == -1 && hierarchy.nodes[2].matrix[5] == 0,
+                    "Instancing lost transform order, signed/zero scale or drew an extra original "
+                    "mesh");
+            {
+                auto quantized = input;
+                auto bytes = std::make_shared<std::vector<std::byte>>(
+                    input.buffers[0].bytes().begin(), input.buffers[0].bytes().end());
+                const auto offset = bytes->size();
+                for (auto value : {0, 0, 90, 90, 0, 0, 0, 127})
+                    bytes->push_back(std::byte(value));
+                quantized.document["bufferViews"].push_back(
+                    {{"buffer", 0}, {"byteOffset", offset}, {"byteLength", 8}});
+                quantized.document["accessors"][2] = {{"bufferView", 4},
+                                                      {"componentType", 5120},
+                                                      {"normalized", true},
+                                                      {"count", 2},
+                                                      {"type", "VEC4"}};
+                quantized.document["buffers"][0]["byteLength"] = bytes->size();
+                quantized.buffers[0] = {bytes, 0, bytes->size()};
+                asset_detail::NativeGltfDocument integer_rotation(quantized);
+                const auto& matrix = integer_rotation.hierarchy().nodes[1].matrix;
+                require(
+                    std::abs(matrix[0]) < 1e-6 && std::abs(matrix[1] - 1) < 1e-6,
+                    "Normalized byte quaternion quantization was rejected or changed orientation");
+            }
+            {
+                asset_detail::NativeGltfDocument animated(gltf_instance_fixture(true));
+                const auto clip = animated.animation(0);
+                require(clip.tracks.size() == 3 &&
+                            animated.hierarchy().nodes[0].morph_weights.empty() &&
+                            animated.hierarchy().nodes[1].morph_weights ==
+                                std::vector<double>{.25} &&
+                            animated.hierarchy().nodes[2].morph_weights == std::vector<double>{.25},
+                        "Instance morph defaults or weight-channel expansion changed");
+                std::set<std::size_t> morph_nodes;
+                for (const auto& track : clip.tracks)
+                    if (track.path == asset_detail::NativeAnimationPath::Weights)
+                        morph_nodes.insert(track.node);
+                    else
+                        require(track.node == 0, "Shared TRS animation left the parent");
+                require(morph_nodes == std::set<std::size_t>{1, 2},
+                        "Morph animation did not reach both instances");
+            }
+            auto rejects_instance = [&](auto edit) {
+                auto invalid = input;
+                edit(invalid.document);
+                bool failed = false;
+                try {
+                    asset_detail::NativeGltfDocument bad(std::move(invalid));
+                } catch (const std::exception&) {
+                    failed = true;
+                }
+                require(failed, "Malformed instance attributes reached model realization");
+            };
+            rejects_instance([](auto& d) { d["accessors"][3]["count"] = 1; });
+            rejects_instance([](auto& d) { d["accessors"][2]["type"] = "VEC3"; });
+            rejects_instance([](auto& d) { d["nodes"][0].erase("mesh"); });
+            rejects_instance([](auto& d) { d["extensionsUsed"] = nlohmann::json::array(); });
+            rejects_instance([](auto& d) {
+                d["nodes"][0]["extensions"]["EXT_mesh_gpu_instancing"]["attributes"]["SCALE"] =
+                    9000;
+            });
+            input.document["nodes"][0]["extensions"]["EXT_mesh_gpu_instancing"]["attributes"]
+                          ["_CUSTOM"] = 1;
+            asset_detail::NativeGltfDocument custom(input);
+            require(custom.scene_source().diagnostics.size() == 1 &&
+                        custom.source().document == input.document,
+                    "Custom instance payload was silently consumed or discarded");
+        }
         std::cout << "Native Diligent model metadata uses captured geometry and deferred encoded "
                      "images without disk/device\n";
         return 0;

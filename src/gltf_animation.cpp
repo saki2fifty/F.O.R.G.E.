@@ -8,7 +8,7 @@
 namespace forge::asset_detail {
 NativeAnimationClip NativeGltfDocument::animation(std::size_t animation_index) const {
     using namespace gltf_detail;
-    const auto& animations = array(source_.document, "animations", 100000);
+    const auto& animations = array(scene_source().document, "animations", 100000);
     if (animation_index >= animations.size())
         throw std::runtime_error("glTF animation index is invalid");
     const auto& input = animations[animation_index];
@@ -17,7 +17,7 @@ NativeAnimationClip NativeGltfDocument::animation(std::size_t animation_index) c
     if (channels.empty() || samplers.empty())
         throw std::runtime_error("glTF animation requires channels and samplers");
     const auto& native = model();
-    const auto& nodes = array(source_.document, "nodes", 100000);
+    const auto& nodes = array(scene_source().document, "nodes", 100000);
     auto accessor_index = [&](const Json& value) {
         const auto result = size_value(value);
         if (result >= native.accessors.size())

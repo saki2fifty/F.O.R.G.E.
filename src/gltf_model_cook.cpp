@@ -83,7 +83,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
                 unsigned(options.mesh.normals) <= unsigned(MeshDirections::Recalculate) &&
                 unsigned(options.mesh.tangents) <= unsigned(MeshDirections::Recalculate),
             "Invalid static model processing options");
-    const auto& source = native.source();
+    const auto& source = native.scene_source();
     const auto& doc = source.document;
     const bool animated = !doc.value("skins", Json::array()).empty() ||
                           !doc.value("animations", Json::array()).empty();
@@ -403,7 +403,8 @@ std::vector<ArtifactFile> cook_static_gltf_bundle(const NativeGltfDocument& nati
                                                   const GltfModelCookOptions& options,
                                                   std::stop_token stop) {
     for (const auto* key : {"skins", "animations"})
-        require(!native.source().document.contains(key) || native.source().document.at(key).empty(),
+        require(!native.scene_source().document.contains(key) ||
+                    native.scene_source().document.at(key).empty(),
                 "Static model cooking cannot discard skin/animation stages");
     return cook_gltf_geometry_bundle(native, options, stop);
 }

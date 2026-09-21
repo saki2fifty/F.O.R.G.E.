@@ -33,7 +33,7 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
                 std::isfinite(options.constant_duration) && options.constant_duration >= .0001f &&
                 options.constant_duration <= 3600,
             "Invalid model animation conversion options");
-    const auto& source = native.source().document;
+    const auto& source = native.scene_source().document;
     const auto& hierarchy = native.hierarchy();
     const auto animations = source.value("animations", Json::array());
     require(animations.size() <= 64, "Model animation clip count exceeds 64");

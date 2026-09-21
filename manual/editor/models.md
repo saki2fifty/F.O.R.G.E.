@@ -276,3 +276,9 @@ still select, move, rename and override each object separately. Mirrored objects
 use the appropriate winding group; different materials and lighting masks split
 batches. Animated, morphing and transparent objects keep their individual draw
 paths. No merge command or identity change is required.
+
+A glTF model using `EXT_mesh_gpu_instancing` places each mesh copy as its own
+child entity. Its source parent carries shared movement. The original mesh is
+not added as an extra copy. Negative and zero instance scale stay intact, and
+placement remains one Undo step. Custom instance attributes are retained in the
+source with a diagnostic; instanced skin bindings currently reject explicitly.

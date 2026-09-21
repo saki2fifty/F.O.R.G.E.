@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
+#include "gltf_instance_fixture.hpp"
 #include "model_authoring.hpp"
 #include "model_draw_candidate.hpp"
 #include "model_importer.hpp"
@@ -830,6 +831,67 @@ int main(int argc, char** argv) {
         view_scene.redo();
         require(view_scene.document() == authored_views,
                 "Camera/light placement redo changed identity");
+        {
+            const auto input = gltf_instance_fixture();
+            atomic_write(root / "Assets/instances.gltf", input.document.dump());
+            {
+                const auto bytes = input.buffers[0].bytes();
+                std::ofstream output(root / "Assets/instances.bin", std::ios::binary);
+                output.write(reinterpret_cast<const char*>(bytes.data()),
+                             std::streamsize(bytes.size()));
+                require(bool(output), "Instance fixture write failed");
+            }
+            const auto imported = run("Assets/instances.gltf");
+            require(imported.published, imported.diagnostic.c_str());
+            const auto id = service.prepare("Assets/instances.gltf").request.asset;
+            const auto selected = load_model_selection(root, imported.publication->catalog, id);
+            EngineContext instance_engine;
+            Scene instance_scene(instance_engine.world());
+            instance_scene.reset(empty_scene());
+            const auto before = instance_scene.document();
+            const auto candidate = prepare_model_placement(selected, instance_scene.asset_id(),
+                                                           instance_scene.revision());
+            instantiate_model(instance_scene, imported.publication->catalog, candidate);
+            instance_engine.world().evaluate_world_transforms();
+            const auto placed = instance_scene.document();
+            unsigned meshes = 0;
+            std::set<double> translations;
+            std::set<EntityId> identities;
+            for (const auto& row : placed.at("entities")) {
+                const EntityId entity_id = row.at("id");
+                identities.insert(entity_id);
+                const auto entity = instance_scene.entity(entity_id.str());
+                if (entity.has<MeshRenderer>()) {
+                    ++meshes;
+                    translations.insert(entity.get<WorldTransform>().affine.m[3]);
+                }
+            }
+            require(meshes == 2 && identities.size() == 4 &&
+                        translations == std::set<double>{8, 12},
+                    "Imported instancing changed world transforms, duplicated the original or "
+                    "merged entity identity");
+            instance_scene.undo();
+            require(instance_scene.document() == before,
+                    "Instance placement undo left derived nodes");
+            instance_scene.redo();
+            require(instance_scene.document() == placed,
+                    "Instance placement redo regenerated identities");
+            const auto cache = run("Assets/instances.gltf");
+            require(cache.published && cache.cache_hit,
+                    "Unchanged instance source did not use its immutable cache");
+            auto invalid = input.document;
+            invalid["accessors"][3]["count"] = 1;
+            atomic_write(root / "Assets/instances.gltf", invalid.dump());
+            const auto failed = run("Assets/instances.gltf");
+            require(!failed.published &&
+                        failed.diagnostic.find("counts differ") != std::string::npos,
+                    "Invalid instance replacement was published or lost its diagnostic");
+            const auto retained = load_model_selection(root, AssetCatalog::open_project(root), id);
+            require(
+                retained.revision == selected.revision && retained.bindings == selected.bindings &&
+                    instance_scene.document() == placed,
+                "Rejected instance reimport replaced a good family or changed authored entities");
+        }
         if (std::filesystem::exists(root / ".forge/jobs"))
             require(std::filesystem::is_empty(root / ".forge/jobs"),
                     "Finished model staging remains");

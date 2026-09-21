@@ -585,3 +585,25 @@ runtime joins the single owned read; no worker retains a world or Flecs pointer.
 Normal asset import settings may be edited during Play, but model placement stays
 subject to the scene-edit guard. The runtime does not rewrite placed hierarchy
 when the source hierarchy changes.
+
+## Mesh instancing sources
+
+The importer admits `EXT_mesh_gpu_instancing` transform accessors through the
+existing captured-source and native accessor validation. Counts must match;
+translation/scale use float VEC3 and rotation uses float or normalized signed
+byte/short VEC4. Sparse and interleaved accessors use the same admitted decoder.
+Integer quaternion quantization is normalized in the derived node value without
+changing captured source bytes. Signed/zero scale remains explicit TRS.
+
+An import-only scene expansion keeps the original node as the transform parent
+and creates ordinary mesh child nodes for its instances. The original mesh is
+removed from that derived parent so it is not drawn twice. The captured document
+and its provenance remain unchanged. Each generated node goes through normal
+model-member identity correspondence, placement and scene Undo/Redo. Source node
+TRS animation stays on the parent; morph weight channels target the mesh copies
+with the same sampler. This is not a second runtime scene hierarchy.
+
+Application-specific underscore attributes remain in the captured source with a
+diagnostic; the built-in renderer assigns no invented shader meaning. Instanced
+skin bindings currently reject explicitly: the existing joint-world palette must
+not silently ignore the instance transform. This combination remains under review.

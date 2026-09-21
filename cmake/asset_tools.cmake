@@ -40,7 +40,7 @@ target_link_libraries(forge_texture_import PUBLIC forge_texture forge_texture_fo
 if(WIN32)
  target_compile_definitions(forge_texture_import PRIVATE NOMINMAX)
 endif()
-add_library(forge_gltf_native STATIC src/gltf_native.cpp src/gltf_meshopt.cpp src/gltf_draco.cpp src/gltf_surfaces.cpp src/gltf_scene.cpp src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp src/mesh_processing.cpp)
+add_library(forge_gltf_native STATIC src/gltf_native.cpp src/gltf_instances.cpp src/gltf_meshopt.cpp src/gltf_draco.cpp src/gltf_surfaces.cpp src/gltf_scene.cpp src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp src/mesh_processing.cpp)
 target_include_directories(forge_gltf_native PRIVATE
  "${diligent_SOURCE_DIR}/DiligentTools/ThirdParty/tinygltf" "${draco_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}")
 target_link_libraries(forge_gltf_native PUBLIC forge_assets forge_mesh forge_material PRIVATE forge_model_pipeline meshoptimizer draco::draco Diligent-AssetLoader Diligent-GraphicsAccessories Diligent-BuildSettings)
@@ -171,6 +171,7 @@ foreach(source
  src/model_bundle.hpp src/model_bundle.cpp src/model_selection.hpp src/model_selection.cpp src/model_importer.hpp src/model_importer.cpp src/model_worker.cpp
  src/model_animation.hpp src/model_animation.cpp src/morph_animation.hpp src/morph_animation.cpp
  src/gltf_model_cook.hpp src/gltf_model_cook.cpp src/gltf_ozz_transport.hpp src/gltf_ozz_transport.cpp src/gltf_native.hpp src/gltf_native.cpp
+ src/gltf_instances.hpp src/gltf_instances.cpp
  src/gltf_meshopt.hpp src/gltf_meshopt.cpp src/gltf_draco.hpp src/gltf_draco.cpp
  src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp
  src/gltf_surfaces.hpp src/gltf_surfaces.cpp src/mesh_processing.hpp src/mesh_processing.cpp

@@ -609,3 +609,28 @@
 - Local model/render regressions pass 2/2 normally (34.13 s) and with ASan, UBSan
   and leak checks (98.22 s). Generated shader checks pass all 48 stages. Native
   instancing/low-capacity tests remain pending; no numbered package reserved.
+
+### glTF instance import
+
+- Admit `EXT_mesh_gpu_instancing` through the existing bounded native accessor
+  path. Derive ordinary mesh child nodes while retaining captured source, shared
+  parent transforms, stable member correspondence and independent entity identity.
+- Validate count/type/normalization and preserve signed/zero scale. Normalize
+  quantized integer quaternions within their quantization error before float TRS
+  admission. Expand morph weight targets with shared samplers.
+- Preserve custom attributes in captured source with an explicit diagnostic. Reject
+  instanced skin bindings until their transform semantics are represented correctly.
+- Add malformed-accessor, quantized-rotation and full import/placement/cache tests;
+  validation and instanced-skin applicability review are in progress.
+
+- Native source eaeabeb passes all 42 Windows audit tests, including static instance
+  pixel equivalence, independent colors, 65-entity batching, native part-budget
+  rejection/retry and removed-bundle release. glTF import additions are subsequent.
+- Official Khronos PR2404 confirms skinned-instancing composition was left
+  ambiguous; it is not forbidden by glTF. Retain an explicit FORGE profile
+  rejection rather than silently applying an unagreed post-skin convention.
+
+- Instance import validation passes: normal native/model tests 2/2 (38.59 s),
+  normalized rotation/morph routing 1/1 (0.05 s), and ASan/UBSan/leak checks 2/2
+  (108.31 s). An additional normal real-worker failure regression passes (35.80 s):
+  mismatched instance counts retain the prior model revision, bindings and scene.

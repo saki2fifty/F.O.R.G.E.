@@ -93,6 +93,8 @@ class NativeGltfDocument {
     NativeGltfDocument& operator=(const NativeGltfDocument&) = delete;
     const tinygltf::Model& model() const;
     const GltfSourceBundle& source() const { return source_; }
+    // Derived import scene expansion. Captured source/provenance remains immutable.
+    const GltfSourceBundle& scene_source() const { return expanded_ ? *expanded_ : source_; }
     // Encoded image bytes after buffer-view decompression, before image decoding.
     const std::vector<GltfEncodedImage>& encoded_images() const { return images_; }
     const NativeGltfHierarchy& hierarchy() const { return hierarchy_; }
@@ -108,6 +110,7 @@ class NativeGltfDocument {
 
   private:
     GltfSourceBundle source_;
+    std::unique_ptr<GltfSourceBundle> expanded_;
     nlohmann::json meshes_; // Admitted private primitive/accessor routing, not source identity.
     std::vector<GltfEncodedImage> images_;
     NativeGltfHierarchy hierarchy_;

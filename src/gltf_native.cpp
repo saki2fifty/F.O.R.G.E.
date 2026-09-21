@@ -1,5 +1,6 @@
 #include "gltf_native.hpp"
 #include "gltf_draco.hpp"
+#include "gltf_instances.hpp"
 #include "gltf_meshopt.hpp"
 #include "gltf_scene.hpp"
 #include "gltf_surfaces.hpp"
@@ -215,6 +216,9 @@ NativeGltfDocument::NativeGltfDocument(GltfSourceBundle captured) : source_(std:
         native_->GetModel().images.size() != admitted.images.size())
         throw std::runtime_error("Native glTF source cardinality changed during parsing");
     images_ = std::move(admitted.images);
+    expanded_ = expand_gltf_instances(*this);
+    if (expanded_)
+        hierarchy_ = validate_gltf_hierarchy(*expanded_);
 }
 NativeGltfDocument::~NativeGltfDocument() = default;
 const tinygltf::Model& NativeGltfDocument::model() const { return native_->GetModel(); }
