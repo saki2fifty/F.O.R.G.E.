@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      hlsl_profile:
+        description: Run only the focused Windows sampler compiler probe (no engine build or package)
+        type: boolean
+        default: false
       package_source_run:
         description: Optional prior run with successful core/editor/format jobs; assemble its unchanged binaries only
         type: string
@@ -31,14 +35,17 @@ permissions:
   contents: read
   actions: read
 jobs:
+  hlsl-profile:
+    if: github.event_name == 'workflow_dispatch' && inputs.hlsl_profile
+    uses: ./.github/workflows/hlsl-profile.yml
   source-audit:
-    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != ''
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && !inputs.hlsl_profile
     uses: ./.github/workflows/editor-audit.yml
     with:
       source_commit: ${{ inputs.audit_source }}
       clean_build: ${{ inputs.clean_build }}
   core:
-    if: inputs.audit_source == '' && inputs.package_source_run == ''
+    if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     strategy:
       fail-fast: false
       matrix:
@@ -119,7 +126,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   editor:
-    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == ''
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     runs-on: windows-2022
     timeout-minutes: 60
     env:
@@ -277,7 +284,7 @@ jobs:
           retention-days: 14
   package:
     needs: [core, editor, format]
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success'))
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success')) && !inputs.hlsl_profile
     runs-on: windows-2022
     timeout-minutes: 10
     steps:
@@ -356,7 +363,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   format:
-    if: inputs.audit_source == '' && inputs.package_source_run == ''
+    if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
