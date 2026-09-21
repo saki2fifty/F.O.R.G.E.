@@ -170,6 +170,7 @@ int main(int argc, char** argv) {
                 SDL_strlcpy(exact_sdk_root, j.value("exact_sdk_root", std::string{}).c_str(),
                             sizeof(exact_sdk_root));
                 workspace.load(j);
+                content.load_settings(j.value("content_browser", forge::Json::object()));
                 orientation.visible = j.value("orientation_gizmo", true);
                 auto_build = j.value("auto_build", false);
                 blockout.at_view_target = j.value("create_at_view_target", false);
@@ -189,6 +190,7 @@ int main(int argc, char** argv) {
             forge::atomic_write(
                 settings, forge::Json{{"tooltips", forge::ui::tooltips},
                                       {"panels", workspace.settings()},
+                                      {"content_browser", content.settings()},
                                       {"orientation_gizmo", orientation.visible},
                                       {"interface_scale", forge::ui::interface_scale},
                                       {"cmake", cmake_path},
@@ -454,7 +456,17 @@ int main(int argc, char** argv) {
             content.refresh(files);
         };
         content.rescan_sources = [&] { content_imports.rescan(); };
+        content.reimport = [&](const auto& assets) { content_imports.reimport(assets); };
         content.import_status = [&] { content_imports.status(); };
+        content.import_activity = [&] {
+            std::map<forge::AssetId, forge::ContentState> result;
+            for (const auto& [id, state] : content_imports.activity())
+                result[id] = state == forge::AssetJobState::Failed ? forge::ContentState::Failed
+                             : state == forge::AssetJobState::Queued
+                                 ? forge::ContentState::Queued
+                                 : forge::ContentState::Importing;
+            return result;
+        };
         content.open_source = [&](const auto& path, const std::string& kind, bool open) {
             if (kind == "model") {
                 if (open)
@@ -1411,6 +1423,8 @@ int main(int argc, char** argv) {
             content_files.poll(files.document, scene, content_imports, message);
             content_imports.poll(files.document, message);
             content.source_snapshot(content_imports.sources());
+            if (content.take_settings_changed())
+                perform(save_preferences);
             navigation_tools.poll(scene, files.document, play.active(), message);
             automation.draw(scene, files.document, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +

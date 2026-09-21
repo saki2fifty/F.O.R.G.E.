@@ -114,9 +114,12 @@ inline void test_redesign_drawers() {
         ImGui::SetNextWindowSize({1440, 200});
         content.draw(files);
         auto* window = ImGui::FindWindowByName("Content");
-        auto* table = ImGui::TableFindByID(window->GetID("Assets"));
-        require(table &&
-                    table->InnerClipRect.GetHeight() >= 3 * ImGui::GetTextLineHeightWithSpacing(),
+        ImGuiWindow* results = nullptr;
+        for (auto* child : ImGui::GetCurrentContext()->Windows)
+            if (child->ParentWindow == window && child->ChildId == window->GetID("content-results"))
+                results = child;
+        require(results &&
+                    results->InnerClipRect.GetHeight() >= 3 * ImGui::GetTextLineHeightWithSpacing(),
                 "Content filters hide asset rows in the default bottom workspace");
         ImGui::Render();
     }

@@ -1,4 +1,5 @@
 #pragma once
+#include "content_view.hpp"
 #include "document_workspace.hpp"
 #include "files.hpp"
 #include "help.hpp"
@@ -72,13 +73,20 @@ inline std::vector<std::filesystem::path> scene_files(const std::filesystem::pat
 }
 class ContentBrowser {
   public:
+    Json settings() const { return view_.settings(); }
+    void load_settings(const Json& value) { view_.load_settings(value); }
+    bool take_settings_changed() { return view_.take_settings_changed(); }
     const ui::AssetEditors* editors = nullptr;
     std::function<void(const AssetRecord&, bool)> file_actions;
     std::function<void()> rescan_sources, import_status;
+    std::function<std::map<AssetId, ContentState>()> import_activity;
+    std::function<void(const std::vector<AssetId>&)> reimport;
     std::function<bool(const std::filesystem::path&, const std::string&, bool)> open_source;
     void source_snapshot(std::shared_ptr<const SourceSnapshot> snapshot) {
-        if (snapshot && snapshot->complete)
+        if (snapshot && snapshot->complete && snapshot != sources_) {
             sources_ = std::move(snapshot);
+            index_dirty_ = true;
+        }
     }
     void inspect_source(const std::string& locator) {
         const auto path = std::filesystem::u8path(locator);
@@ -115,7 +123,10 @@ class ContentBrowser {
         const auto it = catalog_->records().find(id);
         return it == catalog_->records().end() ? nullptr : &it->second;
     }
-    ~ContentBrowser() { stop_.request_stop(); }
+    ~ContentBrowser() {
+        stop_.request_stop();
+        index_stop_.request_stop();
+    }
     bool refreshing() const { return scan_.valid() || refresh_again_; }
     void refresh(EditorFiles& files) {
         select_project(files);
@@ -146,6 +157,7 @@ class ContentBrowser {
     }
     void poll(EditorFiles& files) {
         select_project(files);
+        poll_index();
         if (!scan_.valid()) {
             if (std::exchange(refresh_again_, false))
                 refresh(files);
@@ -157,7 +169,8 @@ class ContentBrowser {
             auto candidate = scan_.get();
             if (!stop_.stop_requested() && scan_project_ == root_) {
                 merge_prefabs(candidate, files);
-                catalog_ = std::move(candidate);
+                catalog_ = std::make_shared<AssetCatalog>(std::move(candidate));
+                index_dirty_ = true;
                 error_.clear();
                 refreshed_ = SDL_GetTicks();
             }
@@ -178,9 +191,13 @@ class ContentBrowser {
         if (const auto known = files.document.prefabs().records().find(id);
             known != files.document.prefabs().records().end()) {
             if (!catalog_)
-                catalog_.emplace(root_);
-            if (!record(id))
-                catalog_->add(known->second);
+                catalog_ = std::make_shared<AssetCatalog>(root_);
+            if (!record(id)) {
+                auto next = std::make_shared<AssetCatalog>(*catalog_);
+                next->add(known->second);
+                catalog_ = std::move(next);
+                index_dirty_ = true;
+            }
         }
         inspected_ = id;
         if (root_ != files.document.project() || (!catalog_ && refreshed_ == 0) ||
@@ -228,6 +245,49 @@ class ContentBrowser {
                        "Open the containing folder in your operating system."))
             SDL_OpenURL(ui::local_file_url((files.document.project() / asset->source).parent_path())
                             .c_str());
+        if (ImGui::TreeNode("Dependencies and references")) {
+            const auto& graph = catalog_->dependency_graph();
+            const auto link = [&](AssetId id) {
+                ui::IdScope item(id.str().c_str());
+                const auto* target = record(id);
+                ImGui::TextWrapped("%s",
+                                   target ? asset_display(*target).c_str() : id.str().c_str());
+                if (ui::button("Select asset",
+                               "Inspect this catalog dependency or direct referring asset.")) {
+                    selection.select_asset(id);
+                    if (ui::editor_context)
+                        ui::editor_context->reveal_content = true;
+                }
+            };
+            ImGui::TextUnformatted("Uses assets");
+            ui::help("Typed catalog edges. These are build/runtime dependency records, not every "
+                     "reference in unopened scene or opaque plugin data.");
+            ImGui::PushID("forward");
+            for (const auto& edge : graph.dependencies(asset->id)) {
+                ui::IdScope role(edge.role.c_str());
+                const Json encoded = edge;
+                ImGui::TextWrapped("%s / %s", encoded.at("kind").get<std::string>().c_str(),
+                                   edge.role.c_str());
+                link(edge.target);
+            }
+            ImGui::PopID();
+            ImGui::TextUnformatted("Uses source files");
+            ui::help("Captured source dependencies such as external glTF images or shader "
+                     "includes; these paths are not allocated AssetIds.");
+            for (const auto& source : graph.source_dependencies(asset->id))
+                ImGui::TextWrapped("%s / %s", path_text(source.source).c_str(),
+                                   source.role.c_str());
+            ImGui::TextUnformatted("Referenced by assets");
+            ui::help("Direct catalog referrers. Source deletion performs a separate reviewed scan "
+                     "of known authored references.");
+            ImGui::PushID("reverse");
+            for (const auto id : graph.referrers(asset->id))
+                link(id);
+            ImGui::PopID();
+            ImGui::TreePop();
+        }
+        ui::help("Inspect the existing catalog's forward/reverse dependency graph without changing "
+                 "asset contents.");
         if (ImGui::TreeNode("Asset details")) {
             ImGui::TextWrapped("AssetId: %s", asset->id.str().c_str());
             ImGui::Text("Dependencies: %zu", asset->dependencies.size());
@@ -314,183 +374,48 @@ class ContentBrowser {
                 "Project asset discovery runs in the background. Existing results stay available; "
                 "a failed scan keeps the last complete list.");
         }
-        const bool wide_filters = ImGui::GetContentRegionAvail().x >= 600 * ui::interface_scale;
-        if (wide_filters)
-            ImGui::SameLine();
-        ImGui::SetNextItemWidth(-1);
-        ImGui::InputTextWithHint("##asset-search", "Search project assets...", filter_,
-                                 sizeof(filter_));
-        ui::help("Search source path, generated clip name and asset type.");
-        if (wide_filters)
-            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * .35f);
-        else
-            ImGui::SetNextItemWidth(
-                std::max(20.f, ImGui::GetContentRegionAvail().x - 60 * ui::interface_scale));
-        if (ImGui::BeginCombo("Type", type_.empty() ? "All assets" : type_.c_str())) {
-            if (ImGui::Selectable("All assets", type_.empty()))
-                type_.clear();
-            if (ImGui::Selectable("Source files", type_ == "Source files"))
-                type_ = "Source files";
-            std::set<std::string> types;
-            if (catalog_)
-                for (const auto& [id, a] : catalog_->records()) {
-                    (void)id;
-                    types.insert(a.type);
+        view_.reimport =
+            reimport ? std::function<void(const std::vector<AssetId>&)>([&](const auto& ids) {
+                try {
+                    reimport(ids);
+                    error_.clear();
+                } catch (const std::exception& e) {
+                    error_ = e.what();
                 }
-            for (const auto& t : types)
-                if (ImGui::Selectable(t.c_str(), t == type_))
-                    type_ = t;
-            ImGui::EndCombo();
-        }
-        ui::help("Show only one of the asset types currently registered in this project.");
-        if (wide_filters)
-            ImGui::SameLine();
-        ImGui::SetNextItemWidth(
-            std::max(20.f, ImGui::GetContentRegionAvail().x - 65 * ui::interface_scale));
-        if (ImGui::BeginCombo("Folder", folder_[0] ? folder_ : "All folders")) {
-            if (ImGui::Selectable("All folders", !folder_[0]))
-                folder_[0] = 0;
-            std::set<std::string> folders;
-            if (catalog_)
-                for (const auto& [id, asset] : catalog_->records()) {
-                    (void)id;
-                    for (auto p = asset.source.parent_path(); !p.empty(); p = p.parent_path())
-                        folders.insert(path_text(p) + "/");
-                }
-            if (sources_)
-                for (const auto& [path, source] : sources_->files) {
-                    (void)source;
-                    for (auto p = path.parent_path(); !p.empty(); p = p.parent_path())
-                        folders.insert(path_text(p) + "/");
-                }
-            for (const auto& folder : folders)
-                if (ImGui::Selectable(folder.c_str(), folder == folder_))
-                    SDL_strlcpy(folder_, folder.c_str(), sizeof(folder_));
-            ImGui::EndCombo();
-        }
-        ui::help("Browse folders containing registered assets, including descendants. All folders "
-                 "searches the whole project.");
-        if (ui::editor_context && ui::editor_context->reveal_content) {
-            filter_[0] = folder_[0] = 0;
-            type_.clear();
+            })
+                     : std::function<void(const std::vector<AssetId>&)>{};
+        view_.open = [&](const ContentEntry& entry) {
+            if (entry.asset) {
+                if (const auto* a = record(entry.asset); a && editors)
+                    editors->open(*a);
+            } else if (open_source)
+                open_source(entry.source, entry.type, true);
+        };
+        view_.context_menu = [&](const ContentEntry& entry) {
+            const auto* a = entry.asset ? record(entry.asset) : nullptr;
+            if (a && editors) {
+                if (const auto* editor = editors->find(a->type);
+                    editor && ImGui::MenuItem(editor->label.c_str(), nullptr, false, !locked))
+                    editors->open(*a);
+            } else if (!entry.asset && open_source &&
+                       open_source(entry.source, entry.type, false) &&
+                       ImGui::MenuItem("Open import / source", nullptr, false, !locked)) {
+                open_source(entry.source, entry.type, true);
+            }
+            if (ImGui::MenuItem("Reveal source folder"))
+                SDL_OpenURL(ui::local_file_url((root_ / entry.source).parent_path()).c_str());
+            if (a && file_actions)
+                file_actions(*a, locked);
+            if (a && a->type == "prefab" && prefab_controls) {
+                selection.select_asset(a->id);
+                prefab_controls();
+            }
+        };
+        if (ui::editor_context && ui::editor_context->reveal_content && index_) {
+            view_.reveal(selection);
             ui::editor_context->reveal_content = false;
-            reveal_ = true;
         }
-        unsigned count = 0;
-        if (ImGui::BeginTable(
-                "Assets", 2,
-                ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable,
-                {0,
-                 std::max(60.f, ImGui::GetContentRegionAvail().y - (error_.empty() ? 0 : 50.f))})) {
-            ImGui::TableSetupColumn("Asset", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed,
-                                    110 * ui::interface_scale);
-            ImGui::TableHeadersRow();
-            if (catalog_)
-                for (const auto& [id, a] : catalog_->records()) {
-                    auto label = asset_display(a);
-                    if ((!type_.empty() && a.type != type_) ||
-                        search_key(label + " " + a.type).find(search_key(filter_)) ==
-                            std::string::npos ||
-                        !search_key(path_text(a.source)).starts_with(search_key(folder_)))
-                        continue;
-                    ++count;
-                    ui::IdScope scope(id.str().c_str());
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    const bool selected =
-                        selection.kind() == ui::SelectionKind::Asset && selection.asset() == id;
-                    if (ImGui::Selectable(
-                            label.c_str(), selected,
-                            ImGuiSelectableFlags(ImGuiSelectableFlags_SelectOnRelease) |
-                                ImGuiSelectableFlags_AllowDoubleClick |
-                                ImGuiSelectableFlags_SpanAllColumns)) {
-                        selection.select_asset(id);
-                        if (!locked && editors && ImGui::IsMouseDoubleClicked(0))
-                            editors->open(a);
-                    }
-                    ui::help("Select to inspect this asset. Drag to a compatible asset field; "
-                             "double-click supported editable assets to open. Right-click for "
-                             "asset actions.");
-                    if (reveal_ && selected) {
-                        ImGui::SetScrollHereY();
-                        reveal_ = false;
-                    }
-                    if (ImGui::BeginDragDropSource()) {
-                        auto text = id.str();
-                        ImGui::SetDragDropPayload("FORGE_ASSET", text.c_str(), text.size() + 1);
-                        ImGui::Text("%s (%s)", label.c_str(), a.type.c_str());
-                        ImGui::EndDragDropSource();
-                    }
-                    if (ImGui::BeginPopupContextItem("Asset actions")) {
-                        if (ImGui::MenuItem("Inspect"))
-                            selection.select_asset(id);
-                        if (editors)
-                            if (const auto* editor = editors->find(a.type);
-                                editor &&
-                                ImGui::MenuItem(editor->label.c_str(), nullptr, false, !locked))
-                                editors->open(a);
-                        if (ImGui::MenuItem("Reveal source folder"))
-                            SDL_OpenURL(
-                                ui::local_file_url((root_ / a.source).parent_path()).c_str());
-                        if (file_actions)
-                            file_actions(a, locked);
-                        if (a.type == "prefab" && prefab_controls) {
-                            selection.select_asset(id);
-                            prefab_controls();
-                        }
-                        ImGui::EndPopup();
-                    }
-                    ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(a.type.c_str());
-                }
-            if (sources_ && (type_.empty() || type_ == "Source files")) {
-                std::set<std::filesystem::path, ProjectLocatorLess> registered;
-                if (catalog_)
-                    for (const auto& [id, record] : catalog_->records()) {
-                        (void)id;
-                        registered.insert(record.source);
-                    }
-                for (const auto& [path, source] : sources_->files) {
-                    const auto label = path_text(path);
-                    if (registered.contains(path) || source.source_kind == "unrecognized" ||
-                        !source.alias_of.empty() ||
-                        search_key(label + " " + source.source_kind).find(search_key(filter_)) ==
-                            std::string::npos ||
-                        !search_key(label).starts_with(search_key(folder_)))
-                        continue;
-                    ++count;
-                    ui::IdScope scope(label.c_str());
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    const bool selected = selection.kind() == ui::SelectionKind::DocumentItem &&
-                                          selection.document() == "content.source" &&
-                                          selection.member() == label;
-                    if (ImGui::Selectable(label.c_str(), selected,
-                                          ImGuiSelectableFlags_AllowDoubleClick |
-                                              ImGuiSelectableFlags_SpanAllColumns)) {
-                        selection.select_document_item("content.source", label);
-                        if (ui::editor_context)
-                            ui::editor_context->task.focus_document("content.source",
-                                                                    "Source file");
-                        if (!locked && ImGui::IsMouseDoubleClicked(0) && open_source)
-                            open_source(path, source.source_kind, true);
-                    }
-                    ui::help("Unimported source. Select for source information; double-click "
-                             "supported types to review import or material source settings. No "
-                             "persistent asset identity is allocated by browsing.");
-                    ImGui::TableNextColumn();
-                    ImGui::Text("Source / %s", source.source_kind.c_str());
-                    ui::help("This file is not registered as a logical asset yet.");
-                }
-            }
-            if (!count) {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TextWrapped("No matching assets. Clear filters or use Create / Register.");
-            }
-            ImGui::EndTable();
-        }
+        view_.draw(selection, locked);
         if (!error_.empty()) {
             ui::field_error(error_);
             if (ui::editor_context)
@@ -502,13 +427,18 @@ class ContentBrowser {
 
   private:
     std::filesystem::path root_;
-    std::optional<AssetCatalog> catalog_;
+    std::shared_ptr<AssetCatalog> catalog_;
+    std::shared_ptr<const ContentIndex> index_;
+    std::future<std::shared_ptr<const ContentIndex>> index_job_;
+    std::stop_source index_stop_;
+    bool index_dirty_ = true;
+    Uint64 indexed_at_ = 0;
+    ContentView view_;
     std::shared_ptr<const SourceSnapshot> sources_;
     ui::EditorSelection fallback_;
     AssetId inspected_;
-    std::string error_, type_;
-    char filter_[256]{}, folder_[256]{}, wav_[1024] = "Assets/sound.wav";
-    bool reveal_ = false;
+    std::string error_;
+    char wav_[1024] = "Assets/sound.wav";
     Uint64 refreshed_ = 0;
     bool refresh_again_ = false;
     std::filesystem::path scan_project_;
@@ -521,9 +451,44 @@ class ContentBrowser {
         root_ = files.document.project();
         catalog_.reset();
         sources_.reset();
+        index_stop_.request_stop();
+        index_.reset();
+        const auto preferences = view_.settings();
+        view_ = ContentView{};
+        view_.load_settings(preferences);
+        index_dirty_ = true;
         error_.clear();
         refreshed_ = 0;
         refresh_again_ = true;
+    }
+    void poll_index() {
+        if (index_job_.valid()) {
+            if (index_job_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+                return;
+            try {
+                auto result = index_job_.get();
+                if (!index_stop_.stop_requested()) {
+                    index_ = std::move(result);
+                    view_.update(index_);
+                }
+            } catch (const std::exception& e) {
+                if (!index_stop_.stop_requested())
+                    error_ = e.what();
+            }
+        }
+        if (catalog_ && (index_dirty_ || SDL_GetTicks() - indexed_at_ > 2000)) {
+            indexed_at_ = SDL_GetTicks();
+            auto activity = import_activity ? import_activity() : std::map<AssetId, ContentState>{};
+            index_dirty_ = false;
+            index_stop_ = std::stop_source{};
+            index_job_ = std::async(
+                std::launch::async,
+                [catalog = std::shared_ptr<const AssetCatalog>(catalog_), sources = sources_,
+                 stop = index_stop_.get_token(), activity = std::move(activity)] {
+                    return std::make_shared<const ContentIndex>(
+                        ContentIndex::build(*catalog, sources.get(), stop, activity));
+                });
+        }
     }
     static void merge_prefabs(AssetCatalog& candidate, EditorFiles& files) {
         for (const auto& [id, prefab] : files.document.prefabs().records()) {

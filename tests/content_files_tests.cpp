@@ -1,4 +1,5 @@
 #include "asset_storage.hpp"
+#include "content_browser_tests.hpp"
 #include "content_files.hpp"
 #include <iostream>
 using namespace forge;
@@ -33,6 +34,7 @@ int main(int argc, char** argv) {
         io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
         ui::EditorUiContext context;
         ui::ContextScope scope(context);
+        test_content_browser(root);
         ContentImports imports;
         ContentFiles dialog;
         std::string message;

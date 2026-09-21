@@ -100,6 +100,19 @@ int main(int argc, char** argv) {
             f.operations.commit(f.move(), false);
             throw std::runtime_error("Expected process interruption");
         }
+        {
+            // Valid destination near the traditional Windows path bound. The old
+            // destination-name + UUID temporary exceeded it (and long names could
+            // exceed POSIX's per-component bound).
+            const auto parent_chars = f.root.native().size() + 1;
+            const auto name_chars = parent_chars < 176 ? 240 - parent_chars : std::size_t{64};
+            const auto destination = f.root / std::string(name_chars, 'n');
+            asset_storage::replace(destination, "first");
+            asset_storage::replace(destination, "replacement");
+            check(asset_storage::read(destination) == "replacement",
+                  "Long valid destination could not be atomically replaced");
+            std::filesystem::remove(destination);
+        }
         auto invalid = f.move();
         invalid[0].before = bytes("wrong revision");
         rejects([&] { f.operations.commit(invalid, false); });

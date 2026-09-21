@@ -78,6 +78,28 @@ void AssetReimportService::rescan(bool retry_failed) {
         failed_.clear();
     }
 }
+void AssetReimportService::reimport(const std::vector<AssetId>& assets) {
+    check();
+    if (suspended_)
+        throw std::runtime_error("Finish the current source-file operation before reimporting");
+    if (assets.empty() || assets.size() > 4096)
+        throw std::runtime_error("Select between 1 and 4096 registered assets to reimport");
+    std::set<AssetId> owners;
+    for (const auto id : assets) {
+        const auto owner = root(id);
+        if (!owner || !route(catalog_->records().at(owner)))
+            throw std::runtime_error("No published importer route for selected asset " + id.str() +
+                                     "; open its source/import document first");
+        owners.insert(owner);
+    }
+    // Existing blocked-draft, dependency ordering, candidate and stale-generation rules apply.
+    auto queued = queue_;
+    queued.insert(owners.begin(), owners.end());
+    queue_.swap(queued);
+    for (const auto id : owners)
+        failed_.erase(id);
+    watch_.rescan();
+}
 void AssetReimportService::suspend(bool value) {
     check();
     if (suspended_ == value)
@@ -190,6 +212,17 @@ void AssetReimportService::observe(const AssetWatchUpdate& update) {
                     enqueue(owner);
         }
     }
+}
+std::map<AssetId, AssetJobState> AssetReimportService::activity() const {
+    check();
+    std::map<AssetId, AssetJobState> result;
+    for (const auto id : failed_)
+        result[id] = AssetJobState::Failed;
+    for (const auto id : queue_)
+        result[id] = AssetJobState::Queued;
+    if (active_)
+        result[active_->asset] = AssetJobState::Running;
+    return result;
 }
 std::vector<AssetJobInfo> AssetReimportService::jobs() const {
     check();

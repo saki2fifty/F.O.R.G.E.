@@ -39,8 +39,10 @@ void sync_directory(const std::filesystem::path& path) {
 }
 void replace(const std::filesystem::path& path, std::string_view bytes) {
     ordinary(path);
-    const auto temp = path.parent_path() /
-                      (path.filename().string() + "." + AssetId::generate().str() + ".pending");
+    // A unique sibling is sufficient for same-filesystem atomic replacement.
+    // Appending to the full destination filename can exceed Windows MAX_PATH or
+    // POSIX NAME_MAX even when the destination itself is valid.
+    const auto temp = path.parent_path() / ("." + AssetId::generate().str() + ".pending");
     try {
 #ifdef _WIN32
         HANDLE file = CreateFileW(temp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,

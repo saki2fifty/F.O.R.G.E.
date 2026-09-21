@@ -1,4 +1,5 @@
 #pragma once
+#include "asset_labels.hpp"
 #include "editor_state.hpp"
 #include "icons.hpp"
 #include "search.hpp"
@@ -29,8 +30,9 @@ inline std::string asset_display(const AssetRecord& record) {
     if (const auto* builtin = engine_asset(record.id))
         return std::string("Engine / ") + builtin->name;
     auto name = path_utf8(record.source);
-    if (record.metadata.contains("clip_name"))
-        name += " / " + record.metadata.at("clip_name").get<std::string>();
+    const auto member = content_member_name(record);
+    if (!member.empty())
+        name += " / " + member;
     return name;
 }
 inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std::string& type,

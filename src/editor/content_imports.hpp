@@ -14,11 +14,19 @@ class ContentImports {
             service_->suspend(value);
     }
     bool quiescent() const { return !service_ || service_->quiescent(); }
+    void reimport(const std::vector<AssetId>& assets) {
+        if (!service_)
+            throw std::runtime_error("Source import service is not ready");
+        service_->reimport(assets);
+    }
     void rescan() {
         if (service_)
             service_->rescan();
         else
             attempted_ = false;
+    }
+    std::map<AssetId, AssetJobState> activity() const {
+        return service_ ? service_->activity() : std::map<AssetId, AssetJobState>{};
     }
     std::shared_ptr<const SourceSnapshot> sources() const {
         return service_ ? service_->sources() : nullptr;

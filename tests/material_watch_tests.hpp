@@ -78,6 +78,24 @@ inline void test_material_watch(const std::filesystem::path& root) {
     automatic.rescan();
     finish();
     check(receipts.empty(), "Publisher self-writes caused an automatic reimport loop");
+    automatic.reimport({source.asset(), source.asset(), instance.asset()});
+    check(automatic.queued() == 2, "Batch reimport did not deduplicate source owners");
+    check(automatic.activity().at(source.asset()) == AssetJobState::Queued,
+          "Batch queue did not expose its activity state");
+    const auto queued_before = automatic.queued();
+    bool rejected = false;
+    try {
+        automatic.reimport({source.asset(), AssetId::generate()});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected && automatic.queued() == queued_before,
+          "Invalid batch partially changed its queue");
+    finish();
+    check(std::count_if(receipts.begin(), receipts.end(),
+                        [](const auto& r) { return r.published; }) == 2,
+          "Explicit unchanged batch did not republish both requested assets");
+    receipts.clear();
     {
         const auto sidecar = root / AssetPublisher::sidecar_path("Assets/base.material.json");
         auto document = nlohmann::json::parse(std::ifstream(sidecar));

@@ -5,11 +5,38 @@ Content is the project's asset browser. It lists registered scenes, prefabs, mod
 ## Find and inspect an asset
 
 1. Open **Window → Content**.
-2. Use **Search project assets...**, **Type** and **Folder** to narrow the list.
+2. Search by words in the name, path, extension, type or status. Use **All types** and **All states** to narrow results. Matching is case-insensitive.
 3. Click an asset to inspect its type, source and availability in Inspector. This replaces entity selection; it does not change an entity's properties.
 4. Double-click a scene to open it, or use **Open scene** in its context menu. Resolve any unsaved scene or draft prompts first.
 
 **Refresh** rescans immediately; the visible browser refreshes approximately every five seconds. Empty results explain how to clear filters or create/register content. **Reveal source folder** opens the containing folder in your operating system. Advanced **Asset details** shows identity and dependency metadata.
+
+## Folders, views and selection
+
+Use the folder tree or **Folders** menu to choose a location. The **Project** breadcrumb returns to the root; clicking a breadcrumb opens that ancestor. **<** and **>** return to previous/next locations. Search normally includes subfolders. Turn off **View → Include subfolders** for the current folder only.
+
+**View → List** shows names, types and source states. **View → Grid** uses tiles; **Tile size** adjusts their width. A generic file icon is currently a fallback, not a rendered thumbnail. Grid/list, tile size, folder-tree visibility and subfolder preference are saved as personal editor preferences. Narrow Content panels use **Folders** when there is insufficient room for the tree.
+
+- Click to select one item; **Ctrl-click** adds/removes an item.
+- **Shift-click** selects a range; **Ctrl+A** selects the filtered results.
+- **Escape** clears Content selection when the results have focus.
+- Inspector follows the primary item. Background refresh retains selection by AssetId; unimported source selection is temporary and follows its path.
+- Selected items hidden by a filter remain selected. Check the selected count before using **Reimport selected**.
+- Dragging sends the individual asset under the pointer. It preserves an entity Inspector for assigning that asset; it does not assign an entire multi-selection.
+
+Right-click offers **Copy AssetId** for registered assets and **Copy source path** for either kind of row. Generated model members show their imported display names, with the owning path in their tooltip and Inspector.
+
+### Read asset state
+
+**Registered** means a logical asset is indexed. **Published** means it has a selected import revision; it does not imply a GPU resource is loaded. **Not imported** is a discovered source awaiting registration/import. **Source changed** means observed source/dependency bytes differ from the selected revision. **Source missing** comes only from a complete source scan. **Removed member** identifies a retained subasset mapping whose member no longer exists. **Queued**, **Importing**, and **Import error** reflect the owning importer job; generated members share that state. Browser state can lag by a background refresh. **Source updates** and Problems provide detailed errors and progress.
+
+### Reimport a selection
+
+Select registered assets and choose **Reimport selected**. FORGE queues their existing importer routes and handles a shared source owner once. Dirty source drafts keep their guard; resolve them before publication. An unsupported/unregistered selection rejects the request before queuing any of that batch. Reimport may reuse validated cached outputs when inputs are unchanged. It does not alter scene Undo history.
+
+### Inspect dependencies
+
+Select an asset and expand **Dependencies and references** in Inspector. **Uses assets**, **Uses source files**, and **Referenced by assets** show the catalog's typed links. **Select asset** follows a link. This view covers catalog edges; it is not a complete scan of references in unopened scenes or unknown plugin payloads. Deletion performs its separate reviewed reference scan.
 
 ## Assign an asset
 
@@ -34,7 +61,7 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 ## Current limits
 
-Content combines registered assets with recognized source files. General file management is still being implemented. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. General file management and thumbnails are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; preview thumbnails and broader source operations are still being implemented. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Scans are bounded to 16 directory levels, 10,000 entries and 64 MiB of JSON candidates, with an 8 MiB per-file limit. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 
@@ -64,8 +91,8 @@ and discards any unfinished results belonging to the previous project.
 ## Source files and automatic updates
 
 Copy source files into the project, then choose **Refresh**. Recognized sources
-that have not been registered appear as **Source / ...** rows; use **Type → Source
-files** to see them separately. Selecting a source shows its relative path, size
+that have not been registered have the **Not imported** state; choose it in the
+state filter to see them separately. Selecting a source shows its relative path, size
 and kind in Inspector. **Open import / source** opens supported Model, Texture,
 Material or Shader workflows. A source row has no AssetId and cannot be dragged
 into a typed asset field until it has been imported.
@@ -88,8 +115,8 @@ automatic work until a complete scan succeeds.
 
 The watcher uses bounded content-hash polling, including sources outside the
 Assets folder but inside the project. It ignores hidden, temporary and cache
-entries. It does not rely on timestamps alone. General rename/move reconciliation
-and thumbnail browsing remain under development.
+entries. It does not rely on timestamps alone. Use the reviewed source operations
+below for supported renames/moves; thumbnail generation remains under development.
 
 
 ## Rename, move, duplicate or delete a source

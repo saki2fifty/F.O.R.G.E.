@@ -19,6 +19,8 @@ class AssetReimportService {
                          std::chrono::milliseconds debounce = std::chrono::milliseconds(200));
     std::function<bool(AssetId)> blocked;
     void rescan(bool retry_failed = true);
+    // Validate the entire request before queuing; generated members resolve to their owner.
+    void reimport(const std::vector<AssetId>& assets);
     // Pause new admissions and cancel/drain the active job before another writer starts.
     void suspend(bool value);
     bool quiescent() const { return suspended_ && !active_; }
@@ -27,6 +29,7 @@ class AssetReimportService {
     std::shared_ptr<const AssetCatalog> catalog() const { return catalog_; }
     std::shared_ptr<const SourceSnapshot> sources() const { return sources_; }
     std::vector<AssetJobInfo> jobs() const;
+    std::map<AssetId, AssetJobState> activity() const;
     std::size_t queued() const { return queue_.size(); }
     bool scanning() const { return watch_.scanning(); }
     bool complete() const { return watch_.complete(); }

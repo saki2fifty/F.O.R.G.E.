@@ -799,3 +799,16 @@
   base materials now produce an admission diagnostic without replacing a dependent's
   last published selection; removed queued assets are pruned. Normal regression
   passes (9.68 s), as does the strict sanitizer follow-up (8.95 s).
+
+
+## Content navigation and selection (continuing Phase 7)
+
+- Added a disposable background Content index with imported member display names, folder ancestry, cached search text and source-derived states. Browsing still allocates no persistent identities.
+- Added folder tree/menu, breadcrumbs, bounded back/forward history, list/grid views, adjustable tile size, type/state filters and combined case-insensitive search words. Real preview thumbnails remain pending; current tiles label their fallback honestly.
+- Used pinned Dear ImGui native multi-selection and clipping. Full AssetIds survive refresh/filtering; source-only rows retain transient path keys. Added clipboard actions, saved personal view settings, and catalog dependency/reference inspection.
+- Routed selected reimport through the existing application service with whole-request validation and shared-owner deduplication. Existing dirty-draft, dependency, worker, publication and last-good rules remain in force.
+- Local browser/editor regressions pass (2/2, 11.93 s), including the default 200-pixel bottom-panel density requirement. Selected-import/activity tests pass normally (10.21 s) and under strict ASan/UBSan/LSan (11.94 s). Manual and formatting checks pass. Windows validation of this browser bundle remains pending; no numbered release.
+
+- Windows core/SDK validation of the preceding source-file bundle exposed overly long temporary filenames: a valid 239-character stored blob became a 284-character staging path. Atomic storage now uses a UUID-named sibling without repeating the destination basename, retaining exclusive creation, file flush and atomic replacement. Added replacement regression near the traditional Windows path bound. This fixes staging-name growth; it does not claim unrestricted long-path support across every dependency.
+
+- Staging fix: file-operation/recovery tests pass normally (2/2 within the 23.99 s selected run) and strictly instrumented (2/2, 17.88 s). Freshly relinked shared publication regression passes normally (4.58 s) and with sanitizers (6.01 s). The Windows correction still requires a new native/core run.

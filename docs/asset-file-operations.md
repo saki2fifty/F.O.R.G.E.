@@ -106,3 +106,10 @@ Moving the active scene adopts its new locator without resetting history or invo
 Save As identity duplication. A dirty draft writes recovery at the new locator before
 its old recovery snapshot is removed; a failed recovery write retains the old snapshot. Deleting the active scene requires opening another scene.
 Independent external programs are still outside cooperative project writer ownership.
+
+Atomic storage stages bytes in a uniquely named sibling (`.UUID.pending`) before
+replacement. It does not append to the destination basename: valid hashed blob
+names and deep project roots must not acquire avoidable staging-name length.
+Exclusive creation, file flush and same-directory replacement remain required.
+The Windows regression includes a valid destination near its traditional path
+bound; broader long-path behavior still depends on the particular platform API.
