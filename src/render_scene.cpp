@@ -61,8 +61,8 @@ RenderScene extract_render_scene(const Json& source) {
                diagnostic(result.scene, {}, "render.settings.invalid", e.what(), "rendering"));
     }
     const auto& entities = source.at("entities");
-    require(entities.is_array() && entities.size() <= 10000,
-            "Presentation scene exceeds the entity profile");
+    require(entities.is_array(), "Presentation entities must be an array");
+    require(entities.size() <= 10000, "Presentation scene exceeds the 10000-entity profile");
     std::set<EntityId> identities;
     for (const auto& row : entities) {
         require(row.is_object(), "Presentation entity must be an object");

@@ -233,3 +233,20 @@
   enabled. The final28-stage HLSL check, native C++ syntax, editor UI syntax,
   manual3/3 and repository formatting checks pass. Windows shadow pixel execution
   remains pending; these local checks are not desktop acceptance.
+
+
+### Validation follow-ups for camera and engine assets
+
+- Native source audit163ba06 passed36/37 tests in65.11s. The IBL, sky and HDR
+  replacement fixtures passed; camera composition reached its first captured frame,
+  then stopped with a presentation-envelope diagnostic. Preserve stage names and
+  the failing source document in subsequent camera fixtures, and construct entity
+  arrays explicitly. The later failure is not yet claimed resolved.
+- Distinguish a non-array presentation envelope from the10000-entity resource limit
+  in diagnostics. The previous combined message obscured the actual cause.
+- Link in-tree SDK probes to their identity support target so the engine-assets
+  header receives its transitive JSON include path. All four affected local SDK
+  probe modules now build. Installed SDK and Windows revalidation remain required.
+- Update the clock/presentation regression for the intentional legacy default-cube
+  adapter: the root remains a blockout mesh, and the explicitly assigned child mesh
+  is verified by persistent entity identity rather than vector position.
