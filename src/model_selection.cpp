@@ -20,7 +20,8 @@ const ModelImportMember& ModelSelection::member(AssetId id) const {
     return index.members.at(found->second);
 }
 std::span<const std::byte> ModelSelection::bytes(const ModelImportMember& member) const {
-    require(!member.node, "Inline model nodes have no standalone artifact bytes");
+    require(!member.node && !member.material_variant,
+            "Inline model members have no standalone artifact bytes");
     const auto found = file_indices.find(member.artifact.file);
     require(artifact && found != file_indices.end(), "Selected model member file is missing");
     return artifact->files.at(found->second).bytes;
@@ -38,7 +39,7 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     const auto& selected = record.metadata.at("forge.import");
     require(selected.at("version") == 1 && selected.at("output_format") == "forge.model-bundle" &&
                 (selected.at("output_version") == 1 || selected.at("output_version") == 2 ||
-                 selected.at("output_version") == 3),
+                 selected.at("output_version") == 3 || selected.at("output_version") == 4),
             "Unsupported selected model artifact profile");
     ModelSelection result;
     result.owner = model;
@@ -101,7 +102,14 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
                 "Selected model member ownership or type differs");
         const auto& imported = child.metadata.at("forge.import");
         require(imported == selected, "Selected model family mixes publication revisions");
-        if (member.node) {
+        if (member.material_variant) {
+            const auto& metadata = child.metadata.at("forge.model");
+            require(metadata.at("version") == 3 &&
+                        metadata.at("material_variant") == *member.material_variant &&
+                        !metadata.contains("file") && !metadata.contains("sha256") &&
+                        !metadata.contains("bytes"),
+                    "Selected inline material variant differs from immutable hierarchy");
+        } else if (member.node) {
             const auto& metadata = child.metadata.at("forge.model");
             require(metadata.at("version") == 2 && metadata.at("node") == *member.node &&
                         !metadata.contains("file") && !metadata.contains("sha256") &&

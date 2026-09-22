@@ -42,11 +42,13 @@ std::vector<SubassetObservation> observations(const ModelBundleIndex& index) {
     return result;
 }
 } // namespace
+#include "material_variant_bundle_tests.hpp"
 #include "model_lod_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need official model fixture root");
         check_model_lods();
+        check_material_variant_bundle();
         auto source = capture_gltf_source(argv[1], "NegativeScaleTest.gltf");
         const auto original_doc = source.document;
         const auto files = cook_static_gltf_bundle(NativeGltfDocument(source));
@@ -201,7 +203,7 @@ int main(int argc, char** argv) {
         zero_source.source_digest = asset_build_digest(zero_source.document);
         const auto zero_files = cook_static_gltf_bundle(NativeGltfDocument(zero_source));
         const auto zero_index = validate_model_bundle(zero_files);
-        require(zero_index.version == 3 &&
+        require(zero_index.version == 4 &&
                     zero_index.hierarchy.at("nodes")[0].at("trs") == canonical_gltf_trs(zero_node),
                 "Cooked model lost original singular signed/tiny TRS");
         auto damaged_zero = zero_files;

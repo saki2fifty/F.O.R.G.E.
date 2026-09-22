@@ -134,3 +134,14 @@ Surface-state fields show **Revert** when they own an override. Unmodified base 
 show **Inherited**. You can also right-click a surface field to inspect its ownership
 and choose **Revert to inherited / default**. Unmodified fields no longer use a separate
 disabled Revert-button row.
+
+## Publication errors
+
+Select a Material error in **Problems** to inspect the affected asset. **Open source**
+shows its saved declaration in a read-only viewer without discarding an open draft.
+Correct the Material in its own editor and save again. Invalid publication retains
+the previous usable revision.
+
+In a wide Material workspace, Properties and Preview use the available height.
+Publication progress or errors reserve space only while they are displayed; each
+column scrolls independently when its contents are taller than the window.

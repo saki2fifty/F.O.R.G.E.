@@ -336,10 +336,44 @@ The source file controls the geometry and thresholds; reimport to apply changes.
 Alternatives must share the same local transform, skin, morph channels/defaults
 and visibility/selectability. They must be root mesh leaves without independent
 animation, cameras or lights. The owner node must also have no independent animation.
-Whole-subtree LOD, material-only LOD and material
-variants on the same LOD mesh report an unsupported-configuration error. Correct
+Whole-subtree LOD and material-only LOD report an unsupported-configuration error. Correct
 the source and reimport; the previous good asset remains available.
 
 When the source has no screen-size hints, transitions occur at half, quarter,
 eighth and successively smaller screen coverage. The lowest level stays visible;
 a source's optional final disappearance hint produces an import diagnostic.
+
+
+## Choosing a material variant
+
+A glTF file can contain named material sets, such as different colors for the same
+model. Import the file normally. In **Model import > Place in scene**, choose
+**Material variant**, then **Place model**. **Default materials** uses the original
+surfaces. The choice applies to every mesh in the placement, including its LODs.
+
+To change an existing placement:
+
+1. Select the model’s root in Hierarchy.
+2. Expand **Model Source** in the Inspector.
+3. Click **Set model variant...** and choose a set or **Default materials**.
+
+This is one scene Undo step. It changes the material selection without adding
+objects or changing source files. Nested model placements keep their own choice.
+
+For a single mesh, use **Mesh Renderer > Material variant**. The variant must
+belong to that mesh’s imported Model. Explicit assignments in **Materials** take
+precedence over the variant, including an explicitly empty assignment. Revert a
+slot override to let that surface follow the variant again. A surface with no
+mapping in the chosen set uses its original material.
+
+Variant assets keep their identity across an unambiguous reimport, including a
+name or order change. If a selected variant disappears or belongs to another
+model, FORGE reports the problem and keeps the previous usable draw while you
+correct the reference. Ambiguous reimports need an explicit correspondence choice.
+A prefab instance can override and Revert **Material variant** independently of
+other Mesh Renderer fields; selecting an equal value still records intent.
+
+Programmers can set `MeshRenderer::material_variant` through the exact-version
+SDK. Authoring tools can call the shared `model.material_variant` command with a
+placed root entity and variant AssetId (or null for defaults). Its usual scene
+revision, validation and Undo rules apply.

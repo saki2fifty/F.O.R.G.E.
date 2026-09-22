@@ -1,6 +1,7 @@
 #pragma once
 #include "model_selection.hpp"
 #include <forge/animation_components.hpp>
+#include <forge/model_asset.hpp>
 #include <forge/scene.hpp>
 #include <optional>
 namespace forge::asset_detail {
@@ -13,6 +14,7 @@ struct ModelPlacementOptions {
     // Explicit opt-in. glTF defines no default/autoplay clip; null places the
     // model with source-node TRS and morph defaults, including a static skin.
     AssetRef<AnimationClipAsset> clip;
+    AssetRef<MaterialVariantAsset> material_variant;
 };
 // Detached preparation. No live world, files or publication are changed. The
 // target scene and selected model generations are checked again at commit.

@@ -171,7 +171,10 @@ void check_gpu_residency(forge::DiligentPresentation& presentation,
     require(mesh_cpu.wait(mesh_ticket, 5s), "GPU fixture mesh did not load");
     forge::GpuResidency<forge::MeshAsset> mesh_gpu(presentation.device(), context, 65536);
     auto mesh_lease = mesh_gpu.acquire(mesh_cpu.acquire(mesh_ticket));
-    require(mesh_lease.get().buffer_bytes == 48 && mesh_gpu.statistics().payload_bytes == 48,
+    // Nine float32 positions plus three compact uint16 indices. Residency must
+    // count the actual upload rather than the uint32 CPU working representation.
+    require(mesh_lease.get().buffer_bytes == 42 && mesh_gpu.statistics().payload_bytes == 42 &&
+                mesh_lease.get().lods[0].parts[0].index_type == Diligent::VT_UINT16,
             "GPU mesh payload accounting disagrees with uploaded buffers");
     mesh_gpu.submit();
     mesh_cpu.close();

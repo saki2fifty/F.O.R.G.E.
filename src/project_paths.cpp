@@ -1,3 +1,4 @@
+#include "native_io_path.hpp"
 #include <algorithm>
 #include <forge/project_paths.hpp>
 #include <stdexcept>
@@ -91,9 +92,10 @@ std::filesystem::path ProjectPaths::resolve(const std::filesystem::path& locator
 std::string ProjectPaths::file_identity(const std::filesystem::path& locator) const {
     const auto path = resolve(locator);
 #ifdef _WIN32
-    const auto handle = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
-                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                                    OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    const auto handle =
+        CreateFileW(asset_detail::native_io_path(path).c_str(), FILE_READ_ATTRIBUTES,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_BACKUP_SEMANTICS, nullptr);
     if (handle == INVALID_HANDLE_VALUE)
         throw std::runtime_error("Cannot inspect source identity (OS error " +
                                  std::to_string(GetLastError()) + ")");
@@ -122,7 +124,9 @@ bool ProjectPaths::same_locator(const std::filesystem::path& a,
                                 const std::filesystem::path& b) const {
     const auto left = resolve(a), right = resolve(b);
     std::error_code error;
-    if (std::filesystem::equivalent(left, right, error) && !error)
+    if (std::filesystem::equivalent(asset_detail::native_io_path(left),
+                                    asset_detail::native_io_path(right), error) &&
+        !error)
         return true;
 #ifdef _WIN32
     return CompareStringOrdinal(left.c_str(), -1, right.c_str(), -1, TRUE) == CSTR_EQUAL;

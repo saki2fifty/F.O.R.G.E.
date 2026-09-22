@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "native_io_path.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/assets.hpp>
@@ -94,8 +95,8 @@ std::filesystem::path AssetCatalog::project_index(const std::filesystem::path& r
 AssetCatalog AssetCatalog::open_project(const std::filesystem::path& root) {
     AssetCatalog result(root);
     const auto index = project_index(root);
-    if (std::filesystem::exists(index)) {
-        if (std::filesystem::file_size(index) > max_asset_index_bytes)
+    if (std::filesystem::exists(asset_detail::native_io_path(index))) {
+        if (std::filesystem::file_size(asset_detail::native_io_path(index)) > max_asset_index_bytes)
             throw std::runtime_error("Asset index exceeds 64 MiB");
         result.load(index);
     }
@@ -109,11 +110,11 @@ AssetRecord AssetCatalog::register_audio_clip(const std::filesystem::path& root,
     auto ext = file.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return char(std::tolower(c)); });
-    if (ext != ".wav" || !std::filesystem::is_regular_file(file))
+    if (ext != ".wav" || !std::filesystem::is_regular_file(asset_detail::native_io_path(file)))
         throw std::runtime_error("Select an existing project-relative WAV file");
     const auto index = project_index(root);
     auto read = [](const auto& p) {
-        if (!std::filesystem::exists(p))
+        if (!std::filesystem::exists(asset_detail::native_io_path(p)))
             return std::string{};
         const auto bytes = asset_detail::read_bytes(p, max_asset_index_bytes);
         return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
@@ -208,7 +209,7 @@ void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
         const auto [location, fresh] = locators.emplace(absolute, family);
         if (!fresh && location->second != family)
             throw std::runtime_error("Asset source already has a different identity");
-        if (fresh && std::filesystem::exists(absolute)) {
+        if (fresh && std::filesystem::exists(asset_detail::native_io_path(absolute))) {
             const auto [file, unique] =
                 file_identities.emplace(paths.file_identity(record.source), family);
             if (!unique && file->second != family)
@@ -330,10 +331,10 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
                 "Subasset was removed from its source; identity is retained as a tombstone"};
     try {
         const auto path = locate(record.source);
-        if (!std::filesystem::is_regular_file(path))
+        if (!std::filesystem::is_regular_file(asset_detail::native_io_path(path)))
             return {AssetState::Missing, record, "Asset source is missing"};
         if (record.type == SceneAsset::type) {
-            std::ifstream stream(path);
+            std::ifstream stream(asset_detail::native_io_path(path));
             const auto doc = Json::parse(stream);
             Scene::validate_document(doc);
             if (doc.at("version") != record.schema_version ||
@@ -341,7 +342,7 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
                 return {AssetState::Incompatible, record,
                         "Scene identity or schema does not match metadata"};
         } else if (record.type == PrefabAsset::type) {
-            std::ifstream stream(path);
+            std::ifstream stream(asset_detail::native_io_path(path));
             const PrefabDocument doc(Json::parse(stream));
             if (record.schema_version != doc.source.at("version").get<unsigned>() ||
                 doc.asset() != id)
@@ -400,14 +401,14 @@ void AssetCatalog::save(const std::filesystem::path& index) const {
     const auto document = this->document().dump(2);
     if (document.size() > max_asset_index_bytes)
         throw std::runtime_error("Asset index exceeds 64 MiB");
-    if (std::filesystem::exists(index)) {
+    if (std::filesystem::exists(asset_detail::native_io_path(index))) {
         const auto bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
         const std::string original(reinterpret_cast<const char*>(bytes.data()), bytes.size());
         const auto previous = parse_index(bytes);
         if (previous.at("version") == 1) {
             auto backup = index;
             backup += ".v1.backup";
-            if (std::filesystem::exists(backup)) {
+            if (std::filesystem::exists(asset_detail::native_io_path(backup))) {
                 if (asset_detail::read_bytes(backup, max_asset_index_bytes) != bytes)
                     throw std::runtime_error(
                         "Asset index migration backup conflicts with the current v1 source");

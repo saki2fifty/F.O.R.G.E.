@@ -90,6 +90,10 @@ int main(int argc, char** argv) {
                 "Failed shader UI compile replaced last-good asset");
         require(!context.problems.items().empty(),
                 "Shader compilation error missing from Problems");
+        const auto& problem = context.problems.items().back();
+        require(problem.asset == id && problem.source == "Shaders/surface.hlsl" &&
+                    problem.line == 1 && problem.column > 0 && problem.source_navigation,
+                "Shader compile failure did not navigate to its authored asset and HLSL location");
         require(!document.dirty(), "Shader UI compilation dirtied authored scene");
         ImGui::DestroyContext();
         return 0;

@@ -1,6 +1,7 @@
 #pragma once
 #include "../asset_import_service.hpp"
 #include "../asset_reimport.hpp"
+#include "diagnostic_source.hpp"
 #include "document.hpp"
 #include "import_settings.hpp"
 #include <utility>
@@ -15,6 +16,8 @@ struct ImportEditorProfile {
     // Only authored asset documents own UUIDs before first catalog publication.
     std::function<AssetId(const std::filesystem::path&, const std::filesystem::path&)>
         source_identity;
+    std::function<void(ui::Problem&, const std::filesystem::path&, const std::filesystem::path&)>
+        diagnostic_location;
 };
 class AssetImportEditor {
   public:
@@ -94,7 +97,7 @@ class AssetImportEditor {
         } catch (const std::exception& e) {
             open_ = true;
             error_ = e.what();
-            ui::report_error(profile_.id, error_);
+            report(error_);
         }
     }
     void content(SceneDocument& document, bool locked) {
@@ -143,13 +146,13 @@ class AssetImportEditor {
                     draft_ = service_->prepare(draft_->request.source);
                 } catch (const std::exception& e) {
                     error_ = std::string("Asset published; source refresh failed: ") + e.what();
-                    ui::report_error(profile_.id, error_);
+                    report(error_);
                 }
                 message = result.cache_hit ? "Asset imported using verified cached data."
                                            : "Asset imported.";
                 if (!result.diagnostic.empty()) {
                     message += " " + result.diagnostic;
-                    ui::report_error(profile_.id, result.diagnostic);
+                    report(result.diagnostic);
                 }
 
             } else {
@@ -158,7 +161,7 @@ class AssetImportEditor {
                 conflicts_ = result.identity_conflicts;
                 conflict_key_ = conflicts_.empty() ? std::string{} : result.job.build_key;
                 message = error_ = result.diagnostic;
-                ui::report_error(profile_.id, error_);
+                report(error_);
             }
         }
     }
@@ -277,7 +280,7 @@ class AssetImportEditor {
                 error_.clear();
             } catch (const std::exception& e) {
                 error_ = e.what();
-                ui::report_error(profile_.id, error_);
+                report(error_);
             }
         }
         if (close_ && dirty())
@@ -323,6 +326,22 @@ class AssetImportEditor {
     }
 
   private:
+    void report(const std::string& text) const {
+        if (!ui::editor_context)
+            return;
+        ui::Problem problem{profile_.id, "Error", text, {}, {}, {}, selected_asset()};
+        if (draft_) {
+            problem.source = path_utf8(draft_->request.source);
+            problem.source_navigation = ui::diagnostic_text_source(draft_->request.source);
+            if (profile_.diagnostic_location)
+                try {
+                    profile_.diagnostic_location(problem, project_, draft_->request.source);
+                } catch (const std::exception&) {
+                    // Source navigation is optional; never hide the original failure.
+                }
+        }
+        ui::editor_context->problems.report(std::move(problem));
+    }
     std::shared_ptr<const AssetCatalog> published_catalog_;
     ImportEditorProfile profile_;
     std::filesystem::path project_;

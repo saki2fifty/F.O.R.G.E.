@@ -136,6 +136,15 @@ int main(int argc, char** argv) {
         check(manifest == package_runtime_content(project, long_package, roots, target) &&
                   open_runtime_content(long_package, target).records().size() == 3,
               "Long-path package changed content or could not load");
+        const auto long_catalog = AssetCatalog::open_project(long_package);
+        check(
+            long_catalog.records().size() == 3 &&
+                long_catalog.resolve(material_id, MaterialAsset::type).state ==
+                    AssetState::Available &&
+                !ProjectPaths(long_package).file_identity("forge.assets.json").empty() &&
+                load_material_selection(long_package, long_catalog, {material_id}).data.textures ==
+                    material.textures,
+            "Long-path catalog existence, identity or resource lookup failed");
         check(read_bytes(AssetCatalog::project_index(project), max_asset_index_bytes) ==
                   original_index,
               "Packaging mutated project catalog");

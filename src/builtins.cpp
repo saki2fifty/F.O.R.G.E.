@@ -35,6 +35,7 @@ template <class T> Json encode(const T& p) {
                              {"material", slot.material.id ? Json(slot.material.id) : Json()}});
         return {{"mesh", p.mesh.id ? Json(p.mesh.id) : Json()},
                 {"materials", slots},
+                {"material_variant", p.material_variant.id ? Json(p.material_variant.id) : Json()},
                 {"enabled", p.enabled},
                 {"visible", p.visible},
                 {"cast_shadows", p.cast_shadows},
@@ -127,6 +128,8 @@ template <class T> Value decode(const Json& p) {
             value.materials.push_back(std::move(entry));
         }
         validate_material_slots(value.materials);
+        if (p.contains("material_variant") && !p.at("material_variant").is_null())
+            value.material_variant.id = p.at("material_variant").get<AssetId>();
         value.enabled = p.at("enabled");
         value.visible = p.at("visible");
         value.cast_shadows = p.at("cast_shadows");
@@ -335,6 +338,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         }
     } else if constexpr (std::is_same_v<T, MeshRenderer>) {
         register_asset_ref<MeshAsset>(w, "forge.mesh_ref");
+        register_asset_ref<MaterialVariantAsset>(w, "forge.material_variant_ref");
         register_asset_ref<MaterialAsset>(w, "forge.material_ref");
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
         w.component<MaterialSlotOverride>("forge.material_slot_override")
@@ -348,7 +352,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("visible")
             .template member<bool>("cast_shadows")
             .template member<bool>("receive_shadows")
-            .template member<std::uint32_t>("layers");
+            .template member<std::uint32_t>("layers")
+            .template member<AssetRef<MaterialVariantAsset>>("material_variant");
     } else if constexpr (std::is_same_v<T, LocalTranslation>) {
         c.template member<double>("x").template member<double>("y").template member<double>("z");
     } else if constexpr (std::is_same_v<T, UiDocument>) {
@@ -427,7 +432,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"visible", offsetof(MeshRenderer, visible)},
               std::pair{"cast_shadows", offsetof(MeshRenderer, cast_shadows)},
               std::pair{"receive_shadows", offsetof(MeshRenderer, receive_shadows)},
-              std::pair{"layers", offsetof(MeshRenderer, layers)}}) {
+              std::pair{"layers", offsetof(MeshRenderer, layers)},
+              std::pair{"material_variant", offsetof(MeshRenderer, material_variant)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("MeshRenderer native Meta disagrees with typed layout");
@@ -561,6 +567,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (type.maximum)
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
+    if (name == "forge.mesh_renderer" && field == "material_variant") {
+        value["description"] =
+            "Imported material set from this mesh’s Model. None uses base materials. Explicit "
+            "material slot overrides take precedence. Missing or foreign variants retain the "
+            "previous usable draw and report an error.";
+        value["nullable"] = true;
+    }
     if (name == "forge.camera") {
         static const std::map<std::string, const char*> help = {
             {"enabled", "Include this camera in ordered Game view composition"},
@@ -968,6 +981,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         };
         add_reference.template operator()<ModelAsset>();
         add_reference.template operator()<ModelNodeAsset>();
+        add_reference.template operator()<MaterialVariantAsset>();
         add_reference.template operator()<MeshAsset>();
         add_reference.template operator()<MaterialAsset>();
         add_reference.template operator()<AudioClipAsset>();
@@ -1070,6 +1084,12 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 }
 Json builtin_extensions(const Builtin& type, const Json& source) {
     const auto& schema = validation_schema(type.name);
+    if (std::string_view(type.name) == "forge.mesh_renderer" &&
+        !source.contains("material_variant")) {
+        auto current = source;
+        current["material_variant"] = nullptr;
+        return reflected_extensions(schema, current);
+    }
     return reflected_extensions(schema, source);
 }
 Json merge_builtin_extensions(const Builtin& type, const Json& known, const Json& extensions) {
@@ -1095,7 +1115,10 @@ void validate_components(const Json& components) {
         Json known = Json::object();
         for (const auto& field : schema.at("fields")) {
             const auto key = field.at("id").get<std::string>();
-            known[key] = data.at(key);
+            known[key] = std::string_view(type.name) == "forge.mesh_renderer" &&
+                                 key == "material_variant" && !data.contains(key)
+                             ? Json(nullptr)
+                             : data.at(key);
         }
         validate_reflected_json(schema, known);
         (void)type.decode(data); // Cross-member invariants remain FORGE-owned.

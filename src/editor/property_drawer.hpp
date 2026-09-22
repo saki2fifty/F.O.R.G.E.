@@ -2,6 +2,7 @@
 #include "../reflected_value.hpp"
 #include "asset_labels.hpp"
 #include "editor_state.hpp"
+#include "entity_ref_picker.hpp"
 #include "icons.hpp"
 #include "search.hpp"
 #include <SDL3/SDL.h>
@@ -470,30 +471,7 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
         if (changed)
             value = std::move(buffer);
     } else if (type == "entity_ref" && ui::editor_context && ui::editor_context->scene) {
-        auto& scene = *ui::editor_context->scene;
-        const auto document = scene.document();
-        std::string current = value.is_null() ? "None" : "Unresolved entity";
-        if (!value.is_null())
-            for (const auto& e : document.at("entities"))
-                if (value.at("scene") == Json(scene.asset_id()) && value.at("entity") == e.at("id"))
-                    current = e.at("name");
-        if (ImGui::BeginCombo(label.c_str(), current.c_str())) {
-            if (ImGui::Selectable("None / Clear", value.is_null())) {
-                value = nullptr;
-                changed = true;
-            }
-            for (const auto& e : document.at("entities")) {
-                const std::string id = e.at("id");
-                ui::IdScope scope(id.c_str());
-                if (ImGui::Selectable(e.at("name").get_ref<const std::string&>().c_str())) {
-                    value = scene.reference(id);
-                    changed = true;
-                }
-                ui::help("Persistent reference to this authored scene asset and entity. This is "
-                         "not a runtime instance handle.");
-            }
-            ImGui::EndCombo();
-        }
+        changed = entity_ref_picker(*ui::editor_context->scene, value, label.c_str());
     } else
         ImGui::TextWrapped("%s: unsupported reflected type %s (read only)", label.c_str(),
                            type.c_str());

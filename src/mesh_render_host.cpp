@@ -298,19 +298,21 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         bool adopted = false;
         const auto& renderer = mesh.renderer;
         if (entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
-            entry.overrides != renderer.materials) {
+            entry.overrides != renderer.materials || entry.variant != renderer.material_variant) {
             entry.candidate.reset();
             entry.candidate_geometry.reset();
             entry.failed_skin_mode.reset();
             entry.epoch = host_->epoch_;
             entry.mesh = renderer.mesh;
             entry.overrides = renderer.materials;
+            entry.variant = renderer.material_variant;
             entry.error.clear();
             changed = true;
             try {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
-                    renderer.materials, host_->meshes_, host_->material_preview_);
+                    renderer.materials, host_->meshes_, host_->material_preview_,
+                    renderer.material_variant);
             } catch (const std::exception& e) {
                 entry.error = e.what();
             }

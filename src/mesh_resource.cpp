@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "material_slot.hpp"
+#include <algorithm>
 #include <forge/mesh_resource.hpp>
 #include <set>
 namespace forge {
@@ -23,6 +24,11 @@ std::size_t MeshResourceData::resident_bytes() const {
         for (const auto& node : model->nodes)
             bytes += node.morph_weights.capacity() * sizeof(float);
     }
+    bytes += variants.capacity() * sizeof(MeshMaterialVariant);
+    for (const auto& variant : variants)
+        bytes += variant.name.capacity() +
+                 variant.mappings.size() *
+                     (sizeof(decltype(variant.mappings)::value_type) + 4 * sizeof(void*));
     return bytes;
 }
 void validate_mesh_material_bindings(const MeshResourceData& value) {
@@ -40,12 +46,35 @@ void validate_mesh_material_bindings(const MeshResourceData& value) {
         require(used.erase(binding.physical_slot) == 1 && keys.insert(binding.key).second,
                 "Duplicate or unused mesh material binding");
     }
+    require(value.variants.size() <= 65536, "Mesh material variant count exceeds bounds");
+    std::set<AssetId> variants;
+    std::size_t entries = 0;
+    for (const auto& variant : value.variants) {
+        require(variant.asset.id && variants.insert(variant.asset.id).second &&
+                    variant.name.size() <= 4096,
+                "Invalid or duplicate mesh material variant");
+        for (const auto& [part, material] : variant.mappings) {
+            require(++entries <= 1000000 && part.first < value.mesh.lods.size() &&
+                        part.second < value.mesh.lods[part.first].parts.size() && material.id,
+                    "Mesh material variant has invalid part/material mapping");
+        }
+    }
 }
 MeshMaterialSelection select_mesh_materials(const MeshResourceData& mesh,
-                                            std::span<const MaterialSlotOverride> overrides) {
+                                            std::span<const MaterialSlotOverride> overrides,
+                                            AssetRef<MaterialVariantAsset> variant) {
     validate_mesh_material_bindings(mesh);
     detail::validate_material_slots(overrides);
+    const MeshMaterialVariant* selected = nullptr;
+    if (variant.id) {
+        const auto found = std::find_if(mesh.variants.begin(), mesh.variants.end(),
+                                        [&](const auto& v) { return v.asset == variant; });
+        require(found != mesh.variants.end(),
+                "Selected material variant is missing or belongs to another Model");
+        selected = &*found;
+    }
     MeshMaterialSelection result{mesh.materials, {}};
+    std::set<std::uint32_t> explicit_slots;
     std::map<std::string, std::size_t> slots;
     for (std::size_t i = 0; i < result.bindings.size(); ++i)
         slots.emplace(result.bindings[i].key, i);
@@ -53,8 +82,29 @@ MeshMaterialSelection select_mesh_materials(const MeshResourceData& mesh,
         const auto found = slots.find(override.slot);
         if (found == slots.end())
             result.unresolved.push_back(override.slot);
-        else
-            result.bindings[found->second].material = override.material;
+        else {
+            auto& binding = result.bindings[found->second];
+            binding.material = override.material;
+            explicit_slots.insert(binding.physical_slot);
+        }
+    }
+    std::map<std::uint32_t, AssetRef<MaterialAsset>> physical;
+    for (const auto& binding : result.bindings)
+        physical.emplace(binding.physical_slot, binding.material);
+    for (std::size_t l = 0; l < mesh.mesh.lods.size(); ++l) {
+        auto& parts = result.parts.emplace_back();
+        const auto& lod = mesh.mesh.lods[l];
+        for (std::size_t p = 0; p < lod.parts.size(); ++p) {
+            const auto slot = lod.parts[p].material_slot;
+            auto material = physical.at(slot);
+            if (selected && !explicit_slots.contains(slot)) {
+                const auto found = selected->mappings.find(
+                    {static_cast<std::uint32_t>(l), static_cast<std::uint32_t>(p)});
+                if (found != selected->mappings.end())
+                    material = found->second;
+            }
+            parts.push_back(material);
+        }
     }
     return result;
 }

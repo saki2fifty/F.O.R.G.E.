@@ -133,7 +133,7 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
     const auto material_variants = h.value("material_variants", Json::array());
     for (const auto& variant : array(material_variants, 65536)) {
         (void)text(variant.at("name"), 4096, true);
-        std::set<std::pair<std::string, std::uint64_t>> mapped;
+        std::set<std::tuple<std::string, std::uint64_t, std::uint64_t>> mapped;
         for (const auto& mapping : array(variant.at("mappings"), 1000000)) {
             require(++variant_mappings <= 1000000, "Model variant mappings exceed bounds");
             require(!mapping.at("mesh").is_null() && !mapping.at("material").is_null(),
@@ -141,7 +141,9 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
             member(mapping.at("mesh"), "mesh");
             member(mapping.at("material"), "material");
             const auto primitive = number(mapping.at("primitive"), 100000);
-            require(mapped.emplace(mapping.at("mesh").get<std::string>(), primitive).second,
+            const auto lod = mapping.contains("lod") ? number(mapping.at("lod"), 15) : 0;
+            require(version >= 4 || lod == 0, "Legacy variants cannot select LODs");
+            require(mapped.emplace(mapping.at("mesh").get<std::string>(), lod, primitive).second,
                     "Duplicate model variant primitive mapping");
         }
     }
@@ -176,13 +178,14 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
     }
 }
 void validate(const ModelBundleIndex& index) {
-    require(index.version >= 1 && index.version <= 3, "Unsupported model bundle version");
+    require(index.version >= 1 && index.version <= 4, "Unsupported model bundle version");
     require(valid_content_digest(index.source_digest) && index.members.size() <= 100000 &&
                 index.diagnostics.size() <= 4096,
             "Invalid model index source/counts");
     std::map<std::string, const ModelImportMember*> members;
     std::set<std::string> names;
-    std::set<std::uint32_t> node_members;
+    std::set<std::uint32_t> node_members, variant_members;
+    const auto material_variants = index.hierarchy.value("material_variants", Json::array());
     const auto& nodes = array(index.hierarchy.at("nodes"), 100000);
     for (const auto& m : index.members) {
         const auto& id = m.identity;
@@ -190,14 +193,36 @@ void validate(const ModelBundleIndex& index) {
         (void)text(id.display_name, 4096, true);
         (void)text(id.evidence.exporter_key, 1024, true);
         require(id.type == "mesh" || id.type == "material" || id.type == "texture" ||
-                    id.type == "skeleton" || id.type == "animation_clip" || id.type == "model_node",
+                    id.type == "skeleton" || id.type == "animation_clip" ||
+                    id.type == "model_node" ||
+                    (index.version >= 4 && id.type == "material_variant"),
                 "Unsupported model bundle member type");
         for (const auto& digest : {id.evidence.content_digest, id.evidence.semantic_digest})
             require(digest.empty() || valid_content_digest(digest),
                     "Invalid model identity evidence");
         require(members.emplace(id.address, &m).second, "Duplicate model member address");
         require(m.bindings.size() <= 65536, "Model member binding count exceeds bounds");
-        if (m.node) {
+        require(!(m.node && m.material_variant), "Model member has conflicting inline selectors");
+        if (m.material_variant) {
+            require(index.version >= 4 && id.type == "material_variant" &&
+                        *m.material_variant < material_variants.size() &&
+                        variant_members.insert(*m.material_variant).second &&
+                        m.artifact.file.empty() && m.artifact.digest.empty() &&
+                        m.artifact.bytes == 0,
+                    "Invalid or duplicate inline material variant selector");
+            const auto& variant = material_variants.at(*m.material_variant);
+            require(id.display_name == variant.at("name"),
+                    "Material variant name differs from hierarchy");
+            std::map<std::string, std::string> expected;
+            for (const auto& mapping : array(variant.at("mappings"), 1000000)) {
+                const auto mesh = text(mapping.at("mesh"), 4096);
+                const auto material = text(mapping.at("material"), 4096);
+                expected["mesh:" + mesh] = mesh;
+                expected["material:" + material] = material;
+            }
+            require(m.bindings == expected,
+                    "Material variant bindings differ from immutable mappings");
+        } else if (m.node) {
             require(index.version >= 3 && id.type == "model_node" && *m.node < nodes.size() &&
                         node_members.insert(*m.node).second && m.artifact.file.empty() &&
                         m.artifact.digest.empty() && m.artifact.bytes == 0,
@@ -208,8 +233,8 @@ void validate(const ModelBundleIndex& index) {
                                       mesh == m.bindings.at("mesh")),
                     "Model node mesh binding differs from immutable hierarchy");
         } else {
-            require(id.type != "model_node" && names.insert(m.artifact.file).second &&
-                        names.size() <= 4096,
+            require(id.type != "model_node" && id.type != "material_variant" &&
+                        names.insert(m.artifact.file).second && names.size() <= 4096,
                     "Duplicate or excessive model file member");
             filename(m.artifact.file);
             require(valid_content_digest(m.artifact.digest) && m.artifact.bytes &&
@@ -219,14 +244,19 @@ void validate(const ModelBundleIndex& index) {
     }
     require(index.version < 3 || node_members.size() == nodes.size(),
             "Model node identity coverage is incomplete");
+    require(index.version < 4 || variant_members.size() == material_variants.size(),
+            "Material variant identity coverage is incomplete");
     for (const auto& m : index.members) {
         for (const auto& [role, target] : m.bindings) {
             (void)text(role, 256);
             const auto found = members.find(target);
             require(found != members.end(), "Missing model binding target");
             require(
-                (m.identity.type == "model_node" && role == "mesh" &&
-                 found->second->identity.type == "mesh") ||
+                (m.identity.type == "material_variant" &&
+                 ((role.starts_with("mesh:") && found->second->identity.type == "mesh") ||
+                  (role.starts_with("material:") && found->second->identity.type == "material"))) ||
+                    (m.identity.type == "model_node" && role == "mesh" &&
+                     found->second->identity.type == "mesh") ||
                     (m.identity.type == "mesh" && found->second->identity.type == "material") ||
                     (m.identity.type == "material" && found->second->identity.type == "texture") ||
                     (m.identity.type == "animation_clip" && role == "skeleton" &&
@@ -251,7 +281,9 @@ std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index) 
                  {"content_digest", id.evidence.content_digest},
                  {"semantic_digest", id.evidence.semantic_digest},
                  {"bindings", m.bindings}};
-        if (m.node)
+        if (m.material_variant)
+            row["material_variant"] = *m.material_variant;
+        else if (m.node)
             row["node"] = *m.node;
         else
             row.update({{"file", m.artifact.file},
@@ -272,7 +304,7 @@ ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
     const auto j = parse_bounded_json(bytes, index_bytes);
     require(j.at("format") == "forge.model-bundle", "Unsupported model bundle format");
     ModelBundleIndex result;
-    result.version = unsigned(number(j.at("version"), 3));
+    result.version = unsigned(number(j.at("version"), 4));
     result.source_digest = text(j.at("source_digest"), 64);
     for (const auto& m : array(j.at("members"), 100000)) {
         ModelImportMember member;
@@ -282,7 +314,13 @@ ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
                            {text(m.at("exporter_key"), 1024, true),
                             text(m.at("content_digest"), 64, true),
                             text(m.at("semantic_digest"), 64, true)}};
-        if (m.contains("node")) {
+        if (m.contains("material_variant")) {
+            require(!m.contains("node") && !m.contains("file") && !m.contains("sha256") &&
+                        !m.contains("bytes"),
+                    "Inline material variant cannot also name an artifact or node");
+            member.material_variant =
+                static_cast<std::uint32_t>(number(m.at("material_variant"), 65535));
+        } else if (m.contains("node")) {
             require(!m.contains("file") && !m.contains("sha256") && !m.contains("bytes"),
                     "Inline model node cannot also name an artifact");
             member.node = static_cast<std::uint32_t>(number(m.at("node"), 99999));
@@ -335,11 +373,11 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
     std::map<std::string, MaterialData> materials;
     std::map<std::string, std::size_t> morph_counts;
     std::map<std::string, std::vector<std::set<std::string>>> primitive_streams;
-    std::map<std::string, std::size_t> first_lod_parts;
+    std::map<std::string, std::vector<std::size_t>> lod_parts;
     std::map<std::string, std::set<std::string>> material_targets;
     std::map<std::string, std::vector<std::string>> primitive_materials;
     for (const auto& m : index.members) {
-        if (m.node)
+        if (m.node || m.material_variant)
             continue;
         const auto& file = take(m.artifact.file, m.artifact.digest, m.artifact.bytes);
         if (m.identity.type == "mesh") {
@@ -355,7 +393,8 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
                 }
             morph_counts[m.identity.address] = mesh.morph_defaults.size();
             auto& streams = primitive_streams[m.identity.address];
-            first_lod_parts[m.identity.address] = mesh.lods.front().parts.size();
+            for (const auto& lod : mesh.lods)
+                lod_parts[m.identity.address].push_back(lod.parts.size());
             for (const auto& lod : mesh.lods)
                 for (const auto& part : lod.parts) {
                     std::set<std::string> names;
@@ -442,12 +481,18 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
             const auto mesh = mapping.at("mesh").get<std::string>();
             const auto material = mapping.at("material").get<std::string>();
             const auto part = mapping.at("primitive").get<std::size_t>();
-            require(part < first_lod_parts.at(mesh) && material_targets[mesh].contains(material),
+            const auto lod = mapping.value("lod", std::size_t{});
+            const auto& levels = lod_parts.at(mesh);
+            require(lod < levels.size() && part < levels[lod] &&
+                        material_targets[mesh].contains(material),
                     "Model variant references absent primitive or unbound material");
+            std::size_t flat_part = part;
+            for (std::size_t l = 0; l < lod; ++l)
+                flat_part += levels[l];
             for (const auto& [role, slot] : materials.at(material).textures) {
                 (void)role;
-                require(primitive_streams.at(mesh).at(part).contains("TEXCOORD_" +
-                                                                     std::to_string(slot.uv_set)),
+                require(primitive_streams.at(mesh).at(flat_part).contains(
+                            "TEXCOORD_" + std::to_string(slot.uv_set)),
                         "Model variant needs unavailable texture coordinates");
             }
         }

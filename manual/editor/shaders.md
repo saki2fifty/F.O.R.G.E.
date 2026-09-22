@@ -13,6 +13,12 @@ surface declaration can be selected in the [Material editor](materials.md).
 4. Review its exposed permutation settings and choose **Import / Reimport**.
 5. Wait for compilation and publication to finish. Diagnostics appear locally and in Problems.
 
+Select the Problems entry to inspect its Shader asset. **Open source** opens a
+read-only view of the reported HLSL/include file at the compiler's line and column.
+If the compiler supplies no recognized location, it opens the Shader declaration.
+The viewer preserves open drafts and accepts project-contained text files up to
+1 MiB. Correct the source in your code editor, then reimport.
+
 The declaration owns the program's AssetId, stages, entry points and source root.
 It must describe the supported source format; renaming a file does not allocate a
 new logical program. The repository technical document `docs/shader-assets.md` describes the source

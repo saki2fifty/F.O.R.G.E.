@@ -16,11 +16,12 @@ struct ModelImportMember {
     // Named cooked slot -> candidate-local member address. Owner-thread
     // reconciliation binds these to durable AssetIds in catalog dependency edges.
     std::map<std::string, std::string> bindings;
+    std::optional<std::uint32_t> material_variant;
 };
 struct ModelBundleIndex {
     // Version1 lacks explicit TRS; version2 lacks durable node-member bindings.
-    // Both remain readable for their existing consumers. New cooks use version3.
-    unsigned version = 3;
+    // Version4 adds stable material-variant members. Versions1–3 remain readable.
+    unsigned version = 4;
     std::string source_digest;
     std::vector<ModelImportMember> members;
     // Immutable asset hierarchy, never a second mutable gameplay hierarchy.

@@ -26,6 +26,18 @@ Asset fields show paths rather than requiring UUID entry. Open a field to search
 
 A missing or incompatible current reference stays visible with an explanation until you change it. Removed model members are labeled and cannot be newly assigned. Choosing a registered asset does not promise its source is present or its runtime resources have finished loading. See [Content browser](content-browser.md).
 
+Entity reference fields search the current scene's hierarchy by name, ancestor path,
+or persistent entity ID. Results show paths such as **Vehicle / Camera mount** to
+distinguish similarly named objects. Searching an ancestor also shows its children.
+Choose a result to assign it, or use **None / Clear** to remove the reference.
+Very deep displayed paths shorten older ancestors; their names remain searchable.
+
+**Missing entity** means the target is absent from this scene. **Another scene**
+means the reference belongs to a different scene asset; this picker does not load
+that scene or resolve runtime instances. Inspection preserves either reference.
+Choosing a local result explicitly replaces it with a reference to this scene.
+The component's usual validation and Undo/Redo apply when you commit the edit.
+
 ## Prefab intent and Revert
 
 Prefab properties show **Inherited** or **Overridden** from explicit ownership/override intent. A value equal to its source can still be overridden. **Revert** follows the source again and supports scene Undo/Redo. Whole-component overrides have **Revert component**; independent translation, rotation and scale each have their own Revert.

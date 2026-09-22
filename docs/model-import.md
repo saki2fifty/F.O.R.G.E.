@@ -336,8 +336,9 @@ Existing format1 bundles remain readable for their existing mesh/animation resou
 consumers and retain version1 when decoded/re-encoded. They have no guaranteed
 recoverable original TRS and must be reimported before a workflow requiring that
 information. Format2 bundles also remain readable with their explicit TRS, but have no durable
-node-member identities. The importer declares output version3 in the full build key;
-new cooks cannot reinterpret older outputs as version3. Selected catalog, cache manifest and
+node-member identities. Format3 includes nodes but lacks stable variant members.
+The importer declares output version4 in the full build key;
+new cooks cannot reinterpret older outputs as version4. Selected catalog, cache manifest and
 bundle version must agree. Catalog metadata envelope version1 is independent of
 this cooked format version. No scene format, identity or module ABI changes here.
 
@@ -637,3 +638,39 @@ remain governed by existing CPU/GPU budgets and frame submission leases. Read-on
 documents have no Save/Undo capability and release after GUI submission on close.
 Imported Material members use this same shared path with an engine sphere. This
 viewer does not replace the standalone Material document's draft preview/history.
+
+
+## Stable material variants and complete draw selection
+
+Model bundle4 publishes one inline `material_variant` logical member per imported
+set. Its AssetId comes from the existing subasset reconciler. The authenticated
+`model.json` owns candidate-local mesh/LOD/primitive/material mappings; catalog
+member edges bind these to stable Mesh and Material AssetIds. Names may duplicate
+and source indices never identify an authored selection. Identity evidence uses
+mapped geometry and material content; ambiguity requires existing explicit
+correspondence decisions. Removed members retain unresolved identity.
+
+`MeshRenderer::material_variant` is an optional typed AssetRef. Older in-phase
+MeshRenderer payloads without it read as null; canonical output includes the field.
+This component was introduced during Phase7, after Build63. No ABI1 or AssetId
+layout changes occur; the exact SDK fingerprint covers its new native layout.
+
+The mesh resource copies only immutable variant data from its admitted Model
+revision. Selection resolves each draw part independently, including authored LODs.
+Two primitives sharing one base material may select different variant materials.
+An absent mapping follows the base material. Explicit stable-slot overrides win,
+including null. Complete candidates acquire only selected materials/textures,
+reuse the same mesh lease, and include per-part selections in physical cache keys.
+Missing/foreign variants or invalid replacement resources fail candidate adoption;
+previous complete draws and their CPU/GPU leases remain usable.
+
+The reflected property works with scene serialization, per-property prefab intent,
+Revert, Undo and exact-SDK runtime writes. `model.material_variant` changes the mesh
+nodes of one placed instance in a single scene transaction, skipping independent
+nested placements and preserving unrelated overrides. The root Inspector and model
+placement controls use these same authored fields. Import publication retains its
+own history boundary. Source-free packages retain the admitted Model family.
+
+The implementation follows the ratified [KHR_materials_variants specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_variants),
+verified2026-09-22. This is resource selection above Diligent: no backend-specific
+registers, handles, formats or duplicated model hierarchy are introduced.

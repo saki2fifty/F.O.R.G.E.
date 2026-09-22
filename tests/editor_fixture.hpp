@@ -47,6 +47,9 @@ struct EditorFixture {
             return "###Material";
         case 43:
         case 59:
+        case 67:
+        case 68:
+        case 69:
             return "###Model import";
         case 44:
         case 45:
@@ -72,6 +75,9 @@ struct EditorFixture {
         case 56:
         case 57:
         case 58:
+        case 70:
+        case 71:
+        case 72:
             return "Inspector";
         default:
             return nullptr;
@@ -169,7 +175,13 @@ struct EditorFixture {
                                "surface-shader-import",
                                "surface-material",
                                "surface-material-150",
-                               "surface-material-200"};
+                               "surface-material-200",
+                               "model-variant-placement",
+                               "model-variant-placement-150",
+                               "model-variant-placement-200",
+                               "model-variant-inspector",
+                               "model-variant-inspector-150",
+                               "model-variant-inspector-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

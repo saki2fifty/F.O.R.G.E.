@@ -19,6 +19,14 @@ struct MeshMaterialSelection {
     std::vector<MeshMaterialBinding> bindings;
     // Retain authored entries when reimport removes a slot. Never guess a target.
     std::vector<std::string> unresolved;
+    // Resolved draw-part values in this immutable revision. Two primitives can
+    // share a base slot yet choose different variant materials.
+    std::vector<std::vector<AssetRef<MaterialAsset>>> parts;
+};
+struct MeshMaterialVariant {
+    AssetRef<MaterialVariantAsset> asset;
+    std::string name;
+    std::map<std::pair<std::uint32_t, std::uint32_t>, AssetRef<MaterialAsset>> mappings;
 };
 struct MeshSkinBinding {
     // Ordered skin binding, addressed by each prepared part's joint palette.
@@ -43,11 +51,13 @@ struct MeshResourceData {
     // Immutable copied provenance/bind data, never another live node hierarchy.
     // Empty for independent and engine meshes or legacy cooks without node IDs.
     std::optional<MeshModelBindings> model;
+    std::vector<MeshMaterialVariant> variants;
     std::size_t resident_bytes() const;
 };
 void validate_mesh_material_bindings(const MeshResourceData& mesh);
 MeshMaterialSelection select_mesh_materials(const MeshResourceData& mesh,
-                                            std::span<const MaterialSlotOverride> overrides);
+                                            std::span<const MaterialSlotOverride> overrides,
+                                            AssetRef<MaterialVariantAsset> variant = {});
 template <> struct ResourceTraits<MeshAsset> {
     using Data = MeshResourceData;
 };

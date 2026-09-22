@@ -101,3 +101,22 @@
 
 - Custom cooked surface programs reuse the existing Diligent presentation shader cache while retaining native reflection verification. Added a native reuse regression; exact pinned cache source returns native shaders when its hot reload is disabled.
 - Custom Shader/Material strict ASan, UBSan and LSan regressions passed5/5(15.66s); local actual ImGui Material editor interaction passed1/1(1.30s). Native surface acceptance remains pending.
+
+
+## Imported material variants
+
+- Added stable AssetId-backed material-variant subassets in model bundle4. Legacy bundles1–3 remain readable; new cooks authenticate inline selectors, mappings and typed dependency edges.
+- Connected per-primitive selection to complete draw candidates and authored LODs. Different primitives sharing a base material can choose different variant materials; explicit slot overrides retain precedence and unmapped parts retain their base material.
+- Added reflected Mesh Renderer variant selection, a model placement choice, and a root Inspector action backed by one scene command/Undo step. Scene/prefab intent remains independent from import publication. Missing/foreign selections fail preparation while prior usable draws remain available.
+- Added source-reorder, mapping-corruption, identity, resource-selection, scene/prefab/Undo and legacy-field regressions. Validation is in progress; no native acceptance or numbered package is claimed for this bundle yet.
+- Windows CI identified a further long-path boundary: catalog existence/size queries and file identity must use native path spelling after canonicalization. These calls now use the existing OS-path adapter. Runtime package opening explicitly loads its manifest-required catalog, and the long-path regression checks catalog reopening, identity and material loading. Fresh Windows confirmation remains required.
+
+### Reference editing, diagnostics and validation follow-up
+
+- Entity reference fields now search current-scene hierarchy paths and persistent IDs, clip large lists, distinguish missing targets from references to another scene, and preserve references until explicitly changed. Display names come from authored names rather than Flecs internal symbols.
+- Import errors select their logical asset in Problems. Shader compiler errors retain their HLSL/include path and line/column; Open source uses a bounded project-contained read-only viewer without replacing existing drafts. Material errors also link their source document.
+- The Material Editor reserves footer space only for visible progress/errors, removing unused space observed in the native 200% capture. Added variant placement/Inspector captures at100/150/200%.
+- The previous Windows source audit passed66/68 tests and produced all67 editor captures. Remaining failures were long-path catalog discovery and a GPU residency fixture that expected32-bit index bytes after compact16-bit upload. Catalog OS calls now use extended-length paths, and package opening requires the manifest's catalog to load. The residency assertion now verifies the actual42-byte upload and uint16 type. Fresh Windows verification is still required.
+- Local variant/model/package checks passed6/7; the remaining command-discovery assertion was updated for the new command and then passed independently. Actual ImGui editor/model/material interaction checks passed3/3(21.72s), Vulkan binding/readback passed1/1(1.31s), and manual/format checks passed. The expanded strict sanitizer model suite exceeded its old120-second test limit; this is recorded as a timeout, not a sanitizer pass, while a bounded measured run investigates its duration.
+
+- The independent strict model run completed cleanly in144.07s with ASan/UBSan/LSan enabled (normal model-worker suite48.72s). Its sanitizer-only CTest timeout is now240s; the normal120s budget and every sanitizer check remain. The original timeout is retained in the evidence record.

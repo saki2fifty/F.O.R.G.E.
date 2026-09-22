@@ -9,6 +9,9 @@
 namespace forge {
 class ModelImportEditor : public AssetImportEditor {
   public:
+#ifdef FORGE_UI_FIXTURE
+    bool fixture_open_variant = false;
+#endif
     std::function<bool()> placement_allowed;
     std::function<void(SceneDocument&, bool)> draw_preview;
     ModelImportEditor(std::filesystem::path worker, std::filesystem::path converter, Scene& scene,
@@ -55,6 +58,7 @@ class ModelImportEditor : public AssetImportEditor {
             error_.clear();
             source_scene_ = -1;
             clip_ = {};
+            variant_ = {};
         }
         if (job_.valid() && job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {
@@ -96,7 +100,7 @@ class ModelImportEditor : public AssetImportEditor {
     Scene& scene_;
     ui::EditorSelection& selection_;
     std::filesystem::path project_;
-    AssetId asset_, clip_;
+    AssetId asset_, clip_, variant_;
     std::uint64_t generation_ = 0, job_generation_ = 0;
     bool started_ = false;
     int source_scene_ = -1;
@@ -193,6 +197,38 @@ class ModelImportEditor : public AssetImportEditor {
         }
         ui::help("No clip is chosen automatically. Static skin and morph defaults remain available "
                  "without an Animator.");
+        ui::property_label_row("Material variant",
+                               "Choose one imported material set for every placed mesh. Unmapped "
+                               "surfaces use their original material.");
+        const auto variant_name = variant_ ? selected_->member(variant_).identity.display_name
+                                           : std::string("Default materials");
+#ifdef FORGE_UI_FIXTURE
+        if (fixture_open_variant) {
+            ImGui::SetScrollHereY(.5f);
+            ImGui::OpenPopupEx(ImHashStr("##ComboPopup", 0, ImGui::GetID("##material_variant")),
+                               ImGuiPopupFlags_None);
+        }
+#endif
+        if (ImGui::BeginCombo("##material_variant", variant_name.c_str())) {
+#ifdef FORGE_UI_FIXTURE
+            fixture_open_variant = false;
+#endif
+            if (ImGui::Selectable("Default materials", !variant_))
+                variant_ = {};
+            for (const auto& member : selected_->index.members) {
+                if (!member.material_variant)
+                    continue;
+                const auto id = selected_->bindings.at(member.identity.address);
+                ui::IdScope scope(id.str().c_str());
+                if (ImGui::Selectable(member.identity.display_name.c_str(), variant_ == id))
+                    variant_ = id;
+                ui::help("This is a stable imported material-set asset. Switching it reuses the "
+                         "same geometry.");
+            }
+            ImGui::EndCombo();
+        }
+        ui::help("Change the placed model later from its root Inspector, or override individual "
+                 "mesh selections. Source materials stay unchanged.");
         const bool needs_scene =
             source_scene_ < 0 && scenes.size() > 1 && hierarchy.at("default_scene").is_null();
         if (needs_scene)
@@ -206,6 +242,7 @@ class ModelImportEditor : public AssetImportEditor {
                 asset_detail::ModelPlacementOptions options;
                 options.name = name_;
                 options.clip = {clip_};
+                options.material_variant = {variant_};
                 if (source_scene_ >= 0)
                     options.source_scene = std::uint32_t(source_scene_);
                 (void)place(document, options);

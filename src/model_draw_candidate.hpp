@@ -24,6 +24,7 @@ struct PreparedModelDrawKey {
     std::vector<std::tuple<std::uint32_t, std::string, AssetId>> bindings;
     std::vector<std::pair<AssetId, TextureSemantic>> textures;
     std::vector<std::string> unresolved;
+    std::vector<std::vector<AssetId>> parts;
     bool skinned{};
     auto operator<=>(const PreparedModelDrawKey&) const = default;
 };
@@ -41,6 +42,11 @@ inline PreparedModelDrawKey prepared_model_draw_key(const PreparedModelDraw& dra
     }
     for (const auto& slot : draw.selection.bindings)
         result.bindings.emplace_back(slot.physical_slot, slot.key, slot.material.id);
+    for (const auto& lod : draw.selection.parts) {
+        auto& parts = result.parts.emplace_back();
+        for (const auto& material : lod)
+            parts.push_back(material.id);
+    }
     result.unresolved = draw.selection.unresolved;
     return result;
 }
@@ -52,7 +58,8 @@ class ModelDrawCandidate {
     ModelDrawCandidate(std::filesystem::path project, std::shared_ptr<const AssetCatalog> catalog,
                        std::uint64_t catalog_epoch, AssetRef<MeshAsset> mesh,
                        std::vector<MaterialSlotOverride> overrides, ResourcePool<MeshAsset>& meshes,
-                       std::shared_ptr<const MaterialPreviewSelection> preview = {});
+                       std::shared_ptr<const MaterialPreviewSelection> preview = {},
+                       AssetRef<MaterialVariantAsset> variant = {});
     void advance(std::uint64_t current_catalog_epoch, ResourcePool<MeshAsset>& meshes,
                  ResourcePool<MaterialAsset>& materials, ResourcePool<TextureAsset>& textures);
     void cancel(); // Only this consumer; coalesced pool requests remain usable.
@@ -69,6 +76,7 @@ class ModelDrawCandidate {
     std::shared_ptr<const AssetCatalog> catalog_;
     std::shared_ptr<const MaterialPreviewSelection> preview_;
     std::vector<MaterialSlotOverride> overrides_;
+    AssetRef<MaterialVariantAsset> variant_;
     ResourceState state_ = ResourceState::Loading;
     std::string diagnostic_;
     PreparedModelDraw prepared_;

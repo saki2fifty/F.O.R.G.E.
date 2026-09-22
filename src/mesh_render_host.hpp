@@ -78,6 +78,7 @@ class MeshSceneRenderer {
     struct Entry {
         AssetRef<MeshAsset> mesh;
         std::vector<MaterialSlotOverride> overrides;
+        AssetRef<MaterialVariantAsset> variant;
         std::uint64_t epoch = 0;
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
         std::shared_ptr<MeshDrawBundle> ready;

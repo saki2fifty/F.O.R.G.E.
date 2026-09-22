@@ -47,6 +47,10 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
     require(!options.name.empty() && options.name.size() <= 4096 &&
                 options.name.find('\0') == std::string::npos,
             "Model placement needs a bounded display name");
+    if (options.material_variant.id)
+        require(selected.member(options.material_variant.id).identity.type ==
+                    MaterialVariantAsset::type,
+                "Model placement material variant belongs to another model or has wrong type");
     const auto& hierarchy = selected.index.hierarchy;
     const auto& nodes = hierarchy.at("nodes");
     const auto& scenes = hierarchy.at("scenes");
@@ -150,10 +154,16 @@ ModelPlacementCandidate prepare_model_placement(const ModelSelection& selected, 
             const auto mesh = selected.bindings.at(source.at("mesh").get<std::string>());
             require(selected.member(mesh).identity.type == MeshAsset::type,
                     "Model node mesh has the wrong asset type");
-            values["forge.mesh_renderer"] = {{"mesh", mesh},         {"materials", Json::array()},
-                                             {"enabled", true},      {"visible", true},
-                                             {"cast_shadows", true}, {"receive_shadows", true},
-                                             {"layers", UINT32_MAX}};
+            values["forge.mesh_renderer"] = {
+                {"mesh", mesh},
+                {"materials", Json::array()},
+                {"material_variant",
+                 options.material_variant.id ? Json(options.material_variant.id) : Json()},
+                {"enabled", true},
+                {"visible", true},
+                {"cast_shadows", true},
+                {"receive_shadows", true},
+                {"layers", UINT32_MAX}};
         }
         if (!source.at("camera").is_null())
             values["forge.camera"] = detail::render_value(model_camera_component(

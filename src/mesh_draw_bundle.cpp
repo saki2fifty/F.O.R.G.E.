@@ -14,10 +14,8 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
       skinned_(skinned) {
     const auto& source = prepared.mesh.get();
     validate_mesh_material_bindings(source);
-    std::map<std::uint32_t, const MeshMaterialBinding*> bindings;
-    for (const auto& binding : prepared.selection.bindings)
-        if (!bindings.emplace(binding.physical_slot, &binding).second)
-            throw std::runtime_error("Duplicate physical material selection in draw candidate");
+    if (prepared.selection.parts.size() != source.mesh.lods.size())
+        throw std::runtime_error("Material selection LOD count differs from mesh");
     // CPU preparation already validated immutable values. Recheck lease scopes and
     // matching binding identities before allocating physical resources.
     for (const auto& [id, material] : prepared.materials) {
@@ -37,17 +35,22 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
     unresolved_ = prepared.selection.unresolved;
     MaterialData default_material;
     default_material.model = "forge.gltf.metallic-roughness.v1";
-    for (const auto& lod : mesh_.get().lods) {
+    for (std::size_t l = 0; l < mesh_.get().lods.size(); ++l) {
+        const auto& lod = mesh_.get().lods[l];
+        const auto& selected = prepared.selection.parts[l];
+        if (selected.size() != lod.parts.size())
+            throw std::runtime_error("Material selection part count differs from mesh");
         auto& output = lods_.emplace_back();
         auto& shadows = shadow_lods_.emplace_back();
         auto& info = info_.emplace_back();
-        for (const auto& part : lod.parts) {
-            const auto& binding = *bindings.at(part.material_slot);
+        for (std::size_t p = 0; p < lod.parts.size(); ++p) {
+            const auto& part = lod.parts[p];
+            const auto material_ref = selected[p];
             const MaterialData* values = &default_material;
             const MaterialShaderSnapshot* surface = nullptr;
             MeshDraw::Textures native_textures;
-            if (binding.material.id) {
-                const auto& material = prepared.materials.at(binding.material.id).get();
+            if (material_ref.id) {
+                const auto& material = prepared.materials.at(material_ref.id).get();
                 values = &material.values;
                 surface = material.surface ? &*material.surface : nullptr;
                 for (const auto& [role, ref] : material.textures) {
@@ -71,7 +74,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             shadows.push_back(values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
                                   : prepare(Diligent::TEX_FORMAT_UNKNOWN));
-            info.push_back({values->alpha, binding.material.id, part.bounds, transmits});
+            info.push_back({values->alpha, material_ref.id, part.bounds, transmits});
         }
     }
 }

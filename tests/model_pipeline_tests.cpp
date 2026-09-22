@@ -82,6 +82,7 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
 }
 } // namespace
 #include "engine_resource_tests.hpp"
+#include "material_variant_pipeline_tests.hpp"
 #include "model_animation_runtime.hpp"
 #include "model_placement.hpp"
 #include "model_placement_tests.hpp"
@@ -938,6 +939,7 @@ int main(int argc, char** argv) {
                         retained.bindings == selected.bindings,
                     "Rejected LOD candidate replaced a selected model family");
         }
+        check_material_variant_pipeline(root, service, run);
         if (std::filesystem::exists(root / ".forge/jobs"))
             require(std::filesystem::is_empty(root / ".forge/jobs"),
                     "Finished model staging remains");

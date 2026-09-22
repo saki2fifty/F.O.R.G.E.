@@ -241,9 +241,20 @@ class MaterialEditor {
                                   ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp)) {
                 ImGui::TableSetupColumn("Properties", ImGuiTableColumnFlags_WidthStretch, .45f);
                 ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch, .55f);
-                const auto height =
-                    std::max(120.f * ui::interface_scale,
-                             ImGui::GetContentRegionAvail().y - 100 * ui::interface_scale);
+                // Reserve only visible status content; a permanent scaled footer
+                // otherwise wastes 200 pixels in a clean 200% workspace.
+                float footer = !base_ready_ ? ImGui::GetTextLineHeightWithSpacing() : 0.f;
+                if (job_)
+                    footer += ImGui::GetTextLineHeightWithSpacing() +
+                              2 * ImGui::GetFrameHeightWithSpacing();
+                if (!error_.empty())
+                    footer += ImGui::CalcTextSize(error_.c_str(), nullptr, false,
+                                                  std::max(1.f, ImGui::GetContentRegionAvail().x))
+                                  .y +
+                              ImGui::GetStyle().ItemSpacing.y;
+                const auto height = std::max(120.f * ui::interface_scale,
+                                             ImGui::GetContentRegionAvail().y - footer -
+                                                 ImGui::GetStyle().ItemSpacing.y);
                 ImGui::TableNextColumn();
                 ImGui::BeginChild("Material properties", {0, height});
                 draw_fields();
@@ -354,7 +365,15 @@ class MaterialEditor {
     std::future<MaterialSourceContext> base_job_;
     void report(std::string error) {
         error_ = std::move(error);
-        ui::report_error("material", error_);
+        if (ui::editor_context) {
+            ui::Problem problem{"material", "Error", error_, {}, {}, {}, {}};
+            if (document_) {
+                problem.asset = document_->source().asset();
+                problem.source = path_utf8(document_->locator());
+                problem.source_navigation = true;
+            }
+            ui::editor_context->problems.report(std::move(problem));
+        }
     }
     std::string source_context_key() const {
         if (!document_)

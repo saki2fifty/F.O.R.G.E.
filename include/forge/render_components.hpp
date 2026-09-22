@@ -35,6 +35,7 @@ struct MeshRenderer {
     std::vector<MaterialSlotOverride> materials;
     bool enabled = true, visible = true, cast_shadows = true, receive_shadows = true;
     std::uint32_t layers = UINT32_MAX;
+    AssetRef<MaterialVariantAsset> material_variant;
     bool operator==(const MeshRenderer&) const = default;
 };
 } // namespace forge

@@ -269,6 +269,11 @@ if(BUILD_TESTING)
  target_link_libraries(forge_model_pipeline_tests PRIVATE forge_runtime_package forge_model_authoring forge_model_cook forge_simulation forge_animation_resources forge_model_render_resources forge_model_placement)
  add_test(NAME model_recipe COMMAND forge_model_pipeline_tests --direct unused "${CMAKE_CURRENT_SOURCE_DIR}/samples/gltf/NegativeScaleTest" "${CMAKE_BINARY_DIR}/model-recipe-tests" ${FORGE_TEST_ANIMATION_CONVERTER})
  set_tests_properties(model_recipe PROPERTIES TIMEOUT 120)
+ if(FORGE_ENABLE_SANITIZERS)
+  # The expanded model/variant/publication suite measures ~144 seconds with
+  # ASan/UBSan/LSan (normal profile ~49 seconds). Keep a finite sanitizer budget.
+  set_tests_properties(model_recipe PROPERTIES TIMEOUT 240)
+ endif()
  if(NOT FORGE_ENABLE_SANITIZERS)
   add_dependencies(forge_model_pipeline_tests forge_asset_build_worker)
   add_test(NAME model_pipeline COMMAND forge_model_pipeline_tests --worker $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_SOURCE_DIR}/samples/gltf/NegativeScaleTest" "${CMAKE_BINARY_DIR}/model-pipeline-tests" ${FORGE_TEST_ANIMATION_CONVERTER})

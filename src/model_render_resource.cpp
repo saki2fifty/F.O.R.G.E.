@@ -115,6 +115,26 @@ MeshResourceData model_mesh_resource(const ModelSelection& selected, AssetRef<Me
         // Asset identity survives source-array reorder and display-name changes.
         result.materials.push_back({slot, "material:" + material.str(), {material}});
     }
+    for (const auto& variant_member : selected.index.members) {
+        if (!variant_member.material_variant)
+            continue;
+        MeshMaterialVariant variant;
+        variant.asset.id = selected.bindings.at(variant_member.identity.address);
+        variant.name = variant_member.identity.display_name;
+        for (const auto& mapping : selected.index.hierarchy.at("material_variants")
+                                       .at(*variant_member.material_variant)
+                                       .at("mappings")) {
+            if (mapping.at("mesh") != member.identity.address)
+                continue;
+            const auto target = selected.bindings.at(mapping.at("material").get<std::string>());
+            require(selected.member(target).identity.type == MaterialAsset::type,
+                    "Variant material has wrong type");
+            variant.mappings.emplace(std::pair{mapping.value("lod", std::uint32_t{}),
+                                               mapping.at("primitive").get<std::uint32_t>()},
+                                     AssetRef<MaterialAsset>{target});
+        }
+        result.variants.push_back(std::move(variant));
+    }
     validate_mesh_material_bindings(result);
     return result;
 }

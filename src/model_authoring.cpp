@@ -142,6 +142,10 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
             if (member.node)
                 record.metadata["forge.model"] = {
                     {"version", 2}, {"node", *member.node}, {"name", member.identity.display_name}};
+            if (member.material_variant)
+                record.metadata["forge.model"] = {{"version", 3},
+                                                  {"material_variant", *member.material_variant},
+                                                  {"name", member.identity.display_name}};
             for (const auto& [role, address] : member.bindings) {
                 const auto target = reconciled.assignments.at(address);
                 record.dependency_edges.push_back({target, by_id.at(target)->identity.type,

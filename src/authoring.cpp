@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "model_variant_edit.hpp"
 #include "reflected_value.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
@@ -223,7 +224,15 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         (void)entity(doc, id);
     }
     Json result = {{"operation", op}, {"selected", id}};
-    if (op == "scene.rendering.set") {
+    if (op == "model.material_variant") {
+        const auto& variant = a.at("variant");
+        detail::validate_reflected_json(
+            property_schema(scene, "forge.mesh_renderer", "material_variant"), variant);
+        auto doc = scene.document();
+        result["affected"] =
+            detail::edit_model_material_variant(doc, scene.effective_document(), id, variant);
+        scene.edit(doc);
+    } else if (op == "scene.rendering.set") {
         auto doc = scene.document();
         auto& rendering = doc["rendering"];
         if (rendering.is_null())
@@ -580,6 +589,11 @@ Json authoring_commands() {
                                  {"sky", {{"type", "boolean"}}}})}},
         Json::array());
     const auto entity_arg = Json{{"entity", text_type()}};
+    add("model.material_variant", "Set model material variant",
+        "Choose one imported material set for all mesh nodes of this model instance. Explicit "
+        "material slot overrides remain authoritative; nested model instances are unchanged.",
+        {{"entity", text_type()}, {"variant", {{"anyOf", {text_type(), {{"type", "null"}}}}}}},
+        {"entity", "variant"});
     auto recipe_ids = Json::array();
     for (const auto& r : entity_recipes())
         recipe_ids.push_back(r.id);

@@ -168,6 +168,8 @@ class Problems {
                     ImGui::TextWrapped("Property: %s", p.property.c_str());
                 if (!p.source.empty())
                     ImGui::TextWrapped("Source: %s", p.source.c_str());
+                if (p.line > 0)
+                    ImGui::Text("Line %d, column %d", p.line, std::max(p.column, 1));
                 if (p.source_navigation && open_source &&
                     button(
                         "Open source",

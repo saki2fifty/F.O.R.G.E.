@@ -1,6 +1,7 @@
 #include "model_draw_candidate.hpp"
 #include "material_slot.hpp"
 #include "pbr_material.hpp"
+#include <set>
 namespace forge::asset_detail {
 namespace {
 template <class T>
@@ -32,9 +33,10 @@ ModelDrawCandidate::ModelDrawCandidate(std::filesystem::path project,
                                        std::uint64_t epoch, AssetRef<MeshAsset> mesh,
                                        std::vector<MaterialSlotOverride> overrides,
                                        ResourcePool<MeshAsset>& meshes,
-                                       std::shared_ptr<const MaterialPreviewSelection> preview)
+                                       std::shared_ptr<const MaterialPreviewSelection> preview,
+                                       AssetRef<MaterialVariantAsset> variant)
     : epoch_(epoch), project_(std::move(project)), catalog_(std::move(catalog)),
-      preview_(std::move(preview)), overrides_(std::move(overrides)) {
+      preview_(std::move(preview)), overrides_(std::move(overrides)), variant_(variant) {
     if (!epoch_ || !catalog_ || !mesh.id)
         throw std::runtime_error("Invalid complete model draw request");
     detail::validate_material_slots(overrides_);
@@ -76,31 +78,33 @@ void ModelDrawCandidate::advance(std::uint64_t epoch, ResourcePool<MeshAsset>& m
         if (stage_ == 0) {
             if (!acquire_ready(meshes, mesh_, prepared_.mesh))
                 return;
-            prepared_.selection = select_mesh_materials(prepared_.mesh.get(), overrides_);
+            prepared_.selection = select_mesh_materials(prepared_.mesh.get(), overrides_, variant_);
             // Missing authored slots remain visible diagnostics, never guessed
             // replacement bindings. Existing slots still use their selected values.
-            for (const auto& binding : prepared_.selection.bindings)
-                if (binding.material.id && !materials_.contains(binding.material.id)) {
-                    if (preview_ && binding.material == preview_->asset)
-                        materials_.emplace(
-                            binding.material.id,
-                            materials.request(
-                                preview_->asset, preview_->revision, preview_->generation,
-                                [selected = preview_](std::stop_token stop) {
-                                    if (stop.stop_requested())
-                                        throw std::runtime_error("Material preview cancelled");
-                                    auto data =
-                                        std::make_unique<MaterialResourceData>(selected->data);
-                                    const auto bytes = data->resident_bytes();
-                                    return ResourceCandidate<MaterialAsset>{std::move(data),
-                                                                            {bytes}};
-                                },
-                                {}, 0, "builtin:material-preview-v1"));
-                    else
-                        materials_.emplace(binding.material.id,
-                                           request_model_pbr_material(materials, project_, catalog_,
-                                                                      binding.material));
-                }
+            std::set<AssetId> required;
+            for (const auto& lod : prepared_.selection.parts)
+                for (const auto& material : lod)
+                    if (material.id)
+                        required.insert(material.id);
+            for (const auto id : required) {
+                const AssetRef<MaterialAsset> material{id};
+                if (preview_ && material == preview_->asset)
+                    materials_.emplace(
+                        material.id,
+                        materials.request(
+                            preview_->asset, preview_->revision, preview_->generation,
+                            [selected = preview_](std::stop_token stop) {
+                                if (stop.stop_requested())
+                                    throw std::runtime_error("Material preview cancelled");
+                                auto data = std::make_unique<MaterialResourceData>(selected->data);
+                                const auto bytes = data->resident_bytes();
+                                return ResourceCandidate<MaterialAsset>{std::move(data), {bytes}};
+                            },
+                            {}, 0, "builtin:material-preview-v1"));
+                else
+                    materials_.emplace(material.id, request_model_pbr_material(materials, project_,
+                                                                               catalog_, material));
+            }
             stage_ = 1;
         }
         if (stage_ == 1) {

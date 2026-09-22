@@ -105,14 +105,19 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         forge::ResourcePool<forge::MaterialAsset> cpu_material;
         const forge::AssetRef<forge::MeshAsset> mesh_id{forge::AssetId::generate()};
         const forge::AssetRef<forge::MaterialAsset> material_id{forge::AssetId::generate()};
+        const forge::AssetRef<forge::MaterialAsset> alternate_id{forge::AssetId::generate()};
+        const forge::AssetRef<forge::MaterialVariantAsset> variant_id{forge::AssetId::generate()};
         auto lod_mesh = mesh;
         lod_mesh.lods.push_back({.25f, {part}});
         lod_mesh.lods[1].parts[0].indices = {0, 1, 2};
         auto mesh_ticket = cpu_mesh.request(
-            mesh_id, std::string(64, 'a'), 1, [lod_mesh, material_id](std::stop_token) {
+            mesh_id, std::string(64, 'a'), 1,
+            [lod_mesh, material_id, alternate_id, variant_id](std::stop_token) {
                 auto value = std::make_unique<forge::MeshResourceData>();
                 value->mesh = lod_mesh;
                 value->materials = {{0, "default", material_id}};
+                value->variants = {
+                    {variant_id, "Red variant", {{{0, 0}, alternate_id}, {{1, 0}, alternate_id}}}};
                 const auto bytes = value->resident_bytes();
                 return forge::ResourceCandidate<forge::MeshAsset>{std::move(value), {bytes}};
             });
@@ -147,6 +152,35 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
                 "Native LOD selection did not draw its authored lower-detail geometry");
         save(distant, 32, 32, images / "mesh-lod-far.ppm");
         save(reference, 32, 32, images / "mesh-lod-close.ppm");
+        auto alternate = material;
+        alternate.parameters["baseColorFactor"] = {forge::MaterialParameterType::LinearColor4,
+                                                   {1, 0, 0, 1}};
+        const auto alternate_ticket = cpu_material.request(
+            alternate_id, std::string(64, 'c'), 1, [alternate](std::stop_token) {
+                auto value = std::make_unique<forge::MaterialResourceData>();
+                value->values = alternate;
+                const auto bytes = value->resident_bytes();
+                return forge::ResourceCandidate<forge::MaterialAsset>{std::move(value), {bytes}};
+            });
+        require(cpu_material.wait(alternate_ticket, 5s), "Variant material fixture did not load");
+        auto variant_prepared = prepared;
+        variant_prepared.selection =
+            forge::select_mesh_materials(prepared.mesh.get(), {}, variant_id);
+        variant_prepared.materials.emplace(alternate_id.id, cpu_material.acquire(alternate_ticket));
+        {
+            forge::MeshDrawBundle variant_draw(presentation, context, variant_prepared, meshes,
+                                               textures, TEX_FORMAT_RGBA8_UNORM,
+                                               TEX_FORMAT_D32_FLOAT);
+            const auto pixels = render(variant_draw);
+            require(pixels[16 * 32 + 16] == std::array<unsigned char, 4>{255, 0, 0, 255} &&
+                        variant_draw.mesh_identity() == bundle->mesh_identity(),
+                    "Native material variant failed to switch surface while reusing geometry");
+            const auto low_pixels = render(variant_draw, {}, nullptr, 1);
+            require(std::any_of(low_pixels.begin(), low_pixels.end(),
+                                [](const auto& p) { return p[0] == 255 && p[1] == 0; }),
+                    "Native lower LOD ignored material variant");
+            save(pixels, 32, 32, images / "mesh-material-variant.ppm");
+        }
         auto invalid = prepared;
         invalid.materials.clear();
         bool rejected = false;

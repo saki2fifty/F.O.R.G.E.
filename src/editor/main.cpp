@@ -1,6 +1,6 @@
 #ifdef FORGE_UI_FIXTURE
 #include "editor_fixture.hpp"
-#include "gltf_lod_fixture.hpp"
+#include "gltf_variant_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
 #include <backends/imgui_impl_sdl3.h>
 #endif
@@ -337,6 +337,7 @@ int main(int argc, char** argv) {
             message = e.what();
         }
         forge::ui::FlecsScriptEditor script_editor(std::filesystem::path(base) / "forge_tools.exe");
+        forge::ui::DiagnosticSourceViewer diagnostic_source;
         forge::TextureImportEditor texture_imports(std::filesystem::path(base) /
                                                    "forge_asset_build.exe");
         forge::AudioImportEditor audio_imports(std::filesystem::path(base) /
@@ -1678,7 +1679,7 @@ int main(int argc, char** argv) {
                     ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1);
                     SDL_SetWindowSize(window.get(), 1920, 1080);
-                    auto source = gltf_lod_fixture();
+                    auto source = gltf_variant_fixture();
                     source.document["extensionsUsed"].push_back("KHR_materials_unlit");
                     for (auto& material : source.document["materials"]) {
                         material["doubleSided"] = true;
@@ -1771,6 +1772,40 @@ int main(int argc, char** argv) {
                 case 66:
                     forge::ui::style(2);
                     break;
+                case 67:
+                case 68:
+                case 69: {
+                    ImGui::ClosePopupToLevel(0, true);
+                    forge::ui::style(1.f + .5f * float(fixture.stage - 67));
+                    if (auto* w = ImGui::FindWindowByName("###Model import"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Model import", {30, 55});
+                    ImGui::SetWindowSize("###Model import", {1800, 970});
+                    ImGui::SetWindowFocus("###Model import");
+                    model_imports.fixture_open_variant = true;
+                    break;
+                }
+                case 70:
+                case 71:
+                case 72: {
+                    ImGui::ClosePopupToLevel(0, true);
+                    forge::ui::style(1.f + .5f * float(fixture.stage - 70));
+                    if (fixture.stage == 70) {
+                        if (!model_imports.placement_ready()) {
+                            ready = false;
+                            break;
+                        }
+                        (void)model_imports.place(files.document);
+                    }
+                    workspace.inspector = true;
+                    if (auto* w = ImGui::FindWindowByName("Inspector"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Inspector", {30, 55});
+                    ImGui::SetWindowSize("Inspector", {1200, 970});
+                    ImGui::SetWindowFocus("Inspector");
+                    forge::ui::fixture_open_model_variant = true;
+                    break;
+                }
                 }
                 fixture.prepared = ready;
             }
@@ -2569,6 +2604,7 @@ int main(int argc, char** argv) {
             source_import.draw(play.active() || native->busy() || content_files.busy() ||
                                authored_components.busy() || scene_asset_drop.busy());
             script_editor.draw_source_viewer(files.document);
+            diagnostic_source.draw(files.document.project());
             if (editor.reveal_content) {
                 workspace.content = true;
                 workspace.bottom_folded = false;
@@ -2576,16 +2612,19 @@ int main(int argc, char** argv) {
             if (workspace.problems && !workspace.bottom_folded) {
                 if (auto* settings = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                     ImGui::SetNextWindowDockID(settings->DockId, ImGuiCond_FirstUseEver);
-                if (editor.problems.draw(editor.selection, &workspace.problems,
-                                         [&](const forge::ui::Problem& problem) {
-                                             try {
-                                                 script_editor.navigate_source(
-                                                     files.document, problem.source, problem.line,
-                                                     problem.column);
-                                             } catch (const std::exception& e) {
-                                                 message = e.what();
-                                             }
-                                         })) {
+                if (editor.problems.draw(
+                        editor.selection, &workspace.problems,
+                        [&](const forge::ui::Problem& problem) {
+                            try {
+                                if (std::filesystem::u8path(problem.source).extension() == ".flecs")
+                                    script_editor.navigate_source(files.document, problem.source,
+                                                                  problem.line, problem.column);
+                                else
+                                    diagnostic_source.open(files.document.project(), problem);
+                            } catch (const std::exception& e) {
+                                message = e.what();
+                            }
+                        })) {
                     workspace.inspector = true;
                     editor.task.owner = forge::ui::DocumentTask::Scene;
                 }
@@ -2838,7 +2877,7 @@ int main(int argc, char** argv) {
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
             if (const auto* target = fixture.focused_document())
-                if (fixture.stage < 56 || fixture.stage >= 59)
+                if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66))
                     ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
@@ -2866,6 +2905,13 @@ int main(int argc, char** argv) {
                 const auto* popup = ImGui::FindWindowByName("##Combo_00");
                 captured_document_visible &=
                     !forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
+            }
+            if (fixture.stage >= 67 && fixture.stage <= 72) {
+                const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+                captured_document_visible &=
+                    !model_imports.fixture_open_variant && !forge::ui::fixture_open_model_variant &&
+                    !popups.empty() && popups.back().Window && popups.back().Window->Active &&
+                    !popups.back().Window->Hidden;
             }
             if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
                 throw std::runtime_error("Audio import fixture failed: " +
@@ -2937,7 +2983,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 67) {
+                if (fixture.stage == 73) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

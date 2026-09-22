@@ -5,10 +5,12 @@
 #include "camera.hpp"
 #include "camera_controls.hpp"
 #include "command_workspace_tests.hpp"
+#include "diagnostic_source_tests.hpp"
 #include "document_tests.hpp"
 #include "ecs_workspace_tests.hpp"
 #include "editor_redesign_tests.hpp"
 #include "editor_refinement_tests.hpp"
+#include "entity_picker_tests.hpp"
 #include "framing_tests.hpp"
 #include "game_input_tests.hpp"
 #include "help.hpp"
@@ -314,6 +316,8 @@ int main(int argc, char** argv) {
                 "Manual URL did not escape path characters");
         test_typed_ui_layer();
         test_asset_picker();
+        test_entity_picker();
+        test_diagnostic_source();
         test_reflected_value_inputs();
         test_editor_selection_and_actions();
         test_redesign_drawers();

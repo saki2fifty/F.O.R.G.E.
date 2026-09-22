@@ -25,10 +25,10 @@ AssetImporterDescriptor descriptor() {
     d.description = "Prepare a complete validated glTF model asset family in an isolated worker.";
     d.extensions = {".gltf", ".glb"};
     d.source_kinds = {"gltf", "glb"};
-    d.output_types = {"model",    "mesh",           "material",  "texture",
-                      "skeleton", "animation_clip", "model_node"};
+    d.output_types = {"model",    "mesh",           "material",   "texture",
+                      "skeleton", "animation_clip", "model_node", "material_variant"};
     d.output_format = "forge.model-bundle";
-    d.output_version = 3;
+    d.output_version = 4;
     const auto limits = model_worker_limits();
     d.limits.memory_bytes = limits.memory_bytes;
     d.limits.output_bytes = 512ull * 1024 * 1024;

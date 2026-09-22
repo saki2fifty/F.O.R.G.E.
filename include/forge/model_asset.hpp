@@ -9,4 +9,9 @@ struct ModelAsset {
 struct ModelNodeAsset {
     static constexpr const char* type = "model_node";
 };
+// One imported material set. Mappings belong to its immutable Model revision;
+// source array positions never identify an authored selection.
+struct MaterialVariantAsset {
+    static constexpr const char* type = "material_variant";
+};
 } // namespace forge

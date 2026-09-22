@@ -127,6 +127,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
     const auto& hierarchy = native.hierarchy();
     std::vector<std::string> node_context(hierarchy.nodes.size());
     std::vector<std::vector<std::string>> mesh_roles(meshes.size());
+    std::vector<std::vector<std::string>> primitive_evidence(meshes.size());
     for (const auto node_index : hierarchy.parent_first) {
         const auto& node = hierarchy.nodes[node_index];
         const auto& authored = doc.at("nodes").at(node_index);
@@ -156,6 +157,12 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         auto processing = options.mesh;
         for (std::size_t p = 0; p < raw.lods[0].parts.size(); ++p) {
             const auto& part = raw.lods[0].parts[p];
+            MeshData one;
+            one.morph_names = raw.morph_names;
+            one.morph_defaults = raw.morph_defaults;
+            one.material_slots = raw.material_slots;
+            one.lods = {{1, {part}}};
+            primitive_evidence[i].push_back(mesh_evidence(one));
             std::set<std::size_t> used_materials;
             if (part.material_slot)
                 used_materials.insert(part.material_slot - 1);
@@ -199,13 +206,6 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         for (std::size_t l = 0; l < group.meshes.size(); ++l) {
             const auto source_mesh = group.meshes[l];
             const auto& original = index.members.at(source_mesh);
-            for (const auto& variant : material_variants)
-                for (const auto& [part, material] : variant.mappings) {
-                    (void)material;
-                    require(part.first != source_mesh,
-                            "MSFT_lod: material variants on LOD meshes require a combined variant "
-                            "adapter; previous publication is retained");
-                }
             const auto& artifact = files.at(source_mesh);
             require(artifact.name == original.artifact.file,
                     "LOD preparation lost its source mesh artifact");
@@ -377,13 +377,49 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
     index.hierarchy["cameras"] = scene_values.cameras;
     index.hierarchy["lights"] = scene_values.lights;
     auto variants = Json::array();
-    for (const auto& variant : material_variants) {
+    std::map<std::string, std::string> material_evidence;
+    for (const auto& m : index.members)
+        if (m.identity.type == "material")
+            material_evidence.emplace(m.identity.address, m.identity.evidence.content_digest);
+    for (std::size_t v = 0; v < material_variants.size(); ++v) {
+        const auto& variant = material_variants[v];
         auto mappings = Json::array();
-        for (const auto& [part, material] : variant.mappings)
+        std::vector<std::string> content, semantic;
+        for (const auto& [part, material] : variant.mappings) {
             mappings.push_back({{"mesh", address("meshes", part.first)},
+                                {"lod", 0},
                                 {"primitive", part.second},
                                 {"material", address("materials", material)}});
-        variants.push_back({{"name", variant.name}, {"mappings", mappings}});
+            for (const auto& group : lod_groups)
+                for (std::size_t l = 0; l < group.meshes.size(); ++l)
+                    if (group.meshes[l] == part.first)
+                        mappings.push_back({{"mesh", address("lods", group.node)},
+                                            {"lod", l},
+                                            {"primitive", part.second},
+                                            {"material", address("materials", material)}});
+            // Evidence uses geometry/material content, not array positions. The
+            // reconciler resolves ambiguity explicitly, including identical sets.
+            const auto& shape = primitive_evidence.at(part.first).at(part.second);
+            content.push_back(asset_build_digest(
+                {{"geometry", shape},
+                 {"material", material_evidence.at(address("materials", material))}}));
+            semantic.push_back(shape);
+        }
+        ModelImportMember member;
+        member.identity = {
+            address("material_variants", v),
+            "material_variant",
+            variant.name,
+            {"", sorted_digest(std::move(content)), sorted_digest(std::move(semantic))}};
+        member.material_variant = static_cast<std::uint32_t>(v);
+        for (const auto& mapping : mappings) {
+            const auto mesh = mapping.at("mesh").get<std::string>();
+            const auto material = mapping.at("material").get<std::string>();
+            member.bindings["mesh:" + mesh] = mesh;
+            member.bindings["material:" + material] = material;
+        }
+        index.members.push_back(std::move(member));
+        variants.push_back({{"name", variant.name}, {"mappings", std::move(mappings)}});
     }
     index.hierarchy["material_variants"] = std::move(variants);
     // One immutable logical member per source node. Evidence excludes array

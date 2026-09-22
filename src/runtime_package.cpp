@@ -364,7 +364,10 @@ AssetCatalog open_runtime_content(const std::filesystem::path& package,
                 "Unmanifested runtime content: " + path_utf8(path));
     }
     require(files.contains("forge.assets.json"), "Runtime catalog is not in the package manifest");
-    auto catalog = AssetCatalog::open_project(root);
+    // The manifest requires a catalog. Never interpret a failed existence query
+    // as an empty project in this admitted package path.
+    AssetCatalog catalog(root);
+    catalog.load(root / "forge.assets.json");
     const auto roots = manifest.at("roots").get<std::vector<AssetId>>();
     const auto selected = closure(catalog, roots, budget);
     std::size_t expected_records = 0;

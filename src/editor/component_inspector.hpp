@@ -1,6 +1,7 @@
 #pragma once
 #include "component_choices.hpp"
 #include "document.hpp"
+#include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 #include <set>
@@ -146,6 +147,13 @@ class ComponentInspector {
             }
             if (!expanded)
                 continue;
+            if (key == "forge.model_source") {
+                if (variant_entity_ != entity) {
+                    variant_entity_ = entity;
+                    variant_error_.clear();
+                }
+                ui::model_variant_controls(scene, project, entity, values.at(key), variant_error_);
+            }
             ImGui::TextDisabled(
                 "%s", prefab ? (whole || partial ? "Overrides present" : "Inherited from prefab")
                              : "Owned component");
@@ -266,5 +274,6 @@ class ComponentInspector {
     }
     char search_[192]{}, filter_[192]{};
     std::map<std::string, std::string> errors_;
+    std::string variant_entity_, variant_error_;
 };
 } // namespace forge
