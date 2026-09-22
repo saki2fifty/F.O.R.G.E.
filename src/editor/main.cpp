@@ -3432,7 +3432,7 @@ int main(int argc, char** argv) {
             if (content_thumbnails)
                 content_thumbnails->after_submission();
 #ifdef FORGE_UI_FIXTURE
-            fixture.graphics_context(window.get(), 1);
+            fixture.graphics_context(window.get(), 1, device, context);
 #endif
             swap->Present(0);
 #ifdef FORGE_UI_FIXTURE

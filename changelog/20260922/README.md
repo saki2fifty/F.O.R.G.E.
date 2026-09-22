@@ -306,3 +306,11 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Camera/light guides refresh after move input so they follow the rendered pose within the same frame. Auto-aspect camera guides use the last Game output dimensions, with an explicitly documented Scene-size fallback before the first Game frame. Snapshot generation reads are sequenced after snapshot refresh.
 
 - Corrected the native preview-light test to explicitly name `forge::Viewport`, avoiding Diligent’s identically named viewport descriptor. The accepted pre-Phase-7 benchmark executable built successfully; current-source native execution remains pending this test compile correction.
+
+- Source audits upload native captures and test logs before building the separate benchmark executable and saving caches. This enables earlier review of the same evidence without repeating tests; it does not change acceptance gates or claim measured time savings.
+
+- Native source audit11932c9 compiled and passed all checks except the input workflow, which tried to click an offscreen camera marker. The fixture now uses the Inspector to place that camera at Scene eye height before picking. This preserves real input coverage and viewport clipping; no production picking bypass was added. Frame-wait timeouts remain under investigation.
+
+- The native fixture now records Diligent fence completion after a frame-wait error, plus recovery and Present duration. Signals use the pinned non-flushing Diligent API; no forced wait, backend-specific production synchronization, or diagnostic suppression is introduced. This is diagnostic evidence, not a root-cause claim.
+
+- Reviewing the actual960×640/200% capture exposed overlapping Scene text in a shallow viewport. The gesture footer and helper captions now yield space when too short; navigation and contextual help remain available. Normal-size Content and native authored/preview-light captures were opened and reviewed.

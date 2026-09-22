@@ -156,3 +156,8 @@ This reuse does not establish successful renderer/UI assertions from the earlier
 a completed baseline-build job. Its immutable source provenance must match before
 measurement. This permits current-source corrections without repeating the older
 engine build; the benchmark itself still runs both executables on one runner.
+
+Source-audit captures and the CTest log upload immediately after native tests,
+before the separate benchmark build and cache upload. This permits image review
+while those later steps run. An available artifact is evidence to inspect; it is
+not a successful-run claim. Check the test log and exact source identity.

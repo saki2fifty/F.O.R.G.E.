@@ -226,14 +226,18 @@ struct SceneTools {
                 }
             }
         }
-        draw->AddText(
-            {origin.x + 10, origin.y + size.y - ImGui::GetTextLineHeight() - 10},
-            IM_COL32(190, 205, 220, 220),
-            move.active()
-                ? "Moving | release to apply | Esc cancels"
-                : (can_edit ? (move_tool ? "Move | drag axes | Q: select | R: rotate | S: scale"
-                                         : "Select | W: show move handles | R: rotate | S: scale")
-                            : "Navigation only | object tools inactive"));
+        // Preserve image space when docked panels or interface zoom leave a
+        // shallow viewport. The same controls remain available in its tooltip.
+        if (size.y >= 3 * ImGui::GetTextLineHeight() + 20)
+            draw->AddText(
+                {origin.x + 10, origin.y + size.y - ImGui::GetTextLineHeight() - 10},
+                IM_COL32(190, 205, 220, 220),
+                move.active()
+                    ? "Moving | release to apply | Esc cancels"
+                    : (can_edit
+                           ? (move_tool ? "Move | drag axes | Q: select | R: rotate | S: scale"
+                                        : "Select | W: show move handles | R: rotate | S: scale")
+                           : "Navigation only | object tools inactive"));
         draw->PopClipRect();
     }
 };

@@ -171,6 +171,16 @@ jobs:
           @{ workflow_only = '${{ inputs.workflow_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
+      - name: Upload fresh audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-Source-Audit
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
+            ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+          retention-days: 14
       - name: Build and stage current benchmark executable
         if: ${{ !inputs.workflow_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -221,16 +231,6 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
           key: ${{ steps.cache-key.outputs.key }}-partial-${{ inputs.source_commit }}
-      - name: Upload fresh audit evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: FORGE-Editor-Source-Audit
-          path: |
-            ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
-            ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
-          if-no-files-found: error
-          retention-days: 14
 
   benchmark-baseline:
     if: ${{ !inputs.workflow_only && inputs.baseline_source_run == '' }}

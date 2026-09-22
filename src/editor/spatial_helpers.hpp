@@ -259,7 +259,8 @@ class SpatialHelpers {
 #endif
             if (active && marker.offset >= 0)
                 draw->AddText({p.x + r + 4, p.y - r}, color, marker.name.c_str());
-            if (active && !marker.note.empty()) {
+            if (active && !marker.note.empty() &&
+                note_y + 2 * ImGui::GetTextLineHeight() + 20 < origin.y + area.y) {
                 draw->AddText({origin.x + 10, note_y}, color, marker.note.c_str());
                 note_y += ImGui::GetTextLineHeightWithSpacing();
             }

@@ -1,11 +1,13 @@
 #pragma once
 #include <atomic>
 #include <cstdio>
+#include <cstring>
 // Compiled only into the automated editor fixture executable, never the shipped editor.
 // Native D3D declarations must precede the Diligent command queue interface.
 #include <d3d12.h>
 
 #include "Common/interface/RefCntAutoPtr.hpp"
+#include "Graphics/GraphicsEngine/interface/Fence.h"
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "document.hpp"
@@ -140,9 +142,16 @@ struct EditorFixture {
     }
     inline static std::atomic<unsigned long long> diagnostic_frame{0}, diagnostic_flags{0};
     inline static std::atomic<int> diagnostic_phase{0};
+    inline static std::atomic<unsigned long long> wait_error_frame{0};
+    Diligent::RefCntAutoPtr<Diligent::IFence> frame_fence;
+    unsigned long long first_stalled_fence = 0;
+    Uint64 present_started = 0;
     static void DILIGENT_CALL_TYPE message(Diligent::DEBUG_MESSAGE_SEVERITY severity,
                                            const char* text, const char* function, const char* file,
                                            int line) {
+        if (severity == Diligent::DEBUG_MESSAGE_SEVERITY_ERROR && text &&
+            std::strstr(text, "frame waitable object"))
+            wait_error_frame = diagnostic_frame.load();
         std::fprintf(stderr,
                      "FORGE graphics diagnostic t=%llu frame=%llu phase=%d flags=%llu severity=%d "
                      "%s (%s:%d %s)\n",
@@ -150,11 +159,42 @@ struct EditorFixture {
                      diagnostic_phase.load(), diagnostic_flags.load(), int(severity), text,
                      file ? file : "", line, function ? function : "");
     }
-    void graphics_context(SDL_Window* window, int phase) {
+    void graphics_context(SDL_Window* window, int phase, Diligent::IRenderDevice* device = nullptr,
+                          Diligent::IDeviceContext* context = nullptr) {
         if (phase == 0)
             ++diagnostic_frame;
         diagnostic_flags = SDL_GetWindowFlags(window);
         diagnostic_phase = phase;
+        const auto frame = diagnostic_frame.load();
+        if (phase == 1) {
+            if (!frame_fence) {
+                Diligent::FenceDesc desc;
+                desc.Name = "FORGE fixture frame completion probe";
+                device->CreateFence(desc, &frame_fence);
+                if (!frame_fence)
+                    throw std::runtime_error("Fixture completion probe unavailable");
+            }
+            // Exact pinned EnqueueSignal does not flush or wait. Present flushes
+            // this marker with its normal commands; the shipped editor is unchanged.
+            context->EnqueueSignal(frame_fence, frame);
+            present_started = SDL_GetTicks();
+        } else if (phase == 2 && frame_fence) {
+            const auto completed = frame_fence->GetCompletedValue();
+            const bool timeout = wait_error_frame.load() == frame;
+            const bool recovered = first_stalled_fence && completed >= first_stalled_fence;
+            if (timeout || recovered) {
+                std::fprintf(stderr,
+                             "FORGE GPU completion frame=%llu completed=%llu present_ms=%llu "
+                             "wait_error=%d previous_stall_completed=%d\n",
+                             frame, static_cast<unsigned long long>(completed),
+                             static_cast<unsigned long long>(SDL_GetTicks() - present_started),
+                             int(timeout), int(recovered));
+                if (!first_stalled_fence && timeout)
+                    first_stalled_fence = frame;
+                if (recovered && !timeout)
+                    first_stalled_fence = 0;
+            }
+        }
     }
     void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
                  Diligent::ITextureView* view, bool complete = true,

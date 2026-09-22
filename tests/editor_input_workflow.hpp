@@ -193,6 +193,9 @@ class EditorInputWorkflow {
         create("Rendering", "Camera");
         check("camera");
         text("transform:forge.position:2", "-5", true);
+        // At z=-5 the default Scene viewpoint is only one metre away. Keep
+        // the camera at its eye height so its marker is inside the image.
+        text("transform:forge.position:1", "1", true);
         capture("camera-scene-and-inspector");
         create("Rendering", "Light");
         check("light");
