@@ -3112,7 +3112,14 @@ int main(int argc, char** argv) {
                 forge::Json disk;
                 if (std::ifstream file(files.document.path()); file)
                     file >> disk;
-                const forge::Json state{{"scene", scene.document()},
+                forge::Json problems = forge::Json::array();
+                for (const auto& problem : editor.problems.items())
+                    problems.push_back({{"severity", problem.severity},
+                                        {"text", problem.text},
+                                        {"entity", problem.entity},
+                                        {"source", problem.source}});
+                const forge::Json state{{"problems", problems},
+                                        {"scene", scene.document()},
                                         {"selected", selected},
                                         {"selected_preview", selected_preview},
                                         {"dirty", files.document.dirty()},

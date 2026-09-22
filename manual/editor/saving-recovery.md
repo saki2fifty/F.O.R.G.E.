@@ -16,7 +16,7 @@ When closing the editor or replacing the scene, choose one of these actions:
 - **Discard changes** continues without saving. The old recovery snapshot is removed after the requested operation succeeds.
 - **Cancel** keeps you in the current scene with your edits intact.
 
-Cancelling the filename dialog during Save and continue returns you to the unsaved-change decision.
+Cancelling the filename dialog during Save and continue returns you to the unsaved-change decision. If the current save attempt fails, the prompt shows its error below the choices and keeps your edits. A previous successful save does not mean your newer edits are saved.
 
 ## Restore a snapshot
 

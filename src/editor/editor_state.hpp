@@ -1,4 +1,5 @@
 #pragma once
+#include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <deque>
 #include <forge/assets.hpp>
@@ -132,7 +133,9 @@ class Problems {
               const std::function<void(const Problem&)>& open_source = {}) {
         bool navigated = false;
         const auto title = "Problems (" + std::to_string(size()) + ")###Problems";
-        if (ImGui::Begin(title.c_str(), open)) {
+        const bool visible = ImGui::Begin(title.c_str(), open);
+        FORGE_UI_TAB_PROBE("tab:Problems");
+        if (visible) {
             heading("Needs attention",
                     "Errors and warnings retained for this editor session. Select an entry to "
                     "inspect its target. Console keeps details.");

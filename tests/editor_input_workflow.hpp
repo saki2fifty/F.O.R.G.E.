@@ -114,6 +114,17 @@ class EditorInputWorkflow {
         } else if (what == "zoom") {
             require(std::abs(state.at("ui_scale").get<double>() - 1.5) < .01,
                     "Ctrl+Plus did not produce 150% UI scale");
+        } else if (what == "no-domain-errors") {
+            for (const auto& problem : state.at("problems")) {
+                const auto severity = problem.at("severity").get<std::string>();
+                if (severity == "error" || severity == "fatal" || severity == "Error" ||
+                    severity == "Fatal")
+                    throw std::runtime_error("Unexpected editor diagnostic: " +
+                                             problem.at("text").get<std::string>());
+            }
+            const auto* panel = ImGui::FindWindowByName("###Problems");
+            require(panel && panel->Active && !panel->Hidden && panel->DockTabIsVisible,
+                    "Click did not reveal the Problems panel");
         } else if (what == "stopped")
             require(!state.at("playing").get<bool>(), "Stop did not return to authoring");
     }
@@ -182,6 +193,9 @@ class EditorInputWorkflow {
         click("icon:play");
         check("playing");
         capture("game-camera");
+        click("tab:Problems");
+        check("no-domain-errors");
+        capture("runtime-problems");
         key(ImGuiKey_F6);
         check("paused");
         capture("game-paused");

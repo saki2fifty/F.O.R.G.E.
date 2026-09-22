@@ -41,14 +41,17 @@ class EditorFiles {
             return;
         }
         pending_ = std::move(action);
-        if (document.dirty())
+        if (document.dirty()) {
+            guard_status_.clear();
             unsaved_prompt_ = true;
-        else
+        } else
             execute();
     }
     void save(bool save_as = false) {
         if (external_busy && external_busy()) {
             status = "Finish the Content file operation before saving";
+            if (pending_)
+                guard_status_ = status;
             return;
         }
         try {
@@ -65,6 +68,8 @@ class EditorFiles {
             }
         } catch (const std::exception& e) {
             status = error = e.what();
+            if (pending_)
+                guard_status_ = status;
         }
     }
     enum class Resolution { Save, Discard, Cancel };
@@ -88,8 +93,11 @@ class EditorFiles {
     void pump(bool can_switch) {
         can_switch_ = can_switch;
         if (auto result = dialog_.take()) {
-            if (!result->error.empty())
+            if (!result->error.empty()) {
                 status = result->error;
+                if (pending_)
+                    guard_status_ = status;
+            }
             if (result->path.empty()) {
                 if (pending_)
                     unsaved_prompt_ = true;
@@ -120,8 +128,10 @@ class EditorFiles {
                     }
                 } catch (const std::exception& e) {
                     status = error = e.what();
-                    if (pending_)
+                    if (pending_) {
+                        guard_status_ = status;
                         unsaved_prompt_ = true;
+                    }
                 }
             }
         }
@@ -289,7 +299,7 @@ class EditorFiles {
                     resolve_pending(Resolution::Discard);
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
-                    status = error = e.what();
+                    guard_status_ = status = error = e.what();
                 }
             }
             FORGE_UI_PROBE("unsaved:discard");
@@ -298,8 +308,10 @@ class EditorFiles {
                 ImGui::CloseCurrentPopup();
             }
             FORGE_UI_PROBE("unsaved:cancel");
-            ImGui::TextWrapped("%s", status.c_str());
-            ui::help("Save failures leave the scene and pending operation available.");
+            if (!guard_status_.empty()) {
+                ImGui::TextWrapped("%s", guard_status_.c_str());
+                ui::help("Save failures leave the scene and pending operation available.");
+            }
             ImGui::EndPopup();
         }
         if (recovery_prompt_) {
@@ -418,6 +430,7 @@ class EditorFiles {
     FileDialog dialog_;
     std::optional<Action> pending_;
     bool recovery_untitled_ = false;
+    std::string guard_status_;
     bool can_switch_ = true, create_prompt_ = false, unsaved_prompt_ = false,
          recovery_prompt_ = false;
     Uint64 last_autosave_ = 0;

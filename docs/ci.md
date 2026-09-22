@@ -90,7 +90,11 @@ They do not execute actions, force menus open, or change scene data.
 
 Assertions check resulting authored values, saved/reloaded data, preservation on
 Cancel and restoration on Discard, entity counts,
-camera output, paused state, and exactly one simulation tick after Step.
+camera output, paused state, and exactly one simulation tick after Step. The
+workflow opens the Problems tab after Play, records diagnostic text/severity, and
+rejects unexpected error/fatal domain diagnostics. Warnings and the separate
+renderer console log still require review; a passing assertion set does not
+certify a clean renderer log.
 Screenshots are read from the actual rendered backbuffer at workflow checkpoints.
 Missing/disabled controls and failed assertions have bounded timeouts, a failure
 capture, and a JSON action/state trace. `workflow.json` records source/build,

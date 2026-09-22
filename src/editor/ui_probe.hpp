@@ -19,8 +19,15 @@ inline void observe_item(const std::string& name) {
             ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
             !(ImGui::GetCurrentContext()->LastItemData.ItemFlags & ImGuiItemFlags_Disabled)};
 }
+inline void observe_tab(const std::string& name) {
+    const auto* window = ImGui::GetCurrentWindow();
+    if (observe_ui && window->DockIsActive && window->DC.DockTabItemRect.GetWidth() > 0)
+        ui_targets[name] = {window->DC.DockTabItemRect.Min, window->DC.DockTabItemRect.Max, true};
+}
 } // namespace forge::test
 #define FORGE_UI_PROBE(name) ::forge::test::observe_item(name)
+#define FORGE_UI_TAB_PROBE(name) ::forge::test::observe_tab(name)
 #else
 #define FORGE_UI_PROBE(name) ((void)0)
+#define FORGE_UI_TAB_PROBE(name) ((void)0)
 #endif
