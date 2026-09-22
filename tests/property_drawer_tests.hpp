@@ -1,4 +1,5 @@
 #pragma once
+#include "editor_capture_layout.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 void require(bool condition, const char* message);
@@ -17,23 +18,35 @@ inline void test_asset_picker_fixture_scroll() {
     for (float scale : {1.f, 1.5f, 2.f}) {
         if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
             ImGui::ClosePopupToLevel(0, true);
-        ui::style(scale);
         fixture_open_mesh_picker = true;
         for (unsigned frame = 0; frame < 12; ++frame) {
             ImGui::NewFrame();
+            if (frame == 0)
+                ui::style(scale); // Native capture changes scale inside the active frame.
             ImGui::SetNextWindowPos({20, 20});
             ImGui::SetNextWindowSize({390, 760});
             ImGui::Begin("Inspector");
-            ImGui::Dummy({1, 1000 * scale});
+            for (int row = 0; row < 36; ++row)
+                ImGui::TextUnformatted("Preceding Inspector property");
             ui::property_label_row("Mesh", "Choose a mesh.");
             asset_ref_picker(catalog, value, "mesh", "##mesh");
             ImGui::End();
             ImGui::Render();
         }
         const auto& open = ImGui::GetCurrentContext()->OpenPopupStack;
-        require(!fixture_open_mesh_picker && !open.empty() && open.back().Window &&
+        require(fixture_open_mesh_picker && !open.empty() && open.back().Window &&
                     open.back().Window->Active && !open.back().Window->Hidden,
                 "Native picker fixture failed to reveal a field below a scaled Inspector");
+        // Match the native driver's pre-Begin resize followed by work-area fit.
+        ImGui::NewFrame();
+        ImGui::SetWindowSize("Inspector", {990, 1000});
+        test::fit_capture_window("Inspector", scale);
+        ImGui::Begin("Inspector");
+        require(ImGui::GetWindowSize().x == 990 &&
+                    ImGui::GetWindowPos().y >= ImGui::GetMainViewport()->WorkPos.y,
+                "Capture work-area fit undid the pending Inspector resize");
+        ImGui::End();
+        ImGui::Render();
     }
     fixture_open_mesh_picker = false;
     ui::style(1);

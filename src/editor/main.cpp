@@ -1,5 +1,6 @@
 #ifdef FORGE_UI_FIXTURE
 #include "authored_capture_fixture.hpp"
+#include "editor_capture_layout.hpp"
 #include "editor_fixture.hpp"
 #include "gltf_variant_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
@@ -1237,6 +1238,7 @@ int main(int argc, char** argv) {
                     {"stage", fixture.stage},
                     {"frames", fixture.frames},
                     {"ui_frame", ImGui::GetFrameCount()},
+                    {"mesh_picker_requested", forge::fixture_open_mesh_picker},
                     {"model_open", model_imports.is_open()},
                     {"model_import_pending", model_imports.pending()},
                     {"model_import_error", model_imports.diagnostic()},
@@ -1688,10 +1690,13 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                     ImGui::SetWindowPos("Inspector", {900, 55});
                     ImGui::SetWindowSize("Inspector", {990, 1000});
+                    component_inspector.fixture_focus_component = "forge.mesh_renderer";
                     forge::fixture_open_mesh_picker = true;
                     break;
                 }
                 case 59: {
+                    forge::fixture_open_mesh_picker = false;
+                    component_inspector.fixture_focus_component.clear();
                     if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
                         ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1);
@@ -2077,18 +2082,7 @@ int main(int argc, char** argv) {
             // Fixture windows must respect the scaled toolbar/status work area.
             // Fixed pixel positions from the 100% stage hide their title at 200%.
             if (const auto* target = fixture.focused_document())
-                if (auto* w = ImGui::FindWindowByName(target); w && !w->DockIsActive) {
-                    const auto* v = ImGui::GetMainViewport();
-                    const float inset = 4 * forge::ui::interface_scale;
-                    const ImVec2 size{std::min(w->Size.x, v->WorkSize.x - 2 * inset),
-                                      std::min(w->Size.y, v->WorkSize.y - 2 * inset)};
-                    const ImVec2 pos{std::clamp(w->Pos.x, v->WorkPos.x + inset,
-                                                v->WorkPos.x + v->WorkSize.x - size.x - inset),
-                                     std::clamp(w->Pos.y, v->WorkPos.y + inset,
-                                                v->WorkPos.y + v->WorkSize.y - size.y - inset)};
-                    ImGui::SetWindowPos(w, pos, ImGuiCond_Always);
-                    ImGui::SetWindowSize(w, size, ImGuiCond_Always);
-                }
+                forge::test::fit_capture_window(target, forge::ui::interface_scale);
 #endif
             if (!edit_locked)
                 files.shortcuts(scene_task);
@@ -3088,7 +3082,7 @@ int main(int argc, char** argv) {
             if (fixture.stage >= 56 && fixture.stage <= 58) {
                 const auto* popup = ImGui::FindWindowByName("##Combo_00");
                 captured_document_visible &=
-                    !forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
+                    forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
             }
             if (fixture.stage >= 67 && fixture.stage <= 72) {
                 const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;

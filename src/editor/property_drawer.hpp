@@ -94,8 +94,9 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
         const bool fixture_open = fixture_open_mesh_picker && type == "mesh" &&
                                   std::string_view(ImGui::GetCurrentWindow()->Name) == "Inspector";
         if (fixture_open) {
+            // Keep the requested popup visible until its capture is complete.
+            // A scale/resize may clip the combo again after its first open frame.
             // Scroll the combo itself into view, not the previous label/item.
-            // At high zoom the label can be visible while BeginCombo is clipped.
             ImGui::SetScrollFromPosY(ImGui::GetCursorScreenPos().y - ImGui::GetWindowPos().y +
                                          ImGui::GetFrameHeight(),
                                      .5f);
@@ -104,10 +105,6 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
         }
 #endif
         if (ImGui::BeginCombo(title, label.c_str(), ImGuiComboFlags_HeightLarge)) {
-#ifdef FORGE_UI_FIXTURE
-            if (fixture_open)
-                fixture_open_mesh_picker = false;
-#endif
             // Popup storage belongs to this field's ImGui scope, not a second asset database.
             static std::map<ImGuiID, std::array<char, 192>> searches;
             if (searches.size() > 1024)
