@@ -1,4 +1,15 @@
-# Phase 6 complete — final consolidation
+# FORGE implementation and validation status
+
+## Phase 7 — final validation
+
+The asset/import/resource pipeline, shared Diligent Scene/Game renderer and opted-in
+native component authoring are implemented. Current Linux/Windows static and shared
+SDK suites pass; native D3D12 WARP renderer fixtures pass. Final UI capture review
+and the combined numbered package remain open. No Phase 8 work is included.
+See the [format matrix](asset-formats.md), [rendering matrix](render-features.md),
+[backend matrix](render-backends.md) and [daily changelog](../changelog/20260922/README.md).
+
+The following sections preserve previously delivered build history.
 
 ## Architecture freeze package — Build260919-000063
 
@@ -7,7 +18,8 @@ The exact Flecs4.1.6 pin is unchanged. New implemented corrections connect match
 shared-SDK projects to isolated Editor Play, package that SDK, validate native Meta
 layout and add persistent bottom-workspace folding. Custom component authoring,
 asset/cook/resource/render contracts are defined; their future feature bodies are
-not claimed implemented. Phase7 remains stopped pending explicit user approval.
+not claimed implemented by that historical build. Phase 7 was subsequently authorized;
+the current implementation is summarized above.
 
 Compiled source `a98be9a672394d3d91c2b9067331d0252f9b4313`: clean Windows/Linux
 static35/35 and shared SDK45/45 each; editor controllers2/2 plus remaining36/36,

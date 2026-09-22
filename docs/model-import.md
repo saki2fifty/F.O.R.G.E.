@@ -224,8 +224,10 @@ before allocating its JSON arrays. Existing archive limits remain16MiB each with
 bounded joints, keys and numerical values. Output validation allows at most256MiB
 for a rig and its clips, rejects unexpected/duplicate/missing files, and admits
 archives before calling the runtime. These internal stages are tested with the
-actual pinned converter. Whole-family publication now composes these stages;
-runtime skinning remains required integration work.
+actual pinned converter. Whole-family publication composes these stages; the runtime
+animation bridge and shared renderer consume the published skeleton, clip, palette
+and morph data. See [rendering](rendering-foundation.md) for executed validation and
+the supported deformation contract.
 
 Evidence: [Ozz converter at the selected pin](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/gltf/gltf2ozz.cc),
 [skeleton builder](https://github.com/guillaumeblanc/ozz-animation/blob/744eb9d99f606eda849acb0b1204f7a3dc20bca1/src/animation/offline/skeleton_builder.cc).
@@ -434,9 +436,9 @@ A failed candidate changes neither scene state nor its revision/history.
 
 False visibility/selectability values instantiate native NodeVisibility and
 NodeSelectability components, whose effective policy follows structural ancestry
-independently of spatial binding. The public placement UI is not exposed yet; the internal
-helpers and CPU tests do not establish the complete Place-to-Play workflow or GPU
-acceptance. Those consumers remain required Phase7 work, not deferred delivery scope.
+independently of spatial binding. The Model import document exposes scene/clip
+selection and Place; compatible Content drops share the same placement command.
+Authoring and runtime/render integration have separate regression coverage.
 
 
 ### Camera and light placement
@@ -445,8 +447,8 @@ Camera/light source nodes now instantiate native reflected Camera/Light componen
 through the same detached placement and scene history path. The importer retains
 source node TRS and uses an explicit glTF -Z camera/light basis. Infinite perspective,
 negative orthographic magnification and punctual-light units retain their specified
-semantics. See[camera and light contracts](cameras-lights.md). Rendering consumption
-and editor creation controls are still being connected; this is CPU/authoring evidence.
+semantics. See[camera and light contracts](cameras-lights.md). Editor creation
+recipes and shared Scene/Game rendering consume these components.
 
 ## Animated transform ownership
 
@@ -458,8 +460,9 @@ its bounds and its membership in the same rig before constructing the native cli
 
 The immutable CPU clip resource owns the validated channel list and reports its
 resident allocation. Presentation copies the list with the clip's selected model
-revision. This is intent metadata, not a second transform authority. The live-node
-application and rendered skin bridge are still pending integration in this package.
+revision. This is intent metadata, not a second transform authority. The runtime
+applies only authored channels at its fixed tick; the renderer consumes the derived
+world transforms and complete prepared pose.
 An absent list in a legacy version1 companion means unknown intent; it must never
 be interpreted as permission to overwrite all three local components. Version1
 remains readable for its existing pose/debug consumers. Reimport produces version2;
@@ -470,9 +473,9 @@ The private skin-pose preparation helper remaps the admitted per-draw palette an
 composes each selected joint-world matrix with its corresponding inverse bind.
 It never inverts the skinned mesh node. Its bounds are the union of transformed
 morphed AABBs, which conservatively enclose every nonnegative normalized linear
-blend. This includes reflections, shear and collapsed axes. The helper alone is
-not a rendered-skin consumer; camera-relative GPU admission, revision-safe instance
-binding and color/shadow submission remain part of the pending bridge.
+blend. This includes reflections, shear and collapsed axes. Camera-relative GPU
+admission, revision-safe instance binding and color/shadow submission consume
+these prepared palettes and bounds.
 
 `skin_bounds_for_camera` adds a conservative binary32 arithmetic allowance to those
 mathematical bounds for each view origin. It covers palette normalization/conversion,
@@ -513,8 +516,8 @@ instance scopes before replacing any player's state.
 
 Legacy Animators without ModelSource retain standalone pose/debug behavior. Older
 companions without channel intent require reimport before model-node application.
-Rendered skin/morph binding and public animated-model placement remain ongoing
-Phase7 integration; these runtime contracts alone do not claim that full workflow.
+Rendered skin/morph binding and animated-model placement use these runtime
+contracts, with independent authoring, process and native drawing fixtures.
 
 
 ### Prepared model presentation
@@ -527,9 +530,9 @@ and checks the runtime animation's model revision before adopting its morph weig
 Per-instance color, shadow and deformed bounds consume one complete prepared pose.
 A failed binding/revision/weight candidate retains the previous pose and resources.
 See [the rendering integration status](rendering-foundation.md#scene-to-mesh-pose-integration--2026-09-21)
-for validation and pending native acceptance. The model document now exposes
-explicit scene/clip selection and placement; complete Windows visual acceptance
-remains separate from the passing authoring and UI-service tests.
+for the observed native validation boundary. The model document exposes explicit
+scene/clip selection and placement. Automated native and physical desktop
+acceptance remain distinct.
 
 
 ## Editor model document
@@ -558,8 +561,9 @@ node listing is inspection only; it is not another editable runtime hierarchy.
 
 Real-process ImGui tests cover successful import/guarded close, focus, ambiguous
 reimport, stale-decision rejection, new review/publication, signed/zero root scale,
-selection, single-step Undo/Redo and corrupt-source last-good retention. Windows
-visual/render acceptance and further asset-editor preview work remain in progress.
+selection, single-step Undo/Redo and corrupt-source last-good retention. Native
+previews render actual Model, Mesh and Material resources; UI capture and physical
+desktop acceptance remain distinct from the passing service tests.
 
 ## Runtime publication notifications
 

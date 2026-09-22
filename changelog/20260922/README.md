@@ -223,3 +223,9 @@ Validation: strengthened real ImGui editor suite passes (16.73s), including the 
 Actual200% captures of a short Content panel showed tile names/types below the visible results area. Grid previews now reduce their height to retain a complete readable first row while preserving the preferred tile width. Type icons fit the same preview region; image aspect remains intact. Added an actual ImGui caption-visibility regression and corrected stale thumbnail wording in the Content manual. Native refreshed evidence remains pending.
 
 Content file/selection/thumbnail interaction suite passes (1.56s), including caption visibility at200% in a960×640 window; manual3/3, formatting and adapted editor fixture syntax pass.
+
+## Documentation and native capture reconciliation
+
+Reconciled rendering, asset identity, model/mesh/material/shader, animation and automation documentation with the implemented shared render and authoring paths. Removed stale integration-pending statements for authored cameras, lighting, deformation, material surfaces, placement, reimport and subasset mapping. Retained actual feature limits and the separate final-package gate. The native source audit passes all five renderer tests; its remaining editor capture failure is recorded rather than reported as complete acceptance.
+
+The next native capture reached the custom-component tools stage after successfully capturing the corrected picker and project-component Inspector at all three scales. Its setup had retained the deliberately folded bottom workspace from an earlier stress layout, hiding Gameplay Code. The capture setup now explicitly unfolds that workspace before requesting the tools; visibility checks remain unchanged.

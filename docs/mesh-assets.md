@@ -1,6 +1,6 @@
 # Cooked mesh data
 
-Phase7 implementation is in progress. `forge_mesh` supplies validated CPU mesh
+`forge_mesh` supplies validated CPU mesh
 artifacts; `forge_gltf_native` converts the admitted pinned Diligent glTF document
 into them. `forge_mesh_resources` loads an immutable cooked revision through the
 [typed resource pool](runtime-resources.md). These targets build without ImGui,

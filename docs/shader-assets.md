@@ -1,15 +1,12 @@
-# Shader assets — Phase7 implementation in progress
+# Shader assets
 
-The shader subsystem currently has source/permutation admission, immutable cooked
-value transport and a Diligent compiler/reflection adapter undergoing Windows
-validation. Source capture, supervised worker and shared cache/publication integration are
-implemented and undergoing validation. Content editing, material compatibility,
-shader reload and production renderer consumers are still being integrated. This
-page does not describe a shipped end-user shader workflow.
-
-The source now also includes the explicit [material surface interface](surface-shaders.md),
-with engine-owned geometry, color/depth pixel roles and immutable Material snapshots.
-Its native acceptance remains pending with the combined Phase7 work package.
+The shader subsystem provides source/permutation admission, supervised native
+compilation, immutable cooked values, copied reflection, shared cache/publication,
+Content import controls and compatibility-checked material reload. The explicit
+[material surface interface](surface-shaders.md) retains engine-owned geometry,
+color/depth pixel roles and immutable Material snapshots. Windows worker and WARP
+surface fixtures pass; final combined package validation remains a release gate.
+See the [shader manual](../manual/editor/shaders.md) for the end-user workflow.
 
 ## Source and compilation profile
 
@@ -67,7 +64,7 @@ of the editor's adapter/device. The supervisor enforces 1 GiB process memory,
 an explicit 100 ms grace period before terminating a compiler that cannot cooperate.
 These process bounds supplement source limits; they do not promise a sandbox against
 trusted native dependencies. No HLSL source executes inside the editor compiler path.
-Native worker execution is still being verified on Windows.
+Native Windows worker tests exercise successful compilation, diagnostics and failure retention.
 
 ## Reflection and cooked data
 
@@ -92,8 +89,7 @@ metadata before native realization. It is not a substitute DXBC parser or proof 
 native bytecode validity. The native path creates all shaders into a detached
 candidate, re-reflects them, and requires exact agreement before returning it.
 Failure never changes the caller's selected program. Old pipeline/resource lifetime
-must still follow the shared CPU lease/GPU fence contract when renderer adoption
-is connected.
+follows the shared CPU lease/GPU fence contract during renderer adoption.
 
 Shipping consumers load cooked bytes without invoking source compilation. Native
 reflection still uses the platform D3DCompiler runtime already used by Diligent;
@@ -111,8 +107,8 @@ The existing AssetImportService, DerivedDataCache and AssetPublisher handle queu
 cache admission, source rechecks and journaled catalog/sidecar publication. Shader
 preparation checks its inner compiler key on fresh output and cache hits. A failure,
 cancellation, stale include or rejected consumer compatibility leaves the previous
-catalog selection intact. Compatibility remains an explicit caller preflight; this
-foundation does not yet connect production material pipelines to shader publication.
+catalog selection intact. Surface-material compatibility is an explicit publication
+preflight; incompatible Shader changes retain the prior Shader and Material selections.
 Shader asset history remains separate from scene Undo.
 
 ## Selected CPU resources

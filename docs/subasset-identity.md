@@ -46,6 +46,7 @@ Duplicate JSON keys, duplicate member IDs/keys, wrong types, conflicting decisio
 nonfinite metadata and unsupported versions are rejected. Matching uses indexed
 groups, with a10k reorder fixture; no all-pairs name matching is used.
 
-This is a tested candidate identity service, not an exposed model import workflow.
-Concrete glTF semantic evidence, recoverable sidecar/catalog publication, explicit
-mapping UI and cooked-resource adoption are still being integrated in Phase7.
+The Model import workflow uses this candidate identity service with captured glTF
+semantic evidence, recoverable sidecar/catalog publication, explicit ambiguity
+review and cooked-resource adoption. Decisions are tied to the reviewed build input;
+stale or unresolved decisions cannot partially publish a family.

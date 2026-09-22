@@ -44,7 +44,7 @@ configuration is usable. Final Phase 7 acceptance is recorded separately.
 | Buffers, textures, SRVs, SRBs, PSOs | Primary profile | Native Diligent mapping; local device/binding/draw probe passes | Diligent interface; native implementation not present in this checkout | Native Diligent mapping | Use Diligent resources; no raw handles in shared passes |
 | 16/32-bit indices and nonindexed list draws | Native Diligent mapping | Native Diligent mapping | Shared interface; platform proof pending | Shared interface; platform proof pending | Shared Draw/DrawIndexed and explicit VALUE_TYPE; compact-boundary/readback/pixel fixtures |
 | HLSL shader preparation | FXC5.1 production; DXC diagnostic route | Diligent GLSLang/DXC to SPIR-V | Selected Diligent compiler/translation route needs platform validation | Pinned HLSL → SPIR-V → Tint WGSL route | Compiler choice belongs in backend policy; shipping custom Shader cooks currently D3D12 only |
-| Custom material pixel surfaces | Cooked color/depth roles; native acceptance pending | Generated interface compiles to SPIR-V; full custom cook adapter pending | Logical named bindings; platform proof pending | Named-element sampler lowering; platform proof pending | Engine-owned shared geometry; reflected parameter packing and named Diligent SRBs; see [surface contract](surface-shaders.md) |
+| Custom material pixel surfaces | Cooked color/depth roles; WARP pixel fixtures pass | Generated interface compiles to SPIR-V; full custom cook adapter pending | Logical named bindings; platform proof pending | Named-element sampler lowering; platform proof pending | Engine-owned shared geometry; reflected parameter packing and named Diligent SRBs; see [surface contract](surface-shaders.md) |
 | Bounded independent material samplers | Native sampler array | Native descriptor array; 19 plus environment/comparison passed local binding/draw probe | Not executed; compiler/resource limits require platform proof | Named scalar declarations grouped by Diligent array suffix | Deduplicate equal states, preserve distinct states, constant indices; no register-space contract |
 | Runtime-sized / bindless arrays | Not required | Not required | Not required | Pinned factory disables runtime arrays | Bounded material arrays do not require this feature |
 | Signed/zero static transforms and per-draw culling parity | Existing WARP fixtures | Same Diligent rasterizer contract; full fixture not yet executed | Needs platform fixture | Needs platform fixture | Logical transform semantics stay identical; no backend may rewrite authored scale |
@@ -112,7 +112,7 @@ Vulkan tests pass2/2 (1.22s). This is not full frame-renderer acceptance.
 
 The Windows FXC probe passes the register-free 19+2 declaration with ordinary
 SM5.1 flags in run35659980484. Historical register-space alternatives cannot
-satisfy its success condition. Full renderer validation remains in progress;
+satisfy its success condition. Full Vulkan renderer validation remains unexecuted;
 no Metal/WebGPU execution is claimed.
 
 To reproduce the optional Linux probe, supply the verified external DXC tool and

@@ -56,4 +56,5 @@ On a prefab instance, a supported list field is one override. Setting the same l
 again still records your choice. Revert makes that whole field follow the prefab
 again, and Undo restores the override. This does not merge individual list entries
 with later prefab edits. Schema discovery describes fields currently available;
-project-defined component authoring remains under development.
+project-defined components admitted through the matching native SDK also use the
+shared property operations. See [custom components](native-gameplay.md).

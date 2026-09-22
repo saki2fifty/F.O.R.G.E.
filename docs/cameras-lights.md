@@ -1,9 +1,9 @@
 # Authored cameras and punctual lights
 
-Phase7 CPU/authoring integration is in progress. These native reflected components
-and projection adapters are implemented; production Game rendering, shadow maps,
-light budgets and editor camera/light creation controls are still being connected.
-Their existence is not a claim that the current blockout viewport uses them.
+Native reflected Camera/Light components feed editor creation recipes, the
+Inspector and shared Scene/Game rendering, including admitted light/shadow budgets.
+The [rendering contract](rendering-foundation.md) records native WARP coverage and
+backend limits. Scene navigation retains its separate personal editor camera.
 
 ## Ownership and coordinate contract
 

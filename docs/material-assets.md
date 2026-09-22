@@ -1,9 +1,9 @@
 # Material values and CPU resources
 
-Phase7 implementation is in progress. Cooked materials feed the shared mesh
-renderer. The current source includes standalone source authoring/publication,
-the central Material document and mesh-slot assignments. Native preview validation
-is required before the combined Phase7 delivery.
+Cooked materials feed the shared mesh renderer. Standalone source authoring and
+publication, the central Material document, native previews and mesh-slot assignments
+are implemented. The [renderer contract](rendering-foundation.md) records executed
+WARP coverage; final combined package validation remains a release gate.
 
 ## Asset selection and values
 

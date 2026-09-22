@@ -86,19 +86,18 @@ Skeleton and Clip must come from the same successfully imported model revision.
 These cooked assets load in the background during Play. While they load, that
 Animator has no pose and a complete runtime recovery snapshot is unavailable.
 Loading also completes while paused; it does not advance animation time. If loading
-fails, the Console reports the affected asset. Restart Play after reimporting to
-select the new model revision.
+fails, the Console reports the affected asset. Successful Model import publication
+notifies Play to prepare the new revision; a failed replacement keeps the prior
+complete pose and resources.
 
 When an Animator belongs to a model instance, a translation-only clip leaves the
 nodes' rotation and scale alone, including values inherited from a prefab. Two
 instances can use different playback speeds. A node moved outside its model root
 stops receiving that model's animation and produces a warning. Duplicate source-node
 identities within one instance produce an error instead of choosing an arbitrary
-object. Public animated-model placement and skinned rendering are still being
-integrated; the existing standalone bone-preview workflow remains available.
-
-This addition supplies playback poses and morph weights. Drawing an imported
-skinned or morphed mesh is still being integrated.
+object. Use the Model import document to choose a source scene and animation clip,
+then **Place model**. During Play, supported skinned and morphed meshes follow the
+applied pose. The standalone bone-preview workflow remains available.
 
 Gameplay code replacement needs a complete recovery snapshot. If model assets are
 still loading, FORGE keeps the current code and asks you to retry the build after

@@ -1886,6 +1886,10 @@ int main(int argc, char** argv) {
                     }
                     forge::ui::style(1);
                     workspace.inspector = workspace.build = true;
+                    // Earlier small-window captures intentionally folded the
+                    // supporting workspace. Reveal it before capturing its tools.
+                    if (version == 2)
+                        workspace.bottom_folded = false;
                     const char* target = version == 1 ? "Inspector" : "###Native";
                     if (auto* w = ImGui::FindWindowByName(target))
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);

@@ -72,8 +72,7 @@ same casting behavior; fully collapsed geometry has no rasterized shadow area.
 Legacy blockout shading remains unlit and does not receive PBR light/shadow terms,
 although its derived mesh can cast. Use a PBR material for a lit receiver.
 
-This shadow integration and its new native pixel fixtures are undergoing Windows
-validation.
+Windows/D3D12 WARP pixel fixtures validate these shadow paths.
 
 ## Current integration limits
 
@@ -82,8 +81,7 @@ blockout entities already resolve built-in Mesh/Material resources while keeping
 their existing authored data and default unlit appearance. Assign a PBR material
 to use the scene lights on a blockout object.
 Game uses authored Camera components; add an enabled camera before starting Play.
-See [Play mode](play-mode.md). The new camera/engine-mesh integration is undergoing
-Windows validation.
+See [Play mode](play-mode.md).
 
 The resizable lighting window keeps labels beside or above their fields as space
 allows. At larger interface zoom, scroll to reach the shadow settings. Changing

@@ -111,7 +111,7 @@ The viewport keeps bright lighting values in an HDR target, then uses PBR Neutra
 tone mapping for the display. Blended imported materials render after solid and
 cutout materials, from far to near. Intersecting transparent surfaces can still show
 sorting artifacts; this is conventional transparency, not order-independent rendering.
-These new display and queue paths are undergoing Windows rendering validation.
+Windows/D3D12 WARP fixtures exercise these display and transparent-queue paths.
 
 Use [Scene lighting](lighting.md) for authored environment maps and Game exposure.
 

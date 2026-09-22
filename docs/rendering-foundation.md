@@ -3,8 +3,8 @@
 Backend contract: [D3D12-first validation and backend-neutral architecture](render-backends.md).
 
 This document describes the shared Scene/Game renderer and its asset/resource
-boundaries. Phase7 source implements the paths detailed below; final package and
-native acceptance gates remain in progress. Primitive/Tint compatibility remains
+boundaries. The paths below pass Windows/D3D12 WARP rendering tests; final
+editor capture and package acceptance remain separate release gates. Primitive/Tint compatibility remains
 supported. See [ADR008](decisions/008-rendering-assets.md) and
 [ADR009](decisions/009-coordinates.md).
 
@@ -21,7 +21,7 @@ it is not an automatic consequence of opening or saving a project.
 
 | Asset | Durable contract | Transient realization / deferred trigger |
 | --- | --- | --- |
-| Mesh | Versioned vertex streams: positions, normals, tangent.xyz/sign, named UV sets, optional vertex colors; bounded index buffer, topology, submesh ranges/material slots, local bounds; optional joints/weights and inverse-bind association | Diligent uploads validated immutable CPU data. Initial topology is triangle lists; reject unsupported topology rather than reinterpret. LODs extend revision metadata when their consumer is authorized. |
+| Mesh | Versioned vertex streams: positions, normals, tangent.xyz/sign, named UV sets, optional vertex colors; bounded index buffer, topology, submesh ranges/material slots, local bounds; optional joints/weights and inverse-bind association | Diligent uploads validated immutable CPU data. Point, line and triangle lists use indexed or nonindexed draws. Admitted authored LODs retain per-level bounds, streams, materials and selection metadata; unsupported topology rejects. |
 | Material | Shader/material-model reference; stable parameter keys and typed scalar/vector/linear-color/texture values; opaque/masked/blended mode, alpha cutoff, cull/double-sided and depth intent; explicit defaults | Renderer owns compatible bindings/pipeline state. One built-in default material supplies missing assignment. Future material graphs compile to this contract; instances/variants add parent dependency plus explicit overrides and cycle checks. |
 | Texture | Source image, dimensions, declared linear/sRGB/data/normal semantic, mip policy, compression intent, channel interpretation and platform variants; sampler filtering/wrap remains explicit binding data | CPU decode and GPU texture leases have independent lifetime. D3D formats are cooked variants, not universal source identity. Thumbnails are derived editor artifacts, not runtime authority. |
 | Shader | Source dependency graph, language/entry points, defines/permutation key, backend/profile and compiler version; reflected resource/parameter layout digest | Diligent owns compiled shaders/pipeline objects. Material compatibility checks reflection before publication. Keep last-good pipeline on compile/link failure; future Shader Graph emits source/artifacts through the same path. |
@@ -39,8 +39,7 @@ Existing transform math is authoritative: +Y up, meters, normalized xyzw quatern
 row-major 3x4 affine storage applied to column vectors, parent*local composition.
 Current editor view looks along positive view Z and uses D3D depth [0,1]. World
 translation and affine evaluation are double precision; mesh-local/render upload
-values are bounded floats, with a future camera-relative upload boundary for large
-coordinates. A right-handed world-vector cross product and a positive-depth camera
+values are bounded floats, with camera-relative GPU upload for large coordinates. A right-handed world-vector cross product and a positive-depth camera
 projection are separate conventions; do not infer one from a matrix's memory order.
 
 Imported outward triangles use counterclockwise object-space winding. UV(0,0) is
@@ -51,8 +50,8 @@ the relevant data conventions in the [official glTF2.0 specification](https://re
 FORGE camera controls remain its own convention. Source names are not unique IDs,
 so importer subasset reconciliation cannot rely on names alone.
 
-Before enabling imported rendering, an asymmetric basis/winding/UV/normal-map/color
-fixture must verify Diligent, Jolt, Ozz and Recast adapter consistency. The signed-scale blockout revision uses parity-specific culling and an explicit
+Asymmetric basis/winding/UV/normal-map/color fixtures verify the rendering adapters;
+physics, animation and navigation retain their own conversion regressions. The signed-scale blockout revision uses parity-specific culling and an explicit
 double-sided singular/planar path. It cannot alone prove imported face winding,
 normal-map handedness or skeletal rendering.
 Do not label an untested conversion as supported.
@@ -70,28 +69,28 @@ asset plus scene-level settings; skybox and image-based lighting remain renderer
 resources. Shadow formats, passes and budgets belong to renderer profiles. The CPU
 components alone do not establish rendered shadows or lighting capability.
 
-VFX is a logical asset with dependencies; an emitter component references it and
-contains instance parameters. Its editor is a central document with local graph
-selection. The renderer consumes VFX outputs through the render extraction boundary;
+Future VFX is designed as a logical asset with dependencies; an emitter component
+will reference it and contain instance parameters. Its future editor belongs in a
+central document with local graph selection. The renderer boundary will consume VFX outputs;
 CPU/GPU simulation ownership is declared per effect/profile. No particles or universal
 graph VM are implemented by reserving this boundary.
 
 ## Skeletal bridge
 
 Model → mesh skin binding → Skeleton AssetId/revision + joint layout digest → inverse
-bind matrices and weights → Animator/Ozz pose → model-space joint matrices → skinning
-palette → renderer. Mesh and animation must agree on skeleton identity, joint order,
+bind matrices and weights → Animator/Ozz local pose → validated local-channel
+application → effective world joint matrices → inverse-bind palette → renderer. Mesh and animation must agree on skeleton identity, joint order,
 rest pose and conversion provenance. Reject incompatible bindings before GPU upload;
-show a diagnostic bind-pose/debug skeleton fallback when a dependency is missing.
+retain the previous complete draw/pose and report missing or incompatible dependencies.
 Ozz remains the pose evaluator and owns its existing runtime state.
 
 Initial GPU skinning consumes an immutable per-frame palette, with an initial admission limit of256 joints per draw and4 influences per vertex.
 Larger skins require validated mesh partitioning or a separately declared profile;
 never truncate joints/weights silently. A CPU skinning path is a deliberate fallback,
-not assumed delivered. The first implementation must prove these numeric limits
-against its buffer/shader profile before enabling that profile. Palette index/weight
-bounds and normalization are validated, not trusted. Morph targets/retargeting and
-advanced animation tools extend asset contracts in later authorized work.
+not assumed delivered. Native fixtures exercise the admitted buffer/shader profile.
+Palette index/weight bounds and normalization are validated, not trusted. Morph
+targets and animated weights are implemented; retargeting and advanced authoring
+tools remain future work.
 
 ## Failure and publication rules
 
@@ -110,15 +109,15 @@ resources described below. CPU validation is required before GPU realization and
 does not substitute for native draw tests. Authored TRS remains independent of
 presentation ownership.
 
-## Authored mesh component checkpoint
+## Authored mesh component
 
 `forge.mesh_renderer` now stores the typed `MeshRenderer` Flecs component: a Mesh
 AssetRef, a sparse material-assignment collection, enabled/visible and cast/receive
 shadow flags, and a32-bit layer mask. These are authored values; GPU objects, resource
 leases, bounds and resolved draw-slot ordinals remain derived presentation state.
-The component is not yet advertised in Add Component: its production renderer and
-collection Inspector consumer are still being integrated. Primitive/Tint remains
-unchanged until the explicit conversion workflow is ready.
+The component is available through Add Component and the Inspector, including
+mesh-qualified material slots. Existing Primitive/Tint data remains unchanged;
+its presentation adapter resolves engine assets without an authored migration.
 
 Each material assignment has a mesh-qualified `slot` key and typed Material AssetRef.
 An absent entry follows the mesh's current default; an entry with a null Material reference
@@ -144,8 +143,8 @@ win on serialization; removing an entry does not transfer its opaque fields to a
 new key. Other reflected collections without a declared key use positional unknown
 fragments and make no semantic identity claim.
 
-The in-progress[shader asset contract](shader-assets.md) records the current
-source/permutation/cooked reflection boundary and outstanding production integration.
+The [shader asset contract](shader-assets.md) records source/permutation/cooked
+reflection and the material-surface publication boundary.
 
 ## Native presentation resources — Phase7 implementation
 
@@ -167,14 +166,15 @@ The full FX umbrella stays disabled: its CMake file unconditionally fetches EnTT
 and publicly links ImGui/AssetLoader. FORGE needs its PBR algorithms and utilities,
 not another scene owner. This composition adds no dependency pin or vendor patch.
 The native PBR utility supplies default textures, GGX/sheen lookup textures and
-environment convolution. FORGE's signed/zero-safe mesh shader and actual material,
-light/shadow and skin/morph bindings remain required before production PBR is
-considered integrated. A native utility test is not that completion claim.
+environment convolution. FORGE's shared mesh/frame renderer connects these to
+material, light/shadow and skin/morph bindings. Utility and complete draw tests
+cover those distinct responsibilities.
 
 Windows fixtures cover two independently moved views sharing native pipeline
 states, live rendering after cache reset, fallback texture pixels and constant
-radiance preservation across every face/mip of native IBL convolution. Validation
-of this new native subset is pending until its source-only Windows audit passes.
+radiance preservation across every face/mip of native IBL convolution. These
+fixtures pass on D3D12 WARP; other backends have the validation boundary in
+[render backends](render-backends.md).
 
 ### Cooked mesh and texture upload
 
@@ -196,7 +196,7 @@ This does not by itself wire imported materials or skinning into Scene/Game.
 
 Local importer/recipe regressions pass after extracting the format mapping.
 Compiler syntax checks cover the native upload adapters and GPU test code on the
-exact Linux headers; Windows byte-readback execution remains a separate gate.
+exact Linux headers; Windows byte-readback fixtures also pass.
 
 ### Signed and singular surface frames
 
@@ -206,14 +206,14 @@ area normals for useful rank-two cases. Tangents are transformed and orthogonali
 the transformed source bitangent establishes UV/reflection handedness. Collapsed
 normal/tangent directions are explicitly marked invalid, never normalized through
 zero or replaced by an invented arbitrary axis. The normal-map adapter retains the
-base normal when tangent space is undefined. The consuming renderer still needs
-its geometric-face fallback and diagnostic policy.
+base normal when tangent space is undefined. The consuming renderer supplies
+its documented geometric-face fallback and finite-output diagnostic policy.
 
 A native compute fixture compares these GPU frames against FORGE's double CPU
 normal transform for reflection, nonuniform scale, shear, rank-two collapse,
 complete collapse and tiny/large uniform magnitudes, with both source tangent signs.
-This is a mathematical adapter and pending native fixture, not completion evidence
-for imported skinned rendering or scene normal-map appearance.
+This mathematical fixture passes on WARP. Separate normal-map and skinned draw
+fixtures validate the consuming paths.
 
 The punctual shader adapter composes native PBR with a source-verified spotlight
 correction and a finite-output boundary; see[the dependency issue](dependency-known-issues.md).
@@ -271,7 +271,7 @@ The generated record contains position, optional normal/tangent/color, optional
 four-influence skin inputs and the material's used UV sets. Reading skin inputs is
 not yet the deformation operation. An indexed Windows draw fixture checks UV19,
 uint joint values, tangent.w and color3-to-color4 defaults with a vertex stride above
-2048 bytes. Native GPU execution of this new adapter remains pending.
+2048 bytes. The native GPU fixture passes.
 
 ### Material shader bindings
 
@@ -287,7 +287,7 @@ numeric diagnostic rather than treating zero as a successful sample.
 CPU tests cover layout stability, transformed UV rows and invalid slot maps. The
 Windows indexed sampling fixture checks UV19, repeat versus clamp on a shared
 sRGB texture, native pipeline reuse and finite diagnostic output for UV overflow.
-This fixture's execution is pending; production material draws are still in progress.
+This fixture and the production material draw fixtures pass on WARP.
 
 ### Prepared mesh draw integration
 
@@ -331,8 +331,8 @@ owner must keep its previous GPU bundle until complete GPU construction succeeds
 then adopt only if that epoch still matches. Cancellation releases this consumer's
 references without cancelling shared pool requests. Changed catalog epochs reject
 unpublished candidates; unresolved authored material-slot names remain diagnostics.
-This internal coordinator is not yet the Scene/Game render owner and does not claim
-that CPU readiness is GPU publication. Its epoch is process-local publication
+The Scene/Game owner consumes this coordinator; CPU readiness still does not mean
+GPU publication. Its epoch is process-local publication
 tracking, not a new persistent identity or catalog authority.
 
 `MeshDrawBundle` performs detached native construction for the complete candidate,
@@ -340,10 +340,10 @@ including every LOD/material part and its texture bindings. It retains GPU lease
 before native draw members so destruction releases SRBs first. Each draw validates
 owner lifetime and marks leased resources for fence retirement. CPU scopes may close
 after upload without invalidating that physical bundle. Failed construction never
-changes the caller's previous bundle. Host integration, production pass ordering,
-extended materials and deformed draw support remain separate acceptance work.
+changes the caller's previous bundle. Host integration, pass ordering, extended
+materials and deformed drawing are described and tested separately below.
 
-### Scene host connection — validation in progress
+### Scene host connection
 
 The private `MeshResourceHost` shares the existing typed CPU pools and physical
 residency owners within one project/device/context. A copied catalog publication
@@ -355,12 +355,11 @@ The Scene viewport invalidates a retained EDIT image on resource adoption. Model
 components take precedence over legacy Primitive/Tint for that entity.
 
 Project changes release scene bundles before replacing the host. Texture-import
-publication feeds its admitted catalog snapshot to the host. External model reimport
-watching and model import UI still require their shared publication connection.
-The editor now selects linear RGBA16F/D32 targets and the display resolve described
-below. Shadow/IBL, remaining material/deformation consumers, authored Game cameras
-and standalone presentation remain unfinished Phase7 work. This connection does not declare the
-production renderer complete or imply unvalidated Windows acceptance.
+publication feeds its admitted catalog snapshot to the host. Model/import watcher
+publication uses the same connection and notifies isolated Play for model refresh.
+The editor selects linear RGBA16F/D32 targets and the display resolve described
+below. Shadow/IBL, material/deformation consumers and authored Game cameras use
+this host. A full standalone visual game exporter remains outside Phase 7.
 
 Punctual-light numerical admission first recognizes a valid zero contribution when
 all contributing layers face away from the light. This avoids asking the native
@@ -373,8 +372,8 @@ texture channels multiply their respective factors. Clearcoat uses the unperturb
 geometric normal unless its own normal map exists; it does not inherit base normal
 mapping. Clearcoat normal admission requires an authored normal/tangent frame or a
 base normal map, matching the exact glTF extension. Both normal-map consumers share
-pixel-frame orthogonalization and safe derivative fallback. Native visual acceptance
-is still pending for this increment.
+pixel-frame orthogonalization and safe derivative fallback. Native WARP pixel
+fixtures exercise these paths.
 
 ### Extended reflection layers
 
@@ -406,12 +405,12 @@ Exact evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
 `Shaders/PBR/private/{RenderPBR.psh,Iridescence.fxh}`,
 `Shaders/PBR/public/PBR_Shading.fxh`, `Shaders/Common/public/PBR_Common.fxh`, and
 Khronos glTF `c18432787e6d545a1218c1926ccdcfaffd4c116b` extension specifications
-for iridescence, sheen and anisotropy. Verified2026-09-21. Native FXC/WARP execution
-of these new consumers remains pending; local compilation is not GPU acceptance.
+for iridescence, sheen and anisotropy. Verified2026-09-21. Native FXC/WARP pixel
+fixtures pass in addition to the local compiler checks.
 The HDR/IBL/shadow connections and the optical transport adapter are described
 below with their actual validation status.
 
-### Queues and HDR display — native validation in progress
+### Queues and HDR display
 
 Visible mesh parts enter distinct opaque, masked and blended queues. Opaque/masked
 parts group by reflection parity, material and mesh identity. Blended parts sort by
@@ -446,7 +445,7 @@ Exact mapper evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
 `Shaders/PostProcess/ToneMapping/public/{ToneMapping,ToneMappingStructures}.fxh`
 and `Shaders/Common/public/SRGBUtilities.fxh`, verified2026-09-21. Local16-stage
 shader compilation, native C++ syntax and normal/strict-sanitizer queue tests pass;
-FXC/WARP validation of these changes is pending.
+FXC/WARP fixtures also pass.
 
 ### Cached environment realization and material lighting
 
@@ -470,7 +469,7 @@ anisotropic reflection. Intensity and world-Y rotation are per-draw values. An
 absent environment binds a shared black cube with zero IBL intensity; no implicit
 game lighting is added. The owning caller retains the environment lease while its
 bindings are live. Scene-level environment authoring, resource selection and sky
-composition are still required consumers in the ongoing Phase7 batch.
+composition consume this path, as described below.
 
 Matching material sampler states share one shader binding. All native lighting
 lookups share their compatible linear/clamp sampler. Different material states stay
@@ -482,8 +481,8 @@ one lighting sampler. No sampler count or hardware compatibility is inferred sol
 from local shader compilation.
 
 Exact source: pinned PBR_Renderer.hpp/cpp caller-owned output APIs and PBR_Shading.fxh
-`ApplyIBL`, verified2026-09-21. The preceding a3cf2ee native audit passed37/37 in58.10s
-for reflection layers; environment/HDR/queue native execution is pending separately.
+`ApplyIBL`, verified2026-09-21. Reflection-layer, environment, HDR and queue
+fixtures pass on WARP.
 
 ### Scene environment selection and sky
 
@@ -524,8 +523,9 @@ a transient camera-relative unit-depth ray-plane matrix to that native helper:
 This preserves perspective/axis-flip direction, ignores translation as a sky should,
 and requires no authored transform inverse or fabricated scene hierarchy. CPU tests
 cover infinite far, large origins, orthographic views, flips and invalid projection.
-Native sky tests check radiance, depth coverage, foreground protection and visibility;
-Windows execution of these additions remains required.
+Native sky tests check radiance, depth coverage, foreground protection and visibility.
+These tests pass on Windows/WARP in the Phase7 native source audit; the final numbered
+package remains a separate delivery gate.
 
 ## Authored Game camera composition — Phase7 implementation
 
@@ -579,7 +579,7 @@ mutable while their mapped contents change. Do not use an unsynchronized mutable
 `ALLOW_OVERWRITE` to replace an in-flight environment or resized HDR target.
 
 
-## Shadow integration — native validation in progress
+## Shadow integration
 
 `ShadowRenderer` is shared by Scene and authored Game camera composition. It owns
 only transient shadow resources and camera-relative receiver packets. Existing mesh
@@ -603,7 +603,7 @@ Native center callbacks receive a *previously rounded* center. To avoid double
 rounding in a large world, FORGE first obtains the unrounded native fit and then
 snaps once using the double-precision absolute light-space origin remainder. The
 native fitting coordinates stay camera-relative. Twenty-five subtexel camera moves
-are included in the GPU-host math fixture; native execution is pending.
+pass in the GPU-host math fixture.
 
 Spot maps and six point faces use existing CameraView projection conventions.
 Receiver transforms are composed in double precision before float admission. The
@@ -633,10 +633,10 @@ profile rather than assuming the prior16-sampler worst case still applies.
 Normal authoring/bounds regressions pass2/2. All28 generated HLSL stages pass the
 supplementary DXC check, including masked depth programs. Native D3D12 tests exercise
 all three light kinds, alpha rejection, mirrored casters, large origins, oversized
-allocation rejection and camera fitting. Their Windows execution remains pending.
+allocation rejection and camera fitting. These Windows fixtures pass.
 
 
-### Transmission background and optical transport — validation in progress
+### Transmission background and optical transport
 
 The shared mesh queue draws opaque/masked surfaces and the camera background first,
 then captures that camera's HDR rectangle into a distinct mipmapped texture.
@@ -690,9 +690,9 @@ The native FX thickness is debug-only and its transmission output uses alpha;
 FORGE supplies frame composition and optical transport without patching upstream.
 Local CPU material tests and generated HLSL compile. New Windows pixel tests cover
 camera crop/mips, clear transmission, attenuation, roughness, refraction, dispersion,
-texture channels and signed/rank-two scale; execution is pending.
+texture channels and signed/rank-two scale; those fixtures pass.
 
-### Morph draw consumer — validation in progress
+### Morph draw consumer
 
 The shared vertex-fetch adapter now applies mesh morph defaults to POSITION,
 NORMAL, TANGENT.xyz, COLOR_0 and every UV set selected by the material. Deltas are
@@ -712,18 +712,18 @@ Default-pose bounds add each position-delta interval with the sign of its weight
 They include an explicit float accumulation error bound and outward-rounded final
 endpoints. GPU admission rejects unrepresentable morphed bounds without modifying
 the asset. Whole-mesh culling and per-part queues use these derived bounds, not the
-unmorphed source bounds. Per-frame animated weight extraction and its updated bounds
-remain part of the model-animation bridge still in progress.
+unmorphed source bounds. The model-animation bridge supplies animated weights
+and updated bounds through complete-pose adoption.
 
 Evidence: exact glTFc18432787e6d545a1218c1926ccdcfaffd4c116b morph-target section,
 including UV/color deltas; pinned FX RenderPBR.vsh's morph-before-skin order. The
 FORGE raw-buffer adapter extends native's fixed position/normal/tangent slots to the
 admitted UV/color contract. No vendor patch or dependency change. Local bounds tests
 and supplementary HLSL compilation pass for1 and256 targets; Windows fixtures for
-movement, signed weights, colors, UV19, normals and tangent handedness are pending.
-This does not establish GPU skinning or complete animated model placement.
+movement, signed weights, colors, UV19, normals and tangent handedness pass.
+GPU skinning and animated model placement have separate integration fixtures.
 
-### Prepared skin draw (integration in progress)
+### Prepared skin draw
 
 The shared Diligent draw now accepts a complete copied world-space skin palette.
 It applies normalized four-influence linear blend skinning after morph evaluation,
@@ -746,9 +746,9 @@ This is a FORGE adapter, not a claimed native Diligent skin-parity implementatio
 The shader source and CPU pose preparation have local compile/math tests. Native
 Windows fixtures now cover asymmetric reflection, sequential zero crossing,
 positive-joint/negative-blend orientation, ignored singular mesh nodes, large
-coordinates, invalid palettes and matching shadow depth. Their GPU execution is
-pending. Scene/model instance bindings and runtime-driven palettes were subsequently
-connected; this section does not claim the complete animated-model workflow.
+coordinates, invalid palettes and matching shadow depth. These GPU fixtures pass.
+Scene/model instance bindings and runtime-driven palettes use the connected bridge
+described below; backend feature admission remains explicit.
 
 
 ### Sampler-array admission correction
@@ -764,9 +764,9 @@ independent. Native SRB `SetArray` binds the checked reflected extent.
 This does not change physical hardware limits: Tier1 still has a 16-sampler
 per-stage descriptor-table limit. Broader combinations require a device supporting
 the corresponding binding profile and successful native pipeline creation. The
-mixed array/lighting compiler check also passes with the default FXC flags. Full
-Diligent rendering regression remains pending; compiler success alone does not
-establish native binding or hardware compatibility.
+mixed array/lighting compiler check passes with the default FXC flags. Native
+D3D12 drawing and the Vulkan binding/readback probe also pass. Device capability
+admission remains required; these results do not establish universal hardware support.
 
 
 ### Scene-to-mesh pose integration — 2026-09-21
@@ -798,11 +798,9 @@ pose, and material/mesh resource replacement remains a whole-candidate operation
 CPU regression coverage includes two instances of one source, a singular ignored
 mesh-node transform, inverse binds, signed morphs, unskinned reuse of joint-bearing
 geometry, revision mismatch, duplicate/missing joints and successful repair.
-Native-header compilation succeeds; full native execution remains pending. Source
-`abc5956` passed 36/37 Windows tests but failed the first zero-weight morph draw with
-`GetDeviceRemovedReason=0x887a0005`. That HRESULT does not identify the cause.
-Independent native morph/skin/frame/optics cases now supplement the complete viewport
-suite so one device failure cannot conceal the other feature results.
+Native morph, skin, frame and optics fixtures pass independently as well as in the
+complete viewport suite. Their separate cases ensure a failure in one path cannot
+conceal the results of the others.
 
 ### Animation debug overlay
 
@@ -843,27 +841,18 @@ with 256 palette matrices each would require 1,610,612,736 bytes, before contain
 costs; finite part/joint counts alone were therefore insufficient admission.
 CPU tests exercise exact payload limits, rejection before malformed geometry is
 read, temporary scratch accounting and last-good retention. A native scene fixture
-also checks aggregate rejection, deletion and retry; Windows execution is pending.
+also checks aggregate rejection, deletion and retry and passes on Windows.
 
-### Isolated Windows audit follow-up
+### Native compiler and display conventions
 
-Source `1c0ae36` built successfully and passed 37 of 41 selected Windows tests.
-Its independent frame test passed. The full viewport and isolated morph tests
-failed at the first zero-weight morph draw with device removal; the isolated skin
-shader failed FXC X4580 at indirect input-vertex emission. Geometry output now
-uses explicit constant-index Append branches with identical winding semantics.
-The morph loop now predicates its body instead of using continue; this is a
-controlled equivalent-source experiment, not an established driver/compiler fix.
-Neither change is accepted as native-correct until the rerun succeeds.
+The geometry stage emits explicit constant-index Append branches, preserving
+winding semantics under the pinned FXC compiler. The morph loop predicates its
+body without a continue branch. Both paths have native pixel/readback coverage.
 
-The transmission crop fixture incorrectly expected saturated 1.0 primaries to
-remain saturated after the pinned PBR Neutral highlight desaturation. Its camera
-isolation checks now use .5 primaries below compression and expect the one-transfer
-sRGB value of 188 (one UNORM step allowed), with zero cross-channel leakage.
-Display resolve also now sizes output from the source view's selected mip,
-rather than always using the underlying texture's base dimensions. The last-mip
-fixture requires exactly one pixel as well as its expected color.
-
+Transmission camera-isolation fixtures use .5 primaries below the pinned PBR
+Neutral highlight-compression threshold and expect one linear-to-sRGB transfer
+(UNORM188, one step tolerance). Display resolve sizes output from the source view's
+selected mip; the last-mip fixture requires exactly one pixel and its expected color.
 
 ### First model-pose publication
 
@@ -883,7 +872,7 @@ Later compatible ticks interpolate normally. Recovery does not serialize this
 renderer-local history; a reconstructed model waits for its next successful fixed
 application. No presentation extraction writes authored/runtime TRS, and no second
 world-transform authority is introduced. Normal and strict sanitizer model,
-animation and physics regressions pass; Windows execution remains pending.
+animation and physics regressions pass, including the native Windows integration.
 
 Disabling Animator removes its live drawing contribution: the model remains
 visible with its current node transforms and the mesh's source-node morph defaults.
@@ -1015,3 +1004,14 @@ only personal camera state; it adds no authored transform or Undo entry.
 The [renderer feature matrix](render-features.md) summarizes concrete consumers,
 coverage and limits; [backend capabilities](render-backends.md) distinguish
 executed validation from compiler/interface mappings.
+
+## Observed native validation
+
+Source `ff91423738b96f0f56df6c9f6c739427c9a6e0f6`, Windows/D3D12 WARP
+[run35706608309](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35706608309):
+all renderer tests pass, including `editor_viewport_render`, `editor_render_morph`,
+`editor_render_skin`, `editor_render_frame` and `editor_render_optics`. The overall
+run is70/71 because its separate editor screenshot driver failed during a UI-scale
+transition. Rendering acceptance is not inferred from that failed capture test.
+Final combined editor/package release validation is recorded separately. Physical
+GPU acceptance and unexecuted backend features are not claimed from WARP.
