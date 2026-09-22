@@ -322,3 +322,5 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Native editor acceptance now checks the retained Diligent diagnostics: a frame-wait overrun is classified only when the probe observes unfinished GPU work and the normal shutdown drain later completes all submitted work. Unexplained waits, other graphics errors or incomplete final work fail the fixture. Raw messages remain visible; no production wait/timeout change is made.
 
 - Recorded the controlled startup/idle comparison and shader compilation/realization timings with source IDs, workloads, raw-run links and limits. Documented recovered hosted-WARP backlog separately from correctness claims; the matched legacy-cube workload is explicitly not the new PBR mesh recipe.
+
+- Restricted the recoverable-backlog classification to the pinned timeout message specifically. A failed/interrupted frame wait is an unexpected graphics error even if GPU work is pending; it cannot use the timeout classification.

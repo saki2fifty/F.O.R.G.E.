@@ -155,7 +155,7 @@ struct EditorFixture {
                                            const char* text, const char* function, const char* file,
                                            int line) {
         if (severity == Diligent::DEBUG_MESSAGE_SEVERITY_ERROR && text &&
-            std::strstr(text, "frame waitable object")) {
+            std::strstr(text, "Timeout elapsed while waiting for the frame waitable object.")) {
             // Pinned WaitForFrame invokes this callback synchronously inside
             // Present. A thread-local borrow is valid only across that call;
             // callbacks from another thread cannot borrow this frame's fence.
