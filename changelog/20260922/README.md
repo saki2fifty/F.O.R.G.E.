@@ -64,3 +64,27 @@
 - The latest core runs found a test-only path-separator mismatch and a runtime-package file-write failure in the longer shared-SDK build directory. The artifact/staging path reaches the Win32 260-character limit.
 - Asset CLI tests now normalize snapshot dictionary keys consistently. Asset/cache/package I/O uses a private Windows extended-length path adapter at the OS boundary; logical catalog paths and persistent identities are unchanged. Package write errors include the failing path.
 - Added a package/load regression with final output paths beyond 290 characters. Linux package/cache/CLI checks pass4/4 (3.01 seconds); strict ASan/UBSan/LSan checks pass3/3 (3.75 seconds). Native confirmation remains pending; the prior Windows failure remains recorded.
+
+### Official fixture validation portability
+
+- Compare corpus byte counts and hashes using explicit JSON value types, avoiding an MSVC C++20 reversed-comparison ambiguity. Fixture content and validation remain unchanged.
+- Windows rerun pending; this corrects the compiler diagnostic from the preceding source audit.
+
+
+### Authored mesh LOD import and inspection
+
+- Admit the documented geometry-only node subset of MSFT_lod through the existing isolated model recipe. Produce a separate combined mesh per owning node; unrelated reuse of the high-detail mesh remains unchanged.
+- Preserve level thresholds, geometry, material identities, palettes, morph channels and bounds. Validate aggregate counts and material UV requirements across every level before publication. No automatic simplification or hidden hierarchy switching.
+- Add published level counts, thresholds and local bounds to the central Mesh document. The shared Scene/Game renderer and preview select levels by projected size.
+- Reject unsupported node/subtree/material switching combinations explicitly and preserve the previous asset family. Record the optional final cull-hint policy in import diagnostics and the manual.
+- Model-bundle, official-corpus, direct/isolated recipe, scene, runtime-package and Vulkan checks pass7/7 (96.19 seconds). Strict ASan/UBSan/LSan model/scene/package checks pass4/4 (126.57 seconds). Expanded palette/animation/lower-level UV regressions also pass normal1/1 (1.00 second) and strict1/1 (4.87 seconds). Manual checks3/3, formatting and adapted Linux editor syntax pass. Native Windows validation remains pending.
+
+### Windows package directory paths
+
+- The long-path regression exposed directory creation beyond MAX_PATH after the file-stream fix. Package I/O now carries the extended Windows path spelling through directory operations, staging, validation and loading; stored manifest locators remain relative.
+- Keep the failing Windows evidence and the real long-destination regression. Native rerun remains required.
+
+### Backend portability and optional effects
+
+- Both the Windows presentation library and the optional Linux/Vulkan compilation check use one shared renderer source list. The complete shared source set compiles under Linux/Vulkan definitions; the actual Vulkan material binding/readback probe passes. This is not a complete Vulkan frame or editor acceptance claim.
+- Audited pinned DiligentFX Bloom, temporal anti-aliasing, ambient occlusion, reflections and depth of field. Bloom itself requires a ready temporal context with motion/current/previous depth/camera data. FORGE's current frame composition does not provide those inputs. The exact source evidence and deliberate advanced-effect deferral are documented in `docs/rendering-postprocessing.md`; existing exposure/tone mapping remains available.

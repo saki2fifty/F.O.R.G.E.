@@ -47,6 +47,40 @@ class ModelViewer {
             ui::help("Mesh inspection retains the source model's joint scope and shows this mesh's "
                      "placements in the selected source scene. This is the authored rest pose, "
                      "without autoplay.");
+            if (!data->mesh_lods.empty()) {
+#ifdef FORGE_UI_FIXTURE
+                ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+#endif
+                const bool inspect = ImGui::TreeNode("Mesh levels of detail");
+                ui::help("Published geometry counts, transition thresholds and local base bounds. "
+                         "The preview chooses a level by projected size as you zoom.");
+                if (inspect) {
+                    for (std::size_t l = 0; l < data->mesh_lods.size(); ++l) {
+                        const auto& lod = data->mesh_lods[l];
+                        if (l)
+                            ImGui::Text("LOD %zu: at or below %.3g%% screen coverage", l,
+                                        100.f * lod.screen_coverage);
+                        else
+                            ImGui::TextUnformatted("LOD 0: highest detail");
+                        ui::help("Coverage is the projected bounds diameter divided by viewport "
+                                 "height. The lowest qualifying level is selected.");
+                        ImGui::TextWrapped("%zu parts | %zu vertices | %zu indices | %zu materials",
+                                           lod.parts, lod.vertices, lod.indices, lod.materials);
+                        ui::help("Totals for this level. Zero indices means sequential nonindexed "
+                                 "drawing; each part still has an explicit topology.");
+                        ImGui::TextWrapped("%zu triangles | %zu lines | %zu points",
+                                           lod.primitives[2], lod.primitives[1], lod.primitives[0]);
+                        ui::help("Primitive counts after import and mesh processing.");
+                        const auto& a = lod.bounds.minimum;
+                        const auto& b = lod.bounds.maximum;
+                        ImGui::TextWrapped("Local bounds: (%.4g, %.4g, %.4g) to (%.4g, %.4g, %.4g)",
+                                           a[0], a[1], a[2], b[0], b[1], b[2]);
+                        ui::help("Base geometry before node transforms, morphs or skeletal "
+                                 "deformation. Rendering uses its current posed bounds.");
+                    }
+                    ImGui::TreePop();
+                }
+            }
             if (data->source_scene_count > 1) {
                 ui::property_label_row("Preview scene",
                                        "Choose one scene to inspect. Placement has its own "

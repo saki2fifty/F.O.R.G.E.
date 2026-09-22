@@ -114,7 +114,8 @@ int main(int argc, char** argv) {
               "Official corpus revision/set changed without review");
         for (const auto& [name, record] : provenance.at("files").items()) {
             const auto file = read_bytes(ProjectPaths(root).resolve(name), 16 * 1024 * 1024);
-            check(file.size() == record.at("bytes") && content_digest(file) == record.at("sha256"),
+            check(file.size() == record.at("bytes").get<std::uint64_t>() &&
+                      content_digest(file) == record.at("sha256").get<std::string>(),
                   "Official fixture bytes differ from recorded source");
         }
         unsigned failed = 0;

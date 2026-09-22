@@ -1,5 +1,6 @@
 #ifdef FORGE_UI_FIXTURE
 #include "editor_fixture.hpp"
+#include "gltf_lod_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
 #include <backends/imgui_impl_sdl3.h>
 #endif
@@ -1672,6 +1673,51 @@ int main(int argc, char** argv) {
                     forge::fixture_open_mesh_picker = true;
                     break;
                 }
+                case 59: {
+                    ImGui::ClosePopupToLevel(0, true);
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    auto source = gltf_lod_fixture();
+                    source.document["extensionsUsed"].push_back("KHR_materials_unlit");
+                    for (auto& material : source.document["materials"]) {
+                        material["doubleSided"] = true;
+                        material["extensions"]["KHR_materials_unlit"] = forge::Json::object();
+                    }
+                    source.document["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"] = {
+                        .1, .6, .8, 1};
+                    source.document["materials"][1]["pbrMetallicRoughness"]["baseColorFactor"] = {
+                        .8, .3, .1, 1};
+                    forge::atomic_write(files.document.project() / "Assets/lods.gltf",
+                                        source.document.dump());
+                    const auto bytes = source.buffers[0].bytes();
+                    forge::atomic_write(
+                        files.document.project() / "Assets/instances.bin",
+                        std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
+                    model_imports.open(files.document, "Assets/lods.gltf");
+                    model_imports.request_save();
+                    break;
+                }
+                case 60: {
+                    const auto& records = mesh_resources->catalog()->records();
+                    const auto& owner = records.at(model_imports.selected_asset());
+                    const auto edge = std::find_if(
+                        owner.dependency_edges.begin(), owner.dependency_edges.end(),
+                        [](const auto& e) { return e.role == "model.member:/lods/0"; });
+                    if (edge == owner.dependency_edges.end())
+                        throw std::runtime_error("LOD fixture combined member is missing");
+                    asset_view_document.open(files.document.project(), records.at(edge->target));
+                    if (auto* w = ImGui::FindWindowByName("###Asset viewer"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Asset viewer", {30, 55});
+                    ImGui::SetWindowSize("###Asset viewer", {1800, 970});
+                    break;
+                }
+                case 61:
+                    forge::ui::style(1.5f);
+                    break;
+                case 62:
+                    forge::ui::style(2);
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -2739,7 +2785,7 @@ int main(int argc, char** argv) {
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
             if (const auto* target = fixture.focused_document())
-                if (fixture.stage < 56)
+                if (fixture.stage < 56 || fixture.stage >= 59)
                     ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
@@ -2763,7 +2809,7 @@ int main(int argc, char** argv) {
                 captured_document_visible =
                     w && w->Active && !w->Hidden && (!w->DockIsActive || w->DockTabIsVisible);
             }
-            if (fixture.stage >= 56) {
+            if (fixture.stage >= 56 && fixture.stage <= 58) {
                 const auto* popup = ImGui::FindWindowByName("##Combo_00");
                 captured_document_visible &=
                     !forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
@@ -2800,6 +2846,9 @@ int main(int argc, char** argv) {
                 ((fixture.stage < 47 || fixture.stage > 49) ||
                  (!audio_imports.dirty() && !audio_imports.pending() &&
                   audio_imports.diagnostic().empty())) &&
+                (fixture.stage != 59 || (!model_imports.dirty() && !model_imports.pending() &&
+                                         model_viewer && model_viewer->ready())) &&
+                (fixture.stage < 60 || asset_view_document.ready()) &&
                 (fixture.stage < 50 || (!shader_imports.dirty() && !shader_imports.pending() &&
                                         shader_imports.diagnostic().empty()))) {
                 if ((fixture.stage == 28 || fixture.stage == 29) &&
@@ -2831,7 +2880,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 59) {
+                if (fixture.stage == 63) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

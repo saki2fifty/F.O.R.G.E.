@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
         auto deep = scratch;
         while (deep.native().size() < 290)
             deep /= "long-content-folder";
-        std::filesystem::create_directories(deep);
+        std::filesystem::create_directories(native_io_path(deep));
         const auto long_package = deep / "content";
         check(manifest == package_runtime_content(project, long_package, roots, target) &&
                   open_runtime_content(long_package, target).records().size() == 3,
@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
         for (const auto& entry : std::filesystem::directory_iterator(scratch))
             check(!entry.path().filename().string().starts_with(".forge-package-"),
                   "Failed candidate staging leaked");
-        std::filesystem::remove_all(scratch);
+        std::filesystem::remove_all(native_io_path(scratch));
         std::cout << "Runtime package closure, relocation, source independence, limits, hashes and "
                      "failure preservation passed\n";
     } catch (const std::exception& e) {

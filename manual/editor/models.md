@@ -316,3 +316,30 @@ source with a diagnostic; instanced skin bindings currently reject explicitly.
 A successful model import publishes its meshes, materials and other members together.
 Those internal references do not trigger another import of the same model. Other
 assets that depend on a changed member still receive source-update processing.
+
+
+## Levels of detail
+
+A model can supply detailed geometry for close views and simpler authored geometry
+for distant views. FORGE switches by the object's projected size on screen.
+It does not generate simplified geometry automatically.
+
+Import a glTF file whose mesh leaf nodes use **MSFT_lod**. The model's combined
+mesh member has an **LODs** suffix. Place the model normally, or assign that mesh
+in the Inspector. Other objects using the original high-detail mesh remain unchanged.
+
+Open the combined mesh from Content and expand **Mesh levels of detail**. Each
+level shows its transition threshold, geometry counts, material count and local
+bounds. Scroll over the preview to move closer or farther and observe switching.
+The source file controls the geometry and thresholds; reimport to apply changes.
+
+Alternatives must share the same local transform, skin, morph channels/defaults
+and visibility/selectability. They must be root mesh leaves without independent
+animation, cameras or lights. The owner node must also have no independent animation.
+Whole-subtree LOD, material-only LOD and material
+variants on the same LOD mesh report an unsupported-configuration error. Correct
+the source and reimport; the previous good asset remains available.
+
+When the source has no screen-size hints, transitions occur at half, quarter,
+eighth and successively smaller screen coverage. The lowest level stays visible;
+a source's optional final disappearance hint produces an import diagnostic.

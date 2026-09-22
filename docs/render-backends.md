@@ -30,6 +30,9 @@ Verified 2026-09-21 against Diligent Engine
   policy. Shared passes must not choose FXC, encode register spaces or assume a
   native descriptor-table layout.
 
+The [post-processing audit](rendering-postprocessing.md) records the additional
+frame inputs required by pinned effects, separately from backend support.
+
 ## Capability matrix
 
 “Mapping” below identifies a source-supported route, not executed acceptance.
@@ -88,6 +91,14 @@ a universal D3D12 restriction, decide whether compressed volumes can upload.
 - [Vulkan sampler numeric requirements](https://docs.vulkan.org/refpages/latest/refpages/source/VkSamplerCreateInfo.html) and [D3D12 sampler requirements](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_sampler_desc). The supported native state is distinct from the backend-neutral asset representation.
 
 ## Validation boundary
+
+The Linux probe target also depends on `forge_vulkan_renderer_compile`, which
+compiles every source in the shared presentation library under the Linux/Vulkan
+definitions. Both targets take that list from `cmake/presentation_sources.cmake`.
+This check passed on2026-09-22, including frame composition, shadows, environment,
+texture upload, mesh preparation/drawing and GPU retirement. It catches platform
+header/API dependencies in shared code. It does **not** link or execute a complete
+Vulkan frame, and does not replace native Windows acceptance.
 
 The initial Linux llvmpipe probe compiled register-free HLSL to SPIR-V using the
 selected DXC 1.8.2505.1 tool, then created native Diligent shaders, pipeline,

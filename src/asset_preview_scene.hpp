@@ -2,12 +2,21 @@
 #include "model_placement.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
+#include <forge/mesh_asset.hpp>
 #include <forge/render_scene.hpp>
+#include <set>
 namespace forge::asset_detail {
+struct MeshLodInspection {
+    float screen_coverage = 1;
+    std::size_t parts{}, vertices{}, indices{}, materials{};
+    std::array<std::size_t, 3> primitives{}; // Points, lines, triangles.
+    MeshBounds bounds;
+};
 struct ModelPreviewScene {
     RenderScene scene;
     unsigned source_scene = 0, source_scene_count = 0;
     std::size_t nodes = 0;
+    std::vector<MeshLodInspection> mesh_lods;
 };
 // Detached read-only projection through the existing placement and transform
 // contracts. No live world, project mutation, persistent identity or second model
@@ -38,6 +47,34 @@ inline ModelPreviewScene prepare_model_preview(const ModelSelection& selected,
     if (!result.scene.diagnostics.empty())
         throw std::runtime_error(result.scene.diagnostics.front().text);
     if (only_mesh.id) {
+        // Copied inspection metadata only; decoding happens in the existing
+        // preparation worker. CPU geometry remains owned by the resource pool.
+        const auto geometry = decode_mesh(selected.bytes(selected.member(only_mesh.id)));
+        for (const auto& lod : geometry.lods) {
+            MeshLodInspection inspection;
+            inspection.screen_coverage = lod.screen_coverage;
+            inspection.parts = lod.parts.size();
+            inspection.bounds = lod.parts.front().bounds;
+            std::set<std::uint32_t> materials;
+            for (const auto& part : lod.parts) {
+                inspection.vertices += part.vertices;
+                inspection.indices += part.indices.size();
+                const auto count = part.indices.empty() ? part.vertices : part.indices.size();
+                const unsigned topology = part.topology == MeshTopology::Points  ? 0
+                                          : part.topology == MeshTopology::Lines ? 1
+                                                                                 : 2;
+                inspection.primitives[topology] += count / (topology + 1);
+                materials.insert(part.material_slot);
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    inspection.bounds.minimum[axis] =
+                        std::min(inspection.bounds.minimum[axis], part.bounds.minimum[axis]);
+                    inspection.bounds.maximum[axis] =
+                        std::max(inspection.bounds.maximum[axis], part.bounds.maximum[axis]);
+                }
+            }
+            inspection.materials = materials.size();
+            result.mesh_lods.push_back(inspection);
+        }
         std::erase_if(result.scene.meshes,
                       [&](const auto& mesh) { return mesh.renderer.mesh != only_mesh; });
         if (result.scene.meshes.empty())

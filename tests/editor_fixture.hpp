@@ -43,9 +43,13 @@ struct EditorFixture {
         case 42:
             return "###Material";
         case 43:
+        case 59:
             return "###Model import";
         case 44:
         case 45:
+        case 60:
+        case 61:
+        case 62:
             return "###Asset viewer";
         case 46:
             return "Content";
@@ -153,7 +157,11 @@ struct EditorFixture {
                                "loaded-resources-200",
                                "asset-picker",
                                "asset-picker-150",
-                               "asset-picker-200"};
+                               "asset-picker-200",
+                               "model-lod-import",
+                               "mesh-lods",
+                               "mesh-lods-150",
+                               "mesh-lods-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

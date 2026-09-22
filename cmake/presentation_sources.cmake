@@ -1,0 +1,21 @@
+# Shared renderer compilation units. Platform hosts and backend shader cooks are separate.
+set(forge_presentation_sources
+ src/presentation_diligent.cpp
+ src/render_backend.cpp
+ src/environment_gpu.cpp
+ src/environment_sky.cpp
+ src/frame_renderer.cpp
+ src/shadow_view.cpp
+ src/shadow_renderer.cpp
+ src/transmission_background.cpp
+ src/display_resolve.cpp
+ src/texture_preview.cpp
+ src/texture_gpu.cpp
+ src/mesh_gpu.cpp
+ src/mesh_vertex_fetch.cpp
+ src/mesh_draw.cpp
+ src/mesh_draw_shader.cpp
+ src/mesh_draw_bundle.cpp
+ src/mesh_render_host.cpp
+ src/gpu_residency.cpp
+ src/sampler_backend.cpp)

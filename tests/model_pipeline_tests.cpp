@@ -1,6 +1,8 @@
 #include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
+#include "asset_preview_scene.hpp"
 #include "gltf_instance_fixture.hpp"
+#include "gltf_lod_fixture.hpp"
 #include "model_authoring.hpp"
 #include "model_draw_candidate.hpp"
 #include "model_importer.hpp"
@@ -905,6 +907,36 @@ int main(int argc, char** argv) {
                 retained.revision == selected.revision && retained.bindings == selected.bindings &&
                     instance_scene.document() == placed,
                 "Rejected instance reimport replaced a good family or changed authored entities");
+        }
+        {
+            auto input = gltf_lod_fixture();
+            atomic_write(root / "Assets/lods.gltf", input.document.dump());
+            write(root / "Assets/instances.bin", input.buffers[0].bytes());
+            const auto imported = run("Assets/lods.gltf");
+            require(imported.published, imported.diagnostic.c_str());
+            const auto id = service.prepare("Assets/lods.gltf").request.asset;
+            const auto selected = load_model_selection(root, imported.publication->catalog, id);
+            const AssetRef<MeshAsset> mesh{selected.bindings.at("/lods/0")};
+            const auto loaded = model_mesh_resource(selected, mesh);
+            require(loaded.mesh.lods.size() == 2 && loaded.materials.size() == 2 &&
+                        loaded.materials[0].material != loaded.materials[1].material,
+                    "Published LOD resource lost levels or distinct logical materials");
+            const auto preview = prepare_model_preview(selected, {}, mesh);
+            require(preview.scene.meshes.size() == 1 && preview.mesh_lods.size() == 2 &&
+                        preview.mesh_lods[0].primitives[2] == 2 &&
+                        preview.mesh_lods[1].primitives[2] == 1 &&
+                        preview.mesh_lods[1].screen_coverage == .4f,
+                    "Mesh inspection did not expose cooked LOD counts and thresholds");
+            auto invalid = input.document;
+            invalid["nodes"][1]["translation"] = {1, 0, 0};
+            atomic_write(root / "Assets/lods.gltf", invalid.dump());
+            const auto failed = run("Assets/lods.gltf");
+            require(!failed.published && failed.diagnostic.find("MSFT_lod") != std::string::npos,
+                    "Unsupported node LOD replacement did not reject with a clear diagnostic");
+            const auto retained = load_model_selection(root, AssetCatalog::open_project(root), id);
+            require(retained.revision == selected.revision &&
+                        retained.bindings == selected.bindings,
+                    "Rejected LOD candidate replaced a selected model family");
         }
         if (std::filesystem::exists(root / ".forge/jobs"))
             require(std::filesystem::is_empty(root / ".forge/jobs"),

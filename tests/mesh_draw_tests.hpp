@@ -2,7 +2,9 @@
 #include "environment_sky.hpp"
 #include "mesh_draw.hpp"
 #include "mesh_draw_bundle.hpp"
+#include "render_bounds.hpp"
 #include "render_sort.hpp"
+#include <type_traits>
 void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                      const std::filesystem::path& images) {
     using namespace Diligent;
@@ -48,7 +50,7 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     world.m[7] = -1e12;
     world.m[11] = 2;
     auto render = [&](auto& prepared, std::span<const forge::LightView> lights = {},
-                      const forge::EnvironmentLighting* environment = nullptr) {
+                      const forge::EnvironmentLighting* environment = nullptr, unsigned lod = 0) {
         context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float clear[4]{0, 0, 0, 1};
         context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -56,7 +58,11 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Viewport viewport{0.f, 0.f, 32.f, 32.f, 0.f, 1.f};
         context->SetViewports(1, &viewport, 32, 32);
-        prepared.draw(context, world, view, lights, environment);
+        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(prepared)>,
+                                     forge::MeshDrawBundle>)
+            prepared.draw(context, world, view, lights, environment, lod);
+        else
+            prepared.draw(context, world, view, lights, environment);
         return readback(presentation.device(), context, rtv);
     };
     const auto reference = render(draw);
@@ -99,10 +105,13 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         forge::ResourcePool<forge::MaterialAsset> cpu_material;
         const forge::AssetRef<forge::MeshAsset> mesh_id{forge::AssetId::generate()};
         const forge::AssetRef<forge::MaterialAsset> material_id{forge::AssetId::generate()};
+        auto lod_mesh = mesh;
+        lod_mesh.lods.push_back({.25f, {part}});
+        lod_mesh.lods[1].parts[0].indices = {0, 1, 2};
         auto mesh_ticket = cpu_mesh.request(
-            mesh_id, std::string(64, 'a'), 1, [mesh, material_id](std::stop_token) {
+            mesh_id, std::string(64, 'a'), 1, [lod_mesh, material_id](std::stop_token) {
                 auto value = std::make_unique<forge::MeshResourceData>();
-                value->mesh = mesh;
+                value->mesh = lod_mesh;
                 value->materials = {{0, "default", material_id}};
                 const auto bytes = value->resident_bytes();
                 return forge::ResourceCandidate<forge::MeshAsset>{std::move(value), {bytes}};
@@ -127,6 +136,17 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
             TEX_FORMAT_D32_FLOAT);
         require(render(*bundle) == reference && bundle->mesh_identity() == prepared.mesh.identity(),
                 "Complete bundle changed the selected mesh draw");
+        const auto selected_lod = forge::select_mesh_lod(prepared.mesh->mesh, .25f);
+        const auto distant = render(*bundle, {}, nullptr, unsigned(selected_lod));
+        const auto coverage = [](const auto& pixels) {
+            return std::count_if(pixels.begin(), pixels.end(),
+                                 [](const auto& p) { return p[0] || p[1] || p[2]; });
+        };
+        require(selected_lod == 1 && coverage(distant) > 0 &&
+                    coverage(distant) < coverage(reference),
+                "Native LOD selection did not draw its authored lower-detail geometry");
+        save(distant, 32, 32, images / "mesh-lod-far.ppm");
+        save(reference, 32, 32, images / "mesh-lod-close.ppm");
         auto invalid = prepared;
         invalid.materials.clear();
         bool rejected = false;

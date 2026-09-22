@@ -42,13 +42,16 @@ std::vector<SubassetObservation> observations(const ModelBundleIndex& index) {
     return result;
 }
 } // namespace
+#include "model_lod_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need official model fixture root");
+        check_model_lods();
         auto source = capture_gltf_source(argv[1], "NegativeScaleTest.gltf");
         const auto original_doc = source.document;
         const auto files = cook_static_gltf_bundle(NativeGltfDocument(source));
         const auto index = validate_model_bundle(files);
+        check_lower_lod_uv_validation(files, index);
         require(index.members.size() == 30 && index.hierarchy.at("nodes").size() == 14,
                 "Official static model family lost members/hierarchy");
         const auto again = cook_static_gltf_bundle(

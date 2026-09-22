@@ -222,12 +222,14 @@ Json package_runtime_content(const std::filesystem::path& project,
                              RuntimePackageLimits budget, std::stop_token stop) {
     limits(budget);
     const auto target_json = target_value(target);
-    const auto root = std::filesystem::canonical(project);
+    const auto root = std::filesystem::canonical(native_io_path(project));
     const auto before = read_bytes(AssetCatalog::project_index(root), max_asset_index_bytes);
     AssetCatalog catalog(root);
     catalog.restore(parse_bounded_json(before, max_asset_index_bytes, 4000000, 64));
     const auto selected = closure(catalog, roots, budget);
-    const auto final = std::filesystem::absolute(destination).lexically_normal();
+    // Directory creation/enumeration need the same extended Windows spelling as
+    // file streams. Keep it inside the package I/O owner; manifests remain relative.
+    const auto final = native_io_path(std::filesystem::absolute(destination).lexically_normal());
     ordinary(final);
     require(!std::filesystem::exists(final) && std::filesystem::is_directory(final.parent_path()),
             "Package destination must be new, with an existing parent directory");
@@ -320,7 +322,7 @@ AssetCatalog open_runtime_content(const std::filesystem::path& package,
                                   const RuntimePackageTarget& target, RuntimePackageLimits budget,
                                   std::stop_token stop) {
     limits(budget);
-    const auto root = std::filesystem::absolute(package).lexically_normal();
+    const auto root = native_io_path(std::filesystem::absolute(package).lexically_normal());
     ordinary(root);
     const auto manifest_path = root / manifest_name;
     ordinary(manifest_path);

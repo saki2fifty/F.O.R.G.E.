@@ -335,6 +335,7 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
     std::map<std::string, MaterialData> materials;
     std::map<std::string, std::size_t> morph_counts;
     std::map<std::string, std::vector<std::set<std::string>>> primitive_streams;
+    std::map<std::string, std::size_t> first_lod_parts;
     std::map<std::string, std::set<std::string>> material_targets;
     std::map<std::string, std::vector<std::string>> primitive_materials;
     for (const auto& m : index.members) {
@@ -354,19 +355,21 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
                 }
             morph_counts[m.identity.address] = mesh.morph_defaults.size();
             auto& streams = primitive_streams[m.identity.address];
-            for (const auto& part : mesh.lods.at(0).parts) {
-                std::set<std::string> names;
-                for (const auto& stream : part.streams)
-                    names.insert(stream.semantic);
-                streams.push_back(std::move(names));
-                if (part.material_slot) {
-                    const auto slot =
-                        m.bindings.find("material." + std::to_string(part.material_slot));
-                    require(slot != m.bindings.end(), "Model primitive material is not bound");
-                    primitive_materials[m.identity.address].push_back(slot->second);
-                } else
-                    primitive_materials[m.identity.address].emplace_back();
-            }
+            first_lod_parts[m.identity.address] = mesh.lods.front().parts.size();
+            for (const auto& lod : mesh.lods)
+                for (const auto& part : lod.parts) {
+                    std::set<std::string> names;
+                    for (const auto& stream : part.streams)
+                        names.insert(stream.semantic);
+                    streams.push_back(std::move(names));
+                    if (part.material_slot) {
+                        const auto slot =
+                            m.bindings.find("material." + std::to_string(part.material_slot));
+                        require(slot != m.bindings.end(), "Model primitive material is not bound");
+                        primitive_materials[m.identity.address].push_back(slot->second);
+                    } else
+                        primitive_materials[m.identity.address].emplace_back();
+                }
             for (const auto& [role, target] : m.bindings) {
                 (void)role;
                 material_targets[m.identity.address].insert(target);
@@ -439,8 +442,7 @@ ModelBundleIndex validate_model_bundle(std::span<const ArtifactFile> files, Mode
             const auto mesh = mapping.at("mesh").get<std::string>();
             const auto material = mapping.at("material").get<std::string>();
             const auto part = mapping.at("primitive").get<std::size_t>();
-            require(part < primitive_streams.at(mesh).size() &&
-                        material_targets[mesh].contains(material),
+            require(part < first_lod_parts.at(mesh) && material_targets[mesh].contains(material),
                     "Model variant references absent primitive or unbound material");
             for (const auto& [role, slot] : materials.at(material).textures) {
                 (void)role;

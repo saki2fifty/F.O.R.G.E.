@@ -1,5 +1,6 @@
 #include "gltf_model_cook.hpp"
 #include "asset_bytes.hpp"
+#include "gltf_lod.hpp"
 #include "gltf_scene.hpp"
 #include "gltf_surfaces.hpp"
 #include "gltf_transform.hpp"
@@ -88,6 +89,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
     const bool animated = !doc.value("skins", Json::array()).empty() ||
                           !doc.value("animations", Json::array()).empty();
     const auto scene_values = gltf_scene_metadata(source);
+    const auto lod_groups = gltf_mesh_lods(native, scene_values);
     const auto material_variants = gltf_material_variants(source);
     const auto& meshes = doc.value("meshes", Json::array());
     const auto& materials = doc.value("materials", Json::array());
@@ -181,6 +183,76 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
             append("mesh-" + std::to_string(i) + ".fmesh", encode_mesh(processed.mesh));
         index.members.push_back(std::move(member));
     }
+    std::vector<std::string> node_mesh(hierarchy.nodes.size());
+    for (std::size_t i = 0; i < hierarchy.nodes.size(); ++i)
+        if (hierarchy.nodes[i].mesh != gltf_no_index)
+            node_mesh[i] = address("meshes", hierarchy.nodes[i].mesh);
+    for (const auto& group : lod_groups) {
+        cancelled();
+        // A source mesh may also be used by unrelated nodes. Publish a distinct
+        // combined member, so that its LOD policy does not alter those uses.
+        MeshData combined;
+        ModelImportMember member;
+        Json evidence = Json::array();
+        std::size_t payload = 0, parts = 0, vertices = 0, indices = 0;
+        const MeshLimits limits;
+        for (std::size_t l = 0; l < group.meshes.size(); ++l) {
+            const auto source_mesh = group.meshes[l];
+            const auto& original = index.members.at(source_mesh);
+            for (const auto& variant : material_variants)
+                for (const auto& [part, material] : variant.mappings) {
+                    (void)material;
+                    require(part.first != source_mesh,
+                            "MSFT_lod: material variants on LOD meshes require a combined variant "
+                            "adapter; previous publication is retained");
+                }
+            const auto& artifact = files.at(source_mesh);
+            require(artifact.name == original.artifact.file,
+                    "LOD preparation lost its source mesh artifact");
+            auto level = decode_mesh(artifact.bytes);
+            require(level.lods.size() == 1, "Source mesh unexpectedly has multiple LODs");
+            const auto level_bytes = level.byte_size();
+            require(level_bytes <= limits.bytes - payload, "Combined LOD mesh exceeds byte budget");
+            payload += level_bytes;
+            for (const auto& part : level.lods[0].parts) {
+                require(parts < limits.parts && part.vertices <= limits.vertices - vertices &&
+                            part.indices.size() <= limits.indices - indices,
+                        "Combined LOD mesh exceeds geometry budget");
+                ++parts;
+                vertices += part.vertices;
+                indices += part.indices.size();
+            }
+            if (!l) {
+                combined.material_slots = level.material_slots;
+                combined.morph_names = level.morph_names;
+                combined.morph_defaults = level.morph_defaults;
+            } else
+                require(combined.material_slots == level.material_slots &&
+                            combined.morph_names == level.morph_names &&
+                            combined.morph_defaults == level.morph_defaults,
+                        "MSFT_lod: morph target order/names/defaults differ across mesh levels");
+            evidence.push_back({{"geometry", original.identity.evidence.content_digest},
+                                {"coverage", group.coverage[l]}});
+            level.lods[0].screen_coverage = group.coverage[l];
+            combined.lods.push_back(std::move(level.lods[0]));
+            member.bindings.insert(original.bindings.begin(), original.bindings.end());
+        }
+        validate_mesh(combined);
+        const auto location = address("lods", group.node);
+        member.identity = {location,
+                           "mesh",
+                           label(doc.at("nodes").at(group.node)).substr(0, 4091) + " LODs",
+                           {"", asset_build_digest(evidence), node_context[group.node]}};
+        member.artifact =
+            append("lod-" + std::to_string(group.node) + ".fmesh", encode_mesh(combined));
+        index.members.push_back(std::move(member));
+        node_mesh[group.node] = location;
+        if (group.omitted_cull_hint)
+            index.diagnostics.push_back(
+                "MSFT_lod node " + std::to_string(group.node) +
+                ": transitions use source screen-coverage hints; the optional final disappearance "
+                "hint is not applied. The lowest LOD remains visible.");
+    }
     for (std::size_t i = 0; i < materials.size(); ++i) {
         cancelled();
         ModelImportMember member;
@@ -273,8 +345,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         nodes.push_back(
             {{"name", label(doc.at("nodes").at(i))},
              {"parent", node.parent == gltf_no_index ? Json(nullptr) : Json(node.parent)},
-             {"mesh",
-              node.mesh == gltf_no_index ? Json(nullptr) : Json(address("meshes", node.mesh))},
+             {"mesh", node_mesh[i].empty() ? Json(nullptr) : Json(node_mesh[i])},
              {"local", affine},
              {"trs", canonical_gltf_trs(doc.at("nodes").at(i))},
              {"weights", node.morph_weights},
@@ -283,11 +354,26 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
              {"visible", scene_values.nodes.at(i).at("visible")},
              {"selectable", scene_values.nodes.at(i).at("selectable")}});
     }
-    index.hierarchy = {{"nodes", nodes},
-                       {"scenes", hierarchy.scenes},
-                       {"default_scene", hierarchy.default_scene == gltf_no_index
-                                             ? Json(nullptr)
-                                             : Json(hierarchy.default_scene)}};
+    auto scenes = hierarchy.scenes;
+    auto default_scene = hierarchy.default_scene;
+    if (scenes.empty() && !lod_groups.empty()) {
+        // The usual no-scene fallback is every root. LOD alternatives are
+        // resources of their owner, not additional placements in that fallback.
+        std::set<std::size_t> alternatives;
+        for (const auto& group : lod_groups)
+            alternatives.insert(group.alternatives.begin(), group.alternatives.end());
+        auto& roots = scenes.emplace_back();
+        for (std::size_t i = 0; i < hierarchy.nodes.size(); ++i)
+            if (hierarchy.nodes[i].parent == gltf_no_index && !alternatives.contains(i))
+                roots.push_back(i);
+        default_scene = 0;
+        index.diagnostics.push_back("No explicit source scenes: implicit placement excludes lower "
+                                    "MSFT_lod alternatives from ordinary root placements.");
+    }
+    index.hierarchy = {
+        {"nodes", nodes},
+        {"scenes", scenes},
+        {"default_scene", default_scene == gltf_no_index ? Json(nullptr) : Json(default_scene)}};
     index.hierarchy["cameras"] = scene_values.cameras;
     index.hierarchy["lights"] = scene_values.lights;
     auto variants = Json::array();
@@ -330,8 +416,12 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         role_subtree(nodes.size()), context(nodes.size());
     std::vector<std::vector<std::size_t>> children(nodes.size());
     std::map<std::string, std::string> member_content;
+    std::map<std::string, const ModelImportMember*> mesh_members;
     for (const auto& member : index.members)
         member_content.emplace(member.identity.address, member.identity.evidence.content_digest);
+    for (const auto& member : index.members)
+        if (member.identity.type == "mesh")
+            mesh_members.emplace(member.identity.address, &member);
     for (std::size_t i = 0; i < nodes.size(); ++i) {
         const auto& node = hierarchy.nodes[i];
         Json value = nodes[i];
@@ -339,17 +429,16 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         value.erase("parent");
         value.erase("local");
         value["skin_bound"] = node.skin != gltf_no_index;
-        value["mesh"] = node.mesh == gltf_no_index
-                            ? Json(nullptr)
-                            : Json(index.members.at(node.mesh).identity.evidence.content_digest);
+        value["mesh"] =
+            node_mesh[i].empty() ? Json(nullptr) : Json(member_content.at(node_mesh[i]));
         value["camera"] =
             node.camera == gltf_no_index ? Json(nullptr) : scene_values.cameras.at(node.camera);
         value["light"] = nodes[i].at("light").is_null()
                              ? Json(nullptr)
                              : scene_values.lights.at(nodes[i].at("light").get<std::size_t>());
         std::vector<std::string> material_content;
-        if (node.mesh != gltf_no_index)
-            for (const auto& [binding, target] : index.members.at(node.mesh).bindings) {
+        if (!node_mesh[i].empty())
+            for (const auto& [binding, target] : mesh_members.at(node_mesh[i])->bindings) {
                 (void)binding;
                 material_content.push_back(member_content.at(target));
             }

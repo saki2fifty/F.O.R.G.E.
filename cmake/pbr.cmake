@@ -21,10 +21,10 @@ target_include_directories(forge_diligent_pbr_native PUBLIC "${forge_fx_root}"
 target_link_libraries(forge_diligent_pbr_native PUBLIC Diligent-GraphicsEngine
  Diligent-GraphicsTools Diligent-BuildSettings)
 include(cmake/texture_formats.cmake)
-add_library(forge_presentation_diligent STATIC src/presentation_diligent.cpp src/render_backend.cpp src/environment_gpu.cpp src/environment_sky.cpp src/frame_renderer.cpp src/shadow_view.cpp src/shadow_renderer.cpp src/transmission_background.cpp src/display_resolve.cpp src/texture_preview.cpp src/texture_gpu.cpp src/mesh_gpu.cpp src/mesh_vertex_fetch.cpp src/mesh_draw.cpp src/mesh_draw_shader.cpp src/mesh_draw_bundle.cpp src/mesh_render_host.cpp src/gpu_residency.cpp)
+include(cmake/presentation_sources.cmake)
+add_library(forge_presentation_diligent STATIC ${forge_presentation_sources})
 target_include_directories(forge_presentation_diligent PUBLIC src
  "${diligent_SOURCE_DIR}/DiligentCore")
 target_compile_definitions(forge_presentation_diligent PRIVATE NOMINMAX)
-target_sources(forge_presentation_diligent PRIVATE src/sampler_backend.cpp)
 target_link_libraries(forge_presentation_diligent PUBLIC forge_render_bounds forge_model_render_resources forge_mesh_resources forge_material_resources forge_texture_resources forge_diligent_pbr_native Diligent-BuildSettings
  PRIVATE forge_texture_formats Diligent-Archiver-shared)

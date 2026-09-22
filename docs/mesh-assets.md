@@ -120,3 +120,39 @@ logical binding tokens and typed material references. It includes used slots in
 all LODs, supports sparse overrides and diagnoses removed bindings. Reordering or
 renaming source materials does not retarget an override. The MeshRenderer Inspector and shared GPU draw preparation consume these same
 bindings. Removed/invalid slot selections diagnose rather than silently retarget.
+
+## Imported authored LODs
+
+The model worker admits the geometry-only node subset of
+[MSFT_lod at the reviewed glTF revision](https://github.com/KhronosGroup/glTF/blob/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Vendor/MSFT_lod/README.md).
+The extension's node indices are candidate-local source addresses, never persistent
+asset identities. Each owning node gets a separate combined Mesh member through
+normal content/usage evidence and subasset reconciliation. Unrelated nodes reusing
+the original mesh retain their original geometry and policy.
+
+The owner and alternatives must be mesh leaves with identical local transforms,
+skin bindings and node morph weights, without independent node animation. Lower
+alternatives must have no structural parent, camera or light. Their visibility/selectability
+must agree with the owner. Morph target names/order/defaults must match. A skin
+uses the same source skin across levels; each part keeps its own validated draw
+palette. Material slots retain their logical material AssetIds across levels.
+All level bytes/counts, materials and required UV streams are validated together.
+For a source without authored scenes, the compiled default scene excludes lower
+LOD alternatives from its root list. They remain source nodes, not extra placed
+objects. Authored scene selections are preserved.
+
+Up to16 authored levels are supported. Optional MSFT_screencoverage hints supply
+transition thresholds; absent hints use 1/2,1/4,1/8... projected size. The final
+optional disappearance hint is deliberately not used: the lowest level remains
+visible, and import diagnostics report this choice. No geometry is simplified.
+Material-level LOD, nested/subtree node replacement, and material variants on an
+LOD mesh currently reject with an explicit diagnostic before publication. Variants
+on unrelated meshes remain admitted. This is a documented extension subset, not
+full MSFT_lod node/material replacement or hierarchical scene streaming.
+
+The Mesh document exposes each published level's threshold, part/vertex/index/
+primitive/material counts and local base bounds. Its preview and Scene/Game draws
+use the existing projected-size selection, complete resource candidate adoption,
+posed bounds and material overrides. Inspection metadata is prepared off the UI
+thread and owns no second geometry/resource authority. A rejected reimport leaves
+the previous complete family and persistent IDs selected.
