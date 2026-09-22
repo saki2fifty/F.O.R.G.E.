@@ -738,6 +738,33 @@ int main(int argc, char** argv) {
         require(cached_animation.published && cached_animation.cache_hit &&
                     bindings(cached_animation.publication->catalog, animated_owner) == members,
                 "Animated cache hit changed identities");
+        auto pointer_doc = doc;
+        pointer_doc["extensionsUsed"] = {"KHR_animation_pointer", "VENDOR_optional_fixture"};
+        pointer_doc["extensionsRequired"] = {"KHR_animation_pointer"};
+        for (auto& animation : pointer_doc["animations"])
+            for (auto& channel : animation["channels"]) {
+                const auto node = channel["target"]["node"].get<std::size_t>();
+                const auto path = channel["target"]["path"].get<std::string>();
+                channel["target"] = {
+                    {"path", "pointer"},
+                    {"extensions",
+                     {{"KHR_animation_pointer",
+                       {{"pointer", "/nodes/" + std::to_string(node) + "/" + path}}}}}};
+            }
+        save(root / animated_source, pointer_doc);
+        const auto pointer_animation = run(animated_source);
+        require(pointer_animation.published, pointer_animation.diagnostic.c_str());
+        require(bindings(pointer_animation.publication->catalog, animated_owner) == members,
+                "Equivalent pointer animation replaced logical node/skeleton/clip identities");
+        model_animation_runtime(root, pointer_animation.publication->catalog, members);
+        const auto pointer_selection =
+            load_model_selection(root, pointer_animation.publication->catalog, animated_owner);
+        require(std::any_of(pointer_selection.index.diagnostics.begin(),
+                            pointer_selection.index.diagnostics.end(),
+                            [](const auto& message) {
+                                return message.find("VENDOR_optional_fixture") != std::string::npos;
+                            }),
+                "Unsupported optional extension lost its published diagnostic");
         std::reverse(doc["animations"].begin(), doc["animations"].end());
         for (auto& animation : doc["animations"])
             animation["name"] = "Same renamed label";

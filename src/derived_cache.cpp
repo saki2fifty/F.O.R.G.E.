@@ -23,7 +23,9 @@ namespace {
 using Json = nlohmann::json;
 constexpr std::size_t manifest_limit = 4 * 1024 * 1024;
 void ordinary_path(const std::filesystem::path& path) {
-    if (std::filesystem::weakly_canonical(path) != path || std::filesystem::is_symlink(path))
+    const auto native = asset_detail::native_io_path(path);
+    if (asset_detail::native_io_path(std::filesystem::weakly_canonical(native)) != native ||
+        std::filesystem::is_symlink(native))
         throw std::runtime_error("Cache path must not redirect: " + path_utf8(path));
 }
 // A separate local-filesystem lock allows the editor and headless cache readers to
@@ -194,7 +196,7 @@ std::size_t CachedArtifact::byte_size() const {
     return total;
 }
 DerivedDataCache::DerivedDataCache(std::filesystem::path project, CacheLimits limits)
-    : project_(std::filesystem::canonical(project)), limits_(limits) {
+    : project_(std::filesystem::canonical(asset_detail::native_io_path(project))), limits_(limits) {
     if (!limits.files || limits.files > 4096 || !limits.file_bytes ||
         limits.file_bytes > limits.total_bytes ||
         limits.total_bytes > std::uint64_t(2) * 1024 * 1024 * 1024)
@@ -203,6 +205,10 @@ DerivedDataCache::DerivedDataCache(std::filesystem::path project, CacheLimits li
     root_ = paths.resolve(".forge/cache/derived");
     if (root_ != project_ / ".forge/cache/derived")
         throw std::runtime_error("Derived cache must not redirect");
+    // This private path is used only for cache I/O. Preserve extended Windows
+    // spelling across directory operations, not just streams. Logical locators,
+    // artifact keys and manifests remain project-relative and backend-neutral.
+    root_ = asset_detail::native_io_path(root_);
     std::filesystem::create_directories(root_);
     ordinary_path(root_);
 }

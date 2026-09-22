@@ -1681,6 +1681,7 @@ int main(int argc, char** argv) {
                     SDL_SetWindowSize(window.get(), 1920, 1080);
                     auto source = gltf_variant_fixture();
                     source.document["extensionsUsed"].push_back("KHR_materials_unlit");
+                    source.document["extensionsUsed"].push_back("VENDOR_optional_fixture");
                     for (auto& material : source.document["materials"]) {
                         material["doubleSided"] = true;
                         material["extensions"]["KHR_materials_unlit"] = forge::Json::object();
@@ -1804,6 +1805,15 @@ int main(int argc, char** argv) {
                     ImGui::SetWindowSize("Inspector", {1200, 970});
                     ImGui::SetWindowFocus("Inspector");
                     forge::ui::fixture_open_model_variant = true;
+                    break;
+                }
+                case 73:
+                case 74:
+                case 75: {
+                    ImGui::ClosePopupToLevel(0, true);
+                    forge::ui::style(1.f + .5f * float(fixture.stage - 73));
+                    ImGui::SetWindowFocus("###Model import");
+                    model_imports.fixture_open_notes = true;
                     break;
                 }
                 }
@@ -2877,7 +2887,8 @@ int main(int argc, char** argv) {
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
             if (const auto* target = fixture.focused_document())
-                if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66))
+                if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
+                    fixture.stage >= 73)
                     ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
@@ -2913,6 +2924,8 @@ int main(int argc, char** argv) {
                     !popups.empty() && popups.back().Window && popups.back().Window->Active &&
                     !popups.back().Window->Hidden;
             }
+            if (fixture.stage >= 73)
+                captured_document_visible &= !model_imports.fixture_open_notes;
             if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
                 throw std::runtime_error("Audio import fixture failed: " +
                                          audio_imports.diagnostic());
@@ -2983,7 +2996,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 73) {
+                if (fixture.stage == 76) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

@@ -178,7 +178,8 @@ const std::set<std::string>& model_cook_extensions() {
         "KHR_materials_volume",       "KHR_materials_ior",
         "KHR_materials_dispersion",   "KHR_materials_emissive_strength",
         "KHR_materials_variants",     "KHR_lights_punctual",
-        "KHR_node_visibility",        "KHR_node_selectability"};
+        "KHR_node_visibility",        "KHR_node_selectability",
+        "KHR_animation_pointer"};
     return extensions;
 }
 ImportSettingsSchema model_settings() {

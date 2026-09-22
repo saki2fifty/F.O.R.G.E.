@@ -11,7 +11,7 @@ converter, test, root = map(Path, sys.argv[1:])
 root.mkdir(parents=True, exist_ok=True)
 
 
-def run(name, nodes, channels, expected, skins=None, roots=None):
+def run(name, nodes, channels, expected, skins=None, roots=None, pointers=False):
     work = root / name
     work.mkdir(exist_ok=True)
     data = bytearray()
@@ -44,6 +44,12 @@ def run(name, nodes, channels, expected, skins=None, roots=None):
         doc["meshes"] = [dict(primitives=[dict(attributes=dict(POSITION=pos), targets=[dict(POSITION=pos)])])]
     if data:
         doc["buffers"] = [dict(byteLength=len(data), uri="data:application/octet-stream;base64," + base64.b64encode(data).decode())]
+    if pointers:
+        doc["extensionsUsed"] = doc["extensionsRequired"] = ["KHR_animation_pointer"]
+        for channel in doc.get("animations", [{}])[0].get("channels", []):
+            target = channel["target"]
+            channel["target"] = dict(path="pointer", extensions={"KHR_animation_pointer": {
+                "pointer": f"/nodes/{target['node']}/{target['path']}"}})
     (work / "input.gltf").write_text(json.dumps(doc))
     (work / "expected.json").write_text(json.dumps(expected))
     subprocess.run([str(test), "prepare", str(work)], check=True, timeout=20)
@@ -57,6 +63,10 @@ nodes = [dict(matrix=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 0, 0, 1], children=
 base = dict(rest=[[0, 12, 5], [1, 12, 5], [1, 13, 1]], parents=[-1, 0],
             samples=[dict(ratio=.5, values=[[0, 12, 5], [1, 12, 5.5], [1, 13, 1.5]])])
 meta = run("matrix", nodes, [(2, "translation", "LINEAR", [0, 1], [0, 1, 0, 1, 2, 0])], base)
+pointer_meta = run("pointer-matrix", nodes, [(2, "translation", "LINEAR", [0, 1], [0, 1, 0, 1, 2, 0])], base, pointers=True)
+for evidence in ("content_evidence", "semantic_evidence"):
+    assert pointer_meta[evidence] == meta[evidence]
+    assert pointer_meta["clips"][0][evidence] == meta["clips"][0][evidence]
 assert meta["joint_nodes"] == [0, 2]  # unrelated source node omitted, identity still source index
 reordered_nodes = [copy.deepcopy(nodes[2]), copy.deepcopy(nodes[0]), copy.deepcopy(nodes[1])]
 reordered_nodes[1]["children"] = [0, 2]
@@ -86,6 +96,13 @@ for mode in ("STEP", "LINEAR", "CUBICSPLINE"):
         dict(rest=[[0, 12, 0]], parents=[-1], samples=[dict(ratio=.75, values=[[0, 12, 1]])]))
     assert meta["clips"][0]["duration"] == 2
     assert meta["clips"][0]["morph_tracks"][0]["times"] == [0, 2]
+    pointer_meta = run("pointer-morph-tail-" + mode, [dict(mesh=0)], [
+        (0, "translation", mode, [0, 1], values),
+        (0, "rotation", "LINEAR", [0, 1], [0, 0, 0, 1] * 2),
+        (0, "scale", "LINEAR", [0, 1], [1, 1, 1] * 2),
+        (0, "weights", "LINEAR", [0, 2], [0, 1])],
+        dict(rest=[[0, 12, 0]], parents=[-1], samples=[dict(ratio=.75, values=[[0, 12, 1]])]), pointers=True)
+    assert pointer_meta == meta
 # Source rest values outside ECS LocalScale but within Ozz profile are data, not ECS writes.
 for matrix in (False, True):
     node = dict(scale=[20000, 1, 1])

@@ -171,6 +171,21 @@ inline void check_model_lods() {
                                  gltf_scene_metadata(animated_source));
         });
     }
+    for (unsigned target : {0u, 1u, 2u}) {
+        channels[0]["target"] = {
+            {"path", "pointer"},
+            {"extensions",
+             {{"KHR_animation_pointer",
+               {{"pointer", "/nodes/" + std::to_string(target) + "/translation"}}}}}};
+        auto inspect = [&] {
+            return gltf_mesh_lods(NativeGltfDocument(animated_source),
+                                  gltf_scene_metadata(animated_source));
+        };
+        if (target == 2)
+            require(inspect().size() == 1, "Unrelated pointer animation incorrectly prevents LOD");
+        else
+            rejects([&] { (void)inspect(); });
+    }
     auto cancelled = std::stop_source{};
     cancelled.request_stop();
     rejects(

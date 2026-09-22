@@ -1,3 +1,4 @@
+#include "gltf_instance_fixture.hpp"
 #include "gltf_native.hpp"
 #include <bit>
 #include <iostream>
@@ -71,6 +72,7 @@ struct Fixture {
     NativeAnimationClip result() const { return native()->animation(0); }
 };
 } // namespace
+#include "gltf_animation_pointer_tests.hpp"
 int main() {
     try {
         Fixture linear;
@@ -115,6 +117,19 @@ int main() {
         require(morph.result().tracks[0].components == 2 &&
                     morph.result().tracks[0].values->size() == 4,
                 "Morph output dimensions are incorrect");
+        check_animation_pointers(linear, step, cubic, morph);
+        auto instances = gltf_instance_fixture(true);
+        for (auto& channel : instances.document["animations"][0]["channels"]) {
+            const auto path = channel["target"]["path"].get<std::string>();
+            channel["target"] = {
+                {"path", "pointer"},
+                {"extensions", {{"KHR_animation_pointer", {{"pointer", "/nodes/0/" + path}}}}}};
+        }
+        const auto instantiated = NativeGltfDocument(instances).animation(0);
+        require(instantiated.tracks.size() == 3 && instantiated.tracks[0].node == 1 &&
+                    instantiated.tracks[1].node == 2 && instantiated.tracks[2].node == 0 &&
+                    instantiated.tracks[0].values == instantiated.tracks[1].values,
+                "Instancing did not remap pointer weights while retaining shared samples");
         auto bad = linear;
         bad.doc["animations"][0]["channels"].push_back(bad.doc["animations"][0]["channels"][0]);
         rejects([&] { bad.result(); }, "duplicate node/path");

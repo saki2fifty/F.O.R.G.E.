@@ -725,7 +725,7 @@ This does not establish GPU skinning or complete animated model placement.
 
 ### Prepared skin draw (integration in progress)
 
-The backend-private draw now accepts a complete copied world-space skin palette.
+The shared Diligent draw now accepts a complete copied world-space skin palette.
 It applies normalized four-influence linear blend skinning after morph evaluation,
 using a common positive linear normalization and camera-relative translations.
 The source mesh-node transform is ignored. The existing cofactor surface-frame
@@ -1011,3 +1011,7 @@ An unready member rejects the entire frame request instead of moving the camera 
 an incomplete subset. Last-good complete draws remain frameable during replacement.
 Empty/nonrendering selections may still frame their transform point. This changes
 only personal camera state; it adds no authored transform or Undo entry.
+
+The [renderer feature matrix](render-features.md) summarizes concrete consumers,
+coverage and limits; [backend capabilities](render-backends.md) distinguish
+executed validation from compiler/interface mappings.

@@ -22,6 +22,11 @@ std::vector<ArtifactFile> execute_model_recipe(ImportProcessRequest request, std
          source.document.value("extensionsRequired", nlohmann::json::array()))
         require(model_cook_extensions().contains(required.get<std::string>()),
                 "Unsupported required extension in model recipe");
+    // The cooking profile owns these notices. Direct tooling and supervised
+    // workers must produce the same metadata from the same captured source.
+    for (const auto& name : source.optional_extensions)
+        if (!model_cook_extensions().contains(name))
+            source.diagnostics.push_back("Optional glTF extension is not evaluated: " + name);
     GltfModelCookOptions options;
     auto directions = [](const nlohmann::json& value) {
         return value == "preserve"  ? MeshDirections::Preserve

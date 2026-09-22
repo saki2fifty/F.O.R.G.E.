@@ -11,6 +11,7 @@ class ModelImportEditor : public AssetImportEditor {
   public:
 #ifdef FORGE_UI_FIXTURE
     bool fixture_open_variant = false;
+    bool fixture_open_notes = false;
 #endif
     std::function<bool()> placement_allowed;
     std::function<void(SceneDocument&, bool)> draw_preview;
@@ -64,8 +65,28 @@ class ModelImportEditor : public AssetImportEditor {
             try {
                 auto selected = job_.get();
                 if (!cancel_.stop_requested() && is_open() && job_generation_ == generation_ &&
-                    selected.owner == asset_)
+                    selected.owner == asset_) {
                     selected_ = std::move(selected);
+                    if (ui::editor_context) {
+                        for (std::size_t i = 0; i < 16; ++i)
+                            ui::editor_context->problems.resolve(
+                                "model_import_note:" + asset_.str() + ":" + std::to_string(i));
+                        const auto count =
+                            std::min<std::size_t>(16, selected_->index.diagnostics.size());
+                        for (std::size_t i = 0; i < count; ++i) {
+                            ui::Problem note{"model_import_note:" + asset_.str() + ":" +
+                                                 std::to_string(i),
+                                             "Warning",
+                                             selected_->index.diagnostics[i],
+                                             {},
+                                             path_utf8(selected_source()),
+                                             {},
+                                             asset_};
+                            note.source_navigation = ui::diagnostic_text_source(selected_source());
+                            ui::editor_context->problems.report(std::move(note));
+                        }
+                    }
+                }
             } catch (const std::exception& e) {
                 if (!cancel_.stop_requested())
                     error_ = e.what();
@@ -149,6 +170,33 @@ class ModelImportEditor : public AssetImportEditor {
             ui::help("A failed import does not create entities or replace the previous usable "
                      "model family.");
             return;
+        }
+        if (!selected_->index.diagnostics.empty()) {
+            const auto label =
+                "Import notes (" + std::to_string(selected_->index.diagnostics.size()) + ")";
+#ifdef FORGE_UI_FIXTURE
+            const bool scroll_to_notes = fixture_open_notes;
+            if (fixture_open_notes) {
+                ImGui::SetNextItemOpen(true);
+                fixture_open_notes = false;
+            }
+#endif
+            const bool notes = ImGui::TreeNode(label.c_str());
+#ifdef FORGE_UI_FIXTURE
+            if (scroll_to_notes)
+                ImGui::SetScrollHereY(.1f);
+#endif
+            ui::help("Warnings from the selected published revision. Unsupported optional "
+                     "extensions and processing limitations are listed here. These notes do not "
+                     "modify the source.");
+            if (notes) {
+                ImGui::BeginChild("##import_notes", {0, 120 * ui::interface_scale},
+                                  ImGuiChildFlags_Borders);
+                for (const auto& note : selected_->index.diagnostics)
+                    ImGui::TextWrapped("%s", note.c_str());
+                ImGui::EndChild();
+                ImGui::TreePop();
+            }
         }
         const auto& hierarchy = selected_->index.hierarchy;
         const auto& scenes = hierarchy.at("scenes");

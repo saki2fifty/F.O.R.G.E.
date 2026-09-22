@@ -674,3 +674,34 @@ own history boundary. Source-free packages retain the admitted Model family.
 The implementation follows the ratified [KHR_materials_variants specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_variants),
 verified2026-09-22. This is resource selection above Diligent: no backend-specific
 registers, handles, formats or duplicated model hierarchy are introduced.
+
+## Animation pointer targets
+
+`KHR_animation_pointer` is admitted for whole `/nodes/N/translation`, `rotation`,
+`scale` and `weights` properties. These resolve to the same typed tracks as core
+glTF channels. LINEAR, STEP and CUBICSPLINE use the existing validated sampler and
+canonical Ozz transport; pointer float properties additionally admit glTF integer
+accessors converted to float before interpolation. Captured source JSON stays
+unchanged. Equivalent pointer/core channels retain semantic clip/node identity.
+
+The common resolver also drives imported node role evidence, animated-LOD
+restrictions and morph-weight fan-out for `EXT_mesh_gpu_instancing`. It rejects
+conflicting core/pointer targets, malformed/overflowing node indices, missing
+properties without defaults, duplicate targets and matrix-authored TRS animation.
+Node TRS defaults and mesh morph-weight defaults follow existing admission.
+
+Material/camera/light/visibility/extras properties and individual array lanes are
+not evaluated by this profile. They reject with a target diagnostic, including in
+optional pointer channels, instead of silently dropping authored behavior. This is
+an implemented node-animation subset, not full-extension conformance or a generic
+property-animation runtime. Required use of this extension still undergoes all
+target/accessor/value validation before publication.
+
+The official [ratified pointer specification](https://github.com/KhronosGroup/glTF/blob/836573be93954f26827e3dc16476f8620209a1f2/extensions/2.0/Khronos/KHR_animation_pointer/README.md)
+explicitly equates node rotation pointers with ordinary node channels. Pinned Ozz
+`gltf2ozz.cc` handles core TRS channels; FORGE supplies its already-established
+canonical float transport and leaves the converter source/version unchanged.
+
+The [core/extension matrix](gltf-features.md) accounts for every currently ratified
+extension and the in-progress registry entries. Unsupported optional extensions
+produce published import notes visible in the central model document and Problems.

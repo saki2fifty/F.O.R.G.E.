@@ -180,7 +180,7 @@ int main() {
         attrs["TANGENT"] = streams.add({1, 0, 0, 1, 1, 0, 0, -1, 1, 0, 0, 1}, 4);
         attrs["TEXCOORD_0"] = streams.add({0, 0, 255, 0, 0, 255}, 2, 5121, true);
         attrs["TEXCOORD_1"] = streams.add({0, 0, 1, 0, 0, 1}, 2);
-        attrs["COLOR_0"] = streams.add({2, -1, 0.5, 0, 1, 0, 0, 0, 1}, 3);
+        attrs["COLOR_0"] = streams.add({1, 0, 0.5, 0, 1, 0, 0, 0, 1}, 3);
         attrs["COLOR_1"] = streams.add({2, 0, 0, 1, 0, 0, 0, 0, 1}, 3);
         attrs["_TEMPERATURE"] = streams.add({10, 20, 30}, 1);
         attrs["JOINTS_0"] = streams.add({0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}, 4, 5121);
@@ -321,6 +321,13 @@ int main() {
             quantized.add({128, 126, 0, 0, 128, 127, 0, 0, 128, 127, 0, 0}, 4, 5121, true);
         rejects([&] { quantized.result(); }, "quantized skin weights");
         auto bad = base;
+        for (const float value : {-1.f, 1.01f}) {
+            bad = base;
+            bad.primitive()["attributes"]["COLOR_0"] =
+                bad.add({value, 0, .5f, 0, 1, 0, 0, 0, 1}, 3);
+            rejects([&] { (void)bad.result(); }, "COLOR_0 components");
+        }
+        bad = base;
         bad.primitive()["indices"] = bad.add({0, 1, 3}, 1, 5121, false, false);
         rejects([&] { (void)bad.result(); }, "exceeds vertex");
         bad = base;
@@ -340,6 +347,9 @@ int main() {
         rejects([&] { (void)bad.result(); }, "consecutive");
         bad = base;
         bad.primitive()["attributes"]["TEXCOORD_01"] = bad.add({0, 0, 1, 0, 0, 1}, 2);
+        rejects([&] { (void)bad.result(); }, "set index");
+        bad = base;
+        bad.primitive()["attributes"]["TEXCOORD_1000000000"] = bad.add({0, 0, 1, 0, 0, 1}, 2);
         rejects([&] { (void)bad.result(); }, "set index");
         bad = base;
         bad.primitive()["attributes"]["_SHORT"] = bad.add({0, 1}, 1);

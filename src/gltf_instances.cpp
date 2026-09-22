@@ -1,4 +1,5 @@
 #include "gltf_instances.hpp"
+#include "gltf_animation_target.hpp"
 #include "gltf_transform.hpp"
 #include "gltf_validation.hpp"
 #include <algorithm>
@@ -138,14 +139,19 @@ std::unique_ptr<GltfSourceBundle> expand_gltf_instances(const NativeGltfDocument
         for (auto& animation : result->document["animations"]) {
             Json channels = Json::array();
             for (const auto& channel : array(animation, "channels", 100000)) {
-                const auto& target = channel.at("target");
-                const auto found = expanded.find(size_value(target.at("node")));
-                if (target.at("path") == "weights" && found != expanded.end()) {
+                const auto target =
+                    gltf_animation_target(channel.at("target"), source_nodes.size());
+                const auto found = target ? expanded.find(target->node) : expanded.end();
+                if (target && target->path == "weights" && found != expanded.end()) {
                     require(found->second.size() <= 100000 - channels.size(),
                             "expanded animation channels exceed profile");
                     for (auto node : found->second) {
                         auto copy = channel;
-                        copy["target"]["node"] = node;
+                        if (target->pointer)
+                            copy["target"]["extensions"]["KHR_animation_pointer"]["pointer"] =
+                                "/nodes/" + std::to_string(node) + "/weights";
+                        else
+                            copy["target"]["node"] = node;
                         channels.push_back(std::move(copy));
                     }
                 } else {

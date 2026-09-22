@@ -377,3 +377,20 @@ Programmers can set `MeshRenderer::material_variant` through the exact-version
 SDK. Authoring tools can call the shared `model.material_variant` command with a
 placed root entity and variant AssetId (or null for defaults). Its usual scene
 revision, validation and Undo rules apply.
+
+## Animation pointers and import notes
+
+Models may use standard glTF animation channels or `KHR_animation_pointer` channels
+for whole-node translation, rotation, scale and morph weights. They use the same
+clip selection and Play workflow. Pointers that animate materials, cameras, lights,
+visibility, custom metadata or individual vector elements are currently rejected;
+export ordinary node animation or remove those unsupported channels first.
+
+Expand **Import notes** in the model document to see notices from the published
+revision, including optional extensions FORGE does not evaluate. The first notices
+also appear in **Problems** with the asset and source file. An unsupported required
+extension prevents publication and keeps the previous usable model.
+
+New imports reject primary vertex colors outside the glTF [0,1] range. Correct
+those vertex colors in the source tool and reimport; HDR material color factors
+have separate rules and are not narrowed by this check.

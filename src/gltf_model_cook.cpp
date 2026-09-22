@@ -1,5 +1,6 @@
 #include "gltf_model_cook.hpp"
 #include "asset_bytes.hpp"
+#include "gltf_animation_target.hpp"
 #include "gltf_lod.hpp"
 #include "gltf_scene.hpp"
 #include "gltf_surfaces.hpp"
@@ -436,9 +437,11 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         const auto& channels = gltf_detail::array(animation, "channels", channel_budget);
         channel_budget -= channels.size();
         for (const auto& channel : channels) {
-            const auto& target = channel.at("target");
-            const auto at = gltf_detail::size_value(target.at("node"));
-            const auto& path = target.at("path").get_ref<const std::string&>();
+            const auto target = gltf_animation_target(channel.at("target"), nodes.size());
+            if (!target)
+                continue;
+            const auto at = target->node;
+            const auto& path = target->path;
             const unsigned bit = path == "translation" ? 1u
                                  : path == "rotation"  ? 2u
                                  : path == "scale"     ? 4u

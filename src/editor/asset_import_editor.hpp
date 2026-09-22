@@ -29,6 +29,9 @@ class AssetImportEditor {
     std::function<void(SceneDocument&, bool)> draw_extension;
     bool preview_before_settings = false;
     AssetId selected_asset() const { return draft_ ? draft_->ticket.owner : AssetId{}; }
+    std::filesystem::path selected_source() const {
+        return draft_ ? draft_->request.source : std::filesystem::path{};
+    }
     std::uint64_t selection_generation() const { return selection_generation_; }
     bool pending() const { return job_ != 0; }
     const std::string& diagnostic() const { return error_; }

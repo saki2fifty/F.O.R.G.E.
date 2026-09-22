@@ -1,3 +1,4 @@
+#include "gltf_animation_target.hpp"
 #include "gltf_native.hpp"
 #include "gltf_validation.hpp"
 #include <algorithm>
@@ -97,18 +98,14 @@ NativeAnimationClip NativeGltfDocument::animation(std::size_t animation_index) c
         const auto s = size_value(channel.at("sampler"));
         if (s >= admitted.size())
             throw std::runtime_error("glTF animation channel sampler index is invalid");
-        const auto& target = channel.at("target");
-        if (!target.is_object())
-            throw std::runtime_error("glTF animation target must be an object");
-        if (!target.contains("node")) {
+        const auto target = gltf_animation_target(channel.at("target"), nodes.size());
+        if (!target) {
             result.diagnostics.push_back("Core glTF channel without a node target was not bound");
             continue;
         }
         NativeAnimationTrack track;
-        track.node = size_value(target.at("node"));
-        if (track.node >= nodes.size())
-            throw std::runtime_error("glTF animation target node index is invalid");
-        const auto path = target.at("path").get<std::string>();
+        track.node = target->node;
+        const auto& path = target->path;
         track.path = path == "translation" ? NativeAnimationPath::Translation
                      : path == "rotation"  ? NativeAnimationPath::Rotation
                      : path == "scale"     ? NativeAnimationPath::Scale
@@ -137,10 +134,15 @@ NativeAnimationClip NativeGltfDocument::animation(std::size_t animation_index) c
             accessor.normalized &&
             (accessor.componentType == 5120 || accessor.componentType == 5121 ||
              accessor.componentType == 5122 || accessor.componentType == 5123);
+        const bool pointer_numeric =
+            target->pointer && (accessor.componentType == 5120 || accessor.componentType == 5121 ||
+                                accessor.componentType == 5122 || accessor.componentType == 5123 ||
+                                accessor.componentType == 5125);
         if (accessor.type != expected_shape ||
-            (accessor.componentType != 5126 && (!(track.path == NativeAnimationPath::Weights ||
-                                                  track.path == NativeAnimationPath::Rotation) ||
-                                                !normalized_integer)))
+            (!pointer_numeric && accessor.componentType != 5126 &&
+             (!(track.path == NativeAnimationPath::Weights ||
+                track.path == NativeAnimationPath::Rotation) ||
+              !normalized_integer)))
             throw std::runtime_error("glTF animation output format does not match target");
         if (accessor.bufferView >= 0) {
             const auto& view = native.bufferViews.at(accessor.bufferView);

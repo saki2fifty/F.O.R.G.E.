@@ -35,6 +35,6 @@ reserved UUIDs and immutable engine recipes; no project source file is required.
 A format being accepted by an authoring converter does not authorize runtime source
 decoding, compiler loading or a second object hierarchy.
 
-See [glTF admission](gltf-admission.md), [model import](model-import.md),
+See the [complete core/extension matrix](gltf-features.md), [glTF admission](gltf-admission.md), [model import](model-import.md),
 [texture formats and exact limits](texture-assets.md), [material assets](material-assets.md)
 and [shader assets](shader-assets.md) for the detailed source/ownership contracts.

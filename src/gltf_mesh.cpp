@@ -30,8 +30,8 @@ std::pair<Semantic, unsigned> semantic(const std::string& name) {
         const auto suffix = std::string_view(name).substr(std::char_traits<char>::length(prefix));
         unsigned index = 0;
         const auto parsed = std::from_chars(suffix.data(), suffix.data() + suffix.size(), index);
-        if (suffix.empty() || (suffix.size() > 1 && suffix[0] == '0') || parsed.ec != std::errc{} ||
-            parsed.ptr != suffix.data() + suffix.size())
+        if (suffix.empty() || suffix.size() > 9 || (suffix.size() > 1 && suffix[0] == '0') ||
+            parsed.ec != std::errc{} || parsed.ptr != suffix.data() + suffix.size())
             throw std::runtime_error("Invalid glTF attribute set index: " + name);
         return {kind, index};
     }
@@ -196,8 +196,9 @@ NativeMeshPrimitive NativeGltfDocument::primitive(std::size_t mesh_index,
                     throw std::runtime_error("glTF tangent handedness must be +1 or -1");
             }
         } else if (kind == Semantic::Color && name == "COLOR_0") {
-            for (auto& value : values.values)
-                value = std::clamp(value, 0.f, 1.f);
+            for (const auto value : values.values)
+                if (value < 0 || value > 1)
+                    throw std::runtime_error("glTF COLOR_0 components must be in [0,1]");
         } else if (kind == Semantic::Weights) {
             for (auto value : values.values)
                 if (value < 0)

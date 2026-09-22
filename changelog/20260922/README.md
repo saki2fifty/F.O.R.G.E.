@@ -132,3 +132,23 @@
 - Expanded strict model recipe checks pass under the measured 240-second sanitizer harness budget (151.16 seconds). Normal timeout and production limits are unchanged.
 
 - Added a permanent source/cooked-format matrix with concrete importers, admitted features, limits, dependencies and executable fixtures.
+
+## glTF animation pointers and current specification audit
+
+- Added whole-node translation/rotation/scale/morph-weight targets for KHR_animation_pointer, using the existing typed animation tracks, canonical official Ozz conversion and runtime owner. Core/pointer equivalents preserve clip/node semantic identity. Instancing weight expansion and LOD restrictions share the same target resolver.
+- Added malformed/default/numeric/duplicate target checks and actual converter/runtime/publication regressions. Other property domains and individual vector lanes reject clearly; no generic property-animation evaluator or dependency patch was introduced.
+- Unsupported optional extension notices now survive model publication and appear in the central model document's Import notes and asset-addressed Problems. Required unsupported extensions still reject.
+- Rechecked the official registry at836573be93954f26827e3dc16476f8620209a1f2. Its ratified list is unchanged; its new core geometry wording requires primary COLOR_0 values in[0,1] and indexed semantic suffixes of at most nine digits. New imports enforce those rules, preserve additional color/custom streams, and leave previously published artifacts unchanged. No dependency pin changed.
+- Initial pointer/model tests passed4/5; the official-converter verification fixture omitted the required extension allowlist and was corrected. Expanded validation remains in progress. Fallback strict ASan/UBSan/LSan checks passed3/3 (22.44 seconds), with no suppression.
+- Added a renderer feature matrix with concrete consumers, executable coverage and explicit backend/algorithm limits; final native acceptance remains separate.
+
+- Added the complete glTF core/extension matrix: all27 current ratified extensions, required/optional behavior, implemented subsets, technical dispositions, executable coverage, vendor compatibility and every current draft/proposal registry entry.
+
+## SDK and deeply nested package corrections
+
+- Included engine texture identities in the installed SDK and its exact-version fingerprint. The prior CI SDK consumer failed because this transitive public header was missing.
+- Preserved the extended Windows path form inside the private derived-cache I/O owner, including directory creation, enumeration, quarantine and maintenance. Logical locators and artifact hashes remain unchanged. Native CI reproduced the failure with a package destination longer than290 characters; a new cache fixture also exercises publication, readback, corruption, quarantine and cleanup there.
+- Moved unsupported optional-extension notices into the shared model recipe so direct tooling and worker execution produce identical metadata. The original direct-recipe failure is retained in validation records; a corrected rerun is pending.
+
+- Corrected local regression bundle passes10/10 (132.66 seconds), including actual worker import, direct recipes, the official sample corpus, animation conversion and deeply nested cache/package operations. Actual ImGui model document tests pass, including removal of obsolete warnings after successful reimport. Manual3/3, full formatting and adapted editor syntax pass. Strict sanitizer and native Windows/SDK runs remain in progress; this is an internal checkpoint, not a numbered delivery.
+- Added real Windows Import notes captures at100%,150% and200%; native execution/review remains pending.

@@ -50,6 +50,9 @@ struct EditorFixture {
         case 67:
         case 68:
         case 69:
+        case 73:
+        case 74:
+        case 75:
             return "###Model import";
         case 44:
         case 45:
@@ -181,7 +184,10 @@ struct EditorFixture {
                                "model-variant-placement-200",
                                "model-variant-inspector",
                                "model-variant-inspector-150",
-                               "model-variant-inspector-200"};
+                               "model-variant-inspector-200",
+                               "model-import-notes",
+                               "model-import-notes-150",
+                               "model-import-notes-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

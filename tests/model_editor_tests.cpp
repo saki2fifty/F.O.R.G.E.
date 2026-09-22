@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
         check_content_refresh(root);
         const auto path = root / "Assets/model.gltf";
         Json source{{"asset", {{"version", "2.0"}}},
+                    {"extensionsUsed", {"VENDOR_optional_fixture"}},
                     {"scene", 0},
                     {"scenes", Json::array({{{"nodes", {0, 1}}}})},
                     {"nodes", Json::array({{{"name", "Duplicate"}}, {{"name", "Duplicate"}}})}};
@@ -122,7 +123,16 @@ int main(int argc, char** argv) {
         wait([&] { return editor.placement_ready(); });
         require(context.task.id() == "model_import", "Model document did not own Save focus");
         const auto owner = editor.selected_asset();
+        require(std::any_of(context.problems.items().begin(), context.problems.items().end(),
+                            [&](const auto& note) {
+                                return note.asset == owner && note.severity == "Warning" &&
+                                       note.source == "Assets/model.gltf" &&
+                                       note.text.find("VENDOR_optional_fixture") !=
+                                           std::string::npos;
+                            }),
+                "Published optional-extension warning lacks visible asset/source context");
         const auto baseline = read_json(root / "forge.assets.json");
+        source.erase("extensionsUsed");
         source["asset"]["generator"] = "revision2";
         save(path, source);
         editor.request_save();
@@ -172,6 +182,13 @@ int main(int argc, char** argv) {
         editor.placement_allowed = [] { return true; };
         require(!editor.dirty() && editor.selected_asset() == owner,
                 "Reviewed model reimport lost root identity");
+        require(std::none_of(context.problems.items().begin(), context.problems.items().end(),
+                             [&](const auto& note) {
+                                 return note.asset == owner &&
+                                        note.text.find("VENDOR_optional_fixture") !=
+                                            std::string::npos;
+                             }),
+                "Successful clean model revision retained an obsolete import warning");
         const auto before = scene.document();
         asset_detail::ModelPlacementOptions options;
         options.name = "Placed signed model";

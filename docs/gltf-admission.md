@@ -10,7 +10,16 @@ behavior is in [model import](model-import.md), and device feature limits are in
 
 The Khronos glTF2 specification at
 [`c18432787e6d545a1218c1926ccdcfaffd4c116b`](https://github.com/KhronosGroup/glTF/blob/c18432787e6d545a1218c1926ccdcfaffd4c116b/specification/2.0/Specification.adoc)
-defines the container, URI, buffer-view and accessor rules used here. Native parsing
+is the initial container, URI, buffer-view and accessor research baseline. The
+current core geometry clarification at
+[`836573be93954f26827e3dc16476f8620209a1f2`](https://github.com/KhronosGroup/glTF/commit/836573be93954f26827e3dc16476f8620209a1f2),
+verified2026-09-22, additionally bounds indexed semantic suffixes to nine digits
+and requires COLOR_0 source values in [0,1]. This replaces the earlier client-clamp
+wording: new imports reject invalid primary colors rather than changing them.
+Existing published assets are not rewritten. Other color/custom streams retain
+their own semantics. Custom uint32 and unsupported extension-qualified vertex
+attributes remain outside the current admitted mesh profile, even where the
+latest specification permits an extension to define them. Native parsing
 continues to target retained Diligent Tools
 `7d1139064f36b14f911e5bca095be9c9dcfc5112`, including its vendored TinyGLTF2.8.10;
 existing dependency pins and vendor source remain unchanged. Meshoptimizer1.2 is
@@ -118,7 +127,7 @@ Indexed byte/short/int and nonindexed sources are supported. Index references,
 forbidden source restart values, attribute counts, normalized directions, tangent
 signs, semantic formats and vertex/index view roles are checked. Bounds are computed
 from positions; disagreement with declared source bounds produces a diagnostic.
-Core COLOR_0 is clamped to its required range; additional color streams are retained.
+Core COLOR_0 must be within [0,1]; out-of-range input is rejected. Additional color streams are retained.
 
 Points, line lists and triangle lists retain their type. Line loops/strips become
 line lists, and triangle strips/fans become triangle lists with winding preserved.

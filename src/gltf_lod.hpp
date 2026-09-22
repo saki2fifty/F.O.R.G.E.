@@ -1,4 +1,5 @@
 #pragma once
+#include "gltf_animation_target.hpp"
 #include "gltf_native.hpp"
 #include "gltf_scene.hpp"
 #include "gltf_validation.hpp"
@@ -40,9 +41,9 @@ inline std::vector<GltfMeshLodGroup> gltf_mesh_lods(const NativeGltfDocument& na
     std::set<std::size_t> animated;
     for (const auto& animation : doc.value("animations", Json::array()))
         for (const auto& channel : animation.at("channels")) {
-            const auto& target = channel.at("target");
-            if (target.contains("node"))
-                animated.insert(gltf_detail::size_value(target.at("node")));
+            const auto target = gltf_animation_target(channel.at("target"), nodes.size());
+            if (target)
+                animated.insert(target->node);
         }
     std::vector<GltfMeshLodGroup> result;
     for (std::size_t i = 0; i < nodes.size(); ++i) {

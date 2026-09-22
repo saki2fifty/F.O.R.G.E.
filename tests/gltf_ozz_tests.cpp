@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "gltf_animation_target.hpp"
 #include "gltf_model_cook.hpp"
 #include "gltf_ozz_transport.hpp"
 #include "import_process.hpp"
@@ -29,7 +30,7 @@ int main(int argc, char** argv) {
         require(argc == 3 || argc == 4, "Need mode and directory");
         const std::filesystem::path root = argv[2];
         if (std::string_view(argv[1]) == "prepare") {
-            auto captured = capture_gltf_source(root, "input.gltf");
+            auto captured = capture_gltf_source(root, "input.gltf", {"KHR_animation_pointer"});
             const auto original = captured.document;
             NativeGltfDocument source(std::move(captured));
             auto prepared = prepare_gltf_ozz_transport(source, {30, false, 1.f});
@@ -37,9 +38,13 @@ int main(int argc, char** argv) {
             require(prepared.metadata.at("version") == 2, "Missing channel-intent companion");
             for (std::size_t c = 0; c < original.value("animations", Json::array()).size(); ++c) {
                 auto expected_channels = Json::array();
-                for (const auto& channel : original.at("animations")[c].at("channels"))
-                    if (channel.at("target").at("path") != "weights")
-                        expected_channels.push_back(channel.at("target"));
+                for (const auto& channel : original.at("animations")[c].at("channels")) {
+                    const auto target =
+                        gltf_animation_target(channel.at("target"), original.at("nodes").size());
+                    if (target && target->path != "weights")
+                        expected_channels.push_back(
+                            {{"node", target->node}, {"path", target->path}});
+                }
                 auto actual_channels = prepared.metadata.at("clips")[c].at("transform_channels");
                 std::sort(expected_channels.begin(), expected_channels.end());
                 std::sort(actual_channels.begin(), actual_channels.end());
@@ -197,8 +202,8 @@ int main(int argc, char** argv) {
                 reject(bad_skin, files);
             }
             // Whole-family binding: geometry alone is deliberately unpublishable.
-            const auto geometry = cook_gltf_geometry_bundle(
-                NativeGltfDocument(capture_gltf_source(root, "input.gltf")));
+            const auto geometry = cook_gltf_geometry_bundle(NativeGltfDocument(
+                capture_gltf_source(root, "input.gltf", {"KHR_animation_pointer"})));
             bool incomplete = false;
             try {
                 (void)validate_model_bundle(geometry);

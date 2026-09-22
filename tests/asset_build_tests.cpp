@@ -1,10 +1,12 @@
 #include "asset_bytes.hpp"
+#include "native_io_path.hpp"
 #include <array>
 #include <chrono>
 #include <forge/asset_build.hpp>
 #include <forge/assets.hpp>
 #include <forge/derived_cache.hpp>
 #include <forge/scene.hpp>
+#include <fstream>
 #include <future>
 #include <iostream>
 #include <limits>
@@ -87,7 +89,7 @@ int main(int argc, char** argv) {
             std::filesystem::path path;
             ~Cleanup() {
                 std::error_code ec;
-                std::filesystem::remove_all(path, ec);
+                std::filesystem::remove_all(asset_detail::native_io_path(path), ec);
             }
         } cleanup{root};
         const auto a = AssetId::generate(), b = AssetId::generate(), c = AssetId::generate();
@@ -357,6 +359,31 @@ int main(int argc, char** argv) {
                 "Prune evicted selected artifact");
         require(cache.prune(0, {}) > 0 && !cache.find(build, admission), "Cache clear ineffective");
         admission(artifact); // In-use owned bytes survive disk eviction.
+        auto deep = root;
+        while (deep.native().size() < 290)
+            deep /= "long-cache-folder";
+        std::filesystem::create_directories(asset_detail::native_io_path(deep));
+        DerivedDataCache long_cache(deep, {1024, 2048, 4});
+        long_cache.publish(build, {{"data.bin", bytes("validated")}}, admission);
+        require(long_cache.find(build, admission)->manifest == artifact.manifest &&
+                    long_cache.load_selected(build.key(), admission).manifest ==
+                        artifact.manifest &&
+                    long_cache.keys() == std::set{build.key()} &&
+                    long_cache.statistics().entries == 1 &&
+                    long_cache.verify_storage().at(0).at("integrity_ok") == true,
+                "Deep cache path changed identity or failed read/inspection");
+        {
+            std::ofstream out(asset_detail::native_io_path(deep / ".forge/cache/derived" /
+                                                           build.key() / "data.bin"));
+            require(bool(out << "corrupt") && bool(out.flush()), "Deep fixture write failed");
+        }
+        require(!long_cache.find(build, admission) && long_cache.statistics().quarantined == 1,
+                "Deep corrupt cache was not quarantined");
+        long_cache.publish(build, {{"data.bin", bytes("validated")}}, admission);
+        require(long_cache.prune(0, {build.key()}) == 0 && long_cache.erase({build.key()}) > 0 &&
+                    long_cache.keys().empty() &&
+                    long_cache.cleanup_orphans(true).at(0).at("removed") == true,
+                "Deep cache maintenance failed or ignored protected identity");
         const auto retained_graph = catalog.dependency_graph().document();
         const auto nested = std::string(70, '[') + "0" + std::string(70, ']');
         atomic_write(index, nested);
