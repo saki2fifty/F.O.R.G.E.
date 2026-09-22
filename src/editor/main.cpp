@@ -2135,10 +2135,16 @@ int main(int argc, char** argv) {
                         perform(save_preferences);
                     if (ImGui::BeginMenu("Assets")) {
                         FORGE_UI_PROBE("menu:Assets");
-                        for (const auto* id :
-                             {"asset.import", "asset.open", "asset.place", "asset.reimport",
-                              "asset.move", "asset.duplicate", "asset.delete", "asset.cache"})
-                            actions.item(id);
+                        for (const auto& [id, label] :
+                             {std::pair{"asset.import", "Import files..."},
+                              {"asset.open", "Open selected"},
+                              {"asset.place", "Place selected in Scene"},
+                              {"asset.reimport", "Reimport selected"},
+                              {"asset.move", "Rename / Move source..."},
+                              {"asset.duplicate", "Duplicate source..."},
+                              {"asset.delete", "Delete source..."},
+                              {"asset.cache", "Derived cache..."}})
+                            actions.item(id, label);
                         ImGui::EndMenu();
                     }
                     FORGE_UI_PROBE("menu:Assets");

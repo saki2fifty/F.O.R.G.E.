@@ -60,7 +60,7 @@ try {
      if (!$responsive) { throw "Editor did not become responsive: $name" }
      $startup = $timer.Elapsed.TotalMilliseconds
      if (![ForgeWindowProbe]::SetWindowPos($process.MainWindowHandle,[IntPtr]::Zero,20,20,1440,900,0x0040)) { throw 'Cannot set the matched benchmark window size' }
-     Start-Sleep -Seconds 3
+     Start-Sleep -Seconds 10
      $idle = @()
      for ($sample=0; $sample -lt 5; ++$sample) {
       $process.Refresh(); $before=$process.TotalProcessorTime.TotalMilliseconds
@@ -77,7 +77,7 @@ try {
    }
   }
  }
- @{scope='Process launch to responsive named editor window; NOT first GPU frame. Idle CPU/memory after 3s settling, five 1s samples. Same hosted runner; OS/driver caches uncontrolled.';
+ @{scope='Process launch to responsive named editor window; NOT first GPU frame. Idle CPU/memory after 10s settling, five 1s samples. Same hosted runner; OS/driver caches uncontrolled.';
    baseline='Rebuilt accepted source a98be9a672394d3d91c2b9067331d0252f9b4313 with revision-local WARP device adapter; not shipped Build63 binary bytes';source=$env:FORGE_SOURCE_COMMIT;
    window_outer=@(1440,900);scale=1;vsync=$false;preview_lighting=$false;cpu_count=[Environment]::ProcessorCount;
    os=[Environment]::OSVersion.VersionString;image=$env:ImageVersion;samples=$samples} | ConvertTo-Json -Depth 12 | Set-Content "$Output/measurements.json"

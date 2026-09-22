@@ -161,3 +161,8 @@ Source-audit captures and the CTest log upload immediately after native tests,
 before the separate benchmark build and cache upload. This permits image review
 while those later steps run. An available artifact is evidence to inspect; it is
 not a successful-run claim. Check the test log and exact source identity.
+
+The idle comparison waits ten seconds after window responsiveness before sampling.
+The native WARP trace showed first-use GPU work stalled across several500ms frame
+waits, exceeding the former three-second settling period. Retain older three-second
+measurements as warm-up-sensitive observations, not steady idle evidence.

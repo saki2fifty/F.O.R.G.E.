@@ -258,9 +258,15 @@ class SpatialHelpers {
                                                                marker.selectable};
 #endif
             if (active && marker.offset >= 0)
-                draw->AddText({p.x + r + 4, p.y - r}, color, marker.name.c_str());
-            if (active && !marker.note.empty() &&
+                draw->AddText({p.x + r + 4, p.y - r - ImGui::GetTextLineHeight() - 4}, color,
+                              marker.name.c_str());
+            if (active && !marker.note.empty() && area.x > 24 &&
                 note_y + 2 * ImGui::GetTextLineHeight() + 20 < origin.y + area.y) {
+                const auto text_size = ImGui::CalcTextSize(marker.note.c_str());
+                draw->AddRectFilled(
+                    {origin.x + 6, note_y - 3},
+                    {origin.x + std::min(area.x - 6, text_size.x + 14), note_y + text_size.y + 3},
+                    IM_COL32(14, 20, 28, 230), 3 * interface_scale);
                 draw->AddText({origin.x + 10, note_y}, color, marker.note.c_str());
                 note_y += ImGui::GetTextLineHeightWithSpacing();
             }

@@ -314,3 +314,7 @@ The final review found the migration Rules label trailing beyond its full-width 
 - The native fixture now records Diligent fence completion after a frame-wait error, plus recovery and Present duration. Signals use the pinned non-flushing Diligent API; no forced wait, backend-specific production synchronization, or diagnostic suppression is introduced. This is diagnostic evidence, not a root-cause claim.
 
 - Reviewing the actual960×640/200% capture exposed overlapping Scene text in a shallow viewport. The gesture footer and helper captions now yield space when too short; navigation and contextual help remain available. Normal-size Content and native authored/preview-light captures were opened and reviewed.
+
+- Native96b24db acceptance passed72/72 checks and all115 real-input steps. Opened camera/light picking, Assets, cache Statistics/Verify, preview-light toggles and default Content150 captures. Shortened the Assets menu labels while keeping palette categories; raised helper names above icons and added a readable backing to guide captions after the captures exposed line/label overlap.
+
+- GPU fence traces show incomplete queued work during the hosted WARP timeout bursts and subsequent completion/recovery. They do not by themselves identify why that work is slow. The editor idle benchmark now settles for ten seconds before sampling, because the measured first-use backlog exceeded three seconds; prior short-settling samples remain explicitly warm-up-sensitive.

@@ -158,3 +158,6 @@ follow the same current transform preview as the rendered scene during dragging.
 Very short Scene panels omit the bottom gesture reminder and guide captions when
 those would overlap. Enlarge the panel to restore them; contextual control and
 helper tooltips remain available when Tooltips is enabled.
+
+Selected helper names sit above their icons. Guide captions use a dark background
+so grid lines and selection guides do not obscure their explanation.

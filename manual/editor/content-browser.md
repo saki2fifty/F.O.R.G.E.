@@ -242,3 +242,7 @@ clear disposable derived data. Verification and clearing wait for imports to dra
 Clearing requires a second click in its review popup, leaves source assets untouched,
 and requires Reimport to rebuild artifacts. Already loaded resources can remain
 visible while new loads report missing data. This window opens on demand.
+
+The Assets menu uses short operation names; the Command Palette keeps the
+**Assets /** category prefix for searching. Both routes use the same actions and
+availability rules.
