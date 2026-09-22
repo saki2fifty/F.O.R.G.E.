@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 // Compiled only into the automated editor fixture executable, never the shipped editor.
 // Native D3D declarations must precede the Diligent command queue interface.
 #include <d3d12.h>
@@ -39,6 +40,7 @@ struct EditorFixture {
         std::filesystem::create_directories(config);
     }
     ~EditorFixture() {
+        active_wait_probe = nullptr;
         std::error_code ec;
         std::filesystem::remove_all(project, ec);
     }
@@ -142,16 +144,26 @@ struct EditorFixture {
     }
     inline static std::atomic<unsigned long long> diagnostic_frame{0}, diagnostic_flags{0};
     inline static std::atomic<int> diagnostic_phase{0};
-    inline static std::atomic<unsigned long long> wait_error_frame{0};
+    inline static std::atomic<unsigned long long> wait_error_frame{0}, unexpected_errors{0};
+    inline static thread_local Diligent::IFence* active_wait_probe = nullptr;
+    inline static std::atomic<unsigned long long> wait_completed{0};
     Diligent::RefCntAutoPtr<Diligent::IFence> frame_fence;
-    unsigned long long first_stalled_fence = 0;
+    unsigned long long first_stalled_fence = 0, submitted_frame = 0, backlog_waits = 0,
+                       unexplained_waits = 0;
     Uint64 present_started = 0;
     static void DILIGENT_CALL_TYPE message(Diligent::DEBUG_MESSAGE_SEVERITY severity,
                                            const char* text, const char* function, const char* file,
                                            int line) {
         if (severity == Diligent::DEBUG_MESSAGE_SEVERITY_ERROR && text &&
-            std::strstr(text, "frame waitable object"))
+            std::strstr(text, "frame waitable object")) {
+            // Pinned WaitForFrame invokes this callback synchronously inside
+            // Present. A thread-local borrow is valid only across that call;
+            // callbacks from another thread cannot borrow this frame's fence.
+            wait_completed = active_wait_probe ? active_wait_probe->GetCompletedValue()
+                                               : std::numeric_limits<unsigned long long>::max();
             wait_error_frame = diagnostic_frame.load();
+        } else if (severity >= Diligent::DEBUG_MESSAGE_SEVERITY_ERROR)
+            ++unexpected_errors;
         std::fprintf(stderr,
                      "FORGE graphics diagnostic t=%llu frame=%llu phase=%d flags=%llu severity=%d "
                      "%s (%s:%d %s)\n",
@@ -177,24 +189,47 @@ struct EditorFixture {
             // Exact pinned EnqueueSignal does not flush or wait. Present flushes
             // this marker with its normal commands; the shipped editor is unchanged.
             context->EnqueueSignal(frame_fence, frame);
+            submitted_frame = frame;
+            active_wait_probe = frame_fence.RawPtr();
             present_started = SDL_GetTicks();
         } else if (phase == 2 && frame_fence) {
+            active_wait_probe = nullptr;
             const auto completed = frame_fence->GetCompletedValue();
             const bool timeout = wait_error_frame.load() == frame;
+            if (timeout) {
+                if (wait_completed.load() < frame)
+                    ++backlog_waits;
+                else
+                    ++unexplained_waits;
+            }
             const bool recovered = first_stalled_fence && completed >= first_stalled_fence;
             if (timeout || recovered) {
-                std::fprintf(stderr,
-                             "FORGE GPU completion frame=%llu completed=%llu present_ms=%llu "
-                             "wait_error=%d previous_stall_completed=%d\n",
-                             frame, static_cast<unsigned long long>(completed),
-                             static_cast<unsigned long long>(SDL_GetTicks() - present_started),
-                             int(timeout), int(recovered));
+                std::fprintf(
+                    stderr,
+                    "FORGE GPU completion frame=%llu completed=%llu at_error=%llu present_ms=%llu "
+                    "wait_error=%d previous_stall_completed=%d\n",
+                    frame, static_cast<unsigned long long>(completed), wait_completed.load(),
+                    static_cast<unsigned long long>(SDL_GetTicks() - present_started), int(timeout),
+                    int(recovered));
                 if (!first_stalled_fence && timeout)
                     first_stalled_fence = frame;
                 if (recovered && !timeout)
                     first_stalled_fence = 0;
             }
         }
+    }
+    // Called only after the normal final Flush/WaitForIdle. Keep all raw messages;
+    // only a wait observed with unfinished work AND full later completion is classified.
+    void validate_graphics() const {
+        const auto completed = frame_fence ? frame_fence->GetCompletedValue() : 0;
+        std::fprintf(stderr,
+                     "FORGE graphics acceptance backlog_waits=%llu unexplained_waits=%llu "
+                     "unexpected_errors=%llu submitted=%llu completed=%llu\n",
+                     backlog_waits, unexplained_waits, unexpected_errors.load(), submitted_frame,
+                     static_cast<unsigned long long>(completed));
+        if (unexpected_errors.load() || unexplained_waits || completed != submitted_frame)
+            throw std::runtime_error("Unclassified graphics error or incomplete GPU work; inspect "
+                                     "the retained native diagnostic trace");
     }
     void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
                  Diligent::ITextureView* view, bool complete = true,

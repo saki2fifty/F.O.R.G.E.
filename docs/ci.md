@@ -166,3 +166,9 @@ The idle comparison waits ten seconds after window responsiveness before samplin
 The native WARP trace showed first-use GPU work stalled across several500ms frame
 waits, exceeding the former three-second settling period. Retain older three-second
 measurements as warm-up-sensitive observations, not steady idle evidence.
+
+Native fixture graphics acceptance records unfinished work at a frame-wait timeout
+and verifies full completion after the normal shutdown drain. Other graphics
+errors and unclassified waits fail the fixture. Raw diagnostics remain visible;
+see [backend limits](render-backends.md#hosted-warp-frame-wait-diagnostics) and
+[source-attributed performance evidence](editor-performance.md).

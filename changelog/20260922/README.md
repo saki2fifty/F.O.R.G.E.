@@ -318,3 +318,7 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Native96b24db acceptance passed72/72 checks and all115 real-input steps. Opened camera/light picking, Assets, cache Statistics/Verify, preview-light toggles and default Content150 captures. Shortened the Assets menu labels while keeping palette categories; raised helper names above icons and added a readable backing to guide captions after the captures exposed line/label overlap.
 
 - GPU fence traces show incomplete queued work during the hosted WARP timeout bursts and subsequent completion/recovery. They do not by themselves identify why that work is slow. The editor idle benchmark now settles for ten seconds before sampling, because the measured first-use backlog exceeded three seconds; prior short-settling samples remain explicitly warm-up-sensitive.
+
+- Native editor acceptance now checks the retained Diligent diagnostics: a frame-wait overrun is classified only when the probe observes unfinished GPU work and the normal shutdown drain later completes all submitted work. Unexplained waits, other graphics errors or incomplete final work fail the fixture. Raw messages remain visible; no production wait/timeout change is made.
+
+- Recorded the controlled startup/idle comparison and shader compilation/realization timings with source IDs, workloads, raw-run links and limits. Documented recovered hosted-WARP backlog separately from correctness claims; the matched legacy-cube workload is explicitly not the new PBR mesh recipe.

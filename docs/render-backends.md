@@ -128,3 +128,40 @@ ctest --test-dir <build-dir> -R '^vulkan_material_binding$' --output-on-failure
 No window, ImGui host or source importer executes inside the probe's draw path.
 Unsupported devices fail with diagnostics; the test does not silently skip a
 missing Vulkan driver or compiler.
+
+## Hosted WARP frame-wait diagnostics
+
+The exact DiligentCore revision
+`744f079f61cdbda15d371383682418fc927e4a61` waits500ms in
+`SwapChainD3DBase::WaitForFrame`. Its D3D12 `Present` flushes normal commands before
+that wait. Any timeout logs an error; the public swap-chain API does not expose a
+replacement timeout. FORGE does not patch, suppress or reinterpret that message
+as successful presentation.
+
+The96b24db native run35777476740 recorded first-use/resource-transition bursts in
+the mesh editor workflow. A Diligent completion fence remained at239 while frame
+waits242–248 took500–577ms; by frame250 it reached250. Another sequence remained
+at62 through waits65–71 and subsequently advanced. All72 native assertions and
+115 input steps passed. These observations establish unfinished GPU-queue work
+followed by recovery, not the internal reason the work was slow. Window flags
+showed focus and no minimization; SDL's Windows implementation does not provide
+an occlusion flag sufficient to rule out every presentation condition.
+
+The separate matched empty/legacy-primitive comparison had no such diagnostics.
+WARP uses CPU execution, deferred rendering and runtime code generation according
+to [Microsoft's WARP architecture guide](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/directx-warp#warp-architecture-and-performance).
+Cold driver compilation or software workload cost is therefore plausible, but
+**not directly profiled or proven** by a completion fence. This is not evidence
+of the same delay on a physical GPU. See [measurement scope](editor-performance.md).
+
+The fixture uses only Diligent `CreateFence`, non-flushing `EnqueueSignal` and
+`GetCompletedValue`. It records completion at the synchronous timeout callback,
+after Present, and after the normal final drain. Its acceptance rule classifies a
+wait only if unfinished work was observed and every submitted value later
+completed. Unexplained waits, other graphics errors, or incomplete final work
+fail the fixture. All raw diagnostics and classified counts remain in the log.
+This check does not grant a general graphics-error exception or suppress messages.
+
+The shipped editor adds no forced GPU wait or backend-specific synchronization.
+The observed hosted-software delay remains a documented performance limitation;
+physical-GPU behavior and the exact driver-side cost are not established here.

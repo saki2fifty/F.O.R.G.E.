@@ -3450,6 +3450,9 @@ int main(int argc, char** argv) {
             ImGui::SaveIniSettingsToDisk(ini.c_str());
         context->Flush();
         context->WaitForIdle();
+#ifdef FORGE_UI_FIXTURE
+        fixture.validate_graphics();
+#endif
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
 #ifndef FORGE_UI_FIXTURE

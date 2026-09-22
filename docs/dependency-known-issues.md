@@ -117,3 +117,13 @@ use that same rule. Named native transport still validates storage bounds before
 assignment. No dependency patch or version change is made. Regression cases cover
 invalid unsigned defaults, direct scene edits and prefab publication that must not
 be mistaken for no-ops or reach a durable writer.
+
+## Hosted Diligent/WARP wait overruns
+
+Verified2026-09-22 against DiligentCore744f079f. The500ms frame-wait diagnostic
+occurs during observed transient GPU backlog in the native mesh workflow and later
+recovers. This is an observed software-backend limitation, not a proven dependency
+correctness defect. The [backend record](render-backends.md#hosted-warp-frame-wait-diagnostics)
+separates measured fence values, plausible causes, and the fixture's strict
+classification boundary. Raw messages remain visible; no pin, production timeout,
+or sanitizer exception changes.
