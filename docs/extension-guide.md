@@ -36,6 +36,11 @@ For example, a project module entry is:
 
 Use `combined_gameplay.so` on Linux. Place this object in the project's `modules` array. Module paths stay inside the project. The installed guide and contract inventory are self-contained; full engine/subsystem documentation is available in the FORGE source checkout.
 
+Engine texture identities use the value-only `forge/texture_dimension.hpp`. They do
+not expose the cooked texture loader. CMake checks that every public FORGE include
+reachable from the installed header list is also installed. The relocated SDK
+consumer independently verifies that boundary and the exact-version fingerprint.
+
 ## Small combined example
 
 `combined.cpp` registers an ordinary Flecs State component and a fixed-phase/tag system. The system reads a mapped ActionId, updates that component, queries physics/navigation when present, polls an allowed UI action, and publishes a copied UI value. It records diagnostics and CPU timing through the host. Scene entities still own authored state; the UI is a copy, not another authority. The example's State is transient and deliberately has no invented save/recovery serializer.

@@ -11,6 +11,7 @@ void require(bool value, const char* message) {
         throw std::runtime_error(message);
 }
 } // namespace
+#include "worker_stage_tests.hpp"
 int main(int argc, char** argv) {
     try {
         if (argc != 3)
@@ -38,6 +39,7 @@ int main(int argc, char** argv) {
         limits.cpu_seconds = 2;
         limits.files = 8;
         limits.cancellation_grace_ms = 300;
+        check_worker_stage_inheritance(executable, root, limits);
         unsigned sequence = 0;
         auto run = [&](const char* mode, bool reject, std::stop_token cancel = {}) {
             const auto staging = root / std::to_string(++sequence);

@@ -1,6 +1,29 @@
 # Importer registry and settings
 
-**Phase7 infrastructure; production importer/editor integration is in progress.**
+**Shared import registry used by the Phase7 asset tools and editor documents.**
+
+## Import staging ownership and recovery
+
+Each shared import and canonical model-animation conversion owns a unique
+`.forge/jobs/<UUID>` folder. Its private `owner.lock` contains a bounded version1
+`forge.import-job` marker with the job UUID and recognized layout. This is temporary
+storage ownership, not an asset, session or runtime identity.
+
+The supervisor keeps the OS lease through preparation and joined worker completion.
+Windows passes only this inheritable handle through `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`;
+POSIX keeps the designated locked open file description across exec. A child retains
+ownership if the parent closes its copy. Existing process limits and parent-death
+termination remain in place. Normal completion removes the owned stage.
+
+After interruption, writer-owned `cache-cleanup` or `cache-clear-all` attempts exclusive
+ownership and validates the known layout before deletion. Import inputs must match the
+bounded request manifest; canonical conversion admits only its expected source/config,
+skeleton and clip files. Partial preparation is eligible when its marker and remaining
+contents are recognizable. Live jobs, unknown versions/layouts, legacy unmarked jobs,
+redirects, hard links and excessive or unfamiliar contents remain with diagnostics.
+No age or PID heuristic authorizes deletion. This protects cooperating FORGE owners;
+it is not a hostile filesystem race sandbox. Authored sources and catalog selections
+are unchanged, and scene Undo does not own this maintenance operation.
 Model, Texture, Material, Shader and Audio providers use this shared service and
 central editor documents; the complete Phase7 delivery remains in progress. Native model preparation is described separately in
 [glTF admission](gltf-admission.md). The [asset foundation](asset-foundation.md)

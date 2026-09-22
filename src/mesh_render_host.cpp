@@ -400,7 +400,10 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             report(mesh.entity, entry.pose_error + " (previous complete pose retained)");
         if (!entry.error.empty())
             report(mesh.entity,
-                   entry.error + (entry.ready ? " (previous complete draw retained)" : ""));
+                   entry.error + (entry.ready ? entry.fallback
+                                                    ? " (fallback draw active)"
+                                                    : " (previous complete draw retained)"
+                                              : ""));
         if (entry.ready)
             for (const auto& key : entry.ready->unresolved_slots())
                 report(mesh.entity, "Authored material slot is absent from this revision: " + key);

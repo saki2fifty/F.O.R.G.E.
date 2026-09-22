@@ -16,6 +16,7 @@ inline void test_diagnostic_source() {
     write("Shaders/lib/common.hlsli", "first line\nsecond line\n");
     ui::Problem problem{"shader",
                         "Error",
+                        "Import worker failed; shader: surface.hlsl (pixel):\n"
                         "lib/common.hlsli(1,1): warning X1: warning\n"
                         "lib/common.hlsli(2,3-6): error X3004: undeclared name\n",
                         {},

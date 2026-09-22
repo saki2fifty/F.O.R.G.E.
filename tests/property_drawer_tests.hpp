@@ -35,6 +35,7 @@ inline void test_asset_picker() {
     ImVec2 combo{};
     ImGuiWindow* popup = nullptr;
     bool committed = false;
+    const char* title = "Mesh test";
     auto frame = [&] {
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({0, 0});
@@ -44,12 +45,12 @@ inline void test_asset_picker() {
         combo.x += 30;
         combo.y += ImGui::GetFrameHeight() * .5f;
         ImGui::SetNextItemWidth(500);
-        committed |= asset_ref_picker(catalog, value, "mesh", "Mesh test", false);
+        committed |= asset_ref_picker(catalog, value, "mesh", title, false);
         ImGui::End();
         ImGui::Render();
         popup = nullptr;
         for (auto* window : ImGui::GetCurrentContext()->Windows)
-            if (window->Active && !window->Hidden &&
+            if (window->Active && !window->Hidden && (window->Flags & ImGuiWindowFlags_Popup) &&
                 std::string_view(window->Name).starts_with("##Combo_"))
                 popup = window;
     };
@@ -81,6 +82,8 @@ inline void test_asset_picker() {
     click(combo);
     frame();
     require(popup, "Assigned asset picker did not reopen");
+    require(popup->Scroll.y == 0,
+            "Selected asset focus scrolled the search and Clear controls out of view");
     click({popup->Pos.x + popup->WindowPadding.x + 30, popup->Pos.y + popup->WindowPadding.y +
                                                            ImGui::GetFrameHeightWithSpacing() +
                                                            ImGui::GetTextLineHeight() * .5f});
@@ -89,6 +92,23 @@ inline void test_asset_picker() {
     committed = false;
     frame();
     require(!committed && value == Json(texture), "Inspection rewrote an incompatible asset ref");
+    // Each new field scope starts with an empty search. The last of 2000 rows
+    // is selected, so default focus must scroll only the result child.
+    value = wanted;
+    unsigned scale_index = 0;
+    for (const char* field : {"Selected mesh 100", "Selected mesh 150", "Selected mesh 200"}) {
+        title = field;
+        ui::style(1.f + .5f * float(scale_index++));
+        frame();
+        frame();
+        click(combo);
+        frame();
+        frame();
+        require(popup && popup->Scroll.y == 0 && ImGui::GetDrawData()->TotalVtxCount < 5000,
+                "Large selected asset list hid search/Clear or stopped clipping at UI scale");
+        ImGui::ClosePopupToLevel(0, true);
+    }
+    ui::style(1);
     ImGui::DestroyContext();
 }
 inline void test_typed_ui_layer() {

@@ -4,6 +4,7 @@
 #include <forge/primitive_catalog.hpp>
 #include <optional>
 #include <span>
+#include <vector>
 namespace forge {
 // Immutable engine-owned UUIDv4 allocations. Never derive an asset UUID from a
 // process handle, source path or enum ordinal. This table is append-only.

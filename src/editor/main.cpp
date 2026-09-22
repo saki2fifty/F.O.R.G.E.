@@ -1921,6 +1921,23 @@ int main(int argc, char** argv) {
             }
             ImGui::End();
             ImGui::PopStyleVar();
+#ifdef FORGE_UI_FIXTURE
+            // Fixture windows must respect the scaled toolbar/status work area.
+            // Fixed pixel positions from the 100% stage hide their title at 200%.
+            if (const auto* target = fixture.focused_document())
+                if (auto* w = ImGui::FindWindowByName(target); w && !w->DockIsActive) {
+                    const auto* v = ImGui::GetMainViewport();
+                    const float inset = 4 * forge::ui::interface_scale;
+                    const ImVec2 size{std::min(w->Size.x, v->WorkSize.x - 2 * inset),
+                                      std::min(w->Size.y, v->WorkSize.y - 2 * inset)};
+                    const ImVec2 pos{std::clamp(w->Pos.x, v->WorkPos.x + inset,
+                                                v->WorkPos.x + v->WorkSize.x - size.x - inset),
+                                     std::clamp(w->Pos.y, v->WorkPos.y + inset,
+                                                v->WorkPos.y + v->WorkSize.y - size.y - inset)};
+                    ImGui::SetWindowPos(w, pos, ImGuiCond_Always);
+                    ImGui::SetWindowSize(w, size, ImGuiCond_Always);
+                }
+#endif
             if (!edit_locked)
                 files.shortcuts(scene_task);
             if (!edit_locked &&

@@ -99,7 +99,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                                ImGuiPopupFlags_None);
         }
 #endif
-        if (ImGui::BeginCombo(title, label.c_str())) {
+        if (ImGui::BeginCombo(title, label.c_str(), ImGuiComboFlags_HeightLarge)) {
 #ifdef FORGE_UI_FIXTURE
             if (fixture_open)
                 fixture_open_mesh_picker = false;
@@ -121,43 +121,54 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             const auto rows = asset_picker_entries(catalog, type, search.data(), include_engine);
             const auto selected = value.is_null() ? AssetId{} : value.get<AssetId>();
             const float height = ImGui::GetTextLineHeight();
-            ImGuiListClipper clipper;
-            clipper.Begin(int(rows.size()), height + ImGui::GetStyle().ItemSpacing.y);
-            for (std::size_t i = 0; i < rows.size(); ++i)
-                if (rows[i].id == selected)
-                    clipper.IncludeItemByIndex(int(i));
-            while (clipper.Step())
-                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
-                    const auto& row = rows[std::size_t(i)];
-                    ui::IdScope item(row.id.str().c_str());
-                    const auto pos = ImGui::GetCursorScreenPos();
-                    const auto width = ImGui::GetContentRegionAvail().x;
-                    ImGui::BeginDisabled(row.removed);
-                    if (ImGui::Selectable("##asset", row.id == selected, 0, {width, height})) {
-                        value = row.id;
-                        changed = true;
+            // Keep search/Clear outside the scrolling results. Default focus on
+            // a selected row must never scroll the search field out of view.
+            const float list_height =
+                std::min(8 * ImGui::GetTextLineHeightWithSpacing(),
+                         std::max(height, ImGui::GetMainViewport()->WorkSize.y * .5f));
+            if (ImGui::BeginChild("##asset-results", {0, list_height}, ImGuiChildFlags_None)) {
+                ImGuiListClipper clipper;
+                clipper.Begin(int(rows.size()), height + ImGui::GetStyle().ItemSpacing.y);
+                for (std::size_t i = 0; i < rows.size(); ++i)
+                    if (rows[i].id == selected)
+                        clipper.IncludeItemByIndex(int(i));
+                while (clipper.Step())
+                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+                        const auto& row = rows[std::size_t(i)];
+                        ui::IdScope item(row.id.str().c_str());
+                        const auto pos = ImGui::GetCursorScreenPos();
+                        const auto width = ImGui::GetContentRegionAvail().x;
+                        ImGui::BeginDisabled(row.removed);
+                        if (ImGui::Selectable("##asset", row.id == selected, 0, {width, height})) {
+                            value = row.id;
+                            changed = true;
+                            ImGui::CloseCurrentPopup();
+                        }
+                        if (row.id == selected)
+                            ImGui::SetItemDefaultFocus();
+                        ui::help(
+                            (row.label + "\n" +
+                             (row.removed ? "This member was removed from its source. Reimport a "
+                                            "matching member or choose another asset."
+                              : row.engine
+                                  ? "Built-in engine asset; its shared source is read-only."
+                                  : "Assign this registered asset. Its persistent identity "
+                                    "survives supported relocation."))
+                                .c_str());
+                        auto* draw = ImGui::GetWindowDrawList();
+                        draw->PushClipRect(pos, {pos.x + width, pos.y + height}, true);
+                        ui::asset_icon(draw, pos, height, type);
+                        draw->AddText(
+                            {pos.x + height + ImGui::GetStyle().ItemInnerSpacing.x, pos.y},
+                            ImGui::GetColorU32(ImGuiCol_Text), row.label.c_str());
+                        draw->PopClipRect();
+                        ImGui::EndDisabled();
                     }
-                    if (row.id == selected)
-                        ImGui::SetItemDefaultFocus();
-                    ui::help(
-                        (row.label + "\n" +
-                         (row.removed  ? "This member was removed from its source. Reimport a "
-                                         "matching member or choose another asset."
-                          : row.engine ? "Built-in engine asset; its shared source is read-only."
-                                       : "Assign this registered asset. Its persistent identity "
-                                         "survives supported relocation."))
-                            .c_str());
-                    auto* draw = ImGui::GetWindowDrawList();
-                    draw->PushClipRect(pos, {pos.x + width, pos.y + height}, true);
-                    ui::asset_icon(draw, pos, height, type);
-                    draw->AddText({pos.x + height + ImGui::GetStyle().ItemInnerSpacing.x, pos.y},
-                                  ImGui::GetColorU32(ImGuiCol_Text), row.label.c_str());
-                    draw->PopClipRect();
-                    ImGui::EndDisabled();
-                }
-            if (rows.empty())
-                ImGui::TextWrapped("No matching assets. Use Content > Create / Register for "
-                                   "supported asset workflows.");
+                if (rows.empty())
+                    ImGui::TextWrapped("No matching assets. Use Content > Create / Register for "
+                                       "supported asset workflows.");
+            }
+            ImGui::EndChild();
             ImGui::EndCombo();
         }
         ui::help("Choose a compatible asset, search its path, or drop it from Content. Reveal "

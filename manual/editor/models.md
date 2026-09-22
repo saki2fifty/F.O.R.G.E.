@@ -357,6 +357,10 @@ To change an existing placement:
 2. Expand **Model Source** in the Inspector.
 3. Click **Set model variant...** and choose a set or **Default materials**.
 
+**Model Source** is a dedicated read-only provenance section, separate from optional
+behavior components. Child nodes show their imported node identity; whole-model
+variant selection is available on the placed root.
+
 This is one scene Undo step. It changes the material selection without adding
 objects or changing source files. Nested model placements keep their own choice.
 

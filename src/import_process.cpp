@@ -1,6 +1,7 @@
 #include "import_process.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "worker_stage_lease.hpp"
 #include <algorithm>
 #include <forge/gltf_accessors.hpp>
 #include <fstream>
@@ -109,15 +110,23 @@ std::vector<ArtifactFile> read_files(const std::filesystem::path& directory, con
 }
 struct JobDirectory {
     std::filesystem::path path;
-    explicit JobDirectory(const std::filesystem::path& project) {
+    std::unique_ptr<WorkerStageLease> owner;
+    JobDirectory(const std::filesystem::path& project, const char* kind) {
         const ProjectPaths paths(project);
         const auto parent = paths.resolve(".forge/jobs");
         ordinary(parent);
         std::filesystem::create_directories(parent);
         path = parent / AssetId::generate().str();
         require(std::filesystem::create_directory(path), "Cannot reserve unique import staging");
+        owner = std::make_unique<WorkerStageLease>(path / "owner.lock",
+                                                   Json{{"format", "forge.import-job"},
+                                                        {"version", 1},
+                                                        {"job", path.filename().string()},
+                                                        {"kind", kind}}
+                                                       .dump());
     }
     ~JobDirectory() {
+        owner.reset(); // The worker has already joined; release Windows deletion exclusion.
         std::error_code error;
         if (std::filesystem::weakly_canonical(path, error) == path && !error &&
             !std::filesystem::is_symlink(path, error))
@@ -135,20 +144,20 @@ std::vector<ArtifactFile> run_import_process(const std::filesystem::path& execut
                                              std::stop_token stop) {
     require(!stop.stop_requested(), "Import cancelled before snapshot");
     auto manifest = files_manifest(request.inputs, limits);
-    JobDirectory job(project);
+    JobDirectory job(project, "import");
     require(std::filesystem::create_directory(job.path / "input") &&
                 std::filesystem::create_directory(job.path / "output"),
             "Cannot create import directories");
-    for (const auto& file : request.inputs)
-        write(job.path / "input" / file.name, file.bytes);
     write_json(job.path / "request.json", {{"format", "forge.import-worker"},
                                            {"version", 1},
                                            {"payload", request.payload},
                                            {"inputs", manifest}});
+    for (const auto& file : request.inputs)
+        write(job.path / "input" / file.name, file.bytes);
     request.inputs.clear();
     request.inputs.shrink_to_fit();
     try {
-        run_worker(WorkerKind::Import, executable, job.path, stop, limits);
+        run_worker(WorkerKind::Import, executable, job.path, stop, limits, job.owner.get());
     } catch (const std::exception& e) {
         if (stop.stop_requested())
             throw;
@@ -267,7 +276,8 @@ std::vector<ArtifactFile> run_model_animation_process(const std::filesystem::pat
         expected.insert(filename);
         outputs.push_back(filename);
     }
-    JobDirectory job(project);
+    JobDirectory job(project, "model-animation");
+    expected.insert("owner.lock");
     for (const auto& input : inputs)
         write(job.path / input.name, input.bytes);
     // Reuse CPU container/accessor admission without linking native model codecs
@@ -283,10 +293,10 @@ std::vector<ArtifactFile> run_model_animation_process(const std::filesystem::pat
     limits.memory_bytes = 1024ull * 1024 * 1024;
     limits.file_bytes = limit;
     limits.total_bytes = 320ull * 1024 * 1024;
-    limits.files = 68;
+    limits.files = 69; // Up to68 converter input/output files plus the owned marker.
     limits.seconds = 240;
     limits.cpu_seconds = 220;
-    run_worker(WorkerKind::Animation, executable, job.path, stop, limits);
+    run_worker(WorkerKind::Animation, executable, job.path, stop, limits, job.owner.get());
     for (const auto& file : std::filesystem::directory_iterator(job.path)) {
         ordinary(file.path());
         require(file.is_regular_file() && expected.erase(file.path().filename().string()) == 1,

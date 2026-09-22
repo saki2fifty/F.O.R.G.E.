@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -8,6 +9,7 @@
 #include <windows.h>
 #else
 #include <sys/resource.h>
+#include <sys/stat.h>
 #ifdef __linux__
 #include <csignal>
 #include <sys/prctl.h>
@@ -18,6 +20,28 @@ int main(int argc, char** argv) {
         return 1;
     std::string mode;
     std::ifstream("request.txt") >> mode;
+    if (mode == "lease") {
+        std::uintptr_t inherited = 0;
+        if (!(std::ifstream("lease-handle.txt") >> inherited))
+            return 20;
+#ifdef _WIN32
+        BY_HANDLE_FILE_INFORMATION info{};
+        if (!GetFileInformationByHandle(reinterpret_cast<HANDLE>(inherited), &info) ||
+            info.nNumberOfLinks != 1)
+            return 21;
+#else
+        struct stat info{};
+        if (fstat(int(inherited), &info) || !S_ISREG(info.st_mode))
+            return 21;
+#endif
+        std::ofstream("output/started") << "inherited";
+        for (unsigned i = 0; i < 400; ++i) {
+            if (std::filesystem::exists("continue.request"))
+                return 0;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        return 22;
+    }
     if (mode == "limits") {
 #ifdef _WIN32
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};

@@ -1,3 +1,5 @@
+#define FORGE_UI_FIXTURE 1
+#include "component_inspector.hpp"
 #include "content.hpp"
 #include "model_imports.hpp"
 #include "scene_asset_drop.hpp"
@@ -197,6 +199,23 @@ int main(int argc, char** argv) {
         require(scene.entity_count() == 3 && context.selection.entity() == placed.str(),
                 "Model editor did not place/select ordinary entities");
         const auto after = scene.document();
+        // ModelSource is non-optional provenance. Its controls must be reachable
+        // without falsely advertising it as an addable/removable behavior.
+        ComponentInspector inspector;
+        for (unsigned i = 0; i < 3; ++i) {
+            ImGui::NewFrame();
+            ImGui::SetNextWindowSize({1000, 850});
+            ImGui::Begin("Model inspector regression");
+            ui::fixture_open_model_variant = true;
+            inspector.draw(scene, document, placed.str());
+            require(!ui::fixture_open_model_variant &&
+                        !ImGui::GetCurrentContext()->OpenPopupStack.empty(),
+                    "Placed model material variants are unreachable in the Inspector");
+            ImGui::End();
+            ImGui::Render();
+        }
+        require(scene.document() == after, "Viewing model provenance mutated authored data");
+        ImGui::ClosePopupToLevel(0, true);
         require(scene.undo() && scene.document() == before && !scene.can_undo(),
                 "Model placement was not one scene Undo step");
         require(scene.redo() && scene.document() == after,

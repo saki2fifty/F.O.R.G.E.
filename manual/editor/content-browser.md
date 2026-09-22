@@ -61,6 +61,9 @@ Select the destination entity and find its component field in Inspector. Drag a 
 
 Alternatively open the field's picker, search, and choose a compatible asset. **None / Clear** removes the reference; **Reveal in Content** selects the referenced asset without modifying the scene. Fields validate expected asset type. Assignment is a scene edit and supports Undo/Redo; asset creation and external file edits do not.
 
+Search and **None / Clear** stay above the scrolling results. Opening a field with
+a selection far down a large list keeps those controls visible at every interface scale.
+
 ## Drop content into the Scene
 
 Drag a **Model**, **Mesh** or **Prefab** from Content onto the Scene image. Placement uses a camera-facing plane through the current view target, so it also works in front and side views. It creates fresh entity identities, selects the new root and records one scene Undo step. Save the scene to keep the placement.

@@ -56,6 +56,29 @@ class ComponentInspector {
         if (owned.is_null() || shown.is_null())
             return;
         const auto& values = shown.at("components");
+        // Provenance is intentionally not an addable/removable behavior component.
+        // Its placement-level controls still need a visible Inspector home.
+        if (values.contains("forge.model_source")) {
+            const auto& source = values.at("forge.model_source");
+            const bool expanded =
+                ImGui::CollapsingHeader("Model Source", ImGuiTreeNodeFlags_DefaultOpen);
+            ui::help("Imported model provenance. Select the placed root to change the material "
+                     "variant for its mesh nodes. Source identity is read only.");
+            if (expanded) {
+                if (variant_entity_ != entity) {
+                    variant_entity_ = entity;
+                    variant_error_.clear();
+                }
+                ImGui::TextWrapped("Model: %s", source.at("model").dump().c_str());
+                ui::help("Persistent AssetId of the imported model asset.");
+                if (!source.at("node").is_null()) {
+                    ImGui::TextWrapped("Source node: %s", source.at("node").dump().c_str());
+                    ui::help("Persistent identity of this imported node. Select the placed model "
+                             "root to change variants for the whole placement.");
+                }
+                ui::model_variant_controls(scene, project, entity, source, variant_error_);
+            }
+        }
         ui::heading("Components", "Behavior attached to this entity. Values come from the Flecs "
                                   "world; inherited values follow their prefab.");
         add_menu(scene, entity, values);
@@ -147,13 +170,6 @@ class ComponentInspector {
             }
             if (!expanded)
                 continue;
-            if (key == "forge.model_source") {
-                if (variant_entity_ != entity) {
-                    variant_entity_ = entity;
-                    variant_error_.clear();
-                }
-                ui::model_variant_controls(scene, project, entity, values.at(key), variant_error_);
-            }
             ImGui::TextDisabled(
                 "%s", prefab ? (whole || partial ? "Overrides present" : "Inherited from prefab")
                              : "Owned component");

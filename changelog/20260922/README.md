@@ -152,3 +152,26 @@
 
 - Corrected local regression bundle passes10/10 (132.66 seconds), including actual worker import, direct recipes, the official sample corpus, animation conversion and deeply nested cache/package operations. Actual ImGui model document tests pass, including removal of obsolete warnings after successful reimport. Manual3/3, full formatting and adapted editor syntax pass. Strict sanitizer and native Windows/SDK runs remain in progress; this is an internal checkpoint, not a numbered delivery.
 - Added real Windows Import notes captures at100%,150% and200%; native execution/review remains pending.
+
+## Import staging recovery and SDK boundary
+
+- Shared import and canonical animation jobs now hold an OS ownership marker from preparation through joined worker completion. Only the designated worker inherits it; closing the parent's copy cannot make a live child's files eligible for cleanup.
+- Cache cleanup/clear-all can reclaim recognized abandoned worker folders after bounded manifest/layout validation. Active jobs, old unmarked folders, unknown contents, aliases and redirects are retained with per-job diagnostics. Authored sources, catalog selections and scene history remain unchanged.
+- Separated value-only texture dimensions from cooked texture APIs so installed engine texture identities have a complete, narrow SDK header closure. CMake now checks transitive public FORGE includes against the installation list; relocated SDK tests also check the intended boundary.
+- Initial Linux worker ownership and cleanup regressions pass2/2 (2.86 seconds). Full import, SDK, sanitizer and Windows checks remain in progress.
+
+## Native validation corrections
+
+- The Windows audit passed64/69 tests. Its failed Shader source link exposed contextual text prepended to the compiler's first location; shader compiler diagnostics now start on a separate line so the existing contained-source parser can read them.
+- The Model Source variant control was unreachable because provenance is not an optional component. Imported models now have a dedicated read-only Inspector section with placement-level variant controls, preserving the schema and Add/Remove Component semantics. A real ImGui regression exercises the placed-root popup without mutating source data.
+- The Game-view fallback test incorrectly expected raw magenta after PBR Neutral tone mapping. The exact pinned Diligent shader intentionally desaturates compressed highlights; the corrected test also compares fallback pixels with the explicitly assigned engine error material through the same full frame pipeline.
+- Both CI SDK failures confirmed the transitive texture-header boundary fixed above. Windows core now passes the previously failing deeply nested package/cache fixture. Fresh native acceptance is still required; no new numbered package has been issued.
+
+- Combined local validation passes102/102 Linux tests (244.42 seconds), including actual import workers, model recipes, source-free packaging and Vulkan binding/readback. The shared SDK passes79 tests after two sandbox-blocked loopback tests are rerun with local socket access; its installed/relocated consumer passes. Actual ImGui editor/model checks pass2/2 (18.25 seconds), including the newly reachable variant popup. Manual, formatting and adapted native syntax checks pass.
+- Renderer diagnostics now distinguish an active initial fallback from retention of a previous complete authored draw. Shared Vulkan recompilation and its binding/readback probe pass after this wording correction; native Windows assertions also check the distinction. Windows and strict sanitizer follow-ups remain pending.
+- The unnumbered Windows audit now explicitly builds and runs worker ownership policy fixtures alongside cache cleanup, rendering and editor tests.
+
+- Individual native capture review found selected-row scrolling clipped the asset picker's search box. Search and Clear now remain above an independently scrolling, clipped result list. New actual ImGui checks cover a selected entry in a2000-row list at100%,150% and200%. Capture-only floating window placement also respects the scaled toolbar/status work area.
+- Strict ASan/UBSan/LSan model recipe, worker policy, package and cleanup checks pass4/4 (185.62 seconds), without findings or suppressions. The previous checkpoint's native audit passes66/70; its four failures are the shader location, shared fallback assertion and unreachable model variant controls corrected in this bundle. Its deep Windows content-package regression now passes.
+
+- Corrected picker/header checks pass in the actual ImGui harness at all three scales; combined editor/model tests pass2/2 (18.85 seconds). Manual3/3, formatting and adapted editor/native-test syntax pass. Final native capture review remains pending.

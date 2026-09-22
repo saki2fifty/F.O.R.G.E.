@@ -1,5 +1,8 @@
 #pragma once
-#include <forge/texture_asset.hpp>
+#include <forge/asset_ref.hpp>
+#include <forge/texture_dimension.hpp>
+#include <span>
+#include <stdexcept>
 namespace forge {
 enum class EngineTexture { White, Black, FlatNormal, Checker };
 struct EngineTextureAsset {

@@ -1,8 +1,10 @@
 #include "asset_worker.hpp"
+#include "worker_stage_lease.hpp"
 #include <chrono>
 #include <optional>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -51,8 +53,8 @@ bool output_exceeded(const std::filesystem::path& path, const WorkerLimits& limi
 }
 } // namespace
 void run_worker(WorkerKind kind, const std::filesystem::path& executable,
-                const std::filesystem::path& staging, std::stop_token cancel,
-                WorkerLimits resource) {
+                const std::filesystem::path& staging, std::stop_token cancel, WorkerLimits resource,
+                const WorkerStageLease* staging_owner) {
     if (!executable.is_absolute() || !std::filesystem::is_regular_file(executable))
         throw std::runtime_error("Packaged asset worker is missing");
     if (cancel.stop_requested())
@@ -119,12 +121,39 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
                            : kind == WorkerKind::Script ? L"forge_tools --script-worker"
                            : kind == WorkerKind::Schema ? L"forge_runtime --inspect-sdk-worker"
                                                         : L"forge_nav_build --build-navigation";
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
+    HANDLE inherited =
+        staging_owner ? reinterpret_cast<HANDLE>(staging_owner->inheritance_handle()) : nullptr;
+    struct Attributes {
+        std::vector<std::byte> data;
+        LPPROC_THREAD_ATTRIBUTE_LIST list = nullptr;
+        ~Attributes() {
+            if (list)
+                DeleteProcThreadAttributeList(list);
+        }
+    } attributes;
+    STARTUPINFOEXW startup{};
+    startup.StartupInfo.cb = staging_owner ? sizeof(startup) : sizeof(STARTUPINFOW);
+    DWORD flags = CREATE_SUSPENDED | CREATE_NO_WINDOW;
+    if (staging_owner) {
+        SIZE_T size = 0;
+        InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+        if (!size)
+            throw std::runtime_error("Cannot size worker handle whitelist");
+        attributes.data.resize(size);
+        auto* list = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attributes.data.data());
+        if (!InitializeProcThreadAttributeList(list, 1, 0, &size))
+            throw std::runtime_error("Cannot initialize worker handle whitelist");
+        attributes.list = list;
+        if (!UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &inherited,
+                                       sizeof(inherited), nullptr, nullptr))
+            throw std::runtime_error("Cannot configure worker staging inheritance");
+        startup.lpAttributeList = list;
+        flags |= EXTENDED_STARTUPINFO_PRESENT;
+    }
     PROCESS_INFORMATION process{};
-    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, FALSE,
-                        CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, staging.c_str(), &startup,
-                        &process))
+    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr,
+                        staging_owner ? TRUE : FALSE, flags, nullptr, staging.c_str(),
+                        &startup.StartupInfo, &process))
         throw std::runtime_error("Cannot launch packaged asset worker");
     Handle child{process.hProcess}, thread{process.hThread};
     if (!AssignProcessToJobObject(job.value, child.value) ||
@@ -149,11 +178,16 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
     // Prepare C++ strings before fork; the child performs syscall setup and exec
     // without C++ allocation or locking.
     const auto file = executable.string(), cwd = staging.string();
+    const auto stage_fd = staging_owner ? int(staging_owner->inheritance_handle()) : -1;
     const auto parent = getpid();
     const auto child = fork();
     if (child < 0)
         throw std::runtime_error("Cannot start asset worker");
     if (child == 0) {
+        // Only this job's descriptor survives exec. Other concurrently prepared
+        // stages retain CLOEXEC, so unrelated workers cannot pin each other.
+        if (stage_fd >= 0 && fcntl(stage_fd, F_SETFD, 0))
+            _exit(125);
 #ifdef __linux__
         // The synchronous supervisor thread remains alive until this child is
         // joined. Check the parent again to close the fork/prctl death race.

@@ -159,10 +159,19 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         entity["id"] = EntityId::generate(); // No known-good draw for this new entity.
         const auto error = settle();
         const auto pixel = error[16 * 64 + 32];
-        require(!fallback_renderer.diagnostics().empty() && pixel[0] > 180 && pixel[1] < 10 &&
+        save(error, 64, 32, images / "game-missing-material.ppm");
+        // Frame rendering includes PBR Neutral compression/desaturation and sRGB.
+        // Raw magenta becomes approximately (241,34,241), not (255,0,255).
+        require(!fallback_renderer.diagnostics().empty() && pixel[0] > 180 && pixel[1] < 80 &&
                     pixel[2] > 180,
                 "Initial missing material did not draw the magenta error surface");
-        save(error, 64, 32, images / "game-missing-material.ppm");
+        require(fallback_renderer.diagnostics().front().text.find("fallback draw active") !=
+                    std::string::npos,
+                "Initial fallback incorrectly claimed a previous authored draw was retained");
+        configured["materials"][0]["material"] = engine_material(EngineMaterial::Error).id;
+        entity["components"]["forge.mesh_renderer"] = configured;
+        require(settle() == error && fallback_renderer.diagnostics().empty(),
+                "Initial fallback differs from the same explicit engine error material");
         configured["materials"][0]["material"] = engine_material(EngineMaterial::LegacyBlockout).id;
         entity["components"]["forge.mesh_renderer"] = configured;
         const auto recovered = settle();

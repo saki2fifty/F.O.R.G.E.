@@ -68,8 +68,9 @@ Nondeterministic importers explicitly opt out of shared reproducible cache reuse
 
 Workers stage under `.forge/jobs/<job-id>`. Publish validated immutable files first, fsync/close as
 required by platform, then atomically replace the catalog selection manifest. A crash before
-selection leaves an orphan candidate, not a half-selected revision. Startup removes unreferenced
-staging after checking no active job owns it. A failed catalog replacement leaves old selection
+selection leaves an orphan candidate, not a half-selected revision. Explicit writer-owned
+maintenance removes recognized abandoned staging after checking ownership; startup does not
+blindly delete worker folders. A failed catalog replacement leaves old selection
 valid and reports the actual path/OS error. Cache eviction excludes selected/in-use revisions and
 leases; use bounded LRU of unreferenced entries. Downloaded cache data gets the same validation
 as locally generated data. Source-control checkout must not require the cache to survive.
@@ -131,15 +132,17 @@ request/lease pool. This document does not authorize blanket subsystem rewrites.
 
 The [asset-specific publication coordinator](asset-publication.md) now connects
 validated DDC output, captured input revisions, catalog selection and durable
-sidecar recovery. Its fixtures are executable; complete production providers,
-resource adoption and editor workflows remain separate integration work.
+sidecar recovery. Editor import documents, Content operations and CLI adapters use this
+coordinator. Final Phase7 delivery validation remains separate from implementation.
 
 ## CPU resource and mesh implementation checkpoint
 
 The [typed resource pool](runtime-resources.md) and [cooked mesh artifacts](mesh-assets.md)
-now have executable asynchronous loading/lifetime consumers. CPU leases, last-good
-retention and bounded mesh admission are implemented; GPU retirement, complete
-production providers and editor/cook integration remain in progress.
+now have executable asynchronous loading/lifetime consumers. Mesh, Material and
+Texture resources feed retained Diligent draw bundles with GPU retirement, initial
+fallbacks and last-good replacement retention. Editor previews, Content integration
+and source-free cooked packages use those owners. See [render features](render-features.md)
+for the actual coverage and remaining algorithm/backend limits.
 
 ### External build-tool revisions
 
@@ -209,6 +212,15 @@ format validator. Orphan cleanup takes the same cache lock as publication and on
 removes recognized flat staging (and, for clear-all, quarantine) entries. Unknown,
 redirected, nested or excessive data is retained with diagnostics. Cache operations
 are disposable-data maintenance, not authored transactions or scene Undo.
+
+Import staging has a separate ownership check: a bounded `forge.import-job` marker
+holds an OS lease inherited only by its worker. Closing the editor's copy alone
+does not release a running child's ownership. `cache-cleanup` and `cache-clear-all`
+try exclusive acquisition and preflight the complete recognized job layout before
+removing files. They preserve active, unmarked, malformed, redirected, aliased and
+unfamiliar data with per-job diagnostics. Cleanup admits at most4096 job entries,
+100000 files,16GiB of payload sizes and64MiB of metadata per pass. It removes only
+enumerated ordinary files and then empty directories, never an unchecked tree.
 
 The [source and cooked-format matrix](asset-formats.md) lists concrete importer
 coverage, limits, dependencies and executable fixtures. Linked-library capability

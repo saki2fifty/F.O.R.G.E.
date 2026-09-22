@@ -157,6 +157,8 @@ If the object already displayed correctly, a failed replacement keeps its previo
 appearance. The retained image does not mean the new asset was accepted. Restore
 or repair the source and reimport it, or assign a valid asset in the Inspector.
 Successful publication or assignment replaces the fallback or retained appearance.
+Problems distinguishes **fallback draw active** from **previous complete draw retained**,
+so you can tell whether you are seeing an error surface or the last working material.
 The original asset references stay intact so they can recover.
 
 Material texture pickers also offer engine-owned white, black, flat-normal and

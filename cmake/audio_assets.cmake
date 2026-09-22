@@ -3,7 +3,7 @@
 add_library(forge_audio_pipeline STATIC src/audio_importer.cpp)
 target_link_libraries(forge_audio_pipeline PUBLIC forge_assets forge_audio_data PRIVATE forge_import_process forge_asset_bytes)
 set(_forge_audio_recipe_inputs "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_VERSION};${CMAKE_CXX_FLAGS};${CMAKE_CXX_FLAGS_RELEASE};${CMAKE_MSVC_RUNTIME_LIBRARY};${FORGE_ENABLE_SANITIZERS}")
-foreach(source src/audio_asset.hpp src/audio_asset.cpp src/audio_decode.cpp src/audio_bundle.hpp src/audio_bundle.cpp src/audio_importer.hpp src/audio_importer.cpp src/audio_worker.cpp src/import_process.cpp src/import_process.hpp src/asset_worker.cpp src/asset_worker.hpp cmake/dependencies.cmake cmake/audio_assets.cmake)
+foreach(source src/audio_asset.hpp src/audio_asset.cpp src/audio_decode.cpp src/audio_bundle.hpp src/audio_bundle.cpp src/audio_importer.hpp src/audio_importer.cpp src/audio_worker.cpp src/import_process.cpp src/import_process.hpp src/asset_worker.cpp src/asset_worker.hpp src/worker_stage_lease.hpp src/worker_stage_lease.cpp cmake/dependencies.cmake cmake/audio_assets.cmake)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
  file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)
  string(APPEND _forge_audio_recipe_inputs ";${source}:${digest}")

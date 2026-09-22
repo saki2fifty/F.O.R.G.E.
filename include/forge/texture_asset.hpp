@@ -1,10 +1,10 @@
 #pragma once
 #include <forge/asset_ref.hpp>
+#include <forge/texture_dimension.hpp>
 #include <span>
 #include <vector>
 
 namespace forge {
-enum class TextureDimension { D2, D2Array, Cube, CubeArray, D3 };
 enum class TextureFormat {
     R8,
     RG8,

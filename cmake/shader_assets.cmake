@@ -5,7 +5,7 @@ foreach(source
  include/forge/shader_asset.hpp src/shader_asset.cpp src/shader_pipeline.hpp src/shader_pipeline.cpp
  include/forge/surface_shader.hpp src/surface_shader.cpp src/material_asset.cpp
  src/shader_importer.cpp src/shader_diligent.hpp src/shader_diligent.cpp src/shader_worker_main.cpp
- src/import_process.hpp src/import_process.cpp src/asset_worker.hpp src/asset_worker.cpp
+ src/import_process.hpp src/import_process.cpp src/asset_worker.hpp src/worker_stage_lease.hpp src/worker_stage_lease.cpp src/asset_worker.cpp
  src/cooked_envelope.hpp src/bounded_json.hpp cmake/shader_assets.cmake cmake/diligent_source.cmake)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
  file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)

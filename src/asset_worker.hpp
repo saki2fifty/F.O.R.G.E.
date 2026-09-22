@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <stop_token>
 namespace forge::asset_detail {
+class WorkerStageLease;
 enum class WorkerKind { Animation, Navigation, Script, Import, Schema };
 struct WorkerLimits {
     std::uint64_t memory_bytes = 512ull * 1024 * 1024;
@@ -16,5 +17,5 @@ struct WorkerLimits {
 // Fixed commands only. Explicit executable/cwd, cancellation, bounded child lifetime.
 void run_worker(WorkerKind, const std::filesystem::path& executable,
                 const std::filesystem::path& staging, std::stop_token cancel,
-                WorkerLimits limits = {});
+                WorkerLimits limits = {}, const WorkerStageLease* staging_owner = nullptr);
 } // namespace forge::asset_detail

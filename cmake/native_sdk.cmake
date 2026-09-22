@@ -20,10 +20,19 @@ if(FORGE_ENABLE_NATIVE_SDK AND NOT CMAKE_BUILD_TYPE MATCHES "^(Release|Debug|Rel
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _forge_config)
 # One explicit installed value boundary drives installation and compatibility hashing.
-set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp ui_components.hpp render_components.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp primitive_catalog.hpp)
+set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp ui_components.hpp render_components.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp texture_dimension.hpp primitive_catalog.hpp)
 set(FORGE_SDK_CONTRACT_HASHES "")
 foreach(header IN LISTS FORGE_SDK_HEADERS)
  set(path "${PROJECT_SOURCE_DIR}/include/forge/${header}")
+ # Catch omitted transitive SDK headers during configuration, before installing
+ # a package that only compiles while private source headers remain reachable.
+ file(STRINGS "${path}" _forge_sdk_includes REGEX [[^#[ \t]*include[ \t]+[<"]forge/]])
+ foreach(line IN LISTS _forge_sdk_includes)
+  string(REGEX REPLACE [[.*[<"]forge/([^>"]+)[>"].*]] "\\1" included "${line}")
+  if(NOT included IN_LIST FORGE_SDK_HEADERS AND NOT included STREQUAL "native_sdk_identity.h")
+   message(FATAL_ERROR "Installed SDK header ${header} depends on omitted ${included}")
+  endif()
+ endforeach()
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${path}")
  file(SHA256 "${path}" hash)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${header}:${hash};")

@@ -24,6 +24,7 @@ void write(const std::filesystem::path& path, std::string_view text) {
     check(bool(output.flush()), "Cache fixture write failed");
 }
 } // namespace
+#include "import_job_cleanup_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Need scratch directory");
@@ -116,6 +117,7 @@ int main(int argc, char** argv) {
         check(all.at("ok") == true && cache.statistics().entries == 0 &&
                   cache.statistics().quarantined == 0,
               "Clear all left owned artifact/quarantine contents");
+        check_import_job_cleanup(lease);
         check(before == asset_detail::read_bytes(AssetCatalog::project_index(root), 65536) &&
                   asset_detail::read_bytes(root / "Assets/Source.bin", 128).size() == 13,
               "Cache maintenance changed authored catalog or source");

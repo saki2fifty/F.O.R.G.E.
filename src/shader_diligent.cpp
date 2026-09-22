@@ -290,7 +290,7 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
             device->CreateShader(ci, &shader, &errors);
             if (!shader)
                 throw std::runtime_error(entry.source + " (" + shader_stage_name(entry.stage) +
-                                         "): " + diagnostic(errors));
+                                         "):\n" + diagnostic(errors));
             ShaderStageData data;
             data.stage = entry.stage;
             data.entry = ci.EntryPoint;

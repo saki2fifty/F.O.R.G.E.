@@ -52,9 +52,16 @@ A failed check returns a diagnostic and exit code 1.
 zero removes all unselected revisions. Currently selected catalog revisions are
 protected even if that leaves the cache above the requested budget.
 
-`cache-cleanup` removes abandoned, recognized publication staging directories.
-Unexpected names, nested contents, redirected paths or excessive data are preserved
-with diagnostics so you can inspect them.
+`cache-cleanup` removes abandoned, recognized publication staging directories and
+import-worker folders. It first checks that neither an editor nor a surviving
+worker still owns the folder. Active jobs are retained; retry after they exit.
+The JSON result's `worker_jobs` list shows which import folders were removed and
+why others were retained.
+
+Unexpected names, nested contents, redirected or hard-linked files, excessive data
+and old worker folders without ownership markers are preserved with diagnostics.
+There is no automatic startup deletion of unfamiliar folders. Inspect retained
+data before deciding whether to remove it yourself.
 
 ## Rebuild a selected asset's cache
 
