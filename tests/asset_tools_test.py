@@ -75,6 +75,17 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
     after = {str(p.relative_to(project)): p.read_bytes()
              for p in project.rglob('*') if p.is_file()}
     assert before == after, 'Read-only asset commands wrote project files'
+    for operation in ('cache-stats', 'cache-verify', 'cache-prune', 'cache-cleanup',
+                      'cache-clear-all'):
+        extra = ('0',) if operation == 'cache-prune' else ()
+        assert request(operation, project, *extra)['statistics']['entries'] == 0
+    request('cache-prune', project, '-1', success=False)
+    request('cache-prune', project, '1.5', success=False)
+    request('cache-clear-asset', project, a, success=False)
+    request('cache-clear-asset', project, 'bad-id', success=False)
+    request('cache-unknown', project, success=False)
+    assert index_path.read_bytes() == before['forge.assets.json']
+    assert (project / 'Assets/picture.PNG').read_bytes() == before['Assets/picture.PNG']
     index_path.write_text('{broken', encoding='utf-8')
     request('query', project, success=False)
     assert request('scan', project)['complete'], 'File scan unnecessarily depends on valid catalog'

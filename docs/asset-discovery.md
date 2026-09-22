@@ -1,9 +1,9 @@
 # Source discovery and observation
 
 `scan_asset_sources` is a bounded, read-only full scan using `ProjectPaths`.
-It serves `forge_tools --assets scan` and the editor polling watcher. Automatic
-catalog/sidecar move transactions are not connected yet. Scanning does
-not assign logical asset identity or claim importer support from a suffix.
+It serves `forge_tools --assets scan` and the editor polling watcher. Scanning does not automatically move catalog/sidecar identity or claim importer
+support from a suffix. Explicit Content file operations use the separate validated
+asset-file transaction to preserve identity.
 
 ## Inventory and limits
 
@@ -70,16 +70,16 @@ protocol remains memory-only and unchanged.
 source edges in the same graph, returning direct consumers and their affected
 transitive dependents. Missing source files remain queryable by their locator.
 
-## Texture import command
+## Import command
 
 Asset-tool builds add `forge_tools --assets import PROJECT SOURCE [OVERRIDES_JSON]`.
-SOURCE is a project-relative supported texture source. The optional JSON object
+SOURCE is a project-relative source supported by the selected importer registry. The optional JSON object
 supplies explicit typed setting overrides; unspecified settings retain their saved
 intent. The command acquires the existing project writer lease and uses the same
 import service/provider as the editor. An editor already owning the project prevents
 an unsynchronized CLI write. The authoring stdio protocol remains memory-only.
 
-Success returns the Texture AssetId, build key, verified-cache-hit flag and any
+Success returns the logical root AssetId, build key, verified-cache-hit flag and any
 post-commit cleanup diagnostic. Failure returns the existing structured JSON error
 and nonzero exit code; prior catalog/sidecar selections remain intact. The process
 wait is bounded. The packaged worker is resolved beside the actual running executable,

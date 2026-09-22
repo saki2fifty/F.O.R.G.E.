@@ -1,9 +1,9 @@
 # Typed runtime resources
 
-Phase7 currently implements the CPU resource pool and an actual cooked mesh
-provider plus texture, material and model-animation providers. Diligent GPU
-realization/fence retirement, existing audio/UI
-provider adapters and editor resource-inspection UI remain in progress.
+Phase7 implements typed CPU resource pools, cooked Mesh/Material/Texture/Shader
+providers, model animation resources, Diligent GPU realization/fence retirement,
+existing subsystem adapters and an on-demand editor resource inspector. Full
+Phase7 platform/package acceptance remains in progress.
 
 ## Identity and access
 
@@ -62,9 +62,9 @@ Runtime consumers normally request asynchronously and pump at their safe boundar
 The pool bounds workers, pending requests, indexed asset/variant selections and retained bytes.
 Statistics include selected, completed-candidate and retired revisions plus a
 high-water count. Memory categories distinguish CPU asset data, GPU textures,
-GPU buffers, shader/pipeline data and animation data; current mesh providers report
-only their conservative retained CPU estimate. Zero GPU counters do not claim
-that a GPU provider has been integrated.
+GPU buffers, shader/pipeline data and animation data; CPU providers report
+their conservative retained CPU estimate. Physical GPU residency has its own
+payload accounting; zero GPU fields in a CPU pool are not total device usage.
 
 All retained candidates/revisions share the byte budget. Preparation scratch space
 is separately bounded by each provider's input limits and worker count; this is not
@@ -81,18 +81,16 @@ network download, catalog write, world mutation or device creation occurs in it.
 
 ## GPU boundary
 
-The exact pinned DiligentCore744f079f already provides D3D12 native-resource release
-queues keyed to command-buffer/fence completion. BufferD3D12Impl and
-TextureD3D12Impl destructors call SafeReleaseDeviceObject; RenderDeviceNextGenBase
-purges with the queue's actual completed fence value. Production integration must
-use those semantics with correct immediate-context masks and owner teardown.
-Resource statistics must also account for deferred/in-flight physical memory.
-The CPU pool has no fake fence or frame-count assumption. Actual submitted-draw
-replacement and shutdown fixtures remain required before claiming GPU retirement.
+The exact pinned DiligentCore744f079f supplies native resource release queues and
+backend-neutral fence interfaces. FORGE uses Diligent immediate-context submission
+and completion fences for its GPU residency owners; it does not estimate completion
+from frame counts. Native WARP fixtures cover in-flight replacement, budget rejection,
+readback and shutdown. See the [backend matrix](render-backends.md) for the separate
+Vulkan portability probe and unexecuted Metal/WebGPU mappings.
 
-The source-level interfaces are internal integration APIs and are not yet part of
-the installed gameplay SDK. Their eventual SDK/render providers must be verified
-through the exact installed SDK boundary and the full Phase7 acceptance suite.
+Gameplay uses the exact SDK's scoped CPU resource facade. Diligent objects and
+editor inspection owners stay on the presentation side; CPU readiness is distinct
+from complete GPU draw readiness. No process-local revision is persisted as AssetId.
 
 ## Explicit variants
 
@@ -149,9 +147,9 @@ selects the built-in default material. Duplicate entries reject. Removed slots
 produce unresolved diagnostics and leave the authored entry intact, rather than
 retargeting it by source ordinal. A duplicated model family with new MaterialAssetIds
 must explicitly remap these understood imported tokens if its override assignments
-are copied; opaque plugin data remains untouched. Scene authoring and model-family
-duplication integration are still pending, so this paragraph defines their required
-behavior rather than claiming those workflows are enabled.
+are copied; opaque plugin data remains untouched. Current scene placement and entity duplication preserve these bindings. Source-file
+duplication creates a new logical family on import; it does not rewrite arbitrary
+existing scene overrides or opaque plugin payloads.
 
 Standalone cooked-file mesh loading accepts explicit binding descriptors. Only a
 single-default-slot mesh may synthesize the `default` assignment without catalog
@@ -194,8 +192,9 @@ The Windows fixture replaces textures, rejects an over-budget candidate, copies
 from the old texture before dropping it, checks native-fence retirement/readback,
 revokes held leases at shutdown, and injects failure after an actual native buffer
 allocation. Mesh payload accounting and thread-affinity rejection are also covered.
-Native execution is pending. Complete draw-set adoption and editor resource-inspection
-UI are still required; this checkpoint alone does not integrate Scene/Game rendering.
+These paths execute in the native WARP fixture. Scene/Game consumers retain complete
+draw bundles across replacement; the editor inspector reports the main host
+separately from independent previews and the runtime process.
 
 The built-in model PBR request path selects the material model's authoritative
 declarations on its CPU worker. A presentation caller no longer needs to decode
@@ -231,3 +230,14 @@ diagnostic and leaves the old selection intact. Source generations remain
 monotonic: restoring old source bytes requires a new publication generation.
 Paused presentation still pumps adoption. Shutdown revokes access even for a
 retained C++ service pointer, then joins workers and closes all pool scopes.
+
+## On-demand inspection
+
+Tools > Loaded resources copies owner-thread CPU revision/request metadata and
+Diligent GPU residency statistics twice per second while visible. Strong lease
+counts exclude the pool's own reference. Request tickets observe load status and
+do not pin payloads. Failed requests and retained previous-good revisions appear
+separately. Inspecting never loads, evicts, edits or acquires a payload lease.
+CPU/GPU requested bytes exclude allocator/driver overhead, frame targets and
+independent preview/process owners. Diligent shader/PSO cache hit/miss counts are
+reported separately because the portable API does not expose allocation byte sizes.

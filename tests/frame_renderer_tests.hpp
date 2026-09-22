@@ -257,6 +257,47 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         require(batches.draw_stats().instances == 64 && batches.diagnostics().size() == 1 &&
                     batches.diagnostics()[0].context.entity == scene.meshes.front().entity,
                 "One invalid instance hid valid neighbors or lost its entity diagnostic");
+        // Measure actual shared-renderer work on the native acceptance device.
+        // These are CPU preparation/submission timings, not hardware GPU FPS.
+        scene.meshes.clear();
+        for (unsigned i = 0; i < 1024; ++i) {
+            auto copy = original;
+            copy.entity = EntityId::generate();
+            copy.world.m[0] = copy.world.m[10] = 1;
+            if (i >= 512)
+                copy.world.m[3] += 10000;
+            scene.meshes.push_back(copy);
+        }
+        const auto prepare_started = std::chrono::steady_clock::now();
+        batches.update(scene);
+        const auto draw_started = std::chrono::steady_clock::now();
+        batches.draw(scene, view, UINT32_MAX);
+        const auto draw_finished = std::chrono::steady_clock::now();
+        stats = batches.draw_stats();
+        require(!batches.pending() && batches.diagnostics().empty() &&
+                    batches.bundle_count() == 1 && stats.calls == 8 && stats.instances == 512 &&
+                    stats.batched_calls == 8,
+                "Large repeated-instance workload lost culling or shared bounded batches");
+        const auto inspection = host->inspect();
+        const auto milliseconds = [](auto duration) {
+            return std::chrono::duration<double, std::milli>(duration).count();
+        };
+        const Json measurement{
+            {"scope", "CPU preparation and submission on the acceptance device; not GPU FPS"},
+            {"entities", scene.meshes.size()},
+            {"submitted_instances", stats.instances},
+            {"culled_instances", scene.meshes.size() - stats.instances},
+            {"draw_calls", stats.calls},
+            {"batched_calls", stats.batched_calls},
+            {"shared_bundles", batches.bundle_count()},
+            {"prepare_ms", milliseconds(draw_started - prepare_started)},
+            {"submission_ms", milliseconds(draw_finished - draw_started)},
+            {"gpu_mesh_payload_bytes", inspection.gpu_meshes.payload_bytes},
+            {"gpu_texture_payload_bytes", inspection.gpu_textures.payload_bytes},
+            {"pose_payload_bytes", batches.pose_payload_bytes()}};
+        std::ofstream measured(images / "render-scale-workload.json");
+        measured << measurement.dump(2) << '\n';
+        require(bool(measured.flush()), "Could not write native workload measurements");
         scene.meshes.clear();
         batches.update(scene);
         require(batches.bundle_count() == 0, "Native bundle cache retained removed geometry");

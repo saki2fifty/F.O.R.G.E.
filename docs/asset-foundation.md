@@ -1,7 +1,8 @@
 # Asset foundation contract
 
-Architecture for Phase7; importer/cooker/resource-pool implementation is not delivered
-here. [Identity](identity-assets.md) remains the current contract. Decisions005–007
+The frozen asset architecture is now implemented by the shared import, publication,
+cache and resource services. Full Phase7 delivery validation remains in progress.
+[Identity](identity-assets.md) remains the current contract. Decisions005–007
 in [the ADR index](decisions/README.md) govern this design.
 
 ## Five distinct objects
@@ -190,3 +191,21 @@ ordinary Save is not relabeled as a source import.
 selected-cooked closure, trimmed catalog, explicit target/profile admission and
 source-free relocation validation. This content tool does not constitute a full
 standalone visual executable exporter.
+
+## Cache maintenance
+
+`maintain_asset_cache` is a private authoring/tool adapter requiring the project
+writer and no active import/publication jobs. CLI commands acquire that lease;
+they cannot overlap an editor writer. Pruning protects every catalog-selected key.
+Explicit asset/all clearing removes disposable bytes while preserving catalog,
+sidecars and source data; model members sharing a key are reported as affected.
+Normal resource readers own admitted byte copies, so removal cannot invalidate
+an existing CPU lease. A subsequent load can fail until explicit reimport.
+
+Storage verification checks manifests, keys, bounded file sizes and hashes without
+claiming importer-format admission. It neither selects a resource nor quarantines
+unknown-provider data. Normal `find`/publication/loading still require their real
+format validator. Orphan cleanup takes the same cache lock as publication and only
+removes recognized flat staging (and, for clear-all, quarantine) entries. Unknown,
+redirected, nested or excessive data is retained with diagnostics. Cache operations
+are disposable-data maintenance, not authored transactions or scene Undo.

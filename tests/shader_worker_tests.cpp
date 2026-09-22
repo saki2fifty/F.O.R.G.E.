@@ -74,8 +74,10 @@ float4 ps():SV_TARGET {return color();}
         auto submit = [&] {
             return service.submit(service.prepare("surface.shader.json"), prepare, compatible);
         };
+        const auto initial_started = std::chrono::steady_clock::now();
         submit();
         auto outcome = finish(service);
+        const auto initial_finished = std::chrono::steady_clock::now();
         require(outcome.published && !outcome.cache_hit,
                 "Initial shader worker import failed: " + outcome.diagnostic);
         catalog = AssetCatalog::open_project(root);
@@ -103,8 +105,10 @@ float4 ps():SV_TARGET {return color();}
                 "Relocated compiled shader package required HLSL sources or lost reflection");
         std::filesystem::remove_all(relocated_content);
         const auto first_key = catalog.records().at(id).metadata.at("forge.import").at("key");
+        const auto cached_started = std::chrono::steady_clock::now();
         submit();
         outcome = finish(service);
+        const auto cached_finished = std::chrono::steady_clock::now();
         require(outcome.published && outcome.cache_hit,
                 "Shader DDC reuse failed: " + outcome.diagnostic);
         const auto baseline = read_bytes(AssetCatalog::project_index(root), max_asset_index_bytes);
@@ -161,6 +165,17 @@ float4 ps():SV_TARGET {return color();}
                 "Shader import rewrote authored document");
         require(std::filesystem::is_empty(root / ".forge/jobs"),
                 "Shader worker leaked per-job staging");
+        const auto milliseconds = [](auto duration) {
+            return std::chrono::duration<double, std::milli>(duration).count();
+        };
+        const Json timings{
+            {"scope",
+             "End-to-end prepare, worker/cache validation and publication; not compiler-only"},
+            {"profile", "windows-x64/d3d12/fxc-5.1"},
+            {"stages", 2},
+            {"initial_ms", milliseconds(initial_finished - initial_started)},
+            {"cached_ms", milliseconds(cached_finished - cached_started)}};
+        std::cout << timings.dump() << '\n';
         std::cout << "Shader worker compilation/cache/publication/rejection tests passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

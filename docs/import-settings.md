@@ -1,7 +1,7 @@
 # Importer registry and settings
 
 **Phase7 infrastructure; production importer/editor integration is in progress.**
-Model, Texture, Material and Shader providers now use this shared service and
+Model, Texture, Material, Shader and Audio providers use this shared service and
 central editor documents; the complete Phase7 delivery remains in progress. Native model preparation is described separately in
 [glTF admission](gltf-admission.md). The [asset foundation](asset-foundation.md)
 still governs worker, publication and runtime ownership.
@@ -87,9 +87,10 @@ Portable tests cover rejection, enum/range/type/size constraints, default and
 cross-field validity, equal-value intent, reset/repair, unknown retention,
 version migration, failed-parse preservation, canonical digest behavior,
 registration ambiguity/order, sealed lifecycle and shared provider lifetime.
-Texture import now uses these settings through the shared application service,
-actual isolated workers and a central editor document. Other production providers
-and broader Phase7 integration remain in progress. StringList rules can declare
+Model, Texture, Material, Shader and Audio import use these settings through
+shared application services, isolated workers and central editor documents.
+Profile-specific native validation remains required; registering a settings
+schema alone does not implement its behavior. StringList rules can declare
 bounded choices; such lists validate distinct members and use multi-select widgets.
 Unrestricted StringList rules retain their previous bounded-string behavior.
 
@@ -123,6 +124,7 @@ The supervisor must retain exclusive child-wait ownership.
 
 The policy fixture verifies actual child OS limits, cooperative/uncooperative
 cancellation, late-success rejection, time/file/aggregate/count bounds and flat
-outputs. The legacy converter timeout regression remains active. Production
-import job manifests, executable/provider dispatch, result provenance, publication
-and startup staging recovery are still integration work.
+outputs. The legacy converter timeout regression remains active. Concrete import job manifests, worker/provider dispatch, result provenance and
+publication use these controls. The project writer can explicitly clean recognized
+orphan DDC staging after interrupted publication; unfamiliar directories are
+retained for inspection. See [cache maintenance](../manual/editor/resources.md).

@@ -57,6 +57,10 @@ struct EditorFixture {
         case 51:
         case 52:
             return "###Shader import";
+        case 53:
+        case 54:
+        case 55:
+            return "Loaded resources";
         default:
             return nullptr;
         }
@@ -139,7 +143,10 @@ struct EditorFixture {
                                "audio-import-200",
                                "shader-import",
                                "shader-import-150",
-                               "shader-import-200"};
+                               "shader-import-200",
+                               "loaded-resources",
+                               "loaded-resources-150",
+                               "loaded-resources-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

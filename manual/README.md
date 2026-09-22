@@ -7,6 +7,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 ## Projects and authored content
 
 - [Cooked content packages](editor/runtime-content.md): prepare and verify source-independent asset data.
+- [Loaded resources and cache maintenance](editor/resources.md)
 
 - [Flecs Script](editor/flecs-script.md): edit project scripts and inspect managed preview results.
 

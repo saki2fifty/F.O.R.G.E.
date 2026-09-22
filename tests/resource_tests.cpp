@@ -87,6 +87,9 @@ int main(int argc, char** argv) {
                     "Concurrent requests did not coalesce");
         require(pool.wait(tickets[0], 5s) && calls == 1, "Coalesced loader ran more than once");
         auto first = pool.acquire(tickets[0]);
+        require(pool.revisions().size() == 1 && pool.revisions()[0].strong_leases == 1 &&
+                    pool.pending_requests().empty(),
+                "Loaded resource inspection did not count its strong lease");
         auto weak = first.weak();
         const auto original = first.identity();
         require(first && first->mesh.lods[0].parts[0].bounds.maximum[0] == 1,
@@ -114,6 +117,10 @@ int main(int argc, char** argv) {
                 "Failure lost diagnostic/previous-good state");
         require(pool.current(asset)->mesh.lods[0].parts[0].bounds.maximum[0] == 2,
                 "Failed reload lost last good");
+        require(pool.pending_requests().size() == 1 &&
+                    pool.pending_requests()[0].state == ResourceState::Failed &&
+                    pool.pending_requests()[0].previous_good,
+                "Resource inspection lost failed replacement/previous-good context");
         const AssetRef<MeshAsset> missing{AssetId::generate()};
         auto resolution = pool.resolve(missing, pool.current(asset));
         require(resolution.fallback && resolution.lease &&

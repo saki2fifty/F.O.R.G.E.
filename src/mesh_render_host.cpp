@@ -6,6 +6,26 @@
 #include "render_sort.hpp"
 #include <set>
 namespace forge {
+MeshResourceInspection MeshResourceHost::inspect() const {
+    check_thread();
+    MeshResourceInspection result;
+    result.meshes = meshes_.statistics();
+    result.materials = materials_.statistics();
+    result.textures = textures_.statistics();
+    result.gpu_meshes = gpu_meshes_.statistics();
+    result.gpu_textures = gpu_textures_.statistics();
+    result.environments = environments_.statistics();
+    auto append = [&](const auto& pool) {
+        const auto revisions = pool.revisions();
+        result.revisions.insert(result.revisions.end(), revisions.begin(), revisions.end());
+        const auto requests = pool.pending_requests();
+        result.requests.insert(result.requests.end(), requests.begin(), requests.end());
+    };
+    append(meshes_);
+    append(materials_);
+    append(textures_);
+    return result;
+}
 std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
     host_->check_thread();
     std::optional<RenderBounds> result;

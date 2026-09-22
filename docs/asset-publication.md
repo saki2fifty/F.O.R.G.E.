@@ -2,9 +2,9 @@
 
 `AssetPublisher` is the authoring-side publication boundary for immutable import
 outputs. It reuses `ProjectLease`, `AssetCatalog`, `AssetImporter`, the derived
-cache, typed dependencies and subasset reconciliation. It is internal Phase7
-infrastructure; a complete model/texture import dialog and runtime adoption path
-are still being integrated. The runtime does not link this authoring service.
+cache, typed dependencies and subasset reconciliation. Model, Texture, Material, Shader and Audio import workflows use this boundary
+through shared application services. Resource consumers adopt admitted revisions
+independently at their owner boundary. The runtime does not link this authoring service.
 
 ## Ownership and stored data
 
@@ -101,14 +101,14 @@ at each durable boundary and recover in a fresh process; those intentional exits
 are separate from normal-path leak checks. Windows has an additional real open-file
 replacement test. Observed platform results belong in the daily changelog.
 
-## Remaining integration
+## Provider and consumer boundaries
 
-The coordinator is tested with generic failure/recovery fixtures and actual isolated
-texture recipes, including simultaneous color/data resources. This is not yet
-proof of a complete production importer, cooked package, resource manager or GPU
-retirement path. Concrete providers must supply actual format/compatibility
-validation and sidecar bindings. The editor's import commands must invoke recovery
-before accepting new jobs and expose conflicts with their actual paths.
+Concrete providers supply format validation and family/sidecar bindings. Tests
+cover generic interruption recovery and actual isolated model, texture, material,
+shader and audio publication. Editor import commands invoke recovery before new
+jobs and expose conflicts with their paths. Publication success is distinct from
+CPU resource admission, GPU allocation and complete draw-bundle adoption; those
+consumers retain their previous usable revision when a replacement fails.
 
 ## Shared application service
 
@@ -137,12 +137,12 @@ its exact new ticket around compatibility validation. This permits independent
 queued imports without treating an unrelated asset publication as permission to
 overwrite the selected asset.
 
-The texture provider supplies its existing single-root mapping and typed validator.
-The CLI has no live world/device, so its compatibility preflight has no live resource
-to replace. The current editor texture workflow likewise does not yet expose GPU
-texture/material consumers; those consumers must add their compatibility preflight
-when wired. No cross-document scene Undo, arbitrary native rollback or general
-plugin ABI is implied.
+Texture providers supply single-root mappings and typed validators; models publish
+complete root/member families. The CLI has no live world/device to replace. Editor
+and presentation consumers independently validate candidate layouts and complete
+resource dependencies before changing their active draw bundle. A published asset
+can therefore have a failed live replacement while its previous draw remains usable.
+No cross-document scene Undo, arbitrary native rollback or general plugin ABI is implied.
 
 ## Publication receipts for source observation
 

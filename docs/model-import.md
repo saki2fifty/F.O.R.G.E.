@@ -1,8 +1,10 @@
 # Model import stages
 
-Phase7 model integration is in progress. Native geometry preparation and official
-Ozz conversion feed one validated family through the shared import service/CLI.
-Runtime model binding, rendering and the model-document UI remain required work.
+Native geometry preparation and official Ozz conversion feed one validated asset
+family through the shared import service, Content and CLI. Models can be inspected
+in a central document, placed into a scene, reconciled on reimport and rendered
+through shared Scene/Game resources. Phase7 final clean/package/platform acceptance
+remains a separate gate.
 
 ## Immutable source transport
 
@@ -94,8 +96,8 @@ The fixed `forge.model.gltf` recipe now runs through `forge_asset_build`, the sa
 supervised executable used for textures. Its registry entry is available to the
 shared import service and headless `forge_tools --assets import` command. The
 recipe includes skin/animation conversion when needed. Camera/light and variant
-data are preserved as described below; their editor/runtime realization, model
-documents and GPU rendering remain required Phase7 work.
+data feed the existing ECS placement and rendering consumers described below.
+Source parsing remains in tools/workers, outside presentation.
 
 Discovery captures source and external dependencies. Before process launch, a
 second immutable capture must have the same source/settings/dependency build key.
@@ -151,9 +153,10 @@ all counts, indices, projection/cone ranges and typed member bindings.
 Omitted perspective far planes and aspect ratios become explicit null values in the
 cooked index, retaining infinite-far and automatic-aspect meaning. Orthographic
 magnifications must be nonzero; negative values are valid under the exact glTF
-specification. These are asset values, not a new camera projection implementation.
-The future camera extractor must handle the specification's undefined view for
-singular, reflected or sheared camera transforms without changing authored visual TRS.
+specification. Placement maps these values to the existing Camera component. Shared view
+extraction rejects singular, reflected or sheared camera frames, preserves signed
+orthographic magnification with explicit projection flips, and leaves authored
+visual TRS unchanged.
 
 Punctual light color remains linear[0,1]. Intensity is nonnegative, in lux for
 Directional and candela for Point/Spot. Point/Spot range is positive or absent/infinite;
@@ -164,16 +167,18 @@ No rendered-light or extension-conformance claim follows from retaining these va
 
 Visibility and selectability are distinct booleans, each intended to cascade through
 ancestors. Visibility hides visual features including lights, but does not disable
-cameras or selection. Current model data preserves local intent; ECS/render/picking
-consumers must apply the documented semantics before those workflows are available.
+cameras or selection. Placement preserves local intent in independent NodeVisibility/NodeSelectability
+components. Render extraction and picking apply structural ancestor conjunction;
+visibility and selection remain independent.
 
 Material variants retain display labels (which may duplicate) and candidate-local
 mesh/primitive/material mappings. Alternate materials join the same mesh dependency
 graph. Both base and variant bindings require their referenced UV streams to exist.
 The exact DiligentFX PBR implementation derives tangent frames from material UV
 position gradients, allowing alternate normal-map UV sets without rejecting the
-model because a single stored base-material tangent stream exists. GPU integration
-still must prove that native behavior in FORGE's render profile.
+model because a single stored base-material tangent stream exists. The shared material shader derives the selected UV tangent frame and has native
+normal-map/UV fixtures. That evidence does not promise identical support for an
+unvalidated backend.
 
 Evidence: [glTF camera specification at the selected revision](https://github.com/KhronosGroup/glTF/blob/c18432787e6d545a1218c1926ccdcfaffd4c116b/specification/2.0/Specification.adoc#cameras),
 [punctual lights](https://github.com/KhronosGroup/glTF/tree/c18432787e6d545a1218c1926ccdcfaffd4c116b/extensions/2.0/Khronos/KHR_lights_punctual),

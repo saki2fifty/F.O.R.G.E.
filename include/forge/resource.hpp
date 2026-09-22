@@ -46,6 +46,9 @@ struct ResourceInfo {
     ResourceMemory memory;
     bool previous_good = false;
     std::string diagnostic;
+    // Populated by owner-thread inspection for loaded revisions; excludes the
+    // pool's own reference. Request tickets alone do not pin a loaded value.
+    std::size_t strong_leases = 0;
 };
 namespace resource_detail {
 struct TicketState {
@@ -381,7 +384,13 @@ template <class T> class ResourcePool {
         std::lock_guard lock(state_->mutex);
         std::vector<ResourceInfo> result;
         auto add = [&](const auto& r, ResourceState status) {
-            result.push_back({r->identity, r->source_generation, status, r->memory, false, {}});
+            result.push_back({r->identity,
+                              r->source_generation,
+                              status,
+                              r->memory,
+                              false,
+                              {},
+                              std::size_t(r.use_count() - 1)});
         };
         for (const auto& [id, slot] : state_->slots) {
             (void)id;
@@ -390,6 +399,20 @@ template <class T> class ResourcePool {
         }
         for (const auto& r : state_->retired)
             add(r, ResourceState::Retiring);
+        return result;
+    }
+    std::vector<ResourceInfo> pending_requests() const {
+        state_->scope->check();
+        std::lock_guard lock(state_->mutex);
+        std::vector<ResourceInfo> result;
+        for (const auto& [id, slot] : state_->slots) {
+            (void)id;
+            if (!slot.request)
+                continue;
+            auto info = ResourceTicket(slot.request).inspect();
+            if (info.state != ResourceState::Ready && info.state != ResourceState::Unloaded)
+                result.push_back(std::move(info));
+        }
         return result;
     }
     // Explicit tooling wait. A timeout does not cancel a shared request implicitly.

@@ -1,5 +1,6 @@
 #include "asset_tools_cli.hpp"
 #include "bounded_json.hpp"
+#include "cache_maintenance.hpp"
 #include "runtime_package.hpp"
 #ifdef FORGE_ASSET_TOOLS
 #include "import_authoring.hpp"
@@ -23,7 +24,35 @@ int asset_tools_cli(int argc, char** argv) {
         if (!std::filesystem::is_directory(project))
             throw std::runtime_error("Project root is not a directory");
         Json result{{"api", 1}, {"operation", operation}, {"ok", true}};
-        if ((operation == "package" && argc == 7) || (operation == "verify-package" && argc == 5)) {
+        if (operation.starts_with("cache-")) {
+            CacheMaintenance action;
+            AssetId asset;
+            std::uint64_t budget = 0;
+            if (operation == "cache-stats" && argc == 4)
+                action = CacheMaintenance::Statistics;
+            else if (operation == "cache-verify" && argc == 4)
+                action = CacheMaintenance::Verify;
+            else if (operation == "cache-cleanup" && argc == 4)
+                action = CacheMaintenance::Cleanup;
+            else if (operation == "cache-clear-all" && argc == 4)
+                action = CacheMaintenance::ClearAll;
+            else if (operation == "cache-clear-asset" && argc == 5) {
+                action = CacheMaintenance::ClearAsset;
+                asset = AssetId::parse(argv[4]);
+            } else if (operation == "cache-prune" && argc == 5) {
+                const std::string_view text(argv[4]);
+                const auto value =
+                    asset_detail::parse_bounded_json(std::as_bytes(std::span(text)), 32, 4, 2);
+                if (!value.is_number_unsigned())
+                    throw std::runtime_error("Cache byte budget must be an unsigned integer");
+                budget = value.get<std::uint64_t>();
+                action = CacheMaintenance::PruneUnused;
+            } else
+                throw std::runtime_error("Invalid cache maintenance command or arguments");
+            ProjectLease lease(project);
+            result.update(maintain_asset_cache(lease, action, asset, budget));
+        } else if ((operation == "package" && argc == 7) ||
+                   (operation == "verify-package" && argc == 5)) {
             const std::string_view target_text(argv[operation == "package" ? 5 : 4]);
             const auto target_json = asset_detail::parse_bounded_json(
                 std::as_bytes(std::span(target_text)), 1024, 32, 4);

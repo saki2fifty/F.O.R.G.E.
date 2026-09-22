@@ -132,7 +132,7 @@ Json artifact_profile(const CachedArtifact& artifact, const AssetRecord& root,
         require(input.at(name) == selected.at(name),
                 "Selected catalog recipe differs from immutable artifact");
     require(input.at("source") == selected.at("source_digest") &&
-                asset_build_digest(artifact.manifest.at("files")) == selected.at("artifact_digest"),
+                selected.at("artifact_digest") == asset_build_digest(artifact.manifest.at("files")),
             "Selected artifact provenance/hash mismatch");
     return {{"platform", input.at("platform")},
             {"backend", input.at("backend")},
@@ -158,8 +158,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         require(artifact.files.size() == 1 && artifact.files.front().name == "program.shader",
                 "Unexpected compiled shader bundle");
         const auto shader = decode_shader(artifact.files.front().bytes);
-        require(shader.build_key == root.metadata.at("forge.shader").at("compiler_input_key") &&
-                    shader.layout_digest() == root.metadata.at("forge.shader").at("layout"),
+        require(root.metadata.at("forge.shader").at("compiler_input_key") == shader.build_key &&
+                    root.metadata.at("forge.shader").at("layout") == shader.layout_digest(),
                 "Compiled shader/layout provenance differs from selection");
     } else
         throw std::runtime_error("No cooked runtime packaging adapter for " + root.type +

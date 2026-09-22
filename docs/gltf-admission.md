@@ -1,9 +1,10 @@
 # glTF source admission
 
 Phase7's admission helpers validate captured inputs before native Diligent parsing
-and conversion. These checks are functioning internal code; they do not yet expose
-a completed model-import workflow or production renderer. Texture decoding has its
-own implemented pipeline; the glTF extension support below is private admission.
+and conversion. These checks feed the concrete Model importer, isolated worker, publication and
+Scene/Game resource path. This page describes input admission; end-to-end model
+behavior is in [model import](model-import.md), and device feature limits are in
+[rendering](rendering-foundation.md). Passing admission alone is not GPU acceptance.
 
 ## Exact source contract
 
@@ -85,7 +86,7 @@ Float attributes and exact unsigned integer IDs are converted through native
 `GLTF::VertexDataConverter`, with explicit handling of padded matrix columns,
 interleaved strides, zero-backed values and sparse patches. Integer indices never
 take a float round trip. Conversions enforce a512MiB output budget per accessor;
-the eventual importer/worker must additionally enforce aggregate/process budgets.
+the concrete importer/worker additionally enforces aggregate/process budgets.
 No native Model/Node becomes a Flecs gameplay object.
 
 Configure `FORGE_BUILD_ASSET_TOOLS=ON` to build this native tooling target and its
@@ -93,10 +94,11 @@ tests independently of the editor. It defaults to the editor setting. On Linux,
 native Core requires Vulkan to be configured and contributes static archives,
 but tests run without a display, usable driver or device creation. The standalone
 model profile disables shader compilers, optional codecs, archiver and unrelated
-rendering facilities. It does not claim shader import or complete model import.
-Editor builds reuse their existing native targets and shader compiler profile.
+rendering facilities. The composed asset-tool profile adds the complete model worker separately; native
+loader configuration alone does not enable shader compilation. Editor builds reuse
+their existing native targets and shader compiler profile.
 
-## CPU primitive processing — integration in progress
+## CPU primitive processing
 
 The private native adapter now extracts bounded CPU primitives using admitted
 native conversion. Core POSITION/NORMAL/TANGENT, consecutive UV/color sets,
@@ -126,12 +128,13 @@ uint32 working indices; efficient cooked index-width selection remains later wor
 Morph streams preserve supported position/normal/tangent, optional UV/color and
 custom deltas with matching base attributes/counts. Mesh target counts/default
 weight dimensions are checked once per document, avoiding repeated whole-mesh
-checks for each primitive. These CPU streams are not evidence of rendered morphs,
-skinning, generated tangents/normals, immutable Mesh artifacts or model instantiation.
+checks for each primitive. Subsequent mesh cooking, prepared skin palettes, model instantiation and Diligent
+morph/skin rendering validate their own contracts; these accessor checks alone
+do not establish those results.
 
 Current working-data limits are64 attributes/primitive,256 morph targets and512MiB
-decoded data/primitive. Native processing has sanitizer-tested semantic/malformed
-fixtures; production importer/cooker/profile and editor integration remain open.
+decoded data/primitive. Native processing has semantic/malformed fixtures under normal and strict
+sanitizer profiles. The isolated Model importer uses these same checks.
 
 
 ## Hierarchy and source transforms
@@ -148,14 +151,14 @@ non-affine matrices, matrix shear/singular columns, nonfinite values and invalid
 quaternions are rejected. Source TRS reflection and zero scale remain intact in
 private CPU data. Phase7 approval expands the existing LocalScale numerical domain
 to[-10000,+10000], including zero/tiny magnitudes, with independent inverse and
-physics admission. Model publication, runtime skinning and full rendering acceptance
-remain integration work; clamping or taking absolute visual scale is not a conversion.
+physics admission. Model publication and skin rendering preserve these values; clamping or taking
+absolute visual scale is not a conversion. Device-level acceptance is separate.
 
 Perspective camera source parameters include optional infinite far plane/aspect;
 orthographic parameters preserve signed nonzero magnification. Invalid clipping,
-projection and node references fail. These are source metadata checks, not a new
-Camera ECS component or renderer. Source camera-forward remains−Z; conversion to
-FORGE's+Z camera convention is still an importer-instantiation responsibility.
+projection and node references fail. Model placement creates the existing Camera component with an explicit glTF−Z
+view basis. Shared view extraction applies that basis without rewriting local TRS.
+Camera admission remains stricter than visual mesh-scale admission.
 
 ## Skin bindings and influence preparation
 
@@ -181,8 +184,9 @@ The resulting draw-local palette references ordered source joints and has at mos
 256 entries. A larger draw is rejected as requiring partitioning; partitioning is
 not yet implemented. The full skeleton may be larger when one primitive uses only
 a bounded subset. Skin preparation bounds output to512MiB and examined influences
-to128Mi entries. This is not evidence of rendered skinning, an Ozz compatibility
-mapping, palette uploads, or completed Mesh artifacts.
+to128Mi entries. The complete model cooker validates Ozz compatibility and stores the ordered skin
+binding; the rendering consumer uploads its bounded palette. See the model and
+rendering contracts for those separate checks.
 
 ## Animation admission and decoded tracks
 
@@ -200,10 +204,9 @@ diagnostic; this is not support for `KHR_animation_pointer`. Shared accessors ow
 one decoded byte payload per clip; input/rotation validation is also shared,
 preventing repeated large scans per channel. Decoded clip data has a512MiB cap.
 
-The CPU result is an admitted source track description. Ozz conversion,
-morph evaluation, runtime playback, cooked animation artifacts and visible
-skinning remain integration work. Admission tests cannot substitute for those
-end-to-end checks.
+The CPU result feeds official Ozz conversion and FORGE's admitted morph curves.
+Runtime-owned animation time supplies copied poses to presentation; admission
+tests remain separate from native visible skin/morph rendering tests.
 
 ## Official negative-scale fixture
 
@@ -252,8 +255,8 @@ in meshoptimizer1.2. Re-evaluate when the official extension is ratified.
 
 Regression evidence covers actual source capture, native conversion, index modes
 and widths, filter decoding, undefined filter inputs, truncated streams, rejected
-newer formats, bounded output, cancellation and unchanged provenance. No complete
-Content model-import UI or GPU renderability is implied by these private tests.
+newer formats, bounded output, cancellation and unchanged provenance. These codec tests complement the concrete Model workflow. They do not alone
+prove GPU renderability on every backend.
 
 ## Mesh preparation and attribute preservation
 
@@ -338,9 +341,9 @@ into the discarded strip sequence cannot be applied reliably to native face orde
 This limitation has an explicit diagnostic; no replacement strip or guessed patch
 is silently invented. It does not affect sparse vertex-attribute patches.
 
-This is private import admission, not yet a completed Content model workflow or
-GPU preview. Full model-worker integration and publication validation remain
-Phase7 completion requirements.
+The concrete Model worker uses this private decoder, followed by mesh cooking,
+parent-side candidate validation and complete family publication. Preview consumes
+cooked resources; it never decodes Draco on the presentation thread.
 
 ## Material factors, bindings and variants
 
@@ -392,13 +395,14 @@ Original source fields and unknown metadata remain captured provenance.
 Material variants retain their names and candidate-local primitive/material
 mappings. Duplicate display names are allowed; they are not identity. A variant may
 occur only once across a primitive's mappings, all references must be in range,
-and missing mappings retain the ordinary primitive material. Publication must bind
-these addresses through stable subasset identity; this helper alone does not assign
-AssetIds or expose a finished variant-selection UI.
+and missing mappings retain the ordinary primitive material. Publication binds these addresses through stable subasset identity. Model placement
+and scene variant selection consume the typed bindings; this helper itself does
+not allocate AssetIds.
 
 The private [model candidate stages](model-import.md) now exercise these native
 mesh/material/image consumers together, with immutable source transport and
-reorder-safe identity evidence. Full model publication/rendering remains in progress.
+reorder-safe identity evidence. Final Phase7 clean/package/platform acceptance is
+tracked separately from this implemented source admission.
 
 ## Official fixtures and comparison
 

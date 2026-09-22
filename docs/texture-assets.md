@@ -1,10 +1,10 @@
 # Texture data, import and runtime ownership
 
-Phase7 currently implements bounded CPU texture artifacts, a cooked-file resource
-provider and private image preparation. These are internal integration APIs.
-Concrete texture publication is tested; editor workflows and GPU realization are
-still being implemented. A format having a data representation is not evidence
-that its encoder, viewer or renderer has been delivered.
+FORGE implements bounded texture cooking, isolated publication, typed asynchronous
+CPU resources, Diligent GPU realization, Content previews and central import/viewer
+documents. The format, encoder and device profiles below are separate contracts;
+a represented format does not imply every encoder or GPU supports it. Phase7 final
+clean-build and packaged acceptance remain separate validation gates.
 
 ## Cooked layout
 
@@ -165,7 +165,8 @@ The upstream release explicitly does not promise bit-identical Basis results acr
 platforms. Record that profile in build inputs. Calls are worker-only, use bounded
 source/payload allocations and cooperative cancellation between native operations;
 whole-process peak memory/time containment remains the worker supervisor's job.
-This adapter is not yet connected to Content import or GPU resource publication.
+The container importer connects this adapter to Content, validated publication and
+semantic resource loading. GPU realization independently checks device format usage.
 
 KTX2 rows are tightly packed; KTX1 has four-byte row alignment. Do not use the
 pinned `ktxTexture_GetRowPitch` as a general KTX2 layout oracle: it applies legacy
@@ -192,8 +193,8 @@ Native pixel utilities convert BGRA/BGRX to RGBA and expand legacy luminance
 for color usage; data usage retains R/RG channels. Typeless formats, incomplete
 cubes, unsupported packed layouts, padded payloads and trailing bytes reject.
 The native profile caps mip count at15, total array faces at2048 and volume
-width/height at2048, alongside the shared texture budgets. This is container
-preparation, not an editor import workflow or proof of device support.
+width/height at2048, alongside the shared texture budgets. DDS container imports use the shared import workflow. Successful container
+preparation does not prove device format/dimension support.
 
 `TextureAlpha::Custom` is appended as value4; previous values retain their
 numbers. The not-yet-released Phase7 cooked format accepts this explicit metadata;
@@ -321,7 +322,8 @@ survive failed replacement, while switching asset/semantic clears that fallback.
 Native SRBs release source bindings after draw; accounted leases and fences retain
 submitted inputs. Closed viewer resources retire after ImGui submission. Cached
 output is reused while selected resource revision, dimensions, crop and controls
-are unchanged. This is a live document preview, not yet the browser thumbnail cache.
+are unchanged. Content thumbnail caching reuses these preview/resource owners with bounded
+entries and explicit retirement; preview success does not publish authored data.
 
 The standalone texture import document owns its draft/save workflow and shows its
 preview before a collapsed import-settings section. Generated model textures use

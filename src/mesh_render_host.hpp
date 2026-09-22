@@ -4,6 +4,11 @@
 #include "shadow_renderer.hpp"
 #include <forge/render_scene.hpp>
 namespace forge {
+struct MeshResourceInspection {
+    ResourceStatistics meshes, materials, textures;
+    GpuResidencyStats gpu_meshes, gpu_textures, environments;
+    std::vector<ResourceInfo> revisions, requests;
+};
 // Shared by visual hosts on one device/context and project. CPU preparation stays
 // on workers; adoption and native access stay on the calling presentation thread.
 class MeshResourceHost {
@@ -18,6 +23,7 @@ class MeshResourceHost {
     }
     void pump();
     void submit();
+    MeshResourceInspection inspect() const;
 
   private:
     friend class MeshSceneRenderer;

@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <forge/asset_build.hpp>
 #include <optional>
+#include <stop_token>
 
 namespace forge {
 struct ArtifactFile {
@@ -37,6 +38,17 @@ class DerivedDataCache {
     CacheStatistics statistics() const;
     // Caller supplies selected revisions/active jobs. Eviction never guesses reachability.
     std::uint64_t prune(std::uint64_t budget_bytes, const std::set<std::string>& protected_keys);
+    // Explicit tooling operation. Removes only the supplied immutable keys;
+    // callers own project/job coordination. Loaded resources own their bytes.
+    std::uint64_t erase(const std::set<std::string>& keys);
+    // Publication stages are created while holding the cache lock. Acquiring it
+    // proves that a retained stage is no longer owned by a cooperating publisher.
+    // Unknown/non-flat/redirected paths are retained with per-entry diagnostics.
+    nlohmann::json cleanup_orphans(bool include_quarantine = false);
+    std::set<std::string> keys() const;
+    // Maintenance-only hash/manifest audit. Does not claim format admission,
+    // select resources, or quarantine data belonging to an unknown importer.
+    nlohmann::json verify_storage(std::stop_token stop = {}) const;
     nlohmann::json verify(const Validator& validate);
 
   private:

@@ -40,6 +40,7 @@
 #include "play.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
+#include "resource_inspector.hpp"
 #include "runtime_ui_host.hpp"
 #include "runtime_ui_tools.hpp"
 #include "scene_asset_drop.hpp"
@@ -425,6 +426,11 @@ int main(int argc, char** argv) {
         };
         forge::ContentImports content_imports;
         forge::ContentFiles content_files;
+        forge::ui::ResourceInspector resource_inspector;
+        resource_inspector.reveal = [&](forge::AssetId id) {
+            editor.selection.select_asset(id);
+            editor.reveal_content = true;
+        };
         forge::SourceImport source_import;
         std::vector<std::filesystem::path> dropped_sources;
         bool source_drop_rejected = false, source_drop_position = false;
@@ -1606,12 +1612,14 @@ int main(int argc, char** argv) {
                 }
                 case 48:
                 case 51:
+                case 54:
                     forge::ui::style(1.5f);
                     SDL_SetWindowSize(window.get(), 1920, 1080);
                     workspace.reset = true;
                     break;
                 case 49:
                 case 52:
+                case 55:
                     forge::ui::style(2);
                     workspace.reset = true;
                     break;
@@ -1635,6 +1643,11 @@ int main(int argc, char** argv) {
                     shader_imports.request_save();
                     break;
                 }
+                case 53:
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    resource_inspector.visible = true;
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -1688,6 +1701,7 @@ int main(int argc, char** argv) {
                         ecs_workspace.menu();
                         automation.menu();
                         performance.menu();
+                        resource_inspector.menu();
                         project_settings.menu();
                         actions.item("scene.lighting", "Scene lighting...");
                     });
@@ -2695,6 +2709,7 @@ int main(int argc, char** argv) {
                 }
             }
             performance.draw(viewport.redraws, viewport.retained);
+            resource_inspector.draw(mesh_resources, presentation);
             // Apply default focus after all first-use dock tabs have been created.
             if (rebuilt_workspace)
                 ImGui::SetWindowFocus("Content");
@@ -2786,7 +2801,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 53) {
+                if (fixture.stage == 56) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

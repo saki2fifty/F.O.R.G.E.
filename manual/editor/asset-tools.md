@@ -4,6 +4,7 @@ Use `forge_tools` to list source files and inspect registered asset references
 without launching the editor. The inspection commands below read files only. They do not import
 content, assign AssetIds, change the catalog, or alter your scene.
 
+For disk-cache maintenance and loaded-resource diagnostics, see [Loaded resources](resources.md).
 For cooked-data export, see [Package cooked content](runtime-content.md). Importing
 assets uses the separate `--assets import` workflow documented under [Models](models.md),
 [Textures](textures.md), and [Audio](audio.md).
