@@ -54,9 +54,8 @@ class MeshMaterialInspector {
     }
     bool draw(Json& overrides) {
         poll();
-        ui::property_label_row("Materials",
-                               "Assign materials by stable mesh slot. Changes belong "
-                               "to this scene; shared material sources are unchanged.");
+        ui::heading("Materials", "Assign materials by stable mesh slot. Changes belong "
+                                 "to this scene; shared material sources are unchanged.");
         if (pending())
             ImGui::TextDisabled("Loading mesh slots...");
         if (!error_.empty()) {
@@ -82,7 +81,8 @@ class MeshMaterialInspector {
             const auto label = (slot.key == "default" || slot.key == "surface")
                                    ? "Surface"
                                    : "Surface " + slot.key;
-            if (asset_ref_picker(*catalog_, value, MaterialAsset::type, label.c_str())) {
+            ui::property_label_row(label.c_str(), "Material assigned to this named mesh surface.");
+            if (asset_ref_picker(*catalog_, value, MaterialAsset::type, "##material")) {
                 if (owned)
                     (*entry)["material"] = value;
                 else
@@ -109,7 +109,9 @@ class MeshMaterialInspector {
             ui::help("This authored slot has no current mesh binding, or its mesh has not loaded. "
                      "It is preserved across reimport and scene saves.");
             auto value = it->at("material");
-            if (asset_ref_picker(*catalog_, value, MaterialAsset::type, "Material")) {
+            ui::property_label_row("Material",
+                                   "Preserved material assignment for this missing slot.");
+            if (asset_ref_picker(*catalog_, value, MaterialAsset::type, "##material")) {
                 (*it)["material"] = value;
                 return true;
             }

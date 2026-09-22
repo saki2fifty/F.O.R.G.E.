@@ -1720,6 +1720,10 @@ int main(int argc, char** argv) {
                         std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
                     model_imports.open(files.document, "Assets/lods.gltf");
                     model_imports.request_save();
+                    if (auto* w = ImGui::FindWindowByName("###Model import"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Model import", {30, 55});
+                    ImGui::SetWindowSize("###Model import", {1800, 970});
                     break;
                 }
                 case 60: {
@@ -1769,6 +1773,10 @@ int main(int argc, char** argv) {
                         "c.rgb*=ForgeParameter_intensity()*(.3+.7*abs(input.Normal.y));return "
                         "c;}\n");
                     shader_imports.open(files.document, "Assets/CustomSurface.shader.json");
+                    if (auto* w = ImGui::FindWindowByName("###Shader import"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Shader import", {30, 55});
+                    ImGui::SetWindowSize("###Shader import", {1800, 970});
                     shader_imports.request_save();
                     break;
                 }

@@ -173,6 +173,25 @@ int main(int argc, char** argv) {
         ImGui::End();
         ImGui::Render();
         require(scene.document() == assigned, "Drawing material slots mutated authored state");
+        for (const float scale : {1.f, 1.5f, 2.f}) {
+            ui::style(scale);
+            auto values = assignments;
+            for (unsigned settled = 0; settled < 3; ++settled) {
+                ImGui::NewFrame();
+                ImGui::SetNextWindowPos({0, 0});
+                ImGui::SetNextWindowSize({990, 500});
+                ImGui::Begin("Material slots scale");
+                require(!slots.draw(values), "Drawing scaled slots changed assignment intent");
+                const auto* window = ImGui::GetCurrentWindow();
+                if (settled == 2)
+                    require(window->ContentSize.x <= window->InnerRect.GetWidth(),
+                            "Material slot label or picker exceeded the Inspector width");
+                ImGui::End();
+                ImGui::Render();
+            }
+            require(values == assignments, "Scaled slots changed material values");
+        }
+        ui::style(1.f);
         inspector.edit_property(scene, entity, "forge.mesh_renderer", "materials", Json::array());
         require(scene.document() == before_assignment && scene.undo() &&
                     scene.document() == assigned,

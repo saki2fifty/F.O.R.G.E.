@@ -229,3 +229,9 @@ Content file/selection/thumbnail interaction suite passes (1.56s), including cap
 Reconciled rendering, asset identity, model/mesh/material/shader, animation and automation documentation with the implemented shared render and authoring paths. Removed stale integration-pending statements for authored cameras, lighting, deformation, material surfaces, placement, reimport and subasset mapping. Retained actual feature limits and the separate final-package gate. The native source audit passes all five renderer tests; its remaining editor capture failure is recorded rather than reported as complete acceptance.
 
 The next native capture reached the custom-component tools stage after successfully capturing the corrected picker and project-component Inspector at all three scales. Its setup had retained the deliberately folded bottom workspace from an earlier stress layout, hiding Gameplay Code. The capture setup now explicitly unfolds that workspace before requesting the tools; visibility checks remain unchanged.
+
+Actual200% picker review found a material-slot caption trailing beyond the Inspector edge. Material slots now use the shared responsive label/value layout, including unresolved assignments, with per-slot hidden widget IDs. Material identity, explicit assignments, Revert and scene history remain unchanged. Added actual ImGui width/nonmutation coverage at100%,150% and200%.
+
+Material editor interaction and scaled-slot regression pass1/1 (1.19s); manual3/3 and adapted editor fixture syntax pass. Refreshed native captures remain required.
+
+Individual capture review also found the LOD Model import and custom surface Shader import documents active but obscured by earlier floating fixture windows. Their capture setup now presents each document in its own foreground window. This changes test placement only; normal saved layouts remain authoritative.
