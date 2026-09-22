@@ -14,6 +14,8 @@ class CacheTools {
         if (pending_ && imports.quiescent()) {
             const auto operation = *pending_;
             pending_.reset();
+            result_ = Json{};
+            error_.clear();
             try {
                 const auto writer = document.writer_guard();
                 stop_ = std::stop_source{};

@@ -15,8 +15,13 @@ New-Item -ItemType Directory -Force $Output | Out-Null
 $preferences = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'FORGE/Editor'
 $backup = Join-Path $Output 'original-preferences'
 if (Test-Path $backup) { throw 'Benchmark output already contains a preferences backup.' }
-if (Test-Path $preferences) { Move-Item $preferences $backup }
+$currentProvenance = Get-Content (Join-Path (Split-Path $Current) 'provenance.json') -Raw | ConvertFrom-Json
+$baselineProvenance = Get-Content (Join-Path (Split-Path $Baseline) 'provenance.json') -Raw | ConvertFrom-Json
+if ($currentProvenance.source -ne $env:FORGE_SOURCE_COMMIT -or $baselineProvenance.source -ne 'a98be9a672394d3d91c2b9067331d0252f9b4313') {
+ throw 'Benchmark artifact source mismatch'
+}
 $samples = @()
+if (Test-Path $preferences) { Move-Item $preferences $backup }
 try {
  foreach ($workload in @('empty','cube')) {
   for ($repeat=0; $repeat -lt 3; ++$repeat) {
@@ -54,7 +59,7 @@ try {
      }
      if (!$responsive) { throw "Editor did not become responsive: $name" }
      $startup = $timer.Elapsed.TotalMilliseconds
-     [void][ForgeWindowProbe]::SetWindowPos($process.MainWindowHandle,[IntPtr]::Zero,20,20,1440,900,0x0040)
+     if (![ForgeWindowProbe]::SetWindowPos($process.MainWindowHandle,[IntPtr]::Zero,20,20,1440,900,0x0040)) { throw 'Cannot set the matched benchmark window size' }
      Start-Sleep -Seconds 3
      $idle = @()
      for ($sample=0; $sample -lt 5; ++$sample) {

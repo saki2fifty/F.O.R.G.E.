@@ -296,6 +296,24 @@ inline void test_content_browser(const std::filesystem::path& root) {
           "Asset drag lost entity Inspector or payload");
     io.AddMouseButtonEvent(0, false);
     frame();
+    bool selection_menu = false;
+    view.selection_actions = [&](bool locked) {
+        check(!locked, "Idle Content selection actions were locked");
+        selection_menu = true;
+        ImGui::TextUnformatted("Shared selection actions");
+    };
+    io.AddMousePosEvent(results->InnerClipRect.GetCenter().x, results->InnerClipRect.Max.y - 30);
+    frame();
+    io.AddMouseButtonEvent(1, true);
+    frame();
+    io.AddMouseButtonEvent(1, false);
+    frame();
+    frame();
+    check(selection_menu, "Right-clicking result background did not open shared selection actions");
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     frame();
 }

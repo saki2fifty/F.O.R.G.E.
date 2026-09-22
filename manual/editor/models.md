@@ -402,3 +402,14 @@ extension prevents publication and keeps the previous usable model.
 New imports reject primary vertex colors outside the glTF [0,1] range. Correct
 those vertex colors in the source tool and reimport; HDR material color factors
 have separate rules and are not narrowed by this check.
+
+
+## Placement from the Command Palette
+
+With a ready Model import document open, press **Ctrl+Shift+P** and search
+**Model document / Place configured model**. This is the same action as that
+document's **Place model** button: it uses the selected source scene, animation
+clip, material variant and name, places at the world origin, and adds one scene
+Undo step. Finish importing and stop Play first. The separate **Assets / Place
+selected in Scene** command uses the selected Content asset and the creation
+target, with its default placement options.

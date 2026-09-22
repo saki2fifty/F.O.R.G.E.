@@ -855,6 +855,7 @@ int main(int argc, char** argv) {
 #endif
         content.action_set = [&](const forge::AssetRecord* explicit_target) {
             forge::ui::AssetActionContext context;
+            bool selection_complete = true;
             if (explicit_target) {
                 context.target = *explicit_target;
                 context.selected = {explicit_target->id};
@@ -867,6 +868,8 @@ int main(int argc, char** argv) {
                         std::find(context.selected.begin(), context.selected.end(),
                                   context.target->id) == context.selected.end())
                         context.selected = {context.target->id};
+                    else
+                        selection_complete = content.selected_assets_complete();
                 }
             }
             if (play.active() || native->busy() || files.busy() || files.changed ||
@@ -879,7 +882,7 @@ int main(int argc, char** argv) {
             context.placeable = context.target && (context.target->type == "model" ||
                                                    context.target->type == "mesh" ||
                                                    context.target->type == "prefab");
-            context.reimportable = !context.selected.empty();
+            context.reimportable = !context.selected.empty() && selection_complete;
             for (auto id : context.selected) {
                 const auto* asset = content.record(id);
                 if (asset && asset->subasset)
@@ -2840,7 +2843,9 @@ int main(int argc, char** argv) {
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
                             {image_origin.x + size.x, image_origin.y + size.y});
                         if (!game_view)
-                            spatial_helpers.draw(view_camera, selected, image_origin, size);
+                            spatial_helpers.draw(view_camera, selected, image_origin, size,
+                                                 modal.active() ? ImGui::GetTextLineHeight() + 20
+                                                                : 0);
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active());

@@ -5,6 +5,9 @@ on:
       source_commit:
         required: true
         type: string
+      performance_source_run:
+        type: string
+        default: ""
       workflow_only:
         type: boolean
         default: false
@@ -18,6 +21,9 @@ on:
         type: string
         required: true
         default: 8bfaa4057660286dd503bd9fc62265dc350a7a84
+      performance_source_run:
+        type: string
+        default: ""
       workflow_only:
         type: boolean
         default: false
@@ -29,10 +35,11 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: editor-source-audit-${{ github.ref }}
+  group: editor-source-audit-${{ github.ref }}-${{ inputs.performance_source_run }}
   cancel-in-progress: false
 jobs:
   editor:
+    if: inputs.performance_source_run == ''
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -255,7 +262,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'git checkout failed' }
           $driver=Join-Path $env:RUNNER_TEMP 'forge-work/AgentFiles/benchmark-driver'
           New-Item -ItemType Directory -Force $driver | Out-Null
-          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ${{ inputs.source_commit }}
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ${{ github.sha }}
           if ($LASTEXITCODE) { throw 'Cannot retrieve benchmark driver' }
           git -C $source show 'FETCH_HEAD:tools/prepare_editor_benchmark.py' | Set-Content "$driver/prepare_editor_benchmark.py" -Encoding utf8
 
@@ -310,7 +317,12 @@ jobs:
       - name: Restore timestamps of content-identical cached sources
         if: ${{ !inputs.clean_build }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: python tools/ci_source_stamps.py restore ../AgentFiles/b/forge-source-stamps.json
+        shell: pwsh
+        run: |
+          if (Test-Path tools/ci_source_stamps.py) {
+            python tools/ci_source_stamps.py restore ../AgentFiles/b/forge-source-stamps.json
+            if ($LASTEXITCODE) { throw 'Source-stamp restore failed' }
+          }
       - name: Prepare accepted baseline WARP benchmark
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python ../AgentFiles/benchmark-driver/prepare_editor_benchmark.py . ../AgentFiles/benchmark-target
@@ -334,16 +346,16 @@ jobs:
 
   editor-performance:
     needs: [editor, benchmark-baseline]
-    if: ${{ !inputs.workflow_only }}
+    if: ${{ always() && !cancelled() && !inputs.workflow_only && needs.benchmark-baseline.result == 'success' && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
     runs-on: windows-2022
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - name: Checkout Windows source without trailing-dot paths
         if: runner.os == 'Windows'
         shell: pwsh
         working-directory: ${{ runner.temp }}
         env:
-          FORGE_COMMIT: ${{ inputs.source_commit }}
+          FORGE_COMMIT: ${{ github.sha }}
           FORGE_TOKEN: ${{ github.token }}
         run: |
           if ($env:FORGE_COMMIT -notmatch '^[0-9a-f]{40}$') { throw 'A full immutable source commit is required' }
@@ -363,6 +375,33 @@ jobs:
         with:
           pattern: FORGE-Editor-Benchmark-*
           path: ${{ runner.temp }}/forge-benchmark
+      - name: Wait for the referenced benchmark artifact
+        if: inputs.performance_source_run != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORGE_AUDIT_RUN: ${{ inputs.performance_source_run }}
+        run: |
+          if ($env:FORGE_AUDIT_RUN -notmatch '^[0-9]+$') { throw 'Expected a numeric source-audit run ID' }
+          $deadline=(Get-Date).AddMinutes(30)
+          do {
+            $data=gh api "repos/${{ github.repository }}/actions/runs/$env:FORGE_AUDIT_RUN/artifacts?per_page=100" | ConvertFrom-Json
+            if ($LASTEXITCODE) { throw 'Cannot inspect referenced run artifacts' }
+            if ($data.artifacts | Where-Object { $_.name -eq 'FORGE-Editor-Benchmark-current' -and !$_.expired }) { break }
+            $run=gh api "repos/${{ github.repository }}/actions/runs/$env:FORGE_AUDIT_RUN" | ConvertFrom-Json
+            if ($LASTEXITCODE) { throw 'Cannot inspect referenced run status' }
+            if ($run.status -eq 'completed') { throw 'Referenced run completed without a usable current benchmark' }
+            if ((Get-Date) -ge $deadline) { throw 'Timed out waiting for the current benchmark artifact' }
+            Start-Sleep -Seconds 20
+          } while ($true)
+      - name: Reuse an unchanged current benchmark from the requested audit
+        if: inputs.performance_source_run != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Editor-Benchmark-current
+          run-id: ${{ inputs.performance_source_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-benchmark/FORGE-Editor-Benchmark-current
       - name: Measure both source revisions on the same runner
         shell: pwsh
         env:

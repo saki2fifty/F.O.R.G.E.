@@ -19,6 +19,7 @@ class ContentView {
     std::function<ContentThumbnail(AssetId)> thumbnail;
     std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const std::vector<AssetId>&)> reimport;
+    std::function<void(bool)> selection_actions;
     Json settings() const {
         return {{"grid", grid_},
                 {"folder_tree", tree_},
@@ -191,36 +192,6 @@ class ContentView {
             draw_folder("", 0);
             ImGui::EndPopup();
         }
-        // Selection operations live in their context/command routes, not a fourth
-        // permanent toolbar row. Short panels reserve their height for results.
-        if (ImGui::BeginPopupContextWindow("content-selection",
-                                           ImGuiPopupFlags_MouseButtonRight |
-                                               ImGuiPopupFlags_NoOpenOverItems)) {
-            ImGui::TextDisabled("%zu selected", selected_.size());
-            ui::help(
-                "Ctrl-click toggles items; Shift-click selects a range; Ctrl+A selects filtered "
-                "results; Escape clears Content selection. Inspector follows the primary item. "
-                "Hidden selected items remain selected until cleared.");
-            if (reimport && !selected_.empty()) {
-                ui::next_text_button("Reimport selected");
-                ImGui::BeginDisabled(locked);
-                if (ui::button(
-                        "Reimport selected",
-                        "Queue selected registered assets through their existing importer. Shared "
-                        "source owners are processed once; dirty source drafts delay "
-                        "publication.")) {
-                    const auto assets = selected_assets();
-                    if (assets.size() != selected_.size())
-                        ui::report_error("content_reimport",
-                                         "Import selected source files before requesting Reimport "
-                                         "selected. No assets were queued.");
-                    else
-                        reimport(assets);
-                }
-                ImGui::EndDisabled();
-            }
-            ImGui::EndPopup();
-        }
         query_.folder = locations_.current();
         if (dirty_ || query_ != applied_) {
             visible_ = index_ ? index_->query(query_) : std::vector<std::size_t>{};
@@ -247,6 +218,38 @@ class ContentView {
                                    : "Discovering project content...");
         else
             draw_entries(selection, locked);
+        // Selection operations live in their context/command routes, not a fourth
+        // permanent toolbar row. Short panels reserve their height for results.
+        if (ImGui::BeginPopupContextWindow("content-selection",
+                                           ImGuiPopupFlags_MouseButtonRight |
+                                               ImGuiPopupFlags_NoOpenOverItems)) {
+            ImGui::TextDisabled("%zu selected", selected_.size());
+            ui::help(
+                "Ctrl-click toggles items; Shift-click selects a range; Ctrl+A selects filtered "
+                "results; Escape clears Content selection. Inspector follows the primary item. "
+                "Hidden selected items remain selected until cleared.");
+            if (selection_actions)
+                selection_actions(locked);
+            else if (reimport && !selected_.empty()) {
+                ui::next_text_button("Reimport selected");
+                ImGui::BeginDisabled(locked);
+                if (ui::button(
+                        "Reimport selected",
+                        "Queue selected registered assets through their existing importer. Shared "
+                        "source owners are processed once; dirty source drafts delay "
+                        "publication.")) {
+                    const auto assets = selected_assets();
+                    if (assets.size() != selected_.size())
+                        ui::report_error("content_reimport",
+                                         "Import selected source files before requesting Reimport "
+                                         "selected. No assets were queued.");
+                    else
+                        reimport(assets);
+                }
+                ImGui::EndDisabled();
+            }
+            ImGui::EndPopup();
+        }
         ImGui::EndChild();
         if (footer) {
             ImGui::TextDisabled("%zu shown / %zu total", visible_.size(),

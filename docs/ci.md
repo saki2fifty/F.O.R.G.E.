@@ -145,3 +145,9 @@ realization samples with the same workload/compiler settings. End-to-end artifac
 publication and DDC-hit timings remain separate in `shader_worker`. Native fixture
 renderer diagnostics include frame, timestamp, SDL window flags and Present phase;
 errors must be reviewed independently of successful input assertions.
+
+If only baseline/comparison infrastructure fails, `audit_performance_source_run`
+can reuse that audit's `FORGE-Editor-Benchmark-current` artifact. Supply its exact
+`audit_source`; artifact provenance must match before execution. The retry rebuilds
+the baseline and runs the comparison, while skipping current-editor compilation.
+This reuse does not establish successful renderer/UI assertions from the earlier run.

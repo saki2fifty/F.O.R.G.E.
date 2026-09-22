@@ -146,6 +146,9 @@ class ContentBrowser {
     std::function<void(const AssetRecord&, bool)> file_actions;
     std::function<ui::EditorActions(const AssetRecord*)> action_set;
     std::vector<AssetId> selected_assets() const { return view_.selected_assets(); }
+    bool selected_assets_complete() const {
+        return view_.selected_assets().size() == view_.selection().size();
+    }
     std::function<void()> rescan_sources, import_status;
     std::function<void()> import_files;
     bool accepts_file_drop(ImVec2 screen) const {
@@ -473,6 +476,12 @@ class ContentBrowser {
                 "Project asset discovery runs in the background. Existing results stay available; "
                 "a failed scan keeps the last complete list.");
         }
+        view_.selection_actions = action_set ? std::function<void(bool)>([&](bool locked) {
+            ImGui::BeginDisabled(locked);
+            action_set(nullptr).item("asset.reimport", "Reimport selected");
+            ImGui::EndDisabled();
+        })
+                                             : std::function<void(bool)>{};
         view_.reimport =
             reimport ? std::function<void(const std::vector<AssetId>&)>([&](const auto& ids) {
                 try {

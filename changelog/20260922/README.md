@@ -286,3 +286,15 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Added executable regression coverage for inherited camera/light guide transforms, ancestor visibility/selection locks, orthographic guides, combined camera/light entities, real Command Palette input for asset actions, and native preview-light versus authored/Game rendering isolation. Native results remain pending.
 
 - The rebuilt local editor behavior suite passed17.37s with real palette input for all eight shared asset actions and disabled-state rejection. Manual checks passed3/3. Main/fixture/viewport source syntax, formatting and workflow lint checks pass; Windows rendering and visual review remain separate pending gates.
+
+- The first native source-audit run exposed a baseline-driver compatibility issue: the pre-Phase-7 checkout has no source-stamp helper. Baseline setup now uses it only where available. Performance-only retries can reuse an unchanged current benchmark artifact, with exact source checks, so a baseline-driver failure does not require rebuilding the current editor.
+
+- Follow-up review moved the Content selection context popup into the actual results child window and routed its Reimport item through the shared command adapter. Mixed registered/unregistered selections cannot silently reimport only a subset. Added real right-click coverage and documented configured Model placement through the palette.
+
+- Follow-up editor tests passed16.75s, including actual right-click access to result-selection actions. The rebuilt ASan/UBSan/LSan editor suite passed50.70s with strict halt-on-error and leak checks; no suppression was added. This covers the changed editor code with existing sanitized engine libraries, separately from native GPU execution.
+
+- Cache maintenance clears the previous operation result when starting new work, so a failed operation cannot continue displaying an earlier success. Matched benchmark setup now rejects failure to set the requested window dimensions. Rebuilt Model editor and Content file-operation tests passed2/2 in10.08s.
+
+- Camera/light guide labels reserve space for active transform instructions; combined Camera/Light entities show distinct stacked notes and one entity caption instead of overlapping text.
+
+- Source checkpoint6b9285b passed all Linux/Windows static-core and exact-SDK push jobs plus formatting (run35768691345). Native editor/render/image checks remain in progress; no new numbered package has been issued.

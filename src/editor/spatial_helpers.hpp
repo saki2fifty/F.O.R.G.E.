@@ -162,6 +162,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                 marker.lines.clear();
                 marker.note = std::string("Invalid camera/light: ") + error.what();
             }
+            marker.note = std::string(is_camera ? "Camera | " : "Light | ") + marker.note;
             if (!marker.enabled)
                 marker.note += " | Disabled";
             if (!marker.selectable)
@@ -204,14 +205,15 @@ class SpatialHelpers {
         }
         return hit;
     }
-    void draw(const EditorCamera& camera, const std::string& selected, ImVec2 origin,
-              ImVec2 area) const {
+    void draw(const EditorCamera& camera, const std::string& selected, ImVec2 origin, ImVec2 area,
+              float header_offset = 0) const {
         if (!visible)
             return;
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
         const SpatialMarker* hovered = nullptr;
         ImRect hover_rect;
+        float note_y = origin.y + 15 + ImGui::GetTextLineHeight() + header_offset;
         for (const auto& marker : markers_) {
             const auto projected = project_point(camera, cast(marker.position), area.x, area.y);
             const bool active = marker.entity == selected;
@@ -255,11 +257,12 @@ class SpatialHelpers {
                 test::ui_targets["marker:" + marker.entity] = {at(-1, -1), at(1, 1),
                                                                marker.selectable};
 #endif
-            if (active)
+            if (active && marker.offset >= 0)
                 draw->AddText({p.x + r + 4, p.y - r}, color, marker.name.c_str());
-            if (active && !marker.note.empty())
-                draw->AddText({origin.x + 10, origin.y + 15 + ImGui::GetTextLineHeight()}, color,
-                              marker.note.c_str());
+            if (active && !marker.note.empty()) {
+                draw->AddText({origin.x + 10, note_y}, color, marker.note.c_str());
+                note_y += ImGui::GetTextLineHeightWithSpacing();
+            }
         }
         draw->PopClipRect();
         const auto id = hovered ? hovered->entity : std::string{};
