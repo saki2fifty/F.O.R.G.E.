@@ -9,6 +9,10 @@ creates ordinary entities in your current scene.
 
 For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
 
+## Try the packaged walkthrough
+
+Open **Examples/Rendering** through **File > Open project**. Its `README.md` gives a short import-and-place walkthrough using the original FORGE checker cube, copper variant, floor, camera and light. Import `Assets/Rendering.gltf` with the steps below, then choose **Place model** and **Play**. The project begins with an empty scene so the import and placement steps are visible.
+
 ## Import from Content
 
 1. Put the model and its external buffers/images inside the project's **Assets** folder.

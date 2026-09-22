@@ -100,6 +100,38 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
                 "Nonindexed or uint32 draw differs from equivalent compact indexed geometry");
         save(pixels, 32, 32, images / (indexed ? "mesh-index32.ppm" : "mesh-nonindexed.ppm"));
     }
+    for (const auto topology : {forge::MeshTopology::Points, forge::MeshTopology::Lines}) {
+        std::vector<std::array<unsigned char, 4>> indexed_pixels;
+        for (const bool indexed : {true, false}) {
+            auto alternate = mesh;
+            auto& converted = alternate.lods[0].parts[0];
+            converted.topology = topology;
+            converted.indices =
+                indexed ? std::vector<std::uint32_t>{0, 1, 2, 3} : std::vector<std::uint32_t>{};
+            auto uploaded = forge::upload_mesh(presentation.device(), alternate);
+            require(uploaded.lods[0].parts[0].topology == (topology == forge::MeshTopology::Points
+                                                               ? PRIMITIVE_TOPOLOGY_POINT_LIST
+                                                               : PRIMITIVE_TOPOLOGY_LINE_LIST),
+                    "Point/line upload lost its native Diligent topology");
+            forge::MeshDraw prepared(presentation, context, uploaded.lods[0].parts[0], material, {},
+                                     TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+            const auto pixels = render(prepared);
+            const auto covered = std::count_if(pixels.begin(), pixels.end(),
+                                               [](const auto& pixel) { return pixel[1] > 100; });
+            require(covered >= (topology == forge::MeshTopology::Points ? 4 : 24) &&
+                        covered <= (topology == forge::MeshTopology::Points ? 8 : 40),
+                    "Point/line draw is absent or incorrectly fills triangle interiors");
+            if (indexed)
+                indexed_pixels = pixels;
+            else
+                require(pixels == indexed_pixels,
+                        "Indexed and nonindexed point/line geometry differ");
+            save(pixels, 32, 32,
+                 images / (std::string(topology == forge::MeshTopology::Points ? "mesh-points"
+                                                                               : "mesh-lines") +
+                           (indexed ? "-indexed.ppm" : "-nonindexed.ppm")));
+        }
+    }
     {
         using namespace std::chrono_literals;
         forge::ResourcePool<forge::MeshAsset> cpu_mesh;

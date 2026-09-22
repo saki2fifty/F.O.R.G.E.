@@ -175,3 +175,11 @@
 - Strict ASan/UBSan/LSan model recipe, worker policy, package and cleanup checks pass4/4 (185.62 seconds), without findings or suppressions. The previous checkpoint's native audit passes66/70; its four failures are the shader location, shared fallback assertion and unreachable model variant controls corrected in this bundle. Its deep Windows content-package regression now passes.
 
 - Corrected picker/header checks pass in the actual ImGui harness at all three scales; combined editor/model tests pass2/2 (18.85 seconds). Manual3/3, formatting and adapted editor/native-test syntax pass. Final native capture review remains pending.
+
+## Geometry support documentation review
+
+Corrected the format/render matrices to match existing point and line import, cooking and Diligent draw paths. Line loops/strips normalize to line lists; triangle strips/fans normalize to triangle lists. Ordinary point primitives do not implement Gaussian splatting. Added native indexed/nonindexed point/line readback comparisons, coverage checks and actual captures; fresh Windows execution is still required. No source-format or backend contract changed.
+
+## Packaged rendering walkthrough
+
+Added an original, self-contained Rendering sample project with a checker texture, cube/floor, copper material variant, camera and directional light. The package includes its source and short import/place/Play instructions; no third-party artwork or preselected cooked cache is bundled. The model manual links the walkthrough. The actual FORGE model importer accepts the complete source family. The official Khronos validator reports zero errors, warnings, hints or informational findings. Native visual/package acceptance remains a delivery gate.

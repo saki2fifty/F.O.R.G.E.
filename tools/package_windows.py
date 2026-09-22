@@ -73,7 +73,7 @@ def package(build, dependencies, output):
         manifest['files']['manual/'+page.relative_to(manual_output).as_posix()] = hashlib.sha256(page.read_bytes()).hexdigest()
     manifest['files']['build.json'] = hashlib.sha256((build/'build.json').read_bytes()).hexdigest()
     example_root = source/'samples/projects'
-    example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav'))
+    example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav', '.gltf', '.png', '.md'))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
     animation_source = source/'samples/animation/two-joints.gltf'
@@ -113,7 +113,7 @@ def package(build, dependencies, output):
             for page in manual_files:
                 archive.write(page, 'manual/'+page.relative_to(manual_output).as_posix())
             write_text('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\nforge_editor.exe "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.30+ and Ninja installed. In Gameplay Code: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\nOpen Examples/Rendering for the model/material/camera walkthrough.\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.30+ and Ninja installed. In Gameplay Code: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
         os.replace(temporary, output)
     finally:
