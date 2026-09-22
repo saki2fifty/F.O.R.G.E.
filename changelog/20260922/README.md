@@ -324,3 +324,30 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Recorded the controlled startup/idle comparison and shader compilation/realization timings with source IDs, workloads, raw-run links and limits. Documented recovered hosted-WARP backlog separately from correctness claims; the matched legacy-cube workload is explicitly not the new PBR mesh recipe.
 
 - Restricted the recoverable-backlog classification to the pinned timeout message specifically. A failed/interrupted frame wait is an unexpected graphics error even if GPU work is pending; it cannot use the timeout classification.
+
+
+## Verified Phase 7 workflow delivery — Build 260922-000065
+
+Packaged source: `ca26d0b7c948368d40d73a44fdce93ed8d274729`.
+[Complete validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35782292167)
+passed every required job. This entry records the completed delivery after packaging;
+it does not change the compiled source or reuse the identifier for different bytes.
+
+- Windows/Linux static:68/68 each; Windows/Linux exact shared SDK:79/79 each.
+- Native editor controllers:2/2; broader editor/render/asset suite:113/113, including
+  115 actual-input steps and the103-stage static capture scenario.
+- Final camera/light picking and150%-Content captures were opened and reviewed;
+  source-specific cache, preview-light and narrow-layout images were also reviewed.
+- Editor/runtime/tools report the reserved build ID. Relocated UI/font rendering,
+  navigation worker, animation converter, model/texture import, cache reuse,
+  failed-import last-good retention, worker cleanup and shared SDK Hello pass.
+- Downloaded ZIP CRC,519 outer hashes,253 SDK hashes, source/profile/build pairing,
+  corrected viewport/Content/animation/model/recovery manual pages and manual edition
+  pass. Previous Build64 was archived; package staging was cleaned.
+- ZIP SHA256: `0ddc77f09ee6c9f51b26da1e2b70a05f54d6308528767017e7839dc27462c20d`.
+
+The final editor build reused compatible caches; prior clean and unchanged sanitizer/
+Vulkan evidence remains explicitly attributed. Changed editor strict sanitizers passed.
+WARP's measured recoverable queue backlog remains documented with a diagnostic gate;
+no physical-GPU performance or physical audio acceptance is inferred. Phase7 automated
+acceptance is complete within its documented limits. Phase8 has not begun.

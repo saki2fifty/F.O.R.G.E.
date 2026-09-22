@@ -1,20 +1,39 @@
 # FORGE implementation and validation status
 
-## Phase 7 — authoring follow-up in progress
+## Phase 7 — Build 260922-000065
 
-Build 260922-000064 delivered the bounded asset/import/resource pipeline, shared
-Diligent Scene/Game renderer and opted-in native component authoring. Its clean
-validation passed Linux/Windows static68/68 and shared SDK79/79 per platform,
-plus native editor controllers2/2 and native editor/render/asset regressions112/112.
-These source-specific results do not establish complete Phase 7 usability.
+This package completes the Phase 7 implementation and automated acceptance with
+its documented format, backend and tooling limits. It includes the asset/import/
+resource pipeline, shared Diligent Scene/Game rendering, model/skin/material tools,
+opted-in native component authoring and the editor workflow corrections below.
 
-The follow-up adds camera/light Scene helpers, preview lighting, compact Content,
-shared asset commands and cache maintenance. Native image/interaction review,
-renderer frame-wait investigation and shader/startup/idle measurements remain
-required before this changed source receives a new numbered delivery. Manual and
-technical claims are being reconciled with actual implemented behavior. No Phase8
-work is included. See [rendering](render-features.md), [backend limits](render-backends.md)
-and the [daily changelog](../changelog/20260922/README.md).
+- Camera/light Scene icons, picking and contextual guides follow effective transforms.
+- Personal **Preview light** makes unlit objects readable while preserving authored
+  scene data and Game lighting.
+- Assets menu, Command Palette and Content routes share action targets/availability;
+  derived-cache maintenance opens on demand. Compact Content preserves results space.
+- Current technical docs and the packaged manual describe the implemented workflows.
+  Shader/startup/idle measurements retain exact workload and source attribution.
+
+Compiled source `ca26d0b7c948368d40d73a44fdce93ed8d274729` passed
+[run35782292167](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35782292167):
+Linux/Windows static **68/68** and exact/shared SDK **79/79** per platform;
+editor controllers **2/2**, broader native editor/render/asset suite **113/113**,
+including the **115-step input workflow** and **103-stage capture fixture**.
+Changed workflows were reviewed through actual Windows captures. Matching build IDs,
+relocated model/texture workers, last-good failure recovery, UI/navigation/animation
+packages and SDK loading/Hello passed. Downloaded archive verification checked
+**519 outer hashes**, **253 SDK hashes** and the corrected offline manual.
+
+This final editor build used compatible caches. Earlier clean Build64 evidence and
+strict sanitizer/Vulkan checks remain attributed to unchanged code; changed editor
+controllers also passed strict ASan/UBSan/LSan without suppressions. The separate
+approved Flecs managed-include finding remains documented, not sanitizer-clean.
+Hosted WARP can show recoverable frame-wait backlog; the fixture verifies completion
+and rejects unexplained waits/other errors. Physical-GPU/DPI/audio acceptance remains
+separate. See [performance](editor-performance.md), [backend limits](render-backends.md),
+[known issues](dependency-known-issues.md) and the [daily changelog](../changelog/20260922/README.md).
+No Phase8 work is included.
 
 The following sections preserve previously delivered build history.
 
