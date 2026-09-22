@@ -16,6 +16,10 @@ on:
         description: Optional immutable source SHA for editor-only audit (no package)
         type: string
         default: ""
+      audit_workflow_only:
+        description: For audit_source only, build/run the editor input workflow instead of the full audit
+        type: boolean
+        default: false
       windows_package:
         description: Build and upload the Windows editor ZIP
         type: boolean
@@ -43,6 +47,7 @@ jobs:
     uses: ./.github/workflows/editor-audit.yml
     with:
       source_commit: ${{ inputs.audit_source }}
+      workflow_only: ${{ inputs.audit_workflow_only }}
       clean_build: ${{ inputs.clean_build }}
   core:
     if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile

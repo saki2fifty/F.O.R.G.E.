@@ -100,7 +100,12 @@ Evidence lives in the `FORGE-Editor-Source-Audit` artifact under
 
 Both the source-audit and Windows package test selections include this test.
 For a source-only run, dispatch **Build and test** with `audit_source` set to the
-full commit SHA and `windows_package=false`. Locally on a configured Windows
+full commit SHA and `windows_package=false`. For changes confined to this input
+fixture, also set `audit_workflow_only=true` to build its required editor/runtime
+targets and execute only `editor_input_workflow`. The default remains the full
+source audit. The artifact records the selected scope; focused success is not a
+full-suite result. Use the full audit when shared behavior or rendering changes
+require its additional coverage. Locally on a configured Windows
 build, use `ctest --test-dir <build> -R '^editor_input_workflow$' --output-on-failure`.
 No package/build-number allocation is needed for a source audit.
 
