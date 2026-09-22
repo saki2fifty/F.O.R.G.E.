@@ -3,6 +3,7 @@
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
 #include <algorithm>
+#include <forge/engine_assets.hpp>
 #include <forge/material_source.hpp>
 #include <forge/shader_resource.hpp>
 #include <forge/texture_bundle.hpp>
@@ -36,6 +37,11 @@ AssetImporterDescriptor descriptor() {
 }
 AssetDependency dependency(const AssetCatalog& catalog, AssetId id, const char* type,
                            AssetDependencyKind kind, std::string role) {
+    if (const auto* builtin = engine_asset(id)) {
+        require(std::string_view(builtin->type) == type,
+                "Engine material dependency has the wrong type");
+        return {id, type, kind, std::move(role), engine_asset_revision(id)};
+    }
     const auto found = catalog.records().find(id);
     require(found != catalog.records().end() && found->second.type == type &&
                 (!found->second.subasset || !found->second.subasset->removed),

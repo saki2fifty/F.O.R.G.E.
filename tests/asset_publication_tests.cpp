@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include <cstdlib>
 #include <forge/asset_publication.hpp>
+#include <forge/engine_assets.hpp>
 #include <forge/scene.hpp>
 #include <future>
 #include <iostream>
@@ -150,6 +151,15 @@ void unit(const std::filesystem::path& root) {
     fail([](auto& c) { c.records[1].type = "material"; });
     fail([](auto& c) { c.records[0].source = "../outside"; });
     fail([&](auto& c) { atomic_write(root / c.ticket.source, "changed"); });
+    for (const bool wrong_type : {false, true})
+        fail([&](auto& c) {
+            const auto texture = engine_texture(EngineTexture::White);
+            c.input.dependencies = {
+                {texture.id, wrong_type ? MaterialAsset::type : TextureAsset::type,
+                 AssetDependencyKind::Runtime, "fixture.texture",
+                 wrong_type ? engine_asset_revision(texture.id) : std::string(64, 'a')}};
+            c.sidecar.build_inputs = c.input.document();
+        });
     rejects([&] {
         f.publish(f.candidate(), [](const auto&, const auto&) {
             throw std::runtime_error("Incompatible live resource");

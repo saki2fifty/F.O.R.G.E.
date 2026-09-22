@@ -4,6 +4,7 @@
 #include "import_cache_limits.hpp"
 #include <algorithm>
 #include <forge/asset_publication.hpp>
+#include <forge/engine_assets.hpp>
 #include <fstream>
 #include <set>
 
@@ -87,6 +88,13 @@ void check_inputs(const ProjectPaths& paths, const AssetPublicationCandidate& ca
     for (const auto& dependency : candidate.input.dependencies) {
         if (dependency.kind == AssetDependencyKind::Optional && dependency.revision.empty())
             continue; // Declared optional fallback; importer compatibility must validate it.
+        if (const auto* builtin = engine_asset(dependency.target)) {
+            if (dependency.expected_type != builtin->type ||
+                dependency.revision != engine_asset_revision(dependency.target))
+                throw std::runtime_error("Engine dependency type/revision mismatch: " +
+                                         dependency.target.str());
+            continue;
+        }
         const auto found = catalog.records().find(dependency.target);
         if (found == catalog.records().end() || found->second.type != dependency.expected_type ||
             (found->second.subasset && found->second.subasset->removed) ||

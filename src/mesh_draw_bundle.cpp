@@ -1,4 +1,5 @@
 #include "mesh_draw_bundle.hpp"
+#include <forge/engine_assets.hpp>
 namespace forge {
 MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                Diligent::IDeviceContext* context,
@@ -16,6 +17,14 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
     validate_mesh_material_bindings(source);
     if (prepared.selection.parts.size() != source.mesh.lods.size())
         throw std::runtime_error("Material selection LOD count differs from mesh");
+    for (const auto& [requested, fallback] : prepared.material_fallbacks) {
+        (void)requested;
+        if (fallback != engine_material(EngineMaterial::Error).id)
+            throw std::runtime_error("Invalid material fallback identity");
+    }
+    for (const auto& [requested, fallback] : prepared.texture_fallbacks)
+        if (!engine_texture_asset(fallback.first) || requested.second != fallback.second)
+            throw std::runtime_error("Invalid texture fallback identity or semantic");
     // CPU preparation already validated immutable values. Recheck lease scopes and
     // matching binding identities before allocating physical resources.
     for (const auto& [id, material] : prepared.materials) {
@@ -24,8 +33,10 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         validate_render_material(material.get());
         for (const auto& [role, ref] : material->textures) {
             const auto semantic = material->values.textures.at(role).semantic;
-            const auto& texture = prepared.textures.at({ref.id, semantic});
-            if (texture.identity().asset != ref.id || texture->semantic != semantic)
+            const auto resolved = prepared.texture_asset({ref.id, semantic});
+            const auto& texture = prepared.textures.at(resolved);
+            if (texture.identity().asset != resolved.first || texture->semantic != semantic ||
+                texture->dimension != material->values.textures.at(role).dimension)
                 throw std::runtime_error("Draw texture lease identity/semantic mismatch");
         }
     }
@@ -45,7 +56,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         auto& info = info_.emplace_back();
         for (std::size_t p = 0; p < lod.parts.size(); ++p) {
             const auto& part = lod.parts[p];
-            const auto material_ref = selected[p];
+            const AssetRef<MaterialAsset> material_ref{prepared.material_asset(selected[p].id)};
             const MaterialData* values = &default_material;
             const MaterialShaderSnapshot* surface = nullptr;
             MeshDraw::Textures native_textures;
@@ -56,7 +67,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                 for (const auto& [role, ref] : material.textures) {
                     const auto semantic = values->textures.at(role).semantic;
                     native_textures[role] =
-                        textures_.at({ref.id, semantic})
+                        textures_.at(prepared.texture_asset({ref.id, semantic}))
                             .get()
                             ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
                 }

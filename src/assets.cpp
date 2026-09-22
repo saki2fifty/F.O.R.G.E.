@@ -314,7 +314,10 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
         // Engine records are virtual metadata, never project file locators. They
         // are excluded from the project index and cannot be replaced/relocated.
         AssetRecord record{id, builtin->type, {}, 1, {}};
-        record.metadata = {{"engine", true}, {"name", builtin->name}, {"recipe_version", 1u}};
+        record.metadata = {{"engine", true},
+                           {"name", builtin->name},
+                           {"recipe_version", builtin->primitive ? 2u : 1u},
+                           {"recipe_revision", engine_asset_revision(id)}};
         if (expected_type != builtin->type)
             return {AssetState::Incompatible, record, "Engine asset type mismatch"};
         return {AssetState::Available, record, {}};

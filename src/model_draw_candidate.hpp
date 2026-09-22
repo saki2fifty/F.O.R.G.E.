@@ -16,6 +16,19 @@ struct PreparedModelDraw {
     MeshMaterialSelection selection;
     std::map<AssetId, ResourceLease<MaterialAsset>> materials;
     std::map<DrawTextureKey, ResourceLease<TextureAsset>> textures;
+    // Presentation substitutions retain both identities. Never register a
+    // fallback resource under the failed authored asset's identity.
+    std::map<AssetId, AssetId> material_fallbacks;
+    std::map<DrawTextureKey, DrawTextureKey> texture_fallbacks;
+    bool has_fallbacks() const { return !material_fallbacks.empty() || !texture_fallbacks.empty(); }
+    AssetId material_asset(AssetId requested) const {
+        const auto found = material_fallbacks.find(requested);
+        return found == material_fallbacks.end() ? requested : found->second;
+    }
+    DrawTextureKey texture_asset(DrawTextureKey requested) const {
+        const auto found = texture_fallbacks.find(requested);
+        return found == texture_fallbacks.end() ? requested : found->second;
+    }
 };
 // Complete physical identity, including pool owner/generation and texture semantic.
 // This is a transient cache key, never a new authored asset or entity identity.
@@ -25,12 +38,16 @@ struct PreparedModelDrawKey {
     std::vector<std::pair<AssetId, TextureSemantic>> textures;
     std::vector<std::string> unresolved;
     std::vector<std::vector<AssetId>> parts;
+    std::map<AssetId, AssetId> material_fallbacks;
+    std::map<DrawTextureKey, DrawTextureKey> texture_fallbacks;
     bool skinned{};
     auto operator<=>(const PreparedModelDrawKey&) const = default;
 };
 inline PreparedModelDrawKey prepared_model_draw_key(const PreparedModelDraw& draw, bool skinned) {
     PreparedModelDrawKey result;
     result.skinned = skinned;
+    result.material_fallbacks = draw.material_fallbacks;
+    result.texture_fallbacks = draw.texture_fallbacks;
     result.resources.push_back(draw.mesh.identity());
     for (const auto& [id, material] : draw.materials) {
         (void)id;
@@ -59,17 +76,23 @@ class ModelDrawCandidate {
                        std::uint64_t catalog_epoch, AssetRef<MeshAsset> mesh,
                        std::vector<MaterialSlotOverride> overrides, ResourcePool<MeshAsset>& meshes,
                        std::shared_ptr<const MaterialPreviewSelection> preview = {},
-                       AssetRef<MaterialVariantAsset> variant = {});
+                       AssetRef<MaterialVariantAsset> variant = {}, bool initial_fallbacks = false);
     void advance(std::uint64_t current_catalog_epoch, ResourcePool<MeshAsset>& meshes,
                  ResourcePool<MaterialAsset>& materials, ResourcePool<TextureAsset>& textures);
     void cancel(); // Only this consumer; coalesced pool requests remain usable.
     ResourceState state() const;
     const std::string& diagnostic() const;
     const PreparedModelDraw* ready() const;
+    // One bounded retry for an initial GPU surface failure; previous good draws
+    // use the strict policy and never reach this path.
+    bool error_surface(std::string diagnostic, ResourcePool<MaterialAsset>& materials);
 
   private:
     void check_thread() const;
     void fail(ResourceState state, std::string message);
+    void fallback_material(AssetId, const std::string&, ResourcePool<MaterialAsset>&);
+    void fallback_texture(DrawTextureKey, const std::string&, ResourcePool<TextureAsset>&);
+    void note(const std::string&);
     const std::thread::id thread_ = std::this_thread::get_id();
     const std::uint64_t epoch_;
     std::filesystem::path project_;
@@ -83,6 +106,8 @@ class ModelDrawCandidate {
     ResourceTicket mesh_;
     std::map<AssetId, ResourceTicket> materials_;
     std::map<DrawTextureKey, ResourceTicket> textures_;
+    std::map<DrawTextureKey, TextureDimension> texture_dimensions_;
+    bool initial_fallbacks_ = false, error_surface_retry_ = false;
     unsigned stage_ = 0;
 };
 } // namespace forge::asset_detail

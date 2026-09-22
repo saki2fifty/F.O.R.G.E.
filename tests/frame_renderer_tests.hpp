@@ -1,4 +1,5 @@
 #pragma once
+#include "builtins.hpp"
 #include "frame_renderer.hpp"
 #include "render_values.hpp"
 #include "viewport.hpp"
@@ -121,6 +122,57 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
                 cube[16 * 64 + 32][0] > cube[16 * 64 + 32][1] + 30,
             "Legacy blockout disappeared behind the authored Game camera");
     save(cube, 64, 32, images / "game-engine-primitive.ppm");
+    {
+        FrameRenderer fallback_renderer(presentation);
+        fallback_renderer.resources(host);
+        auto fallback_document = document;
+        auto settle = [&] {
+            const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            Diligent::ITextureView* output = nullptr;
+            do {
+                output = fallback_renderer.game(context, fallback_document, 64, 32);
+                host->submit();
+                if (!fallback_renderer.pending())
+                    return readback(presentation.device(), context, output);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (std::chrono::steady_clock::now() < until);
+            throw std::runtime_error("Native fallback draw did not settle");
+        };
+        Json configured;
+        for (const auto& type : detail::builtins())
+            if (std::string_view(type.name) == "forge.mesh_renderer")
+                configured = type.defaults;
+        configured["mesh"] = engine_primitive(0).id;
+        configured["materials"] =
+            Json::array({{{"slot", "surface"},
+                          {"material", engine_material(EngineMaterial::LegacyBlockout).id}}});
+        auto& entity = fallback_document["entities"][1];
+        entity["components"]["forge.mesh_renderer"] = configured;
+        const auto good = settle();
+        require(good[16 * 64 + 32][0] > 180 && good[16 * 64 + 32][1] > 180 &&
+                    fallback_renderer.diagnostics().empty(),
+                "Fallback host baseline did not produce the working authored draw");
+        configured["materials"][0]["material"] = AssetId::generate();
+        entity["components"]["forge.mesh_renderer"] = configured;
+        require(settle() == good && !fallback_renderer.diagnostics().empty(),
+                "Missing replacement material discarded the previous good GPU draw");
+        entity["id"] = EntityId::generate(); // No known-good draw for this new entity.
+        const auto error = settle();
+        const auto pixel = error[16 * 64 + 32];
+        require(!fallback_renderer.diagnostics().empty() && pixel[0] > 180 && pixel[1] < 10 &&
+                    pixel[2] > 180,
+                "Initial missing material did not draw the magenta error surface");
+        save(error, 64, 32, images / "game-missing-material.ppm");
+        configured["materials"][0]["material"] = engine_material(EngineMaterial::LegacyBlockout).id;
+        entity["components"]["forge.mesh_renderer"] = configured;
+        const auto recovered = settle();
+        require(fallback_renderer.diagnostics().empty() && recovered != error,
+                "Valid material did not replace the initial error surface");
+        configured["materials"][0]["material"] = AssetId::generate();
+        entity["components"]["forge.mesh_renderer"] = configured;
+        require(settle() == recovered && !fallback_renderer.diagnostics().empty(),
+                "Recovered authored draw was incorrectly treated as a fallback");
+    }
     object_world.m[0] = -1;
     stage = "mirrored engine primitive";
     document["entities"][1]["world_affine"] = object_world.m;

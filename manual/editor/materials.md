@@ -145,3 +145,20 @@ the previous usable revision.
 In a wide Material workspace, Properties and Preview use the available height.
 Publication progress or errors reserve space only while they are displayed; each
 column scrolls independently when its contents are taller than the window.
+
+## Missing materials and textures
+
+If an object has no usable material on its first load, it appears magenta. A missing
+color texture shows a magenta-and-black checker. Missing normals use a flat normal;
+missing data textures use white; missing HDR textures use black. An object whose
+mesh cannot load is omitted. Check **Problems** for the affected object and cause.
+
+If the object already displayed correctly, a failed replacement keeps its previous
+appearance. The retained image does not mean the new asset was accepted. Restore
+or repair the source and reimport it, or assign a valid asset in the Inspector.
+Successful publication or assignment replaces the fallback or retained appearance.
+The original asset references stay intact so they can recover.
+
+Material texture pickers also offer engine-owned white, black, flat-normal and
+checker textures. Choose the shape required by the slot; these built-in resources
+do not need image files in your project.

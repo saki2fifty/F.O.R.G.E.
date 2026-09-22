@@ -312,7 +312,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
                     renderer.materials, host_->meshes_, host_->material_preview_,
-                    renderer.material_variant);
+                    renderer.material_variant, !entry.ready || entry.fallback);
             } catch (const std::exception& e) {
                 entry.error = e.what();
             }
@@ -339,7 +339,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.ready = std::move(native);
                     entry.pose = std::move(pose);
                     entry.thresholds = std::move(thresholds);
-                    entry.error.clear();
+                    entry.error = entry.candidate->diagnostic();
+                    entry.fallback = candidate->has_fallbacks();
                     entry.pose_error.clear();
                     adopted = true;
                     entry.candidate.reset();
@@ -350,8 +351,18 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 } catch (const std::exception& e) {
                     entry.error = e.what();
                     if (pose_validated) {
-                        entry.candidate.reset();
-                        entry.candidate_geometry.reset();
+                        bool retry = false;
+                        if (!entry.ready || entry.fallback)
+                            try {
+                                retry = entry.candidate->error_surface(e.what(), host_->materials_);
+                            } catch (const std::exception& fallback_error) {
+                                entry.error += std::string("; error surface unavailable: ") +
+                                               fallback_error.what();
+                            }
+                        if (!retry) {
+                            entry.candidate.reset();
+                            entry.candidate_geometry.reset();
+                        }
                     }
                 }
                 // A temporarily unavailable binding/revision remains retryable.

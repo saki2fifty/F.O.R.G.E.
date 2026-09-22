@@ -176,3 +176,33 @@ empty or invalid. Inspector omits legacy controls in that case to avoid ignored
 writes. Built-in geometry queries recognize the assigned engine mesh; arbitrary
 imported meshes do not silently become a cube. Navigation's existing bounded
 built-in-geometry profile accepts equivalent built-in MeshRenderer sources.
+
+## Built-in resources and failed draws
+
+Engine-owned white, black, flat-normal and checker Texture assets have reserved
+AssetIds for each supported dimensional shape. They use the ordinary typed asset
+lookup, CPU resource pool, semantic variant key, Diligent upload and GPU retirement
+path. Material source dependencies can reference them without project catalog rows
+or authoring files. Their immutable engine recipe revision is captured and checked
+by publication and survives source-free content packaging. Existing primitive-v2
+and material-v1 recipe digests retain their exact meaning.
+
+A first-load draw with a missing/failed Material uses an unlit magenta error Material.
+A missing/failed texture uses a checker for color, flat normal for normals, white
+for data, or black floating-point data for HDR color. The fallback matches the
+material's declared dimension. Inconsistent demands for one texture reference are
+rejected, not guessed. Initial GPU surface preparation can retry once with the
+error Material; failed error preparation stops with a diagnostic. Missing meshes
+remain omitted with a diagnostic.
+
+Fallbacks have their own engine resource identity. Detached draw candidates record
+transient substitutions; authored AssetRefs, catalog revisions and material source
+values are never rewritten. Cache keys include the physical leases and substitutions.
+Once a real authored draw has succeeded, a later failed replacement retains that
+complete draw instead. A fallback is not a known-good authored revision, so a later
+valid selection can replace it. Stale catalog candidates are still rejected.
+
+Pinned Diligent PBR BRDF/environment defaults remain presentation-owned resources.
+They are not duplicated as project assets merely to increase asset-type coverage.
+These policies use shared Diligent abstractions and do not introduce native backend
+handles or descriptor layout assumptions.

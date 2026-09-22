@@ -211,7 +211,7 @@ void validate(const ModelBundleIndex& index) {
                         m.artifact.bytes == 0,
                     "Invalid or duplicate inline material variant selector");
             const auto& variant = material_variants.at(*m.material_variant);
-            require(id.display_name == variant.at("name"),
+            require(id.display_name == text(variant.at("name"), 4096),
                     "Material variant name differs from hierarchy");
             std::map<std::string, std::string> expected;
             for (const auto& mapping : array(variant.at("mappings"), 1000000)) {

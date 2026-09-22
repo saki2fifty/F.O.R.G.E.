@@ -120,3 +120,15 @@
 - Local variant/model/package checks passed6/7; the remaining command-discovery assertion was updated for the new command and then passed independently. Actual ImGui editor/model/material interaction checks passed3/3(21.72s), Vulkan binding/readback passed1/1(1.31s), and manual/format checks passed. The expanded strict sanitizer model suite exceeded its old120-second test limit; this is recorded as a timeout, not a sanitizer pass, while a bounded measured run investigates its duration.
 
 - The independent strict model run completed cleanly in144.07s with ASan/UBSan/LSan enabled (normal model-worker suite48.72s). Its sanitizer-only CTest timeout is now240s; the normal120s budget and every sanitizer check remain. The original timeout is retained in the evidence record.
+
+## Missing-resource recovery and engine textures
+
+- Added reserved engine Texture assets for white, black, flat-normal and checker content across 2D, 2D-array, cube, cube-array and volume shapes. Their ordinary typed leases preserve semantic color/data/normal/HDR variants and immutable engine revisions.
+- Material authoring, dependency publication and source-free packages now admit built-in texture/material dependencies with exact type/revision validation. Existing engine primitive/material revision digests remain unchanged.
+- Initial missing materials use an unlit magenta error surface. Missing textures use semantic-appropriate, dimension-matching fallback assets. Substitutions retain independent engine identities and preserve authored references/catalog data. Initial GPU surface failures have one bounded error-material retry.
+- Failed replacements retain a previously working complete draw. Initial fallbacks can recover after valid publication/assignment. Missing meshes remain omitted with a diagnostic.
+- Added CPU failure, identity, dependency, package and stale-candidate regressions, plus native pixel/recovery fixtures. Expanded local checks pass (6/6, 110.07 seconds), including model recipe/worker, material publication, fallback failures and Vulkan binding. Strict sanitizers and native Windows execution remain pending. Shared Vulkan compilation and binding/readback pass.
+- Windows validation of the preceding variant bundle exposed an MSVC JSON/string comparison error in model bundle validation. The correction uses an explicitly validated string; previous Windows runs did not reach native acceptance and are not counted as passing.
+- Expanded strict model recipe checks pass under the measured 240-second sanitizer harness budget (151.16 seconds). Normal timeout and production limits are unchanged.
+
+- Added a permanent source/cooked-format matrix with concrete importers, admitted features, limits, dependencies and executable fixtures.

@@ -58,34 +58,34 @@ MaterialResourceData engine_material_resource(AssetRef<MaterialAsset> ref) {
     MaterialResourceData result;
     auto& material = result.values;
     const bool legacy = ref == engine_material(EngineMaterial::LegacyBlockout);
-    material.model = legacy ? "forge.gltf.unlit.v1" : "forge.gltf.metallic-roughness.v1";
-    material.double_sided = legacy || ref == engine_material(EngineMaterial::TwoSided);
+    const bool error = ref == engine_material(EngineMaterial::Error);
+    material.model = legacy || error ? "forge.gltf.unlit.v1" : "forge.gltf.metallic-roughness.v1";
+    material.double_sided = legacy || error || ref == engine_material(EngineMaterial::TwoSided);
+    if (error)
+        material.parameters["baseColorFactor"] = {MaterialParameterType::LinearColor4,
+                                                  {1, 0, 1, 1}};
     material.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
     validate_material(material);
     return result;
 }
 ResourceTicket request_engine_mesh(ResourcePool<MeshAsset>& pool, AssetRef<MeshAsset> ref) {
     // Immutable recipe revision, separate from logical identity and pool generation.
-    return pool.request(
-        ref, asset_build_digest({{"recipe", "forge-engine-primitive-v2"}, {"asset", ref.id}}), 2,
-        [ref](std::stop_token stop) {
-            if (stop.stop_requested())
-                throw std::runtime_error("Engine mesh preparation cancelled");
-            auto value = std::make_unique<MeshResourceData>(engine_mesh_resource(ref));
-            const auto bytes = value->resident_bytes();
-            return ResourceCandidate<MeshAsset>{std::move(value), {bytes}};
-        });
+    return pool.request(ref, engine_asset_revision(ref.id), 2, [ref](std::stop_token stop) {
+        if (stop.stop_requested())
+            throw std::runtime_error("Engine mesh preparation cancelled");
+        auto value = std::make_unique<MeshResourceData>(engine_mesh_resource(ref));
+        const auto bytes = value->resident_bytes();
+        return ResourceCandidate<MeshAsset>{std::move(value), {bytes}};
+    });
 }
 ResourceTicket request_engine_material(ResourcePool<MaterialAsset>& pool,
                                        AssetRef<MaterialAsset> ref) {
-    return pool.request(
-        ref, asset_build_digest({{"recipe", "forge-engine-material-v1"}, {"asset", ref.id}}), 1,
-        [ref](std::stop_token stop) {
-            if (stop.stop_requested())
-                throw std::runtime_error("Engine material preparation cancelled");
-            auto value = std::make_unique<MaterialResourceData>(engine_material_resource(ref));
-            const auto bytes = value->resident_bytes();
-            return ResourceCandidate<MaterialAsset>{std::move(value), {bytes}};
-        });
+    return pool.request(ref, engine_asset_revision(ref.id), 1, [ref](std::stop_token stop) {
+        if (stop.stop_requested())
+            throw std::runtime_error("Engine material preparation cancelled");
+        auto value = std::make_unique<MaterialResourceData>(engine_material_resource(ref));
+        const auto bytes = value->resident_bytes();
+        return ResourceCandidate<MaterialAsset>{std::move(value), {bytes}};
+    });
 }
 } // namespace forge::asset_detail

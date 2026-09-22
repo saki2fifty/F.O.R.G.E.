@@ -180,6 +180,8 @@ ResourceTicket request_texture(ResourcePool<TextureAsset>& pool, std::filesystem
                                std::shared_ptr<const AssetCatalog> catalog,
                                AssetRef<TextureAsset> texture,
                                std::optional<TextureSemantic> semantic) {
+    if (engine_asset(texture.id))
+        return request_engine_texture(pool, texture, semantic);
     require(bool(catalog), "Texture requires a selected catalog");
     const auto found = catalog->records().find(texture.id);
     require(found != catalog->records().end() && found->second.type == TextureAsset::type,

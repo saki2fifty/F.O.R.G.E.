@@ -3,6 +3,7 @@
 #include "material_selection.hpp"
 #include "material_watch_tests.hpp"
 #include "model_render_resource.hpp"
+#include "runtime_package.hpp"
 #include "runtime_resource_tests.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/material_source.hpp>
@@ -297,6 +298,59 @@ int main(int argc, char** argv) {
         submit(service, "Assets/fresh.material.json");
         done = finish(service);
         require(done.published, "Compatible texture selection failed: " + done.diagnostic);
+        {
+            auto builtin = MaterialSource::create(AssetId::generate());
+            builtin.document["base"] = engine_material(EngineMaterial::TwoSided).id;
+            MaterialData slots;
+            slots.model = "forge.gltf.metallic-roughness.v1";
+            slots.textures["baseColorTexture"].semantic = TextureSemantic::Color;
+            slots.textures["normalTexture"].semantic = TextureSemantic::Normal;
+            for (const auto [role, kind] : {std::pair{"baseColorTexture", EngineTexture::Checker},
+                                            std::pair{"normalTexture", EngineTexture::FlatNormal}})
+                builtin.document["overrides"]["textures"][role] = {
+                    {"asset", engine_texture(kind).id},
+                    {"slot", material_values_document(slots).at("textures").at(role)}};
+            save(root / "Assets/builtin.material.json", builtin.document);
+            catalog = AssetCatalog::open_project(root);
+            catalog.add({builtin.asset(), MaterialAsset::type, "Assets/builtin.material.json"});
+            catalog.save(AssetCatalog::project_index(root));
+            submit(service, "Assets/builtin.material.json");
+            done = finish(service);
+            require(done.published,
+                    "Built-in texture/base material publication failed: " + done.diagnostic);
+            catalog = AssetCatalog::open_project(root);
+            const auto& record = catalog.records().at(builtin.asset());
+            require(record.dependency_edges.size() == 3,
+                    "Built-in base/texture dependency edges were omitted");
+            for (const auto& edge : record.dependency_edges)
+                require(edge.revision == engine_asset_revision(edge.target),
+                        "Built-in dependency did not retain its exact engine recipe revision");
+            const auto selected = load_material_selection(root, catalog, {builtin.asset()});
+            require(selected.data.values.double_sided && selected.data.textures.size() == 2,
+                    "Built-in base inheritance or texture assignments were lost");
+            const auto destination = root / "builtin-package";
+            (void)package_runtime_content(root, destination, std::array{builtin.asset()},
+                                          {"linux", "none"});
+            const auto packaged = std::make_shared<AssetCatalog>(
+                open_runtime_content(destination, {"linux", "none"}));
+            require(packaged->records().size() == 1,
+                    "Package tried to copy virtual engine assets as project files");
+            ResourcePool<TextureAsset> textures;
+            for (const auto& [role, ref] : selected.data.textures) {
+                const auto semantic = selected.data.values.textures.at(role).semantic;
+                const auto ticket = request_texture(textures, destination, packaged, ref, semantic);
+                require(textures.wait(ticket, 5s) && textures.acquire(ticket)->semantic == semantic,
+                        "Source-free package could not realize its built-in texture");
+            }
+            const auto before = catalog.document();
+            builtin.document["overrides"]["textures"]["baseColorTexture"]["asset"] =
+                engine_material().id;
+            save(root / "Assets/builtin.material.json", builtin.document);
+            submit(service, "Assets/builtin.material.json");
+            done = finish(service);
+            require(!done.published && AssetCatalog::open_project(root).document() == before,
+                    "Wrong built-in resource type replaced the previous good material");
+        }
         test_material_watch(root / "watch-project");
         test_surface_material_pipeline(root / "surface-project");
         std::cout << "Material source/publication/resource/last-good/ancestry checks passed\n";

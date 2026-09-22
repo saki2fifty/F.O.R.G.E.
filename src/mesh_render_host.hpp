@@ -87,6 +87,7 @@ class MeshSceneRenderer {
         std::vector<float> thresholds;
         std::string error, pose_error;
         std::optional<bool> failed_skin_mode;
+        bool fallback = false;
         std::uint64_t pose_bytes() const;
     };
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,

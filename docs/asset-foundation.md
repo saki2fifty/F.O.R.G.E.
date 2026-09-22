@@ -209,3 +209,7 @@ format validator. Orphan cleanup takes the same cache lock as publication and on
 removes recognized flat staging (and, for clear-all, quarantine) entries. Unknown,
 redirected, nested or excessive data is retained with diagnostics. Cache operations
 are disposable-data maintenance, not authored transactions or scene Undo.
+
+The [source and cooked-format matrix](asset-formats.md) lists concrete importer
+coverage, limits, dependencies and executable fixtures. Linked-library capability
+is not the same as an enabled FORGE format.

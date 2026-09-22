@@ -1,4 +1,5 @@
 #pragma once
+#include "engine_render_resource.hpp"
 #include "environment_sky.hpp"
 #include "mesh_draw.hpp"
 #include "mesh_draw_bundle.hpp"
@@ -200,6 +201,57 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
         meshes.submit();
         textures.submit();
         bundle.reset(); // SRBs before leases, bundles before residency owners.
+    }
+    {
+        using namespace forge;
+        using namespace forge::asset_detail;
+        ResourcePool<MeshAsset> cpu_mesh;
+        ResourcePool<MaterialAsset> cpu_material;
+        ResourcePool<TextureAsset> cpu_texture;
+        auto catalog = std::make_shared<AssetCatalog>(images);
+        auto preview = std::make_shared<MaterialPreviewSelection>();
+        preview->asset = {AssetId::generate()};
+        preview->revision = std::string(64, 'f');
+        preview->generation = 1;
+        preview->data = engine_material_resource(engine_material(EngineMaterial::LegacyBlockout));
+        preview->data.values.textures["baseColorTexture"].semantic = TextureSemantic::Color;
+        preview->data.textures["baseColorTexture"] = {AssetId::generate()};
+        ModelDrawCandidate candidate(images, catalog, 1, engine_primitive(0),
+                                     {{"surface", preview->asset}}, cpu_mesh, preview, {}, true);
+        auto finish = [&] {
+            const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            do {
+                cpu_mesh.pump();
+                cpu_material.pump();
+                cpu_texture.pump();
+                candidate.advance(1, cpu_mesh, cpu_material, cpu_texture);
+                if (candidate.state() != ResourceState::Loading)
+                    break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (std::chrono::steady_clock::now() < until);
+            require(candidate.ready() && candidate.ready()->has_fallbacks(),
+                    "Native missing texture candidate was not prepared");
+        };
+        finish();
+        GpuResidency<MeshAsset> fallback_meshes(presentation.device(), context, 8 * 1024 * 1024);
+        GpuResidency<TextureAsset> fallback_textures(presentation.device(), context, 1024 * 1024);
+        MeshDrawBundle checker(presentation, context, *candidate.ready(), fallback_meshes,
+                               fallback_textures, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        const auto checker_pixels = render(checker);
+        require(candidate.error_surface("bounded native fallback fixture", cpu_material),
+                "Initial surface could not select error material");
+        finish();
+        MeshDrawBundle error(presentation, context, *candidate.ready(), fallback_meshes,
+                             fallback_textures, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        const auto error_pixels = render(error);
+        require(checker_pixels != error_pixels &&
+                    std::any_of(checker_pixels.begin(), checker_pixels.end(),
+                                [](const auto& p) { return p[0] > 20 && p[1] == 0 && p[2] > 20; }),
+                "Missing texture checker did not produce a visible distinct native surface");
+        save(checker_pixels, 32, 32, images / "mesh-missing-texture.ppm");
+        save(error_pixels, 32, 32, images / "mesh-error-surface.ppm");
+        fallback_meshes.submit();
+        fallback_textures.submit();
     }
     world.m[0] = -1;
     require(render(draw) == reference,

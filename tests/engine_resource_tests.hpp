@@ -15,6 +15,10 @@ void check_engine_resources(const std::filesystem::path& root) {
         require(catalog->resolve(asset.id, "scene").state == AssetState::Incompatible,
                 "Engine asset type check bypassed");
         rejects([&] { catalog->add({asset.id, asset.type, "Assets/override", 1, {}}); });
+        if (std::string_view(asset.type) == TextureAsset::type) {
+            (void)engine_texture_resource({asset.id});
+            continue;
+        }
         if (!asset.primitive) {
             (void)engine_material_resource({asset.id});
             continue;
