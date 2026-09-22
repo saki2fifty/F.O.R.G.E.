@@ -25,7 +25,7 @@ No age or PID heuristic authorizes deletion. This protects cooperating FORGE own
 it is not a hostile filesystem race sandbox. Authored sources and catalog selections
 are unchanged, and scene Undo does not own this maintenance operation.
 Model, Texture, Material, Shader and Audio providers use this shared service and
-central editor documents; the complete Phase7 delivery remains in progress. Native model preparation is described separately in
+central editor documents. Native model preparation is described separately in
 [glTF admission](gltf-admission.md). The [asset foundation](asset-foundation.md)
 still governs worker, publication and runtime ownership.
 

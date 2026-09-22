@@ -1,8 +1,8 @@
 # Asset source and cooked-format matrix
 
 This matrix describes concrete FORGE importers and loaders. It does not imply that
-all formats understood by a linked dependency are enabled. Phase 7 final Windows
-acceptance remains pending; backend evidence is tracked in [render backends](render-backends.md).
+all formats understood by a linked dependency are enabled. Portable and native
+Windows fixtures validate these paths; backend evidence is tracked in [render backends](render-backends.md).
 Logical AssetIds remain independent of source paths, cooked files and backend profiles.
 
 | Source format/type | FORGE path | Supported content | Limits / rejected content | Dependency / executable evidence |

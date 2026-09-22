@@ -85,4 +85,5 @@ Collider shape restrictions still apply. For example, an animation that stretche
 Sphere Collider unevenly cannot be applied. FORGE reports the problem and keeps the
 previous pose and collider. Change the body/collider arrangement, or remove physics
 from a node intended only for visual animation. The source clip is not rewritten.
-The complete animated-model placement/rendering workflow is still under integration.
+Use the [Model import document](models.md) to choose a clip and place the model,
+then press Play to inspect its supported animation and physics behavior.

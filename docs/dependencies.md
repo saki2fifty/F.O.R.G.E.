@@ -129,7 +129,8 @@ with private symbols and no SIMD. The libjpeg float-DCT experiment still exposed
 Huffman encoder signed-shift errors and was not selected. Native Diligent still provides pixel,
 mip and basic BC processing. These corrections do not claim the old callback or
 integer path has been fixed upstream. KTX4.4.2 is selected below for the private
-container/Basis adapter; production asset/editor integration remains in progress.
+container/Basis adapter. Texture/model recipes, typed resources and editor previews
+consume it with the supported formats documented in the [format matrix](asset-formats.md).
 
 ## Phase7 KTX/Basis selection —2026-09-20
 

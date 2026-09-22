@@ -1,7 +1,7 @@
 # Renderer backends and capabilities
 
-**D3D12-first validation, backend-neutral architecture.** Phase 7 is still in
-progress. Windows/D3D12 is the primary editor and WARP acceptance profile. A
+**D3D12-first validation, backend-neutral architecture.**
+Windows/D3D12 is the primary editor and WARP acceptance profile. A
 Vulkan probe is a portability check, not a shipped Linux editor or a promise of
 feature parity. Metal and WebGPU are architectural targets where the selected
 Diligent implementation supports them.

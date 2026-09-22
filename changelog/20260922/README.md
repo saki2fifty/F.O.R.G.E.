@@ -235,3 +235,11 @@ Actual200% picker review found a material-slot caption trailing beyond the Inspe
 Material editor interaction and scaled-slot regression pass1/1 (1.19s); manual3/3 and adapted editor fixture syntax pass. Refreshed native captures remain required.
 
 Individual capture review also found the LOD Model import and custom surface Shader import documents active but obscured by earlier floating fixture windows. Their capture setup now presents each document in its own foreground window. This changes test placement only; normal saved layouts remain authoritative.
+
+## Final native gate and documentation
+
+The corrected source fa43239 passes the native Windows editor/render test step, including the complete103-stage capture sequence. Individual final image review and the clean combined package remain separate gates. Reconciled remaining stale asset/file-operation/codec/resource and animated-physics documentation with the implemented and executed behavior. The primary validation profile remains D3D12/WARP; full Vulkan/Metal/WebGPU shipping is not claimed.
+
+The complete fa43239 native gate passes71/71 (336.78s), including103editor capture stages. Clean static and shared-SDK profiles pass on both hosts: Linux68/68 (122.15s),79/79 (65.43s); Windows68/68 (331.88s),79/79 (114.18s). Individual review confirms corrected material-slot labels and foreground Model/Shader documents, plus Gameplay Code, rendering component Inspectors, Scene lighting and source-import review at100/150/200.
+
+The final review found the migration Rules label trailing beyond its full-width text field. It now appears above the field; actual ImGui width/nonmutation regression passes (0.35s) at all three scales. No schema, migration semantics, scene history, dependency pin or renderer behavior changed. The clean numbered package will rerun the native capture suite and validate relocation/licenses/manifest integrity.

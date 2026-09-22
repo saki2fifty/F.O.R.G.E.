@@ -2,8 +2,9 @@
 
 Phase7 implements typed CPU resource pools, cooked Mesh/Material/Texture/Shader
 providers, model animation resources, Diligent GPU realization/fence retirement,
-existing subsystem adapters and an on-demand editor resource inspector. Full
-Phase7 platform/package acceptance remains in progress.
+existing subsystem adapters and an on-demand editor resource inspector. Portable
+and Windows/WARP fixtures validate the implemented paths; final package evidence
+is recorded in [status](status.md).
 
 ## Identity and access
 

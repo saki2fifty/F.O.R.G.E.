@@ -1,8 +1,8 @@
 # Asset source file operations
 
-**Phase7 implementation in progress.** The private application operations described
-here have portable tests and Content menu/job integration. Full source-format
-coverage and native Windows acceptance remain in progress. This is not a public plugin ABI or scene Undo system.
+The private application operations described here have portable and native Windows
+tests plus Content menu/job integration. Supported source adapters are explicit;
+unknown formats reject. This is not a public plugin ABI or scene Undo system.
 
 ## Identity and typed preparation
 
@@ -58,7 +58,8 @@ publication recovery; simultaneous recovery authorities are rejected as a confli
 Tests interrupt real processes at journal/source/destination/catalog boundaries,
 cover cancellation and exceptions, stale review inputs, new scene/member identities,
 retained backups, corrupt blobs and external conflicts. Windows additionally tests
-an open file handle that prevents deletion; physical Windows validation is pending.
+an open file handle that prevents deletion. These native Windows filesystem
+regressions pass; they are distinct from physical editor interaction acceptance.
 
 ## glTF source relocation
 

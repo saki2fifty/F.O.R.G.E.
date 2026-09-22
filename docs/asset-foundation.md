@@ -1,7 +1,8 @@
 # Asset foundation contract
 
 The frozen asset architecture is now implemented by the shared import, publication,
-cache and resource services. Full Phase7 delivery validation remains in progress.
+cache and resource services. The format/backend matrices distinguish implemented
+paths and executed validation from unsupported profiles.
 [Identity](identity-assets.md) remains the current contract. Decisions005–007
 in [the ADR index](decisions/README.md) govern this design.
 
@@ -128,7 +129,7 @@ Existing synchronous private caches remain until each real consumer is migrated 
 The first Phase7 mesh/texture CPU/GPU resource consumer justifies implementing the minimal
 request/lease pool. This document does not authorize blanket subsystem rewrites.
 
-## Implemented publication coordinator (Phase7 in progress)
+## Publication coordinator
 
 The [asset-specific publication coordinator](asset-publication.md) now connects
 validated DDC output, captured input revisions, catalog selection and durable

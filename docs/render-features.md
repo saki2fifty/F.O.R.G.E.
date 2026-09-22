@@ -1,8 +1,8 @@
 # Rendering feature matrix
 
 The implementation below uses the shared Diligent renderer for Scene and authored
-Game cameras. **Final Phase 7 Windows acceptance is still pending.** Test names
-identify executable coverage, not a substitute for running the final source.
+Game cameras. Windows/D3D12 WARP renderer fixtures pass; the final combined package
+is verified separately. Test names identify concrete executable coverage.
 [Backend capabilities](render-backends.md) distinguish D3D12/WARP acceptance from
 Vulkan compile/device probes and unexecuted Metal/WebGPU mappings.
 

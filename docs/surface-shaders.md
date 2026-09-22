@@ -96,7 +96,7 @@ ownership. No atomic cross-document operation is claimed.
 - CPU source/inheritance/equal-value/reset, versioned transport and compatibility tests.
 - Material publication tests cover an incompatible Shader update, retained base/child snapshots, fresh resource loading after removal of the old standalone Shader artifact, source-free packaging, compatible replacement and old-lease preservation.
 - The Linux probe compiles both generated surface entries to SPIR-V with all five texture dimensions and19 samplers; its existing Diligent material draw/readback remains a separate executed check.
-- Native WARP fixtures compile real surface source and test reflection, static/morph/skinned draws, signed/zero transforms, alpha modes, shadow mask agreement, failed candidates and compatible include changes. Execution is required before final acceptance.
+- Native WARP fixtures compile real surface source and test reflection, static/morph/skinned draws, signed/zero transforms, alpha modes, shadow mask agreement, failed candidates and compatible include changes. These fixtures pass on Windows/WARP; full alternate-backend execution is not claimed.
 
 Exact Diligent Core revision remains
 `744f079f61cdbda15d371383682418fc927e4a61`. Its `Shader.h`,

@@ -4,8 +4,10 @@
 
 The asset/import/resource pipeline, shared Diligent Scene/Game renderer and opted-in
 native component authoring are implemented. Current Linux/Windows static and shared
-SDK suites pass; native D3D12 WARP renderer fixtures pass. Final UI capture review
-and the combined numbered package remain open. No Phase 8 work is included.
+SDK suites pass; the native D3D12/WARP suite passes71/71, including103editor
+capture stages. Individual image review and responsive UI regressions accompany
+those checks. Numbered packages additionally require clean build, relocation and
+manifest/license validation in CI. No Phase 8 work is included.
 See the [format matrix](asset-formats.md), [rendering matrix](render-features.md),
 [backend matrix](render-backends.md) and [daily changelog](../changelog/20260922/README.md).
 

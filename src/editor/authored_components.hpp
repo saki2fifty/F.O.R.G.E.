@@ -272,7 +272,9 @@ class AuthoredComponents {
         ImGui::TextWrapped("Unchanged fields keep their values. Removed fields remain stored. New "
                            "fields receive declared defaults. "
                            "Add an explicit alias when a field was renamed.");
-        if (ImGui::InputTextMultiline("Rules (JSON)", &rules_, {-1, 180 * ui::interface_scale}))
+        ImGui::TextUnformatted("Rules (JSON)");
+        if (ImGui::InputTextMultiline("##migration_rules", &rules_,
+                                      {-1, 180 * ui::interface_scale}))
             returned_ = Json();
         ui::help("Example: "
                  "{\"aliases\":[{\"path\":[\"hitpoints\"],\"name\":\"health\"}],\"defaults\":[]}. "

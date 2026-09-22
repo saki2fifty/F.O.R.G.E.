@@ -128,6 +128,8 @@ int main(int argc, char** argv) {
                       migration->Size.x <= io.DisplaySize.x - 30 &&
                       migration->Size.y <= io.DisplaySize.y - 30,
                   "Migration review exceeded the available viewport at this interface scale");
+            check(migration->ContentSize.x <= migration->InnerRect.GetWidth(),
+                  "Migration rules label extends beyond the available content width");
             check(scene.snapshot() == before,
                   "Opening migration review changed the authored document");
         }
