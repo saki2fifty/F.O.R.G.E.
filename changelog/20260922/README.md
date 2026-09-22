@@ -217,3 +217,9 @@ The corrected native audit passes70/71 tests, including all rendered-resource ch
 The resize regression also reproduced a popup disappearing after an initial successful open when the next frame moved its parent field outside the clip rectangle. Capture requests now remain active until the image is taken, instead of treating the first `BeginCombo` as settled visibility. The source-backed fixture continues using the real picker and scrolling; it does not bypass the widget or relax the visible-popup acceptance check.
 
 Validation: strengthened real ImGui editor suite passes (16.73s), including the previously failing resize/popup sequence; adapted full fixture syntax and formatting pass. Clean source ff91423 Linux/Windows static68/68 and shared SDK79/79 per host also pass. Fresh corrected native captures and final package are still pending.
+
+## Content tiles at high zoom
+
+Actual200% captures of a short Content panel showed tile names/types below the visible results area. Grid previews now reduce their height to retain a complete readable first row while preserving the preferred tile width. Type icons fit the same preview region; image aspect remains intact. Added an actual ImGui caption-visibility regression and corrected stale thumbnail wording in the Content manual. Native refreshed evidence remains pending.
+
+Content file/selection/thumbnail interaction suite passes (1.56s), including caption visibility at200% in a960×640 window; manual3/3, formatting and adapted editor fixture syntax pass.

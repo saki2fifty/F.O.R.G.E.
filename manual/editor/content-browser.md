@@ -15,7 +15,7 @@ Content is the project's asset browser. It lists registered scenes, prefabs, mod
 
 Use the folder tree or **Folders** menu to choose a location. The **Project** breadcrumb returns to the root; clicking a breadcrumb opens that ancestor. **<** and **>** return to previous/next locations. Search normally includes subfolders. Turn off **View → Include subfolders** for the current folder only.
 
-**View → List** shows names, types and source states. **View → Grid** uses tiles; **Tile size** adjusts their width. Published Texture, Model, Mesh and Material assets show rendered thumbnails as visible tiles prepare. Other types and unfinished previews show a type icon. List rows use the same icons as Inspector asset pickers. Grid/list, tile size, folder-tree visibility and subfolder preference are saved as personal editor preferences. Narrow Content panels use **Folders** when there is insufficient room for the tree.
+**View → List** shows names, types and source states. **View → Grid** uses tiles; **Tile size** adjusts their width. In a short panel, previews shrink vertically so the first row's names and types remain visible. Published Texture, Model, Mesh and Material assets show rendered thumbnails as visible tiles prepare. Other types and unfinished previews show a type icon. List rows use the same icons as Inspector asset pickers. Grid/list, tile size, folder-tree visibility and subfolder preference are saved as personal editor preferences. Narrow Content panels use **Folders** when there is insufficient room for the tree.
 
 - Click to select one item; **Ctrl-click** adds/removes an item.
 - **Shift-click** selects a range; **Ctrl+A** selects the filtered results.
@@ -163,7 +163,7 @@ automatic work until a complete scan succeeds.
 The watcher uses bounded content-hash polling, including sources outside the
 Assets folder but inside the project. It ignores hidden, temporary and cache
 entries. It does not rely on timestamps alone. Use the reviewed source operations
-below for supported renames/moves; thumbnail generation remains under development.
+below for supported renames/moves; supported thumbnail behavior is described above.
 
 
 ## Rename, move, duplicate or delete a source

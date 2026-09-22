@@ -249,9 +249,13 @@ inline void test_content_browser(const std::filesystem::path& root) {
     }
     view.update(std::make_shared<const ContentIndex>(ContentIndex::build(catalog, nullptr)));
     unsigned thumbnail_requests = 0;
+    bool visible_tile_captions = false;
     view.thumbnail = [&](AssetId id) {
         check(bool(id), "Source-only row requested an asset thumbnail");
         ++thumbnail_requests;
+        const auto lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+        visible_tile_captions |= ImGui::GetCurrentWindow()->InnerClipRect.Contains(
+            ImVec2{lo.x + 4, hi.y - ImGui::GetStyle().ItemSpacing.y - 1});
         return ContentThumbnail{ImTextureID(123), 2.f, "Published fixture thumbnail"};
     };
     ui::style(1.f);
@@ -265,6 +269,13 @@ inline void test_content_browser(const std::filesystem::path& root) {
         for (const auto& command : draw->CmdBuffer)
             image_command |= command.GetTexID() == ImTextureID(123);
     check(image_command, "Content grid did not submit its returned thumbnail image");
+    ui::style(2.f);
+    io.DisplaySize = {960, 640};
+    frame();
+    visible_tile_captions = false;
+    frame();
+    check(visible_tile_captions,
+          "Short scaled Content grid hides every tile name/type below the viewport");
     view.thumbnail = {};
     view.load_settings({{"grid", false}, {"folder_tree", true}});
     view.update(std::make_shared<const ContentIndex>(ContentIndex::build(catalog, nullptr)));

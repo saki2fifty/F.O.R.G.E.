@@ -344,8 +344,14 @@ class ContentView {
                                                  (tile_size_ * ui::interface_scale + gap)))
                   : 1;
         const float item_width = std::max(1.f, (width - gap * (columns - 1)) / columns);
+        const float caption_height = 2 * ImGui::GetTextLineHeightWithSpacing();
+        const auto* window = ImGui::GetCurrentWindow();
+        const float visible_height = window->InnerRect.GetHeight() - 2 * window->WindowPadding.y;
+        // Preserve one readable tile in a short, highly scaled Content window.
+        // Tile width stays a preference; preview height adapts to available space.
         const float item_height =
-            grid_ ? tile_size_ * ui::interface_scale + 2 * ImGui::GetTextLineHeightWithSpacing()
+            grid_ ? std::min(tile_size_ * ui::interface_scale + caption_height,
+                             std::max(caption_height + 16 * ui::interface_scale, visible_height))
                   : ImGui::GetTextLineHeightWithSpacing();
         const float stride = item_height + ImGui::GetStyle().ItemSpacing.y;
         const auto origin = ImGui::GetCursorScreenPos();
@@ -418,10 +424,13 @@ class ContentView {
                     const auto color = ImGui::GetColorU32(ImGuiCol_Text);
                     const auto muted = ImGui::GetColorU32(ImGuiCol_TextDisabled);
                     if (grid_) {
+                        const float preview_height = item_height - caption_height;
                         const float icon =
-                            std::min(item_width * .4f, tile_size_ * ui::interface_scale * .45f);
+                            std::max(1.f, std::min({item_width * .4f,
+                                                    tile_size_ * ui::interface_scale * .45f,
+                                                    preview_height - 8 * ui::interface_scale}));
                         const ImVec2 lo{pos.x + (item_width - icon) * .5f,
-                                        pos.y + 12 * ui::interface_scale};
+                                        pos.y + (preview_height - icon) * .5f};
                         if (preview.image) {
                             const float box_w = std::max(1.f, item_width - 8 * ui::interface_scale);
                             const float box_h = std::max(
