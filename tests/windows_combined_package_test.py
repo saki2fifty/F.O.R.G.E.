@@ -22,6 +22,39 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     env = os.environ.copy()
     env['PATH'] = str(Path(os.environ['SystemRoot'])/'System32')
+    # Exercise the actual shipped Phase7 tools and source walkthrough from a
+    # relocated folder with no repository/developer DLL directories on PATH.
+    tools = root/'forge_tools.exe'
+    rendering = root/'Examples/Rendering'
+    assert (rendering/'README.md').is_file()
+    assert (root/'manual/editor/models.html').is_file()
+
+    def import_asset(locator, success=True):
+        result = subprocess.run([str(tools), '--assets', 'import', str(rendering), locator],
+                                cwd=root, env=env, text=True, capture_output=True, timeout=150)
+        try:
+            value = json.loads(result.stdout)
+        except ValueError:
+            raise AssertionError((result.returncode, result.stdout, result.stderr))
+        assert value['ok'] == success and (result.returncode == 0) == success, (value, result.stderr)
+        return value
+
+    model = import_asset('Assets/Rendering.gltf')
+    assert not model['cache_hit']
+    repeated = import_asset('Assets/Rendering.gltf')
+    assert repeated['asset'] == model['asset'] and repeated['cache_hit']
+    texture = import_asset('Assets/checker.png')
+    assert texture['asset'] != model['asset']
+    catalog = rendering/'forge.assets.json'
+    selected = catalog.read_bytes()
+    source = rendering/'Assets/Rendering.gltf'
+    original = source.read_bytes()
+    source.write_bytes(b'{')
+    import_asset('Assets/Rendering.gltf', success=False)
+    assert catalog.read_bytes() == selected, 'Relocated failed import replaced selected assets'
+    source.write_bytes(original)
+    assert import_asset('Assets/Rendering.gltf')['cache_hit']
+    assert not list((rendering/'.forge/jobs').iterdir()), 'Relocated worker staging leaked'
     runtime = root/'NativeSdk/bin/forge_runtime.exe'
     info = json.loads(subprocess.check_output([str(runtime), '--sdk-info'], cwd=root, env=env, text=True))
     assert info['profile'] == 'shared-native-sdk'
@@ -50,4 +83,5 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     contract = hello['runtime_contract']
     assert contract['sdk_project'] and contract['profile'] == 'shared-native-sdk'
     assert contract['source_commit'] == manifest['source_commit']
-    print('Final combined package hashes, shared DLL loading, SDK Hello and relocation passed')
+    print('Final package hashes, relocated model/texture workers, cache/failure retention, '
+          'shared DLL loading and SDK Hello passed')

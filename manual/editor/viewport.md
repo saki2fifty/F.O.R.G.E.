@@ -81,21 +81,23 @@ The **+** is Add Entity. Pointer, arrows, ring and diagonal-box icons select Sel
 
 Transform icons also have named entries under **Entity > Transform tools** and in the Command Palette.
 
-## Imported mesh loading — integration in progress
+## Imported mesh loading
 
-The Scene view can prepare an entity's assigned **Mesh Renderer** from imported
-model resources. Its material and textures load together. An incomplete replacement
-keeps the previous complete draw; an initial failure is reported in **Problems**.
-Moving the camera is not required to reveal a completed load. A Mesh Renderer takes
-precedence over the same entity's older primitive preview.
+The Scene view prepares each entity's assigned **Mesh Renderer** with its materials
+and textures. An incomplete replacement keeps the previous complete draw; an
+initial failure appears in **Problems** with a diagnostic fallback. Moving the
+camera is not required to reveal a completed load.
 
-This path is still undergoing native rendering validation. The current adapter
-handles static meshes with unlit or PBR materials, including clearcoat, iridescence,
-sheen and anisotropy, under explicit scene lights. Transmission and skinned/morphed
-draws are not yet connected. Scene and Game share the prepared mesh/environment
-resources; Game still uses its existing viewing camera. Model placement, mesh picking and
-production render controls remain part of the ongoing integration; importing a file
-alone does not place an object in the scene. See [Models](models.md).
+Scene and Game use the same rendering resources for static, skinned and morphed
+meshes, PBR and unlit materials, supported optical extensions, lights, shadows and
+environments. Game uses enabled authored Camera components. Model placement and
+selection use imported mesh geometry; importing a file alone does not place it in
+the scene. Drag the Model from Content onto Scene or use **Place in scene** in its
+import document. See [Models](models.md) and [Play mode](play-mode.md).
+
+Legacy primitive entities resolve built-in Mesh/Material resources without
+rewriting their authored scene data. Their default material stays unlit. Assign a
+PBR material when the object should receive scene lighting and shadows.
 
 ## Brightness and transparent materials
 

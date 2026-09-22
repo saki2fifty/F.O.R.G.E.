@@ -9,6 +9,9 @@ namespace forge {
 class ComponentInspector {
   public:
     bool add_open = false;
+#ifdef FORGE_UI_FIXTURE
+    std::string fixture_focus_component;
+#endif
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     void edit_property(Scene& scene, const std::string& entity, const std::string& component,
@@ -127,6 +130,11 @@ class ComponentInspector {
             ++visible_components;
             const bool whole = owned.at("components").contains(key);
             const bool partial = masks.contains(key);
+#ifdef FORGE_UI_FIXTURE
+            if (fixture_focus_component == key)
+                ImGui::SetScrollFromPosY(ImGui::GetCursorScreenPos().y - ImGui::GetWindowPos().y,
+                                         0.f);
+#endif
             const bool expanded =
                 ImGui::CollapsingHeader(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
             ui::help("Component properties. Right-click this header for Override, Remove or "

@@ -7,8 +7,7 @@ namespace forge::ui {
 inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog, bool locked) {
     if (!open)
         return;
-    ImGui::SetNextWindowSize({440 * interface_scale, 340 * interface_scale},
-                             ImGuiCond_FirstUseEver);
+    draft_window_size({640 * interface_scale, 720 * interface_scale});
     if (ImGui::Begin("Scene lighting", &open)) {
         if (editor_context)
             editor_context->task.focus(DocumentTask::Scene);
@@ -23,8 +22,9 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             };
             Json texture = settings.environment.texture.id ? Json(settings.environment.texture.id)
                                                            : Json(nullptr);
+            property_label_row("Environment map", "Choose the scene's sky and image-based light.");
             if (catalog) {
-                if (asset_ref_picker(*catalog, texture, "texture", "Environment map"))
+                if (asset_ref_picker(*catalog, texture, "texture", "##environment"))
                     commit({{"environment", {{"texture", texture}}}});
             } else {
                 ImGui::TextDisabled("Asset catalog is unavailable.");
@@ -34,14 +34,16 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             ImGui::TextWrapped("Choose an imported color cubemap or equirectangular image. HDR "
                                "color is used when available.");
             float intensity = settings.environment.intensity;
-            if (ImGui::InputFloat("Intensity", &intensity, 0, 0, "%.3f",
+            property_label_row("Intensity", "Multiply sky brightness and image-based lighting.");
+            if (ImGui::InputFloat("##intensity", &intensity, 0, 0, "%.3f",
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 commit({{"environment", {{"intensity", intensity}}}});
             help("Multiply sky brightness and image-based lighting. Zero disables both "
                  "contributions. Enter commits one undo step.");
             double degrees = std::remainder(settings.environment.rotation, 2 * std::numbers::pi) *
                              180 / std::numbers::pi;
-            if (ImGui::InputDouble("Rotation (degrees)", &degrees, 0, 0, "%.2f",
+            property_label_row("Rotation (degrees)", "Rotate the sky and lighting around world Y.");
+            if (ImGui::InputDouble("##rotation", &degrees, 0, 0, "%.2f",
                                    ImGuiInputTextFlags_EnterReturnsTrue))
                 commit({{"environment", {{"rotation", degrees * std::numbers::pi / 180}}}});
             help("Rotate sky and image-based lighting together around world Y. Positive angles "
@@ -54,7 +56,9 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             heading("Game display", "Authored exposure applies to game cameras. Scene View has a "
                                     "personal preview exposure under View.");
             float exposure = settings.exposure;
-            if (ImGui::InputFloat("Exposure (stops)", &exposure, 0, 0, "%.2f",
+            property_label_row("Exposure (stops)",
+                               "Adjust the brightness of authored game cameras.");
+            if (ImGui::InputFloat("##exposure", &exposure, 0, 0, "%.2f",
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 commit({{"exposure", exposure}});
             help("Game-camera exposure from -20 to +20 stops. +1 doubles linear light before tone "
@@ -68,9 +72,11 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "Cast shadows enabled. Scene Save and Undo include these settings.");
             auto integer = [&](const char* label, const char* key, unsigned value,
                                const char* tip) {
+                IdScope field(key);
+                property_label_row(label, tip);
                 auto edited = value;
-                if (ImGui::InputScalar(label, ImGuiDataType_U32, &edited, nullptr, nullptr, "%u",
-                                       ImGuiInputTextFlags_EnterReturnsTrue))
+                if (ImGui::InputScalar("##value", ImGuiDataType_U32, &edited, nullptr, nullptr,
+                                       "%u", ImGuiInputTextFlags_EnterReturnsTrue))
                     commit({{"shadows", {{key, edited}}}});
                 help(tip);
             };
@@ -85,7 +91,9 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                     "1–8 shadow-casting lights per camera. Additional lights still illuminate the "
                     "scene and report a shadow-budget diagnostic in Problems.");
             double distance = settings.shadows.distance;
-            if (ImGui::InputDouble("Shadow distance (m)", &distance, 0, 0, "%.3f",
+            property_label_row("Shadow distance (m)",
+                               "Maximum camera depth for directional shadows.");
+            if (ImGui::InputDouble("##distance", &distance, 0, 0, "%.3f",
                                    ImGuiInputTextFlags_EnterReturnsTrue))
                 commit({{"shadows", {{"distance", distance}}}});
             help("Maximum camera depth for directional shadows, fading at the far end. Also bounds "

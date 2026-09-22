@@ -1871,6 +1871,7 @@ int main(int argc, char** argv) {
                         throw std::runtime_error("Custom component capture admission failed");
                     fixture.component_inspection_requested = false;
                     if (version == 1) {
+                        component_inspector.fixture_focus_component = "project.pilot";
                         const std::string id =
                             forge::authoring_command(scene, "entity.create", {{"name", "Pilot"}})
                                 .at("selected");
@@ -1902,6 +1903,70 @@ int main(int argc, char** argv) {
                         ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1.f + .5f * float(fixture.stage - 82));
                     authored_components.fixture_open_migration = true;
+                    break;
+                case 85:
+                case 88:
+                case 91: {
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
+                    forge::ui::style(1);
+                    const char* recipe = fixture.stage == 85   ? "render.camera"
+                                         : fixture.stage == 88 ? "render.light"
+                                                               : "primitive.0";
+                    component_inspector.fixture_focus_component =
+                        fixture.stage == 85   ? "forge.camera"
+                        : fixture.stage == 88 ? "forge.light"
+                                              : "forge.mesh_renderer";
+                    editor.selection.select_entity(
+                        forge::authoring_command(scene, "entity.create", {{"recipe", recipe}})
+                            .at("selected"));
+                    workspace.build = false;
+                    workspace.inspector = true;
+                    if (auto* w = ImGui::FindWindowByName("Inspector"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Inspector", {30, 55});
+                    ImGui::SetWindowSize("Inspector", {1400, 960});
+                    break;
+                }
+                case 86:
+                case 89:
+                case 92:
+                case 95:
+                case 98:
+                case 101:
+                    forge::ui::style(1.5f);
+                    break;
+                case 87:
+                case 90:
+                case 93:
+                case 96:
+                case 99:
+                case 102:
+                    forge::ui::style(2);
+                    break;
+                case 94:
+                    forge::ui::style(1);
+                    scene_lighting_open = true;
+                    ImGui::SetWindowPos("Scene lighting", {30, 55});
+                    ImGui::SetWindowSize("Scene lighting", {1300, 950});
+                    break;
+                case 97: {
+                    scene_lighting_open = false;
+                    forge::ui::style(1);
+                    const auto incoming = fixture.output / "source-input";
+                    std::filesystem::create_directories(incoming);
+                    for (const auto* file : {"preview.gltf", "preview.bin", "texture.tga"})
+                        std::filesystem::copy_file(
+                            files.document.project() / "Assets" / file, incoming / file,
+                            std::filesystem::copy_options::overwrite_existing);
+                    source_import.select(files.document,
+                                         {incoming / "preview.gltf", incoming / "texture.tga"});
+                    break;
+                }
+                case 100:
+                    forge::ui::style(1);
+                    source_import.prepare();
+                    ready = source_import.review_ready();
                     break;
                 }
                 fixture.prepared = ready;
@@ -2995,7 +3060,8 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             if (const auto* target = fixture.focused_document())
                 if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
-                    (fixture.stage >= 73 && fixture.stage < 82))
+                    (fixture.stage >= 73 && fixture.stage < 82) ||
+                    (fixture.stage >= 85 && fixture.stage <= 96))
                     ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
@@ -3033,10 +3099,17 @@ int main(int argc, char** argv) {
             }
             if (fixture.stage >= 73)
                 captured_document_visible &= !model_imports.fixture_open_notes;
-            if (fixture.stage >= 82) {
+            if (fixture.stage >= 82 && fixture.stage <= 84) {
                 const auto* popup = ImGui::FindWindowByName("Migrate component values");
                 captured_document_visible &= !authored_components.fixture_open_migration && popup &&
                                              popup->Active && !popup->Hidden;
+            }
+            if (fixture.stage >= 97) {
+                const auto* popup = ImGui::FindWindowByName("Import source files");
+                captured_document_visible &= popup && popup->Active && !popup->Hidden;
+                if (!source_import.diagnostic().empty())
+                    throw std::runtime_error("Source import capture failed: " +
+                                             source_import.diagnostic());
             }
             if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
                 throw std::runtime_error("Audio import fixture failed: " +
@@ -3111,7 +3184,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 85) {
+                if (fixture.stage == 103) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

@@ -85,7 +85,20 @@ struct EditorFixture {
         case 76:
         case 77:
         case 78:
+        case 85:
+        case 86:
+        case 87:
+        case 88:
+        case 89:
+        case 90:
+        case 91:
+        case 92:
+        case 93:
             return "Inspector";
+        case 94:
+        case 95:
+        case 96:
+            return "Scene lighting";
         case 79:
         case 80:
         case 81:
@@ -207,7 +220,25 @@ struct EditorFixture {
                                "custom-component-tools-200",
                                "custom-component-migration",
                                "custom-component-migration-150",
-                               "custom-component-migration-200"};
+                               "custom-component-migration-200",
+                               "camera-inspector",
+                               "camera-inspector-150",
+                               "camera-inspector-200",
+                               "light-inspector",
+                               "light-inspector-150",
+                               "light-inspector-200",
+                               "mesh-renderer-inspector",
+                               "mesh-renderer-inspector-150",
+                               "mesh-renderer-inspector-200",
+                               "scene-lighting",
+                               "scene-lighting-150",
+                               "scene-lighting-200",
+                               "source-import-choose",
+                               "source-import-choose-150",
+                               "source-import-choose-200",
+                               "source-import-review",
+                               "source-import-review-150",
+                               "source-import-review-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

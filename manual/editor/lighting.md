@@ -77,8 +77,14 @@ validation.
 
 ## Current integration limits
 
-The new lighting path applies to imported PBR meshes. Legacy blockout primitives still
-use their existing preview lighting until their Mesh/Material migration is complete.
+PBR materials receive scene lighting on both imported and built-in meshes. Legacy
+blockout entities already resolve built-in Mesh/Material resources while keeping
+their existing authored data and default unlit appearance. Assign a PBR material
+to use the scene lights on a blockout object.
 Game uses authored Camera components; add an enabled camera before starting Play.
 See [Play mode](play-mode.md). The new camera/engine-mesh integration is undergoing
 Windows validation.
+
+The resizable lighting window keeps labels beside or above their fields as space
+allows. At larger interface zoom, scroll to reach the shadow settings. Changing
+window size or interface zoom does not change the scene.

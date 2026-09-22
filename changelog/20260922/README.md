@@ -203,3 +203,11 @@ The full sanitizer build also exposed missing runtime linkage in optional upstre
 Validation update: full strict ASan/UBSan/LSan ordinary suite91/91PASS (278.12s); actual editor interaction/process suitePASS (16.32s), including the off-screen picker and permutation selectors at100/150/200. Manual3/3 and source formatting pass. Native Windows source audits remain pending for the corrected code.
 
 The separate Flecs exception check correctly rejected an optimized build without the required allocation frames/source locations. Strict Flecs builds now preserve debug information and disable inlining/tail-call removal for that exact-signature evidence; the test and exception remain unchanged. Linux shared-renderer compilation and the real Vulkan binding/draw/readback probe pass after the GPU accounting correction.
+
+## Final rendering workflow coverage
+
+Extended actual-editor captures to include Camera, Light and Mesh Renderer Inspector sections, Scene lighting and external-source import selection/review at100%,150% and200%. Targeted Inspector captures scroll to the component being reviewed, so enlarged transform controls cannot hide the relevant fields. These additions bring the integrated sequence to103stages. Scene lighting now uses responsive label/value rows and a bounded resizable window; long shadow-setting labels no longer run beyond the panel edge. Updated viewport/lighting manuals to remove stale claims that skinning, transmission, authored Game cameras and engine-mesh migration were unconnected. Fresh native execution remains pending.
+
+Combined Windows package relocation now exercises the shipped Rendering walkthrough through the packaged model/texture importer workers with developer paths removed: import, cache hit, corrupt-source rejection, last-good catalog retention, retry and staging cleanup. This complements shared-runtime Hello and every-file manifest/hash validation; actual final ZIP execution remains a release gate.
+
+Final symbol-preserving ordinary sanitizer suite91/91PASS (271.67s); separate unchanged Flecs expected-upstream signaturePASS (2.69s), with no suppression. Expanded editor/controller checksPASS (16.51s), all103capture-stage code parses in the explicitly adapted Linux syntax check, and manual3/3/format pass. These local checks do not replace the pending native screenshots or final ZIP relocation.
