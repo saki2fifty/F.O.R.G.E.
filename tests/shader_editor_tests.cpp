@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
                  {"version", 1},
                  {"asset_id", id},
                  {"source_root", "Shaders"},
+                 {"permutations", {{"QUALITY", {"LOW", "HIGH"}}}},
                  {"stages",
                   Json::array({{{"stage", "vertex"}, {"source", "surface.hlsl"}, {"entry", "vs"}},
                                {{"stage", "pixel"}, {"source", "surface.hlsl"}, {"entry", "ps"}}})}}
@@ -68,6 +69,7 @@ int main(int argc, char** argv) {
             require(!editor.pending(), "Shader UI compilation timed out");
         };
         editor.open(document, "surface.shader.json");
+        editor.edit_setting("permutation", Json{{"QUALITY", "HIGH"}});
         require(editor.selected_asset() == id && editor.dirty(),
                 "Shader UI lost authored first-publication identity");
         editor.request_close();

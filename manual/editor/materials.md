@@ -164,3 +164,5 @@ The original asset references stay intact so they can recover.
 Material texture pickers also offer engine-owned white, black, flat-normal and
 checker textures. Choose the shape required by the slot; these built-in resources
 do not need image files in your project.
+
+In a narrow Material document or at a larger interface scale, the preview stacks above the properties and reduces its height to leave room for editing. Widen the document to restore the split properties/preview view.

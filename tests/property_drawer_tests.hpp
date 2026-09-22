@@ -2,6 +2,43 @@
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 void require(bool condition, const char* message);
+inline void test_asset_picker_fixture_scroll() {
+    using namespace forge;
+    AssetCatalog catalog(std::filesystem::current_path());
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {1100, 900};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    Json value = engine_primitive(0).id;
+    for (float scale : {1.f, 1.5f, 2.f}) {
+        if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+            ImGui::ClosePopupToLevel(0, true);
+        ui::style(scale);
+        fixture_open_mesh_picker = true;
+        for (unsigned frame = 0; frame < 12; ++frame) {
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({20, 20});
+            ImGui::SetNextWindowSize({390, 760});
+            ImGui::Begin("Inspector");
+            ImGui::Dummy({1, 1000 * scale});
+            ui::property_label_row("Mesh", "Choose a mesh.");
+            asset_ref_picker(catalog, value, "mesh", "##mesh");
+            ImGui::End();
+            ImGui::Render();
+        }
+        const auto& open = ImGui::GetCurrentContext()->OpenPopupStack;
+        require(!fixture_open_mesh_picker && !open.empty() && open.back().Window &&
+                    open.back().Window->Active && !open.back().Window->Hidden,
+                "Native picker fixture failed to reveal a field below a scaled Inspector");
+    }
+    fixture_open_mesh_picker = false;
+    ui::style(1);
+    ImGui::DestroyContext();
+}
 inline void test_asset_picker() {
     using namespace forge;
     AssetCatalog catalog(std::filesystem::current_path());

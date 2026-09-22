@@ -6,6 +6,10 @@
 #include "asset_import_editor.hpp"
 namespace forge {
 class ShaderImportEditor : public AssetImportEditor {
+    std::uint64_t settings_generation_ = 0;
+    std::map<std::string, std::vector<std::string>> axes_;
+    std::string settings_error_;
+
   public:
     ShaderImportEditor(std::filesystem::path worker,
                        std::function<asset_detail::ShaderCompilerProfile()> compiler)
@@ -42,6 +46,31 @@ class ShaderImportEditor : public AssetImportEditor {
                    const auto root = ProjectPaths::normalize(std::filesystem::u8path(
                        document.at("source_root").template get<std::string>()));
                    ui::shader_diagnostic_location(problem, project, root);
-               }}) {}
+               }}) {
+        draw_settings = [this](AssetImportDraft& draft, std::string& error) {
+            if (settings_generation_ != selection_generation()) {
+                settings_generation_ = selection_generation();
+                axes_.clear();
+                settings_error_.clear();
+                try {
+                    const auto bytes = asset_detail::read_bytes(
+                        ProjectPaths(draft.request.project).resolve(draft.request.source),
+                        1024 * 1024);
+                    axes_ =
+                        shader_program_source(asset_detail::parse_bounded_json(bytes, 1024 * 1024))
+                            .permutations;
+                } catch (const std::exception& e) {
+                    settings_error_ = e.what();
+                }
+            }
+            if (!settings_error_.empty()) {
+                ui::field_error(settings_error_);
+                ImGui::TextWrapped("Review the source again after fixing its shader declaration.");
+                return;
+            }
+            ui::import_settings_fields(draft.importer->settings(), draft.request.settings, error,
+                                       &axes_);
+        };
+    }
 };
 } // namespace forge

@@ -11,6 +11,9 @@ namespace forge {
 // process; completed metadata and document candidates publish on the owning thread.
 class AuthoredComponents {
   public:
+#ifdef FORGE_UI_FIXTURE
+    bool fixture_open_migration = false;
+#endif
     ~AuthoredComponents() { cancel_.request_stop(); }
     bool busy() const { return job_.valid(); }
     void project_changed(Scene& scene, SceneDocument& project) {
@@ -84,6 +87,12 @@ class AuthoredComponents {
     }
     void draw(Scene& scene, SceneDocument& project, PrefabEditor& prefab,
               const std::filesystem::path& runtime, bool locked) {
+#ifdef FORGE_UI_FIXTURE
+        if (fixture_open_migration) {
+            open_migration(scene, project, scene.document(), false);
+            fixture_open_migration = false;
+        }
+#endif
         ui::heading("Authored components",
                     "Project types explicitly admitted from native Flecs metadata. "
                     "Gameplay libraries never load in the editor.");
@@ -227,8 +236,12 @@ class AuthoredComponents {
             ImGui::OpenPopup("Migrate component values");
             open_popup_ = false;
         }
-        ImGui::SetNextWindowSize({650 * ui::interface_scale, 540 * ui::interface_scale},
-                                 ImGuiCond_FirstUseEver);
+        const auto available = ImGui::GetMainViewport()->WorkSize;
+        const ImVec2 maximum{std::max(1.f, available.x - 30), std::max(1.f, available.y - 30)};
+        ImGui::SetNextWindowSize({std::min(650 * ui::interface_scale, maximum.x),
+                                  std::min(540 * ui::interface_scale, maximum.y)},
+                                 ImGuiCond_Appearing);
+        ImGui::SetNextWindowSizeConstraints({1, 1}, maximum);
         if (!ImGui::BeginPopupModal("Migrate component values", nullptr,
                                     ImGuiWindowFlags_NoSavedSettings))
             return;

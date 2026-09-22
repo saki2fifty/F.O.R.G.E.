@@ -14,7 +14,8 @@ class MaterialEditor {
     std::function<void(AssetRef<MaterialAsset>, MaterialResourceData,
                        std::shared_ptr<const AssetCatalog>)>
         update_preview;
-    std::function<void()> draw_preview, release_preview;
+    std::function<void(bool)> draw_preview;
+    std::function<void()> release_preview;
     ~MaterialEditor() { cancel_.request_stop(); }
     bool close_cancelled = false;
     bool is_open() const { return bool(document_); }
@@ -228,10 +229,10 @@ class MaterialEditor {
                 }
                 ImGui::EndDisabled();
             };
-            const auto preview = [&] {
+            const auto preview = [&](bool stacked) {
                 if (document_ && draw_preview)
                     try {
-                        draw_preview();
+                        draw_preview(stacked);
                     } catch (const std::exception& e) {
                         report(e.what());
                     }
@@ -261,11 +262,11 @@ class MaterialEditor {
                 ImGui::EndChild();
                 ImGui::TableNextColumn();
                 ImGui::BeginChild("Material preview", {0, height});
-                preview();
+                preview(false);
                 ImGui::EndChild();
                 ImGui::EndTable();
             } else {
-                preview();
+                preview(true);
                 draw_fields();
             }
             if (!base_ready_) {

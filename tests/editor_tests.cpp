@@ -1,3 +1,4 @@
+#define FORGE_UI_FIXTURE 1
 #include "animation_editor_tests.hpp"
 #include "authoring_tests.hpp"
 #include "automation_tests.hpp"
@@ -14,6 +15,7 @@
 #include "framing_tests.hpp"
 #include "game_input_tests.hpp"
 #include "help.hpp"
+#include "import_settings_editor_tests.hpp"
 #include "interaction_tests.hpp"
 #include "navigation_editor_tests.hpp"
 #include "play.hpp"
@@ -316,6 +318,8 @@ int main(int argc, char** argv) {
                 "Manual URL did not escape path characters");
         test_typed_ui_layer();
         test_asset_picker();
+        test_asset_picker_fixture_scroll();
+        test_import_settings_editor();
         test_entity_picker();
         test_diagnostic_source();
         test_reflected_value_inputs();

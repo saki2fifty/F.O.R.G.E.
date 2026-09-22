@@ -183,3 +183,23 @@ Corrected the format/render matrices to match existing point and line import, co
 ## Packaged rendering walkthrough
 
 Added an original, self-contained Rendering sample project with a checker texture, cube/floor, copper material variant, camera and directional light. The package includes its source and short import/place/Play instructions; no third-party artwork or preselected cooked cache is bundled. The model manual links the walkthrough. The actual FORGE model importer accepts the complete source family. The official Khronos validator reports zero errors, warnings, hints or informational findings. Native visual/package acceptance remains a delivery gate.
+
+## Custom component workflow capture coverage
+
+Added actual editor capture stages for admitted project-component Inspector values, Gameplay Code schema controls and explicit migration review at100%,150% and200%. Fixture schemas travel through the existing supervised worker/history/publication route; gameplay DLLs still never load in the editor. The migration modal now caps its size to the available work area and keeps overflow scrollable. Added an ImGui regression proving the review fits and does not mutate authored values. Native execution remains pending.
+
+Actual100%/150%/200% material captures showed an oversized preview hiding properties in stacked mode. The preview now respects the remaining view height and leaves room for the fields below. Wide documents retain split properties/preview. Corrected test-only popup closing to honor the pinned ImGui nonempty-stack precondition; custom migration review regression passes at all three scales after settled frames. Native refreshed visuals remain pending.
+
+Review of the actual Audio clip capture exposed missing details when Content was closed: catalog refresh completion depended on drawing Content. The owner loop now polls it independently of panel visibility; the clip document shows publication metadata and an honest empty-settings message. Native captures require the published audio record before taking the image. Corrected the format matrix to match the existing audio contract: playback uses Play; an editor audition output lifecycle is not implemented.
+
+## Shader settings and native acceptance corrections
+
+Shader Import now displays declared permutation axes as supported-value drop-downs. Every axis requires an explicit selection; obsolete axes remain visible with a removal action. The bounded source declaration is loaded once per reviewed source generation, not every UI frame. Settings still use the importer schema and publish only through the existing candidate workflow. The generic typed drawer also supports text settings. The shader manual explains missing selections, source refresh, defaults and failed-import preservation. Actual ImGui selection tests pass at100%,150% and200%; the native shader fixture now imports a declared permutation.
+
+The native WARP audit caught GPU budget accounting still using32-bit CPU indices after uploads switched to16-bit compact indices. Both now share the exact index-width calculation; no backend layout assumptions were introduced. The existing native regression detected this defect. Corrected screenshot-fixture scrolling to reveal the actual asset combo below a scaled Inspector, with a focused ImGui regression; this does not change normal user scrolling.
+
+The full sanitizer build also exposed missing runtime linkage in optional upstream shared-library targets consuming instrumented FORGE dependencies. Instrumented target usage requirements and Diligent's common build-settings interface now carry the required sanitizer runtimes. This changes validation profiles only; release builds remain unaffected. Full strict execution and refreshed Windows acceptance are in progress; no new numbered package has been issued.
+
+Validation update: full strict ASan/UBSan/LSan ordinary suite91/91PASS (278.12s); actual editor interaction/process suitePASS (16.32s), including the off-screen picker and permutation selectors at100/150/200. Manual3/3 and source formatting pass. Native Windows source audits remain pending for the corrected code.
+
+The separate Flecs exception check correctly rejected an optimized build without the required allocation frames/source locations. Strict Flecs builds now preserve debug information and disable inlining/tail-call removal for that exact-signature evidence; the test and exception remain unchanged. Linux shared-renderer compilation and the real Vulkan binding/draw/readback probe pass after the GPU accounting correction.

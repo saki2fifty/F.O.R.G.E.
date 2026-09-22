@@ -27,6 +27,8 @@ class AssetImportEditor {
         std::copy(profile_.source_example.begin(), profile_.source_example.end(), source_);
     }
     std::function<void(SceneDocument&, bool)> draw_extension;
+    // Specialized importer controls still edit the same typed settings draft.
+    std::function<void(AssetImportDraft&, std::string&)> draw_settings;
     bool preview_before_settings = false;
     AssetId selected_asset() const { return draft_ ? draft_->ticket.owner : AssetId{}; }
     std::filesystem::path selected_source() const {
@@ -34,6 +36,12 @@ class AssetImportEditor {
     }
     std::uint64_t selection_generation() const { return selection_generation_; }
     bool pending() const { return job_ != 0; }
+    void edit_setting(std::string_view key, std::optional<Json> value) {
+        if (!draft_ || job_)
+            throw std::runtime_error("Import settings require an idle source draft.");
+        draft_->request.settings =
+            draft_->importer->settings().edit(draft_->request.settings, key, std::move(value));
+    }
     const std::string& diagnostic() const { return error_; }
     std::vector<AssetReimportRoute> automatic_routes() const {
         const auto registry = profile_.registry();
@@ -239,8 +247,16 @@ class AssetImportEditor {
                             "Import settings",
                             "These fields come from the selected importer schema. Changes remain a "
                             "draft until Import succeeds.");
-                    ui::import_settings_fields(draft_->importer->settings(),
-                                               draft_->request.settings, error_);
+                    if (draw_settings)
+                        draw_settings(*draft_, error_);
+                    else
+                        ui::import_settings_fields(draft_->importer->settings(),
+                                                   draft_->request.settings, error_);
+                    if (draft_->importer->settings().rules().empty()) {
+                        ImGui::TextWrapped("This importer has no configurable settings.");
+                        ui::help("Import still validates the source and publishes a complete "
+                                 "candidate; no conversion options are exposed by this recipe.");
+                    }
                 }
                 ImGui::EndDisabled();
             }

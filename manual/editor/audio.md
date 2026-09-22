@@ -45,7 +45,7 @@ Use the existing prefab property **Revert** controls or the component header’s
 Import runs in a separate worker. It validates the WAV, prepares immutable audio
 data, and records **Duration**, **Channels**, **Sample rate** and format. Select
 the AudioClip in Content to see these details in Inspector, or double-click it to
-open **Audio clip**. Drop it onto an Audio Source's **Clip** field to assign it;
+open **Audio clip**. Its **Clip details** update even when Content is closed or folded. The WAV importer has no configurable conversion settings. Drop it onto an Audio Source's **Clip** field to assign it;
 an incompatible asset type is rejected.
 
 Keep `forge.assets.json`, the WAV and its `.forge-import.json` sidecar in source

@@ -85,7 +85,7 @@ class MaterialPreview {
     }
     bool pending() const { return frame_.pending(); }
     const std::vector<Diagnostic>& diagnostics() const { return frame_.diagnostics(); }
-    void draw(const AssetCatalog& catalog) {
+    void draw(const AssetCatalog& catalog, bool stacked = false) {
         ui::heading("Preview", "Unsaved material preview uses isolated resources and the same "
                                "renderer as Scene and Game. It never edits scene content.");
         int kind = shape == 0 ? 1 : shape == 3 ? 2 : 0;
@@ -123,8 +123,14 @@ class MaterialPreview {
         } else
             ui::help(
                 "Expand preview-only exposure, lighting, environment and background settings.");
-        const ImVec2 size{std::max(32.f, std::min(ImGui::GetContentRegionAvail().x, 1024.f)),
-                          300 * ui::interface_scale};
+        const auto available = ImGui::GetContentRegionAvail();
+        const float remaining = std::max(1.f, available.y);
+        // In a narrow document, reserve visible room for the properties below.
+        // A fixed scaled image could previously consume the entire editor area.
+        const float desired =
+            stacked ? std::max(96.f * ui::interface_scale, remaining * .45f) : remaining;
+        const ImVec2 size{std::max(1.f, std::min(available.x, 1024.f)),
+                          std::min({300 * ui::interface_scale, remaining, desired})};
         auto* texture = render(static_cast<unsigned>(size.x), static_cast<unsigned>(size.y));
         ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, size);
         const bool hovered = ImGui::IsItemHovered();

@@ -129,3 +129,5 @@ Game presentation through the normal scene membership. Creation takes effect at
 the next game tick; when paused, use **Step** or **Resume**. It does not add an
 object to the editor's saved scene or its Undo history. The SDK guide includes the
 code, scene-selection rules, cancellation and lifetime details.
+
+The migration review stays within the available editor area at larger interface scales. Scroll the review when its contents need more space; opening it does not change the scene or prefab.

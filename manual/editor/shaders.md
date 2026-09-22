@@ -10,7 +10,7 @@ surface declaration can be selected in the [Material editor](materials.md).
 1. Put the `.shader.json` declaration and referenced HLSL/include files inside the project. Edit these files in your code editor.
 2. Stop Play. Open **Content → Create / Register → Import shader...**.
 3. Enter the declaration's project-relative path and choose **Review settings**.
-4. Review its exposed permutation settings and choose **Import / Reimport**.
+4. Under **Permutation**, choose a value for each declared axis, then choose **Import / Reimport**. A program with no axes says so explicitly.
 5. Wait for compilation and publication to finish. Diagnostics appear locally and in Problems.
 
 Select the Problems entry to inspect its Shader asset. **Open source** opens a
@@ -27,6 +27,14 @@ structure and limits.
 Double-click the published Shader in Content to reopen its import settings. The
 main Save action also imports when this document has focus. Closing with pending
 settings uses the same Apply/Discard/Keep editing guard as texture/model import.
+
+Each axis is a drop-down of values from the source declaration. Only that one
+combination is compiled; the editor does not guess missing selections. **Use
+default** removes the explicit permutation settings, so a program with axes
+needs new selections before importing again. If a source edit removes an axis,
+**Remove selection** clears its obsolete draft entry. Choose **Review settings**
+again after changing the declaration. Import failure keeps the previous compiled
+revision; changing these settings does not alter scene history.
 
 ## Write a material surface
 

@@ -20,6 +20,7 @@ struct EditorFixture {
     Uint64 started = SDL_GetTicks(), stage_started = started;
     bool prepared = false;
     bool scene_create = false, hierarchy_create = false;
+    bool component_inspection_requested = false;
     float scene_image_y = 0;
     AssetId prefab;
     explicit EditorFixture(int argc, char** argv) {
@@ -81,7 +82,17 @@ struct EditorFixture {
         case 70:
         case 71:
         case 72:
+        case 76:
+        case 77:
+        case 78:
             return "Inspector";
+        case 79:
+        case 80:
+        case 81:
+        case 82:
+        case 83:
+        case 84:
+            return "###Native";
         default:
             return nullptr;
         }
@@ -187,7 +198,16 @@ struct EditorFixture {
                                "model-variant-inspector-200",
                                "model-import-notes",
                                "model-import-notes-150",
-                               "model-import-notes-200"};
+                               "model-import-notes-200",
+                               "custom-component-inspector",
+                               "custom-component-inspector-150",
+                               "custom-component-inspector-200",
+                               "custom-component-tools",
+                               "custom-component-tools-150",
+                               "custom-component-tools-200",
+                               "custom-component-migration",
+                               "custom-component-migration-150",
+                               "custom-component-migration-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

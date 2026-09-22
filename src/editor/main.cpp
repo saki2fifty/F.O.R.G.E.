@@ -1,4 +1,5 @@
 #ifdef FORGE_UI_FIXTURE
+#include "authored_capture_fixture.hpp"
 #include "editor_fixture.hpp"
 #include "gltf_variant_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
@@ -343,8 +344,15 @@ int main(int argc, char** argv) {
         forge::AudioImportEditor audio_imports(std::filesystem::path(base) /
                                                "forge_asset_build.exe");
         audio_imports.draw_extension = [&](auto&, bool) {
+            forge::ui::heading("Clip details",
+                               "Metadata of the successfully published audio clip.");
             if (const auto* record = content.record(audio_imports.selected_asset()))
                 forge::draw_audio_details(*record);
+            else {
+                ImGui::TextWrapped("Clip details appear after a successful import.");
+                forge::ui::help(
+                    "The catalog refreshes asynchronously, even when Content is closed.");
+            }
         };
         std::unique_ptr<forge::TextureViewer> texture_viewer;
         forge::TextureViewerDocument texture_view_document(presentation, context);
@@ -418,9 +426,9 @@ int main(int argc, char** argv) {
             material_preview->material(ref, std::move(data));
             material_preview_catalog = std::move(catalog);
         };
-        material_editor.draw_preview = [&] {
+        material_editor.draw_preview = [&](bool stacked) {
             if (material_preview && material_preview_catalog)
-                material_preview->draw(*material_preview_catalog);
+                material_preview->draw(*material_preview_catalog, stacked);
         };
         material_editor.release_preview = [&] {
             material_preview.reset();
@@ -1258,7 +1266,8 @@ int main(int argc, char** argv) {
                     editor.add_component = true;
                     break;
                 case 2:
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     ImGui::SetWindowFocus("Content");
                     break;
                 case 3:
@@ -1335,15 +1344,18 @@ int main(int argc, char** argv) {
                     fixture.scene_create = true;
                     break;
                 case 15:
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     fixture.hierarchy_create = true;
                     break;
                 case 16:
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     commands.open_palette();
                     break;
                 case 17:
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1.25f);
                     SDL_SetWindowSize(window.get(), 1920, 1080);
                     workspace.reset = true;
@@ -1547,7 +1559,8 @@ int main(int argc, char** argv) {
                     // draft before preparing independent document captures.
                     content_files = forge::ContentFiles{};
                     content_imports.suspend(false);
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     if (auto* w = ImGui::FindWindowByName("Content"))
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                     workspace.content = false;
@@ -1634,6 +1647,7 @@ int main(int argc, char** argv) {
                         {"version", 1},
                         {"asset_id", forge::AssetId::generate()},
                         {"source_root", "Shaders"},
+                        {"permutations", {{"QUALITY", {"LOW", "HIGH"}}}},
                         {"stages",
                          forge::Json::array({{{"stage", "vertex"}, {"source", "preview.hlsl"}}})}};
                     forge::atomic_write(files.document.project() / "Assets/Preview.shader.json",
@@ -1642,6 +1656,7 @@ int main(int argc, char** argv) {
                                         "float4 main(float3 p:ATTRIB0):SV_POSITION { return "
                                         "float4(p,1); }\n");
                     shader_imports.open(files.document, "Assets/Preview.shader.json");
+                    shader_imports.edit_setting("permutation", forge::Json{{"QUALITY", "HIGH"}});
                     shader_imports.request_save();
                     break;
                 }
@@ -1653,7 +1668,8 @@ int main(int argc, char** argv) {
                 case 56:
                 case 57:
                 case 58: {
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     resource_inspector.visible = false;
                     const float scale = fixture.stage == 56   ? 1.f
                                         : fixture.stage == 57 ? 1.5f
@@ -1676,7 +1692,8 @@ int main(int argc, char** argv) {
                     break;
                 }
                 case 59: {
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1);
                     SDL_SetWindowSize(window.get(), 1920, 1080);
                     auto source = gltf_variant_fixture();
@@ -1776,7 +1793,8 @@ int main(int argc, char** argv) {
                 case 67:
                 case 68:
                 case 69: {
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1.f + .5f * float(fixture.stage - 67));
                     if (auto* w = ImGui::FindWindowByName("###Model import"))
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
@@ -1789,7 +1807,8 @@ int main(int argc, char** argv) {
                 case 70:
                 case 71:
                 case 72: {
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1.f + .5f * float(fixture.stage - 70));
                     if (fixture.stage == 70) {
                         if (!model_imports.placement_ready()) {
@@ -1810,12 +1829,80 @@ int main(int argc, char** argv) {
                 case 73:
                 case 74:
                 case 75: {
-                    ImGui::ClosePopupToLevel(0, true);
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
                     forge::ui::style(1.f + .5f * float(fixture.stage - 73));
                     ImGui::SetWindowFocus("###Model import");
                     model_imports.fixture_open_notes = true;
                     break;
                 }
+                case 76:
+                case 79: {
+                    const unsigned version = fixture.stage == 76 ? 1u : 2u;
+                    if (!fixture.component_inspection_requested) {
+                        if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                            ImGui::ClosePopupToLevel(0, true);
+                        auto settings = files.document.settings().document();
+                        settings["modules"] =
+                            forge::Json::array({{{"id", "project.capture"},
+                                                 {"implementation", "1"},
+                                                 {"sdk", "experimental-1"},
+                                                 {"fingerprint", std::string(64, 'a')},
+                                                 {"library", "capture.dll"},
+                                                 {"dependencies", {"forge.transforms"}}}});
+                        files.document.settings().save(settings);
+                        forge::atomic_write(files.document.project() / "fixture-manifest.json",
+                                            forge::test::authored_capture_manifest(version).dump());
+                        forge::atomic_write(files.document.project() / "fixture.mode", "manifest");
+                        authored_components.inspect(files.document,
+                                                    std::filesystem::path(base) /
+                                                        "forge_schema_worker_fixture.exe");
+                        fixture.component_inspection_requested = true;
+                    }
+                    if (authored_components.busy()) {
+                        ready = false;
+                        break;
+                    }
+                    const auto schema = scene.schema();
+                    const auto& components = schema.at("components");
+                    if (std::none_of(components.begin(), components.end(), [](const auto& item) {
+                            return item.at("id") == "project.pilot";
+                        }))
+                        throw std::runtime_error("Custom component capture admission failed");
+                    fixture.component_inspection_requested = false;
+                    if (version == 1) {
+                        const std::string id =
+                            forge::authoring_command(scene, "entity.create", {{"name", "Pilot"}})
+                                .at("selected");
+                        forge::authoring_command(scene, "component.add",
+                                                 {{"entity", id}, {"component", "project.pilot"}});
+                        editor.selection.select_entity(id);
+                    }
+                    forge::ui::style(1);
+                    workspace.inspector = workspace.build = true;
+                    const char* target = version == 1 ? "Inspector" : "###Native";
+                    if (auto* w = ImGui::FindWindowByName(target))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos(target, {30, 55});
+                    ImGui::SetWindowSize(target, {1400, 960});
+                    break;
+                }
+                case 77:
+                case 80:
+                    forge::ui::style(1.5f);
+                    break;
+                case 78:
+                case 81:
+                    forge::ui::style(2);
+                    break;
+                case 82:
+                case 83:
+                case 84:
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
+                    forge::ui::style(1.f + .5f * float(fixture.stage - 82));
+                    authored_components.fixture_open_migration = true;
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -2022,6 +2109,9 @@ int main(int argc, char** argv) {
             content_imports.suspend(content_files.busy() || source_import.busy());
             source_import.poll(files.document, content_imports, message);
             content_imports.poll(files.document, message);
+            // Documents and typed pickers also consume the catalog. Finishing
+            // its async refresh must not depend on Content being visible.
+            content.poll(files);
             content.source_snapshot(content_imports.sources());
             if (content.take_settings_changed())
                 perform(save_preferences);
@@ -2905,7 +2995,7 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             if (const auto* target = fixture.focused_document())
                 if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
-                    fixture.stage >= 73)
+                    (fixture.stage >= 73 && fixture.stage < 82))
                     ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
@@ -2943,6 +3033,11 @@ int main(int argc, char** argv) {
             }
             if (fixture.stage >= 73)
                 captured_document_visible &= !model_imports.fixture_open_notes;
+            if (fixture.stage >= 82) {
+                const auto* popup = ImGui::FindWindowByName("Migrate component values");
+                captured_document_visible &= !authored_components.fixture_open_migration && popup &&
+                                             popup->Active && !popup->Hidden;
+            }
             if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
                 throw std::runtime_error("Audio import fixture failed: " +
                                          audio_imports.diagnostic());
@@ -2974,7 +3069,10 @@ int main(int argc, char** argv) {
                   content_files.operation()->state() == forge::AssetFileState::Review)) &&
                 ((fixture.stage < 47 || fixture.stage > 49) ||
                  (!audio_imports.dirty() && !audio_imports.pending() &&
-                  audio_imports.diagnostic().empty())) &&
+                  audio_imports.diagnostic().empty() &&
+                  content.record(audio_imports.selected_asset()) &&
+                  content.record(audio_imports.selected_asset())
+                      ->metadata.contains("forge.audio"))) &&
                 (fixture.stage != 59 || (!model_imports.dirty() && !model_imports.pending() &&
                                          model_viewer && model_viewer->ready())) &&
                 ((fixture.stage < 60 || fixture.stage > 62) || asset_view_document.ready()) &&
@@ -3013,7 +3111,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 76) {
+                if (fixture.stage == 85) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

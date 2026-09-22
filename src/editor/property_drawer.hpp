@@ -94,7 +94,11 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
         const bool fixture_open = fixture_open_mesh_picker && type == "mesh" &&
                                   std::string_view(ImGui::GetCurrentWindow()->Name) == "Inspector";
         if (fixture_open) {
-            ImGui::SetScrollHereY(.5f);
+            // Scroll the combo itself into view, not the previous label/item.
+            // At high zoom the label can be visible while BeginCombo is clipped.
+            ImGui::SetScrollFromPosY(ImGui::GetCursorScreenPos().y - ImGui::GetWindowPos().y +
+                                         ImGui::GetFrameHeight(),
+                                     .5f);
             ImGui::OpenPopupEx(ImHashStr("##ComboPopup", 0, ImGui::GetID(title)),
                                ImGuiPopupFlags_None);
         }

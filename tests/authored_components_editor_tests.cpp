@@ -1,4 +1,6 @@
+#define FORGE_UI_FIXTURE 1
 #include "../src/authored_schema.hpp"
+#include "authored_capture_fixture.hpp"
 #include "authored_components.hpp"
 #include <iostream>
 #include <thread>
@@ -23,6 +25,11 @@ int main(int argc, char** argv) {
         }
     } cleanup{root};
     try {
+        const auto capture = test::authored_capture_manifest(1);
+        {
+            EngineContext validation(WorldRole::Validation);
+            detail::validate_authored_types(validation.world().world(), capture.at("components"));
+        }
         SceneDocument::create_project(root, "Component authoring UI");
         Json declarations;
         {
@@ -98,15 +105,31 @@ int main(int argc, char** argv) {
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         io.Fonts->SetTexID(ImTextureID(1));
-        for (float scale : {1.f, 2.f}) {
+        for (float scale : {1.f, 1.5f, 2.f}) {
             ui::style(scale);
-            ImGui::NewFrame();
-            ImGui::SetNextWindowSize({950, 850});
-            ImGui::Begin("Gameplay Code");
-            components.draw(scene, project, prefab, runtime, false);
-            ImGui::End();
-            ImGui::Render();
+            // Popup placement measures its first frame before it becomes
+            // visible. Inspect settled frames, as the native capture does.
+            for (unsigned frame = 0; frame < 3; ++frame) {
+                ImGui::NewFrame();
+                if (!frame) {
+                    if (!ImGui::GetCurrentContext()->OpenPopupStack.empty())
+                        ImGui::ClosePopupToLevel(0, true);
+                    components.fixture_open_migration = true;
+                }
+                ImGui::SetNextWindowSize({950, 850});
+                ImGui::Begin("Gameplay Code");
+                components.draw(scene, project, prefab, runtime, false);
+                ImGui::End();
+                ImGui::Render();
+            }
             check(ImGui::GetDrawData()->TotalVtxCount > 0, "Component workflow did not render");
+            const auto* migration = ImGui::FindWindowByName("Migrate component values");
+            check(migration && migration->Active && !migration->Hidden &&
+                      migration->Size.x <= io.DisplaySize.x - 30 &&
+                      migration->Size.y <= io.DisplaySize.y - 30,
+                  "Migration review exceeded the available viewport at this interface scale");
+            check(scene.snapshot() == before,
+                  "Opening migration review changed the authored document");
         }
         ImGui::DestroyContext();
         std::cout << "Editor schema worker admission, history, failure retention and scaled "

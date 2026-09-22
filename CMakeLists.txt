@@ -530,9 +530,19 @@ if(FORGE_ENABLE_SANITIZERS)
  foreach(target meshoptimizer webpdecode webpdspdecode webputilsdecode webpdecoder webpencode webpdsp webputils webp webpdemux sharpyuv ktx astcenc-none-static rmlui_core freetype forge_recast forge_detour forge_navigation_admission forge_navigation_common forge_navigation_build forge_asset_bytes forge_asset_worker Jolt forge_miniaudio ${FORGE_FLECS_TARGET} ozz_base ozz_animation forge_animation_admission forge_animation_archive_tests Diligent-AssetLoader Diligent-GraphicsAccessories Diligent-TextureLoader png_static LibJpeg LibTiff ZLib Diligent-Common Diligent-BasicPlatform Diligent-LinuxPlatform)
   if(TARGET ${target})
    target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
-   target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+   target_link_options(${target} PUBLIC -fsanitize=address,undefined)
   endif()
  endforeach()
+ # Diligent's native shared wrappers assemble whole static archives without
+ # inheriting those archives' complete target usage requirements. Their common
+ # settings interface must carry the runtimes for our instrumented CPU loaders.
+ if(TARGET Diligent-BuildSettings)
+  target_link_options(Diligent-BuildSettings INTERFACE -fsanitize=address,undefined)
+ endif()
+ # The narrowly approved upstream include-leak test requires the exact native
+ # allocation call chain and source locations, also in optimized strict builds.
+ # Preserve that evidence; do not loosen its signature or suppress the finding.
+ target_compile_options(${FORGE_FLECS_TARGET} PRIVATE -g -fno-inline -fno-optimize-sibling-calls)
  target_compile_options(forge_asset_worker INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
  target_link_options(forge_asset_worker INTERFACE -fsanitize=address,undefined)
  # Pure CPU resource/mesh targets depend on identity without pulling in ECS.

@@ -1,4 +1,5 @@
 #include "gpu_residency.hpp"
+#include "mesh_index.hpp"
 namespace forge::gpu_detail {
 std::uint64_t Traits<MeshAsset>::bytes(const MeshResourceData& value) {
     validate_mesh(value.mesh);
@@ -6,7 +7,7 @@ std::uint64_t Traits<MeshAsset>::bytes(const MeshResourceData& value) {
     std::uint64_t result = 0;
     for (const auto& lod : value.mesh.lods)
         for (const auto& part : lod.parts) {
-            result += part.indices.size() * sizeof(std::uint32_t);
+            result += part.indices.size() * asset_detail::mesh_index_width(part.indices);
             for (const auto& stream : part.streams)
                 result += stream.scalar_count() * 4;
             for (const auto& target : part.morph_targets)
