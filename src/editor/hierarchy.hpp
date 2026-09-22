@@ -1,6 +1,7 @@
 #pragma once
 #include "editor_state.hpp"
 #include "search.hpp"
+#include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <forge/authoring.hpp>
 #include <forge/scene.hpp>
@@ -47,6 +48,7 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
                                                 : e->contains("prefab_instance")  ? " [prefab]"
                                                 : e->contains("prefab_member")    ? " [member]"
                                                                                   : "");
+            FORGE_UI_PROBE("entity:" + id);
             if (ImGui::IsItemClicked() || ImGui::IsItemClicked(ImGuiMouseButton_Right))
                 selected = id;
             help("Select this authored entity. Expand the arrow to see its children.");

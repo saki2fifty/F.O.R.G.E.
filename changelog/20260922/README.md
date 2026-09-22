@@ -246,7 +246,7 @@ The final review found the migration Rules label trailing beyond its full-width 
 
 ## Editor interaction and visual-review automation
 
-- Added an input-driven Windows/WARP editor workflow: open creation menus, create and rename a cube, type transform values, Undo/Redo, Save, Delete/Undo, reload, create Camera and Light, zoom to 150%, and exercise Play/Pause/Step/Stop.
+- Added an input-driven Windows/WARP editor workflow: open creation menus, create and rename a cube, type transform values, Undo/Redo, Save, Delete/Undo, Hierarchy selection, reload with unsaved-change Cancel/Discard, create Camera and Light, zoom to 150%, and exercise Play/Pause/Step/Stop.
 - Actions use real submitted widget rectangles and queued mouse/keyboard/text events; the driver does not mutate authored state directly. SDL handles the ordinary interface-zoom event path.
 - Added state assertions, actual backbuffer captures, source/build/backend metadata, an action trace, and bounded failure capture. Step must advance exactly one runtime tick while staying paused.
 - Included the workflow in Windows source-audit and package validation. Broader staged captures remain separate; visual quality requires inspecting the resulting images and is never inferred solely from passing assertions.

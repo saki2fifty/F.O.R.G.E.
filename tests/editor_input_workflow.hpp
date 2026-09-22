@@ -22,7 +22,7 @@ class EditorInputWorkflow {
     unsigned frame_ = 0;
     Uint64 since_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
-    std::string failure_, last_check_;
+    std::string failure_, last_check_, cube_;
     std::uint64_t paused_tick_ = 0;
     Json saved_, trace_ = Json::array();
     void click(std::string target, bool ctrl = false) {
@@ -55,6 +55,7 @@ class EditorInputWorkflow {
         else if (what == "cube") {
             require(entities.size() == 1 && !state.at("selected").get<std::string>().empty(),
                     "Menu did not create and select a cube");
+            cube_ = state.at("selected");
         } else if (what == "rename")
             require(entities.at(0).at("name") == "Workflow cube", "Name field did not commit");
         else if (what == "position")
@@ -75,6 +76,16 @@ class EditorInputWorkflow {
             require(!state.at("dirty").get<bool>(), "Ctrl+S did not save the scene");
             saved_ = doc;
             require(state.at("disk") == doc, "Saved disk data differs from authored scene");
+        } else if (what == "unsaved" || what == "cancelled-reload") {
+            require(state.at("dirty").get<bool>() && doc != saved_ && state.at("disk") == saved_,
+                    "Unsaved rename must differ from unchanged disk data");
+            require(doc.at("entities").at(0).at("name") == "Unsaved rename",
+                    "Cancelled reload must preserve the unsaved name");
+            if (what == "cancelled-reload")
+                require(!ui_targets.contains("unsaved:discard"), "Cancel did not close the guard");
+        } else if (what == "unsaved-guard") {
+            require(ui_targets.contains("unsaved:discard") && ui_targets.contains("unsaved:cancel"),
+                    "Reload of a dirty scene must ask before discarding it");
         } else if (what == "reload") {
             require(doc == saved_ && !state.at("dirty").get<bool>(),
                     "Reload from disk did not preserve the saved scene");
@@ -139,9 +150,20 @@ class EditorInputWorkflow {
         check("deleted");
         key(ImGuiKey_Z, true);
         check("restored");
+        click("saved-cube-row");
+        text("inspector:name", "Unsaved rename");
+        check("unsaved");
         click("menu:File");
         capture("file-reload-menu");
         click("file:Reload from disk");
+        check("unsaved-guard");
+        capture("unsaved-reload-guard");
+        click("unsaved:cancel");
+        check("cancelled-reload");
+        click("menu:File");
+        click("file:Reload from disk");
+        check("unsaved-guard");
+        click("unsaved:discard");
         check("reload");
         capture("reloaded-scene");
         create("Rendering", "Camera");
@@ -202,7 +224,8 @@ class EditorInputWorkflow {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
-            const auto it = ui_targets.find(step.value);
+            const auto target = step.value == "saved-cube-row" ? "entity:" + cube_ : step.value;
+            const auto it = ui_targets.find(target);
             if (it == ui_targets.end() || !it->second.enabled) {
                 io.AddMousePosEvent(pointer_.x, pointer_.y);
                 ui_targets.clear();
@@ -211,7 +234,7 @@ class EditorInputWorkflow {
             const auto& t = it->second;
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
             trace_.push_back({{"step", index_},
-                              {"target", step.value},
+                              {"target", target},
                               {"rect", {t.minimum.x, t.minimum.y, t.maximum.x, t.maximum.y}},
                               {"route", "ImGui queued mouse/key input"}});
         }
@@ -253,7 +276,17 @@ class EditorInputWorkflow {
             return;
         if (!failure_.empty()) {
             image("FAILED-" + std::to_string(index_));
-            record({{"ok", false}, {"error", failure_}, {"trace", trace_}, {"state", state}});
+            Json available = Json::object();
+            for (const auto& [name, target] : ui_targets)
+                available[name] = {
+                    {"enabled", target.enabled},
+                    {"rect",
+                     {target.minimum.x, target.minimum.y, target.maximum.x, target.maximum.y}}};
+            record({{"ok", false},
+                    {"error", failure_},
+                    {"trace", trace_},
+                    {"state", state},
+                    {"available_controls", available}});
             throw std::runtime_error(failure_);
         }
         if (frame_ < 8 || SDL_GetTicks() - since_ < 100)
@@ -274,10 +307,12 @@ class EditorInputWorkflow {
                               {"image", "editor-" + name + ".ppm"},
                               {"ui_scale", state.at("ui_scale")}});
         }
+        constexpr const char* names[] = {"click", "hover", "type", "shortcut", "assert", "capture"};
         trace_.push_back({{"step", index_},
-                          {"operation", int(step.kind)},
+                          {"operation", names[int(step.kind)]},
                           {"value", step.value},
-                          {"key", int(step.key)},
+                          {"key", step.key == ImGuiKey_None ? "" : ImGui::GetKeyName(step.key)},
+                          {"duration_ms", SDL_GetTicks() - since_},
                           {"control", step.control},
                           {"ok", true}});
         ++index_;

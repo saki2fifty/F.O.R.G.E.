@@ -82,12 +82,14 @@ bytes with a deliberately preserved timestamp. Cache reuse is not validation evi
 with a disposable empty project and preferences. Unlike the staged presentation
 fixture, it performs authoring exclusively through queued mouse/key/text input:
 Entity → Create menus, Name and transform fields, Undo/Redo, Save, Delete,
-Reload from disk, Camera/Light creation, interface zoom, Play/Pause/Step/Stop.
+Reload from disk with unsaved-change Cancel/Discard, Camera/Light creation,
+interface zoom, Play/Pause/Step/Stop.
 The production SDL event loop handles interface-zoom events; Dear ImGui handles
 widget input. Test-only probes observe the actual submitted widget rectangles.
 They do not execute actions, force menus open, or change scene data.
 
-Assertions check resulting authored values, saved/reloaded data, entity counts,
+Assertions check resulting authored values, saved/reloaded data, preservation on
+Cancel and restoration on Discard, entity counts,
 camera output, paused state, and exactly one simulation tick after Step.
 Screenshots are read from the actual rendered backbuffer at workflow checkpoints.
 Missing/disabled controls and failed assertions have bounded timeouts, a failure

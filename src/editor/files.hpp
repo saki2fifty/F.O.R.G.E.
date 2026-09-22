@@ -292,10 +292,12 @@ class EditorFiles {
                     status = error = e.what();
                 }
             }
+            FORGE_UI_PROBE("unsaved:discard");
             if (ui::button("Cancel", "Keep working on the current scene.")) {
                 resolve_pending(Resolution::Cancel);
                 ImGui::CloseCurrentPopup();
             }
+            FORGE_UI_PROBE("unsaved:cancel");
             ImGui::TextWrapped("%s", status.c_str());
             ui::help("Save failures leave the scene and pending operation available.");
             ImGui::EndPopup();
