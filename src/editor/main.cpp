@@ -2796,10 +2796,18 @@ int main(int argc, char** argv) {
                             modal.input(scene, selected, view_camera, image_origin, size,
                                         over_image && !gizmo,
                                         can_edit && !scene_tools.move.active(), message);
-                        if (!game_view)
-                            spatial_helpers.update(read_preview(), view_cache.generation(),
-                                                   unsigned(std::max(1.f, size.x)),
-                                                   unsigned(std::max(1.f, size.y)));
+                        unsigned guide_width = unsigned(std::max(1.f, size.x)),
+                                 guide_height = unsigned(std::max(1.f, size.y));
+                        if (auto* output = game_viewport.output()) {
+                            const auto& target = output->GetTexture()->GetDesc();
+                            guide_width = target.Width;
+                            guide_height = target.Height;
+                        }
+                        if (!game_view) {
+                            const auto& helper_snapshot = read_preview();
+                            spatial_helpers.update(helper_snapshot, view_cache.generation(),
+                                                   guide_width, guide_height);
+                        }
                         const bool previous_move_tool = scene_tools.move_tool;
                         if (!game_view)
                             scene_tools.input(
@@ -2821,6 +2829,10 @@ int main(int argc, char** argv) {
                         if (previous_move_tool != scene_tools.move_tool)
                             perform(save_preferences);
                         const auto& rendered = read_preview();
+                        // SceneTools may have changed the preview during this frame.
+                        if (!game_view)
+                            spatial_helpers.update(rendered, view_cache.generation(), guide_width,
+                                                   guide_height);
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
                         const auto scene_submit = forge::ui::Performance::Clock::now();

@@ -302,3 +302,7 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Windows compile validation found legacy platform macros colliding with local `near`/`far` names in the new camera-guide code. Variables now use explicit corner/depth names. The local syntax check additionally defines those Windows macros. Native run35768723332 stopped before execution; its compiled dependency cache was preserved, and no images or native pass are claimed for that run.
 
 - Source-audit recovery can also reuse the immutable accepted-baseline benchmark, avoiding another baseline build when only current editor compilation changes. Benchmark measurements still require both binaries on the same runner and exact source checks.
+
+- Camera/light guides refresh after move input so they follow the rendered pose within the same frame. Auto-aspect camera guides use the last Game output dimensions, with an explicitly documented Scene-size fallback before the first Game frame. Snapshot generation reads are sequenced after snapshot refresh.
+
+- Corrected the native preview-light test to explicitly name `forge::Viewport`, avoiding Diligent’s identically named viewport descriptor. The accepted pre-Phase-7 benchmark executable built successfully; current-source native execution remains pending this test compile correction.

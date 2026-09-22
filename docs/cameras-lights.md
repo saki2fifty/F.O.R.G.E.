@@ -138,3 +138,9 @@ size and guide distance are personal editor settings. See the [viewport manual](
 for the user workflow. Native source-audit tests cover preview illumination,
 authored-light restoration and an unchanged Game frame; fixture captures are
 reviewed separately from assertions.
+
+Helper extraction refreshes after SceneTools input as well as before picking, so
+a drag uses the same effective pose for mesh rendering and guides. Snapshot reads
+are sequenced before reading their cache generation. Auto-aspect frusta use the
+last Game output dimensions, falling back to the Scene area before a Game frame
+exists; fixed Camera aspect remains authoritative. No GPU-specific handle is read.

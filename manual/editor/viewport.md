@@ -149,3 +149,8 @@ The checkbox stays visible on the Scene toolbar and its setting persists.
 Preview lighting changes no entities, assets, Save or Undo history. Game always
 uses authored lighting. A scene with no lights/environment can therefore look dark
 in Game even while its objects are clearly visible in Scene.
+
+Auto-aspect camera guides follow the last rendered Game view size. Before the Game
+view has been drawn, they use the Scene panel's proportions. Set the camera's fixed
+aspect when you need a specific output shape independent of panel sizes. Guides
+follow the same current transform preview as the rendered scene during dragging.

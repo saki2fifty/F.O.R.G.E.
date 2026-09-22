@@ -125,7 +125,7 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
     {
         // Scene preview lighting is a presentation choice: no light entities,
         // retained extraction changes, or changes to the Game view.
-        Viewport authoring_view(presentation, true);
+        forge::Viewport authoring_view(presentation, true);
         authoring_view.resources(host);
         auto authored = document;
         Json mesh_renderer;
