@@ -151,3 +151,8 @@ can reuse that audit's `FORGE-Editor-Benchmark-current` artifact. Supply its exa
 `audit_source`; artifact provenance must match before execution. The retry rebuilds
 the baseline and runs the comparison, while skipping current-editor compilation.
 This reuse does not establish successful renderer/UI assertions from the earlier run.
+
+`audit_baseline_source_run` similarly reuses the accepted baseline executable from
+a completed baseline-build job. Its immutable source provenance must match before
+measurement. This permits current-source corrections without repeating the older
+engine build; the benchmark itself still runs both executables on one runner.

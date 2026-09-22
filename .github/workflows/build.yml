@@ -16,6 +16,10 @@ on:
         description: Optional immutable source SHA for editor-only audit (no package)
         type: string
         default: ""
+      audit_baseline_source_run:
+        description: Reuse this audit run's immutable accepted-baseline benchmark artifact
+        type: string
+        default: ""
       audit_performance_source_run:
         description: Reuse this source-audit run's unchanged current benchmark; build baseline and compare only
         type: string
@@ -53,6 +57,7 @@ jobs:
       source_commit: ${{ inputs.audit_source }}
       workflow_only: ${{ inputs.audit_workflow_only }}
       performance_source_run: ${{ inputs.audit_performance_source_run }}
+      baseline_source_run: ${{ inputs.audit_baseline_source_run }}
       clean_build: ${{ inputs.clean_build }}
   core:
     if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile

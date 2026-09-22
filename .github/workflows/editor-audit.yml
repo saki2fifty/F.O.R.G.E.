@@ -5,6 +5,9 @@ on:
       source_commit:
         required: true
         type: string
+      baseline_source_run:
+        type: string
+        default: ""
       performance_source_run:
         type: string
         default: ""
@@ -21,6 +24,9 @@ on:
         type: string
         required: true
         default: 8bfaa4057660286dd503bd9fc62265dc350a7a84
+      baseline_source_run:
+        type: string
+        default: ""
       performance_source_run:
         type: string
         default: ""
@@ -227,7 +233,7 @@ jobs:
           retention-days: 14
 
   benchmark-baseline:
-    if: ${{ !inputs.workflow_only }}
+    if: ${{ !inputs.workflow_only && inputs.baseline_source_run == '' }}
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -346,7 +352,7 @@ jobs:
 
   editor-performance:
     needs: [editor, benchmark-baseline]
-    if: ${{ always() && !cancelled() && !inputs.workflow_only && needs.benchmark-baseline.result == 'success' && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
+    if: ${{ always() && !cancelled() && !inputs.workflow_only && (needs.benchmark-baseline.result == 'success' || inputs.baseline_source_run != '') && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
@@ -375,25 +381,38 @@ jobs:
         with:
           pattern: FORGE-Editor-Benchmark-*
           path: ${{ runner.temp }}/forge-benchmark
-      - name: Wait for the referenced benchmark artifact
-        if: inputs.performance_source_run != ''
+      - name: Wait for referenced benchmark artifacts
+        if: inputs.performance_source_run != '' || inputs.baseline_source_run != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           FORGE_AUDIT_RUN: ${{ inputs.performance_source_run }}
+          FORGE_BASELINE_RUN: ${{ inputs.baseline_source_run }}
         run: |
-          if ($env:FORGE_AUDIT_RUN -notmatch '^[0-9]+$') { throw 'Expected a numeric source-audit run ID' }
-          $deadline=(Get-Date).AddMinutes(30)
-          do {
-            $data=gh api "repos/${{ github.repository }}/actions/runs/$env:FORGE_AUDIT_RUN/artifacts?per_page=100" | ConvertFrom-Json
-            if ($LASTEXITCODE) { throw 'Cannot inspect referenced run artifacts' }
-            if ($data.artifacts | Where-Object { $_.name -eq 'FORGE-Editor-Benchmark-current' -and !$_.expired }) { break }
-            $run=gh api "repos/${{ github.repository }}/actions/runs/$env:FORGE_AUDIT_RUN" | ConvertFrom-Json
-            if ($LASTEXITCODE) { throw 'Cannot inspect referenced run status' }
-            if ($run.status -eq 'completed') { throw 'Referenced run completed without a usable current benchmark' }
-            if ((Get-Date) -ge $deadline) { throw 'Timed out waiting for the current benchmark artifact' }
-            Start-Sleep -Seconds 20
-          } while ($true)
+          foreach ($request in @(@{run=$env:FORGE_AUDIT_RUN;name='FORGE-Editor-Benchmark-current'}, @{run=$env:FORGE_BASELINE_RUN;name='FORGE-Editor-Benchmark-baseline'})) {
+            if (!$request.run) { continue }
+            if ($request.run -notmatch '^[0-9]+$') { throw 'Expected a numeric source-audit run ID' }
+            $runId=$request.run
+            $deadline=(Get-Date).AddMinutes(30)
+            do {
+              $data=gh api "repos/${{ github.repository }}/actions/runs/$runId/artifacts?per_page=100" | ConvertFrom-Json
+              if ($LASTEXITCODE) { throw 'Cannot inspect referenced run artifacts' }
+              if ($data.artifacts | Where-Object { $_.name -eq $request.name -and !$_.expired }) { break }
+              $run=gh api "repos/${{ github.repository }}/actions/runs/$runId" | ConvertFrom-Json
+              if ($LASTEXITCODE) { throw 'Cannot inspect referenced run status' }
+              if ($run.status -eq 'completed') { throw "Referenced run completed without $($request.name)" }
+              if ((Get-Date) -ge $deadline) { throw 'Timed out waiting for benchmark artifact' }
+              Start-Sleep -Seconds 20
+            } while ($true)
+          }
+      - name: Reuse the accepted baseline benchmark
+        if: inputs.baseline_source_run != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Editor-Benchmark-baseline
+          run-id: ${{ inputs.baseline_source_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-benchmark/FORGE-Editor-Benchmark-baseline
       - name: Reuse an unchanged current benchmark from the requested audit
         if: inputs.performance_source_run != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093

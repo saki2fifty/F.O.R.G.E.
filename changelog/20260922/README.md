@@ -298,3 +298,7 @@ The final review found the migration Rules label trailing beyond its full-width 
 - Camera/light guide labels reserve space for active transform instructions; combined Camera/Light entities show distinct stacked notes and one entity caption instead of overlapping text.
 
 - Source checkpoint6b9285b passed all Linux/Windows static-core and exact-SDK push jobs plus formatting (run35768691345). Native editor/render/image checks remain in progress; no new numbered package has been issued.
+
+- Windows compile validation found legacy platform macros colliding with local `near`/`far` names in the new camera-guide code. Variables now use explicit corner/depth names. The local syntax check additionally defines those Windows macros. Native run35768723332 stopped before execution; its compiled dependency cache was preserved, and no images or native pass are claimed for that run.
+
+- Source-audit recovery can also reuse the immutable accepted-baseline benchmark, avoiding another baseline build when only current editor compilation changes. Benchmark measurements still require both binaries on the same runner and exact source checks.

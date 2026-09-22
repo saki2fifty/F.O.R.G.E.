@@ -84,7 +84,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                     if (capped)
                         marker.note += "; guide capped at " + helper_number(extent) + " m";
                     if (end >= settings.near_plane) {
-                        std::array<Double3, 4> near{}, far{};
+                        std::array<Double3, 4> near_corners{}, far_corners{};
                         for (unsigned i = 0; i < 4; ++i) {
                             auto corner = [&](double depth) {
                                 const double x =
@@ -96,17 +96,17 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                                                view.right, x),
                                     view.up, y);
                             };
-                            near[i] = corner(settings.near_plane);
-                            far[i] = corner(end);
-                            line(near[i], far[i]);
+                            near_corners[i] = corner(settings.near_plane);
+                            far_corners[i] = corner(end);
+                            line(near_corners[i], far_corners[i]);
                         }
                         for (unsigned i = 0; i < 4; ++i)
                             for (unsigned bit : {1u, 2u})
                                 if (!(i & bit)) {
-                                    line(near[i], near[i | bit]);
+                                    line(near_corners[i], near_corners[i | bit]);
                                     // An open-ended guide is not an invented far clipping plane.
                                     if (!capped)
-                                        line(far[i], far[i | bit]);
+                                        line(far_corners[i], far_corners[i | bit]);
                                 }
                     }
                 } else {
@@ -290,15 +290,15 @@ class SpatialHelpers {
         auto a = cast(da), b = cast(db);
         float za = dot(subtract(a, camera.eye()), camera.forward()),
               zb = dot(subtract(b, camera.eye()), camera.forward());
-        const float near = EditorCamera::near_plane * 1.01f;
-        if (za < near && zb < near)
+        const float clip_depth = EditorCamera::near_plane * 1.01f;
+        if (za < clip_depth && zb < clip_depth)
             return;
-        if (za < near || zb < near) {
-            const float t = (near - za) / (zb - za);
+        if (za < clip_depth || zb < clip_depth) {
+            const float t = (clip_depth - za) / (zb - za);
             Vec3 clipped;
             for (unsigned i = 0; i < 3; ++i)
                 clipped[i] = a[i] + (b[i] - a[i]) * t;
-            if (za < near)
+            if (za < clip_depth)
                 a = clipped;
             else
                 b = clipped;
