@@ -5,6 +5,10 @@ Palette, to change the scene's environment, shadows and display brightness. Thes
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
 
+Turn off **Preview light** on the Scene toolbar when adjusting authored lighting.
+Game always uses authored lighting. Camera/light icons and selection guides are
+explained in [Viewport](viewport.md).
+
 ## Add an environment
 
 1. Import a color image or cubemap using [Textures](textures.md). Use **HDR color** for a high-dynamic-range environment. A flat image should be an equirectangular panorama rather than an ordinary photograph.

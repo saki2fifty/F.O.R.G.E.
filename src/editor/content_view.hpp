@@ -2,6 +2,7 @@
 #include "content_model.hpp"
 #include "editor_state.hpp"
 #include "icons.hpp"
+#include "ui_probe.hpp"
 #include <cmath>
 #include <functional>
 #include <utility>
@@ -87,45 +88,55 @@ class ContentView {
     }
     void draw(ui::EditorSelection& selection, bool locked) {
         const float available = ImGui::GetContentRegionAvail().x;
-        const bool wide = available >= 700 * ui::interface_scale;
-        ImGui::SetNextItemWidth(wide ? available * .46f : -1);
+        const auto& style = ImGui::GetStyle();
+        float controls = 3 * style.ItemSpacing.x + 6 * style.FramePadding.x + 1;
+        for (const char* label : {"Filters *", "View", "Folders"})
+            controls += ImGui::CalcTextSize(label).x;
+        ImGui::SetNextItemWidth(std::max(80.f * ui::interface_scale, available - controls));
         ImGui::InputTextWithHint("##asset-search", "Search name, path, type, status...", search_,
                                  sizeof(search_));
         ui::help("Case-insensitive words match together across display name, source path, "
                  "extension, type and status.");
         query_.text = search_;
-        if (wide)
+        ui::next_text_button("Filters");
+        const bool filtered = !query_.type.empty() || query_.state.has_value();
+        if (ui::button(
+                filtered ? "Filters *" : "Filters",
+                "Filter asset type and import status. An asterisk indicates an active filter."))
+            ImGui::OpenPopup("content-filters");
+        if (ImGui::BeginPopup("content-filters")) {
+            const float filter_width = 160 * ui::interface_scale;
+            ImGui::SetNextItemWidth(filter_width);
+            if (ImGui::BeginCombo("##type",
+                                  query_.type.empty() ? "All types" : query_.type.c_str())) {
+                if (ImGui::Selectable("All types", query_.type.empty()))
+                    query_.type.clear();
+                if (index_)
+                    for (const auto& type : index_->types)
+                        if (ImGui::Selectable(type.c_str(), query_.type == type))
+                            query_.type = type;
+                ImGui::EndCombo();
+            }
+            ui::help("Filter by the logical asset type or recognized source-file type.");
             ImGui::SameLine();
-        const float filter_width =
-            std::max(65.f * ui::interface_scale,
-                     ((wide ? available * .54f : available) - 90 * ui::interface_scale) * .5f);
-        ImGui::SetNextItemWidth(filter_width);
-        if (ImGui::BeginCombo("##type", query_.type.empty() ? "All types" : query_.type.c_str())) {
-            if (ImGui::Selectable("All types", query_.type.empty()))
-                query_.type.clear();
-            if (index_)
-                for (const auto& type : index_->types)
-                    if (ImGui::Selectable(type.c_str(), query_.type == type))
-                        query_.type = type;
-            ImGui::EndCombo();
+            ImGui::SetNextItemWidth(filter_width);
+            if (ImGui::BeginCombo("##state", query_.state ? content_state_label(*query_.state)
+                                                          : "All states")) {
+                if (ImGui::Selectable("All states", !query_.state))
+                    query_.state.reset();
+                for (auto state :
+                     {ContentState::Registered, ContentState::Published, ContentState::Unimported,
+                      ContentState::Changed, ContentState::Missing, ContentState::Removed,
+                      ContentState::Queued, ContentState::Importing, ContentState::Failed})
+                    if (ImGui::Selectable(content_state_label(state), query_.state == state))
+                        query_.state = state;
+                ImGui::EndCombo();
+            }
+            ui::help(
+                "Discovery status from the latest complete source scan. Published records are not "
+                "a claim that a GPU resource is loaded; Source updates shows import failures.");
+            ImGui::EndPopup();
         }
-        ui::help("Filter by the logical asset type or recognized source-file type.");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(filter_width);
-        if (ImGui::BeginCombo("##state",
-                              query_.state ? content_state_label(*query_.state) : "All states")) {
-            if (ImGui::Selectable("All states", !query_.state))
-                query_.state.reset();
-            for (auto state :
-                 {ContentState::Registered, ContentState::Published, ContentState::Unimported,
-                  ContentState::Changed, ContentState::Missing, ContentState::Removed,
-                  ContentState::Queued, ContentState::Importing, ContentState::Failed})
-                if (ImGui::Selectable(content_state_label(state), query_.state == state))
-                    query_.state = state;
-            ImGui::EndCombo();
-        }
-        ui::help("Discovery status from the latest complete source scan. Published records are not "
-                 "a claim that a GPU resource is loaded; Source updates shows import failures.");
         ui::next_text_button("View");
         if (ui::button("View", "Choose list or grid, tile size, and folder visibility."))
             ImGui::OpenPopup("content-view");
@@ -149,57 +160,66 @@ class ContentView {
             settings_changed_ |= before != settings();
             ImGui::EndPopup();
         }
-        ImGui::BeginDisabled(!locations_.back_available());
-        if (ui::button("<", "Back to the previous Content folder."))
-            locations_.back();
-        ImGui::EndDisabled();
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!locations_.forward_available());
-        if (ui::button(">", "Forward to the next Content folder."))
-            locations_.forward();
-        ImGui::EndDisabled();
-        ui::next_text_button("Project");
-        if (ui::button("Project", "Browse all project content from the root folder."))
-            locations_.visit("");
-        std::filesystem::path breadcrumb;
-        const auto location =
-            locations_.current(); // Clicking a crumb must not mutate iteration storage.
-        for (const auto& part : std::filesystem::u8path(location)) {
-            breadcrumb /= part;
-            const auto label = path_utf8(part);
-            ui::next_text_button(label.c_str());
-            ui::IdScope id(path_utf8(breadcrumb).c_str());
-            if (ui::button(label.c_str(), "Browse this ancestor folder."))
-                locations_.visit(path_utf8(breadcrumb));
-        }
         ui::next_text_button("Folders");
-        if (ui::button("Folders", "Choose a project folder, including at narrow panel widths."))
-            ImGui::OpenPopup("folders");
-        if (ImGui::BeginPopup("folders")) {
+        if (ui::button("Folders", "Choose the current folder; Back/Forward and project breadcrumbs "
+                                  "are inside. Search remains scoped to this folder."))
+            ImGui::OpenPopup("content-location");
+        if (ImGui::BeginPopup("content-location")) {
+            ImGui::BeginDisabled(!locations_.back_available());
+            if (ui::button("<", "Back to the previous Content folder."))
+                locations_.back();
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!locations_.forward_available());
+            if (ui::button(">", "Forward to the next Content folder."))
+                locations_.forward();
+            ImGui::EndDisabled();
+            ui::next_text_button("Project");
+            if (ui::button("Project", "Browse all project content from the root folder."))
+                locations_.visit("");
+            std::filesystem::path breadcrumb;
+            const auto location =
+                locations_.current(); // Clicking a crumb must not mutate iteration storage.
+            for (const auto& part : std::filesystem::u8path(location)) {
+                breadcrumb /= part;
+                const auto label = path_utf8(part);
+                ui::next_text_button(label.c_str());
+                ui::IdScope id(path_utf8(breadcrumb).c_str());
+                if (ui::button(label.c_str(), "Browse this ancestor folder."))
+                    locations_.visit(path_utf8(breadcrumb));
+            }
             draw_folder("", 0);
             ImGui::EndPopup();
         }
-        ImGui::SameLine();
-        ImGui::TextDisabled("%zu selected", selected_.size());
-        ui::help("Ctrl-click toggles items; Shift-click selects a range; Ctrl+A selects filtered "
-                 "results; Escape clears Content selection. Inspector follows the primary item. "
-                 "Hidden selected items remain selected until cleared.");
-        if (reimport && !selected_.empty()) {
-            ui::next_text_button("Reimport selected");
-            ImGui::BeginDisabled(locked);
-            if (ui::button(
-                    "Reimport selected",
-                    "Queue selected registered assets through their existing importer. Shared "
-                    "source owners are processed once; dirty source drafts delay publication.")) {
-                const auto assets = selected_assets();
-                if (assets.size() != selected_.size())
-                    ui::report_error("content_reimport",
-                                     "Import selected source files before requesting Reimport "
-                                     "selected. No assets were queued.");
-                else
-                    reimport(assets);
+        // Selection operations live in their context/command routes, not a fourth
+        // permanent toolbar row. Short panels reserve their height for results.
+        if (ImGui::BeginPopupContextWindow("content-selection",
+                                           ImGuiPopupFlags_MouseButtonRight |
+                                               ImGuiPopupFlags_NoOpenOverItems)) {
+            ImGui::TextDisabled("%zu selected", selected_.size());
+            ui::help(
+                "Ctrl-click toggles items; Shift-click selects a range; Ctrl+A selects filtered "
+                "results; Escape clears Content selection. Inspector follows the primary item. "
+                "Hidden selected items remain selected until cleared.");
+            if (reimport && !selected_.empty()) {
+                ui::next_text_button("Reimport selected");
+                ImGui::BeginDisabled(locked);
+                if (ui::button(
+                        "Reimport selected",
+                        "Queue selected registered assets through their existing importer. Shared "
+                        "source owners are processed once; dirty source drafts delay "
+                        "publication.")) {
+                    const auto assets = selected_assets();
+                    if (assets.size() != selected_.size())
+                        ui::report_error("content_reimport",
+                                         "Import selected source files before requesting Reimport "
+                                         "selected. No assets were queued.");
+                    else
+                        reimport(assets);
+                }
+                ImGui::EndDisabled();
             }
-            ImGui::EndDisabled();
+            ImGui::EndPopup();
         }
         query_.folder = locations_.current();
         if (dirty_ || query_ != applied_) {
@@ -208,8 +228,10 @@ class ContentView {
             dirty_ = false;
             ++scope_;
         }
-        const auto height = std::max(40.f, ImGui::GetContentRegionAvail().y -
-                                               ImGui::GetTextLineHeightWithSpacing());
+        const bool footer =
+            ImGui::GetContentRegionAvail().y >= 5 * ImGui::GetTextLineHeightWithSpacing();
+        const auto height = std::max(1.f, ImGui::GetContentRegionAvail().y -
+                                              (footer ? ImGui::GetTextLineHeightWithSpacing() : 0));
         if (tree_ && ImGui::GetContentRegionAvail().x > 580 * ui::interface_scale) {
             ImGui::BeginChild("content-folders", {170 * ui::interface_scale, height},
                               ImGuiChildFlags_Borders);
@@ -218,6 +240,7 @@ class ContentView {
             ImGui::SameLine();
         }
         ImGui::BeginChild("content-results", {0, height}, ImGuiChildFlags_Borders);
+        FORGE_UI_PROBE("content-results");
         if (!index_ || visible_.empty())
             ImGui::TextWrapped(index_
                                    ? "No matching assets. Clear filters or choose another folder."
@@ -225,10 +248,12 @@ class ContentView {
         else
             draw_entries(selection, locked);
         ImGui::EndChild();
-        ImGui::TextDisabled("%zu shown / %zu total", visible_.size(),
-                            index_ ? index_->entries.size() : 0);
-        ui::help("Results use the latest complete background index. Refresh and source changes "
-                 "replace the index without assigning asset identities.");
+        if (footer) {
+            ImGui::TextDisabled("%zu shown / %zu total", visible_.size(),
+                                index_ ? index_->entries.size() : 0);
+            ui::help("Results use the latest complete background index. Refresh and source changes "
+                     "replace the index without assigning asset identities.");
+        }
     }
 
   private:
@@ -381,6 +406,7 @@ class ContentView {
                         if (!locked && ImGui::IsMouseDoubleClicked(0) && open)
                             open(entry);
                     }
+                    FORGE_UI_PROBE("asset:" + entry.asset.str());
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                         primary(entry, selection);
                     const auto preview = grid_ && entry.asset && thumbnail && ImGui::IsItemVisible()

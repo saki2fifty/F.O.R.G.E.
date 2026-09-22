@@ -254,3 +254,35 @@ The final review found the migration Rules label trailing beyond its full-width 
 
 - Review of the first captures exposed a diagnostic-evidence gap: the workflow now clicks the real Problems tab after Play, includes structured problem details in its trace, and rejects unexpected error/fatal domain diagnostics. Warnings remain visible for review; renderer console diagnostics are still examined separately.
 - Fixed a stale-status defect found in the real reload-dialog capture: the unsaved-scene guard no longer shows an earlier “Scene saved” success message. It displays feedback from the current guarded operation, preserving save/discard/cancel behavior.
+
+
+## Phase 7 authoring follow-up (validation in progress)
+
+- Added Scene-only camera/light icons with selection, effective-transform guides,
+  camera projection/basis handling, directional arrows and radial point/spot extents.
+  Disabled components remain discoverable; hidden/locked hierarchy policy is respected.
+  Personal helper visibility/size/distance controls explain capped or unlimited guides.
+- Added an explicit persisted Scene Preview light option for unlit authoring. It borrows
+  presentation lighting only; Game, scene entities, asset data and Undo remain unchanged.
+  Camera/light-only Inspectors omit irrelevant legacy Blockout Geometry controls.
+- Moved Content filters and folder navigation into compact popups to reserve vertical
+  space for results at enlarged UI scales.
+- Added shared asset actions for menu, context, Inspector, double-click and palette
+  routes, with copied targets and busy/type checks. Configured Model placement retains
+  its scene/clip/variant choices through its document action. Added an on-demand derived
+  cache tool using the existing maintenance service, import draining and clear review.
+- Corrected stale animation, prefab, transform, glTF and dependency documentation;
+  expanded viewport, lighting and Content how-to pages.
+- Extended native input captures for helper picking and lighting modes; added shader
+  compile/cooked-realization timings, timestamped Diligent diagnostics, and a same-runner
+  editor startup/idle comparison against the immutable accepted Build 260919-000063.
+- Focused Linux editor regressions passed (16.46 s), covering guide geometry, negative-Z
+  camera basis, infinite far, valid 90-degree spot cones, hidden/disabled selection and
+  action guards. Native visual review, renderer diagnosis and package validation are
+  still in progress; no new numbered build has been delivered by this entry.
+
+- Follow-up local editor validation passed in16.76s, including compact Content geometry at100%,150%,200%. Benchmark tooling passes PowerShell parsing/actionlint; full native execution and image review remain pending. The source audit now builds matched WARP adapters for both revisions and records process startup/idle samples without assigning a release number.
+
+- Added executable regression coverage for inherited camera/light guide transforms, ancestor visibility/selection locks, orthographic guides, combined camera/light entities, real Command Palette input for asset actions, and native preview-light versus authored/Game rendering isolation. Native results remain pending.
+
+- The rebuilt local editor behavior suite passed17.37s with real palette input for all eight shared asset actions and disabled-state rejection. Manual checks passed3/3. Main/fixture/viewport source syntax, formatting and workflow lint checks pass; Windows rendering and visual review remain separate pending gates.

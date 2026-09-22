@@ -1,7 +1,9 @@
 #pragma once
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "shader_diligent.hpp"
+#include <chrono>
 #include <functional>
+#include <iostream>
 namespace forge::test {
 // Compilation, reflection, cooked reload and actual graphics/compute use share
 // the same WARP device as the viewport acceptance fixture.
@@ -63,6 +65,34 @@ float4 fixture_color(){return float4(0,.25,1,1);}
                                 {ShaderStage::Pixel, "fixtures/main.hlsl", "ps"}},
                                {},
                                {{"WARM", {"0", "1"}}}};
+    // Separate pure compilation from cooked realization and end-to-end importer
+    // timings. No FORGE DDC participates; driver/OS caches are not controlled.
+    Json measurements = Json::array();
+    for (unsigned sample = 0; sample < 6; ++sample) {
+        const auto begin = std::chrono::steady_clock::now();
+        auto compiled = compile_diligent_shader(device, source, sources, {{"WARM", "1"}});
+        const auto end = std::chrono::steady_clock::now();
+        const auto bytes = encode_shader(compiled.data);
+        const auto load_begin = std::chrono::steady_clock::now();
+        auto loaded = realize_diligent_shader(device, decode_shader(bytes));
+        const auto load_end = std::chrono::steady_clock::now();
+        check(!loaded.stages.empty(), "Benchmark cooked shader did not realize");
+        measurements.push_back(
+            {{"sample", sample},
+             {"compile_ms", std::chrono::duration<double, std::milli>(end - begin).count()},
+             {"cooked_realize_ms",
+              std::chrono::duration<double, std::milli>(load_end - load_begin).count()}});
+    }
+    std::cout << Json{{"benchmark", "shader-compile-and-cooked-reuse"},
+                      {"profile", "D3D12/WARP/FXC-5.1"},
+                      {"compiler_digest", diligent_shader_compiler_digest()},
+                      {"debug", diligent_shader_compiler_debug()},
+                      {"workload", "vertex+pixel, two includes, WARM=1"},
+                      {"cache", "FORGE DDC bypassed; sample0 first workload compile in process,1-5 "
+                                "repeat; OS/driver cache uncontrolled"},
+                      {"samples", measurements}}
+                     .dump()
+              << '\n';
     auto selected = compile_diligent_shader(device, source, sources, {{"WARM", "1"}});
     const auto before = selected.data.build_key;
     const auto cooked = encode_shader(selected.data);

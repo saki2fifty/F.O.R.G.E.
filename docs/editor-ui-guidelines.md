@@ -141,3 +141,23 @@ residency. A worker hashes the published dependency closure (16,384-node/frontie
 profile); no source decoding or graph walk runs in tile drawing. Unsupported or
 over-budget previews use an honest fallback and diagnostic. Recipe/cache identity
 is disposable and does not allocate AssetIds or define a persisted thumbnail ABI.
+
+
+## Scene helpers and preview illumination
+
+Editor-only camera/light helpers consume validated effective transforms and the same
+camera/light conversion math as rendering. They do not create components or meshes.
+Selection uses the existing Scene tool owner: active move handles precede icons;
+icons are intentionally visible/pickable through geometry, with nearest-depth ties.
+Hidden/locked structural policies apply independently of spatial parenting. Game
+omits these helpers. Capped guides explicitly distinguish their display extent from
+authored far/range, and support finite/infinite and imported negative-Z camera basis.
+Preview light is a labelled personal Scene setting; it must not change authored
+lights, environment, history or Game composition.
+
+Assets menu, palette, Content and Inspector consume the same asset action factory.
+Configured Model document placement is a distinct context retaining source-scene,
+clip/variant/name choices. File operations retain their reviewed transaction owner;
+source publication is never presented as a scene Undo step. Derived cache work is
+on demand, drains imports, owns the project lease through completion and changes
+only disposable data. Reimport remains necessary after clearing selected artifacts.

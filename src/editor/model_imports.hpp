@@ -3,6 +3,7 @@
 #include "../model_importer.hpp"
 #include "../model_placement.hpp"
 #include "../texture_authoring.hpp"
+#include "actions.hpp"
 #include "asset_import_editor.hpp"
 #include "property_drawer.hpp"
 #include <future>
@@ -43,6 +44,40 @@ class ModelImportEditor : public AssetImportEditor {
         const auto root = asset_detail::instantiate_model(scene_, catalog, candidate);
         selection_.select_entity(root.str());
         return root;
+    }
+    ui::EditorAction placement_action(SceneDocument& document) {
+        bool needs_scene = false;
+        if (selected_) {
+            const auto& hierarchy = selected_->index.hierarchy;
+            needs_scene = source_scene_ < 0 && hierarchy.at("scenes").size() > 1 &&
+                          hierarchy.at("default_scene").is_null();
+        }
+        const bool available = is_open() && placement_ready() && !dirty() && !pending() &&
+                               !needs_scene && name_[0] && document.project() == project_ &&
+                               (!placement_allowed || placement_allowed());
+        return {"model.place-configured",
+                "Model document / Place configured model",
+                {},
+                "Place the open Model document's scene, clip, variant and name at the world "
+                "origin. One scene Undo step.",
+                available,
+                [this, &document] {
+                    try {
+                        asset_detail::ModelPlacementOptions options;
+                        options.name = name_;
+                        options.clip = {clip_};
+                        options.material_variant = {variant_};
+                        if (source_scene_ >= 0)
+                            options.source_scene = std::uint32_t(source_scene_);
+                        (void)place(document, options);
+                        error_.clear();
+                    } catch (const std::exception& e) {
+                        error_ = e.what();
+                        ui::report_error("model_placement", error_);
+                    }
+                },
+                "Open a Model document, finish importing, choose its source scene, and stop Play "
+                "before placing it."};
     }
     void poll(SceneDocument& document, std::string& message) {
         AssetImportEditor::poll(document, message);
@@ -283,23 +318,9 @@ class ModelImportEditor : public AssetImportEditor {
             ui::field_error(
                 "This model has no default scene. Choose a source scene before placing it.");
         ImGui::BeginDisabled(needs_scene || name_[0] == '\0');
-        if (ui::button("Place model",
-                       "Create the selected source scene at the world origin. This is one scene "
-                       "Undo operation and does not modify the imported asset.")) {
-            try {
-                asset_detail::ModelPlacementOptions options;
-                options.name = name_;
-                options.clip = {clip_};
-                options.material_variant = {variant_};
-                if (source_scene_ >= 0)
-                    options.source_scene = std::uint32_t(source_scene_);
-                (void)place(document, options);
-                error_.clear();
-            } catch (const std::exception& e) {
-                error_ = e.what();
-                ui::report_error("model_placement", error_);
-            }
-        }
+        ui::EditorActions placement;
+        placement.entries.push_back(placement_action(document));
+        placement.button("model.place-configured", "Place model");
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         if (ImGui::TreeNode("Source hierarchy")) {

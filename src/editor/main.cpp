@@ -12,10 +12,12 @@
 #include "actions.hpp"
 #include "animation_debug.hpp"
 #include "animation_tools.hpp"
+#include "asset_actions.hpp"
 #include "audio_imports.hpp"
 #include "authored_components.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
+#include "cache_tools.hpp"
 #include "camera_controls.hpp"
 #include "command_workspace.hpp"
 #include "component_inspector.hpp"
@@ -54,6 +56,7 @@
 #include "shader_diligent.hpp"
 #include "shader_imports.hpp"
 #include "source_import.hpp"
+#include "spatial_helpers.hpp"
 #include "status_bar.hpp"
 #include "texture_imports.hpp"
 #include "texture_viewer.hpp"
@@ -105,6 +108,7 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<ISwapChain> swap;
         EngineD3D12CreateInfo engine;
 #ifdef FORGE_UI_FIXTURE
+        factory->SetMessageCallback(&forge::test::EditorFixture::message);
         fixture.device(factory, &device, &context);
 #else
         factory->CreateDeviceAndContextsD3D12(engine, &device, &context);
@@ -155,6 +159,8 @@ int main(int argc, char** argv) {
         char exact_sdk_root[1024]{};
         bool auto_build = false;
         forge::ui::SceneTools scene_tools;
+        forge::ui::SpatialHelpers spatial_helpers;
+        bool preview_lighting = true;
         forge::ui::ModalTransform modal;
         forge::ui::OrientationGizmo orientation;
         forge::ui::Workspace workspace;
@@ -190,6 +196,10 @@ int main(int argc, char** argv) {
                 auto_build = j.value("auto_build", false);
                 blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
+                spatial_helpers.visible = j.value("spatial_helpers", true);
+                spatial_helpers.size = std::clamp(j.value("helper_size", 24.f), 16.f, 40.f);
+                spatial_helpers.extent = std::clamp(j.value("helper_extent", 10.f), 1.f, 1000.f);
+                preview_lighting = j.value("preview_lighting", true);
                 scene_tools.move_tool = j.value("scene_tool", std::string("move")) != "select";
                 scene_tools.snap = j.value("snap", false);
                 scene_tools.snap_step = std::clamp(j.value("snap_step", 1.0f), 0.01f, 1000.0f);
@@ -214,6 +224,10 @@ int main(int argc, char** argv) {
                                       {"auto_build", auto_build},
                                       {"create_at_view_target", blockout.at_view_target},
                                       {"grid", scene_tools.grid},
+                                      {"spatial_helpers", spatial_helpers.visible},
+                                      {"helper_size", spatial_helpers.size},
+                                      {"helper_extent", spatial_helpers.extent},
+                                      {"preview_lighting", preview_lighting},
                                       {"scene_tool", scene_tools.move_tool ? "move" : "select"},
                                       {"snap", scene_tools.snap},
                                       {"snap_step", scene_tools.snap_step},
@@ -439,6 +453,7 @@ int main(int argc, char** argv) {
         };
         forge::ContentImports content_imports;
         forge::ContentFiles content_files;
+        forge::CacheTools cache_tools;
         forge::ui::ResourceInspector resource_inspector;
         resource_inspector.reveal = [&](forge::AssetId id) {
             editor.selection.select_asset(id);
@@ -448,12 +463,10 @@ int main(int argc, char** argv) {
         std::vector<std::filesystem::path> dropped_sources;
         bool source_drop_rejected = false, source_drop_position = false;
         files.external_busy = [&] {
-            return content_files.busy() || authored_components.busy() || scene_asset_drop.busy() ||
-                   source_import.busy();
+            return cache_tools.busy() || content_files.busy() || authored_components.busy() ||
+                   scene_asset_drop.busy() || source_import.busy();
         };
-        content.file_actions = [&](const auto& asset, bool locked) {
-            content_files.menu(asset, locked);
-        };
+
         content_files.unavailable = [&](const forge::AssetRecord& asset,
                                         forge::AssetFileAction action) -> std::string {
             if (play.active())
@@ -818,8 +831,8 @@ int main(int argc, char** argv) {
                                    material_editor.open(files.document, asset.source);
                            }});
         files.save_active = [&] {
-            if (content_files.busy())
-                throw std::runtime_error("Finish the Content file operation before saving");
+            if (content_files.busy() || cache_tools.busy())
+                throw std::runtime_error("Finish the Content file/cache operation before saving");
             if (!documents.save(editor.task.id()))
                 throw std::runtime_error("Active document cannot save");
         };
@@ -840,7 +853,71 @@ int main(int argc, char** argv) {
             files.document.save();
         }
 #endif
+        content.action_set = [&](const forge::AssetRecord* explicit_target) {
+            forge::ui::AssetActionContext context;
+            if (explicit_target) {
+                context.target = *explicit_target;
+                context.selected = {explicit_target->id};
+            } else {
+                if (editor.selection.kind() == forge::ui::SelectionKind::Asset) {
+                    if (const auto* target = content.record(editor.selection.asset()))
+                        context.target = *target;
+                    context.selected = content.selected_assets();
+                    if (context.target &&
+                        std::find(context.selected.begin(), context.selected.end(),
+                                  context.target->id) == context.selected.end())
+                        context.selected = {context.target->id};
+                }
+            }
+            if (play.active() || native->busy() || files.busy() || files.changed ||
+                cache_tools.busy() || source_import.busy() || content_files.busy() ||
+                scene_asset_drop.busy() || scene_tools.move.active() || modal.active() ||
+                blockout.active())
+                context.blocked =
+                    "Stop Play and finish the current gesture, file, import, or cache operation.";
+            context.openable = context.target && asset_editors.find(context.target->type);
+            context.placeable = context.target && (context.target->type == "model" ||
+                                                   context.target->type == "mesh" ||
+                                                   context.target->type == "prefab");
+            context.reimportable = !context.selected.empty();
+            for (auto id : context.selected) {
+                const auto* asset = content.record(id);
+                if (asset && asset->subasset)
+                    asset = content.record(asset->subasset->owner);
+                context.reimportable &= asset && asset->metadata.contains("forge.import");
+            }
+            if (context.target)
+                context.file_blocked =
+                    content_files.unavailable(*context.target, forge::AssetFileAction::Move);
+            forge::ui::AssetActionHandlers handlers;
+            handlers.import_files = [&] { source_import.picker(files.document, window.get()); };
+            handlers.open = [&](const auto& asset) { asset_editors.open(asset); };
+            handlers.reimport = [&](const auto& ids) { content_imports.reimport(ids); };
+            handlers.files = [&](const auto& asset, auto op) { content_files.begin(asset, op); };
+            handlers.place = [&](const auto& asset) {
+                const auto target =
+                    blockout.at_view_target ? camera.target : forge::Float3{0, 0, 0};
+                scene_asset_drop.queue(asset, scene, files.document,
+                                       {target[0], target[1], target[2]});
+            };
+            handlers.cache = [&] { cache_tools.open(); };
+            auto result = forge::ui::asset_actions(std::move(context), handlers);
+            for (auto& action : result.entries) {
+                if (action.id == "asset.delete" &&
+                    (explicit_target ? explicit_target->id : editor.selection.asset()) ==
+                        scene.asset_id()) {
+                    action.available = false;
+                    action.unavailable_reason = "Open another scene before deleting this source.";
+                }
+                const auto run = action.execute;
+                action.execute = [&, run] { perform(run); };
+            }
+            return result;
+        };
         while (running) {
+#ifdef FORGE_UI_FIXTURE
+            fixture.graphics_context(window.get(), 0);
+#endif
             performance.begin();
 #ifdef FORGE_UI_FIXTURE
             if (fixture.workflow)
@@ -1091,6 +1168,9 @@ int main(int argc, char** argv) {
                         action.unavailable_reason = "Select an authored entity for this action.";
                 }
             };
+            for (auto action : content.action_set(nullptr).entries)
+                actions.entries.push_back(std::move(action));
+            actions.entries.push_back(model_imports.placement_action(files.document));
             add_action(
                 "scene.lighting", "Scene / Lighting", "",
                 "Edit environment lighting, sky and game exposure using Scene Save and Undo.", true,
@@ -2050,6 +2130,15 @@ int main(int argc, char** argv) {
                     }
                     if (workspace.menu())
                         perform(save_preferences);
+                    if (ImGui::BeginMenu("Assets")) {
+                        FORGE_UI_PROBE("menu:Assets");
+                        for (const auto* id :
+                             {"asset.import", "asset.open", "asset.place", "asset.reimport",
+                              "asset.move", "asset.duplicate", "asset.delete", "asset.cache"})
+                            actions.item(id);
+                        ImGui::EndMenu();
+                    }
+                    FORGE_UI_PROBE("menu:Assets");
                     commands.menu([&] {
                         ecs_workspace.menu();
                         automation.menu();
@@ -2193,7 +2282,9 @@ int main(int argc, char** argv) {
                 forge::ui::report_error("asset_import", message);
             }
             content_files.poll(files.document, scene, content_imports, message);
-            content_imports.suspend(content_files.busy() || source_import.busy());
+            content_imports.suspend(content_files.busy() || source_import.busy() ||
+                                    cache_tools.busy());
+            cache_tools.poll(files.document, content_imports);
             source_import.poll(files.document, content_imports, message);
             content_imports.poll(files.document, message);
             // Documents and typed pickers also consume the catalog. Finishing
@@ -2555,6 +2646,22 @@ int main(int argc, char** argv) {
                                     ImGui::Checkbox("Orientation gizmo", &orientation.visible);
                                 forge::ui::help("Show the clickable world-axis navigation widget.");
                                 navigation_tools.overlay_control();
+                                changed |= ImGui::Checkbox("Camera / light helpers",
+                                                           &spatial_helpers.visible);
+                                forge::ui::help("Scene-only camera and light icons. Icons can be "
+                                                "picked through geometry; move handles take "
+                                                "priority. Hidden hierarchy branches omit helpers; "
+                                                "locked icons cannot be picked.");
+                                changed |= ImGui::SliderFloat("Helper size", &spatial_helpers.size,
+                                                              16, 40, "%.0f px");
+                                forge::ui::help(
+                                    "Constant logical icon size, scaled with the interface.");
+                                changed |= ImGui::DragFloat("Guide distance",
+                                                            &spatial_helpers.extent, .5f, 1, 1000,
+                                                            "%.1f m", ImGuiSliderFlags_AlwaysClamp);
+                                forge::ui::help(
+                                    "Maximum Scene guide length. Open camera rays do not invent a "
+                                    "far plane; labels identify capped or unlimited light ranges.");
                                 changed |= ImGui::Checkbox("Grid", &scene_tools.grid);
                                 forge::ui::help(
                                     "Show the world-anchored XZ grid at Y=0, fading toward "
@@ -2587,6 +2694,16 @@ int main(int argc, char** argv) {
                             message = e.what();
                         }
                     }
+                    if (!game_view) {
+                        forge::ui::next_text_button("Preview light");
+                        if (ImGui::Checkbox("Preview light", &preview_lighting))
+                            perform(save_preferences);
+                        FORGE_UI_PROBE("preview-light");
+                        forge::ui::help(
+                            "Personal Scene preview lighting. Turn off to judge authored lights "
+                            "and environment. Never changes the scene, Game view, Save, or Undo.");
+                    }
+                    viewport.preview_lighting(preview_lighting);
                     view_camera.fly_speed = scene_tools.fly_speed;
                     viewport.exposure(scene_tools.exposure);
                     if (game_view && !play.ready()) {
@@ -2676,12 +2793,19 @@ int main(int argc, char** argv) {
                             modal.input(scene, selected, view_camera, image_origin, size,
                                         over_image && !gizmo,
                                         can_edit && !scene_tools.move.active(), message);
+                        if (!game_view)
+                            spatial_helpers.update(read_preview(), view_cache.generation(),
+                                                   unsigned(std::max(1.f, size.x)),
+                                                   unsigned(std::max(1.f, size.y)));
                         const bool previous_move_tool = scene_tools.move_tool;
                         if (!game_view)
                             scene_tools.input(
                                 scene, view_camera, selected, image_origin, size, input,
                                 can_edit && !gizmo && !was_modal && !modal.active(), message,
                                 [&](const forge::Json& snapshot, float x, float y) {
+                                    if (auto hit = spatial_helpers.pick(view_camera, size, {x, y});
+                                        !hit.empty())
+                                        return hit;
                                     return viewport.pick(snapshot, view_camera,
                                                          unsigned(std::max(1.f, size.x)),
                                                          unsigned(std::max(1.f, size.y)), x, y,
@@ -2715,6 +2839,8 @@ int main(int argc, char** argv) {
                         ImGui::GetWindowDrawList()->AddImage(
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
                             {image_origin.x + size.x, image_origin.y + size.y});
+                        if (!game_view)
+                            spatial_helpers.draw(view_camera, selected, image_origin, size);
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active());
@@ -2805,6 +2931,14 @@ int main(int argc, char** argv) {
             }
             script_editor.poll(files.document, editor.problems);
             documents.draw();
+            cache_tools.draw(
+                files.busy() || files.changed || scene_tools.move.active() || modal.active() ||
+                blockout.active() || play.active() || native->busy() ||
+                documents.source_drafts_dirty() || texture_imports.pending() ||
+                audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
+                material_editor.pending() || source_import.busy() || animation_tools.pending() ||
+                navigation_tools.pending() || script_editor.pending() ||
+                authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
             source_import.draw(play.active() || native->busy() || content_files.busy() ||
                                authored_components.busy() || scene_asset_drop.busy());
@@ -3280,7 +3414,13 @@ int main(int argc, char** argv) {
             asset_view_document.after_submission(files.document.project());
             if (content_thumbnails)
                 content_thumbnails->after_submission();
+#ifdef FORGE_UI_FIXTURE
+            fixture.graphics_context(window.get(), 1);
+#endif
             swap->Present(0);
+#ifdef FORGE_UI_FIXTURE
+            fixture.graphics_context(window.get(), 2);
+#endif
             performance.finish(ui_submit, present);
         }
         if (startup_layout.save_enabled)

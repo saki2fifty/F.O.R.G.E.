@@ -1,4 +1,5 @@
 #pragma once
+#include "actions.hpp"
 #include "audio_details.hpp"
 #include "content_view.hpp"
 #include "document_workspace.hpp"
@@ -143,6 +144,8 @@ class ContentBrowser {
     std::function<ContentThumbnail(AssetId)> thumbnail;
     std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const AssetRecord&, bool)> file_actions;
+    std::function<ui::EditorActions(const AssetRecord*)> action_set;
+    std::vector<AssetId> selected_assets() const { return view_.selected_assets(); }
     std::function<void()> rescan_sources, import_status;
     std::function<void()> import_files;
     bool accepts_file_drop(ImVec2 screen) const {
@@ -308,7 +311,11 @@ class ContentBrowser {
         auto resolution = catalog_->resolve(asset->id, asset->type);
         if (resolution.state != AssetState::Available)
             ui::field_error(resolution.diagnostic);
-        if (editors) {
+        if (action_set) {
+            auto actions = action_set(asset);
+            actions.button("asset.open", "Open asset");
+            actions.button("asset.place", "Place in Scene");
+        } else if (editors) {
             if (const auto* editor = editors->find(asset->type);
                 editor &&
                 ui::button(editor->label.c_str(),
@@ -391,46 +398,67 @@ class ContentBrowser {
         if (ui::editor_context)
             ui::editor_context->task.focus(ui::DocumentTask::Scene);
         bool rescan = !refreshing() && (refreshed_ == 0 || SDL_GetTicks() - refreshed_ > 5000);
-        if (ui::button("Create / Register", "Create or register supported project assets. These "
-                                            "operations are separate from scene Undo."))
-            ImGui::OpenPopup("Asset operations");
-        ImGui::SameLine();
-        if (import_files) {
-            ImGui::BeginDisabled(locked);
-            if (ui::button("Import files...",
-                           "Choose external source files, review a new project folder, then copy "
-                           "and import. Existing files are never overwritten."))
-                import_files();
-            ImGui::EndDisabled();
-            ui::next_text_button("Refresh");
-        }
-        if (ui::button("Refresh",
-                       "Refresh registered assets and discover saved scene documents.")) {
-            rescan = true;
-            error_.clear();
-            if (rescan_sources)
-                rescan_sources();
-        }
-        if (import_status) {
-            ui::next_text_button("Source updates");
-            import_status();
-        }
-        if (ImGui::BeginPopup("Asset operations")) {
-            ImGui::BeginDisabled(locked);
-            if (ui::button("New scene", "Create an empty scene through the unsaved-change guard."))
-                files.request({EditorFiles::Command::NewScene, {}, {}});
-            if (prefab_controls && ImGui::CollapsingHeader("Prefabs"))
-                prefab_controls();
-            ui::help("Create a prefab from the selected entity, instantiate, duplicate or edit a "
-                     "selected prefab asset.");
-            if (asset_controls)
-                asset_controls();
-            ImGui::EndDisabled();
-            if (locked)
-                ImGui::TextWrapped(
-                    "Stop Play and finish the current operation to create or register assets.");
-            ImGui::EndPopup();
-        }
+        const bool compact =
+            ImGui::GetContentRegionAvail().y < 6 * ImGui::GetFrameHeightWithSpacing();
+        auto draw_actions = [&] {
+            if (ui::button("Create / Register",
+                           "Create or register supported project assets. These "
+                           "operations are separate from scene Undo."))
+                ImGui::OpenPopup("Asset operations");
+            ImGui::SameLine();
+            if (import_files) {
+                ImGui::BeginDisabled(locked);
+                if (action_set)
+                    action_set(nullptr).button("asset.import", "Import files...");
+                else if (ui::button(
+                             "Import files...",
+                             "Choose external source files, review a new project folder, then copy "
+                             "and import. Existing files are never overwritten."))
+                    import_files();
+                ImGui::EndDisabled();
+                ui::next_text_button("Refresh");
+            }
+            if (ui::button("Refresh",
+                           "Refresh registered assets and discover saved scene documents.")) {
+                rescan = true;
+                error_.clear();
+                if (rescan_sources)
+                    rescan_sources();
+            }
+            if (import_status) {
+                ui::next_text_button("Source updates");
+                import_status();
+            }
+            if (ImGui::BeginPopup("Asset operations")) {
+                ImGui::BeginDisabled(locked);
+                if (ui::button("New scene",
+                               "Create an empty scene through the unsaved-change guard."))
+                    files.request({EditorFiles::Command::NewScene, {}, {}});
+                if (prefab_controls && ImGui::CollapsingHeader("Prefabs"))
+                    prefab_controls();
+                ui::help(
+                    "Create a prefab from the selected entity, instantiate, duplicate or edit a "
+                    "selected prefab asset.");
+                if (asset_controls)
+                    asset_controls();
+                ImGui::EndDisabled();
+                if (locked)
+                    ImGui::TextWrapped(
+                        "Stop Play and finish the current operation to create or register assets.");
+                ImGui::EndPopup();
+            }
+        };
+        if (compact) {
+            if (ui::button("Actions", "Create/Register, Import files, Refresh and Source updates. "
+                                      "Short Content panels reserve room for asset results."))
+                ImGui::OpenPopup("content-actions");
+            if (ImGui::BeginPopup("content-actions")) {
+                draw_actions();
+                ImGui::EndPopup();
+            }
+            ImGui::SameLine();
+        } else
+            draw_actions();
         if (rescan)
             try {
                 refresh(files);
@@ -438,7 +466,7 @@ class ContentBrowser {
                 error_ = e.what();
                 refreshed_ = SDL_GetTicks();
             }
-        if (refreshing()) {
+        if (refreshing() && !compact) {
             ImGui::SameLine();
             ImGui::TextDisabled("Refreshing...");
             ui::help(
@@ -448,7 +476,10 @@ class ContentBrowser {
         view_.reimport =
             reimport ? std::function<void(const std::vector<AssetId>&)>([&](const auto& ids) {
                 try {
-                    reimport(ids);
+                    if (action_set)
+                        action_set(nullptr).invoke("asset.reimport");
+                    else
+                        reimport(ids);
                     error_.clear();
                 } catch (const std::exception& e) {
                     error_ = e.what();
@@ -457,14 +488,23 @@ class ContentBrowser {
                      : std::function<void(const std::vector<AssetId>&)>{};
         view_.open = [&](const ContentEntry& entry) {
             if (entry.asset) {
-                if (const auto* a = record(entry.asset); a && editors)
-                    editors->open(*a);
+                if (const auto* a = record(entry.asset); a) {
+                    if (action_set)
+                        action_set(a).invoke("asset.open");
+                    else if (editors)
+                        editors->open(*a);
+                }
             } else if (open_source)
                 open_source(entry.source, entry.type, true);
         };
         view_.context_menu = [&](const ContentEntry& entry) {
             const auto* a = entry.asset ? record(entry.asset) : nullptr;
-            if (a && editors) {
+            if (a && action_set) {
+                auto actions = action_set(a);
+                for (const auto* id : {"asset.open", "asset.place", "asset.reimport", "asset.move",
+                                       "asset.duplicate", "asset.delete"})
+                    actions.item(id);
+            } else if (a && editors) {
                 if (const auto* editor = editors->find(a->type);
                     editor && ImGui::MenuItem(editor->label.c_str(), nullptr, false, !locked))
                     editors->open(*a);
@@ -475,7 +515,7 @@ class ContentBrowser {
             }
             if (ImGui::MenuItem("Reveal source folder"))
                 SDL_OpenURL(ui::local_file_url((root_ / entry.source).parent_path()).c_str());
-            if (a && file_actions)
+            if (a && file_actions && !action_set)
                 file_actions(*a, locked);
             if (a && a->type == "prefab" && prefab_controls) {
                 selection.select_asset(a->id);

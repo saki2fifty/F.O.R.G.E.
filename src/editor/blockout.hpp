@@ -310,7 +310,10 @@ class BlockoutProperties {
             }
             // MeshRenderer owns geometry/materials. Legacy controls would write
             // ignored components and create misleading prefab override intent.
-            if (entity.at("components").contains("forge.mesh_renderer"))
+            if (entity.at("components").contains("forge.mesh_renderer") ||
+                (primitive_kind(entity) == no_primitive &&
+                 (entity.at("components").contains("forge.camera") ||
+                  entity.at("components").contains("forge.light"))))
                 return;
             ui::heading("Blockout Geometry", "Built-in meshes and opaque blockout tint. This is "
                                              "not a material or texture system.");

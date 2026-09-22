@@ -1,15 +1,20 @@
 # FORGE implementation and validation status
 
-## Phase 7 — final validation
+## Phase 7 — authoring follow-up in progress
 
-The asset/import/resource pipeline, shared Diligent Scene/Game renderer and opted-in
-native component authoring are implemented. Current Linux/Windows static and shared
-SDK suites pass; the native D3D12/WARP suite passes71/71, including103editor
-capture stages. Individual image review and responsive UI regressions accompany
-those checks. Numbered packages additionally require clean build, relocation and
-manifest/license validation in CI. No Phase 8 work is included.
-See the [format matrix](asset-formats.md), [rendering matrix](render-features.md),
-[backend matrix](render-backends.md) and [daily changelog](../changelog/20260922/README.md).
+Build 260922-000064 delivered the bounded asset/import/resource pipeline, shared
+Diligent Scene/Game renderer and opted-in native component authoring. Its clean
+validation passed Linux/Windows static68/68 and shared SDK79/79 per platform,
+plus native editor controllers2/2 and native editor/render/asset regressions112/112.
+These source-specific results do not establish complete Phase 7 usability.
+
+The follow-up adds camera/light Scene helpers, preview lighting, compact Content,
+shared asset commands and cache maintenance. Native image/interaction review,
+renderer frame-wait investigation and shader/startup/idle measurements remain
+required before this changed source receives a new numbered delivery. Manual and
+technical claims are being reconciled with actual implemented behavior. No Phase8
+work is included. See [rendering](render-features.md), [backend limits](render-backends.md)
+and the [daily changelog](../changelog/20260922/README.md).
 
 The following sections preserve previously delivered build history.
 

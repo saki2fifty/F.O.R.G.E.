@@ -97,7 +97,8 @@ This does not silently restrict authored LocalScale or claim that the full scene
 renderer's diagnostics are already connected. A WARP compute reproduction compares
 the corrected spotlight to the position-derived native point BRDF multiplied by
 the squared cone factor, and covers coincident/opposite/overflow cases. Native
-execution of this newly added fixture is pending.
+execution of this fixture passed in the Build 260922-000064 validation. See
+[rendering coverage](render-features.md) for the current bounded native paths.
 
 ## nlohmann/json mixed-number equality
 

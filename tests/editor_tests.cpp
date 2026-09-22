@@ -24,6 +24,7 @@
 #include "property_drawer_tests.hpp"
 #include "scene_cache_tests.hpp"
 #include "sdl_input_tests.hpp"
+#include "spatial_helpers_tests.hpp"
 #include "status_bar.hpp"
 #include "widgets.hpp"
 #include "workspace_tests.hpp"
@@ -324,6 +325,8 @@ int main(int argc, char** argv) {
         test_diagnostic_source();
         test_reflected_value_inputs();
         test_editor_selection_and_actions();
+        test_spatial_helpers();
+        test_asset_action_routes();
         test_redesign_drawers();
         test_draft_ownership();
         test_responsive_xyz();

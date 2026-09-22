@@ -97,9 +97,10 @@ classification never invalidates authored LocalScale.
 Preview rasterization uses opposite front-face state for reflected solid draws;
 planar primitives and singular surfaces are explicitly two-sided. Old procedural
 triangles are oriented to their outward normals before upload. No descendants
-are removed as a zero-scale optimization. Full imported tangent/normal mapping,
-skinning and WARP capture acceptance remain Phase7 integration gates; primitive
-preview math alone does not establish those capabilities.
+are removed as a zero-scale optimization. Imported tangent/normal mapping and skinning now have dedicated Windows/D3D12
+WARP acceptance, including signed/singular surface frames and deformation fixtures.
+See [rendering coverage](render-features.md) and [backend limits](render-backends.md).
+Primitive preview math alone is not the evidence for those paths.
 
 Physics has independent admission: pinned Jolt supports sign-insensitive centered
 boxes, spheres and capsules. Only for these symmetric shapes, magnitudes are baked

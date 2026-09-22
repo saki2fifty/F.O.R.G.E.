@@ -6,8 +6,8 @@ initial Phase7 research; current core geometry clarifications are recorded in
 [glTF admission](gltf-admission.md). Diligent and codec pins are unchanged.
 
 “Implemented” means the described bounded FORGE path exists. It does not claim
-whole-extension conformance or final platform acceptance. **Final Phase7 Windows
-validation remains pending.** The [model contract](model-import.md) and
+whole-extension conformance or final platform acceptance. Build 260922-000064 passed its Windows/D3D12 WARP suites. This source-specific
+result does not certify every backend or close the separate editor usability audit. The [model contract](model-import.md) and
 [renderer/backend matrices](render-features.md) provide the runtime limits.
 
 ## Core format

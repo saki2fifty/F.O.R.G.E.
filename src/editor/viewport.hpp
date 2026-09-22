@@ -15,6 +15,12 @@ class Viewport {
   public:
     std::uint64_t redraws = 0, retained = 0;
     explicit Viewport(DiligentPresentation& presentation, bool hdr = false);
+    void preview_lighting(bool enabled) {
+        if (preview_lighting_ != enabled) {
+            preview_lighting_ = enabled;
+            frame_.reset();
+        }
+    }
     void exposure(float ev) {
         if (exposure_ != ev) {
             exposure_ = ev;
@@ -41,6 +47,7 @@ class Viewport {
     Diligent::TEXTURE_FORMAT color_format_;
     std::unique_ptr<DisplayResolve> display_;
     float exposure_ = 0;
+    bool preview_lighting_ = false;
     EnvironmentSky sky_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     std::optional<RenderScene> mesh_scene_;

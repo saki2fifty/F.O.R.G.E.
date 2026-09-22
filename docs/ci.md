@@ -120,3 +120,28 @@ pending in machine output until an actual reviewer examines the images. Extend
 input/capture coverage for changed workflows; this scenario is not exhaustive
 coverage of every editor control, OS dialog, drag/drop gesture, GPU, or display.
 The existing staged fixture continues to cover broader visual states and scales.
+
+
+## Matched editor and shader timing evidence
+
+The full source audit builds disposable `forge_editor_benchmark` executables for
+the current source and accepted pre-Phase-7 source
+`a98be9a672394d3d91c2b9067331d0252f9b4313`. Both use their revision-local WARP
+fixture adapter at device creation; the normal editor event loop and source remain
+unchanged. These executables are test artifacts, never numbered deliveries.
+The ordinary hardware-adapter startup path cannot be assumed to work on hosted
+Windows runners. Neither rebuilt binary is described as the shipped baseline ZIP.
+
+A separate job runs both executables on the same Windows runner, alternating their
+order for three repeats each of an empty and one-cube project. It records launch
+until a responsive named editor window, then five one-second process CPU and memory
+samples after settling. This is not a first-GPU-frame or physical-GPU FPS measurement.
+Window dimensions, preferences, image/toolchain, source and executable hashes travel
+with the evidence. OS and driver caches remain uncontrolled. The benchmark uses an
+isolated runner and restores its previous editor preferences after completion.
+
+The native shader tests additionally record six repeated compile and cooked-shader
+realization samples with the same workload/compiler settings. End-to-end artifact
+publication and DDC-hit timings remain separate in `shader_worker`. Native fixture
+renderer diagnostics include frame, timestamp, SDL window flags and Present phase;
+errors must be reviewed independently of successful input assertions.

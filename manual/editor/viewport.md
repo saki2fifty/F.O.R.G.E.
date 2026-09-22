@@ -1,6 +1,6 @@
 # Viewport
 
-The Scene panel previews authored primitives. The separate Game panel presents the running world. Camera navigation changes your view without editing entity positions.
+The Scene panel previews authored meshes, models, cameras and lights. The separate Game panel presents the running world. Camera navigation changes your view without editing entity positions.
 
 ## Orbit and look
 
@@ -118,3 +118,34 @@ Use [Scene lighting](lighting.md) for authored environment maps and Game exposur
 ## Place assets from Content
 
 Drag a Model, Mesh or Prefab onto the Scene image to place it at the cursor on a plane through the view target. Each placement is one Undo step. Drag a Scene asset to open it through the normal unsaved-changes workflow. Materials, textures, clips and audio belong on compatible Inspector fields. See [Content browser](content-browser.md) for placement and cancellation details.
+
+
+## Camera and light helpers
+
+Cameras have a small camera icon; lights have a sun icon. Click an icon in Scene to
+select its entity, including objects with no mesh. Icons remain a constant screen
+size as you zoom. They draw through geometry for authoring; move handles take
+priority over icons, and overlapping icons select the nearest camera/light.
+Hidden hierarchy branches omit their icons. Locked entities cannot be picked.
+Disabled Camera/Light components retain a muted icon so you can find and re-enable them.
+
+Selecting a camera shows its view volume. Perspective rays follow field of view;
+orthographic edges stay parallel. Imported cameras keep their own view direction.
+Selecting a light shows its direction, point range, or spot inner/outer cone.
+The guide uses the current effective transform, including parenting and prefab values.
+
+Open **View** to toggle **Camera / light helpers**, change **Helper size**, or set
+**Guide distance**. Long or unlimited ranges show a capped-guide notice. Open-ended
+camera rays indicate a truncated guide, not a new far clipping plane. These personal
+settings do not change authored range, clipping, or Game view.
+
+## Preview lighting
+
+**Preview light** supplies a neutral, camera-relative light rig in Scene so you can
+see newly created PBR objects before placing lights. It is enabled for a fresh
+workspace. Turn it **off** to judge your scene's own lighting, shadows and environment.
+The checkbox stays visible on the Scene toolbar and its setting persists.
+
+Preview lighting changes no entities, assets, Save or Undo history. Game always
+uses authored lighting. A scene with no lights/environment can therefore look dark
+in Game even while its objects are clearly visible in Scene.

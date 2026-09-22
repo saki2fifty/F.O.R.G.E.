@@ -115,3 +115,26 @@ would become float32 subnormals. Direct3D arithmetic flushes those values to zer
 that would turn a tiny range into the special unbounded value or invalidate a near
 plane. This applies at GPU conversion, not to the authored LocalScale domain. See
 [Microsoft floating-point rules](https://learn.microsoft.com/en-us/windows/win32/direct3d11/floating-point-rules).
+
+
+## Scene authoring helpers
+
+The editor derives camera/light icons and selected guides from the effective scene
+snapshot. It creates no helper entities or persistent renderer components. Icons
+respect structural visibility and selection locks; the Hierarchy remains available
+for selecting a locked entity. Disabled components remain recognizable. Combined
+Camera/Light entities retain both icons.
+
+Camera frusta use the same `camera_view` projection/basis/viewport calculation as
+the renderer, including orthographic, fixed aspect and imported negative-Z cameras.
+Infinite or display-capped guides have open ends and a visible distance explanation.
+Point-light guides show range; spot guides use radial range and inner/outer half
+angles. Unlimited/capped light guides say so. Directional arrows show light travel.
+
+The Scene-only Preview light option replaces lights for that draw and restores the
+retained extraction afterward. It affects neither authored components nor Game
+rendering, history or scene serialization. Its preference and helper visibility,
+size and guide distance are personal editor settings. See the [viewport manual](../manual/editor/viewport.md)
+for the user workflow. Native source-audit tests cover preview illumination,
+authored-light restoration and an unchanged Game frame; fixture captures are
+reviewed separately from assertions.

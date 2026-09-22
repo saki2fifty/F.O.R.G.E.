@@ -27,13 +27,14 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: editor-source-audit-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   editor:
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       FORGE_BUILD_ID: unassigned
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
@@ -124,8 +125,12 @@ jobs:
             $output = Join-Path '../AgentFiles/b' $relative
             if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
           }
+      - name: Prepare matched WARP benchmark target
+        if: ${{ !inputs.workflow_only }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/prepare_editor_benchmark.py . ../AgentFiles/benchmark-target
       - id: configure
-        run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
+        run: cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_PROJECT_INCLUDE:FILEPATH="${{ !inputs.workflow_only && format('{0}/forge-work/AgentFiles/benchmark-target/inject.cmake', runner.temp) || '' }}" -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build input-driven editor fixture
         if: inputs.workflow_only
@@ -153,6 +158,28 @@ jobs:
           @{ workflow_only = '${{ inputs.workflow_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
+      - name: Build and stage current benchmark executable
+        if: ${{ !inputs.workflow_only }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          cmake --build ../AgentFiles/b --target forge_editor_benchmark --parallel 2
+          if ($LASTEXITCODE) { throw 'Benchmark build failed' }
+          $out='../AgentFiles/benchmark-current'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item ../AgentFiles/b/*.exe,../AgentFiles/b/*.dll $out
+          Copy-Item resources "$out/resources" -Recurse -Force
+          Copy-Item ../AgentFiles/benchmark-target/provenance.json $out
+      - name: Retain current benchmark executable
+        if: ${{ !inputs.workflow_only }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-Benchmark-current
+          path: ${{ runner.temp }}/forge-work/AgentFiles/benchmark-current
+      - name: Remove benchmark-only CMake injection before caching
+        if: ${{ always() && steps.configure.outcome == 'success' }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: cmake -S . -B ../AgentFiles/b -DCMAKE_PROJECT_INCLUDE:FILEPATH=
       - name: Record source content and input timestamps for incremental reuse
         if: ${{ always() && !inputs.clean_build && steps.configure.outcome == 'success' }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -191,3 +218,159 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
           if-no-files-found: error
           retention-days: 14
+
+  benchmark-baseline:
+    if: ${{ !inputs.workflow_only }}
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      FORGE_BUILD_ID: unassigned
+      FORGE_SOURCE_COMMIT: a98be9a672394d3d91c2b9067331d0252f9b4313
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: core.longpaths
+      GIT_CONFIG_VALUE_0: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: runner.os != 'Windows'
+      - name: Checkout Windows source without trailing-dot paths
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        env:
+          FORGE_COMMIT: a98be9a672394d3d91c2b9067331d0252f9b4313
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:FORGE_COMMIT -notmatch '^[0-9a-f]{40}$') { throw 'A full immutable source commit is required' }
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+          $driver=Join-Path $env:RUNNER_TEMP 'forge-work/AgentFiles/benchmark-driver'
+          New-Item -ItemType Directory -Force $driver | Out-Null
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ${{ inputs.source_commit }}
+          if ($LASTEXITCODE) { throw 'Cannot retrieve benchmark driver' }
+          git -C $source show 'FETCH_HEAD:tools/prepare_editor_benchmark.py' | Set-Content "$driver/prepare_editor_benchmark.py" -Encoding utf8
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c
+        with:
+          vsversion: '2022'
+          toolset: '14.44.35207'
+          sdk: '10.0.26100.0'
+      - run: python -m pip install cmake==4.4.3 ninja==1.13.2
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Check native developer launcher
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: cmd
+        run: tools\Run-Forge-Dev.cmd --check
+      - name: Prepare cache workspace path
+        id: cache-workspace
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          $preload = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE/tools/cache_workspace.cjs'
+          "preload=$($preload.Replace('\', '/'))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Identify compatible Windows build cache
+        id: cache-key
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_cache_key.py
+      - name: Restore Windows dependencies and build outputs
+        id: editor-cache
+        continue-on-error: true
+        if: ${{ !inputs.clean_build }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        env:
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.cache-key.outputs.key }}-a98be9a672394d3d91c2b9067331d0252f9b4313
+          restore-keys: |
+            ${{ steps.cache-key.outputs.key }}-
+      - name: Discard an incomplete cache restore
+        if: ${{ !inputs.clean_build && (steps.editor-cache.outcome == 'failure' || steps.editor-cache.outputs.cache-matched-key == '') }}
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          foreach ($directory in @('b', 'd')) {
+            $cachePath = Join-Path $env:RUNNER_TEMP "forge-work/AgentFiles/$directory"
+            if (Test-Path $cachePath) { Remove-Item -LiteralPath $cachePath -Recurse -Force }
+          }
+      - name: Restore timestamps of content-identical cached sources
+        if: ${{ !inputs.clean_build }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_source_stamps.py restore ../AgentFiles/b/forge-source-stamps.json
+      - name: Prepare accepted baseline WARP benchmark
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python ../AgentFiles/benchmark-driver/prepare_editor_benchmark.py . ../AgentFiles/benchmark-target
+      - name: Build accepted baseline with matched adapter
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          cmake --preset windows-editor -B ../AgentFiles/b -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_PROJECT_INCLUDE:FILEPATH="${{ runner.temp }}/forge-work/AgentFiles/benchmark-target/inject.cmake" -DFORGE_BUILD_ID=unassigned -DFORGE_SOURCE_COMMIT=a98be9a672394d3d91c2b9067331d0252f9b4313
+          if ($LASTEXITCODE) { throw 'Baseline configure failed' }
+          cmake --build ../AgentFiles/b --target forge_editor_benchmark forge_runtime --parallel 2
+          if ($LASTEXITCODE) { throw 'Baseline benchmark build failed' }
+          $out='../AgentFiles/benchmark-baseline'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item ../AgentFiles/b/*.exe,../AgentFiles/b/*.dll $out
+          Copy-Item resources "$out/resources" -Recurse -Force
+          Copy-Item ../AgentFiles/benchmark-target/provenance.json $out
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-Benchmark-baseline
+          path: ${{ runner.temp }}/forge-work/AgentFiles/benchmark-baseline
+
+  editor-performance:
+    needs: [editor, benchmark-baseline]
+    if: ${{ !inputs.workflow_only }}
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Windows source without trailing-dot paths
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        env:
+          FORGE_COMMIT: ${{ inputs.source_commit }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:FORGE_COMMIT -notmatch '^[0-9a-f]{40}$') { throw 'A full immutable source commit is required' }
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: FORGE-Editor-Benchmark-*
+          path: ${{ runner.temp }}/forge-benchmark
+      - name: Measure both source revisions on the same runner
+        shell: pwsh
+        env:
+          FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: '& "${{ runner.temp }}/forge-work/FORGE/tools/benchmark-editor.ps1" -Baseline "${{ runner.temp }}/forge-benchmark/FORGE-Editor-Benchmark-baseline/forge_editor_benchmark.exe" -Current "${{ runner.temp }}/forge-benchmark/FORGE-Editor-Benchmark-current/forge_editor_benchmark.exe" -Output "${{ runner.temp }}/forge-performance"'
+      - name: Retain comparison measurements and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-Performance
+          path: ${{ runner.temp }}/forge-performance

@@ -22,9 +22,9 @@ class EditorInputWorkflow {
     unsigned frame_ = 0;
     Uint64 since_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
-    std::string failure_, last_check_, cube_;
+    std::string failure_, last_check_, cube_, camera_, light_, scene_;
     std::uint64_t paused_tick_ = 0;
-    Json saved_, trace_ = Json::array();
+    Json cache_scene_, saved_, trace_ = Json::array();
     void click(std::string target, bool ctrl = false) {
         steps_.push_back({Kind::Click, std::move(target), ImGuiKey_None, ctrl});
     }
@@ -50,9 +50,17 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "empty")
+        if (what == "before-cache")
+            cache_scene_ = doc;
+        else if (what == "cache-complete") {
+            require(ui_targets.contains("cache:complete"), "Cache maintenance not complete");
+            require(doc == cache_scene_, "Cache maintenance changed the authored scene");
+        } else if (what == "empty")
             require(entities.empty(), "Workflow must start in an empty scene");
-        else if (what == "cube") {
+        else if (what == "picked-camera" || what == "picked-light") {
+            require(state.at("selected") == (what == "picked-camera" ? camera_ : light_),
+                    "Scene helper click did not select its entity");
+        } else if (what == "cube") {
             require(entities.size() == 1 && !state.at("selected").get<std::string>().empty(),
                     "Menu did not create and select a cube");
             cube_ = state.at("selected");
@@ -75,6 +83,7 @@ class EditorInputWorkflow {
         } else if (what == "saved") {
             require(!state.at("dirty").get<bool>(), "Ctrl+S did not save the scene");
             saved_ = doc;
+            scene_ = doc.at("asset_id");
             require(state.at("disk") == doc, "Saved disk data differs from authored scene");
         } else if (what == "unsaved" || what == "cancelled-reload") {
             require(state.at("dirty").get<bool>() && doc != saved_ && state.at("disk") == saved_,
@@ -94,6 +103,10 @@ class EditorInputWorkflow {
         else if (what == "restored")
             require(doc == saved_, "Undo did not restore complete cube state");
         else if (what == "camera" || what == "light") {
+            if (what == "camera")
+                camera_ = state.at("selected");
+            else
+                light_ = state.at("selected");
             const auto& e = state.at("selected_preview");
             require(e.at("components").contains(what == "camera" ? "forge.camera" : "forge.light"),
                     "Rendering menu did not create/select the requested component");
@@ -185,6 +198,28 @@ class EditorInputWorkflow {
         check("light");
         text("transform:forge.position:1", "3", true);
         capture("light-scene-and-inspector");
+        click("camera-marker");
+        check("picked-camera");
+        capture("camera-picked-in-scene");
+        click("light-marker");
+        check("picked-light");
+        capture("light-picked-in-scene");
+        click("preview-light");
+        capture("authored-scene-lighting");
+        click("preview-light");
+        capture("preview-lighting-restored");
+        click("menu:Assets");
+        capture("asset-action-menu");
+        click("action:asset.cache");
+        check("before-cache");
+        click("cache:statistics");
+        check("cache-complete");
+        capture("cache-statistics");
+        click("cache:verify");
+        check("cache-complete");
+        capture("cache-verified");
+        click("cache:close");
+
         for (int i = 0; i < 5; ++i)
             key(ImGuiKey_Equal, true);
         check("zoom");
@@ -238,7 +273,11 @@ class EditorInputWorkflow {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
-            const auto target = step.value == "saved-cube-row" ? "entity:" + cube_ : step.value;
+            const auto target = step.value == "saved-cube-row"      ? "entity:" + cube_
+                                : step.value == "camera-marker"     ? "marker:" + camera_
+                                : step.value == "light-marker"      ? "marker:" + light_
+                                : step.value == "saved-scene-asset" ? "asset:" + scene_
+                                                                    : step.value;
             const auto it = ui_targets.find(target);
             if (it == ui_targets.end() || !it->second.enabled) {
                 io.AddMousePosEvent(pointer_.x, pointer_.y);

@@ -108,21 +108,29 @@ inline void test_redesign_drawers() {
                 "Closed source retained stale prefab member selection");
         context.selection.select_entity(entity);
     }
-    for (int frame = 0; frame < 2; ++frame) {
-        ImGui::NewFrame();
-        ImGui::SetNextWindowPos({0, 0});
-        ImGui::SetNextWindowSize({1440, 200});
-        content.draw(files);
-        auto* window = ImGui::FindWindowByName("Content");
-        ImGuiWindow* results = nullptr;
-        for (auto* child : ImGui::GetCurrentContext()->Windows)
-            if (child->ParentWindow == window && child->ChildId == window->GetID("content-results"))
-                results = child;
-        require(results &&
-                    results->InnerClipRect.GetHeight() >= 3 * ImGui::GetTextLineHeightWithSpacing(),
-                "Content filters hide asset rows in the default bottom workspace");
-        ImGui::Render();
+    for (float scale : {1.f, 1.5f, 2.f}) {
+        forge::ui::style(scale);
+        for (int frame = 0; frame < 2; ++frame) {
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0});
+            ImGui::SetNextWindowSize({1440, 200});
+            content.draw(files);
+            auto* window = ImGui::FindWindowByName("Content");
+            ImGuiWindow* results = nullptr;
+            for (auto* child : ImGui::GetCurrentContext()->Windows)
+                if (child->ParentWindow == window &&
+                    child->ChildId == window->GetID("content-results"))
+                    results = child;
+            if (!results || results->InnerClipRect.GetHeight() <
+                                (scale == 1.f ? 3.f : 1.5f) * ImGui::GetTextLineHeightWithSpacing())
+                throw std::runtime_error(
+                    "Content results too short at scale=" + std::to_string(scale) +
+                    " height=" + std::to_string(results ? results->InnerClipRect.GetHeight() : -1) +
+                    " line=" + std::to_string(ImGui::GetTextLineHeightWithSpacing()));
+            ImGui::Render();
+        }
     }
+    forge::ui::style();
     for (const auto& c : schema.at("components"))
         if (c.value("optional", false)) {
             const std::string key = c.at("id");

@@ -334,6 +334,43 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     }
     if (meshes_ && mesh_scene_) {
         const auto view = scene_camera(camera, width, height);
+        // Borrow only the presentation lighting fields for this draw; restore even
+        // on an exception. Retained extraction, resources and authored state stay intact.
+        struct PreviewLighting {
+            RenderScene& scene;
+            std::vector<RenderLight> lights;
+            SceneRenderSettings settings;
+            bool enabled;
+            PreviewLighting(RenderScene& s, const CameraView& v, bool on)
+                : scene(s), settings(s.settings), enabled(on) {
+                if (!enabled)
+                    return;
+                lights.reserve(2);
+                for (float side : {-1.f, 1.f}) {
+                    LightView light{};
+                    light.kind = unsigned(LightKind::Directional);
+                    light.color = {1, 1, 1};
+                    light.intensity = side < 0 ? 3.f : 1.f;
+                    light.layers = UINT32_MAX;
+                    for (unsigned i = 0; i < 3; ++i)
+                        light.direction[i] = v.forward[i] + side * .6 * v.right[i] - .5 * v.up[i];
+                    const double length =
+                        std::hypot(light.direction[0], light.direction[1], light.direction[2]);
+                    for (auto& x : light.direction)
+                        x /= length;
+                    lights.push_back({{}, light});
+                }
+                lights.swap(scene.lights);
+                scene.settings.environment.intensity = 0;
+                scene.settings.shadows.enabled = false;
+            }
+            ~PreviewLighting() {
+                if (enabled) {
+                    scene.lights.swap(lights);
+                    scene.settings = settings;
+                }
+            }
+        } lighting(*mesh_scene_, view, preview_lighting_);
         meshes_->shadows(*mesh_scene_, view, UINT32_MAX);
         auto* scene_target = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         context->SetRenderTargets(1, &scene_target,

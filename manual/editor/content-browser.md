@@ -2,10 +2,14 @@
 
 Content is the project's asset browser. It lists registered scenes, prefabs, models, materials, shaders, audio, animation, navigation, texture and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
 
+In a short panel or at high interface zoom, **Actions** contains Create / Register,
+Import files, Refresh and Source updates. Search, Filters, View and Folders stay
+visible beside it so the results retain useful space.
+
 ## Find and inspect an asset
 
 1. Open **Window → Content**.
-2. Search by words in the name, path, extension, type or status. Use **All types** and **All states** to narrow results. Matching is case-insensitive.
+2. Search by words in the name, path, extension, type or status. Open **Filters**, then use **All types** and **All states** to narrow results. Matching is case-insensitive.
 3. Click an asset to inspect its type, source and availability in Inspector. This replaces entity selection; it does not change an entity's properties.
 4. Double-click a scene to open it, or use **Open scene** in its context menu. Resolve any unsaved scene or draft prompts first.
 
@@ -13,7 +17,7 @@ Content is the project's asset browser. It lists registered scenes, prefabs, mod
 
 ## Folders, views and selection
 
-Use the folder tree or **Folders** menu to choose a location. The **Project** breadcrumb returns to the root; clicking a breadcrumb opens that ancestor. **<** and **>** return to previous/next locations. Search normally includes subfolders. Turn off **View → Include subfolders** for the current folder only.
+Use the folder tree or **Folders** menu to choose a location. Inside **Folders**, **Project** returns to the root; clicking a breadcrumb opens that ancestor. **<** and **>** return to previous/next locations. Search normally includes subfolders. Turn off **View → Include subfolders** for the current folder only.
 
 **View → List** shows names, types and source states. **View → Grid** uses tiles; **Tile size** adjusts their width. In a short panel, previews shrink vertically so the first row's names and types remain visible. Published Texture, Model, Mesh and Material assets show rendered thumbnails as visible tiles prepare. Other types and unfinished previews show a type icon. List rows use the same icons as Inspector asset pickers. Grid/list, tile size, folder-tree visibility and subfolder preference are saved as personal editor preferences. Narrow Content panels use **Folders** when there is insufficient room for the tree.
 
@@ -21,7 +25,7 @@ Use the folder tree or **Folders** menu to choose a location. The **Project** br
 - **Shift-click** selects a range; **Ctrl+A** selects the filtered results.
 - **Escape** clears Content selection when the results have focus.
 - Inspector follows the primary item. Background refresh retains selection by AssetId; unimported source selection is temporary and follows its path.
-- Selected items hidden by a filter remain selected. Check the selected count before using **Reimport selected**.
+- Selected items hidden by a filter remain selected. The selection count and **Reimport selected** are in the results-background context menu; check them before reimporting.
 - Dragging sends the individual asset under the pointer. It preserves an entity Inspector for assigning that asset; it does not assign an entire multi-selection.
 
 Right-click offers **Copy AssetId** for registered assets and **Copy source path** for either kind of row. Generated model members show their imported display names, with the owning path in their tooltip and Inspector.
@@ -217,3 +221,24 @@ Registered Flecs Scripts record their root source revision. Native managed inclu
 remain the Script preview worker's responsibility; registration does not execute
 Script or claim a complete static include graph. Scene and Prefab retain their
 own document save/publication/history rules.
+
+
+## Shared asset commands
+
+The **Assets** menu and Command Palette (**Ctrl+Shift+P**, search **Assets /**)
+provide Import files, Open selected, Place selected in Scene, Reimport selected,
+Rename / Move, Duplicate source, Delete source, and Derived cache. The matching
+Content context commands use the same availability checks and selected asset.
+Disabled commands explain what is needed in their tooltip.
+
+**Place selected in Scene** supports Model, Mesh and Prefab assets, using the
+creation target (World Origin or View Target) and one scene Undo step. Opening
+a Model import document allows its additional scene, clip and variant choices.
+File operations show a review before changing files; scene Undo does not undo
+source edits, deletion, duplication or reimport publication.
+
+Choose **Assets > Derived cache...** to inspect statistics, verify artifacts or
+clear disposable derived data. Verification and clearing wait for imports to drain.
+Clearing requires a second click in its review popup, leaves source assets untouched,
+and requires Reimport to rebuild artifacts. Already loaded resources can remain
+visible while new loads report missing data. This window opens on demand.

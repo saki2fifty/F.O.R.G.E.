@@ -28,10 +28,7 @@ inline ImVec2 tooltip_position(const ImRect& item, ImVec2 size, const ImRect& sc
             mouse.y < screen.GetCenter().y ? std::max(screen.Min.y, screen.Max.y - size.y)
                                            : screen.Min.y};
 }
-inline void help(const char* text) {
-    if (!tooltips || ImGui::IsAnyMouseDown() ||
-        !ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
-        return;
+inline void show_help_at(const char* text, const ImRect& item) {
     const auto& style = ImGui::GetStyle();
     const auto* viewport = ImGui::GetWindowViewport();
     const float gap = std::max(6.0f, ImGui::GetFontSize() * 0.6f);
@@ -43,7 +40,6 @@ inline void help(const char* text) {
     const auto text_size = ImGui::CalcTextSize(text, nullptr, false, wrap);
     const ImVec2 size{std::ceil(text_size.x + 2 * style.WindowPadding.x),
                       std::ceil(text_size.y + 2 * style.WindowPadding.y)};
-    const ImRect item{ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
     ImGui::SetNextWindowPos(tooltip_position(item, size, screen, gap));
     ImGui::SetNextWindowSize(size);
     if (ImGui::BeginTooltip()) {
@@ -76,6 +72,12 @@ inline bool begin_toolbar() {
 inline void end_toolbar() {
     ImGui::EndMenuBar();
     ImGui::End();
+}
+inline void help(const char* text) {
+    if (!tooltips || ImGui::IsAnyMouseDown() ||
+        !ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
+        return;
+    show_help_at(text, {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()});
 }
 inline bool button(const char* label, const char* description) {
     const bool result = ImGui::Button(label);

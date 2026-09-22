@@ -1,9 +1,10 @@
 # Animation
 
 An **Animator** plays one skeletal animation clip on an object during Play.
-For now, FORGE shows the joints and bones as a green-and-white overlay. It does
-not yet draw a skinned character mesh. Model importing is available through the
-[model import tools](models.md).
+FORGE can draw imported skinned and morphed model meshes during Play, and can
+also show joints and bones as a green-and-white debug overlay. Use the
+[model import tools](models.md) for complete animated models. The animation-only
+workflow below creates skeleton and clip assets for the bone overlay.
 
 ## Try the included animation
 
@@ -64,8 +65,9 @@ Runtime recovery restores clip time and playing state only when the referenced
 assets still have compatible exact revisions. FORGE reloads assets and rebuilds
 sampling state. If assets changed, recovery is rejected; start a fresh Play session.
 
-This foundation has single-clip playback and debug bones. Animation graphs, blending,
-IK, retargeting, root-motion application and skinned mesh rendering are future work.
+This foundation supports single-clip playback, skinned/morphed model drawing and
+debug bones. Animation graphs, blending, IK, retargeting and root-motion application
+remain future work.
 
 See [Play mode](play-mode.md), [Prefabs](prefabs.md), and
 [Saving and recovery](saving-recovery.md).
@@ -106,13 +108,13 @@ loading finishes. A crash before loading completes requires a fresh Play session
 
 ### Model binding errors
 
-The in-progress model rendering path checks that mesh, skeleton and clip belong
+The model rendering path checks that mesh, skeleton and clip belong
 to the same imported model revision. If a required joint is missing, duplicated or
 moved outside the model instance, FORGE reports a binding error and holds the last
 complete rendered pose. It does not borrow a joint from another copy of the model.
 Restore the matching hierarchy or restart Play after a successful reimport. A
-failed pose does not change the authored scene. Native acceptance of this rendering
-path and the complete animated-model placement workflow are still pending.
+failed pose does not change the authored scene. Windows/D3D12 WARP tests cover this rendering path and the complete animated-model
+placement workflow. Physical GPU acceptance remains a separate check.
 
 ### Physics conflicts
 
@@ -137,7 +139,8 @@ new pose or model revision cannot fit alongside the previous good pose, Problems
 reports the affected entity and the previous drawing remains visible. Removing
 other model instances can free the allowance so the pending instance can retry.
 This affects derived drawing data; it does not change saved transforms or assets.
-The full native animated-model workflow is still under validation.
+Windows/D3D12 WARP validation covers the implemented model-animation workflow;
+physical GPU acceptance remains a separate check.
 
 
 When a model's animation finishes loading during Pause, its asset information can

@@ -1,4 +1,6 @@
 #pragma once
+#include <atomic>
+#include <cstdio>
 // Compiled only into the automated editor fixture executable, never the shipped editor.
 // Native D3D declarations must precede the Diligent command queue interface.
 #include <d3d12.h>
@@ -135,6 +137,24 @@ struct EditorFixture {
             throw std::runtime_error("WARP fixture queue failed");
         Diligent::ICommandQueueD3D12* queues[] = {queue};
         factory->AttachToD3D12Device(native.Get(), 1, queues, {}, device, context);
+    }
+    inline static std::atomic<unsigned long long> diagnostic_frame{0}, diagnostic_flags{0};
+    inline static std::atomic<int> diagnostic_phase{0};
+    static void DILIGENT_CALL_TYPE message(Diligent::DEBUG_MESSAGE_SEVERITY severity,
+                                           const char* text, const char* function, const char* file,
+                                           int line) {
+        std::fprintf(stderr,
+                     "FORGE graphics diagnostic t=%llu frame=%llu phase=%d flags=%llu severity=%d "
+                     "%s (%s:%d %s)\n",
+                     static_cast<unsigned long long>(SDL_GetTicks()), diagnostic_frame.load(),
+                     diagnostic_phase.load(), diagnostic_flags.load(), int(severity), text,
+                     file ? file : "", line, function ? function : "");
+    }
+    void graphics_context(SDL_Window* window, int phase) {
+        if (phase == 0)
+            ++diagnostic_frame;
+        diagnostic_flags = SDL_GetWindowFlags(window);
+        diagnostic_phase = phase;
     }
     void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
                  Diligent::ITextureView* view, bool complete = true,

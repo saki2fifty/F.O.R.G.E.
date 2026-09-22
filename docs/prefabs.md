@@ -42,7 +42,7 @@ The current editor has one loaded authored scene. This service does not claim co
 
 ## Deliberately deferred Apply
 
-There is no Apply button, command, advertised API capability or partial Apply workflow. Future Apply must define and test coordinated prefab-plus-scene ownership, publication order, interruption recovery, Undo/Redo, later source edits, dirty/untitled scenes and conflicts. The candidate/revision boundary is reusable; no future cross-document history format is frozen here. Nested overrides, structural per-instance edits, Unpack, resource handles/import/cook and general plugin/gameplay SDKs remain deferred.
+There is no Apply button, command, advertised API capability or partial Apply workflow. Future Apply must define and test coordinated prefab-plus-scene ownership, publication order, interruption recovery, Undo/Redo, later source edits, dirty/untitled scenes and conflicts. The candidate/revision boundary is reusable; no future cross-document history format is frozen here. Nested overrides, structural per-instance edits and Unpack remain deferred. Typed runtime resource leases, import/cook services and the experimental exact-version gameplay SDK are implemented; see [assets](asset-foundation.md) and [SDK](extension-guide.md). A stable general editor-plugin ABI remains future work.
 
 ## Expanded scale compatibility
 

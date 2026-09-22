@@ -123,6 +123,51 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
             "Legacy blockout disappeared behind the authored Game camera");
     save(cube, 64, 32, images / "game-engine-primitive.ppm");
     {
+        // Scene preview lighting is a presentation choice: no light entities,
+        // retained extraction changes, or changes to the Game view.
+        Viewport authoring_view(presentation, true);
+        authoring_view.resources(host);
+        auto authored = document;
+        Json mesh_renderer;
+        for (const auto& type : detail::builtins())
+            if (std::string_view(type.name) == "forge.mesh_renderer")
+                mesh_renderer = type.defaults;
+        mesh_renderer["mesh"] = engine_primitive(0).id;
+        mesh_renderer["materials"] =
+            Json::array({{{"slot", "surface"}, {"material", engine_material().id}}});
+        authored["entities"][1]["components"]["forge.mesh_renderer"] = mesh_renderer;
+        const auto unchanged = authored;
+        EditorCamera editor_camera;
+        editor_camera.target = {0, 0, 3};
+        editor_camera.distance = 4;
+        editor_camera.pitch = -.2f;
+        auto settle_scene = [&] {
+            const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            Diligent::ITextureView* output = nullptr;
+            do {
+                output = authoring_view.render(context, authored, 128, 96, editor_camera, 1, true,
+                                               {false, 1});
+                host->submit();
+                if (!authoring_view.meshes()->pending())
+                    return readback(presentation.device(), context, output);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (std::chrono::steady_clock::now() < until);
+            throw std::runtime_error("Preview lighting resources did not settle");
+        };
+        const auto dark = settle_scene();
+        authoring_view.preview_lighting(true);
+        const auto lit = settle_scene();
+        require(lit != dark, "Scene preview lights did not illuminate an unlit authored scene");
+        require(authored == unchanged && authoring_view.render_scene()->lights.empty(),
+                "Preview lights leaked into authored data or retained extraction");
+        authoring_view.preview_lighting(false);
+        require(settle_scene() == dark, "Preview light toggle did not restore authored lighting");
+        require(render() == cube, "Scene preview lighting changed the Game renderer");
+        save(dark, 128, 96, images / "scene-authored-lighting.ppm");
+        save(lit, 128, 96, images / "scene-preview-lighting.ppm");
+    }
+
+    {
         FrameRenderer fallback_renderer(presentation);
         fallback_renderer.resources(host);
         auto fallback_document = document;

@@ -272,8 +272,9 @@ default textures, cubemap convolution, native content-hashed shader/PSO caches a
 resource lifetime. The backend-private FORGE target links the matching Archiver
 DLL; packaging must include it. `EnableHotReload=false`, hash by content, no disk
 cache loading. This is source-level build composition, not a public engine ABI or
-an upstream patch. No live-documentation drift was used to select APIs. Windows
-execution of this addition is pending; full mesh PBR/skinning is not yet claimed.
+an upstream patch. No live-documentation drift was used to select APIs. The later Build 260922-000064 Windows/D3D12 WARP suite validated this composition,
+including dedicated PBR and skin fixtures. This supersedes the source-only status
+of the original September 20 integration; supported profiles remain bounded.
 See[render ownership and limitations](rendering-foundation.md).
 
 ## External glTF comparison tool — verified2026-09-22
