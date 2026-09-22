@@ -2,6 +2,7 @@
 #include "authored_capture_fixture.hpp"
 #include "editor_capture_layout.hpp"
 #include "editor_fixture.hpp"
+#include "editor_input_workflow.hpp"
 #include "gltf_variant_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
 #include <backends/imgui_impl_sdl3.h>
@@ -94,6 +95,7 @@ int main(int argc, char** argv) {
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
+        forge::test::EditorInputWorkflow input_workflow(fixture.workflow);
 #endif
         auto* factory = LoadAndGetEngineFactoryD3D12();
         if (!factory)
@@ -825,19 +827,25 @@ int main(int argc, char** argv) {
         bool running = true;
         std::string current_title;
 #ifdef FORGE_UI_FIXTURE
-        editor.selection.select_entity(
-            forge::authoring_command(scene, "entity.create", {{"name", "Fixture cube"}})
-                .at("selected"));
-        forge::authoring_command(scene, "component.add",
-                                 {{"entity", selected}, {"component", "forge.ui_document"}});
-        forge::authoring_command(scene, "component.add",
-                                 {{"entity", selected}, {"component", "forge.audio_source"}});
-        fixture.prefab = files.document.prefabs().create(
-            scene, forge::create_prefab_source(scene, selected), "Assets/Fixture.prefab.json");
-        files.document.save();
+        if (!fixture.workflow) {
+            editor.selection.select_entity(
+                forge::authoring_command(scene, "entity.create", {{"name", "Fixture cube"}})
+                    .at("selected"));
+            forge::authoring_command(scene, "component.add",
+                                     {{"entity", selected}, {"component", "forge.ui_document"}});
+            forge::authoring_command(scene, "component.add",
+                                     {{"entity", selected}, {"component", "forge.audio_source"}});
+            fixture.prefab = files.document.prefabs().create(
+                scene, forge::create_prefab_source(scene, selected), "Assets/Fixture.prefab.json");
+            files.document.save();
+        }
 #endif
         while (running) {
             performance.begin();
+#ifdef FORGE_UI_FIXTURE
+            if (fixture.workflow)
+                input_workflow.platform_input(SDL_GetWindowID(window.get()));
+#endif
             SDL_Event event;
             game_input.pump(play,
                             workspace.game && game_visible && !files.busy() &&
@@ -993,7 +1001,11 @@ int main(int argc, char** argv) {
                     : "";
             automation.pump(files.document, automation_busy);
 #ifdef FORGE_UI_FIXTURE
-            if (fixture.stage >= 26) {
+            if (fixture.workflow) {
+                ImGui_ImplSDL3_NewFrame();
+                input_workflow.input();
+                gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
+            } else if (fixture.stage >= 26) {
                 // Run the platform update once, then override its real desktop pointer
                 // before Dear ImGui consumes queued input for these static captures.
                 ImGui_ImplSDL3_NewFrame();
@@ -1232,8 +1244,8 @@ int main(int argc, char** argv) {
             };
             commands.actions = &actions;
 #ifdef FORGE_UI_FIXTURE
-            if (SDL_GetTicks() - fixture.started > 240000 ||
-                SDL_GetTicks() - fixture.stage_started > 45000) {
+            if (!fixture.workflow && (SDL_GetTicks() - fixture.started > 240000 ||
+                                      SDL_GetTicks() - fixture.stage_started > 45000)) {
                 forge::Json stalled{
                     {"stage", fixture.stage},
                     {"frames", fixture.frames},
@@ -1259,7 +1271,7 @@ int main(int argc, char** argv) {
                     "; model state=" + (model_viewer ? model_viewer->loading_state() : "absent") +
                     "; import=" + model_imports.diagnostic());
             }
-            if (!fixture.prepared) {
+            if (!fixture.workflow && !fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
                 case 0:
@@ -1460,20 +1472,20 @@ int main(int argc, char** argv) {
                             vertices.push_back(char((bits >> (byte * 8)) & 255));
                     }
                     const auto source = forge::Json::parse(R"({
-                        "asset":{"version":"2.0"},
-                        "extensionsUsed":["KHR_materials_unlit"],
-                        "buffers":[{"uri":"preview.bin","byteLength":36}],
-                        "bufferViews":[{"buffer":0,"byteLength":36}],
-                        "accessors":[{"bufferView":0,"componentType":5126,"count":3,
-                            "type":"VEC3","min":[-1,-1,0],"max":[1,1,0]}],
-                        "materials":[{"name":"Orange","doubleSided":true,
-                            "extensions":{"KHR_materials_unlit":{}},
-                            "pbrMetallicRoughness":{"baseColorFactor":[0.8,0.2,0.04,1]}}],
-                        "meshes":[{"name":"Triangle","primitives":[{
-                            "attributes":{"POSITION":0},"material":0}]}],
-                        "nodes":[{"mesh":0,"translation":[-2,0,0]},
-                            {"mesh":0,"translation":[2,0,0],"scale":[-1,1,1]}],
-                        "scenes":[{"nodes":[0,1]}],"scene":0})");
+                    "asset":{"version":"2.0"},
+                    "extensionsUsed":["KHR_materials_unlit"],
+                    "buffers":[{"uri":"preview.bin","byteLength":36}],
+                    "bufferViews":[{"buffer":0,"byteLength":36}],
+                    "accessors":[{"bufferView":0,"componentType":5126,"count":3,
+                        "type":"VEC3","min":[-1,-1,0],"max":[1,1,0]}],
+                    "materials":[{"name":"Orange","doubleSided":true,
+                        "extensions":{"KHR_materials_unlit":{}},
+                        "pbrMetallicRoughness":{"baseColorFactor":[0.8,0.2,0.04,1]}}],
+                    "meshes":[{"name":"Triangle","primitives":[{
+                        "attributes":{"POSITION":0},"material":0}]}],
+                    "nodes":[{"mesh":0,"translation":[-2,0,0]},
+                        {"mesh":0,"translation":[2,0,0],"scale":[-1,1,1]}],
+                    "scenes":[{"nodes":[0,1]}],"scene":0})");
                     forge::atomic_write(files.document.project() / "Assets/preview.bin", vertices);
                     forge::atomic_write(files.document.project() / "Assets/preview.gltf",
                                         source.dump());
@@ -2010,8 +2022,12 @@ int main(int argc, char** argv) {
                         preferences_menu();
                         ImGui::EndMenu();
                     }
-                    if (ImGui::BeginMenu("Entity")) {
-                        if (ImGui::BeginMenu("Create")) {
+                    const bool entity_menu = ImGui::BeginMenu("Entity");
+                    FORGE_UI_PROBE("menu:Entity");
+                    if (entity_menu) {
+                        const bool create_submenu = ImGui::BeginMenu("Create");
+                        FORGE_UI_PROBE("menu:Create");
+                        if (create_submenu) {
                             create_menu();
                             ImGui::EndMenu();
                         }
@@ -2333,6 +2349,7 @@ int main(int argc, char** argv) {
                                         scene, "entity.rename",
                                         {{"entity", selected}, {"name", entity_name}});
                                 }
+                                FORGE_UI_PROBE("inspector:name");
                                 forge::ui::help(e.contains("prefab_member")
                                                     ? "This name follows the prefab. Use Open "
                                                       "prefab source to rename this member."
@@ -3084,117 +3101,162 @@ int main(int argc, char** argv) {
             ImGui::PopItemFlag();
             gui->Render(context);
 #ifdef FORGE_UI_FIXTURE
-            ++fixture.frames;
-            bool captured_document_visible = true;
-            if (const auto* target = fixture.focused_document()) {
-                const auto* w = ImGui::FindWindowByName(target);
-                captured_document_visible =
-                    w && w->Active && !w->Hidden && (!w->DockIsActive || w->DockTabIsVisible);
-            }
-            if (fixture.stage >= 56 && fixture.stage <= 58) {
-                const auto* popup = ImGui::FindWindowByName("##Combo_00");
-                captured_document_visible &=
-                    forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
-            }
-            if (fixture.stage >= 67 && fixture.stage <= 72) {
-                const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
-                captured_document_visible &=
-                    !model_imports.fixture_open_variant && !forge::ui::fixture_open_model_variant &&
-                    !popups.empty() && popups.back().Window && popups.back().Window->Active &&
-                    !popups.back().Window->Hidden;
-            }
-            if (fixture.stage >= 73)
-                captured_document_visible &= !model_imports.fixture_open_notes;
-            if (fixture.stage >= 82 && fixture.stage <= 84) {
-                const auto* popup = ImGui::FindWindowByName("Migrate component values");
-                captured_document_visible &= !authored_components.fixture_open_migration && popup &&
-                                             popup->Active && !popup->Hidden;
-            }
-            if (fixture.stage >= 97) {
-                const auto* popup = ImGui::FindWindowByName("Import source files");
-                captured_document_visible &= popup && popup->Active && !popup->Hidden;
-                if (!source_import.diagnostic().empty())
-                    throw std::runtime_error("Source import capture failed: " +
-                                             source_import.diagnostic());
-            }
-            if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
-                throw std::runtime_error("Audio import fixture failed: " +
-                                         audio_imports.diagnostic());
-            if (fixture.stage >= 50 && !shader_imports.diagnostic().empty())
-                throw std::runtime_error("Shader import fixture failed: " +
-                                         shader_imports.diagnostic());
-            if ((fixture.stage == 30 || fixture.stage == 31) && model_viewer &&
-                !model_viewer->error().empty())
-                throw std::runtime_error("Model preview fixture failed: " + model_viewer->error());
-            if (fixture.stage >= 32 && fixture.stage <= 35 && !asset_view_document.error().empty())
-                throw std::runtime_error("Member preview fixture failed: " +
-                                         asset_view_document.error());
-            if (fixture.prepared && fixture.frames > 12 && captured_document_visible &&
-                ((fixture.stage != 26 && fixture.stage != 27 && fixture.stage != 41) ||
-                 (texture_viewer && texture_viewer->ready())) &&
-                (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
-                (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
-                ((fixture.stage != 28 && fixture.stage != 29 && fixture.stage != 42) ||
-                 (material_preview && !material_preview->pending())) &&
-                ((fixture.stage != 30 && fixture.stage != 31 && fixture.stage != 43) ||
-                 (model_viewer && model_viewer->ready())) &&
-                (((fixture.stage < 32 || fixture.stage > 35) && fixture.stage != 44 &&
-                  fixture.stage != 45) ||
-                 asset_view_document.ready()) &&
-                ((fixture.stage != 36 && fixture.stage != 37 && fixture.stage != 46) ||
-                 (content_thumbnails && drawn_thumbnail_count >= 5)) &&
-                ((fixture.stage < 38 || fixture.stage > 40) ||
-                 (content_files.operation() &&
-                  content_files.operation()->state() == forge::AssetFileState::Review)) &&
-                ((fixture.stage < 47 || fixture.stage > 49) ||
-                 (!audio_imports.dirty() && !audio_imports.pending() &&
-                  audio_imports.diagnostic().empty() &&
-                  content.record(audio_imports.selected_asset()) &&
-                  content.record(audio_imports.selected_asset())
-                      ->metadata.contains("forge.audio"))) &&
-                (fixture.stage != 59 || (!model_imports.dirty() && !model_imports.pending() &&
-                                         model_viewer && model_viewer->ready())) &&
-                ((fixture.stage < 60 || fixture.stage > 62) || asset_view_document.ready()) &&
-                (fixture.stage < 64 || (material_preview && !material_preview->pending() &&
-                                        !material_editor.dirty() && !material_editor.pending())) &&
-                (fixture.stage < 50 || (!shader_imports.dirty() && !shader_imports.pending() &&
-                                        shader_imports.diagnostic().empty()))) {
-                if ((fixture.stage == 28 || fixture.stage == 29) &&
-                    !material_preview->diagnostics().empty())
-                    throw std::runtime_error("Material editor fixture preview failed");
-                if (fixture.stage >= 64 && !material_preview->diagnostics().empty())
-                    throw std::runtime_error("Custom surface fixture preview failed");
-                if ((fixture.stage == 26 || fixture.stage == 27) &&
-                    !texture_viewer->error().empty())
-                    throw std::runtime_error("Texture viewer fixture failed: " +
-                                             texture_viewer->error());
-                if (fixture.stage == 0) {
-                    auto* content_window = ImGui::FindWindowByName("Content");
-                    if (!content_window || !content_window->DockTabIsVisible)
-                        throw std::runtime_error("Fresh workspace did not select Content");
+            if (fixture.workflow) {
+                forge::Json selected_preview = forge::Json::object();
+                if (!selected.empty()) {
+                    auto effective = scene.effective_document();
+                    for (const auto& entity : effective.at("entities"))
+                        if (entity.at("id") == selected)
+                            selected_preview = entity;
                 }
-                if (fixture.stage == 0 || fixture.stage >= 17) {
-                    forge::Json metrics;
-                    for (const char* id :
-                         {"##FORGE-toolbar", "##global-actions", "##FORGE-status", "###Scene"})
-                        if (auto* w = ImGui::FindWindowByName(id))
-                            metrics[id] = {{"x", w->Pos.x},
-                                           {"y", w->Pos.y},
-                                           {"width", w->Size.x},
-                                           {"height", w->Size.y},
-                                           {"content_y", w->DC.CursorStartPos.y}};
-                    metrics["scale"] = forge::ui::interface_scale;
-                    metrics["scene_image_y"] = fixture.scene_image_y;
-                    forge::atomic_write(fixture.output /
-                                            ("chrome-" + std::to_string(fixture.stage) + ".json"),
-                                        metrics.dump(2));
-                }
-                fixture.capture(device, context, rtv);
-                if (fixture.stage == 103) {
-                    check_thumbnail_cache(presentation, context, files.document.project(),
-                                          mesh_resources);
-                    play.stop();
+                forge::Json disk;
+                if (std::ifstream file(files.document.path()); file)
+                    file >> disk;
+                const forge::Json state{{"scene", scene.document()},
+                                        {"selected", selected},
+                                        {"selected_preview", selected_preview},
+                                        {"dirty", files.document.dirty()},
+                                        {"disk", disk},
+                                        {"playing", play.active()},
+                                        {"control_ready", play.control_ready()},
+                                        {"paused", play.paused()},
+                                        {"tick", play.timing().value("tick", std::uint64_t{0})},
+                                        {"cameras", game_viewport.cameras().size()},
+                                        {"ui_scale", forge::ui::interface_scale},
+                                        {"status", message}};
+                input_workflow.finish(
+                    state,
+                    [&](const std::string& name) {
+                        fixture.capture(device, context, rtv, true, name);
+                    },
+                    [&](forge::Json record) {
+                        record["build"] = forge::build_id;
+                        record["source_commit"] = forge::source_commit;
+                        record["platform"] = "Windows / D3D12 WARP";
+                        record["window_pixels"] = {width, height};
+                        record["visual_review"] = "Pending human/agent image inspection";
+                        forge::atomic_write(fixture.output / "workflow.json", record.dump(2));
+                    });
+                if (input_workflow.done())
                     running = false;
+            } else {
+                ++fixture.frames;
+                bool captured_document_visible = true;
+                if (const auto* target = fixture.focused_document()) {
+                    const auto* w = ImGui::FindWindowByName(target);
+                    captured_document_visible =
+                        w && w->Active && !w->Hidden && (!w->DockIsActive || w->DockTabIsVisible);
+                }
+                if (fixture.stage >= 56 && fixture.stage <= 58) {
+                    const auto* popup = ImGui::FindWindowByName("##Combo_00");
+                    captured_document_visible &=
+                        forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
+                }
+                if (fixture.stage >= 67 && fixture.stage <= 72) {
+                    const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+                    captured_document_visible &= !model_imports.fixture_open_variant &&
+                                                 !forge::ui::fixture_open_model_variant &&
+                                                 !popups.empty() && popups.back().Window &&
+                                                 popups.back().Window->Active &&
+                                                 !popups.back().Window->Hidden;
+                }
+                if (fixture.stage >= 73)
+                    captured_document_visible &= !model_imports.fixture_open_notes;
+                if (fixture.stage >= 82 && fixture.stage <= 84) {
+                    const auto* popup = ImGui::FindWindowByName("Migrate component values");
+                    captured_document_visible &= !authored_components.fixture_open_migration &&
+                                                 popup && popup->Active && !popup->Hidden;
+                }
+                if (fixture.stage >= 97) {
+                    const auto* popup = ImGui::FindWindowByName("Import source files");
+                    captured_document_visible &= popup && popup->Active && !popup->Hidden;
+                    if (!source_import.diagnostic().empty())
+                        throw std::runtime_error("Source import capture failed: " +
+                                                 source_import.diagnostic());
+                }
+                if (fixture.stage >= 47 && fixture.stage <= 49 &&
+                    !audio_imports.diagnostic().empty())
+                    throw std::runtime_error("Audio import fixture failed: " +
+                                             audio_imports.diagnostic());
+                if (fixture.stage >= 50 && !shader_imports.diagnostic().empty())
+                    throw std::runtime_error("Shader import fixture failed: " +
+                                             shader_imports.diagnostic());
+                if ((fixture.stage == 30 || fixture.stage == 31) && model_viewer &&
+                    !model_viewer->error().empty())
+                    throw std::runtime_error("Model preview fixture failed: " +
+                                             model_viewer->error());
+                if (fixture.stage >= 32 && fixture.stage <= 35 &&
+                    !asset_view_document.error().empty())
+                    throw std::runtime_error("Member preview fixture failed: " +
+                                             asset_view_document.error());
+                if (fixture.prepared && fixture.frames > 12 && captured_document_visible &&
+                    ((fixture.stage != 26 && fixture.stage != 27 && fixture.stage != 41) ||
+                     (texture_viewer && texture_viewer->ready())) &&
+                    (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
+                    (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
+                    ((fixture.stage != 28 && fixture.stage != 29 && fixture.stage != 42) ||
+                     (material_preview && !material_preview->pending())) &&
+                    ((fixture.stage != 30 && fixture.stage != 31 && fixture.stage != 43) ||
+                     (model_viewer && model_viewer->ready())) &&
+                    (((fixture.stage < 32 || fixture.stage > 35) && fixture.stage != 44 &&
+                      fixture.stage != 45) ||
+                     asset_view_document.ready()) &&
+                    ((fixture.stage != 36 && fixture.stage != 37 && fixture.stage != 46) ||
+                     (content_thumbnails && drawn_thumbnail_count >= 5)) &&
+                    ((fixture.stage < 38 || fixture.stage > 40) ||
+                     (content_files.operation() &&
+                      content_files.operation()->state() == forge::AssetFileState::Review)) &&
+                    ((fixture.stage < 47 || fixture.stage > 49) ||
+                     (!audio_imports.dirty() && !audio_imports.pending() &&
+                      audio_imports.diagnostic().empty() &&
+                      content.record(audio_imports.selected_asset()) &&
+                      content.record(audio_imports.selected_asset())
+                          ->metadata.contains("forge.audio"))) &&
+                    (fixture.stage != 59 || (!model_imports.dirty() && !model_imports.pending() &&
+                                             model_viewer && model_viewer->ready())) &&
+                    ((fixture.stage < 60 || fixture.stage > 62) || asset_view_document.ready()) &&
+                    (fixture.stage < 64 ||
+                     (material_preview && !material_preview->pending() &&
+                      !material_editor.dirty() && !material_editor.pending())) &&
+                    (fixture.stage < 50 || (!shader_imports.dirty() && !shader_imports.pending() &&
+                                            shader_imports.diagnostic().empty()))) {
+                    if ((fixture.stage == 28 || fixture.stage == 29) &&
+                        !material_preview->diagnostics().empty())
+                        throw std::runtime_error("Material editor fixture preview failed");
+                    if (fixture.stage >= 64 && !material_preview->diagnostics().empty())
+                        throw std::runtime_error("Custom surface fixture preview failed");
+                    if ((fixture.stage == 26 || fixture.stage == 27) &&
+                        !texture_viewer->error().empty())
+                        throw std::runtime_error("Texture viewer fixture failed: " +
+                                                 texture_viewer->error());
+                    if (fixture.stage == 0) {
+                        auto* content_window = ImGui::FindWindowByName("Content");
+                        if (!content_window || !content_window->DockTabIsVisible)
+                            throw std::runtime_error("Fresh workspace did not select Content");
+                    }
+                    if (fixture.stage == 0 || fixture.stage >= 17) {
+                        forge::Json metrics;
+                        for (const char* id :
+                             {"##FORGE-toolbar", "##global-actions", "##FORGE-status", "###Scene"})
+                            if (auto* w = ImGui::FindWindowByName(id))
+                                metrics[id] = {{"x", w->Pos.x},
+                                               {"y", w->Pos.y},
+                                               {"width", w->Size.x},
+                                               {"height", w->Size.y},
+                                               {"content_y", w->DC.CursorStartPos.y}};
+                        metrics["scale"] = forge::ui::interface_scale;
+                        metrics["scene_image_y"] = fixture.scene_image_y;
+                        forge::atomic_write(
+                            fixture.output / ("chrome-" + std::to_string(fixture.stage) + ".json"),
+                            metrics.dump(2));
+                    }
+                    fixture.capture(device, context, rtv);
+                    if (fixture.stage == 103) {
+                        check_thumbnail_cache(presentation, context, files.document.project(),
+                                              mesh_resources);
+                        play.stop();
+                        running = false;
+                    }
                 }
             }
 #endif

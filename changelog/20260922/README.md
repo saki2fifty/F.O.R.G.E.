@@ -243,3 +243,11 @@ The corrected source fa43239 passes the native Windows editor/render test step, 
 The complete fa43239 native gate passes71/71 (336.78s), including103editor capture stages. Clean static and shared-SDK profiles pass on both hosts: Linux68/68 (122.15s),79/79 (65.43s); Windows68/68 (331.88s),79/79 (114.18s). Individual review confirms corrected material-slot labels and foreground Model/Shader documents, plus Gameplay Code, rendering component Inspectors, Scene lighting and source-import review at100/150/200.
 
 The final review found the migration Rules label trailing beyond its full-width text field. It now appears above the field; actual ImGui width/nonmutation regression passes (0.35s) at all three scales. No schema, migration semantics, scene history, dependency pin or renderer behavior changed. The clean numbered package will rerun the native capture suite and validate relocation/licenses/manifest integrity.
+
+## Editor interaction and visual-review automation
+
+- Added an input-driven Windows/WARP editor workflow: open creation menus, create and rename a cube, type transform values, Undo/Redo, Save, Delete/Undo, reload, create Camera and Light, zoom to 150%, and exercise Play/Pause/Step/Stop.
+- Actions use real submitted widget rectangles and queued mouse/keyboard/text events; the driver does not mutate authored state directly. SDL handles the ordinary interface-zoom event path.
+- Added state assertions, actual backbuffer captures, source/build/backend metadata, an action trace, and bounded failure capture. Step must advance exactly one runtime tick while staying paused.
+- Included the workflow in Windows source-audit and package validation. Broader staged captures remain separate; visual quality requires inspecting the resulting images and is never inferred solely from passing assertions.
+- This automation does not complete the outstanding Phase 7 camera/light Scene guides or certify engine-wide UX parity. Windows execution and image review are being recorded against the committed source.

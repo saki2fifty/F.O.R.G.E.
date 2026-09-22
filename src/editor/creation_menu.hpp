@@ -11,13 +11,16 @@ inline bool creation_menu(const EditorActions& actions, bool& at_target) {
         else
             categories.insert(r.category);
     }
-    for (const auto& c : categories)
-        if (ImGui::BeginMenu(c.c_str())) {
+    for (const auto& c : categories) {
+        const bool open = ImGui::BeginMenu(c.c_str());
+        FORGE_UI_PROBE("category:" + c);
+        if (open) {
             for (const auto& r : entity_recipes())
                 if (r.category == c)
                     actions.item("Create / " + r.label, r.label.c_str());
             ImGui::EndMenu();
         }
+    }
     ImGui::Separator();
     bool changed = false;
     if (ImGui::BeginMenu(at_target ? "Placement: At View Target" : "Placement: World Origin")) {

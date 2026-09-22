@@ -18,14 +18,15 @@ struct EditorFixture {
     std::filesystem::path output, project, config;
     unsigned stage = 0, frames = 0;
     Uint64 started = SDL_GetTicks(), stage_started = started;
-    bool prepared = false;
+    bool prepared = false, workflow = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     AssetId prefab;
     explicit EditorFixture(int argc, char** argv) {
-        if (argc != 2)
-            throw std::runtime_error("Expected fixture output directory");
+        if (argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
+            throw std::runtime_error("Expected fixture output directory [--workflow]");
+        workflow = argc == 3;
         output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         project = output / ("project-" + AssetId::generate().str());
@@ -38,6 +39,8 @@ struct EditorFixture {
         std::filesystem::remove_all(project, ec);
     }
     const char* focused_document() const {
+        if (workflow)
+            return nullptr;
         switch (stage) {
         case 41:
             return "###Texture import";
@@ -134,7 +137,8 @@ struct EditorFixture {
         factory->AttachToD3D12Device(native.Get(), 1, queues, {}, device, context);
     }
     void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
-                 Diligent::ITextureView* view, bool complete = true) {
+                 Diligent::ITextureView* view, bool complete = true,
+                 const std::string& label = {}) {
         using namespace Diligent;
         const char* names[] = {"default-scene-inspector",
                                "add-component",
@@ -261,9 +265,10 @@ struct EditorFixture {
                                        data);
         if (!data.pData)
             throw std::runtime_error("Editor fixture readback map failed");
-        std::ofstream image(
-            output / (std::string(complete ? "editor-" : "stalled-") + names[stage] + ".ppm"),
-            std::ios::binary);
+        const std::string name = label.empty() ? names[stage] : label;
+        std::ofstream image(output /
+                                (std::string(complete ? "editor-" : "stalled-") + name + ".ppm"),
+                            std::ios::binary);
         image << "P6\n" << desc.Width << ' ' << desc.Height << "\n255\n";
         for (unsigned y = 0; y < desc.Height; ++y)
             for (unsigned x = 0; x < desc.Width; ++x)
@@ -272,9 +277,9 @@ struct EditorFixture {
         if (!image)
             throw std::runtime_error("Editor fixture image write failed");
         std::cout << (complete ? "Captured editor stage " : "Captured stalled backbuffer ") << stage
-                  << " (" << names[stage] << ") in " << SDL_GetTicks() - stage_started << " ms\n"
+                  << " (" << name << ") in " << SDL_GetTicks() - stage_started << " ms\n"
                   << std::flush;
-        if (!complete)
+        if (!complete || !label.empty())
             return;
         ++stage;
         stage_started = SDL_GetTicks();

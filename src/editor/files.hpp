@@ -1,6 +1,7 @@
 #pragma once
 #include "document.hpp"
 #include "file_dialog.hpp"
+#include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <functional>
 namespace forge {
@@ -136,7 +137,9 @@ class EditorFiles {
         }
     }
     void menu(const std::function<void()>& save_menu = {}, bool scene_write = true) {
-        if (ImGui::BeginMenu("File")) {
+        const bool open = ImGui::BeginMenu("File");
+        FORGE_UI_PROBE("menu:File");
+        if (open) {
             ui::help("Projects, scene files, and recovery snapshots.");
             ImGui::BeginDisabled(busy());
             if (entry("New project...", "Create a new project folder with Scenes, Assets, Native, "
@@ -348,6 +351,7 @@ class EditorFiles {
                                : name == "Save scene As..." ? "Ctrl+Shift+S"
                                                             : nullptr;
         const bool clicked = ImGui::MenuItem(label, shortcut);
+        FORGE_UI_PROBE("file:" + name);
         ui::help(description);
         return clicked;
     }

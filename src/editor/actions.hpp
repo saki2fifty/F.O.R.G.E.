@@ -1,5 +1,6 @@
 #pragma once
 #include "icons.hpp"
+#include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <functional>
 #include <string>
@@ -39,6 +40,7 @@ class EditorActions {
         const bool clicked = ImGui::MenuItem(label ? label : a->label.c_str(),
                                              a->shortcut.empty() ? nullptr : a->shortcut.c_str(),
                                              false, a->available);
+        FORGE_UI_PROBE("action:" + id);
         help(a->help_text().c_str());
         if (clicked)
             return invoke(id);
@@ -54,6 +56,7 @@ class EditorActions {
                                  a->help_text();
         const bool clicked =
             icon_button(("##" + id).c_str(), symbol, description.c_str(), selected);
+        FORGE_UI_PROBE("icon:" + id);
         ImGui::EndDisabled();
         return clicked && invoke(id);
     }

@@ -75,3 +75,37 @@ build or tests. An older cache without a manifest uses normal rebuild behavior a
 records a manifest for subsequent runs. `clean_build` bypasses this optimization.
 `tests/ci_cache_test.py` runs a real Ninja dependency check, including modified header
 bytes with a deliberately preserved timestamp. Cache reuse is not validation evidence.
+
+## Input-driven editor review
+
+`editor_input_workflow` launches the real editor fixture on Windows/D3D12 WARP
+with a disposable empty project and preferences. Unlike the staged presentation
+fixture, it performs authoring exclusively through queued mouse/key/text input:
+Entity → Create menus, Name and transform fields, Undo/Redo, Save, Delete,
+Reload from disk, Camera/Light creation, interface zoom, Play/Pause/Step/Stop.
+The production SDL event loop handles interface-zoom events; Dear ImGui handles
+widget input. Test-only probes observe the actual submitted widget rectangles.
+They do not execute actions, force menus open, or change scene data.
+
+Assertions check resulting authored values, saved/reloaded data, entity counts,
+camera output, paused state, and exactly one simulation tick after Step.
+Screenshots are read from the actual rendered backbuffer at workflow checkpoints.
+Missing/disabled controls and failed assertions have bounded timeouts, a failure
+capture, and a JSON action/state trace. `workflow.json` records source/build,
+backend, window size, UI scale, target rectangles, and capture filenames.
+Evidence lives in the `FORGE-Editor-Source-Audit` artifact under
+`editor-workflow` (or `grid-test-images/editor-workflow` after extraction).
+
+Both the source-audit and Windows package test selections include this test.
+For a source-only run, dispatch **Build and test** with `audit_source` set to the
+full commit SHA and `windows_package=false`. Locally on a configured Windows
+build, use `ctest --test-dir <build> -R '^editor_input_workflow$' --output-on-failure`.
+No package/build-number allocation is needed for a source audit.
+
+A passing test establishes only the listed interactions and assertions. Review
+the images separately for readability, clipping, hierarchy, selection feedback,
+and useful camera/light presentation. `visual_review` deliberately remains
+pending in machine output until an actual reviewer examines the images. Extend
+input/capture coverage for changed workflows; this scenario is not exhaustive
+coverage of every editor control, OS dialog, drag/drop gesture, GPU, or display.
+The existing staged fixture continues to cover broader visual states and scales.

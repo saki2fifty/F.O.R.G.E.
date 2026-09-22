@@ -2,6 +2,7 @@
 #include "editor_state.hpp"
 #include "icons.hpp"
 #include "scene_cache.hpp"
+#include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
@@ -131,6 +132,7 @@ class BlockoutProperties {
                                              : .5f,
                                   &low, &high, scale ? scale_formats[axis] : formats[axis],
                                   ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat);
+            FORGE_UI_PROBE("transform:" + name + ":" + std::to_string(axis));
             released |= ImGui::IsItemDeactivatedAfterEdit();
             ui::help("Drag this labeled axis or Ctrl-click to type. Release commits one scene "
                      "Undo; Escape cancels.");
