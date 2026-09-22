@@ -6,6 +6,8 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Projects and authored content
 
+- [Cooked content packages](editor/runtime-content.md): prepare and verify source-independent asset data.
+
 - [Flecs Script](editor/flecs-script.md): edit project scripts and inspect managed preview results.
 
 - [Runtime UI](editor/runtime-ui.md): create a game HUD, use buttons and text fields, and test Pause/Step.

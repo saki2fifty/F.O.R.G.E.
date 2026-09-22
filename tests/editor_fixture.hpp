@@ -36,6 +36,31 @@ struct EditorFixture {
         std::error_code ec;
         std::filesystem::remove_all(project, ec);
     }
+    const char* focused_document() const {
+        switch (stage) {
+        case 41:
+            return "###Texture import";
+        case 42:
+            return "###Material";
+        case 43:
+            return "###Model import";
+        case 44:
+        case 45:
+            return "###Asset viewer";
+        case 46:
+            return "Content";
+        case 47:
+        case 48:
+        case 49:
+            return "###Audio clip";
+        case 50:
+        case 51:
+        case 52:
+            return "###Shader import";
+        default:
+            return nullptr;
+        }
+    }
     static void device(Diligent::IEngineFactoryD3D12* factory, Diligent::IRenderDevice** device,
                        Diligent::IDeviceContext** context) {
         using Microsoft::WRL::ComPtr;
@@ -101,7 +126,20 @@ struct EditorFixture {
                                "content-thumbnails",
                                "content-thumbnails-200",
                                "content-file-review",
-                               "content-file-review-200"};
+                               "content-file-review-200",
+                               "content-file-review-150",
+                               "texture-import-150",
+                               "material-editor-150",
+                               "model-preview-150",
+                               "mesh-preview-150",
+                               "imported-material-preview-150",
+                               "content-thumbnails-150",
+                               "audio-import",
+                               "audio-import-150",
+                               "audio-import-200",
+                               "shader-import",
+                               "shader-import-150",
+                               "shader-import-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

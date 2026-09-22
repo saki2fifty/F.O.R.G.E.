@@ -7,6 +7,7 @@
 #include "model_render_resource.hpp"
 #include "model_selection.hpp"
 #include "model_watch_tests.hpp"
+#include "runtime_package.hpp"
 #include <forge/model_asset.hpp>
 #include <fstream>
 #include <iostream>
@@ -143,6 +144,17 @@ int main(int argc, char** argv) {
                                 edge.expected_type,
                         "Model member binding type/revision mismatch");
         }
+        const auto packaged_path =
+            root.parent_path() / ("model-package-" + AssetId::generate().str());
+        const std::array packaged_roots{before.at("/meshes/0")};
+        const RuntimePackageTarget runtime_target{"portable", "none"};
+        (void)package_runtime_content(root, packaged_path, packaged_roots, runtime_target);
+        const auto packaged_catalog = open_runtime_content(packaged_path, runtime_target);
+        const auto packaged_model = load_model_selection(packaged_path, packaged_catalog, owner);
+        require(packaged_model.bindings == before &&
+                    !std::filesystem::exists(packaged_path / source),
+                "Source-independent model family package lost identities or copied source");
+        std::filesystem::remove_all(packaged_path);
         auto loaded_model = load_model_selection(root, first.publication->catalog, owner);
         require(loaded_model.bindings == before &&
                     loaded_model.revision == first.publication->artifact.key,

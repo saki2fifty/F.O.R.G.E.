@@ -235,7 +235,9 @@ CachedArtifact DerivedDataCache::load_selected(std::string_view key, const Valid
     validator_required(validate);
     if (!valid_content_digest(key))
         throw std::runtime_error("Invalid selected artifact revision");
-    CacheLock lock(root_);
+    // Selected revisions are immutable. Readers verify owned bytes and need no
+    // writer lock file (runtime packages may be installed read-only). Concurrent
+    // eviction can fail this request; it cannot publish partial/unvalidated data.
     auto artifact = read(std::string(key));
     validate(artifact);
     return artifact;

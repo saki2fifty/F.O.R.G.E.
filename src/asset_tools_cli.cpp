@@ -1,6 +1,7 @@
 #include "asset_tools_cli.hpp"
-#ifdef FORGE_ASSET_TOOLS
 #include "bounded_json.hpp"
+#include "runtime_package.hpp"
+#ifdef FORGE_ASSET_TOOLS
 #include "import_authoring.hpp"
 #include "self_executable.hpp"
 #include "texture_authoring.hpp"
@@ -22,7 +23,24 @@ int asset_tools_cli(int argc, char** argv) {
         if (!std::filesystem::is_directory(project))
             throw std::runtime_error("Project root is not a directory");
         Json result{{"api", 1}, {"operation", operation}, {"ok", true}};
-        if (operation == "scan" && argc <= 5) {
+        if ((operation == "package" && argc == 7) || (operation == "verify-package" && argc == 5)) {
+            const std::string_view target_text(argv[operation == "package" ? 5 : 4]);
+            const auto target_json = asset_detail::parse_bounded_json(
+                std::as_bytes(std::span(target_text)), 1024, 32, 4);
+            const RuntimePackageTarget target{target_json.at("platform"),
+                                              target_json.at("backend")};
+            if (operation == "package") {
+                const std::string_view roots_text(argv[6]);
+                const auto roots = asset_detail::parse_bounded_json(
+                                       std::as_bytes(std::span(roots_text)), 1024 * 1024, 32768, 4)
+                                       .get<std::vector<AssetId>>();
+                result["manifest"] = package_runtime_content(
+                    project, std::filesystem::u8path(argv[4]), roots, target);
+            } else {
+                const auto catalog = open_runtime_content(project, target);
+                result["assets"] = catalog.records().size();
+            }
+        } else if (operation == "scan" && argc <= 5) {
             SourceScanOptions options;
             if (argc == 5)
                 options.roots = {std::filesystem::u8path(argv[4])};

@@ -1528,6 +1528,113 @@ int main(int argc, char** argv) {
                     ImGui::SetWindowPos("Asset source files", {15, 15});
                     ImGui::SetWindowSize("Asset source files", {930, 610});
                     break;
+                case 40:
+                    forge::ui::style(1.5f);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    ImGui::SetWindowPos("Asset source files", {300, 90});
+                    ImGui::SetWindowSize("Asset source files", {1050, 855});
+                    break;
+                case 41:
+                    // The reviewed delete was never committed. Release the test's
+                    // draft before preparing independent document captures.
+                    content_files = forge::ContentFiles{};
+                    content_imports.suspend(false);
+                    ImGui::ClosePopupToLevel(0, true);
+                    if (auto* w = ImGui::FindWindowByName("Content"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    workspace.content = false;
+                    workspace.reset = true;
+                    ImGui::SetWindowFocus("###Texture import");
+                    break;
+                case 42:
+                    ImGui::SetWindowFocus("###Material");
+                    break;
+                case 43:
+                    ImGui::SetWindowFocus("###Model import");
+                    break;
+                case 44:
+                case 45: {
+                    const std::string type = fixture.stage == 44 ? "mesh" : "material";
+                    const auto& records = mesh_resources->catalog()->records();
+                    const auto found =
+                        std::find_if(records.begin(), records.end(), [&](const auto& entry) {
+                            return entry.second.type == type && entry.second.subasset &&
+                                   entry.second.source.generic_string() == "Assets/preview.gltf";
+                        });
+                    if (found == records.end())
+                        throw std::runtime_error("150% preview fixture member is missing");
+                    asset_view_document.open(files.document.project(), found->second);
+                    break;
+                }
+                case 46:
+                    workspace.content = true;
+                    workspace.bottom_folded = false;
+                    if (auto* w = ImGui::FindWindowByName("Content"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Content", {30, 70});
+                    ImGui::SetWindowSize("Content", {1860, 960});
+                    ImGui::SetWindowFocus("Content");
+                    break;
+                case 47: {
+                    workspace.content = false;
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    workspace.reset = true;
+                    std::string wav;
+                    auto put = [&](unsigned value, unsigned count) {
+                        for (unsigned i = 0; i < count; ++i)
+                            wav.push_back(char((value >> (i * 8)) & 255));
+                    };
+                    wav += "RIFF";
+                    put(36 + 480 * 2, 4);
+                    wav += "WAVEfmt ";
+                    put(16, 4);
+                    put(1, 2);
+                    put(1, 2);
+                    put(48000, 4);
+                    put(96000, 4);
+                    put(2, 2);
+                    put(16, 2);
+                    wav += "data";
+                    put(480 * 2, 4);
+                    for (unsigned i = 0; i < 480; ++i)
+                        put(i % 2 ? 4096 : 2048, 2);
+                    forge::atomic_write(files.document.project() / "Assets/sound.wav", wav);
+                    audio_imports.open(files.document, "Assets/sound.wav");
+                    audio_imports.request_save();
+                    break;
+                }
+                case 48:
+                case 51:
+                    forge::ui::style(1.5f);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    workspace.reset = true;
+                    break;
+                case 49:
+                case 52:
+                    forge::ui::style(2);
+                    workspace.reset = true;
+                    break;
+                case 50: {
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1440, 900);
+                    workspace.reset = true;
+                    const forge::Json shader{
+                        {"format", "forge.shader"},
+                        {"version", 1},
+                        {"asset_id", forge::AssetId::generate()},
+                        {"source_root", "Shaders"},
+                        {"stages",
+                         forge::Json::array({{{"stage", "vertex"}, {"source", "preview.hlsl"}}})}};
+                    forge::atomic_write(files.document.project() / "Assets/Preview.shader.json",
+                                        shader.dump(2));
+                    forge::atomic_write(files.document.project() / "Shaders/preview.hlsl",
+                                        "float4 main(float3 p:ATTRIB0):SV_POSITION { return "
+                                        "float4(p,1); }\n");
+                    shader_imports.open(files.document, "Assets/Preview.shader.json");
+                    shader_imports.request_save();
+                    break;
+                }
                 }
                 fixture.prepared = ready;
             }
@@ -2592,6 +2699,8 @@ int main(int argc, char** argv) {
             if (rebuilt_workspace)
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
+            if (const auto* target = fixture.focused_document())
+                ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
             const auto drawn_thumbnail_count =
@@ -2608,27 +2717,46 @@ int main(int argc, char** argv) {
             gui->Render(context);
 #ifdef FORGE_UI_FIXTURE
             ++fixture.frames;
+            bool captured_document_visible = true;
+            if (const auto* target = fixture.focused_document()) {
+                const auto* w = ImGui::FindWindowByName(target);
+                captured_document_visible =
+                    w && w->Active && !w->Hidden && (!w->DockIsActive || w->DockTabIsVisible);
+            }
+            if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
+                throw std::runtime_error("Audio import fixture failed: " +
+                                         audio_imports.diagnostic());
+            if (fixture.stage >= 50 && !shader_imports.diagnostic().empty())
+                throw std::runtime_error("Shader import fixture failed: " +
+                                         shader_imports.diagnostic());
             if ((fixture.stage == 30 || fixture.stage == 31) && model_viewer &&
                 !model_viewer->error().empty())
                 throw std::runtime_error("Model preview fixture failed: " + model_viewer->error());
             if (fixture.stage >= 32 && fixture.stage <= 35 && !asset_view_document.error().empty())
                 throw std::runtime_error("Member preview fixture failed: " +
                                          asset_view_document.error());
-            if (fixture.prepared && fixture.frames > 12 &&
-                ((fixture.stage != 26 && fixture.stage != 27) ||
+            if (fixture.prepared && fixture.frames > 12 && captured_document_visible &&
+                ((fixture.stage != 26 && fixture.stage != 27 && fixture.stage != 41) ||
                  (texture_viewer && texture_viewer->ready())) &&
                 (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
                 (fixture.stage != 7 || (play.paused() && game_input.captured())) &&
-                ((fixture.stage != 28 && fixture.stage != 29) ||
+                ((fixture.stage != 28 && fixture.stage != 29 && fixture.stage != 42) ||
                  (material_preview && !material_preview->pending())) &&
-                ((fixture.stage != 30 && fixture.stage != 31) ||
+                ((fixture.stage != 30 && fixture.stage != 31 && fixture.stage != 43) ||
                  (model_viewer && model_viewer->ready())) &&
-                ((fixture.stage < 32 || fixture.stage > 35) || asset_view_document.ready()) &&
-                ((fixture.stage != 36 && fixture.stage != 37) ||
+                (((fixture.stage < 32 || fixture.stage > 35) && fixture.stage != 44 &&
+                  fixture.stage != 45) ||
+                 asset_view_document.ready()) &&
+                ((fixture.stage != 36 && fixture.stage != 37 && fixture.stage != 46) ||
                  (content_thumbnails && drawn_thumbnail_count >= 5)) &&
-                (fixture.stage < 38 ||
+                ((fixture.stage < 38 || fixture.stage > 40) ||
                  (content_files.operation() &&
-                  content_files.operation()->state() == forge::AssetFileState::Review))) {
+                  content_files.operation()->state() == forge::AssetFileState::Review)) &&
+                ((fixture.stage < 47 || fixture.stage > 49) ||
+                 (!audio_imports.dirty() && !audio_imports.pending() &&
+                  audio_imports.diagnostic().empty())) &&
+                (fixture.stage < 50 || (!shader_imports.dirty() && !shader_imports.pending() &&
+                                        shader_imports.diagnostic().empty()))) {
                 if ((fixture.stage == 28 || fixture.stage == 29) &&
                     !material_preview->diagnostics().empty())
                     throw std::runtime_error("Material editor fixture preview failed");
@@ -2658,7 +2786,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 40) {
+                if (fixture.stage == 53) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

@@ -1,2 +1,7 @@
 # Preserve unmodified upstream fixture bytes and their recorded content hashes.
 /samples/gltf/NegativeScaleTest/* -text
+# Official corpus and notices contain upstream whitespace. Preserve their bytes
+# on Windows too; provenance.json verifies them instead of reformatting them.
+/tests/fixtures/gltf-official/** -text -whitespace
+/tests/fixtures/gltf-official/README.md text !whitespace
+/tests/fixtures/gltf-official/provenance.json text eol=lf !whitespace

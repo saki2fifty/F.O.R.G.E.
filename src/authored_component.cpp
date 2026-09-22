@@ -129,7 +129,12 @@ EngineModule copied_authoring_module(Json copied) {
     return module;
 }
 void validate_custom_values(const Json& schema, const Json& components) {
-    for (const auto& type : schema.value("components", Json::array())) {
+    const auto components_schema = schema.find("components");
+    if (components_schema == schema.end())
+        return;
+    // Borrow the admitted schema; copying every descriptor per entity makes
+    // simple edits scale with unrelated component metadata.
+    for (const auto& type : *components_schema) {
         const auto key = type.at("id").get<std::string>();
         if (!type.value("custom", false) || !components.contains(key))
             continue;
@@ -156,7 +161,12 @@ void validate_runtime_custom_values(const WorldContext& context, const Json& com
 }
 void project_custom_prefab_intent(Json& values, const Json& instance, const Json& schema) {
     const auto intent = instance.value("property_overrides", Json::object());
-    for (const auto& type : schema.value("components", Json::array())) {
+    const auto components_schema = schema.find("components");
+    if (components_schema == schema.end())
+        return;
+    // Borrow the admitted schema; copying every descriptor per entity makes
+    // simple edits scale with unrelated component metadata.
+    for (const auto& type : *components_schema) {
         const auto key = type.at("id").get<std::string>();
         if (!type.value("custom", false) || !intent.contains(key))
             continue;

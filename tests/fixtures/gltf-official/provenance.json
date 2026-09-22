@@ -1,0 +1,786 @@
+{
+  "upstream": "KhronosGroup/glTF-Sample-Assets",
+  "revision": "c6a6bd13ab2b3c685c7903d03561b8a9392f38b8",
+  "modified": false,
+  "fixtures": [
+    {
+      "name": "BoxTextured/glTF",
+      "source": "BoxTextured/glTF/BoxTextured.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Cesium",
+          "year": "2017",
+          "owner": "Cesium",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        },
+        {
+          "license": "LicenseRef-LegalMark-Cesium",
+          "licenseUrl": "../../LICENSES/LicenseRef-LegalMark-Cesium.txt",
+          "artist": "Non-copyrightable logo",
+          "year": "2015",
+          "owner": "Cesium",
+          "what": "Cesium logo",
+          "text": "Cesium Trademark or Logo",
+          "icon": ""
+        }
+      ]
+    },
+    {
+      "name": "NormalTangentTest/glTF",
+      "source": "NormalTangentTest/glTF/NormalTangentTest.gltf",
+      "legal": [
+        {
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Ed Mackey",
+          "year": "2018",
+          "owner": "Analytical Graphics, Inc.",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "AlphaBlendModeTest/glTF",
+      "source": "AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Ed Mackey",
+          "year": "2018",
+          "owner": "Analytical Graphics, Inc.",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "MorphPrimitivesTest/glTF",
+      "source": "MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "ft-lab",
+          "year": "2018",
+          "owner": "ft-lab",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        },
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Frank Galligan",
+          "year": "2020",
+          "owner": "Frank Galligan",
+          "what": "DRACO compression",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "RiggedSimple/glTF",
+      "source": "RiggedSimple/glTF/RiggedSimple.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Cesium",
+          "year": "2017",
+          "owner": "Cesium",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "SimpleSkin/glTF",
+      "source": "SimpleSkin/glTF/SimpleSkin.gltf",
+      "legal": [
+        {
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Marco Hutter (https://github.com/javagl/)",
+          "year": "2017",
+          "owner": "Public",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "BoxAnimated/glTF",
+      "source": "BoxAnimated/glTF/BoxAnimated.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Cesium",
+          "year": "2017",
+          "owner": "Cesium",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "Cameras/glTF",
+      "source": "Cameras/glTF/Cameras.gltf",
+      "legal": [
+        {
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Marco Hutter (https://github.com/javagl/)",
+          "year": "2017",
+          "owner": "Public",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "PointLightIntensityTest/glTF",
+      "source": "PointLightIntensityTest/glTF/PointLightIntensityTest.gltf",
+      "legal": [
+        {
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Ed Mackey",
+          "year": "2025",
+          "owner": "Public",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "SimpleSparseAccessor/glTF",
+      "source": "SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Marco Hutter (https://github.com/javagl/)",
+          "year": "2017",
+          "owner": "Public",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "CompareClearcoat/glTF",
+      "source": "CompareClearcoat/glTF/CompareClearcoat.gltf",
+      "legal": [
+        {
+          "license": "LicenseRef-LegalMark-Khronos",
+          "licenseUrl": "../../LICENSES/LicenseRef-LegalMark-Khronos.txt",
+          "artist": "Non-copyrightable logo",
+          "year": "2017",
+          "owner": "Khronos Group",
+          "what": "glTF logo",
+          "text": "Khronos Trademark or Logo",
+          "icon": ""
+        },
+        {
+          "year": "2024",
+          "owner": "Public",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Eric Chadwick and DGG",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "CompareIridescence/glTF",
+      "source": "CompareIridescence/glTF/CompareIridescence.gltf",
+      "legal": [
+        {
+          "license": "LicenseRef-LegalMark-Khronos",
+          "licenseUrl": "../../LICENSES/LicenseRef-LegalMark-Khronos.txt",
+          "artist": "Non-copyrightable logo",
+          "year": "2017",
+          "owner": "Khronos Group",
+          "what": "glTF logo",
+          "text": "Khronos Trademark or Logo",
+          "icon": ""
+        },
+        {
+          "year": "2024",
+          "owner": "Public",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Eric Chadwick and DGG",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "CompareSheen/glTF",
+      "source": "CompareSheen/glTF/CompareSheen.gltf",
+      "legal": [
+        {
+          "license": "LicenseRef-LegalMark-Khronos",
+          "licenseUrl": "../../LICENSES/LicenseRef-LegalMark-Khronos.txt",
+          "artist": "Non-copyrightable logo",
+          "year": "2017",
+          "owner": "Khronos Group",
+          "what": "glTF logo",
+          "text": "Khronos Trademark or Logo",
+          "icon": ""
+        },
+        {
+          "year": "2024",
+          "owner": "Public",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Eric Chadwick and DGG",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "CompareTransmission/glTF",
+      "source": "CompareTransmission/glTF/CompareTransmission.gltf",
+      "legal": [
+        {
+          "license": "LicenseRef-LegalMark-Khronos",
+          "licenseUrl": "../../LICENSES/LicenseRef-LegalMark-Khronos.txt",
+          "artist": "Non-copyrightable logo",
+          "year": "2017",
+          "owner": "Khronos Group",
+          "what": "glTF logo",
+          "text": "Khronos Trademark or Logo",
+          "icon": ""
+        },
+        {
+          "year": "2024",
+          "owner": "Public",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Eric Chadwick and DGG",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "AnisotropyStrengthTest/glTF",
+      "source": "AnisotropyStrengthTest/glTF/AnisotropyStrengthTest.gltf",
+      "legal": [
+        {
+          "year": "2023",
+          "owner": "Public",
+          "license": "CC0-1.0",
+          "artist": "Ed Mackey",
+          "what": "Everything",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "Box/glTF-Binary",
+      "source": "Box/glTF-Binary/Box.glb",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Cesium",
+          "year": "2017",
+          "owner": "Cesium",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "Box/glTF-Draco",
+      "source": "Box/glTF-Draco/Box.gltf",
+      "legal": [
+        {
+          "license": "CC-BY-4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "artist": "Cesium",
+          "year": "2017",
+          "owner": "Cesium",
+          "what": "Everything",
+          "text": "Creative Commons Attribution 4.0 International",
+          "spdx": "CC-BY-4.0",
+          "icon": "https://licensebuttons.net/l/by/4.0/88x31.png"
+        }
+      ]
+    },
+    {
+      "name": "AnimatedMorphCube/glTF-Quantized",
+      "source": "AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.gltf",
+      "legal": [
+        {
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "artist": "Microsoft",
+          "year": "2017",
+          "owner": "Public",
+          "what": "Everything",
+          "text": "Creative Commons Zero v1.0 Universal",
+          "spdx": "CC0-1.0",
+          "icon": "https://licensebuttons.net/p/zero/1.0/88x31.png"
+        }
+      ]
+    }
+  ],
+  "files": {
+    "AlphaBlendModeTest/glTF/AlphaBlendLabels.png": {
+      "bytes": 58424,
+      "sha256": "19c705f7e207384ca1ab01e0665601c051ca33c5848c03ce4fffad625b416b53",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/glTF/AlphaBlendLabels.png"
+    },
+    "AlphaBlendModeTest/glTF/AlphaBlendModeTest.bin": {
+      "bytes": 6776,
+      "sha256": "bb89ab8d9ac0cfbc168e5d552e3ec2fe1285fd01bacb65c863d838b3db025c85",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.bin"
+    },
+    "AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf": {
+      "bytes": 31620,
+      "sha256": "49e06672900df95593040d35bbc7a2ee5921ae8d46edc44b64ccf2df65e64849",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf"
+    },
+    "AlphaBlendModeTest/glTF/MatBed_baseColor.jpg": {
+      "bytes": 688158,
+      "sha256": "71571cce0d86c7c5ed4ac73d852ec34e72e7234a2f905f2758e118519c950bcf",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/glTF/MatBed_baseColor.jpg"
+    },
+    "AlphaBlendModeTest/glTF/MatBed_normal.jpg": {
+      "bytes": 1202979,
+      "sha256": "d8891a9c08e375507ac8f1fb260577bda5e90506e79db92ebbfb5caa9216be49",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/glTF/MatBed_normal.jpg"
+    },
+    "AlphaBlendModeTest/glTF/MatBed_occlusionRoughnessMetallic.jpg": {
+      "bytes": 1010296,
+      "sha256": "e1472454ad6be574c3a418985f06a8ba36877108a94f61590f01e118804379b4",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/glTF/MatBed_occlusionRoughnessMetallic.jpg"
+    },
+    "AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.bin": {
+      "bytes": 1700,
+      "sha256": "bde22d01f34dd8f5d83cfbb20a1a6d117ec48596157df5d484a58eba13cdff51",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.bin"
+    },
+    "AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.gltf": {
+      "bytes": 4072,
+      "sha256": "ff514453beb4b2130fe4c0857a71f8af568a86258f814b4c7b9ac9a55722a850",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.gltf"
+    },
+    "AnisotropyStrengthTest/glTF/AnisotropySpheresLabels.png": {
+      "bytes": 12473,
+      "sha256": "9c9779ff502078bda171a645f15d4ac6998dc6c833c6b101fd0ed4fd8c2be6ae",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnisotropyStrengthTest/glTF/AnisotropySpheresLabels.png"
+    },
+    "AnisotropyStrengthTest/glTF/AnisotropyStrengthTest.gltf": {
+      "bytes": 32421,
+      "sha256": "4f50735d6cb3a3088709e576185ab74cb5a0b476b106bf96a53028475e996868",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnisotropyStrengthTest/glTF/AnisotropyStrengthTest.gltf"
+    },
+    "AnisotropyStrengthTest/glTF/AnisotropyStrengthTest_data.bin": {
+      "bytes": 65760,
+      "sha256": "24946d44e80827fa214c8b3c4b10a2289a2a97843e2b1aeb5781bc1259d9761b",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnisotropyStrengthTest/glTF/AnisotropyStrengthTest_data.bin"
+    },
+    "Box/glTF-Binary/Box.glb": {
+      "bytes": 1664,
+      "sha256": "ed52f7192b8311d700ac0ce80644e3852cd01537e4d62241b9acba023da3d54e",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Box/glTF-Binary/Box.glb"
+    },
+    "Box/glTF-Draco/Box.bin": {
+      "bytes": 120,
+      "sha256": "610dc6e08aba7c2720c8e4ec0578efd91cf2d88a5e638dab7811a22f0235bf2e",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Box/glTF-Draco/Box.bin"
+    },
+    "Box/glTF-Draco/Box.gltf": {
+      "bytes": 2427,
+      "sha256": "3c46acecdfa90b012ec9052d8a1dfa61358e6d56a9e333504189cc78a2de4d1b",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Box/glTF-Draco/Box.gltf"
+    },
+    "BoxAnimated/glTF/BoxAnimated.gltf": {
+      "bytes": 7280,
+      "sha256": "bb97bd72afb27f46a63ae458c3f194e40f7e8a09aac1f5eb4cef3293c689ab0b",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxAnimated/glTF/BoxAnimated.gltf"
+    },
+    "BoxAnimated/glTF/BoxAnimated0.bin": {
+      "bytes": 9308,
+      "sha256": "e976ed06d0fbb5b4e92a33ef264e78894cf9c8cdb8c5836e43ef92f4d968def4",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxAnimated/glTF/BoxAnimated0.bin"
+    },
+    "BoxTextured/glTF/BoxTextured.gltf": {
+      "bytes": 3695,
+      "sha256": "1e9003a4a2a8822ff60da529357bd8e4dec4a59b1a479017993e7e2ad5fcebef",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxTextured/glTF/BoxTextured.gltf"
+    },
+    "BoxTextured/glTF/BoxTextured0.bin": {
+      "bytes": 840,
+      "sha256": "2e8c0483fa6665c686ec345f89dcbb2a694a587442584d09f8a83a59633327bc",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxTextured/glTF/BoxTextured0.bin"
+    },
+    "BoxTextured/glTF/CesiumLogoFlat.png": {
+      "bytes": 3750,
+      "sha256": "9c22b05c5b136d03c5621a8765e50a8322be6c35b9de53e9fe22685840d7f469",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxTextured/glTF/CesiumLogoFlat.png"
+    },
+    "Cameras/glTF/Cameras.bin": {
+      "bytes": 60,
+      "sha256": "2d73fc484aab11784e8773862e69b28cb7e0d7d1aadac6032ceea7c490cfd15e",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Cameras/glTF/Cameras.bin"
+    },
+    "Cameras/glTF/Cameras.gltf": {
+      "bytes": 1585,
+      "sha256": "5ca6b0ebf70411edd8a11427adeff23b1a2211ea7145f0964a95ac6573df9abc",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Cameras/glTF/Cameras.gltf"
+    },
+    "CompareClearcoat/glTF/CompareClearcoat.bin": {
+      "bytes": 87648,
+      "sha256": "15247fce2bedbd0568d4878409369ce9e67b51040b9a1efd80c2f3798fbe113c",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareClearcoat/glTF/CompareClearcoat.bin"
+    },
+    "CompareClearcoat/glTF/CompareClearcoat.gltf": {
+      "bytes": 7498,
+      "sha256": "c3cdefdd2b5306d8cfb2d7672fedab87f97c3caabf897fcf5ed74fe57a6810e0",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareClearcoat/glTF/CompareClearcoat.gltf"
+    },
+    "CompareClearcoat/glTF/Compare_Clearcoat_img0.jpg": {
+      "bytes": 48897,
+      "sha256": "19acf68cf99dde06af2e4da00b14b8fb81f21e1a154ece528861aa66efab2c9f",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareClearcoat/glTF/Compare_Clearcoat_img0.jpg"
+    },
+    "CompareClearcoat/glTF/Compare_Clearcoat_img1.jpg": {
+      "bytes": 53105,
+      "sha256": "ba910a1057a04a3b228ca11adee2d5f700d4cfce5ad4cc38404c822eb6538f95",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareClearcoat/glTF/Compare_Clearcoat_img1.jpg"
+    },
+    "CompareIridescence/glTF/CompareIridescence.bin": {
+      "bytes": 58432,
+      "sha256": "44c23126516708d693283143a15adf32cfc7399eaf2766f477d3c27aaa152622",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareIridescence/glTF/CompareIridescence.bin"
+    },
+    "CompareIridescence/glTF/CompareIridescence.gltf": {
+      "bytes": 5431,
+      "sha256": "5bae5f843478dd5b8b5eaa2c7b0c5cd70f3807bae8bd6833ac227a39c0842a84",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareIridescence/glTF/CompareIridescence.gltf"
+    },
+    "CompareIridescence/glTF/Compare_Iridescence_img0.jpg": {
+      "bytes": 50295,
+      "sha256": "7900f41ce34ee5a0922b4b03983875154e13ec165b17df05e4559d843a184d87",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareIridescence/glTF/Compare_Iridescence_img0.jpg"
+    },
+    "CompareIridescence/glTF/Compare_Iridescence_img1.jpg": {
+      "bytes": 53497,
+      "sha256": "cc355ff6079ac60a6b0db338008b3f2f2decb13d69b1504d5943f85f5820f8b1",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareIridescence/glTF/Compare_Iridescence_img1.jpg"
+    },
+    "CompareIridescence/glTF/Compare_Iridescence_img2.jpg": {
+      "bytes": 49345,
+      "sha256": "af9e21b5db0a13a94b01b966f4a981cde2100b3fd235aeb7201ad3cc007a01f4",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareIridescence/glTF/Compare_Iridescence_img2.jpg"
+    },
+    "CompareSheen/glTF/CompareSheen.bin": {
+      "bytes": 58432,
+      "sha256": "44c23126516708d693283143a15adf32cfc7399eaf2766f477d3c27aaa152622",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareSheen/glTF/CompareSheen.bin"
+    },
+    "CompareSheen/glTF/CompareSheen.gltf": {
+      "bytes": 5442,
+      "sha256": "da25abe3939ae0bfe6ca850bc5eeea64af1fc92b23624a43e9ee840d7c8ecc32",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareSheen/glTF/CompareSheen.gltf"
+    },
+    "CompareSheen/glTF/Compare_Sheen_img0.jpg": {
+      "bytes": 50570,
+      "sha256": "c4df4eeb7671397d9ef2cab71fba62c35a08a9a55af239205c78d889d32aa5f8",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareSheen/glTF/Compare_Sheen_img0.jpg"
+    },
+    "CompareSheen/glTF/Compare_Sheen_img1.jpg": {
+      "bytes": 721487,
+      "sha256": "8de747749bbb41faf247fd8cb85db07fbe37d310f5135e68ce15a4939da2f72b",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareSheen/glTF/Compare_Sheen_img1.jpg"
+    },
+    "CompareSheen/glTF/Compare_Sheen_img2.jpg": {
+      "bytes": 50297,
+      "sha256": "69beb2e085a25c19c932e723943f16fa41b7c153574fe666db38f63ec8b00835",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareSheen/glTF/Compare_Sheen_img2.jpg"
+    },
+    "CompareTransmission/glTF/CompareTransmission.bin": {
+      "bytes": 270668,
+      "sha256": "733308602f434c182a7795e77f0c76cc50f5b04ec48b937fcbe3902dca3c024c",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/glTF/CompareTransmission.bin"
+    },
+    "CompareTransmission/glTF/CompareTransmission.gltf": {
+      "bytes": 12205,
+      "sha256": "794ce95802a1d15fca94f7388addcb127c80f0a1b1b931e749afe2ea0985e88b",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/glTF/CompareTransmission.gltf"
+    },
+    "CompareTransmission/glTF/Compare_Transmission_img0.jpg": {
+      "bytes": 32730,
+      "sha256": "584ed6f682e657406d7a36a830bcaeca18bd965cdef6877e1e3325a20f350494",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/glTF/Compare_Transmission_img0.jpg"
+    },
+    "CompareTransmission/glTF/Compare_Transmission_img1.png": {
+      "bytes": 30802,
+      "sha256": "abc0da74c2bdfe88954bafb1992d367e963e1315be06027490a46fba3517441e",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/glTF/Compare_Transmission_img1.png"
+    },
+    "CompareTransmission/glTF/Compare_Transmission_img2.png": {
+      "bytes": 97,
+      "sha256": "ea58fe2331675ece5e2597ae332921996e05531b9b2439e0dca0203c8be97b70",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/glTF/Compare_Transmission_img2.png"
+    },
+    "CompareTransmission/glTF/Compare_Transmission_img3.jpg": {
+      "bytes": 15884,
+      "sha256": "116e33c6bfc2d560d15cb2d2470ddc2d37ffca6bcdd384021e0c1283fa4f8fd0",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/glTF/Compare_Transmission_img3.jpg"
+    },
+    "MorphPrimitivesTest/glTF/MorphPrimitivesTest.bin": {
+      "bytes": 1512,
+      "sha256": "59ec1d7ca5c8d7605b69aa57cee3da2994384831a290e5271ecd963002c31c76",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/MorphPrimitivesTest/glTF/MorphPrimitivesTest.bin"
+    },
+    "MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf": {
+      "bytes": 5610,
+      "sha256": "a51388b330a49586388e052dc66f74e95cdbc1efcdddea4248f65e200e1d335a",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf"
+    },
+    "MorphPrimitivesTest/glTF/uv_texture.jpg": {
+      "bytes": 49535,
+      "sha256": "d498c54b30f096b663b161f37ee64397253d6fa15ee4f8c03082c890f6065031",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/MorphPrimitivesTest/glTF/uv_texture.jpg"
+    },
+    "NormalTangentTest/glTF/NormalTangentTest.gltf": {
+      "bytes": 4459,
+      "sha256": "ef2b152063304ebb0314646d3d1610cdc680e131d2cbfef10972dc6120d4dd18",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NormalTangentTest/glTF/NormalTangentTest.gltf"
+    },
+    "NormalTangentTest/glTF/NormalTangentTest0.bin": {
+      "bytes": 174100,
+      "sha256": "2d0fc6d43cb11b61a746bc80218b5e9e6c60dcc40f86d4a3f4fdbf11909cd990",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NormalTangentTest/glTF/NormalTangentTest0.bin"
+    },
+    "NormalTangentTest/glTF/NormalTangentTest_BaseColor.png": {
+      "bytes": 36384,
+      "sha256": "4182902c6dc833b48c0325568c2c5bd3e2d5fc04e27a8dc1917ced2818e1fac1",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NormalTangentTest/glTF/NormalTangentTest_BaseColor.png"
+    },
+    "NormalTangentTest/glTF/NormalTangentTest_Normal.png": {
+      "bytes": 212495,
+      "sha256": "9cebea6c513ddfb1f5f5c761c08bca1468d2283a3cd9772bba3a57e484862ead",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NormalTangentTest/glTF/NormalTangentTest_Normal.png"
+    },
+    "NormalTangentTest/glTF/NormalTangentTest_OcclusionRoughnessMetallic.png": {
+      "bytes": 1371840,
+      "sha256": "3fff511720bea1fd8590ddb7b62090700e812e39ca71dd3200493093ad704399",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NormalTangentTest/glTF/NormalTangentTest_OcclusionRoughnessMetallic.png"
+    },
+    "PointLightIntensityTest/glTF/LampColorNames.png": {
+      "bytes": 15567,
+      "sha256": "92433d3e05d124a8e37d89f4f0f4863a02654409210a31b35c82154b0ea0a3cd",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/PointLightIntensityTest/glTF/LampColorNames.png"
+    },
+    "PointLightIntensityTest/glTF/PointLightIntensityTest.bin": {
+      "bytes": 8976,
+      "sha256": "29c2e0d139c8fe4a190654179177166c5da1932a9378d19e8f7f74622e6b16d6",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/PointLightIntensityTest/glTF/PointLightIntensityTest.bin"
+    },
+    "PointLightIntensityTest/glTF/PointLightIntensityTest.gltf": {
+      "bytes": 8282,
+      "sha256": "7913fe3e6829beba77f65ea749e40b3e95906bc2894afc443c22e3d91e263733",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/PointLightIntensityTest/glTF/PointLightIntensityTest.gltf"
+    },
+    "RiggedSimple/glTF/RiggedSimple.gltf": {
+      "bytes": 10567,
+      "sha256": "18cd3e4d50ecadc93f6b6a720a4ee0d5154443c2fa331bc0dd3bef7499c02eb0",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/RiggedSimple/glTF/RiggedSimple.gltf"
+    },
+    "RiggedSimple/glTF/RiggedSimple0.bin": {
+      "bytes": 11136,
+      "sha256": "b18e39089acca03219a7a3aa4dd3f00eaedebf438bc3bd58fdcda855f64eafe6",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/RiggedSimple/glTF/RiggedSimple0.bin"
+    },
+    "SimpleSkin/glTF/SimpleSkin.gltf": {
+      "bytes": 2386,
+      "sha256": "8d92e9888340eb98e82a65a1f8b037d9a1d9f09e5fd0b6ba6d40fd93700b3239",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSkin/glTF/SimpleSkin.gltf"
+    },
+    "SimpleSkin/glTF/SimpleSkin_animation.bin": {
+      "bytes": 240,
+      "sha256": "ff21b1bc3d0abbe53f7665060ec6c22d873b6e85a7669171a2b6b8ae01c39347",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSkin/glTF/SimpleSkin_animation.bin"
+    },
+    "SimpleSkin/glTF/SimpleSkin_geometry.bin": {
+      "bytes": 168,
+      "sha256": "35f0ca6bc07976c0aadc163d4737758989cfcc9870a99800004c4478fe698b63",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSkin/glTF/SimpleSkin_geometry.bin"
+    },
+    "SimpleSkin/glTF/SimpleSkin_inverseBindMatrices.bin": {
+      "bytes": 128,
+      "sha256": "5844ab221cd2ad367420a248f6387b46e5f8498604427730a37ee96b4d4ec599",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSkin/glTF/SimpleSkin_inverseBindMatrices.bin"
+    },
+    "SimpleSkin/glTF/SimpleSkin_skinningData.bin": {
+      "bytes": 320,
+      "sha256": "413bc8a8c0da673df767874e6f05f0b00c9261756a08586b9d555bd5535414b5",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSkin/glTF/SimpleSkin_skinningData.bin"
+    },
+    "SimpleSparseAccessor/glTF/SimpleSparseAccessor.bin": {
+      "bytes": 284,
+      "sha256": "8b01fde2d485b480626115ff804f972edb4ef87f23d2600054bcc859cee38f92",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.bin"
+    },
+    "SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf": {
+      "bytes": 1756,
+      "sha256": "852cea1ab8665caca6bee912422ed246feb42819c9905ba17a542937e058825a",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf"
+    },
+    "AlphaBlendModeTest/metadata.json": {
+      "bytes": 667,
+      "sha256": "f4e4724b0d62c9e0663dc6f341026ac74fcc9471714bbb217a409c0b6448a1d2",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AlphaBlendModeTest/metadata.json"
+    },
+    "AnimatedMorphCube/metadata.json": {
+      "bytes": 717,
+      "sha256": "53ec35a6148f1fa25936f092a050d821590f597cc3f67050e1b3a9812be4e572",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnimatedMorphCube/metadata.json"
+    },
+    "AnisotropyStrengthTest/metadata.json": {
+      "bytes": 692,
+      "sha256": "553237f43461cc5eb9bf1c152f57a8bae0a55a674ff63398cc471c2f817f5aa1",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/AnisotropyStrengthTest/metadata.json"
+    },
+    "Box/metadata.json": {
+      "bytes": 624,
+      "sha256": "f5867d1cb319a739e434cce40177c7da65701e747198eef97da025610eac9af6",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Box/metadata.json"
+    },
+    "BoxAnimated/metadata.json": {
+      "bytes": 670,
+      "sha256": "5479d9a1ac19374e64f31f7cb8d65f61e5785f65185100e4cd72c9e3f95d938c",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxAnimated/metadata.json"
+    },
+    "BoxTextured/metadata.json": {
+      "bytes": 977,
+      "sha256": "b5a5bb27739df8e9fd3fc40923b66df25d16e1fa218ee624999b260c62452449",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/BoxTextured/metadata.json"
+    },
+    "Cameras/metadata.json": {
+      "bytes": 660,
+      "sha256": "8b379eb18d08c89a7fffaf073748e1852837e8167a037c2a74b8403e37a613f8",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/Cameras/metadata.json"
+    },
+    "CompareClearcoat/metadata.json": {
+      "bytes": 991,
+      "sha256": "56ecb001abf56c7a7dfdc51a604afe0862d472117e315172766216ecdb6bc76f",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareClearcoat/metadata.json"
+    },
+    "CompareIridescence/metadata.json": {
+      "bytes": 997,
+      "sha256": "69d02fe8a9dbae67f0d232a862485412de1b40bdf2e3a6c49e6aee6c007ac569",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareIridescence/metadata.json"
+    },
+    "CompareSheen/metadata.json": {
+      "bytes": 979,
+      "sha256": "179faf075978f6454c930763291b2f8a82d79b04b4dd5c0540c00a91631d4bf2",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareSheen/metadata.json"
+    },
+    "CompareTransmission/metadata.json": {
+      "bytes": 1000,
+      "sha256": "da2198cb9541468e2da042d105fe77595cb18be1972e20533f37915bed8fc782",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/CompareTransmission/metadata.json"
+    },
+    "MorphPrimitivesTest/metadata.json": {
+      "bytes": 1056,
+      "sha256": "e15831978da4df13b792f746773b0a3c464cabf26026134bc06b4940b7e9051a",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/MorphPrimitivesTest/metadata.json"
+    },
+    "NormalTangentTest/metadata.json": {
+      "bytes": 712,
+      "sha256": "d8a79e96e8d555f50b4ea8a8e280ba6b8ae50304eb498431c310a27803f2726c",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/NormalTangentTest/metadata.json"
+    },
+    "PointLightIntensityTest/metadata.json": {
+      "bytes": 687,
+      "sha256": "727acf73e12e52d2814e673c8f82acd900c81e198c2e25e8a56c5c8fac4795ea",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/PointLightIntensityTest/metadata.json"
+    },
+    "RiggedSimple/metadata.json": {
+      "bytes": 652,
+      "sha256": "ba12c1f9a24124bdfbd171528db2eece6edbb7c75a7192dadfb043212067c664",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/RiggedSimple/metadata.json"
+    },
+    "SimpleSkin/metadata.json": {
+      "bytes": 683,
+      "sha256": "4b55cd46f47884119db596f29fc8026ac01af65009503495abf380d0f9bc8600",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSkin/metadata.json"
+    },
+    "SimpleSparseAccessor/metadata.json": {
+      "bytes": 692,
+      "sha256": "37e1c50d537a1c742cbad2ff189ebea49f44d8cee1397b76b103f21a81e104e2",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/Models/SimpleSparseAccessor/metadata.json"
+    },
+    "LicenseRef-LegalMark-Khronos.txt": {
+      "bytes": 589,
+      "sha256": "2ea9821de870cf8d3faaa115ffc47f56632bf9f98d54d2ac1ce61592040b765c",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/LICENSES/LicenseRef-LegalMark-Khronos.txt"
+    },
+    "LicenseRef-LegalMark-Cesium.txt": {
+      "bytes": 625,
+      "sha256": "7bafc8dbff0b9d04297bced53a47809e3ab6721cb35b4a2d780533476b28ebd4",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/LICENSES/LicenseRef-LegalMark-Cesium.txt"
+    },
+    "CC-BY-4.0.txt": {
+      "bytes": 13034,
+      "sha256": "c8041334a99cb48852b2139253cbde5f8ac87e27f124aed51223e0d5bf0080eb",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/LICENSES/CC-BY-4.0.txt"
+    },
+    "CC0-1.0.txt": {
+      "bytes": 6533,
+      "sha256": "a43fc2004d1e073f1107a1f6146664d08dae6cea93cb828742a4bec6da828e91",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/c6a6bd13ab2b3c685c7903d03561b8a9392f38b8/LICENSES/CC0-1.0.txt"
+    }
+  }
+}

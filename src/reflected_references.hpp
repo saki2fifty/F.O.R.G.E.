@@ -34,7 +34,12 @@ inline void remap_custom_entity_refs(nlohmann::json& row, const nlohmann::json& 
                                      AssetId source, AssetId destination,
                                      const std::map<EntityId, EntityId>& entities) {
     using Json = nlohmann::json;
-    for (const auto& type : schema.value("components", Json::array())) {
+    const auto components_schema = schema.find("components");
+    if (components_schema == schema.end())
+        return;
+    // Borrow the admitted schema; copying every descriptor per entity makes
+    // simple edits scale with unrelated component metadata.
+    for (const auto& type : *components_schema) {
         if (!type.value("custom", false))
             continue;
         const auto key = type.at("id").get<std::string>();

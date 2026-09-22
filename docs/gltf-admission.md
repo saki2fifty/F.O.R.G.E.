@@ -399,3 +399,12 @@ AssetIds or expose a finished variant-selection UI.
 The private [model candidate stages](model-import.md) now exercise these native
 mesh/material/image consumers together, with immutable source transport and
 reorder-safe identity evidence. Full model publication/rendering remains in progress.
+
+## Official fixtures and comparison
+
+[glTF validation evidence](gltf-validation.md) records the pinned18-asset official
+corpus, native mesh/material/image/skin/animation processing coverage, exact licenses,
+and external Khronos validator comparison. The actual production extension profile
+is supplied to source admission; an unconfigured required-extension allowlist must
+continue to reject Draco/quantized inputs. Validator warnings and unsupported Draco
+validation are preserved as distinct evidence from FORGE's native codec checks.

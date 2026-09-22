@@ -53,6 +53,16 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
     assert dependents['transitive'] == [a]
     assert request('dependents', project, a)['direct'] == []
     assert not request('dependents', project, str(uuid.uuid4()))['registered']
+    target = json.dumps(dict(platform='linux', backend='none'))
+    roots = json.dumps(['80c55df2-1abb-42b0-9591-502e783cdc97'])
+    package = root / 'Cooked content with spaces'
+    request('package', project, package, target, roots)
+    assert request('verify-package', package, target)['assets'] == 0  # engine-owned root
+    request('package', project, package, target, roots, success=False)
+    request('verify-package', package, json.dumps(dict(platform='linux', backend='vulkan')),
+            success=False)
+    request('package', project, root / 'unsupported', target, json.dumps([a]), success=False)
+    request('package', project, root / 'bad', 'invalid-json', roots, success=False)
     source_refs = request('source-dependents', project, 'Assets/picture.PNG')
     assert source_refs['direct'] == [b] and set(source_refs['affected']) == {a, b}
     request('source-dependents', project, '../escape', success=False)

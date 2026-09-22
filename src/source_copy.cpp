@@ -1,20 +1,10 @@
 #include "source_copy.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "publish_directory.hpp"
 #include <algorithm>
 #include <forge/gltf_source.hpp>
 #include <forge/project_paths.hpp>
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#else
-#include <fcntl.h>
-#include <linux/fs.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#endif
 namespace forge {
 #ifdef FORGE_SOURCE_COPY_TESTING
 void source_copy_before_rename();
@@ -58,20 +48,6 @@ std::filesystem::path destination(const ProjectPaths& paths, const std::filesyst
     require(!std::filesystem::exists(path) && std::filesystem::is_directory(path.parent_path()),
             "Import destination already exists or its parent folder is missing; choose a new name");
     return path;
-}
-void rename_new_directory(const std::filesystem::path& from, const std::filesystem::path& to) {
-#ifdef _WIN32
-    if (!MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH))
-        throw std::filesystem::filesystem_error(
-            "Cannot publish imported source folder", from, to,
-            std::error_code(GetLastError(), std::system_category()));
-#else
-    // rename() may replace an existing empty directory on POSIX. NOREPLACE is
-    // necessary even after preflight: another process may create the destination.
-    if (syscall(SYS_renameat2, AT_FDCWD, from.c_str(), AT_FDCWD, to.c_str(), RENAME_NOREPLACE))
-        throw std::filesystem::filesystem_error("Cannot publish imported source folder", from, to,
-                                                std::error_code(errno, std::generic_category()));
-#endif
 }
 } // namespace
 SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
@@ -169,7 +145,7 @@ void commit_source_copy(const ProjectLease& lease, const SourceCopyPlan& plan,
 #ifdef FORGE_SOURCE_COPY_TESTING
         source_copy_before_rename();
 #endif
-        rename_new_directory(staging, target);
+        asset_detail::rename_new_directory(staging, target);
         published = true;
         asset_storage::sync_directory(target.parent_path());
     } catch (const std::exception& error) {

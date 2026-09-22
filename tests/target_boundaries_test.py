@@ -9,6 +9,9 @@ def link(target):
 runtime=link('forge_runtime')
 for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
  assert forbidden not in runtime,(forbidden,runtime)
+package=link('forge_runtime_package_tests')
+for forbidden in ('imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native'):
+ assert forbidden not in package,(forbidden,package)
 cache=(Path(build)/'CMakeCache.txt').read_text()
 if 'FORGE_BUILD_ASSET_TOOLS:BOOL=ON' in cache:
  native=link('forge_gltf_native_tests')

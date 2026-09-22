@@ -183,3 +183,10 @@ UI source identity/observed dependency publication is described in
 Content status checks recorded source edges across these families. Scene/Prefab
 continue their authored-document save/history and prefab candidate reconciliation;
 ordinary Save is not relabeled as a source import.
+
+## Source-independent content packages
+
+[Runtime content packaging](runtime-content-packaging.md) defines the implemented
+selected-cooked closure, trimmed catalog, explicit target/profile admission and
+source-free relocation validation. This content tool does not constitute a full
+standalone visual executable exporter.

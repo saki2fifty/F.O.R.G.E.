@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
+#include "runtime_package.hpp"
 #include "shader_authoring.hpp"
 #include "shader_diligent.hpp"
 #include "shader_pipeline.hpp"
@@ -85,6 +86,22 @@ float4 ps():SV_TARGET {return color();}
         require(resources.wait(first, 5s), "Compiled shader resource could not load");
         const auto old = resources.acquire(first);
         require(old && old->stages.size() == 2, "Compiled shader resource lost stages");
+        const auto content_path =
+            root.parent_path() / ("shader-content-" + AssetId::generate().str());
+        const std::array content_roots{id};
+        (void)package_runtime_content(root, content_path, content_roots, {"windows", "d3d12"});
+        const auto relocated_content = content_path.string() + "-relocated";
+        std::filesystem::rename(content_path, relocated_content);
+        const auto content_catalog = open_runtime_content(relocated_content, {"windows", "d3d12"});
+        ResourcePool<ShaderAsset> packaged_resources;
+        const auto packaged_ticket =
+            request_shader(packaged_resources, relocated_content, content_catalog, reference);
+        require(packaged_resources.wait(packaged_ticket, 5s) &&
+                    packaged_resources.acquire(packaged_ticket)->layout_digest() ==
+                        old->layout_digest() &&
+                    !std::filesystem::exists(std::filesystem::path(relocated_content) / "Shaders"),
+                "Relocated compiled shader package required HLSL sources or lost reflection");
+        std::filesystem::remove_all(relocated_content);
         const auto first_key = catalog.records().at(id).metadata.at("forge.import").at("key");
         submit();
         outcome = finish(service);

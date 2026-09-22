@@ -274,3 +274,13 @@ cache loading. This is source-level build composition, not a public engine ABI o
 an upstream patch. No live-documentation drift was used to select APIs. Windows
 execution of this addition is pending; full mesh PBR/skinning is not yet claimed.
 See[render ownership and limitations](rendering-foundation.md).
+
+## External glTF comparison tool — verified2026-09-22
+
+Official Khronos glTF-Validator2.0.0-dev.3.10 at
+`bcd52cc4ba5f333b2999a58f67cc05ddf28b4fb1` is used only for external fixture
+comparison, not linked, fetched by CMake, or shipped. Upstream marks this release
+as a prerelease; it is not an engine stable-version selection. Exact release
+archive/source provenance, observed supported extensions and validation limits
+are recorded in [glTF validation evidence](gltf-validation.md). The pinned official
+sample corpus retains per-asset notices and hashes in its test-data directory.
