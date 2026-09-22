@@ -61,6 +61,10 @@ struct EditorFixture {
         case 54:
         case 55:
             return "Loaded resources";
+        case 56:
+        case 57:
+        case 58:
+            return "Inspector";
         default:
             return nullptr;
         }
@@ -146,7 +150,10 @@ struct EditorFixture {
                                "shader-import-200",
                                "loaded-resources",
                                "loaded-resources-150",
-                               "loaded-resources-200"};
+                               "loaded-resources-200",
+                               "asset-picker",
+                               "asset-picker-150",
+                               "asset-picker-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

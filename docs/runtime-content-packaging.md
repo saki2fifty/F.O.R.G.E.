@@ -90,11 +90,23 @@ and cache bookkeeping retain their writer locks. A concurrent eviction can make 
 selected read fail; owned bytes are admitted before becoming usable, and existing
 resource replacement semantics preserve the previous good resource.
 
+## Windows file I/O
+
+A cache key adds 64 path characters; the unique staging directory can make a
+valid final output exceed the traditional Windows path limit during preparation.
+The private asset I/O adapter supplies normalized absolute extended-length wide
+paths at Windows stream, cache-lock, flush and directory-publication calls.
+Catalog locators, identity, path admission and serialized values retain their
+existing spelling. Read/write diagnostics report the original path. This follows
+[Microsoft's extended-length path contract](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)
+and does not require changing the machine registry. Other subsystems' external
+converters and filesystem APIs retain their own validation requirements.
+
 ## Validation
 
 `runtime_content_package` covers deterministic output, dependency closure, source
 removal and relocation, actual material/texture loading, PCM admission, writer-lock
-absence, target and hash mismatches, path rejection, extra files, budgets,
+absence, long output/staging paths, target and hash mismatches, path rejection, extra files, budgets,
 cancellation and previous-package preservation. Model pipeline tests additionally
 package an actual imported member and verify its complete source-free family.
 Native Windows shader-worker tests package real compiled bytecode and reload it

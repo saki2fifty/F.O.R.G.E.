@@ -1648,6 +1648,30 @@ int main(int argc, char** argv) {
                     SDL_SetWindowSize(window.get(), 1440, 900);
                     resource_inspector.visible = true;
                     break;
+                case 56:
+                case 57:
+                case 58: {
+                    ImGui::ClosePopupToLevel(0, true);
+                    resource_inspector.visible = false;
+                    const float scale = fixture.stage == 56   ? 1.f
+                                        : fixture.stage == 57 ? 1.5f
+                                                              : 2.f;
+                    forge::ui::style(scale);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    if (fixture.stage == 56)
+                        editor.selection.select_entity(
+                            forge::authoring_command(scene, "entity.create",
+                                                     {{"name", "Picker cube"}})
+                                .at("selected"));
+                    editor.task.owner = forge::ui::DocumentTask::Scene;
+                    workspace.inspector = true;
+                    if (auto* w = ImGui::FindWindowByName("Inspector"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Inspector", {900, 55});
+                    ImGui::SetWindowSize("Inspector", {990, 1000});
+                    forge::fixture_open_mesh_picker = true;
+                    break;
+                }
                 }
                 fixture.prepared = ready;
             }
@@ -2715,7 +2739,8 @@ int main(int argc, char** argv) {
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
             if (const auto* target = fixture.focused_document())
-                ImGui::SetWindowFocus(target);
+                if (fixture.stage < 56)
+                    ImGui::SetWindowFocus(target);
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
             const auto drawn_thumbnail_count =
@@ -2737,6 +2762,11 @@ int main(int argc, char** argv) {
                 const auto* w = ImGui::FindWindowByName(target);
                 captured_document_visible =
                     w && w->Active && !w->Hidden && (!w->DockIsActive || w->DockTabIsVisible);
+            }
+            if (fixture.stage >= 56) {
+                const auto* popup = ImGui::FindWindowByName("##Combo_00");
+                captured_document_visible &=
+                    !forge::fixture_open_mesh_picker && popup && popup->Active && !popup->Hidden;
             }
             if (fixture.stage >= 47 && fixture.stage <= 49 && !audio_imports.diagnostic().empty())
                 throw std::runtime_error("Audio import fixture failed: " +
@@ -2801,7 +2831,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 56) {
+                if (fixture.stage == 59) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

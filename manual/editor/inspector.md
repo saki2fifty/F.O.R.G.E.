@@ -22,7 +22,9 @@ Attached components have collapsible headers. **Filter attached components...** 
 
 Booleans use checkboxes, motion uses Static/Kinematic/Dynamic choices, integer values use integer fields, and decimal values use numeric fields with units. Numeric/text component edits commit with Enter. An invalid edit retains the previous good value, shows an error beside the field, and creates a Problems entry.
 
-Asset fields show paths rather than requiring UUID entry. Use their picker/search, clear them, reveal them in Content, or drag a compatible Content asset onto them. See [Content browser](content-browser.md).
+Asset fields show paths rather than requiring UUID entry. Open a field to search compatible assets by name or path. Results show a type icon and highlight the current selection; engine assets appear first. Large lists scroll without drawing every row. **None / Clear** removes the reference. **Reveal in Content** selects the assigned project asset. You can also drag a compatible asset from Content onto the field.
+
+A missing or incompatible current reference stays visible with an explanation until you change it. Removed model members are labeled and cannot be newly assigned. Choosing a registered asset does not promise its source is present or its runtime resources have finished loading. See [Content browser](content-browser.md).
 
 ## Prefab intent and Revert
 

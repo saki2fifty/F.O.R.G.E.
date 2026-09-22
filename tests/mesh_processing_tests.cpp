@@ -179,6 +179,23 @@ int main() {
         preserve.weld_exact = preserve.optimize_vertex_fetch = false;
         require(encode_mesh(process_mesh(input, preserve).mesh) == before,
                 "Preserve recipe changed source streams");
+        {
+            MeshData sequential;
+            MeshPart p;
+            p.vertices = 3;
+            p.streams = {{"POSITION", 3, std::vector<float>{0, 0, 0, 1, 0, 0, 0, 1, 0}}};
+            p.bounds = mesh_bounds(p);
+            sequential.lods = {{1, {p}}};
+            require(process_mesh(sequential, preserve).mesh.lods[0].parts[0].indices.empty(),
+                    "Preserve recipe materialized unnecessary indices");
+            const auto processed = process_mesh(sequential).mesh;
+            require(processed.lods[0].parts[0].indices.size() == 3 &&
+                        processed.lods[0].parts[0].find("NORMAL") != nullptr,
+                    "Nonindexed preparation lost geometry or direction generation");
+            MeshLimits budget;
+            budget.bytes = sequential.byte_size();
+            rejects([&] { (void)process_mesh(sequential, {}, budget); }, "budget");
+        }
         auto recalc = preserve;
         recalc.normals = recalc.tangents = MeshDirections::Recalculate;
         flat_target_normals(process_mesh(input, recalc).mesh.lods[0].parts[0]);

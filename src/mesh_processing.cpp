@@ -250,6 +250,36 @@ ProcessedMesh process_mesh(const MeshData& source, const MeshProcessingOptions& 
         require(slot < source.material_slots && uv <= 63,
                 "Mesh tangent material/UV selection is invalid");
     ProcessedMesh result{source, {}};
+    // Native offline passes need explicit connectivity. Preserve-only recipes
+    // retain nonindexed input. Bound the aggregate extra working storage before
+    // materializing equivalent lists; do not rescan the whole mesh per part.
+    const bool connectivity = options.normals != MeshDirections::Preserve ||
+                              options.tangents != MeshDirections::Preserve || options.weld_exact ||
+                              options.optimize_vertex_fetch ||
+                              !options.order_independent_material_slots.empty();
+    if (connectivity) {
+        auto bytes = source.byte_size();
+        std::size_t indices = 0;
+        for (const auto& lod : source.lods)
+            for (const auto& part : lod.parts) {
+                const auto count = part.indices.empty() ? part.vertices : part.indices.size();
+                require(count <= limits.indices && indices <= limits.indices - count,
+                        "Nonindexed preparation exceeds index budget");
+                indices += count;
+                if (part.indices.empty()) {
+                    require(count <= limits.bytes / 4 && bytes <= limits.bytes - count * 4,
+                            "Nonindexed preparation exceeds byte budget");
+                    bytes += count * 4;
+                }
+            }
+        for (auto& lod : result.mesh.lods)
+            for (auto& part : lod.parts)
+                if (part.indices.empty()) {
+                    cancelled(cancel);
+                    part.indices.resize(part.vertices);
+                    std::iota(part.indices.begin(), part.indices.end(), 0u);
+                }
+    }
     for (auto& lod : result.mesh.lods)
         for (auto& part : lod.parts) {
             cancelled(cancel);

@@ -2,6 +2,95 @@
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 void require(bool condition, const char* message);
+inline void test_asset_picker() {
+    using namespace forge;
+    AssetCatalog catalog(std::filesystem::current_path());
+    std::vector<AssetRecord> records;
+    for (unsigned i = 0; i < 2000; ++i)
+        records.push_back({AssetId::generate(),
+                           "mesh",
+                           "Assets/Item_" + std::to_string(10000 + i) + ".mesh",
+                           1,
+                           {}});
+    const auto wanted = records.back().id;
+    const auto texture = AssetId::generate();
+    records.push_back({texture, "texture", "Assets/Item_11999.texture", 1, {}});
+    catalog.replace_all(std::move(records));
+    const auto matching = asset_picker_entries(catalog, "mesh", "ITEM_11999", false);
+    require(matching.size() == 1 && matching[0].id == wanted,
+            "Asset picker search did not filter type and case-insensitive source name");
+    require(asset_picker_entries(catalog, "mesh", "Engine /", false).empty() &&
+                !asset_picker_entries(catalog, "mesh", "Engine /", true).empty(),
+            "Asset picker ignored engine visibility policy");
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {900, 700};
+    io.DeltaTime = 1.f / 60;
+    io.ConfigInputTrickleEventQueue = false;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    Json value;
+    ImVec2 combo{};
+    ImGuiWindow* popup = nullptr;
+    bool committed = false;
+    auto frame = [&] {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({700, 500});
+        ImGui::Begin("Asset picker test");
+        combo = ImGui::GetCursorScreenPos();
+        combo.x += 30;
+        combo.y += ImGui::GetFrameHeight() * .5f;
+        ImGui::SetNextItemWidth(500);
+        committed |= asset_ref_picker(catalog, value, "mesh", "Mesh test", false);
+        ImGui::End();
+        ImGui::Render();
+        popup = nullptr;
+        for (auto* window : ImGui::GetCurrentContext()->Windows)
+            if (window->Active && !window->Hidden &&
+                std::string_view(window->Name).starts_with("##Combo_"))
+                popup = window;
+    };
+    auto click = [&](ImVec2 point) {
+        io.AddMousePosEvent(point.x, point.y);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+    };
+    frame();
+    frame();
+    click(combo);
+    frame();
+    require(popup && ImGui::GetDrawData()->TotalVtxCount < 5000,
+            "Asset picker did not clip its 2000-row popup");
+    click({popup->Pos.x + popup->WindowPadding.x + 30,
+           popup->Pos.y + popup->WindowPadding.y + ImGui::GetFrameHeight() * .5f});
+    io.AddInputCharactersUTF8("Item_11999");
+    frame();
+    frame();
+    require(popup, "Searching unexpectedly closed the asset picker");
+    click({popup->Pos.x + popup->WindowPadding.x + 30,
+           popup->Pos.y + popup->WindowPadding.y + ImGui::GetFrameHeightWithSpacing() +
+               ImGui::GetTextLineHeightWithSpacing() + ImGui::GetTextLineHeight() * .5f});
+    require(committed && value == Json(wanted), "Visible picker search result was not assigned");
+    committed = false;
+    click(combo);
+    frame();
+    require(popup, "Assigned asset picker did not reopen");
+    click({popup->Pos.x + popup->WindowPadding.x + 30, popup->Pos.y + popup->WindowPadding.y +
+                                                           ImGui::GetFrameHeightWithSpacing() +
+                                                           ImGui::GetTextLineHeight() * .5f});
+    require(committed && value.is_null(), "Asset picker Clear did not remove the reference");
+    value = texture;
+    committed = false;
+    frame();
+    require(!committed && value == Json(texture), "Inspection rewrote an incompatible asset ref");
+    ImGui::DestroyContext();
+}
 inline void test_typed_ui_layer() {
     forge::EngineContext engine;
     forge::Scene scene(engine.world());

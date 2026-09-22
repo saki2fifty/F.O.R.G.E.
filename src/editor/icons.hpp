@@ -1,6 +1,66 @@
 #pragma once
 #include "widgets.hpp"
+#include <string_view>
 namespace forge::ui {
+// Shared asset marks for Content and typed pickers. These indicate type, not a
+// rendered preview or resource readiness, and use the current theme text color.
+inline void asset_icon(ImDrawList* draw, ImVec2 origin, float side, std::string_view type) {
+    const auto color = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+    const float thickness = std::max(1.f, side / 20);
+    const auto p = [&](float x, float y) {
+        return ImVec2{origin.x + x * side, origin.y + y * side};
+    };
+    const auto line = [&](float x, float y, float a, float b) {
+        draw->AddLine(p(x, y), p(a, b), color, thickness);
+    };
+    if (type == "mesh" || type == "model") {
+        line(.5f, .08f, .9f, .3f);
+        line(.9f, .3f, .9f, .75f);
+        line(.9f, .75f, .5f, .95f);
+        line(.5f, .95f, .1f, .75f);
+        line(.1f, .75f, .1f, .3f);
+        line(.1f, .3f, .5f, .08f);
+        line(.1f, .3f, .5f, .52f);
+        line(.9f, .3f, .5f, .52f);
+        line(.5f, .52f, .5f, .95f);
+    } else if (type == "material") {
+        draw->AddCircle(p(.5f, .5f), .4f * side, color, 24, thickness);
+        draw->AddEllipse(p(.5f, .5f), {side * .18f, side * .4f}, color, -.4f, 20, thickness);
+    } else if (type == "texture") {
+        draw->AddRect(p(.08f, .12f), p(.92f, .88f), color, 0, 0, thickness);
+        draw->AddCircle(p(.32f, .34f), .08f * side, color, 12, thickness);
+        line(.12f, .83f, .45f, .5f);
+        line(.45f, .5f, .64f, .68f);
+        line(.64f, .68f, .78f, .52f);
+        line(.78f, .52f, .92f, .7f);
+    } else if (type == "audio_clip") {
+        line(.15f, .4f, .15f, .6f);
+        line(.32f, .2f, .32f, .8f);
+        line(.5f, .05f, .5f, .95f);
+        line(.68f, .3f, .68f, .7f);
+        line(.85f, .4f, .85f, .6f);
+    } else if (type == "shader" || type == "flecs_script") {
+        line(.33f, .2f, .08f, .5f);
+        line(.08f, .5f, .33f, .8f);
+        line(.67f, .2f, .92f, .5f);
+        line(.92f, .5f, .67f, .8f);
+        line(.58f, .12f, .42f, .88f);
+    } else if (type == "animation_clip") {
+        draw->AddTriangle(p(.28f, .12f), p(.85f, .5f), p(.28f, .88f), color, thickness);
+    } else if (type == "skeleton") {
+        for (const auto point : {p(.5f, .18f), p(.2f, .8f), p(.8f, .8f)})
+            draw->AddCircle(point, .1f * side, color, 12, thickness);
+        line(.46f, .29f, .24f, .69f);
+        line(.54f, .29f, .76f, .69f);
+    } else if (type == "prefab") {
+        draw->AddQuad(p(.5f, .05f), p(.95f, .5f), p(.5f, .95f), p(.05f, .5f), color, thickness);
+        draw->AddCircle(p(.5f, .5f), side * .14f, color, 16, thickness);
+    } else {
+        draw->AddRect(p(.16f, .08f), p(.84f, .92f), color, side * .04f, 0, thickness);
+        for (float y : {.35f, .55f, .75f})
+            line(.3f, y, .7f, y);
+    }
+}
 enum class Icon {
     Add,
     Select,

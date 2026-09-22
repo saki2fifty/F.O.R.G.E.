@@ -433,10 +433,7 @@ class ContentView {
                                            pos.y + (box_h - h) * .5f + 4 * ui::interface_scale};
                             draw->AddImage(ImTextureRef{preview.image}, a, {a.x + w, a.y + h});
                         } else {
-                            draw->AddRect(lo, {lo.x + icon, lo.y + icon}, muted,
-                                          4 * ui::interface_scale, 0, 1.5f * ui::interface_scale);
-                            draw->AddLine({lo.x + icon * .2f, lo.y + icon * .4f},
-                                          {lo.x + icon * .8f, lo.y + icon * .4f}, muted);
+                            ui::asset_icon(draw, lo, icon, entry.type);
                         }
                         draw->AddText({pos.x + 4, pos.y + item_height -
                                                       2 * ImGui::GetTextLineHeightWithSpacing()},
@@ -447,7 +444,10 @@ class ContentView {
                     } else {
                         const float name_end = width * .58f;
                         draw->PushClipRect(pos, {pos.x + name_end - 5, pos.y + item_height}, true);
-                        draw->AddText(pos, color, entry.name.c_str());
+                        const float icon = ImGui::GetTextLineHeight();
+                        ui::asset_icon(draw, pos, icon, entry.type);
+                        draw->AddText({pos.x + icon + ImGui::GetStyle().ItemInnerSpacing.x, pos.y},
+                                      color, entry.name.c_str());
                         draw->PopClipRect();
                         draw->PushClipRect({pos.x + name_end, pos.y},
                                            {pos.x + width * .78f - 5, pos.y + item_height}, true);

@@ -2,7 +2,9 @@
 
 FORGE imports `.gltf` and `.glb` models as a complete asset family: meshes,
 materials, referenced textures and, when present, a skeleton and animation clips.
-Original source files stay unchanged. Importing prepares assets; **Place model**
+Models can contain points, lines and triangles, with indexed or nonindexed source
+geometry. FORGE chooses compact index storage automatically; no import setting is
+needed for that choice. Original source files stay unchanged. Importing prepares assets; **Place model**
 creates ordinary entities in your current scene.
 
 For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
@@ -137,9 +139,8 @@ before choosing. Do not use old array positions to guess correspondence.
 
 Reimporting the exact same source with the same settings and tools preserves the
 published member identities, including identical meshes. If the input changes and
-members remain indistinguishable, FORGE asks for a decision again. An explicit choice
-still takes precedence on an unchanged import. A future editor workflow will make
-these decisions easier to inspect.
+members remain indistinguishable, FORGE asks for a decision again. An explicit choice still takes precedence on an unchanged import. The editor's
+review list uses the same candidate identities as the tools command.
 
 ## Failures
 

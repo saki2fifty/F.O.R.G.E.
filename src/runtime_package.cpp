@@ -4,6 +4,7 @@
 #include "bounded_json.hpp"
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
+#include "native_io_path.hpp"
 #include "publish_directory.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/audio_components.hpp>
@@ -204,10 +205,15 @@ void ordinary(const std::filesystem::path& path) {
 void write(const std::filesystem::path& path, std::span<const std::byte> bytes) {
     std::filesystem::create_directories(path.parent_path());
     ordinary(path);
-    std::ofstream file(path, std::ios::binary | std::ios::trunc);
-    file.exceptions(std::ios::badbit | std::ios::failbit);
-    file.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
-    file.flush();
+    try {
+        std::ofstream file(native_io_path(path), std::ios::binary | std::ios::trunc);
+        file.exceptions(std::ios::badbit | std::ios::failbit);
+        file.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+        file.flush();
+    } catch (const std::ios_base::failure& e) {
+        throw std::runtime_error("Cannot write runtime package file: " + path_utf8(path) + ": " +
+                                 e.what());
+    }
 }
 } // namespace
 Json package_runtime_content(const std::filesystem::path& project,

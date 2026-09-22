@@ -11,8 +11,9 @@ a window or a graphics device.
 `MeshData` contains ordered LODs, material-slot count and named morph defaults.
 Each LOD contains parts with its topology, vertex streams, indices, material slot,
 morph streams and local bounds. LOD projected-size thresholds decrease from1;
-zero is permitted for the final threshold. Runtime LOD selection remains to be
-connected to the production renderer.
+zero is permitted for the final threshold. Shared Scene/Game rendering selects
+LOD by projected bounds diameter divided by viewport height. LODs keep stable
+logical material bindings; scene overrides do not depend on physical slot order.
 
 Streams carry a semantic, component width and either float32 or exact uint32
 scalars. The current cooked representation retains positions, normals, tangent
@@ -39,10 +40,20 @@ the mesh cook adapter.
 
 The24-byte header contains eight-byte `FRGMESH\0` magic, four little-endian uint32
 fields (version, JSON metadata length, scalar payload length, reserved zero), then
-bounded JSON metadata and a contiguous little-endian scalar payload. Version1
-retains ordinary/unprepared CPU meshes. Version2 adds explicit prepared skin
-palettes; an old version1 reader rejects these artifacts. No native
-pointer, compiler structure layout or host endianness is serialized.
+bounded JSON metadata and a contiguous little-endian scalar payload. Versions1/2
+remain readable: version1 has ordinary meshes and version2 adds prepared skin
+palettes; both use implicit uint32 indices. Version3 writes an explicit index type
+per part: uint16 when the maximum referenced index fits, otherwise uint32. An
+empty list uses `none`, meaning sequential nonindexed vertices. Earlier readers
+reject version3 rather than misinterpreting its byte spans.
+
+CPU geometry keeps exact uint32 working indices. GPU realization independently
+chooses Diligent VT_UINT16/VT_UINT32 or nonindexed Draw; it does not assume a native
+descriptor or graphics API index layout. List topologies have no restart sentinel.
+Unused high-numbered vertices do not force wide indices. The native test exercises
+65535/65536, actual buffer readback and equivalent 16-bit/32-bit/nonindexed pixels.
+Decoded uint32 allocation remains bounded even when cooked indices occupy16bits.
+No native pointer, compiler structure layout or host endianness is serialized.
 
 Every stream/index span must begin exactly at the next payload byte. Admission
 rejects overlaps, holes, out-of-range counts, truncation, trailing bytes, unsupported
@@ -64,7 +75,7 @@ allocation using container/string capacities and structure sizes. It omits unkno
 allocator headers and conservatively includes short-string capacity in addition to
 its inline structure storage. Neither quantity is process RSS or GPU memory.
 
-## Evidence and remaining consumers
+## Validation and consumers
 
 Tests cover canonical round trips, exact integers, LOD/morph preservation, topology,
 every truncated prefix, corrupt lengths/counts/offsets, NaNs and bounded rejection.
@@ -72,9 +83,11 @@ The unmodified official Khronos NegativeScaleTest is decoded, cooked and reloade
 with geometry/hierarchy/parity checks. License and immutable provenance are adjacent
 to the sample. Strict sanitizer and platform outcomes are in the daily changelog.
 
-The CPU artifact is ready for subsequent provider integration. Model-container
-publication, built-in primitive migration, GPU realization, full material/skin
-bindings, Content workflows and packaged runtime integration are still being built.
+The model publisher, built-in primitive provider, typed CPU resources, Diligent
+GPU realization, material/skin bindings, Content inspection and cooked-content
+packaging consume this representation. See [runtime resources](runtime-resources.md)
+and [rendering](rendering-foundation.md) for the adoption and device contracts.
+Final clean/package acceptance is tracked separately from CPU representation tests.
 
 
 ## Prepared skin draws
@@ -93,11 +106,11 @@ the strongest weights with deterministic joint-index tie breaking and reports
 which vertices changed. It never silently drops influences. Normal/tangent
 preparation, exact welding and vertex-fetch remapping retain the prepared streams
 and palette. Unused skin attributes on a source mesh with no skin binding remain
-unprepared data; a future GPU skin consumer must require a prepared palette.
+unprepared data; the GPU skin consumer requires a prepared palette.
 
-The private model cooker now supports this representation. Whole-model animated
-publication and the corresponding user-facing import setting remain integration
-work; no unused setting is exposed by the current static model recipe.
+The model cooker publishes complete animated families using this representation.
+The Model import document exposes the explicit influence policy; unsupported
+counts or bindings reject the candidate while preserving the previous family.
 
 ## Runtime material bindings
 
@@ -105,6 +118,5 @@ Cooked physical material ordinals are local to one mesh revision. The runtime
 [resource provider](runtime-resources.md) pairs admitted geometry with stable
 logical binding tokens and typed material references. It includes used slots in
 all LODs, supports sparse overrides and diagnoses removed bindings. Reordering or
-renaming source materials does not retarget an override. This CPU provider is an
-integration step toward scene MeshRenderer authoring and GPU draws, which remain
-under development.
+renaming source materials does not retarget an override. The MeshRenderer Inspector and shared GPU draw preparation consume these same
+bindings. Removed/invalid slot selections diagnose rather than silently retarget.

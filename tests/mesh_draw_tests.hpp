@@ -64,6 +64,35 @@ void check_mesh_draw(forge::DiligentPresentation& presentation, Diligent::IDevic
     require(reference[16 * 32 + 16] == std::array<unsigned char, 4>{51, 153, 26, 255} ||
                 reference[16 * 32 + 16] == std::array<unsigned char, 4>{51, 153, 25, 255},
             "Prepared unlit mesh did not render with camera-relative placement");
+    for (const bool indexed : {false, true}) {
+        auto alternate = mesh;
+        auto& converted = alternate.lods[0].parts[0];
+        converted.vertices = indexed ? 65537u : unsigned(part.indices.size());
+        for (auto& stream : converted.streams) {
+            const auto source = std::get<std::vector<float>>(stream.values);
+            auto& values = std::get<std::vector<float>>(stream.values);
+            values.clear();
+            for (unsigned i = 0; i < converted.vertices; ++i) {
+                const auto vertex = indexed ? (i == 65536 ? 2u : std::min(i, 3u)) : part.indices[i];
+                values.insert(values.end(), source.begin() + vertex * stream.components,
+                              source.begin() + (vertex + 1) * stream.components);
+            }
+        }
+        if (indexed)
+            converted.indices = {0, 1, 65536, 0, 65536, 3};
+        else
+            converted.indices.clear();
+        converted.bounds = forge::mesh_bounds(converted);
+        auto uploaded = forge::upload_mesh(presentation.device(), alternate);
+        require(uploaded.lods[0].parts[0].index_type == (indexed ? VT_UINT32 : VT_UNDEFINED),
+                "Alternate draw did not exercise the intended index representation");
+        forge::MeshDraw alternate_draw(presentation, context, uploaded.lods[0].parts[0], material,
+                                       {}, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
+        const auto pixels = render(alternate_draw);
+        require(pixels == reference,
+                "Nonindexed or uint32 draw differs from equivalent compact indexed geometry");
+        save(pixels, 32, 32, images / (indexed ? "mesh-index32.ppm" : "mesh-nonindexed.ppm"));
+    }
     {
         using namespace std::chrono_literals;
         forge::ResourcePool<forge::MeshAsset> cpu_mesh;

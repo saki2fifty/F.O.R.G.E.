@@ -123,7 +123,9 @@ Core COLOR_0 is clamped to its required range; additional color streams are reta
 Points, line lists and triangle lists retain their type. Line loops/strips become
 line lists, and triangle strips/fans become triangle lists with winding preserved.
 No line or point source is interpreted as triangles. The CPU result currently uses
-uint32 working indices; efficient cooked index-width selection remains later work.
+uint32 working indices. Cooked Mesh version3 and Diligent upload select16-bit
+storage where the referenced range fits, otherwise32-bit. This normalization
+preserves the source primitive semantics.
 
 Morph streams preserve supported position/normal/tangent, optional UV/color and
 custom deltas with matching base attributes/counts. Mesh target counts/default

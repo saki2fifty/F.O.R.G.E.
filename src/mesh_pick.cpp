@@ -144,10 +144,14 @@ std::optional<double> pick_mesh_part(const MeshPart& part, const MeshPartPose& p
     const unsigned stride = part.topology == MeshTopology::Triangles ? 3
                             : part.topology == MeshTopology::Lines   ? 2
                                                                      : 1;
-    require(part.indices.size() % stride == 0, "Selection primitive indices are incomplete");
-    for (std::size_t i = 0; i < part.indices.size(); i += stride) {
+    const auto corners = part.indices.empty() ? part.vertices : part.indices.size();
+    require(corners % stride == 0, "Selection primitive indices are incomplete");
+    const auto index = [&](std::size_t corner) {
+        return part.indices.empty() ? std::uint32_t(corner) : part.indices[corner];
+    };
+    for (std::size_t i = 0; i < corners; i += stride) {
         if (stride == 1) {
-            const auto a = vertex(part.indices[i]);
+            const auto a = vertex(index(i));
             bool inside = a[3] > 0;
             for (unsigned p = 0; p < 6; ++p)
                 inside &= plane(a, p) >= 0;
@@ -157,7 +161,7 @@ std::optional<double> pick_mesh_part(const MeshPart& part, const MeshPartPose& p
                     hit(v[2]);
             }
         } else if (stride == 2) {
-            auto a = vertex(part.indices[i]), b = vertex(part.indices[i + 1]);
+            auto a = vertex(index(i)), b = vertex(index(i + 1));
             bool inside = true;
             for (unsigned p = 0; p < 6; ++p) {
                 const auto da = plane(a, p), db = plane(b, p);
@@ -188,7 +192,7 @@ std::optional<double> pick_mesh_part(const MeshPart& part, const MeshPartPose& p
             std::array<Clip, 12> polygon{}, output{};
             unsigned count = 3;
             for (unsigned k = 0; k < 3; ++k)
-                polygon[k] = vertex(part.indices[i + k]);
+                polygon[k] = vertex(index(i + k));
             for (unsigned p = 0; p < 6 && count; ++p) {
                 unsigned next = 0;
                 auto append = [&](Clip value) {

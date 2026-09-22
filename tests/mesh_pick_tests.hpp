@@ -25,6 +25,9 @@ inline void check_mesh_picking() {
     };
     const auto first = hit();
     check(first && *first > 0 && *first < 1, "Triangle selection missed admitted geometry");
+    part.indices.clear();
+    check(hit() == first, "Nonindexed selection differs from equivalent indexed geometry");
+    part.indices = {0, 1, 2};
     check(!hit(0, 0) && !hit(-1, 100), "Selection used bounds rather than actual triangle");
     pose.world.m[0] = -1;
     check(hit() == first, "Reflection changed geometric selection depth");

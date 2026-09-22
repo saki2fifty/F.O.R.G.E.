@@ -1,4 +1,5 @@
 #pragma once
+#include "native_io_path.hpp"
 #include <filesystem>
 #include <system_error>
 #ifdef _WIN32
@@ -16,7 +17,8 @@ namespace forge::asset_detail {
 inline void rename_new_directory(const std::filesystem::path& from,
                                  const std::filesystem::path& to) {
 #ifdef _WIN32
-    if (!MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH))
+    if (!MoveFileExW(native_io_path(from).c_str(), native_io_path(to).c_str(),
+                     MOVEFILE_WRITE_THROUGH))
         throw std::filesystem::filesystem_error(
             "Cannot publish new directory", from, to,
             std::error_code(GetLastError(), std::system_category()));

@@ -21,6 +21,7 @@ struct GpuMeshPart {
     std::vector<float> morph_defaults;
     std::vector<std::uint32_t> joint_palette;
     Diligent::PRIMITIVE_TOPOLOGY topology = Diligent::PRIMITIVE_TOPOLOGY_UNDEFINED;
+    Diligent::VALUE_TYPE index_type = Diligent::VT_UNDEFINED;
     unsigned stride{}, vertex_count{}, index_count{}, material_slot{};
     MeshBounds bounds;
     const GpuMeshAttribute* find(std::string_view) const;

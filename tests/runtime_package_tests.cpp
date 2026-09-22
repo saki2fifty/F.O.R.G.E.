@@ -3,6 +3,7 @@
 #include "engine_render_resource.hpp"
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
+#include "native_io_path.hpp"
 #include "runtime_package.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/audio_components.hpp>
@@ -26,7 +27,7 @@ void rejects(F&& call, std::source_location where = std::source_location::curren
     throw std::runtime_error("Package rejection missing at " + std::to_string(where.line()));
 }
 void text(const std::filesystem::path& path, std::string_view bytes) {
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    std::ofstream out(native_io_path(path), std::ios::binary | std::ios::trunc);
     check(bool(out.write(bytes.data(), std::streamsize(bytes.size()))) && bool(out.flush()),
           "Fixture write failed");
 }
@@ -124,6 +125,17 @@ int main(int argc, char** argv) {
         const auto second = scratch / "content two";
         check(manifest == package_runtime_content(project, second, roots, target),
               "Package bytes depend on output path/time");
+        // Staging and the 64-character artifact key can exceed MAX_PATH even
+        // when the final destination fits. Exercise genuinely long final paths
+        // too, without shortening the recipe key or persistent identities.
+        auto deep = scratch;
+        while (deep.native().size() < 290)
+            deep /= "long-content-folder";
+        std::filesystem::create_directories(deep);
+        const auto long_package = deep / "content";
+        check(manifest == package_runtime_content(project, long_package, roots, target) &&
+                  open_runtime_content(long_package, target).records().size() == 3,
+              "Long-path package changed content or could not load");
         check(read_bytes(AssetCatalog::project_index(project), max_asset_index_bytes) ==
                   original_index,
               "Packaging mutated project catalog");

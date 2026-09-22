@@ -1,4 +1,5 @@
 #include "mesh_gpu.hpp"
+#include "mesh_index.hpp"
 #include "mesh_morph.hpp"
 #include <bit>
 #include <cstring>
@@ -83,9 +84,17 @@ GpuMesh upload_mesh(IRenderDevice* device, const MeshData& input) {
             part.vertices =
                 buffer(packed.data(), packed.size(), BIND_VERTEX_BUFFER | BIND_SHADER_RESOURCE,
                        "FORGE immutable cooked vertices");
-            if (!source.indices.empty())
+            const auto index_width = asset_detail::mesh_index_width(source.indices);
+            if (index_width == 2) {
+                const std::vector<Uint16> compact(source.indices.begin(), source.indices.end());
+                part.index_type = VT_UINT16;
+                part.indices = buffer(compact.data(), compact.size() * sizeof(Uint16),
+                                      BIND_INDEX_BUFFER, "FORGE immutable compact indices");
+            } else if (index_width == 4) {
+                part.index_type = VT_UINT32;
                 part.indices = buffer(source.indices.data(), source.indices.size() * sizeof(Uint32),
                                       BIND_INDEX_BUFFER, "FORGE immutable cooked indices");
+            }
             std::vector<std::byte> deltas;
             for (const auto& target : source.morph_targets) {
                 auto& offsets = part.morph_targets.emplace_back();

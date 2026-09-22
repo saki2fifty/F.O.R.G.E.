@@ -37,6 +37,46 @@ inline std::string asset_display(const AssetRecord& record) {
         name += " / " + member;
     return name;
 }
+struct AssetPickerEntry {
+    AssetId id;
+    std::string label;
+    bool engine = false, removed = false;
+};
+#ifdef FORGE_UI_FIXTURE
+// Actual Inspector control capture hook; absent from the shipped editor.
+inline bool fixture_open_mesh_picker = false;
+#endif
+// Disposable projection of the admitted catalog. No source reads or private
+// asset registry; only the popup's visible rows are submitted to ImGui.
+inline std::vector<AssetPickerEntry> asset_picker_entries(const AssetCatalog& catalog,
+                                                          std::string_view type,
+                                                          std::string_view search,
+                                                          bool include_engine) {
+    std::vector<AssetPickerEntry> rows;
+    const auto query = search_key(std::string(search));
+    if (include_engine)
+        for (const auto& asset : engine_assets()) {
+            auto label = std::string("Engine / ") + asset.name;
+            if (type == asset.type && search_key(label).find(query) != std::string::npos)
+                rows.push_back({asset.id, std::move(label), true, false});
+        }
+    for (const auto& [id, record] : catalog.records()) {
+        if (record.type != type || engine_asset(id))
+            continue;
+        auto label = asset_display(record);
+        const bool removed = record.subasset && record.subasset->removed;
+        if (removed)
+            label += " (removed member)";
+        if (search_key(label).find(query) != std::string::npos)
+            rows.push_back({id, std::move(label), false, removed});
+    }
+    std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) {
+        if (a.engine != b.engine)
+            return a.engine;
+        return a.label == b.label ? a.id < b.id : a.label < b.label;
+    });
+    return rows;
+}
 inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std::string& type,
                              const char* title, bool include_engine = true) {
     ui::IdScope scope(title);
@@ -49,7 +89,20 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                 label += " (missing / incompatible)";
         }
         bool changed = false;
+#ifdef FORGE_UI_FIXTURE
+        const bool fixture_open = fixture_open_mesh_picker && type == "mesh" &&
+                                  std::string_view(ImGui::GetCurrentWindow()->Name) == "Inspector";
+        if (fixture_open) {
+            ImGui::SetScrollHereY(.5f);
+            ImGui::OpenPopupEx(ImHashStr("##ComboPopup", 0, ImGui::GetID(title)),
+                               ImGuiPopupFlags_None);
+        }
+#endif
         if (ImGui::BeginCombo(title, label.c_str())) {
+#ifdef FORGE_UI_FIXTURE
+            if (fixture_open)
+                fixture_open_mesh_picker = false;
+#endif
             // Popup storage belongs to this field's ImGui scope, not a second asset database.
             static std::map<ImGuiID, std::array<char, 192>> searches;
             if (searches.size() > 1024)
@@ -64,36 +117,44 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             }
             ui::help(
                 "Clear this reference. Required resources will report a missing-asset diagnostic.");
-            unsigned count = 0;
-            for (const auto& asset : engine_assets()) {
-                const auto display = std::string("Engine / ") + asset.name;
-                if (!include_engine || type != asset.type ||
-                    search_key(display).find(search_key(search.data())) == std::string::npos)
-                    continue;
-                ui::IdScope item(asset.id.str().c_str());
-                if (ImGui::Selectable(display.c_str(), value == Json(asset.id))) {
-                    value = asset.id;
-                    changed = true;
+            const auto rows = asset_picker_entries(catalog, type, search.data(), include_engine);
+            const auto selected = value.is_null() ? AssetId{} : value.get<AssetId>();
+            const float height = ImGui::GetTextLineHeight();
+            ImGuiListClipper clipper;
+            clipper.Begin(int(rows.size()), height + ImGui::GetStyle().ItemSpacing.y);
+            for (std::size_t i = 0; i < rows.size(); ++i)
+                if (rows[i].id == selected)
+                    clipper.IncludeItemByIndex(int(i));
+            while (clipper.Step())
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+                    const auto& row = rows[std::size_t(i)];
+                    ui::IdScope item(row.id.str().c_str());
+                    const auto pos = ImGui::GetCursorScreenPos();
+                    const auto width = ImGui::GetContentRegionAvail().x;
+                    ImGui::BeginDisabled(row.removed);
+                    if (ImGui::Selectable("##asset", row.id == selected, 0, {width, height})) {
+                        value = row.id;
+                        changed = true;
+                    }
+                    if (row.id == selected)
+                        ImGui::SetItemDefaultFocus();
+                    ui::help(
+                        (row.label + "\n" +
+                         (row.removed  ? "This member was removed from its source. Reimport a "
+                                         "matching member or choose another asset."
+                          : row.engine ? "Built-in engine asset; its shared source is read-only."
+                                       : "Assign this registered asset. Its persistent identity "
+                                         "survives supported relocation."))
+                            .c_str());
+                    auto* draw = ImGui::GetWindowDrawList();
+                    draw->PushClipRect(pos, {pos.x + width, pos.y + height}, true);
+                    ui::asset_icon(draw, pos, height, type);
+                    draw->AddText({pos.x + height + ImGui::GetStyle().ItemInnerSpacing.x, pos.y},
+                                  ImGui::GetColorU32(ImGuiCol_Text), row.label.c_str());
+                    draw->PopClipRect();
+                    ImGui::EndDisabled();
                 }
-                ui::help("Assign this built-in engine asset. Its shared source is read-only and "
-                         "requires no project import.");
-                ++count;
-            }
-            for (const auto& [id, record] : catalog.records()) {
-                if (record.type != type ||
-                    search_key(asset_display(record)).find(search_key(search.data())) ==
-                        std::string::npos)
-                    continue;
-                ui::IdScope item(id.str().c_str());
-                if (ImGui::Selectable(asset_display(record).c_str(), value == Json(id))) {
-                    value = id;
-                    changed = true;
-                }
-                ui::help("Assign this registered asset; its persistent identity survives supported "
-                         "relocation.");
-                ++count;
-            }
-            if (!count)
+            if (rows.empty())
                 ImGui::TextWrapped("No matching assets. Use Content > Create / Register for "
                                    "supported asset workflows.");
             ImGui::EndCombo();
@@ -110,9 +171,10 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                     const auto* builtin = engine_asset(id);
                     const bool compatible =
                         builtin ? include_engine && type == builtin->type
-                                : it != catalog.records().end() && it->second.type == type;
+                                : it != catalog.records().end() && it->second.type == type &&
+                                      (!it->second.subasset || !it->second.subasset->removed);
                     if (!compatible)
-                        ImGui::SetTooltip("This field requires %s", type.c_str());
+                        ImGui::SetTooltip("This field requires a current %s asset", type.c_str());
                     if (compatible && payload->IsDelivery()) {
                         value = id;
                         changed = true;

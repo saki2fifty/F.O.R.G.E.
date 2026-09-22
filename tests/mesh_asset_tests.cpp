@@ -51,6 +51,34 @@ template <class F> std::vector<std::byte> edit(const std::vector<std::byte>& byt
     result.insert(result.end(), bytes.begin() + 24 + n, bytes.end());
     return result;
 }
+// Construct exact old layouts independently: legacy indices have no type field
+// and occupy four little-endian bytes. These fixtures each have one part.
+std::vector<std::byte> legacy(const std::vector<std::byte>& bytes, unsigned version) {
+    const auto n = read(bytes, 12);
+    auto j = nlohmann::json::parse(bytes.begin() + 24, bytes.begin() + 24 + n);
+    auto& index = j["lods"][0]["parts"][0]["indices"];
+    require(index.at("type") == "u16", "Legacy fixture needs compact input");
+    const auto offset = index.at("offset").get<std::size_t>();
+    const auto count = index.at("count").get<std::size_t>();
+    std::vector<std::byte> payload(bytes.begin() + 24 + n, bytes.begin() + 24 + n + offset);
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto at = 24 + n + offset + i * 2;
+        payload.push_back(bytes.at(at));
+        payload.push_back(bytes.at(at + 1));
+        payload.push_back(std::byte{});
+        payload.push_back(std::byte{});
+    }
+    index.erase("type");
+    const auto text = j.dump();
+    std::vector<std::byte> result(bytes.begin(), bytes.begin() + 24);
+    write(result, 8, version);
+    write(result, 12, static_cast<std::uint32_t>(text.size()));
+    write(result, 16, static_cast<std::uint32_t>(payload.size()));
+    for (auto ch : text)
+        result.push_back(std::byte(ch));
+    result.insert(result.end(), payload.begin(), payload.end());
+    return result;
+}
 } // namespace
 int main() {
     try {
@@ -72,8 +100,11 @@ int main() {
             {"WEIGHTS_0", 4,
              std::vector<float>{.25f, .75f, 0, 0, .25f, .75f, 0, 0, .25f, .75f, 0, 0}});
         const auto skin_bytes = encode_mesh(skinned);
-        require(read(skin_bytes, 8) == 2 && read(bytes, 8) == 1,
+        require(read(skin_bytes, 8) == 3 && read(bytes, 8) == 3,
                 "Cooked mesh feature version incorrect");
+        require(encode_mesh(decode_mesh(legacy(bytes, 1))) == bytes &&
+                    encode_mesh(decode_mesh(legacy(skin_bytes, 2))) == skin_bytes,
+                "Legacy mesh versions lost geometry or prepared skin data");
         require(decode_mesh(skin_bytes).lods[0].parts[0].joint_palette == skin_part.joint_palette &&
                     encode_mesh(decode_mesh(skin_bytes)) == skin_bytes,
                 "Prepared skin roundtrip changed binding");
@@ -117,7 +148,7 @@ int main() {
         corrupt.push_back(std::byte{0});
         rejects([&] { decode_mesh(corrupt); });
         corrupt = bytes;
-        write(corrupt, 8, 2);
+        write(corrupt, 8, 4);
         rejects([&] { decode_mesh(corrupt); });
         corrupt = bytes;
         write(corrupt, 12, UINT32_MAX);
@@ -125,7 +156,7 @@ int main() {
         corrupt = bytes;
         write(corrupt, 20, 1);
         rejects([&] { decode_mesh(corrupt); });
-        for (unsigned which = 0; which < 7; ++which) {
+        for (unsigned which = 0; which < 10; ++which) {
             auto changed = edit(bytes, [&](auto& j) {
                 auto& p = j["lods"][0]["parts"][0];
                 if (which == 0)
@@ -142,6 +173,12 @@ int main() {
                     p["maximum"] = nlohmann::json::array({0, 0});
                 if (which == 6)
                     j["lods"][0]["coverage"] = -1;
+                if (which == 7)
+                    p["indices"]["type"] = "u8";
+                if (which == 8)
+                    p["indices"]["type"] = "none";
+                if (which == 9)
+                    p["indices"]["count"] = 0;
             });
             rejects([&] { decode_mesh(changed); });
         }
@@ -154,6 +191,36 @@ int main() {
         limits = {};
         limits.bytes = 8;
         rejects([&] { decode_mesh(bytes, limits); });
+        limits = {};
+        limits.bytes = triangle().byte_size() - 1;
+        rejects([&] { decode_mesh(bytes, limits); });
+        auto sequential = triangle();
+        sequential.lods[0].parts[0].indices.clear();
+        const auto sequential_bytes = encode_mesh(sequential);
+        require(decode_mesh(sequential_bytes).lods[0].parts[0].indices.empty(),
+                "Nonindexed mesh lost its representation");
+        auto sequential_old = sequential_bytes;
+        write(sequential_old, 8, 1);
+        rejects([&] { decode_mesh(sequential_old); });
+        for (const unsigned last : {65535u, 65536u}) {
+            MeshData large;
+            MeshPart p;
+            p.vertices = 65537;
+            p.topology = MeshTopology::Points;
+            p.streams = {{"POSITION", 3, std::vector<float>(std::size_t(p.vertices) * 3)}};
+            p.indices = {last};
+            p.bounds = mesh_bounds(p);
+            large.lods = {{1, {p}}};
+            const auto encoded = encode_mesh(large);
+            const auto n = read(encoded, 12);
+            const auto metadata =
+                nlohmann::json::parse(encoded.begin() + 24, encoded.begin() + 24 + n);
+            require(metadata["lods"][0]["parts"][0]["indices"]["type"] ==
+                            (last == 65535 ? "u16" : "u32") &&
+                        read(encoded, 16) == p.vertices * 12 + (last == 65535 ? 2u : 4u) &&
+                        decode_mesh(encoded).lods[0].parts[0].indices == p.indices,
+                    "Compact index boundary lost exact values or used the vertex count");
+        }
         mesh = triangle();
         auto& part = mesh.lods[0].parts[0];
         part.morph_targets = {{{"POSITION", 3, std::vector<float>{0, 0, 1, 0, 0, 2, 0, 0, 3}}}};

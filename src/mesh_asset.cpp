@@ -1,4 +1,5 @@
 #include "cooked_envelope.hpp"
+#include "mesh_index.hpp"
 #include "mesh_morph.hpp"
 #include <algorithm>
 #include <bit>
@@ -351,8 +352,8 @@ void validate_mesh(const MeshData& mesh, MeshLimits limits) {
                                : part.topology == MeshTopology::Lines     ? 2u
                                : part.topology == MeshTopology::Triangles ? 3u
                                                                           : 0u;
-            require(width && !part.indices.empty() && part.indices.size() % width == 0,
-                    "Invalid mesh primitive topology/count");
+            const auto corners = part.indices.empty() ? part.vertices : part.indices.size();
+            require(width && corners % width == 0, "Invalid mesh primitive topology/count");
             add(indices, part.indices.size(), limits.indices);
             require(part.indices.size() <= limits.bytes / 4, "Mesh indices exceed byte budget");
             add(bytes, part.indices.size() * 4, limits.bytes);
@@ -397,7 +398,6 @@ std::vector<std::byte> encode_mesh(const MeshData& mesh, MeshLimits limits) {
                   {"morph_names", mesh.morph_names},
                   {"morph_defaults", mesh.morph_defaults},
                   {"lods", Json::array()}};
-    bool prepared_skin = false;
     for (const auto& lod : mesh.lods) {
         Json parts = Json::array();
         for (const auto& p : lod.parts) {
@@ -407,28 +407,32 @@ std::vector<std::byte> encode_mesh(const MeshData& mesh, MeshLimits limits) {
                       {"morph_targets", Json::array()}};
             if (!p.joint_palette.empty()) {
                 part["joint_palette"] = p.joint_palette;
-                prepared_skin = true;
             }
             for (const auto& target : p.morph_targets)
                 part["morph_targets"].push_back(stream_json(target));
-            part["indices"] = {{"offset", payload.size()}, {"count", p.indices.size()}};
+            const auto width = asset_detail::mesh_index_width(p.indices);
+            part["indices"] = {{"offset", payload.size()},
+                               {"count", p.indices.size()},
+                               {"type", width == 0   ? "none"
+                                        : width == 2 ? "u16"
+                                                     : "u32"}};
             for (auto index : p.indices)
-                write32(payload, index);
+                for (unsigned byte = 0; byte < width; ++byte)
+                    payload.push_back(std::byte((index >> (byte * 8)) & 255));
             parts.push_back(std::move(part));
         }
         metadata["lods"].push_back(
             {{"coverage", lod.screen_coverage}, {"parts", std::move(parts)}});
     }
-    return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit,
-                                         prepared_skin ? 2 : 1);
+    return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit, 3);
 }
 
 MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
     const auto envelope =
-        asset_detail::decode_envelope(bytes, magic, metadata_limit, limits.bytes, 2);
+        asset_detail::decode_envelope(bytes, magic, metadata_limit, limits.bytes, 3);
     const auto& metadata = envelope.metadata;
     const auto payload = envelope.payload;
-    std::size_t at = 0;
+    std::size_t at = 0, decoded_bytes = 0;
     auto streams = [&](const Json& list, std::size_t vertices) {
         std::vector<MeshStream> result;
         for (const auto& j : array(list, limits.streams)) {
@@ -442,6 +446,7 @@ MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
                     "Invalid mesh stream span");
             const auto type = j.at("type").get<std::string>();
             require(type == "f32" || type == "u32", "Unsupported cooked mesh scalar type");
+            add(decoded_bytes, n * 4, limits.bytes);
             if (type == "f32") {
                 std::vector<float> values;
                 values.reserve(n);
@@ -486,10 +491,11 @@ MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
             bounds(p.at("minimum"), part.bounds.minimum);
             bounds(p.at("maximum"), part.bounds.maximum);
             if (p.contains("joint_palette")) {
-                require(envelope.version == 2 && !p.at("joint_palette").empty(),
-                        "Joint palette requires cooked mesh version2");
+                require(envelope.version >= 2 && !p.at("joint_palette").empty(),
+                        "Joint palette requires cooked mesh version2 or newer");
                 for (const auto& joint : array(p.at("joint_palette"), 256))
                     part.joint_palette.push_back(static_cast<std::uint32_t>(count(joint, 65535)));
+                add(decoded_bytes, part.joint_palette.size() * 4, limits.bytes);
                 prepared_skin = true;
             }
             part.streams = streams(p.at("streams"), part.vertices);
@@ -497,19 +503,35 @@ MeshData decode_mesh(std::span<const std::byte> bytes, MeshLimits limits) {
                 part.morph_targets.push_back(streams(target, part.vertices));
             const auto& index = p.at("indices");
             const auto n = count(index.at("count"), limits.indices);
+            unsigned width = 4;
+            if (envelope.version == 3) {
+                const auto type = index.at("type").get<std::string>();
+                require(type == "none" || type == "u16" || type == "u32",
+                        "Unsupported cooked mesh index type");
+                require((type == "none") == (n == 0), "Mesh index type/count mismatch");
+                width = type == "u16" ? 2 : 4;
+            } else {
+                require(n != 0 && !index.contains("type"),
+                        "Legacy mesh requires implicit uint32 indices");
+            }
             require(count(index.at("offset"), payload.size()) == at &&
-                        n <= (payload.size() - at) / 4,
+                        n <= (payload.size() - at) / width && n <= limits.bytes / 4,
                     "Invalid mesh index span");
             add(indices, n, limits.indices);
+            add(decoded_bytes, n * 4, limits.bytes);
             part.indices.reserve(n);
-            for (std::size_t i = 0; i < n; ++i)
-                part.indices.push_back(read32(payload, at));
+            for (std::size_t i = 0; i < n; ++i) {
+                std::uint32_t value = 0;
+                for (unsigned byte = 0; byte < width; ++byte)
+                    value |= std::to_integer<std::uint32_t>(payload[at++]) << (byte * 8);
+                part.indices.push_back(value);
+            }
             lod.parts.push_back(std::move(part));
         }
         result.lods.push_back(std::move(lod));
     }
     require(at == payload.size(), "Unexpected trailing cooked mesh bytes");
-    require(envelope.version == (prepared_skin ? 2u : 1u),
+    require(envelope.version == 3 || envelope.version == (prepared_skin ? 2u : 1u),
             "Cooked mesh version does not match its skin features");
     validate_mesh(result, limits);
     return result;

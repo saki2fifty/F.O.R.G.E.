@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "native_io_path.hpp"
 #include <algorithm>
 #include <chrono>
 #include <forge/derived_cache.hpp>
@@ -36,9 +37,9 @@ class CacheLock {
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(5);
         for (;;) {
 #ifdef _WIN32
-            handle_ =
-                CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
-                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+            handle_ = CreateFileW(asset_detail::native_io_path(path).c_str(),
+                                  GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
             if (handle_ != INVALID_HANDLE_VALUE) {
                 BY_HANDLE_FILE_INFORMATION info{};
                 if (!GetFileInformationByHandle(handle_, &info) ||
@@ -100,15 +101,17 @@ class CacheLock {
 };
 void durable_file(const std::filesystem::path& path, std::span<const std::byte> bytes) {
     {
-        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        std::ofstream output(asset_detail::native_io_path(path),
+                             std::ios::binary | std::ios::trunc);
         output.exceptions(std::ios::badbit | std::ios::failbit);
         output.write(reinterpret_cast<const char*>(bytes.data()),
                      static_cast<std::streamsize>(bytes.size()));
         output.flush();
     }
 #ifdef _WIN32
-    const auto handle = CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
-                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    const auto handle =
+        CreateFileW(asset_detail::native_io_path(path).c_str(), GENERIC_WRITE, FILE_SHARE_READ,
+                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE)
         throw std::runtime_error("Cannot flush cache file");
     const bool ok = FlushFileBuffers(handle) != 0;
@@ -341,7 +344,8 @@ CachedArtifact DerivedDataCache::publish(const AssetBuildInput& input,
         durable_file(stage / "manifest.json", std::as_bytes(std::span(manifest)));
         sync_directory(stage);
 #ifdef _WIN32
-        if (!MoveFileExW(stage.c_str(), final.c_str(), MOVEFILE_WRITE_THROUGH))
+        if (!MoveFileExW(asset_detail::native_io_path(stage).c_str(),
+                         asset_detail::native_io_path(final).c_str(), MOVEFILE_WRITE_THROUGH))
             throw std::runtime_error("Artifact promotion failed (Windows error " +
                                      std::to_string(GetLastError()) + ")");
 #else

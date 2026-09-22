@@ -23,6 +23,8 @@ struct MeshPart {
     MeshTopology topology = MeshTopology::Triangles;
     std::uint32_t vertices = 0, material_slot = 0;
     std::vector<MeshStream> streams;
+    // Exact CPU working indices. Empty means sequential, nonindexed primitives.
+    // Cooking/GPU realization choose compact storage independently.
     std::vector<std::uint32_t> indices;
     std::vector<std::vector<MeshStream>> morph_targets;
     MeshBounds bounds;

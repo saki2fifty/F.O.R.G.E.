@@ -45,3 +45,22 @@
 - Corrected three runtime-package JSON comparisons rejected by MSVC. Both Linux CI profiles passed the preceding source; Windows compilation required this correction and must be rerun.
 - Reconciled asset publication/discovery/settings/texture/resource documentation with current providers and editor consumers. The new resource/cache manual explains ownership, limitations and recovery.
 - Focused Linux checks pass: cache maintenance, resource lifetime, asset tools, runtime content packaging, asset build and scale workloads (6/6, 24.04 seconds). Manual checks (3/3), formatting and adapted Linux editor syntax pass. Strict ASan/UBSan/LSan checks also pass (5/5, 72.12 seconds). Full Linux regression completed 99/101 inside the sandbox (235.75 seconds); both local-loopback tests passed with socket access on rerun, giving passing evidence for all 101 tests. Native Windows results remain pending.
+
+## Mesh index representation
+
+- Cooked Mesh version3 selects 16-bit indices when referenced indices fit and 32-bit otherwise. CPU working values stay exact uint32. Versions1/2 remain readable; new version3 data is rejected by older readers. Model recipe fingerprints include the new packing helper.
+- Added explicit nonindexed list geometry across Mesh admission, cooking, Diligent draws, picking and offline processing. Preserve-only processing keeps the representation; native processing generates equivalent connectivity within aggregate budgets.
+- GPU uploads use Diligent index types and Draw/DrawIndexed without native API assumptions. Compact decoded input still enforces the expanded CPU byte budget before allocation.
+- Added legacy-layout, 65535/65536 boundary, malformed type/count/span, byte-budget, processing and picking regressions. Native fixtures compare 16-bit, 32-bit and nonindexed pixels and read back actual buffers. Linux mesh/processing/import/worker/runtime-package/Vulkan integration passes11/11 (84.30 seconds), with preceding focused checks6/6. Strict ASan/UBSan/LSan mesh/bounds/model/corpus checks pass5/5 (19.17 seconds). New native Windows index fixtures remain pending.
+
+## Typed asset selection
+
+- Added shared vector type icons to asset picker results and Content fallbacks/list rows. Icons indicate type; they do not claim a rendered thumbnail or loaded resource. Existing real thumbnails remain in use.
+- Picker results sort engine assets first, filter source/member names and types, mark removed members, and clip large lists through the pinned ImGui list clipper. Removed members cannot be newly assigned through picking or drag/drop; existing unresolved references remain intact until edited.
+- Added actual UI interaction coverage for a 2,000-row catalog, search/type filtering, selection, Clear and incompatible-reference preservation. The actual Linux ImGui interaction/runtime test passes (14.52 seconds); native captures at 100%, 150% and 200% are added and pending.
+
+## Windows validation corrections
+
+- The latest core runs found a test-only path-separator mismatch and a runtime-package file-write failure in the longer shared-SDK build directory. The artifact/staging path reaches the Win32 260-character limit.
+- Asset CLI tests now normalize snapshot dictionary keys consistently. Asset/cache/package I/O uses a private Windows extended-length path adapter at the OS boundary; logical catalog paths and persistent identities are unchanged. Package write errors include the failing path.
+- Added a package/load regression with final output paths beyond 290 characters. Linux package/cache/CLI checks pass4/4 (3.01 seconds); strict ASan/UBSan/LSan checks pass3/3 (3.75 seconds). Native confirmation remains pending; the prior Windows failure remains recorded.

@@ -556,12 +556,20 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     }
     context->SetPipelineState(pipelines_[index]);
     context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(mesh_.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawIndexedAttribs draw;
-    draw.NumIndices = mesh_.index_count;
-    draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
-    draw.IndexType = VT_UINT32;
-    draw.Flags = DRAW_FLAG_VERIFY_ALL;
-    context->DrawIndexed(draw);
+    if (mesh_.indices) {
+        context->SetIndexBuffer(mesh_.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        DrawIndexedAttribs draw;
+        draw.NumIndices = mesh_.index_count;
+        draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
+        draw.IndexType = mesh_.index_type;
+        draw.Flags = DRAW_FLAG_VERIFY_ALL;
+        context->DrawIndexed(draw);
+    } else {
+        DrawAttribs draw;
+        draw.NumVertices = mesh_.vertex_count;
+        draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
+        draw.Flags = DRAW_FLAG_VERIFY_ALL;
+        context->Draw(draw);
+    }
 }
 } // namespace forge

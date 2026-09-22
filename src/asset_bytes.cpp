@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "native_io_path.hpp"
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -6,7 +7,7 @@
 #include <stdexcept>
 namespace forge::asset_detail {
 std::vector<std::byte> read_bytes(const std::filesystem::path& path, std::size_t limit) {
-    std::ifstream in(path, std::ios::binary | std::ios::ate);
+    std::ifstream in(native_io_path(path), std::ios::binary | std::ios::ate);
     if (!in)
         throw std::runtime_error("Cannot read asset input: " + path.string());
     auto size = in.tellg();

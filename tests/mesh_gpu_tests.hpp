@@ -76,8 +76,13 @@ void check_mesh_upload(forge::DiligentPresentation& presentation,
                 stream.values);
         }
         auto indices = bytes(uploaded.indices);
-        require(std::memcmp(indices.data(), part.indices.data(), indices.size()) == 0,
-                "GPU upload reordered indices/winding");
+        require(uploaded.index_type == VT_UINT16 && indices.size() == part.indices.size() * 2,
+                "Small GPU mesh did not use compact indices");
+        for (std::size_t i = 0; i < part.indices.size(); ++i) {
+            Uint16 value;
+            std::memcpy(&value, indices.data() + i * 2, 2);
+            require(value == part.indices[i], "GPU upload reordered indices/winding");
+        }
         auto morphs = bytes(uploaded.morphs);
         for (const auto& stream : part.morph_targets[0]) {
             const auto* attribute = uploaded.morph_targets.at(0).find(stream.semantic);
@@ -97,6 +102,26 @@ void check_mesh_upload(forge::DiligentPresentation& presentation,
     } catch (const std::exception&) {
         rejected = true;
     }
-    require(rejected && bytes(gpu.lods[0].parts[0].indices).size() == 12,
+    require(rejected && bytes(gpu.lods[0].parts[0].indices).size() == 6,
             "Invalid mesh replacement damaged the previous GPU resource");
+    for (const unsigned last : {65535u, 65536u}) {
+        forge::MeshData large;
+        forge::MeshPart p;
+        p.vertices = 65537;
+        p.topology = forge::MeshTopology::Points;
+        p.streams = {{"POSITION", 3, std::vector<float>(std::size_t(p.vertices) * 3)}};
+        p.indices = {last};
+        p.bounds = forge::mesh_bounds(p);
+        large.lods = {{1, {p}}};
+        auto uploaded = forge::upload_mesh(device, large);
+        const auto& item = uploaded.lods[0].parts[0];
+        const auto data = bytes(item.indices);
+        std::uint32_t value = 0;
+        for (unsigned i = 0; i < data.size(); ++i)
+            value |= std::to_integer<std::uint32_t>(data[i]) << (8 * i);
+        require(item.index_type == (last == 65535 ? VT_UINT16 : VT_UINT32) &&
+                    data.size() == (last == 65535 ? 2u : 4u) && value == last &&
+                    uploaded.buffer_bytes == p.vertices * 12 + data.size(),
+                "Native index-width boundary lost exact values/accounting");
+    }
 }

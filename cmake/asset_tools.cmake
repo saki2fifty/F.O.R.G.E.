@@ -190,7 +190,7 @@ foreach(source
  src/gltf_meshopt.hpp src/gltf_meshopt.cpp src/gltf_draco.hpp src/gltf_draco.cpp
  src/gltf_mesh.cpp src/gltf_hierarchy.cpp src/gltf_skin.cpp src/gltf_animation.cpp src/gltf_cook_mesh.cpp
  src/gltf_surfaces.hpp src/gltf_surfaces.cpp src/mesh_processing.hpp src/mesh_processing.cpp
- src/material_asset.cpp src/mesh_asset.cpp src/asset_bytes.hpp src/asset_bytes.cpp
+ src/material_asset.cpp src/mesh_asset.cpp src/mesh_index.hpp src/asset_bytes.hpp src/asset_bytes.cpp src/native_io_path.hpp
  cmake/meshoptimizer.cmake cmake/draco.cmake cmake/dependencies.cmake src/animation_archive.cpp src/animation_asset.cpp)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
  file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)
