@@ -20,45 +20,8 @@ float4 ForgeProject(float3 p) {
 }
 )";
 } // namespace
-MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
-                                bool shadow_pass, MaterialSamplerBinding sampler_binding) {
-    const auto& source = profile.values;
-    const bool transmission = !shadow_pass && material_transmits(profile);
-    const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
-    if (transmission) {
-        const double ior = source.parameters.at("ior").value[0];
-        const double spread = (ior - 1) * (.025 * source.parameters.at("dispersion").value[0]);
-        require(ior + spread <= std::numeric_limits<float>::max(),
-                "dispersed IOR exceeds the finite GPU optical profile");
-    }
-    const bool sheen =
-        profile.workflow == PbrWorkflow::MetallicRoughness &&
-        profile.values.parameters.at("sheenColorFactor").value != std::array<float, 4>{};
-    const bool anisotropy = profile.workflow == PbrWorkflow::MetallicRoughness &&
-                            profile.values.parameters.at("anisotropyStrength").value[0] > 0;
-    for (const auto& [role, slot] : profile.values.textures) {
-        (void)slot;
-        require(role == "baseColorTexture" || role == "diffuseTexture" ||
-                    role == "metallicRoughnessTexture" || role == "specularGlossinessTexture" ||
-                    role == "normalTexture" || role == "occlusionTexture" ||
-                    role == "emissiveTexture" || role == "specularTexture" ||
-                    role == "specularColorTexture" || role == "clearcoatTexture" ||
-                    role == "clearcoatRoughnessTexture" || role == "clearcoatNormalTexture" ||
-                    role == "iridescenceTexture" || role == "iridescenceThicknessTexture" ||
-                    role == "sheenColorTexture" || role == "sheenRoughnessTexture" ||
-                    role == "anisotropyTexture" || role == "transmissionTexture" ||
-                    role == "thicknessTexture",
-                "extended texture consumer unavailable: " + role);
-    }
-    if (profile.values.textures.contains("clearcoatNormalTexture"))
-        require((fetch.normal && fetch.tangent) ||
-                    profile.values.textures.contains("normalTexture"),
-                "clearcoat normal map requires authored normal/tangent or a base normal map");
-    if (anisotropy || profile.values.textures.contains("anisotropyTexture"))
-        require((fetch.normal && fetch.tangent) ||
-                    profile.values.textures.contains("normalTexture"),
-                "anisotropy requires authored normal/tangent or a base normal map");
-    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding);
+MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances) {
+    const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string skin = fetch.skin ? R"(
 // Common positive normalization avoids overflowing weighted linear matrices.
@@ -153,6 +116,54 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
     output.RestartStrip();
 }
 )";
+    return {std::move(vs), std::move(geometry), std::move(varyings), instanced};
+}
+MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
+                                bool shadow_pass, MaterialSamplerBinding sampler_binding) {
+    const auto& source = profile.values;
+    const bool transmission = !shadow_pass && material_transmits(profile);
+    const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
+    if (transmission) {
+        const double ior = source.parameters.at("ior").value[0];
+        const double spread = (ior - 1) * (.025 * source.parameters.at("dispersion").value[0]);
+        require(ior + spread <= std::numeric_limits<float>::max(),
+                "dispersed IOR exceeds the finite GPU optical profile");
+    }
+    const bool sheen =
+        profile.workflow == PbrWorkflow::MetallicRoughness &&
+        profile.values.parameters.at("sheenColorFactor").value != std::array<float, 4>{};
+    const bool anisotropy = profile.workflow == PbrWorkflow::MetallicRoughness &&
+                            profile.values.parameters.at("anisotropyStrength").value[0] > 0;
+    for (const auto& [role, slot] : profile.values.textures) {
+        (void)slot;
+        require(role == "baseColorTexture" || role == "diffuseTexture" ||
+                    role == "metallicRoughnessTexture" || role == "specularGlossinessTexture" ||
+                    role == "normalTexture" || role == "occlusionTexture" ||
+                    role == "emissiveTexture" || role == "specularTexture" ||
+                    role == "specularColorTexture" || role == "clearcoatTexture" ||
+                    role == "clearcoatRoughnessTexture" || role == "clearcoatNormalTexture" ||
+                    role == "iridescenceTexture" || role == "iridescenceThicknessTexture" ||
+                    role == "sheenColorTexture" || role == "sheenRoughnessTexture" ||
+                    role == "anisotropyTexture" || role == "transmissionTexture" ||
+                    role == "thicknessTexture",
+                "extended texture consumer unavailable: " + role);
+    }
+    if (profile.values.textures.contains("clearcoatNormalTexture"))
+        require((fetch.normal && fetch.tangent) ||
+                    profile.values.textures.contains("normalTexture"),
+                "clearcoat normal map requires authored normal/tangent or a base normal map");
+    if (anisotropy || profile.values.textures.contains("anisotropyTexture"))
+        require((fetch.normal && fetch.tangent) ||
+                    profile.values.textures.contains("normalTexture"),
+                "anisotropy requires authored normal/tangent or a base normal map");
+    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding);
+    const auto generated = mesh_geometry_shader(fetch, !transmission);
+    const auto& vs = generated.vertex;
+    const auto& geometry = generated.geometry;
+    const auto& varyings = generated.varyings;
+    const auto& skin =
+        fetch.skin ? std::string("cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};\n")
+                   : std::string{};
     if (shadow_pass) {
         std::string depth = varyings + material.source + "void main(ForgeVarying input) {\n";
         if (source.alpha == MaterialAlpha::Mask) {

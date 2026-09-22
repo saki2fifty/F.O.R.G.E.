@@ -6,6 +6,7 @@
 #include "render_bounds.hpp"
 #include "shadow_lighting.hpp"
 #include "transmission_background.hpp"
+#include <forge/material_resource.hpp>
 #include <forge/render_view.hpp>
 namespace forge {
 // Diligent prepared draw. The caller owns scene extraction, typed resource
@@ -25,7 +26,8 @@ class MeshDraw {
              Diligent::TEXTURE_FORMAT depth_format, bool enable_skin = true,
              Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_DEFAULT,
              Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
-                 Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT);
+                 Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
+             const MaterialShaderSnapshot* surface = nullptr);
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);

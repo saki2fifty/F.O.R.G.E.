@@ -1,6 +1,18 @@
 #include "asset_bytes.hpp"
+#include "pbr_material.hpp"
 #include <forge/material_resource.hpp>
 namespace forge {
+void validate_render_material(const MaterialResourceData& data) {
+    validate_material_bindings(data.values, data.textures);
+    if (data.surface) {
+        if (!data.surface->shader.id || !valid_content_digest(data.surface->revision) ||
+            !data.surface->program.surface)
+            throw std::runtime_error("Material has an invalid cooked surface dependency");
+        validate_shader(data.surface->program);
+        validate_surface_material(data.values, *data.surface->program.surface);
+    } else
+        (void)prepare_pbr_material(data.values);
+}
 std::size_t MaterialResourceData::resident_bytes() const {
     std::size_t bytes = sizeof(*this) - sizeof(values) + values.resident_bytes();
     for (const auto& [name, ref] : textures) {
@@ -8,6 +20,8 @@ std::size_t MaterialResourceData::resident_bytes() const {
         bytes += sizeof(std::pair<const std::string, AssetRef<TextureAsset>>) + 4 * sizeof(void*) +
                  name.capacity();
     }
+    if (surface)
+        bytes += surface->revision.capacity() + surface->program.resident_bytes();
     return bytes;
 }
 ResourcePool<MaterialAsset>::Loader material_resource_loader(std::filesystem::path path,

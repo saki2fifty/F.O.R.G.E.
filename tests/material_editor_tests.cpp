@@ -1,6 +1,7 @@
 #include "component_inspector.hpp"
 #include "material_editor.hpp"
 #include "mesh_material_inspector.hpp"
+#include "surface_material_fixture.hpp"
 #include <iostream>
 using namespace forge;
 namespace {
@@ -179,6 +180,66 @@ int main(int argc, char** argv) {
         slots.select(root, catalog, {});
         require(slots.bindings().empty() && !slots.pending(),
                 "Cleared selection retained mesh slots");
+        {
+            const auto authored_before_custom = scene.document();
+            auto selected = AssetCatalog::open_project(root);
+            SurfaceShaderDefinition definition;
+            definition.parameters["tint"] = {MaterialParameterType::LinearColor4,
+                                             {.2f, .4f, .8f, 1}};
+            const auto shader = AssetId::generate();
+            test::publish_surface_fixture(root, selected, shader, definition);
+            auto custom_source =
+                MaterialDocument::create(project.writer_guard(), "Assets/custom.material.json");
+            custom_source->edit(custom_source->revision(), "Select Shader", [&](auto& j) {
+                j["version"] = 2;
+                j["overrides"]["shader"] = AssetRef<ShaderAsset>{shader};
+            });
+            custom_source->save();
+            MaterialEditor custom_editor;
+            std::optional<MaterialResourceData> custom_preview;
+            unsigned changes = 0;
+            custom_editor.update_preview = [&](auto, auto data, auto) {
+                custom_preview = std::move(data);
+                ++changes;
+            };
+            custom_editor.open(project, custom_source->locator());
+            const auto pump = [&] {
+                custom_editor.poll(project, message);
+                ImGui::NewFrame();
+                custom_editor.draw(project, false);
+                ImGui::Render();
+            };
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            while (!custom_preview && std::chrono::steady_clock::now() < deadline) {
+                pump();
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+            require(custom_preview && custom_preview->surface &&
+                        custom_preview->surface->shader.id == shader,
+                    "Material editor failed to select a custom Shader asynchronously");
+            custom_editor.edit(custom_editor.document()->revision(), "Custom tint", [](auto& j) {
+                j["overrides"]["parameters"]["tint"] = {
+                    {"type", unsigned(MaterialParameterType::LinearColor4)},
+                    {"value", {1, 0, 0, 1}}};
+            });
+            pump();
+            require(custom_preview->values.parameters.at("tint").value[0] == 1 &&
+                        custom_editor.can_undo(),
+                    "Custom parameter edit did not update preview/history");
+            custom_editor.undo();
+            pump();
+            require(custom_preview->values.parameters.at("tint").value[0] == .2f,
+                    "Custom parameter Undo did not restore Shader defaults");
+            const auto before_bad = changes;
+            custom_editor.edit(custom_editor.document()->revision(), "Wrong type", [](auto& j) {
+                j["overrides"]["parameters"]["tint"] = {{"type", 0}, {"value", {.5f}}};
+            });
+            pump();
+            require(changes == before_bad && custom_preview->surface,
+                    "Invalid custom parameter type replaced the usable preview");
+            require(scene.document() == authored_before_custom,
+                    "Custom material source editing changed authored scene state");
+        }
         ImGui::DestroyContext();
         return 0;
     } catch (const std::exception& e) {

@@ -199,7 +199,10 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
     }
 }
 void ordinary(const std::filesystem::path& path) {
-    require(std::filesystem::weakly_canonical(path) == path && !std::filesystem::is_symlink(path),
+    // MSVC canonicalization may remove the extended-length Win32 prefix. Compare
+    // equivalent OS spellings, without weakening the redirection check itself.
+    require(native_io_path(std::filesystem::weakly_canonical(path)) == native_io_path(path) &&
+                !std::filesystem::is_symlink(path),
             "Runtime package path must not redirect: " + path_utf8(path));
 }
 void write(const std::filesystem::path& path, std::span<const std::byte> bytes) {

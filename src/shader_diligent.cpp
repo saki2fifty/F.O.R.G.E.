@@ -232,8 +232,15 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     const auto input = shader_build_input(program, sources, permutation, compiler,
                                           diligent_shader_compiler_debug());
     const auto defines = select_shader_permutation(program, permutation);
+    auto compiled_sources = sources;
+    if (program.surface)
+        require(compiled_sources
+                    .emplace("engine/forge.surface.hlsli", surface_shader_header(*program.surface))
+                    .second,
+                "Shader source attempts to replace the generated surface interface");
+    validate_shader_sources(compiled_sources);
     std::vector<MemoryShaderSourceFileInfo> files;
-    for (const auto& [name, source] : sources)
+    for (const auto& [name, source] : compiled_sources)
         files.emplace_back(name.c_str(), source.c_str(), static_cast<Uint32>(source.size()));
     RefCntAutoPtr<IShaderSourceInputStreamFactory> factory;
     CreateMemoryShaderSourceFactory({files.data(), static_cast<Uint32>(files.size()), false},
@@ -247,46 +254,63 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.compiler_digest = compiler;
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
+    result.data.surface = program.surface;
     for (const auto& entry : program.stages) {
-        device_profile(device, entry.stage);
-        ShaderCreateInfo ci;
-        ci.Desc.Name = entry.source.c_str();
-        ci.Desc.ShaderType = native_stage(entry.stage);
-        ci.FilePath = entry.source.c_str();
-        ci.EntryPoint = entry.entry.c_str();
-        ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-        ci.ShaderCompiler = SHADER_COMPILER_FXC;
-        ci.HLSLVersion = {5, 1};
-        ci.LoadConstantBufferReflection = true;
-        ci.CompileFlags = program.row_major ? SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR
-                                            : SHADER_COMPILE_FLAG_NONE;
-        ci.ShaderOptimizationLevel = static_cast<SHADER_OPTIMIZATION_LEVEL>(
-            SHADER_OPTIMIZATION_LEVEL_0 + program.optimization);
-        ci.Macros = {macros.data(), static_cast<Uint32>(macros.size())};
-        ci.pShaderSourceStreamFactory = factory;
-        RefCntAutoPtr<IShader> shader;
-        RefCntAutoPtr<IDataBlob> errors;
-        device->CreateShader(ci, &shader, &errors);
-        if (!shader)
-            throw std::runtime_error(entry.source + " (" + shader_stage_name(entry.stage) +
-                                     "): " + diagnostic(errors));
-        ShaderStageData data;
-        data.stage = entry.stage;
-        data.entry = entry.entry;
-        data.reflection = reflection(shader, entry.stage);
-        const void* code = nullptr;
-        Uint64 size = 0;
-        shader->GetBytecode(&code, size);
-        const auto* begin = static_cast<const std::byte*>(code);
-        data.bytecode.assign(begin, begin + size);
-        result.data.stages.push_back(std::move(data));
-        result.stages.emplace(entry.stage, std::move(shader));
+        const std::vector roles = program.surface ? std::vector{ShaderEntryRole::SurfaceColor,
+                                                                ShaderEntryRole::SurfaceDepth}
+                                                  : std::vector{ShaderEntryRole::Program};
+        for (const auto role : roles) {
+            device_profile(device, entry.stage);
+            ShaderCreateInfo ci;
+            ci.Desc.Name = entry.source.c_str();
+            ci.Desc.ShaderType = native_stage(entry.stage);
+            ci.FilePath = entry.source.c_str();
+            ci.EntryPoint = entry.entry.c_str();
+            std::string wrapper;
+            if (role != ShaderEntryRole::Program) {
+                wrapper = surface_shader_wrapper(entry.source, entry.entry,
+                                                 role == ShaderEntryRole::SurfaceDepth);
+                ci.FilePath = nullptr;
+                ci.Source = wrapper.c_str();
+                ci.EntryPoint = role == ShaderEntryRole::SurfaceColor ? "ForgeSurfaceColor"
+                                                                      : "ForgeSurfaceDepth";
+            }
+            ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+            ci.ShaderCompiler = SHADER_COMPILER_FXC;
+            ci.HLSLVersion = {5, 1};
+            ci.LoadConstantBufferReflection = true;
+            ci.CompileFlags = program.row_major ? SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR
+                                                : SHADER_COMPILE_FLAG_NONE;
+            ci.ShaderOptimizationLevel = static_cast<SHADER_OPTIMIZATION_LEVEL>(
+                SHADER_OPTIMIZATION_LEVEL_0 + program.optimization);
+            ci.Macros = {macros.data(), static_cast<Uint32>(macros.size())};
+            ci.pShaderSourceStreamFactory = factory;
+            RefCntAutoPtr<IShader> shader;
+            RefCntAutoPtr<IDataBlob> errors;
+            device->CreateShader(ci, &shader, &errors);
+            if (!shader)
+                throw std::runtime_error(entry.source + " (" + shader_stage_name(entry.stage) +
+                                         "): " + diagnostic(errors));
+            ShaderStageData data;
+            data.stage = entry.stage;
+            data.entry = ci.EntryPoint;
+            data.role = role;
+            data.reflection = reflection(shader, entry.stage);
+            const void* code = nullptr;
+            Uint64 size = 0;
+            shader->GetBytecode(&code, size);
+            const auto* begin = static_cast<const std::byte*>(code);
+            data.bytecode.assign(begin, begin + size);
+            result.data.stages.push_back(std::move(data));
+            result.stages.emplace(ShaderStageKey{entry.stage, role}, std::move(shader));
+        }
     }
     validate_shader(result.data);
     return result;
 }
 DiligentShaderProgram realize_diligent_shader(Diligent::IRenderDevice* device,
-                                              const ShaderData& data) {
+                                              const ShaderData& data,
+                                              const ShaderCreation& create) {
     validate_shader(data);
     DiligentShaderProgram result;
     result.data = data;
@@ -299,11 +323,14 @@ DiligentShaderProgram realize_diligent_shader(Diligent::IRenderDevice* device,
         ci.ByteCodeSize = entry.bytecode.size();
         ci.LoadConstantBufferReflection = true;
         RefCntAutoPtr<IShader> shader;
-        device->CreateShader(ci, &shader);
+        if (create)
+            create(ci, &shader);
+        else
+            device->CreateShader(ci, &shader);
         require(bool(shader), "Cooked shader creation failed");
         require(reflection(shader, entry.stage) == entry.reflection,
                 "Cooked shader reflection differs from its admitted metadata");
-        result.stages.emplace(entry.stage, std::move(shader));
+        result.stages.emplace(ShaderStageKey{entry.stage, entry.role}, std::move(shader));
     }
     return result;
 }

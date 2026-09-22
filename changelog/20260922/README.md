@@ -88,3 +88,16 @@
 
 - Both the Windows presentation library and the optional Linux/Vulkan compilation check use one shared renderer source list. The complete shared source set compiles under Linux/Vulkan definitions; the actual Vulkan material binding/readback probe passes. This is not a complete Vulkan frame or editor acceptance claim.
 - Audited pinned DiligentFX Bloom, temporal anti-aliasing, ambient occlusion, reflections and depth of field. Bloom itself requires a ready temporal context with motion/current/previous depth/camera data. FORGE's current frame composition does not provide those inputs. The exact source evidence and deliberate advanced-effect deferral are documented in `docs/rendering-postprocessing.md`; existing exposure/tone mapping remains available.
+
+### Custom Shader material surfaces
+
+- Add a versioned, backend-neutral surface declaration for named numeric parameters, texture dimensions and UV semantics. Compile separate color/depth pixel roles in the existing bounded Shader worker. Keep shared vertex fetching, morphing, skinning and winding engine-owned.
+- Material source version2 selects a typed Shader asset and preserves independent inheritance, equal-value intent and Revert. Cooked materials embed the exact validated Shader snapshot so incompatible later Shader changes cannot invalidate the previous good material after restart, cache pruning or content packaging.
+- Add asynchronous interface preparation to the central Material document, typed Shader selection and declaration-driven parameter/texture fields. Scene history and source/publication ownership remain separate.
+- Shared GPU preparation uses named Diligent bindings and copied reflected offsets. DXBC realization is isolated behind the backend adapter; incompatible backend artifacts reject. No D3D12 register-space binding contract is introduced.
+- Focused Linux shader/material/package/Vulkan checks pass6/6 (12.80 seconds). Expanded last-good retention/package and generated Vulkan surface compilation checks pass2/2 (13.82 seconds). New native surface draw/alpha/shadow/morph/skin fixtures and updated editor captures require Windows validation before acceptance.
+- Windows core validation exposed canonicalization removing the extended-length prefix. Package redirection checks now compare normalized OS spellings while retaining the actual canonical/symlink check. Native confirmation remains required.
+- The preceding native audit also found two outdated fixtures: raw vertex-fetch readback still declared uint32 indices after compact upload, and the picker capture created a legacy Primitive entity without a Mesh renderer. Fixtures now use the actual uploaded index type and the explicit mesh creation recipe. Production drawing already uses the uploaded index type. Fresh native execution is required.
+
+- Custom cooked surface programs reuse the existing Diligent presentation shader cache while retaining native reflection verification. Added a native reuse regression; exact pinned cache source returns native shaders when its hot reload is disabled.
+- Custom Shader/Material strict ASan, UBSan and LSan regressions passed5/5(15.66s); local actual ImGui Material editor interaction passed1/1(1.30s). Native surface acceptance remains pending.

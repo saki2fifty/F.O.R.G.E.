@@ -125,6 +125,61 @@ int main() {
         const auto loaded = decode_shader(bytes);
         require(encode_shader(loaded) == bytes && loaded.layout_digest() == data.layout_digest(),
                 "Shader artifact roundtrip changed data");
+        {
+            SurfaceShaderDefinition def;
+            def.parameters["tint"] = {MaterialParameterType::LinearColor4, {1, .5f, .25f, 1}};
+            auto surface_doc = original;
+            surface_doc["stages"] =
+                Json::array({{{"stage", "pixel"}, {"source", "main.hlsl"}, {"entry", "Shade"}}});
+            surface_doc["surface"] = surface_definition_document(def);
+            rejected([&] { shader_program_source(surface_doc); });
+            surface_doc["version"] = 2;
+            const auto surface_program = shader_program_source(surface_doc);
+            require(surface_program.surface == def &&
+                        surface_doc.at("unknown.plugin") == original.at("unknown.plugin"),
+                    "Surface source lost declaration/unknown fields");
+            const ShaderSources code{
+                {"main.hlsl", "float4 Shade(ForgeSurfaceInput v){return ForgeParameter_tint();}"}};
+            const auto input = shader_build_input(surface_program, code, {}, compiler, false);
+            auto changed_surface = surface_program;
+            changed_surface.surface->parameters["tint"].value[0] = .1f;
+            require(input.key() !=
+                        shader_build_input(changed_surface, code, {}, compiler, false).key(),
+                    "Surface declaration omitted from shader build identity");
+            ShaderData surface_data;
+            surface_data.build_key = input.key();
+            surface_data.compiler_digest = compiler;
+            surface_data.surface = def;
+            auto empty = reflection(ShaderStage::Pixel);
+            empty["resources"] = Json::array();
+            surface_data.stages = {{ShaderStage::Pixel,
+                                    "ForgeSurfaceColor",
+                                    {std::byte{1}},
+                                    empty,
+                                    ShaderEntryRole::SurfaceColor},
+                                   {ShaderStage::Pixel,
+                                    "ForgeSurfaceDepth",
+                                    {std::byte{2}},
+                                    empty,
+                                    ShaderEntryRole::SurfaceDepth}};
+            const auto encoded_surface = encode_shader(surface_data);
+            require(std::to_integer<unsigned>(encoded_surface[8]) == 2 &&
+                        encode_shader(decode_shader(encoded_surface)) == encoded_surface &&
+                        std::to_integer<unsigned>(bytes[8]) == 1,
+                    "Surface envelope version/roundtrip is incorrect or changed legacy data");
+            auto bad_surface = surface_data;
+            bad_surface.stages.pop_back();
+            rejected([&] { validate_shader(bad_surface); });
+            bad_surface = surface_data;
+            bad_surface.stages[1].role = ShaderEntryRole::SurfaceColor;
+            rejected([&] { validate_shader(bad_surface); });
+            bad_surface = surface_data;
+            bad_surface.surface.reset();
+            rejected([&] { validate_shader(bad_surface); });
+            auto old_reader_spelling = encoded_surface;
+            old_reader_spelling[8] = std::byte{1};
+            rejected([&] { decode_shader(old_reader_spelling); });
+        }
         auto changed_data = data;
         changed_data.stages[0].reflection["resources"][0]["register"] = 3;
         require(changed_data.layout_digest() != data.layout_digest(),

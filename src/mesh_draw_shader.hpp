@@ -3,6 +3,13 @@
 #include "mesh_vertex_fetch.hpp"
 namespace forge {
 inline constexpr unsigned mesh_draw_light_limit = 64;
+struct MeshGeometryShader {
+    std::string vertex, geometry, varyings;
+    bool instanced{};
+};
+// Both built-in PBR and custom pixel surfaces use the same engine-owned
+// geometry, morphing, skinning and winding implementation.
+MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch&, bool allow_instances = true);
 struct MeshDrawShader {
     std::string vertex, pixel;
     MaterialShader material;

@@ -137,15 +137,16 @@ class MaterialEditor {
             }
             return;
         }
-        const auto wanted = document_->source().base();
-        if (wanted != requested_base_)
+        const auto wanted = source_context_key();
+        if (wanted != requested_context_)
             invalidate_base();
         if (base_job_.valid() &&
             base_job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {
                 auto value = base_job_.get();
                 if (!cancel_.stop_requested()) {
-                    base_ = std::move(value);
+                    base_ = std::move(value.base);
+                    surface_ = std::move(value.surface);
                     base_ready_ = true;
                     evaluated_ = 0;
                 }
@@ -155,20 +156,20 @@ class MaterialEditor {
             }
         }
         if (!base_started_ && !base_job_.valid()) {
-            requested_base_ = wanted;
+            requested_context_ = wanted;
             base_started_ = true;
             cancel_ = std::stop_source{};
-            if (!wanted) {
+            if (!document_->source().base() && !material_shader_reference(document_->source())) {
                 base_.reset();
+                surface_.reset();
                 base_ready_ = true;
             } else {
                 const auto root = document_->project();
                 const auto catalog = catalog_;
-                base_job_ = std::async(
-                    std::launch::async, [root, catalog, ref = *wanted, stop = cancel_.get_token()] {
-                        auto value = asset_detail::load_pbr_material(root, *catalog, ref, stop);
-                        return ResolvedMaterialSource{std::move(value.values),
-                                                      std::move(value.textures)};
+                base_job_ =
+                    std::async(std::launch::async, [root, catalog, source = document_->source(),
+                                                    stop = cancel_.get_token()] {
+                        return prepare_material_source(root, *catalog, source, stop);
                     });
             }
         }
@@ -176,10 +177,11 @@ class MaterialEditor {
             evaluated_ = document_->revision();
             try {
                 const auto next =
-                    resolve_material_source(document_->source(), base_ ? &*base_ : nullptr);
+                    resolve_material_source(document_->source(), base_ ? &*base_ : nullptr,
+                                            surface_ ? &*surface_->program.surface : nullptr);
                 if (update_preview)
-                    update_preview({document_->source().asset()}, {next.values, next.textures},
-                                   catalog_);
+                    update_preview({document_->source().asset()},
+                                   {next.values, next.textures, surface_}, catalog_);
                 resolved_ = next;
                 error_.clear();
             } catch (const std::exception& e) {
@@ -257,10 +259,11 @@ class MaterialEditor {
             }
             if (!base_ready_) {
                 ImGui::TextUnformatted(base_job_.valid() || !base_started_
-                                           ? "Loading base material..."
-                                           : "Base material unavailable");
-                ui::help("Preparing a copied published base on a worker. The previous preview "
-                         "stays available.");
+                                           ? "Loading material dependencies..."
+                                           : "Material dependency unavailable");
+                ui::help(
+                    "Preparing copied base and Shader revisions on a worker. The previous preview "
+                    "stays available.");
             }
             if (job_) {
                 for (const auto& job : service_->jobs())
@@ -338,7 +341,8 @@ class MaterialEditor {
     std::unique_ptr<AssetImportService> service_;
     std::shared_ptr<const AssetCatalog> catalog_, published_;
     std::optional<std::filesystem::path> pending_source_;
-    std::optional<AssetRef<MaterialAsset>> requested_base_;
+    std::string requested_context_;
+    std::optional<MaterialShaderSnapshot> surface_;
     std::optional<ResolvedMaterialSource> base_, resolved_;
     std::uint64_t evaluated_ = 0;
     AssetJobId job_ = 0;
@@ -347,18 +351,28 @@ class MaterialEditor {
     std::string error_;
     char path_[512] = "Assets/New.material.json";
     std::stop_source cancel_;
-    std::future<ResolvedMaterialSource> base_job_;
+    std::future<MaterialSourceContext> base_job_;
     void report(std::string error) {
         error_ = std::move(error);
         ui::report_error("material", error_);
     }
+    std::string source_context_key() const {
+        if (!document_)
+            return {};
+        const auto& source = document_->source().document;
+        return Json{{"base", source.value("base", Json{})},
+                    {"shader", source.at("overrides").value("shader", Json{})},
+                    {"owns_shader", source.at("overrides").contains("shader")}}
+            .dump();
+    }
     void invalidate_base() {
         cancel_.request_stop();
         base_.reset();
+        surface_.reset();
         base_ready_ = base_started_ = false;
         evaluated_ = 0;
         if (document_)
-            requested_base_ = document_->source().base();
+            requested_context_ = source_context_key();
     }
     void changed() {
         needs_publish_ = true;
@@ -400,6 +414,7 @@ class MaterialEditor {
         document_.reset();
         resolved_.reset();
         base_.reset();
+        surface_.reset();
         close_ = save_ = needs_publish_ = false;
         job_ = 0;
         evaluated_ = 0;
@@ -411,9 +426,8 @@ class MaterialEditor {
 inline void MaterialEditor::fields() {
     const auto source = document_->source();
     const auto& overrides = source.document.at("overrides");
-    ui::heading(
-        "Material model",
-        "The selected built-in shader model owns the supported parameters and texture roles.");
+    ui::heading("Material model",
+                "Choose a built-in model or a published Shader with a material surface interface.");
     Json parent = source.base() ? Json(source.base()->id) : Json();
     if (asset_ref_picker(*catalog_, parent, "material", "Base material", false))
         mutate("Change material base", [&](auto& j) { j["base"] = parent; });
@@ -421,10 +435,33 @@ inline void MaterialEditor::fields() {
                    "Remove this material's known override intent and follow its base or shader "
                    "defaults. Source Undo restores it."))
         mutate("Revert material overrides", [](auto& j) {
-            for (const auto* key : {"model", "alpha", "alpha_cutoff", "double_sided", "depth_test",
-                                    "depth_write", "parameters", "textures"})
+            for (const auto* key : {"model", "shader", "alpha", "alpha_cutoff", "double_sided",
+                                    "depth_test", "depth_write", "parameters", "textures"})
                 j["overrides"].erase(key);
         });
+    const auto selected_shader = material_shader_reference(source, base_ ? &*base_ : nullptr);
+    Json shader_ref = selected_shader ? Json(selected_shader->id) : Json{};
+    if (asset_ref_picker(*catalog_, shader_ref, "shader", "Surface Shader", false))
+        mutate("Change surface Shader", [&](auto& j) {
+            j["version"] = 2;
+            j["overrides"]["shader"] = shader_ref;
+            j["overrides"]["model"] =
+                shader_ref.is_null() ? "forge.gltf.metallic-roughness.v1" : surface_material_model;
+        });
+    ui::help("Select a published material-surface Shader. Generic stage programs cannot be used as "
+             "surfaces. "
+             "Clear selects built-in shading; incompatible existing values remain visible errors "
+             "until corrected.");
+    if (overrides.contains("shader")) {
+        if (ui::button("Revert Shader",
+                       "Remove only explicit Shader and model selection. Follow the base or "
+                       "built-in default; source Undo restores this choice."))
+            mutate("Revert surface Shader", [](auto& j) {
+                j["overrides"].erase("shader");
+                j["overrides"].erase("model");
+            });
+    }
+    const bool custom = bool(selected_shader);
     MaterialData values = resolved_ ? resolved_->values : MaterialData{};
     if (values.model.empty())
         values.model = "forge.gltf.metallic-roughness.v1";
@@ -436,12 +473,17 @@ inline void MaterialEditor::fields() {
     for (int i = 0; i < 3; ++i)
         if (model == models[i])
             selected = i;
-    if (ImGui::Combo("Shader model", &selected, names, 3))
-        mutate("Change material model",
-               [&](auto& j) { j["overrides"]["model"] = models[selected]; });
-    ui::help(
-        "Choose an implemented built-in material shader. Incompatible inherited "
-        "parameters/textures report an error; arbitrary Shader assets are not substituted here.");
+    if (!custom) {
+        if (ImGui::Combo("Shader model", &selected, names, 3))
+            mutate("Change material model",
+                   [&](auto& j) { j["overrides"]["model"] = models[selected]; });
+        ui::help(
+            "Built-in shading model. Clear the Surface Shader to use this choice. Incompatible "
+            "inherited parameters and textures report an error.");
+    } else {
+        ImGui::TextUnformatted("Custom surface");
+        ui::help("Parameters and textures come from the selected Shader interface.");
+    }
     const auto revert = [&](const char* key) {
         // The field itself owns its context action. Unowned fields do not consume
         // an entire disabled button row; inherited state remains explicit.
@@ -498,12 +540,20 @@ inline void MaterialEditor::fields() {
                  "guessing a new value.");
         revert(key);
     }
+    if (!base_ready_ || (custom && !surface_))
+        return;
     MaterialData empty;
     empty.model = model;
-    const auto schema = prepare_pbr_material(empty);
-    auto effective = values.model == model ? prepare_pbr_material(values).values : schema.values;
-    auto parameters = schema.values.parameters;
-    if (schema.workflow == PbrWorkflow::MetallicRoughness)
+    const auto schema = custom ? PbrMaterialProfile{} : prepare_pbr_material(empty);
+    const auto defaults =
+        custom ? surface_material_defaults(*surface_->program.surface) : schema.values;
+    const auto layout =
+        custom ? surface_material_layout(*surface_->program.surface) : schema.layout;
+    auto effective = custom ? (values.model == surface_material_model ? values : defaults)
+                     : values.model == model ? prepare_pbr_material(values).values
+                                             : defaults;
+    auto parameters = defaults.parameters;
+    if (!custom && schema.workflow == PbrWorkflow::MetallicRoughness)
         parameters.try_emplace("attenuationDistance",
                                MaterialParameter{MaterialParameterType::Scalar, {1}});
     const auto label = [](std::string name) {
@@ -539,9 +589,9 @@ inline void MaterialEditor::fields() {
     };
     for (const std::string_view group : {"Surface", "Emission", "Specular", "Clearcoat", "Sheen",
                                          "Anisotropy", "Iridescence", "Transmission and volume"}) {
-        if (schema.workflow == PbrWorkflow::Unlit && group != "Surface")
+        if ((custom || schema.workflow == PbrWorkflow::Unlit) && group != "Surface")
             continue;
-        if (schema.workflow == PbrWorkflow::SpecularGlossiness && group != "Surface" &&
+        if (!custom && schema.workflow == PbrWorkflow::SpecularGlossiness && group != "Surface" &&
             group != "Emission" && group != "Specular")
             continue;
         if (!ImGui::CollapsingHeader(group.data(),
@@ -552,11 +602,11 @@ inline void MaterialEditor::fields() {
         ui::help("Parameters for this supported material effect. Each field retains independent "
                  "override intent.");
         for (const auto& [key, default_parameter] : parameters) {
-            if (group_for(key) != group)
+            if ((custom ? std::string_view("Surface") : group_for(key)) != group)
                 continue;
-            if (schema.workflow == PbrWorkflow::Unlit && key != "baseColorFactor")
+            if (!custom && schema.workflow == PbrWorkflow::Unlit && key != "baseColorFactor")
                 continue;
-            if (schema.workflow == PbrWorkflow::SpecularGlossiness &&
+            if (!custom && schema.workflow == PbrWorkflow::SpecularGlossiness &&
                 (key == "ior" || key == "dispersion" || key.starts_with("clearcoat") ||
                  key == "metallicFactor"))
                 continue;
@@ -576,8 +626,10 @@ inline void MaterialEditor::fields() {
                                                    : "Model default");
             ui::help("Revert removes override intent. Reset explicitly chooses the model default, "
                      "independent of the base.");
-            auto parameter = effective.parameters.contains(key) ? effective.parameters.at(key)
-                                                                : default_parameter;
+            auto parameter = effective.parameters.contains(key) &&
+                                     effective.parameters.at(key).type == default_parameter.type
+                                 ? effective.parameters.at(key)
+                                 : default_parameter;
             if (owns && !overrides.at("parameters").at(key).is_null()) {
                 const auto& lanes = overrides.at("parameters").at(key).at("value");
                 if (lanes.is_array() && lanes.size() == material_parameter_width(parameter.type))
@@ -599,7 +651,7 @@ inline void MaterialEditor::fields() {
             ui::help(
                 "Enter commits the typed scalar/vector/linear color. Invalid ranges retain the "
                 "previous preview and published material.");
-            if (key == "attenuationDistance" && !effective.parameters.contains(key)) {
+            if (!custom && key == "attenuationDistance" && !effective.parameters.contains(key)) {
                 ImGui::TextUnformatted("Currently infinite (model default)");
                 ui::help(
                     "Enter a positive distance in metres to enable finite volume attenuation.");
@@ -618,7 +670,7 @@ inline void MaterialEditor::fields() {
     }
     ui::heading("Texture slots", "Assign compatible Texture assets or drag them from Content. Each "
                                  "slot keeps independent sampling and UV settings.");
-    for (const auto& [key, layout] : schema.layout.textures) {
+    for (const auto& [key, texture_layout] : layout.textures) {
         ui::IdScope scope(key.c_str());
         if (!ImGui::TreeNode(label(key).c_str())) {
             ui::help("Expand to assign or clear this texture and edit its sampling.");
@@ -626,9 +678,13 @@ inline void MaterialEditor::fields() {
         }
         ui::help("Named texture role in the selected material shader.");
         MaterialTextureSlot slot;
-        slot.semantic = layout.semantic;
-        slot.dimension = layout.dimension;
-        if (values.textures.contains(key))
+        slot.semantic = texture_layout.semantic;
+        slot.dimension = texture_layout.dimension;
+        if (custom)
+            slot = surface_->program.surface->textures.at(key);
+        if (values.textures.contains(key) &&
+            values.textures.at(key).dimension == texture_layout.dimension &&
+            values.textures.at(key).semantic == texture_layout.semantic)
             slot = values.textures.at(key);
         Json ref = resolved_ && resolved_->textures.contains(key)
                        ? Json(resolved_->textures.at(key).id)
@@ -674,21 +730,30 @@ inline void MaterialEditor::fields() {
             set_slot();
         if (!ref.is_null()) {
             bool edited = false;
-            edited |= ImGui::InputScalar("UV set", ImGuiDataType_U32, &slot.uv_set, nullptr,
-                                         nullptr, "%u", ImGuiInputTextFlags_EnterReturnsTrue);
-            ui::help("Mesh UV channel index. Missing channels keep the last-good draw and report "
-                     "an error.");
-            edited |= ImGui::InputFloat2("Offset", slot.offset.data(), "%.5g",
-                                         ImGuiInputTextFlags_EnterReturnsTrue);
-            ui::help("UV offset before sampling; Enter commits.");
-            edited |= ImGui::InputFloat2("Scale", slot.scale.data(), "%.5g",
-                                         ImGuiInputTextFlags_EnterReturnsTrue);
-            ui::help("UV scale can be signed or zero; Enter commits.");
-            edited |= ImGui::InputFloat("Rotation (rad)", &slot.rotation, 0, 0, "%.5g",
-                                        ImGuiInputTextFlags_EnterReturnsTrue);
-            ui::help("UV rotation in radians, applied after scale and before offset.");
-            for (auto [name, mode] :
-                 {std::pair{"Wrap U", &slot.sampler.u}, {"Wrap V", &slot.sampler.v}}) {
+            if (slot.dimension == TextureDimension::D2 ||
+                slot.dimension == TextureDimension::D2Array) {
+                edited |= ImGui::InputScalar("UV set", ImGuiDataType_U32, &slot.uv_set, nullptr,
+                                             nullptr, "%u", ImGuiInputTextFlags_EnterReturnsTrue);
+                ui::help(
+                    "Mesh UV channel index. Missing channels keep the last-good draw and report "
+                    "an error.");
+                edited |= ImGui::InputFloat2("Offset", slot.offset.data(), "%.5g",
+                                             ImGuiInputTextFlags_EnterReturnsTrue);
+                ui::help("UV offset before sampling; Enter commits.");
+                edited |= ImGui::InputFloat2("Scale", slot.scale.data(), "%.5g",
+                                             ImGuiInputTextFlags_EnterReturnsTrue);
+                ui::help("UV scale can be signed or zero; Enter commits.");
+                edited |= ImGui::InputFloat("Rotation (rad)", &slot.rotation, 0, 0, "%.5g",
+                                            ImGuiInputTextFlags_EnterReturnsTrue);
+                ui::help("UV rotation in radians, applied after scale and before offset.");
+            } else {
+                ImGui::TextUnformatted("Coordinates supplied by the Shader");
+                ui::help("Cube and volume sampling uses explicit Shader coordinates. Planar UV "
+                         "overrides are not applied.");
+            }
+            for (auto [name, mode] : {std::pair{"Wrap U", &slot.sampler.u},
+                                      {"Wrap V", &slot.sampler.v},
+                                      {"Wrap W", &slot.sampler.w}}) {
                 int selected_wrap = int(*mode);
                 if (ImGui::Combo(name, &selected_wrap,
                                  "Repeat\0Mirror repeat\0Clamp edge\0Clamp border\0")) {
@@ -723,7 +788,8 @@ inline void MaterialEditor::fields() {
                                         ImGuiInputTextFlags_EnterReturnsTrue);
             ui::help("Maximum allowed mip level; must be at least the minimum.");
             if (slot.sampler.u == TextureWrap::ClampBorder ||
-                slot.sampler.v == TextureWrap::ClampBorder) {
+                slot.sampler.v == TextureWrap::ClampBorder ||
+                slot.sampler.w == TextureWrap::ClampBorder) {
                 edited |= ImGui::InputFloat4("Border RGBA", slot.sampler.border.data(), "%.4g",
                                              ImGuiInputTextFlags_EnterReturnsTrue);
                 ui::help("Linear border color sampled outside the texture when Clamp border is "

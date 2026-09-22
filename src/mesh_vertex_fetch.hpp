@@ -17,4 +17,8 @@ struct MeshVertexFetch {
 // or conversion of integer joints. The caller supplies a zero-based indexed draw.
 MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart&, const PbrMaterialProfile&,
                                   bool enable_skin = true);
+// Preserve the surface declaration's dense order; UV-set numbers remain logical
+// semantics, never hardware register indices.
+MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart&, std::span<const unsigned> uv_sets,
+                                  bool enable_skin = true);
 } // namespace forge

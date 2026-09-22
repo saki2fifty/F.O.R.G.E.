@@ -42,8 +42,7 @@ ModelDrawCandidate::ModelDrawCandidate(std::filesystem::path project,
         if (!preview_->asset.id || !preview_->generation ||
             !valid_content_digest(preview_->revision))
             throw std::runtime_error("Invalid material preview selection");
-        validate_material_bindings(preview_->data.values, preview_->data.textures);
-        (void)prepare_pbr_material(preview_->data.values);
+        validate_render_material(preview_->data);
     }
     mesh_ = request_model_mesh(meshes, project_, catalog_, mesh);
 }

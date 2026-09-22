@@ -130,8 +130,9 @@ or unfinished source must not be described as a successful renderable publicatio
 The shared AssetPublisher retains the prior catalog/artifact on invalid, stale,
 cancelled or incompatible candidates. MaterialDocument owns bounded source history
 (64 entries and8MiB per history stack), explicit revisions and exact saved-byte
-conflict checks. Scene Undo cannot undo asset publication. Arbitrary Shader assets
-are not exposed as compatible material models.
+conflict checks. Scene Undo cannot undo asset publication. Explicitly declared
+[material-surface Shaders](surface-shaders.md) add a version2 source and compiled
+snapshot path. General stage programs are not automatically compatible surfaces.
 
 Texture preflight uses the existing cooked Texture resource provider and checks
 actual image dimension and requested semantic variant before material publication.

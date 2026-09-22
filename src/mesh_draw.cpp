@@ -3,6 +3,7 @@
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "mesh_draw_shader.hpp"
 #include "render_backend.hpp"
+#include "shader_runtime_backend.hpp"
 #include "texture_gpu.hpp"
 #include <algorithm>
 #include <bit>
@@ -42,15 +43,31 @@ using Row = std::array<float, 4>;
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
-                   SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization)
+                   SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
+                   const MaterialShaderSnapshot* surface)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
-    const auto profile = prepare_pbr_material(source);
-    const auto fetch = mesh_vertex_fetch(mesh, profile, enable_skin);
+    std::optional<PbrMaterialProfile> profile;
+    if (surface) {
+        validate_shader(surface->program);
+        require(surface->program.surface.has_value(), "Shader has no surface interface");
+        validate_surface_material(source, *surface->program.surface);
+    } else
+        profile = prepare_pbr_material(source);
+    const auto fetch = surface
+                           ? mesh_vertex_fetch(mesh, surface->program.surface->uv_sets, enable_skin)
+                           : mesh_vertex_fetch(mesh, *profile, enable_skin);
 
     const auto sampler_binding = emulated_resource_arrays(presentation.device()->GetDeviceInfo())
                                      ? MaterialSamplerBinding::NamedElements
                                      : MaterialSamplerBinding::Array;
-    const auto program = mesh_draw_shader(fetch, profile, shadow_pass_, sampler_binding);
+    MeshDrawShader program;
+    if (surface) {
+        const auto generated = mesh_geometry_shader(fetch);
+        program.vertex = generated.vertex;
+        program.geometry = generated.geometry;
+        program.instanced = generated.instanced;
+    } else
+        program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding);
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
@@ -71,10 +88,22 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IShader> geometry;
     if (!program.geometry.empty())
         geometry = compile(SHADER_TYPE_GEOMETRY, program.geometry);
-    auto vertex = compile(SHADER_TYPE_VERTEX, program.vertex),
-         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
+    auto vertex = compile(SHADER_TYPE_VERTEX, program.vertex);
     auto* device = presentation.device();
-    const bool lit = !shadow_pass_ && profile.workflow != PbrWorkflow::Unlit;
+    RefCntAutoPtr<IShader> pixel;
+    SurfaceBindingLayout surface_layout;
+    if (surface) {
+        const auto role =
+            shadow_pass_ ? ShaderEntryRole::SurfaceDepth : ShaderEntryRole::SurfaceColor;
+        auto native = realize_renderer_shader(presentation, surface->program);
+        pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
+        const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
+                                        [role](const auto& entry) { return entry.role == role; });
+        require(stage != native.data.stages.end(), "custom surface entry role is missing");
+        surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection);
+    } else
+        pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
+    const bool lit = !surface && !shadow_pass_ && profile->workflow != PbrWorkflow::Unlit;
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
         ggx = presentation.pbr(context).GetPreintegratedGGX_SRV();
@@ -84,7 +113,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         empty_shadow_ = presentation.empty_shadow(context);
     }
     if (program.transmission) {
-        volume_thickness_ = profile.values.parameters.at("thicknessFactor").value[0];
+        volume_thickness_ = profile->values.parameters.at("thicknessFactor").value[0];
         transmission_ = buffer(device, "FORGE transmission background", 2 * sizeof(Row));
         black_background_ = presentation.pbr(context).GetBlackTexSRV();
         require(bool(black_background_), "native black transmission fallback unavailable");
@@ -118,11 +147,35 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     }
     object_ = buffer(device, "FORGE camera-relative object", 15 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
-    auto values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
-                         material.uniforms.data());
+    RefCntAutoPtr<IBuffer> values, surface_state, surface_uv;
+    if (surface) {
+        const auto bytes = surface_parameter_bytes(source, surface_layout);
+        if (!bytes.empty())
+            values =
+                buffer(device, "FORGE reflected surface parameters", bytes.size(), bytes.data());
+        if (surface_layout.settings) {
+            const Row state{float(source.alpha), source.alpha_cutoff, 0, 0};
+            surface_state = buffer(device, "FORGE surface state", sizeof(state), state.data());
+        }
+        if (surface_layout.uv_bytes) {
+            const auto rows = surface_uv_rows(source, *surface->program.surface);
+            require(rows.size() * sizeof(Row) == surface_layout.uv_bytes,
+                    "surface UV buffer size mismatch");
+            surface_uv = buffer(device, "FORGE surface texture coordinates",
+                                surface_layout.uv_bytes, rows.data());
+        }
+    } else
+        values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
+                        material.uniforms.data());
+    auto sampler_states = material.samplers;
+    if (surface)
+        for (const auto& [role, declaration] : surface->program.surface->textures) {
+            (void)declaration;
+            sampler_states.push_back(source.textures.at(role).sampler);
+        }
     std::vector<RefCntAutoPtr<ISampler>> samplers;
     std::vector<IDeviceObject*> sampler_objects;
-    for (const auto& state : material.samplers) {
+    for (const auto& state : sampler_states) {
         samplers.push_back(upload_sampler(device, state));
         sampler_objects.push_back(samplers.back());
     }
@@ -211,7 +264,15 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         bind(SHADER_TYPE_PIXEL, "ForgeLights", lights_, false);
-        bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values, !shadow_pass_);
+        if (surface) {
+            if (values)
+                bind(SHADER_TYPE_PIXEL, "ForgeSurfaceMaterial", values);
+            if (surface_state)
+                bind(SHADER_TYPE_PIXEL, "ForgeSurfaceState", surface_state);
+            if (surface_uv)
+                bind(SHADER_TYPE_PIXEL, "ForgeSurfaceUV", surface_uv);
+        } else
+            bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values, !shadow_pass_);
         if (lit) {
             bind(SHADER_TYPE_PIXEL, "ForgeEnvironment", environment_);
             bind(SHADER_TYPE_PIXEL, "ForgeShadows", shadows_);
@@ -245,13 +306,39 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         if (program.sheen) {
             bind(SHADER_TYPE_PIXEL, "g_ForgeSheen", sheen);
         }
-        if (auto* variable = bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL,
-                                                                  material_sampler_variable)) {
+        if (auto* variable = bindings_[parity]->GetVariableByName(
+                SHADER_TYPE_PIXEL, surface ? "g_SurfaceSamplers" : material_sampler_variable)) {
             ShaderResourceDesc desc;
             variable->GetResourceDesc(desc);
             require(desc.ArraySize > 0 && desc.ArraySize <= sampler_objects.size(),
                     "material sampler array differs from the admitted binding table");
             variable->SetArray(sampler_objects.data(), 0, desc.ArraySize);
+        }
+        if (surface) {
+            const auto dimension = [](TextureDimension value) {
+                switch (value) {
+                case TextureDimension::D2:
+                    return RESOURCE_DIM_TEX_2D;
+                case TextureDimension::D2Array:
+                    return RESOURCE_DIM_TEX_2D_ARRAY;
+                case TextureDimension::Cube:
+                    return RESOURCE_DIM_TEX_CUBE;
+                case TextureDimension::CubeArray:
+                    return RESOURCE_DIM_TEX_CUBE_ARRAY;
+                case TextureDimension::D3:
+                    return RESOURCE_DIM_TEX_3D;
+                }
+                throw std::runtime_error("Unknown surface texture dimension");
+            };
+            for (const auto& role : surface_layout.textures) {
+                const auto found = textures.find(role);
+                require(found != textures.end() && found->second,
+                        "surface texture unavailable: " + role);
+                require(found->second->GetTexture()->GetDesc().Type ==
+                            dimension(source.textures.at(role).dimension),
+                        "surface texture dimension mismatch: " + role);
+                bind(SHADER_TYPE_PIXEL, ("g_SurfaceTexture_" + role).c_str(), found->second);
+            }
         }
         for (const auto& slot : material.textures) {
             const auto found = textures.find(slot.role);

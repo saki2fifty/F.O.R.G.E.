@@ -69,7 +69,7 @@ inline void test_material_source() {
     auto bad = base;
     bad.document["base"] = bad.asset();
     rejects([&] { bad.validate(); });
-    for (const auto value : {Json(2), Json(1.0), Json("1")}) {
+    for (const auto value : {Json(3), Json(1.0), Json("1")}) {
         bad = base;
         bad.document["version"] = value;
         rejects([&] { parse(bad.document); });
@@ -107,4 +107,45 @@ inline void test_material_source() {
     check(resolve_material_source(blend).values.depth_write);
     check(material_values_from_document(material_values_document(resolved_base.values)) ==
           resolved_base.values);
+    SurfaceShaderDefinition surface;
+    surface.parameters["tint"] = {MaterialParameterType::LinearColor4, {.1f, .2f, .3f, 1}};
+    auto custom = MaterialSource::create(AssetId::generate());
+    const AssetRef<ShaderAsset> shader{AssetId::generate()};
+    custom.document["overrides"]["shader"] = shader;
+    rejects([&] { custom.validate(); }); // Older readers must reject the new intent.
+    custom.document["version"] = 2;
+    check(parse(custom.document).document == custom.document);
+    rejects([&] { resolve_material_source(custom); });
+    auto custom_base = resolve_material_source(custom, nullptr, &surface);
+    check(custom_base.shader == shader && custom_base.values.model == surface_material_model &&
+          custom_base.values.parameters == surface.parameters);
+    auto custom_child = MaterialSource::create(AssetId::generate());
+    custom_child.document["base"] = custom.asset();
+    const auto original = custom_child.document;
+    check(resolve_material_source(custom_child, &custom_base, &surface).shader == shader &&
+          custom_child.document == original);
+    auto& child_overrides = custom_child.document["overrides"];
+    child_overrides["parameters"]["tint"] =
+        material_values_document(custom_base.values).at("parameters").at("tint");
+    custom_base.values.parameters.at("tint").value[0] = .8f;
+    check(resolve_material_source(custom_child, &custom_base, &surface)
+              .values.parameters.at("tint")
+              .value[0] == .1f);
+    child_overrides["parameters"].erase("tint");
+    check(resolve_material_source(custom_child, &custom_base, &surface)
+              .values.parameters.at("tint")
+              .value[0] == .8f);
+    child_overrides["parameters"]["tint"] = nullptr;
+    check(resolve_material_source(custom_child, &custom_base, &surface)
+              .values.parameters.at("tint")
+              .value[0] == .1f);
+    child_overrides["parameters"]["unknown"] = nullptr;
+    rejects([&] { resolve_material_source(custom_child, &custom_base, &surface); });
+    child_overrides["parameters"].erase("unknown");
+    custom_child.document["version"] = 2;
+    child_overrides["shader"] = nullptr;
+    check(!material_shader_reference(custom_child, &custom_base));
+    rejects([&] { resolve_material_source(custom_child, &custom_base, &surface); });
+    // Clearing a custom model does not silently discard its inherited values.
+    rejects([&] { resolve_material_source(custom_child, &custom_base); });
 }

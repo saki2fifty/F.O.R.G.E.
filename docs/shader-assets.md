@@ -7,6 +7,10 @@ implemented and undergoing validation. Content editing, material compatibility,
 shader reload and production renderer consumers are still being integrated. This
 page does not describe a shipped end-user shader workflow.
 
+The source now also includes the explicit [material surface interface](surface-shaders.md),
+with engine-owned geometry, color/depth pixel roles and immutable Material snapshots.
+Its native acceptance remains pending with the combined Phase7 work package.
+
 ## Source and compilation profile
 
 A `forge.shader` version1 source document has an AssetId and a list of stage,

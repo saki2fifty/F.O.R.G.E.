@@ -107,7 +107,7 @@ Output main(uint id:SV_VertexID) {
     context->SetIndexBuffer(uploaded.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DrawIndexedAttribs draw;
     draw.NumIndices = uploaded.index_count;
-    draw.IndexType = VT_UINT32;
+    draw.IndexType = uploaded.index_type;
     draw.Flags = DRAW_FLAG_VERIFY_ALL;
     context->DrawIndexed(draw);
     const auto pixels = readback(presentation.device(), context, rtv);

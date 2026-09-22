@@ -94,14 +94,39 @@ void variables(const Json& fields, std::uint32_t parent_size, unsigned depth, st
 }
 Json layout(const ShaderData& data) {
     Json stages = Json::object();
-    for (const auto& stage : data.stages)
-        stages[shader_stage_name(stage.stage)] = stage.reflection;
-    return {{"backend", "d3d12"},
-            {"profile", "5.1"},
-            {"row_major", data.row_major},
-            {"stages", stages}};
+    for (const auto& stage : data.stages) {
+        auto key = std::string(shader_stage_name(stage.stage));
+        if (stage.role != ShaderEntryRole::Program)
+            key += "/" + std::string(shader_entry_role_name(stage.role));
+        stages[key] = stage.reflection;
+    }
+    Json result{{"backend", "d3d12"},
+                {"profile", "5.1"},
+                {"row_major", data.row_major},
+                {"stages", stages}};
+    if (data.surface)
+        result["surface"] = surface_definition_document(*data.surface);
+    return result;
 }
 } // namespace
+const char* shader_entry_role_name(ShaderEntryRole role) {
+    switch (role) {
+    case ShaderEntryRole::Program:
+        return "program";
+    case ShaderEntryRole::SurfaceColor:
+        return "surface_color";
+    case ShaderEntryRole::SurfaceDepth:
+        return "surface_depth";
+    }
+    throw std::runtime_error("Unsupported shader entry role");
+}
+ShaderEntryRole shader_entry_role(std::string_view name) {
+    for (auto role :
+         {ShaderEntryRole::Program, ShaderEntryRole::SurfaceColor, ShaderEntryRole::SurfaceDepth})
+        if (name == shader_entry_role_name(role))
+            return role;
+    throw std::runtime_error("Unsupported shader entry role");
+}
 const char* shader_stage_name(ShaderStage stage) {
     switch (stage) {
     case ShaderStage::Vertex:
@@ -137,7 +162,12 @@ void validate_shader_program(const ShaderProgramSource& program) {
         filename(entry.source);
         identifier(entry.entry);
     }
-    stage_set(stages);
+    if (program.surface) {
+        validate_surface_definition(*program.surface);
+        require(stages == std::set{ShaderStage::Pixel},
+                "A material surface declares one pixel function; geometry is engine-owned");
+    } else
+        stage_set(stages);
     for (const auto& [name, value] : program.defines) {
         identifier(name);
         macro_value(value);
@@ -155,7 +185,9 @@ void validate_shader_program(const ShaderProgramSource& program) {
 }
 ShaderProgramSource shader_program_source(const Json& doc) {
     require(doc.dump().size() <= 1024 * 1024, "Shader source document exceeds byte profile");
-    require(doc.is_object() && doc.at("format") == "forge.shader" && doc.at("version") == 1,
+    require(doc.is_object() && doc.at("format") == "forge.shader" &&
+                doc.at("version").is_number_integer() &&
+                (doc.at("version") == 1 || doc.at("version") == 2),
             "Unsupported shader source document");
     (void)doc.at("asset_id").get<AssetId>();
     ShaderProgramSource result;
@@ -169,6 +201,11 @@ ShaderProgramSource shader_program_source(const Json& doc) {
         doc.value("permutations", std::map<std::string, std::vector<std::string>>{});
     result.row_major = doc.value("row_major", true);
     result.optimization = count(doc.value("optimization", Json(2)), 3);
+    if (doc.contains("surface")) {
+        require(doc.at("version") == 2,
+                "Material surface functions require shader source version2");
+        result.surface = surface_definition(doc.at("surface"));
+    }
     validate_shader_program(result);
     return result;
 }
@@ -226,6 +263,8 @@ AssetBuildInput shader_build_input(const ShaderProgramSource& program, const Sha
                       {"row_major", program.row_major},
                       {"optimization", program.optimization},
                       {"compiler_debug", debug}};
+    if (program.surface)
+        input.settings["surface"] = surface_definition_document(*program.surface);
     input.output_format = "forge.shader.dxbc";
     input.platform = "windows-x64";
     input.backend = "d3d12";
@@ -309,11 +348,30 @@ void validate_shader(const ShaderData& data) {
             "Shader artifact provenance is invalid");
     require(data.stages.size() <= 6, "Shader artifact stage count exceeds profile");
     std::set<ShaderStage> stages;
+    std::set<ShaderEntryRole> roles;
+    if (data.surface) {
+        validate_surface_definition(*data.surface);
+        require(data.stages.size() == 2, "Material surface needs color and depth entries");
+    }
     std::size_t bytes = 0;
     for (const auto& stage : data.stages) {
         (void)shader_stage_name(stage.stage);
         identifier(stage.entry);
-        require(stages.insert(stage.stage).second, "Shader artifact contains a repeated stage");
+        (void)shader_entry_role_name(stage.role);
+        if (data.surface) {
+            require(stage.stage == ShaderStage::Pixel && stage.role != ShaderEntryRole::Program &&
+                        roles.insert(stage.role).second,
+                    "Invalid/duplicate material surface entry role");
+            require(stage.entry == (stage.role == ShaderEntryRole::SurfaceColor
+                                        ? "ForgeSurfaceColor"
+                                        : "ForgeSurfaceDepth"),
+                    "Material surface wrapper entry differs from its role");
+            (void)surface_binding_layout(*data.surface, stage.reflection);
+        } else {
+            require(stage.role == ShaderEntryRole::Program,
+                    "General program has a surface entry without its declaration");
+            require(stages.insert(stage.stage).second, "Shader artifact contains a repeated stage");
+        }
         require(!stage.bytecode.empty() && stage.bytecode.size() <= bytecode_limit,
                 "Shader bytecode exceeds profile");
         bytes += stage.bytecode.size();
@@ -322,7 +380,8 @@ void validate_shader(const ShaderData& data) {
         require(stage.reflection.at("stage") == shader_stage_name(stage.stage),
                 "Shader stage/reflection mismatch");
     }
-    stage_set(stages);
+    if (!data.surface)
+        stage_set(stages);
 }
 std::string ShaderData::layout_digest() const {
     validate_shader(*this);
@@ -334,6 +393,8 @@ std::size_t ShaderData::resident_bytes() const {
     for (const auto& stage : stages)
         size +=
             stage.entry.capacity() + stage.bytecode.capacity() + stage.reflection.dump().size() * 4;
+    if (surface)
+        size += surface_definition_document(*surface).dump().size() * 4;
     return size;
 }
 std::vector<std::byte> encode_shader(const ShaderData& data) {
@@ -347,21 +408,26 @@ std::vector<std::byte> encode_shader(const ShaderData& data) {
                           {"size", stage.bytecode.size()},
                           {"digest", asset_detail::content_digest(stage.bytecode)},
                           {"reflection", stage.reflection}});
+        if (data.surface)
+            stages.back()["role"] = shader_entry_role_name(stage.role);
         payload.insert(payload.end(), stage.bytecode.begin(), stage.bytecode.end());
     }
-    return asset_detail::encode_envelope({{"backend", "d3d12"},
-                                          {"profile", "fxc-5.1"},
-                                          {"build_key", data.build_key},
-                                          {"compiler_digest", data.compiler_digest},
-                                          {"compiler_debug", data.compiler_debug},
-                                          {"row_major", data.row_major},
-                                          {"layout_digest", data.layout_digest()},
-                                          {"stages", stages}},
-                                         payload, magic, metadata_limit);
+    Json metadata{{"backend", "d3d12"},
+                  {"profile", "fxc-5.1"},
+                  {"build_key", data.build_key},
+                  {"compiler_digest", data.compiler_digest},
+                  {"compiler_debug", data.compiler_debug},
+                  {"row_major", data.row_major},
+                  {"layout_digest", data.layout_digest()},
+                  {"stages", stages}};
+    if (data.surface)
+        metadata["surface"] = surface_definition_document(*data.surface);
+    return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit,
+                                         data.surface ? 2 : 1);
 }
 ShaderData decode_shader(std::span<const std::byte> bytes) {
     const auto envelope =
-        asset_detail::decode_envelope(bytes, magic, metadata_limit, bytecode_limit);
+        asset_detail::decode_envelope(bytes, magic, metadata_limit, bytecode_limit, 2);
     const auto& m = envelope.metadata;
     require(m.at("backend") == "d3d12" && m.at("profile") == "fxc-5.1",
             "Unsupported shader backend/profile");
@@ -370,6 +436,10 @@ ShaderData decode_shader(std::span<const std::byte> bytes) {
     data.compiler_digest = m.at("compiler_digest");
     data.row_major = m.at("row_major");
     data.compiler_debug = m.at("compiler_debug");
+    require((envelope.version == 2) == m.contains("surface"),
+            "Shader feature/envelope version mismatch");
+    if (m.contains("surface"))
+        data.surface = surface_definition(m.at("surface"));
     require(m.at("stages").is_array() && m.at("stages").size() <= 6,
             "Invalid shader artifact stages");
     std::size_t at = 0;
@@ -385,6 +455,10 @@ ShaderData decode_shader(std::span<const std::byte> bytes) {
                                entry.at("entry"),
                                {code.begin(), code.end()},
                                entry.at("reflection")});
+        if (data.surface)
+            data.stages.back().role = shader_entry_role(entry.at("role").get<std::string>());
+        else
+            require(!entry.contains("role"), "Legacy shader contains an unsupported entry role");
         at += size;
     }
     require(at == envelope.payload.size(), "Trailing shader bytecode bytes");

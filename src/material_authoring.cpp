@@ -4,6 +4,7 @@
 #include "model_render_resource.hpp"
 #include <algorithm>
 #include <forge/material_source.hpp>
+#include <forge/shader_resource.hpp>
 #include <forge/texture_bundle.hpp>
 namespace forge {
 namespace {
@@ -19,17 +20,18 @@ AssetImporterDescriptor descriptor() {
     AssetImporterDescriptor d;
     d.id = "forge.material.builtin";
     d.revision = FORGE_MATERIAL_RECIPE_FINGERPRINT;
-    d.label = "Built-in material";
+    d.label = "Material";
     d.description =
         "Resolve explicit material overrides against selected immutable asset revisions.";
     d.extensions = {".json"};
     d.source_kinds = {"forge.material"};
     d.output_types = {"material"};
     d.output_format = "forge.material-bundle";
+    d.output_version = 2;
     d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
     d.execution = ImportExecution::TrustedCpuTask;
-    d.limits.output_files = 2;
-    d.limits.output_bytes = 3 * 1024 * 1024;
+    d.limits.output_files = 3;
+    d.limits.output_bytes = 24 * 1024 * 1024;
     return d;
 }
 AssetDependency dependency(const AssetCatalog& catalog, AssetId id, const char* type,
@@ -94,22 +96,16 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer_revision = FORGE_MATERIAL_RECIPE_FINGERPRINT;
     input.settings = nlohmann::json::object();
     input.output_format = "forge.material-bundle";
+    input.output_version = 2;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
-    std::optional<ResolvedMaterialSource> base;
-    if (const auto ref = source.base()) {
-        input.dependencies.push_back(dependency(catalog, ref->id, MaterialAsset::type,
-                                                AssetDependencyKind::Build, "material.base"));
-        auto data = load_pbr_material(request.project, catalog, *ref, stop);
-        base = ResolvedMaterialSource{std::move(data.values), std::move(data.textures)};
-    }
-    const auto resolved = resolve_material_source(source, base ? &*base : nullptr);
-    result.material = {resolved.values, resolved.textures};
-    for (const auto& [role, ref] : resolved.textures)
-        input.dependencies.push_back(dependency(catalog, ref.id, TextureAsset::type,
-                                                AssetDependencyKind::Runtime,
-                                                "material.texture:" + role));
+    auto evaluated = evaluate_material_source(request.project, catalog, source, stop);
+    result.material = std::move(evaluated.data);
+    input.dependencies = std::move(evaluated.dependencies);
+    require(!result.material.surface || request.target.backend == "d3d12",
+            "Selected custom Shader has only a D3D12 cooked profile; recook support for this "
+            "backend is unavailable");
     // Use the catalog's shared graph, including indirect material/model ancestry.
     // This is a candidate copy; rejection never mutates the selected catalog.
     auto graph = catalog.dependency_graph();
@@ -158,6 +154,74 @@ class MaterialImporter final : public AssetImporter {
     }
 };
 } // namespace
+MaterialSourceContext prepare_material_source(const std::filesystem::path& project,
+                                              const AssetCatalog& catalog,
+                                              const MaterialSource& source, std::stop_token stop) {
+    cancelled(stop);
+    source.validate();
+    MaterialSourceContext result;
+    auto& base = result.base;
+    std::optional<MaterialShaderSnapshot> inherited_shader;
+    if (const auto ref = source.base()) {
+        result.dependencies.push_back(dependency(catalog, ref->id, MaterialAsset::type,
+                                                 AssetDependencyKind::Build, "material.base"));
+        auto data = load_pbr_material(project, catalog, *ref, stop);
+        if (data.surface)
+            inherited_shader = data.surface;
+        base = ResolvedMaterialSource{std::move(data.values), std::move(data.textures),
+                                      inherited_shader ? std::optional{inherited_shader->shader}
+                                                       : std::nullopt};
+    }
+    const auto ref = material_shader_reference(source, base ? &*base : nullptr);
+    if (ref) {
+        if (!source.document.at("overrides").contains("shader") && inherited_shader &&
+            inherited_shader->shader == *ref)
+            result.surface = std::move(inherited_shader);
+        else {
+            const auto edge = dependency(catalog, ref->id, ShaderAsset::type,
+                                         AssetDependencyKind::Build, "material.shader");
+            ResourcePool<ShaderAsset> shaders({1, 1, 4, 64ull * 1024 * 1024});
+            const auto ticket = request_shader(shaders, project, catalog, *ref);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+            while (!shaders.wait(ticket, std::chrono::milliseconds(20))) {
+                cancelled(stop);
+                const auto info = ticket.inspect();
+                if (resource_detail::terminal(info.state))
+                    throw std::runtime_error("Material Shader admission: " + info.diagnostic);
+                require(std::chrono::steady_clock::now() < deadline,
+                        "Material Shader admission timed out");
+            }
+            const auto shader = shaders.acquire(ticket);
+            require(shader && shader->surface && shader.identity().revision == edge.revision,
+                    "Selected Shader is not a compatible material surface or its revision changed");
+            result.surface = MaterialShaderSnapshot{*ref, edge.revision, shader.get()};
+            result.dependencies.push_back(edge);
+        }
+    }
+    return result;
+}
+EvaluatedMaterialSource evaluate_material_source(const std::filesystem::path& project,
+                                                 const AssetCatalog& catalog,
+                                                 const MaterialSource& source,
+                                                 std::stop_token stop) {
+    auto context = prepare_material_source(project, catalog, source, stop);
+    EvaluatedMaterialSource result;
+    result.dependencies = std::move(context.dependencies);
+    result.data.surface = std::move(context.surface);
+    const auto& base = context.base;
+    const auto resolved = resolve_material_source(
+        source, base ? &*base : nullptr,
+        result.data.surface ? &*result.data.surface->program.surface : nullptr);
+    result.data.values = resolved.values;
+    result.data.textures = resolved.textures;
+    validate_render_material(result.data);
+    for (const auto& [role, texture] : resolved.textures)
+        result.dependencies.push_back(dependency(catalog, texture.id, TextureAsset::type,
+                                                 AssetDependencyKind::Runtime,
+                                                 "material.texture:" + role));
+    cancelled(stop);
+    return result;
+}
 std::shared_ptr<const AssetImporterRegistry> material_import_registry() {
     auto registry = std::make_shared<AssetImporterRegistry>();
     registry->add(std::make_shared<MaterialImporter>());
@@ -175,11 +239,15 @@ void prepare_material_publication(AssetPublicationCandidate& c, const AssetImpor
     identity.source = c.ticket.source;
     identity.source_digest = c.input.source_digest;
     identity.evidence_schema = "forge.material.single.v1";
-    c.records = {{c.ticket.owner,
-                  "material",
-                  c.ticket.source,
-                  1,
-                  {},
-                  {{"forge.material", {{"version", 1}, {"textures", data.textures}}}}}};
+    c.records = {
+        {c.ticket.owner,
+         "material",
+         c.ticket.source,
+         1,
+         {},
+         {{"forge.material",
+           {{"version", 2},
+            {"textures", data.textures},
+            {"shader", data.surface ? nlohmann::json(data.surface->shader) : nlohmann::json{}}}}}}};
 }
 } // namespace forge

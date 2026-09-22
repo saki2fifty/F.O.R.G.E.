@@ -187,6 +187,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "shadow_view_tests.hpp"
 #include "skin_render_tests.hpp"
 #include "surface_frame_tests.hpp"
+#include "surface_mesh_draw_tests.hpp"
 #include "texture_gpu_tests.hpp"
 #include "texture_preview_tests.hpp"
 #include "transmission_background_tests.hpp"
@@ -296,6 +297,7 @@ int main(int argc, char** argv) {
         check_mesh_upload(presentation, context);
         check_mesh_vertex_fetch(presentation, context);
         check_mesh_draw(presentation, context, images);
+        check_surface_draw(presentation, context, images);
         check_morph_render(presentation, context, images);
         check_display_resolve(presentation, context, images);
         check_transmission_background(presentation, context);

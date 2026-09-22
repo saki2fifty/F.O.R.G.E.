@@ -41,6 +41,9 @@ struct EditorFixture {
         case 41:
             return "###Texture import";
         case 42:
+        case 64:
+        case 65:
+        case 66:
             return "###Material";
         case 43:
         case 59:
@@ -60,6 +63,7 @@ struct EditorFixture {
         case 50:
         case 51:
         case 52:
+        case 63:
             return "###Shader import";
         case 53:
         case 54:
@@ -161,7 +165,11 @@ struct EditorFixture {
                                "model-lod-import",
                                "mesh-lods",
                                "mesh-lods-150",
-                               "mesh-lods-200"};
+                               "mesh-lods-200",
+                               "surface-shader-import",
+                               "surface-material",
+                               "surface-material-150",
+                               "surface-material-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -136,10 +136,13 @@ void MeshResourceHost::preview_material(AssetRef<MaterialAsset> ref, MaterialRes
     check_thread();
     if (!isolated_material_preview_ || !ref.id || epoch_ == UINT64_MAX)
         throw std::runtime_error("Unsaved material requires an isolated preview host");
-    validate_material_bindings(data.values, data.textures);
-    (void)prepare_pbr_material(data.values);
+    validate_render_material(data);
     const auto revision = asset_build_digest(
-        {{"values", material_values_document(data.values)}, {"textures", data.textures}});
+        {{"values", material_values_document(data.values)},
+         {"textures", data.textures},
+         {"shader_revision", data.surface ? data.surface->revision : ""},
+         {"shader_input", data.surface ? data.surface->program.build_key : ""},
+         {"shader_layout", data.surface ? data.surface->program.layout_digest() : ""}});
     if (material_preview_ && material_preview_->asset == ref &&
         material_preview_->revision == revision)
         return;

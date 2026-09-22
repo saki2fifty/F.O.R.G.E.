@@ -2,6 +2,7 @@
 set(forge_presentation_sources
  src/presentation_diligent.cpp
  src/render_backend.cpp
+ src/shader_runtime_backend.cpp
  src/environment_gpu.cpp
  src/environment_sky.cpp
  src/frame_renderer.cpp

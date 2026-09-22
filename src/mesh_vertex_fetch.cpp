@@ -72,7 +72,7 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
     }
 }
 } // namespace
-MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProfile& material,
+MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, std::span<const unsigned> uv_sets,
                                   bool enable_skin) {
     using namespace Diligent;
     require(mesh.vertices && mesh.vertex_count && mesh.stride && mesh.stride % 4 == 0,
@@ -84,14 +84,9 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProf
             "raw vertex buffer range is unavailable");
     MeshVertexFetch result;
     result.triangles = mesh.topology == PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    std::set<unsigned> uv_sets;
-    for (const auto& [name, texture] : material.values.textures) {
-        (void)name;
-        uv_sets.insert(texture.uv_set);
-    }
-    // Built-in PBR has a finite set of roles. Unknown/custom shader declarations
-    // go through their independent shader layout rather than this model adapter.
-    require(uv_sets.size() <= 19, "built-in UV role count exceeds the material profile");
+    require(uv_sets.size() <= 32 &&
+                std::set<unsigned>(uv_sets.begin(), uv_sets.end()).size() == uv_sets.size(),
+            "UV semantics exceed the engine admission budget or repeat a set");
     result.uv_sets.assign(uv_sets.begin(), uv_sets.end());
     result.source =
         "ByteAddressBuffer g_MeshVertices;\nstruct ForgeMeshVertex {\n"
@@ -145,5 +140,16 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProf
     }
     result.source += "return v; }\n";
     return result;
+}
+MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProfile& material,
+                                  bool enable_skin) {
+    std::set<unsigned> sets;
+    for (const auto& [name, texture] : material.values.textures) {
+        (void)name;
+        sets.insert(texture.uv_set);
+    }
+    require(sets.size() <= 19, "built-in UV role count exceeds the material profile");
+    const std::vector<unsigned> ordered(sets.begin(), sets.end());
+    return mesh_vertex_fetch(mesh, ordered, enable_skin);
 }
 } // namespace forge

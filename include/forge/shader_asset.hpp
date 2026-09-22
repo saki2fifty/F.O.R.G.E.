@@ -1,9 +1,21 @@
 #pragma once
 #include <forge/asset_build.hpp>
+#include <forge/surface_shader.hpp>
+#include <optional>
 namespace forge {
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };
+enum class ShaderEntryRole { Program, SurfaceColor, SurfaceDepth };
+const char* shader_entry_role_name(ShaderEntryRole);
+ShaderEntryRole shader_entry_role(std::string_view);
+struct ShaderStageKey {
+    ShaderStage stage;
+    ShaderEntryRole role;
+    ShaderStageKey(ShaderStage stage_, ShaderEntryRole role_ = ShaderEntryRole::Program)
+        : stage(stage_), role(role_) {}
+    auto operator<=>(const ShaderStageKey&) const = default;
+};
 const char* shader_stage_name(ShaderStage);
 ShaderStage shader_stage(std::string_view);
 struct ShaderEntry {
@@ -17,6 +29,7 @@ struct ShaderProgramSource {
     std::map<std::string, std::vector<std::string>> permutations;
     bool row_major = true;
     unsigned optimization = 2;
+    std::optional<SurfaceShaderDefinition> surface;
     bool operator==(const ShaderProgramSource&) const = default;
 };
 // The original JSON remains the authored asset/draft so unknown fields survive
@@ -43,11 +56,13 @@ struct ShaderStageData {
     std::vector<std::byte> bytecode;
     // Copied native reflection; no pointers or compiler objects cross workers.
     nlohmann::json reflection;
+    ShaderEntryRole role = ShaderEntryRole::Program;
 };
 struct ShaderData {
     std::string build_key, compiler_digest;
     bool row_major = true, compiler_debug = false;
     std::vector<ShaderStageData> stages;
+    std::optional<SurfaceShaderDefinition> surface;
     std::string layout_digest() const;
     std::size_t resident_bytes() const;
 };

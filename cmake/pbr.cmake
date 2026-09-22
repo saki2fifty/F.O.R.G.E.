@@ -26,5 +26,7 @@ add_library(forge_presentation_diligent STATIC ${forge_presentation_sources})
 target_include_directories(forge_presentation_diligent PUBLIC src
  "${diligent_SOURCE_DIR}/DiligentCore")
 target_compile_definitions(forge_presentation_diligent PRIVATE NOMINMAX)
+target_compile_definitions(forge_presentation_diligent PRIVATE FORGE_SHADER_DXBC)
+target_link_libraries(forge_presentation_diligent PRIVATE forge_shader_diligent)
 target_link_libraries(forge_presentation_diligent PUBLIC forge_render_bounds forge_model_render_resources forge_mesh_resources forge_material_resources forge_texture_resources forge_diligent_pbr_native Diligent-BuildSettings
  PRIVATE forge_texture_formats Diligent-Archiver-shared)

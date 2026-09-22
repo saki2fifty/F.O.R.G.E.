@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/material_asset.hpp>
+#include <forge/surface_shader.hpp>
 #include <optional>
 namespace forge {
 inline constexpr std::size_t material_source_byte_limit = 1024 * 1024;
@@ -17,10 +18,14 @@ struct MaterialSource {
 struct ResolvedMaterialSource {
     MaterialData values;
     MaterialTextureBindings textures;
+    std::optional<AssetRef<ShaderAsset>> shader;
 };
+std::optional<AssetRef<ShaderAsset>>
+material_shader_reference(const MaterialSource&, const ResolvedMaterialSource* base = nullptr);
 // The caller supplies an already selected, validated immutable base revision.
 // No source reads, recursive import, publication, scene edits or ECS inheritance.
 // Catalog dependency admission owns cycles and revision invalidation.
 ResolvedMaterialSource resolve_material_source(const MaterialSource& source,
-                                               const ResolvedMaterialSource* base = nullptr);
+                                               const ResolvedMaterialSource* base = nullptr,
+                                               const SurfaceShaderDefinition* surface = nullptr);
 } // namespace forge

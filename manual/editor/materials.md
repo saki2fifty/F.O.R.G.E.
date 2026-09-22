@@ -20,6 +20,32 @@ import** opens the owning model's import document. To customize one without
 changing the model source, create a project material and choose the imported
 material as its **Base material**.
 
+## Use a custom surface Shader
+
+Import a [material surface Shader](shaders.md), then choose it in **Surface Shader**.
+Its declared parameters and texture slots appear in the Material document.
+Generic vertex/pixel programs without a surface declaration cannot be assigned here.
+
+Enter parameter values and press Enter. Assign every declared texture role, using
+the required image type and usage. Missing or incompatible fields show an error;
+the previous preview stays visible until the draft is valid. Choose **Save** to
+publish the complete replacement.
+
+**Revert Shader** removes the explicit Shader/model choice and follows the base or
+default again. Clearing **Surface Shader** selects built-in shading. Existing
+parameters are preserved, so switching to an incompatible interface can require
+correcting fields or using **Revert all overrides**. Source Undo restores the edit.
+
+2D textures use the declared UV sets and material UV transforms. Cube, cube-array
+and volume textures use coordinates supplied by the Shader function; their fields
+do not offer unused planar UV controls. The function controls color and lighting;
+preview lights do not automatically affect a custom unlit calculation.
+
+A failed Shader or dependent material rebuild leaves the previous published
+material usable. That material retains its exact compiled program, including after
+restart. Fix and reimport the Shader, then rebuild the dependent material. Current
+custom Shader cooks target Windows D3D12.
+
 ## Preview the surface
 
 Choose **Sphere**, **Cube** or **Plane** under **Geometry**. Hold MMB over the image

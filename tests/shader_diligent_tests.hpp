@@ -69,6 +69,38 @@ float4 fixture_color(){return float4(0,.25,1,1);}
     auto loaded = realize_diligent_shader(device, decode_shader(cooked));
     check(loaded.data.layout_digest() == selected.data.layout_digest(),
           "Cooked shader layout changed");
+    {
+        ShaderProgramSource surface;
+        surface.stages = {{ShaderStage::Pixel, "surface/main.hlsl", "Shade"}};
+        surface.surface.emplace();
+        surface.surface->uv_sets = {0};
+        surface.surface->parameters["tint"] = {MaterialParameterType::LinearColor4,
+                                               {1, .25f, .5f, 1}};
+        surface.surface->textures["color"].semantic = TextureSemantic::Color;
+        ShaderSources body{{"surface/main.hlsl",
+                            "float4 Shade(ForgeSurfaceInput input){return "
+                            "ForgeParameter_tint()*ForgeSample_color(input);}"}};
+        const auto native_surface = compile_diligent_shader(device, surface, body, {});
+        auto realized =
+            realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
+        check(realized.stages.size() == 2 &&
+                  realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceColor}) &&
+                  realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceDepth}),
+              "Cooked surface lost color/depth programs");
+        for (const auto& stage : native_surface.data.stages) {
+            const auto binding = surface_binding_layout(*surface.surface, stage.reflection);
+            check(binding.parameter_bytes == 16 && binding.settings && binding.uv_bytes == 32 &&
+                      binding.sampler_count == 1 &&
+                      binding.textures == std::vector<std::string>{"color"},
+                  "Native surface reflection does not match material bindings");
+        }
+        auto broken_surface = body;
+        broken_surface["surface/main.hlsl"] =
+            "float4 Shade(ForgeSurfaceInput input){return Missing();}";
+        rejected([&] { compile_diligent_shader(device, surface, broken_surface, {}); });
+        check(realized.data.layout_digest() == native_surface.data.layout_digest(),
+              "Rejected surface compile changed selected program");
+    }
     auto broken = sources;
     broken.at("fixtures/color.hlsli") = "not valid hlsl @";
     rejected([&] { compile_diligent_shader(device, source, broken, {{"WARM", "1"}}); });

@@ -23,7 +23,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
     for (const auto& [id, material] : prepared.materials) {
         if (material.identity().asset != id)
             throw std::runtime_error("Draw material lease identity mismatch");
-        validate_material_bindings(material->values, material->textures);
+        validate_render_material(material.get());
         for (const auto& [role, ref] : material->textures) {
             const auto semantic = material->values.textures.at(role).semantic;
             const auto& texture = prepared.textures.at({ref.id, semantic});
@@ -44,10 +44,12 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         for (const auto& part : lod.parts) {
             const auto& binding = *bindings.at(part.material_slot);
             const MaterialData* values = &default_material;
+            const MaterialShaderSnapshot* surface = nullptr;
             MeshDraw::Textures native_textures;
             if (binding.material.id) {
                 const auto& material = prepared.materials.at(binding.material.id).get();
                 values = &material.values;
+                surface = material.surface ? &*material.surface : nullptr;
                 for (const auto& [role, ref] : material.textures) {
                     const auto semantic = values->textures.at(role).semantic;
                     native_textures[role] =
@@ -56,16 +58,19 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                             ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
                 }
             }
-            output.push_back(std::make_unique<MeshDraw>(presentation, context, part, *values,
-                                                        native_textures, color, depth, skinned));
+            const auto prepare = [&](Diligent::TEXTURE_FORMAT target) {
+                return std::make_unique<MeshDraw>(
+                    presentation, context, part, *values, native_textures, target, depth, skinned,
+                    Diligent::SHADER_COMPILER_DEFAULT, Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
+                    surface);
+            };
+            output.push_back(prepare(color));
             // Blended surfaces do not have a single opaque shadow depth. Masked
             // surfaces evaluate the same base alpha and cutoff as their color pass.
-            const bool transmits = material_transmits(prepare_pbr_material(*values));
+            const bool transmits = !surface && material_transmits(prepare_pbr_material(*values));
             shadows.push_back(values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
-                                  : std::make_unique<MeshDraw>(
-                                        presentation, context, part, *values, native_textures,
-                                        Diligent::TEX_FORMAT_UNKNOWN, depth, skinned));
+                                  : prepare(Diligent::TEX_FORMAT_UNKNOWN));
             info.push_back({values->alpha, binding.material.id, part.bounds, transmits});
         }
     }

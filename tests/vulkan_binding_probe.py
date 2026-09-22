@@ -13,3 +13,8 @@ for name, stage in (("vertex", "vs_6_0"), ("pixel", "ps_6_0")):
                     "-E", "main", str(root / (name + ".hlsl")), "-Fo",
                     str(root / (name + ".spv"))], check=True)
 subprocess.run([probe, "draw", str(root)], check=True)
+for name, entry in (("surface.color", "ForgeSurfaceColor"), ("surface.depth", "ForgeSurfaceDepth")):
+    subprocess.run([compiler, "-spirv", "-fspv-target-env=vulkan1.1", "-T", "ps_6_0",
+                    "-E", entry, str(root / (name + ".hlsl")), "-Fo",
+                    str(root / (name + ".spv"))], check=True)
+print("Generated custom-surface color/depth, five texture dimensions, 19 samplers: Vulkan compile PASS")

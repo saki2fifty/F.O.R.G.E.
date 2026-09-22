@@ -1661,8 +1661,9 @@ int main(int argc, char** argv) {
                     SDL_SetWindowSize(window.get(), 1920, 1080);
                     if (fixture.stage == 56)
                         editor.selection.select_entity(
-                            forge::authoring_command(scene, "entity.create",
-                                                     {{"name", "Picker cube"}})
+                            forge::authoring_command(
+                                scene, "entity.create",
+                                {{"name", "Picker cube"}, {"recipe", "primitive.0"}})
                                 .at("selected"));
                     editor.task.owner = forge::ui::DocumentTask::Scene;
                     workspace.inspector = true;
@@ -1716,6 +1717,58 @@ int main(int argc, char** argv) {
                     forge::ui::style(1.5f);
                     break;
                 case 62:
+                    forge::ui::style(2);
+                    break;
+                case 63: {
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    forge::SurfaceShaderDefinition definition;
+                    definition.parameters["tint"] = {forge::MaterialParameterType::LinearColor4,
+                                                     {.12f, .65f, .9f, 1}};
+                    definition.parameters["intensity"] = {forge::MaterialParameterType::Scalar,
+                                                          {1}};
+                    const forge::Json shader{
+                        {"format", "forge.shader"},
+                        {"version", 2},
+                        {"asset_id", forge::AssetId::generate()},
+                        {"source_root", "Shaders"},
+                        {"stages", forge::Json::array({{{"stage", "pixel"},
+                                                        {"source", "custom-surface.hlsl"},
+                                                        {"entry", "Shade"}}})},
+                        {"surface", forge::surface_definition_document(definition)}};
+                    forge::atomic_write(files.document.project() /
+                                            "Assets/CustomSurface.shader.json",
+                                        shader.dump(2));
+                    forge::atomic_write(
+                        files.document.project() / "Shaders/custom-surface.hlsl",
+                        "float4 Shade(ForgeSurfaceInput input){float4 c=ForgeParameter_tint();"
+                        "c.rgb*=ForgeParameter_intensity()*(.3+.7*abs(input.Normal.y));return "
+                        "c;}\n");
+                    shader_imports.open(files.document, "Assets/CustomSurface.shader.json");
+                    shader_imports.request_save();
+                    break;
+                }
+                case 64: {
+                    auto source = forge::MaterialDocument::create(
+                        files.document.writer_guard(), "Assets/CustomSurface.material.json");
+                    source->edit(source->revision(), "Select surface Shader", [&](auto& j) {
+                        j["version"] = 2;
+                        j["overrides"]["shader"] =
+                            forge::AssetRef<forge::ShaderAsset>{shader_imports.selected_asset()};
+                    });
+                    source->save();
+                    material_editor.open(files.document, source->locator());
+                    material_editor.request_save();
+                    if (auto* w = ImGui::FindWindowByName("###Material"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Material", {30, 55});
+                    ImGui::SetWindowSize("###Material", {1800, 970});
+                    break;
+                }
+                case 65:
+                    forge::ui::style(1.5f);
+                    break;
+                case 66:
                     forge::ui::style(2);
                     break;
                 }
@@ -2848,12 +2901,16 @@ int main(int argc, char** argv) {
                   audio_imports.diagnostic().empty())) &&
                 (fixture.stage != 59 || (!model_imports.dirty() && !model_imports.pending() &&
                                          model_viewer && model_viewer->ready())) &&
-                (fixture.stage < 60 || asset_view_document.ready()) &&
+                ((fixture.stage < 60 || fixture.stage > 62) || asset_view_document.ready()) &&
+                (fixture.stage < 64 || (material_preview && !material_preview->pending() &&
+                                        !material_editor.dirty() && !material_editor.pending())) &&
                 (fixture.stage < 50 || (!shader_imports.dirty() && !shader_imports.pending() &&
                                         shader_imports.diagnostic().empty()))) {
                 if ((fixture.stage == 28 || fixture.stage == 29) &&
                     !material_preview->diagnostics().empty())
                     throw std::runtime_error("Material editor fixture preview failed");
+                if (fixture.stage >= 64 && !material_preview->diagnostics().empty())
+                    throw std::runtime_error("Custom surface fixture preview failed");
                 if ((fixture.stage == 26 || fixture.stage == 27) &&
                     !texture_viewer->error().empty())
                     throw std::runtime_error("Texture viewer fixture failed: " +
@@ -2880,7 +2937,7 @@ int main(int argc, char** argv) {
                                         metrics.dump(2));
                 }
                 fixture.capture(device, context, rtv);
-                if (fixture.stage == 63) {
+                if (fixture.stage == 67) {
                     check_thumbnail_cache(presentation, context, files.document.project(),
                                           mesh_resources);
                     play.stop();

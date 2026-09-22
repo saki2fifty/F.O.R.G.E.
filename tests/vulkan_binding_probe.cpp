@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <forge/surface_shader.hpp>
 #include <fstream>
 #include <iostream>
 namespace {
@@ -51,6 +52,37 @@ void emit(const std::filesystem::path& directory, const forge::MaterialShader& m
              "return float4(value.rgb/"
           << material.textures.size() + 1 << ",1);}";
     check(bool(pixel.flush()), "Pixel source write failed");
+    // Compile the same generated material-surface interface for Vulkan, with
+    // every logical texture dimension and more than sixteen independent samplers.
+    // This is cook-mapping evidence, not support for loading DXBC on Vulkan.
+    forge::SurfaceShaderDefinition surface;
+    surface.uv_sets = {17, 0};
+    surface.parameters["tint"] = {forge::MaterialParameterType::LinearColor4, {1, 1, 1, 1}};
+    std::string function = "float4 Shade(ForgeSurfaceInput input){float4 value=0;\n";
+    for (unsigned i = 0; i < 19; ++i) {
+        const auto role = "texture" + std::to_string(i);
+        auto& slot = surface.textures[role];
+        slot.dimension = forge::TextureDimension(i % 5);
+        if (i % 5 < 2)
+            slot.uv_set = 17;
+        const auto coordinate = i % 5 == 0   ? "float2(.25,.75)"
+                                : i % 5 == 3 ? "float4(1,0,0,0)"
+                                             : "float3(.25,.75,0)";
+        function += "value+=ForgeSample_" + role + "(" + coordinate + ");\n";
+    }
+    function += "return value*ForgeParameter_tint()/19;}\n";
+    std::filesystem::create_directories(directory / "engine");
+    std::ofstream header(directory / "engine/forge.surface.hlsli");
+    header << forge::surface_shader_header(surface);
+    check(bool(header.flush()), "Surface header write failed");
+    std::ofstream body(directory / "surface.function.hlsli");
+    body << function;
+    check(bool(body.flush()), "Surface body write failed");
+    for (const bool depth : {false, true}) {
+        std::ofstream wrapper(directory / (depth ? "surface.depth.hlsl" : "surface.color.hlsl"));
+        wrapper << forge::surface_shader_wrapper("surface.function.hlsli", "Shade", depth);
+        check(bool(wrapper.flush()), "Surface wrapper write failed");
+    }
 }
 void draw(const std::filesystem::path& directory, const forge::MaterialShader& material) {
     RefCntAutoPtr<IRenderDevice> device;

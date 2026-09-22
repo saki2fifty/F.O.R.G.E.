@@ -80,6 +80,7 @@ AssetId texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog
     return id;
 }
 } // namespace
+#include "surface_material_pipeline_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material pipeline scratch directory");
@@ -297,6 +298,7 @@ int main(int argc, char** argv) {
         done = finish(service);
         require(done.published, "Compatible texture selection failed: " + done.diagnostic);
         test_material_watch(root / "watch-project");
+        test_surface_material_pipeline(root / "surface-project");
         std::cout << "Material source/publication/resource/last-good/ancestry checks passed\n";
         return 0;
     } catch (const std::exception& e) {
