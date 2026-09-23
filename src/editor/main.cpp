@@ -2558,10 +2558,11 @@ int main(int argc, char** argv) {
                          ? "Untitled"
                          : forge::path_text(files.document.path().filename())) +
                     (files.document.dirty() ? " *" : "") + "###Scene";
-                if (ImGui::Begin(game_view ? "Game" : scene_title.c_str(), &view_open,
-                                 ImGuiWindowFlags_NoScrollWithMouse |
-                                     ImGuiWindowFlags_NoScrollbar)) {
-                    FORGE_UI_TAB_PROBE(game_view ? "tab:Game" : "tab:Scene");
+                const bool view_visible =
+                    ImGui::Begin(game_view ? "Game" : scene_title.c_str(), &view_open,
+                                 ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
+                FORGE_UI_TAB_PROBE(game_view ? "tab:Game" : "tab:Scene");
+                if (view_visible) {
                     if (game_view)
                         game_visible = true;
                     editor.task.focus(forge::ui::DocumentTask::Scene);

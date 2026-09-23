@@ -368,6 +368,7 @@ class EditorInputWorkflow {
         capture("returned-to-edit");
         // File-drop uses SDL's production route. The fixture supplies raw DCC
         // source files only; every import/publication/placement uses real controls.
+        click("tab:Content");
         hover("content-results");
         steps_.push_back({Kind::DropFile, "external-glTF"});
         capture("source-import-review");

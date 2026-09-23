@@ -227,8 +227,10 @@ absorption; dispersion can separate the red, green and blue refraction paths.
 D3D12/WARP fixtures validate the implemented optical path.
 It samples the opaque view behind the object. It cannot show another transparent
 object through the same glass layer, recover objects outside the camera image, or
-produce colored glass shadows and caustics. Looking from inside a volume remains
-an open acceptance case. These limits are separate from the ordinary Alpha mode.
+produce colored glass shadows and caustics. Inside-facing surfaces use the exit
+refraction ratio, including total internal reflection at steep angles. This is
+still a surface approximation, not a simulation of light travelling through
+arbitrary nested glass volumes. These limits are separate from ordinary Alpha mode.
 
 Mirroring an object preserves its optical thickness. Flattening its volume to a
 surviving plane makes it thin; FORGE does not secretly replace zero scale with a

@@ -389,7 +389,9 @@ class ContentBrowser {
         poll(files);
         if (ui::editor_context && ui::editor_context->reveal_content)
             ImGui::SetNextWindowFocus();
-        if (!ImGui::Begin("Content", open)) {
+        const bool visible = ImGui::Begin("Content", open);
+        FORGE_UI_TAB_PROBE("tab:Content");
+        if (!visible) {
             ImGui::End();
             return;
         }

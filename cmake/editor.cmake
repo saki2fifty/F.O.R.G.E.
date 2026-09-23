@@ -87,7 +87,10 @@ if(BUILD_TESTING)
  copy_required_dlls(forge_viewport_tests)
  target_link_libraries(forge_viewport_tests PRIVATE forge_shader_diligent forge_presentation_diligent)
  add_test(NAME editor_viewport_render COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images")
- set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 60)
+ # Combined device-lifetime coverage already took 56-57s before the additional
+ # volume-exit cases. Keep its assertions and individual case bounds; allow
+ # headroom for the complete shader/readback workload on hosted WARP.
+ set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 120)
  foreach(render_case IN ITEMS morph skin frame optics)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)
