@@ -62,3 +62,7 @@ No Phase 8 work or dependency pin changes.
   limits and production GPU-wait diagnostics. This does not change runtime waits.
 - Replace the manual's open inside-volume test note with the verified exit-interface
   behavior and its explicit screen-space/nested-volume limits; update the render matrix.
+- The fresh configuration passes 71 of 72 native audit checks, including the combined
+  renderer. Correct the remaining input recorder: observe the Content child region
+  after EndChild supplies its rectangle, and use the compact Actions menu to reach
+  Create / Register. The product's Content interaction is unchanged.

@@ -417,6 +417,7 @@ class EditorInputWorkflow {
         // Continue through an independently owned material document and the
         // typed Scene assignment picker. No direct authoring API calls.
         click("tab:Content");
+        click("button:Actions");
         click("button:Create / Register");
         click("button:New material...");
         text("material:new-path", "Assets/Workflow.material.json");

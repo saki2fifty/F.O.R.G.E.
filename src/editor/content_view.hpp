@@ -212,7 +212,6 @@ class ContentView {
             ImGui::SameLine();
         }
         ImGui::BeginChild("content-results", {0, height}, ImGuiChildFlags_Borders);
-        FORGE_UI_PROBE("content-results");
         if (!index_ || visible_.empty())
             ImGui::TextWrapped(index_
                                    ? "No matching assets. Clear filters or choose another folder."
@@ -252,6 +251,7 @@ class ContentView {
             ImGui::EndPopup();
         }
         ImGui::EndChild();
+        FORGE_UI_PROBE("content-results");
         if (footer) {
             ImGui::TextDisabled("%zu shown / %zu total", visible_.size(),
                                 index_ ? index_->entries.size() : 0);
