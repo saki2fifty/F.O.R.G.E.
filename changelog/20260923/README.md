@@ -42,3 +42,11 @@ No Phase8 work or dependency pin changes.
   absorption, two-sided-flag independence, mirrored parity and total internal
   reflection above the critical angle. These exercise the current screen-space
   transmission approximation; they do not add nested-volume ray tracing.
+
+## Connected authoring verification
+
+- Extend actual input through creating a reusable Material, editing roughness,
+  document Undo/Redo/Save, and assigning it through the typed scene picker.
+  Assert that material history/publication leaves scene state untouched, while
+  the scene assignment has its own Undo/Redo and Save. Capture the authored
+  Material workspace at100/150/200% scale.

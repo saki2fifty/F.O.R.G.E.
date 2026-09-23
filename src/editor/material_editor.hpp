@@ -87,6 +87,7 @@ class MaterialEditor {
         if (ImGui::BeginPopupModal("New material source", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Project file", path_, sizeof(path_));
+            FORGE_UI_PROBE("material:new-path");
             ui::help("Choose a new .material.json path inside an existing project folder.");
             ImGui::BeginDisabled(locked || dirty());
             if (ui::button("Create", "Create the authored source without replacing existing files. "
@@ -448,6 +449,7 @@ inline void MaterialEditor::fields() {
     const auto& overrides = source.document.at("overrides");
     ui::heading("Material model",
                 "Choose a built-in model or a published Shader with a material surface interface.");
+    FORGE_UI_PROBE("material:document");
     Json parent = source.base() ? Json(source.base()->id) : Json();
     if (asset_ref_picker(*catalog_, parent, "material", "Base material", false))
         mutate("Change material base", [&](auto& j) { j["base"] = parent; });
@@ -632,7 +634,9 @@ inline void MaterialEditor::fields() {
                 continue;
             ui::IdScope scope(key.c_str());
             const auto text = label(key);
-            if (!ImGui::TreeNode(text.c_str())) {
+            const bool expanded = ImGui::TreeNode(text.c_str());
+            FORGE_UI_PROBE("material:parameter:" + key);
+            if (!expanded) {
                 ui::help(
                     "Expand to edit this parameter and inspect its independent override intent.");
                 continue;
@@ -668,6 +672,7 @@ inline void MaterialEditor::fields() {
                                   {"value", std::vector<float>(parameter.value.begin(),
                                                                parameter.value.begin() + width)}});
                 });
+            FORGE_UI_PROBE("material:value:" + key);
             ui::help(
                 "Enter commits the typed scalar/vector/linear color. Invalid ranges retain the "
                 "previous preview and published material.");

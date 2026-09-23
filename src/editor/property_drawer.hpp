@@ -145,6 +145,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                             changed = true;
                             ImGui::CloseCurrentPopup();
                         }
+                        FORGE_UI_PROBE("picker-option:" + row.id.str());
                         if (row.id == selected)
                             ImGui::SetItemDefaultFocus();
                         ui::help(
@@ -172,6 +173,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             ImGui::EndChild();
             ImGui::EndCombo();
         }
+        FORGE_UI_PROBE("asset-picker:" + type + ":" + title);
         ui::help("Choose a compatible asset, search its path, or drop it from Content. Reveal "
                  "opens its Content selection.");
         if (ImGui::BeginDragDropTarget()) {

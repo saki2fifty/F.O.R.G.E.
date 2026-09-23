@@ -3301,6 +3301,15 @@ int main(int argc, char** argv) {
                                               : forge::Json(nullptr);
                 observed["model_generation"] = model_imports.selection_generation();
                 observed["project"] = forge::path_utf8(files.document.project());
+                observed["material_document"] = material_editor.document()
+                                                    ? material_editor.document()->source().document
+                                                    : forge::Json(nullptr);
+                observed["material_dirty"] = material_editor.dirty();
+                observed["material_disk"] =
+                    material_editor.document()
+                        ? forge::read_json(files.document.project() /
+                                           material_editor.document()->locator())
+                        : forge::Json(nullptr);
                 observed["failed_imports"] = forge::Json::array();
                 observed["selected_asset"] = editor.selection.asset()
                                                  ? forge::Json(editor.selection.asset())

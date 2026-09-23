@@ -26,9 +26,9 @@ class EditorInputWorkflow {
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
     std::uint64_t paused_tick_ = 0;
-    Json cache_scene_, saved_, before_model_, trace_ = Json::array();
+    Json cache_scene_, saved_, before_model_, initial_material_, trace_ = Json::array();
     std::filesystem::path external_source_, project_;
-    std::string drop_path_, model_asset_, model_root_;
+    std::string drop_path_, model_asset_, model_root_, material_asset_;
     std::uint64_t model_generation_ = 0;
     static Json model_source(bool changed = false) {
         auto source = Json::parse(R"({"asset":{"version":"2.0"},
@@ -78,7 +78,41 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "source-imported") {
+        if (what == "material-created") {
+            require(state.at("material_document").is_object(), "New material did not open");
+            initial_material_ = state.at("material_document");
+            material_asset_ = initial_material_.at("asset_id");
+            require(doc == saved_, "Creating a material changed the scene");
+        } else if (what == "material-edited" || what == "material-saved") {
+            const auto& material = state.at("material_document");
+            require(std::abs(material.at("overrides")
+                                 .at("parameters")
+                                 .at("roughnessFactor")
+                                 .at("value")
+                                 .at(0)
+                                 .get<double>() -
+                             .4) < .0001,
+                    "Material roughness field/history did not commit 0.4");
+            require(doc == saved_ && state.at("disk") == saved_,
+                    "Material edit/history/save changed scene ownership");
+            if (what == "material-saved")
+                require(!state.at("material_dirty").get<bool>() &&
+                            state.at("material_disk") == material,
+                        "Material did not save and publish its own source");
+        } else if (what == "material-undone") {
+            require(state.at("material_document") == initial_material_ && doc == saved_,
+                    "Material Undo did not restore its own source without changing the scene");
+        } else if (what == "material-assigned") {
+            const auto& materials = state.at("selected_preview")
+                                        .at("components")
+                                        .at("forge.mesh_renderer")
+                                        .at("materials");
+            require(materials.size() == 1 && materials.at(0).at("material") == material_asset_,
+                    "Typed material picker did not assign the authored material");
+            require(state.at("disk") == saved_, "Material assignment silently saved the scene");
+        } else if (what == "assignment-undone") {
+            require(doc == saved_, "Scene Undo did not restore the mesh's original assignment");
+        } else if (what == "source-imported") {
             require(state.at("source_imported").get<bool>(),
                     "Source import did not publish its model");
             project_ = std::filesystem::u8path(state.at("project").get<std::string>());
@@ -379,6 +413,45 @@ class EditorInputWorkflow {
             key(ImGuiKey_Equal, true);
         capture("imported-content-200");
         key(ImGuiKey_0, true);
+        // Continue through an independently owned material document and the
+        // typed Scene assignment picker. No direct authoring API calls.
+        click("tab:Content");
+        click("button:Create / Register");
+        click("button:New material...");
+        text("material:new-path", "Assets/Workflow.material.json");
+        click("button:Create");
+        check("material-created");
+        click("material:parameter:roughnessFactor");
+        text("material:value:roughnessFactor", "0.4");
+        click("material:document");
+        check("material-edited");
+        key(ImGuiKey_Z, true);
+        check("material-undone");
+        key(ImGuiKey_Y, true);
+        check("material-edited");
+        key(ImGuiKey_S, true);
+        check("material-saved");
+        capture("authored-material-100");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        capture("authored-material-150");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        capture("authored-material-200");
+        key(ImGuiKey_0, true);
+        click("tab:Scene");
+        click("saved-cube-row");
+        click("asset-picker:material:##material");
+        click("authored-material-option");
+        check("material-assigned");
+        click("tab:Scene");
+        key(ImGuiKey_Z, true);
+        check("assignment-undone");
+        key(ImGuiKey_Y, true);
+        check("material-assigned");
+        key(ImGuiKey_S, true);
+        check("saved");
+        capture("scene-material-assignment");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {
@@ -433,14 +506,15 @@ class EditorInputWorkflow {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
-            const auto target = step.value == "saved-cube-row" ? "entity:" + cube_
-                                : step.value == "failed-model-problem"
-                                    ? "problem:reimport:" + model_asset_
-                                : step.value == "placed-model-row"  ? "entity:" + model_root_
-                                : step.value == "camera-marker"     ? "marker:" + camera_
-                                : step.value == "light-marker"      ? "marker:" + light_
-                                : step.value == "saved-scene-asset" ? "asset:" + scene_
-                                                                    : step.value;
+            const auto target =
+                step.value == "saved-cube-row"             ? "entity:" + cube_
+                : step.value == "authored-material-option" ? "picker-option:" + material_asset_
+                : step.value == "failed-model-problem"     ? "problem:reimport:" + model_asset_
+                : step.value == "placed-model-row"         ? "entity:" + model_root_
+                : step.value == "camera-marker"            ? "marker:" + camera_
+                : step.value == "light-marker"             ? "marker:" + light_
+                : step.value == "saved-scene-asset"        ? "asset:" + scene_
+                                                           : step.value;
             const auto it = ui_targets.find(target);
             if (it == ui_targets.end() || !it->second.enabled) {
                 io.AddMousePosEvent(pointer_.x, pointer_.y);
