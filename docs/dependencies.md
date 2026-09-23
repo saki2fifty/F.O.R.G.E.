@@ -297,3 +297,11 @@ is required. FORGE validates nonempty absolute Unix environment inputs before
 calling this implementation; it does not patch SDL or choose the install directory
 on failure. Headless builds disable SDL video/audio/joystick/haptic facilities.
 No live-documentation drift was used to infer this API behavior.
+
+## Phase8 standalone composition — verified source 2026-09-23
+
+Exact pins are unchanged. SDL window/display settings, Diligent shared frame
+composition, staged RmlUi contexts and miniaudio gameplay-group volume now have
+standalone consumers. See [host contracts and exact-source notes](standalone-host.md)
+for build options, limits, ownership and pending acceptance. RmlUi global font
+cleanup must not run while a prepared or live context still owns those resources.

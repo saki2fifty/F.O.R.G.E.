@@ -180,6 +180,73 @@ Json snapshot(const char* name) {
                         {"components", {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 0}}}}}}})}});
     return scene.snapshot();
 }
+void preparation() {
+    struct State {
+        bool ready = false, fail = false;
+        unsigned polls = 0, publications = 0, destroyed = 0;
+    };
+    struct Candidate final : GameScenePreparation {
+        std::shared_ptr<State> state;
+        explicit Candidate(std::shared_ptr<State> s) : state(std::move(s)) {}
+        ~Candidate() override { ++state->destroyed; }
+        GamePreparationProgress poll(RuntimeWorld& world) override {
+            ++state->polls;
+            check(world.physics()->checkpoint().at("tick") == 0,
+                  "Preparation advanced candidate physics");
+            if (state->fail)
+                throw std::runtime_error("Required material/GPU preparation failed");
+            return {state->ready, "resources", state->ready ? 2u : 1u, 2};
+        }
+        void activate() noexcept override { ++state->publications; }
+    };
+    std::vector<std::shared_ptr<State>> requests;
+    GameSessionConfig config;
+    config.preparation = [&](std::uint64_t) {
+        auto s = std::make_shared<State>();
+        requests.push_back(s);
+        return std::make_unique<Candidate>(std::move(s));
+    };
+    GameSession game(config);
+    auto first = game.prepare(snapshot("old"));
+    rejects([&] { game.activate(first, at(0), true); });
+    check(requests[0]->publications == 0 && game.status().at("state") == "empty",
+          "Pending initial load published");
+    requests[0]->ready = true;
+    game.activate(first, at(0), true);
+    auto next = game.prepare(snapshot("next"));
+    check(!game.poll_preparation(next).ready, "Pending resources reported ready");
+    game.advance(at(20));
+    check(game.status().at("clock").at("tick") == 1, "Old scene stopped during preload");
+    requests[1]->ready = true;
+    check(game.poll_preparation(next).ready, "Complete resources not ready");
+    requests[1]->ready = false;
+    rejects([&] { game.activate(next, at(25), true); });
+    check(game.active().scene.entity("old").is_alive(), "Stale readiness replaced active world");
+    requests[1]->fail = true;
+    rejects([&] { game.poll_preparation(next); });
+    check(requests[1]->destroyed == 1 && game.status().at("prepared_ticket") == 0 &&
+              game.active().scene.entity("old").is_alive(),
+          "Failed load did not retire only candidate");
+    rejects([&] { game.activate(next, at(30), true); });
+    next = game.prepare(snapshot("cancelled"));
+    game.cancel(next);
+    check(requests[2]->destroyed == 1, "Cancellation kept candidate resources");
+    next = game.prepare(snapshot("superseded"));
+    auto final = game.prepare(snapshot("final"));
+    check(requests[3]->destroyed == 1, "Supersession kept candidate resources");
+    rejects([&] { game.poll_preparation(next); });
+    requests[4]->ready = true;
+    game.activate(final, at(100), false);
+    check(requests[0]->destroyed == 1 && requests[4]->publications == 1 &&
+              game.active().scene.entity("final").is_alive(),
+          "Publication did not retire old resources/switch scene together");
+    game.unload(at(100));
+    check(requests[4]->destroyed == 1, "Unload kept presentation resources");
+    config.preparation = [](std::uint64_t) -> std::unique_ptr<GameScenePreparation> { return {}; };
+    GameSession missing(config);
+    rejects([&] { missing.prepare(snapshot("missing")); });
+    check(missing.status().at("prepared_ticket") == 0, "Missing adapter bypassed readiness");
+}
 void session() {
     GameSession game(GameSessionConfig{});
     check(game.status().at("state") == "empty", "New game session not empty");
@@ -326,6 +393,7 @@ int main(int argc, char** argv) {
         settings();
         storage(root);
         session();
+        preparation();
         std::filesystem::remove_all(root);
         std::cout << "Game configuration, persistence and session tests passed\n";
     } catch (const std::exception& e) {

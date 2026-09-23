@@ -6,6 +6,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Projects and authored content
 
+- [Standalone development host](getting-started/standalone-runtime.md): source-build startup and current limits.
 - [Cooked content packages](editor/runtime-content.md): prepare and verify source-independent asset data.
 - [Loaded resources and cache maintenance](editor/resources.md)
 

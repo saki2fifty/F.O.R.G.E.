@@ -551,6 +551,19 @@ void AnimationRuntime::synchronize() {
     if (impl_)
         impl_->synchronize();
 }
+bool AnimationRuntime::prepare_initial_pose() {
+    if (!impl_)
+        throw ArchiveError("Animation runtime is unavailable");
+    impl_->synchronize();
+    if (!impl_->errors.empty())
+        throw ArchiveError("Scene preparation: invalid Animator asset configuration");
+    if (!impl_->pending.empty())
+        return false;
+    impl_->apply_model_poses();
+    if (!impl_->binding_errors.empty())
+        throw ArchiveError("Scene preparation: invalid Animator model binding");
+    return true;
+}
 void AnimationRuntime::refresh_assets() {
     if (impl_)
         impl_->refresh_assets();

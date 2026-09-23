@@ -27,6 +27,15 @@ class UiPresenter {
     void reset(std::string session, std::uint64_t generation);
     bool accept(const nlohmann::json& snapshot);
     bool reload();
+    // Explicit scene transition trust. Loads a second native context and its GPU
+    // resources without replacing visible documents or routing candidate input.
+    // One candidate; a new request retires the old candidate even on failure.
+    std::uint64_t prepare(const nlohmann::json& snapshot);
+    bool prepared(std::uint64_t ticket) const;
+    // Owner-thread, nonthrowing publication of an already admitted candidate.
+    // False means stale/wrong-thread; no resource loading occurs here.
+    bool activate_prepared(std::uint64_t ticket) noexcept;
+    void cancel_prepared(std::uint64_t ticket);
     void update(double elapsed_seconds, int width, int height, float density = 1);
     void render();
     bool mouse_move(int x, int y, int modifiers);

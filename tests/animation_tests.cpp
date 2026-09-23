@@ -202,6 +202,8 @@ int main(int argc, char** argv) {
                                                  {"forge.animator", config}}}}})}};
         Fixture f(root);
         f.load(doc);
+        check(f.animation->prepare_initial_pose() && f.pose().at("time") == 0,
+              "Initial scene preparation advanced animation time");
         auto authored = f.scene.snapshot();
         check(!f.pose().is_null(), "Animator did not realize");
         check(std::abs(f.pose()["model"][1][13].get<double>() - 1) < .002, "Start pose mismatch");

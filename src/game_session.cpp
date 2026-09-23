@@ -34,8 +34,7 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         throw std::runtime_error("game.session: Transition generation exhausted");
     // Starting a new request retires the previous unpublished request. The active
     // world and its clock/input remain untouched even if the new request fails.
-    candidate_.reset();
-    pending_ = 0;
+    discard_candidate();
     const auto ticket = ++generation_;
     try {
         auto next = std::make_unique<RuntimeWorld>(module_, config_.modules, config_.physics,
@@ -49,8 +48,14 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         next->simulation.restore_input_tick(0);
         next->simulation.reset_presentation();
         next->simulation.sync_audio();
+        auto preparation = config_.preparation ? config_.preparation(ticket) : nullptr;
+        if (config_.preparation && !preparation)
+            throw std::runtime_error("game.session: Host returned no preparation owner");
         candidate_ = std::move(next);
+        candidate_preparation_ = std::move(preparation);
         pending_ = ticket;
+        progress_ = {!candidate_preparation_, candidate_preparation_ ? "resources" : "structural",
+                     0, 0};
         error_.clear();
         return ticket;
     } catch (const std::exception& e) {
@@ -58,11 +63,45 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         throw;
     }
 }
+void GameSession::discard_candidate() {
+    candidate_preparation_.reset();
+    candidate_.reset();
+    pending_ = 0;
+    progress_ = {};
+}
+GamePreparationProgress GameSession::poll_candidate() {
+    try {
+        if (candidate_preparation_) {
+            auto next = candidate_preparation_->poll(*candidate_);
+            if (next.completed > next.total || next.stage.empty() || next.stage.size() > 256)
+                throw std::runtime_error("game.session: Invalid preparation progress");
+            progress_ = std::move(next);
+        }
+        return progress_;
+    } catch (const std::exception& e) {
+        error_ = e.what();
+        discard_candidate();
+        throw;
+    } catch (...) {
+        error_ = "Non-standard native exception in scene preparation";
+        discard_candidate();
+        throw;
+    }
+}
+GamePreparationProgress GameSession::poll_preparation(std::uint64_t ticket) {
+    owner();
+    if (!candidate_ || ticket != pending_)
+        throw std::runtime_error("game.session: Stale or missing prepared scene");
+    Mutation guard(changing_);
+    return poll_candidate();
+}
 void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool run) {
     owner();
     if (!candidate_ || ticket != pending_)
         throw std::runtime_error("game.session: Stale or missing prepared scene");
     Mutation guard(changing_);
+    if (!poll_candidate().ready)
+        throw std::runtime_error("game.session: Required scene resources are not ready");
     // Finish potentially failing preparation before pausing or replacing active.
     candidate_->simulation.restore_input_tick(0);
     candidate_->simulation.reset_presentation();
@@ -70,10 +109,13 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
         active_->simulation.audio_paused(true);
     clock_.restore_tick(0, now); // A new world starts a new simulation timeline.
     active_.swap(candidate_);
+    active_preparation_.swap(candidate_preparation_);
+    if (active_preparation_)
+        active_preparation_->activate();
     pending_ = 0;
     faulted_ = false;
     error_.clear();
-    candidate_.reset(); // Stops old consumers/world before new gameplay starts.
+    discard_candidate(); // Stops old consumers/world before new gameplay starts.
     // Resume is post-commit. A device/native callback failure is a session fault,
     // never a claim that the old world has been restored.
     try {
@@ -91,14 +133,14 @@ void GameSession::cancel(std::uint64_t ticket) {
     if (!candidate_ || ticket != pending_)
         throw std::runtime_error("game.session: Stale or missing prepared scene");
     Mutation guard(changing_);
-    candidate_.reset();
-    pending_ = 0;
+    discard_candidate();
 }
 void GameSession::unload(RuntimeClock::Time now) {
     owner();
     Mutation guard(changing_);
     clock_.pause(now);
-    candidate_.reset();
+    discard_candidate();
+    active_preparation_.reset();
     active_.reset();
     pending_ = 0;
     faulted_ = false;
@@ -164,6 +206,12 @@ Json GameSession::status() const {
                                         : "running"},
             {"clock", clock_.status()},
             {"prepared_ticket", pending_},
+            {"preparation",
+             {{"scope", config_.preparation ? "host" : "structural"},
+              {"ready", progress_.ready},
+              {"stage", progress_.stage},
+              {"completed", progress_.completed},
+              {"total", progress_.total}}},
             {"error", error_}};
 }
 } // namespace forge

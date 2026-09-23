@@ -16,6 +16,10 @@ package=link('forge_runtime_package_tests')
 for forbidden in ('imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native','forge_recast','forge_nav_build'):
  assert forbidden not in package,(forbidden,package)
 cache=(Path(build)/'CMakeCache.txt').read_text()
+if 'FORGE_BUILD_GAME:BOOL=ON' in cache:
+ graphical=link('forge_game')
+ for forbidden in ('imgui','forge_authoring','forge_editor','forge_gltf_native','forge_audio_decode'):
+  assert forbidden not in graphical,(forbidden,graphical)
 if 'FORGE_BUILD_ASSET_TOOLS:BOOL=ON' in cache:
  native=link('forge_gltf_native_tests')
  for forbidden in ('imgui','sdl3','forge_authoring','forge_ui_presenter'):

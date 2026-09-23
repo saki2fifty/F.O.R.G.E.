@@ -245,6 +245,23 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
     require(!actor_frame(loading_frame).at("model_animation_ready").get<bool>() &&
                 bound.scene.snapshot() == before_first_fixed,
             "Paused presentation either wrote model channels or published an unapplied pose");
+    {
+        Runtime initial(project);
+        initial.scene.restore_snapshot(before_first_fixed);
+        initial.simulation.reset_presentation();
+        const auto deadline = std::chrono::steady_clock::now() + 10s;
+        while (!initial.animation->prepare_initial_pose()) {
+            require(std::chrono::steady_clock::now() < deadline,
+                    "Initial animation preparation timed out");
+            std::this_thread::sleep_for(1ms);
+        }
+        initial.simulation.reset_presentation();
+        const auto id = initial.scene.entity("actor").id();
+        require(initial.animation->model_pose_ready(id) && initial.pose().at("time") == 0,
+                "Initial model pose requires a gameplay tick or advanced animation time");
+        require(bound.scene.snapshot() == before_first_fixed,
+                "Unpublished animation preparation changed another world");
+    }
 
     double pre_physics_x = -1;
     auto monitor = bound.engine.world()

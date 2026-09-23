@@ -1,5 +1,33 @@
 # 2026-09-23
 
+## Phase8 graphical host and preparation — source checkpoint
+
+- Add opt-in Windows `forge_game`, with SDL display/window modes, VSync, authored
+  cameras through the shared Diligent renderer, RmlUi, saved action bindings,
+  mouse sensitivity, gameplay master volume, OS user settings and startup logs.
+- Extract shared graphics target composition from editor CMake. The standalone-only
+  configuration disables editor/ImGui and import-tool dependencies; raw D3D12/WARP
+  initialization stays in a narrow backend adapter.
+- Add read-only AssetId-based scene bootstrap and structured-prefab source closure,
+  preserving supported scene3/4/5 and prefab1/2 identity/inheritance without migration.
+- Gate GameSession activation on host resource readiness. Pending, failed, cancelled
+  or superseded candidates cannot publish; activation rechecks readiness. The visual
+  adapter checks animation/physics/audio/navigation and real render/UI preparation.
+- Add unpublished native RmlUi contexts and publication tickets. Retiring one context
+  no longer releases another context's fonts through global render-manager cleanup.
+- Add zero-time initial animation-pose preparation and actual offline master-volume
+  regression coverage. Reuse SDL key mapping between editor and standalone adapters.
+- Add portable failure/identity/prefab/UI tests and a Windows/WARP SDL workflow with
+  captures, Pause/Resume clicks, rejected missing-mesh replacement and valid replacement.
+  Add standalone-only build/link validation to the existing unnumbered audit workflow.
+- Update technical contracts and the function-based manual. Full export, all runtime
+  asset adapters, character/collision, complete input/menu contexts, SDK save/session
+  access, logging/crash completion and the reference game remain open. No new ZIP.
+- Validation: focused shared SDK5/5, strict ASan/UBSan/LSan5/5, native model
+  pipeline1/1, portable preparation/UI/animation/audio and corrected bootstrap pass;
+  manual3/3, formatting, source syntax and workflow lint pass. Windows execution
+  and visual acceptance remain pending the unnumbered audit.
+
 ## Phase8 game foundation — in progress, not yet packaged
 
 - Extract reusable RuntimeWorld composition from the Play worker, preserving its

@@ -86,6 +86,9 @@ struct AudioRuntime::Impl {
     std::set<std::uint64_t> spatial_errors;
     Impl(WorldContext& w, AudioConfig c)
         : world(w), config(std::move(c)), catalog(AssetCatalog::open_project(config.project)) {
+        if (!std::isfinite(config.master_volume) || config.master_volume < 0 ||
+            config.master_volume > 1)
+            throw std::runtime_error("Gameplay master volume must be between zero and one");
         auto ec = ma_engine_config_init();
         ec.noAutoStart = MA_TRUE;
         ec.noDevice = config.output == AudioOutput::Offline;
@@ -129,6 +132,7 @@ struct AudioRuntime::Impl {
             engine_ready = true;
             checked(ma_sound_group_init(&engine, 0, nullptr, &group), "Gameplay audio group");
             group_ready = true;
+            ma_sound_group_set_volume(&group, config.master_volume);
             checked(ma_sound_group_stop(&group), "Pause initial audio group");
             if (!ec.noDevice)
                 checked(ma_engine_start(&engine), "Audio device start");
@@ -395,6 +399,7 @@ Json AudioRuntime::status() const {
             {"clips", impl_->clips.size()},
             {"decoded_bytes", impl_->cache_bytes},
             {"failed_sources", impl_->failures.size()},
+            {"master_volume", impl_->config.master_volume},
             {"tick", impl_->tick}};
 }
 void AudioRuntime::read_offline(std::span<float> out) {

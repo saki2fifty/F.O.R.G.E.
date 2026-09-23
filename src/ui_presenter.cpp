@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <forge/ui_presenter.hpp>
+#include <limits>
 #include <set>
 #include <thread>
 namespace forge {
@@ -28,6 +29,13 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     struct File {
         const std::vector<std::byte>* bytes;
         std::size_t pos = 0;
+    };
+    struct Prepared {
+        std::unique_ptr<Set> set;
+        Json state;
+        ui_protocol::Replica replica;
+        std::string session;
+        std::uint64_t generation = 0, ticket = 0;
     };
     // Prepare geometry/textures against a candidate without touching the host framebuffer.
     // The same manager owns the prepared resources after publication.
@@ -109,6 +117,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     std::map<std::string, std::shared_ptr<UiResources>> resources;
     std::map<Rml::FileHandle, std::unique_ptr<File>> files;
     std::unique_ptr<Set> live;
+    std::unique_ptr<Prepared> staged;
+    std::uint64_t preparation_serial = 0;
     std::uint64_t presentation_revision = 0;
     std::deque<Json> pending;
     ui_protocol::Replica replica;
@@ -156,6 +166,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
     }
     ~Impl() {
+        if (staged)
+            retire(staged->set);
         retire(live);
         if (initialized)
             Rml::Shutdown();
@@ -274,7 +286,11 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         if (!set)
             return;
         Rml::RemoveContext(set->name);
-        Rml::ReleaseRenderManagers();
+        // Exact RmlUi6.3 ReleaseRenderManagers also releases ALL font resources
+        // and updates surviving contexts. Do not invalidate another scene's
+        // prepared glyphs or dispatch its events while retiring this context.
+        if (Rml::GetNumContexts() == 0)
+            Rml::ReleaseRenderManagers();
         resources.erase(set->name);
         set.reset();
     }
@@ -306,7 +322,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
         pending.push_back(std::move(request));
     }
-    bool rebuild() {
+    std::unique_ptr<Set> build(const Json& state) {
         auto candidate = std::make_unique<Set>();
         candidate->name = "ui" + std::to_string(++serial);
         candidate->resources = std::make_shared<UiResources>(project);
@@ -320,7 +336,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             if (!candidate->context)
                 throw std::runtime_error("UI context creation failed");
             candidate->context->SetDensityIndependentPixelRatio(density);
-            auto descriptors = current.at("documents").get<std::vector<Json>>();
+            auto descriptors = state.at("documents").get<std::vector<Json>>();
             std::stable_sort(
                 descriptors.begin(), descriptors.end(),
                 [](const auto& a, const auto& b) { return a.at("layer") < b.at("layer"); });
@@ -381,20 +397,27 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             if (!error.empty())
                 throw std::runtime_error(error);
             candidate->assets = candidate->resources->snapshot();
-            held_keys.clear();
-            retire(live);
-            live = std::move(candidate);
-            ++presentation_revision;
             loading_prefix.clear();
-            return true;
+            return candidate;
         } catch (const std::exception& e) {
             renderer.preparing = false;
             loading_prefix.clear();
             const std::string failure = e.what();
             retire(candidate);
             error = failure;
-            return false;
+            return {};
         }
+    }
+    bool rebuild() {
+        auto next = build(current);
+        if (!next)
+            return false;
+        held_keys.clear();
+        auto previous = std::move(live);
+        retire(previous);
+        live = std::move(next);
+        ++presentation_revision;
+        return true;
     }
 };
 UiPresenter::UiPresenter(Rml::RenderInterface& r, std::filesystem::path p,
@@ -410,6 +433,9 @@ const UiAssetSnapshot* UiPresenter::asset_snapshot() const {
 void UiPresenter::reset(std::string session, std::uint64_t generation) {
     auto& s = *impl_;
     s.check();
+    if (s.staged)
+        s.retire(s.staged->set);
+    s.staged.reset();
     s.retire(s.live);
     s.held_keys.clear();
     s.pending.clear();
@@ -420,6 +446,63 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
     s.error.clear();
     s.failed_structure.clear();
     s.replica.reset(s.session, generation);
+}
+std::uint64_t UiPresenter::prepare(const Json& snapshot) {
+    auto& s = *impl_;
+    s.check();
+    if (s.staged)
+        s.retire(s.staged->set);
+    s.staged.reset();
+    if (s.preparation_serial == std::numeric_limits<std::uint64_t>::max())
+        throw std::runtime_error("UI preparation generation exhausted");
+    auto next = std::make_unique<Impl::Prepared>();
+    next->ticket = ++s.preparation_serial;
+    ui_protocol::validate_snapshot(snapshot);
+    next->session = snapshot.at("session");
+    next->generation = snapshot.at("generation");
+    next->replica.reset(next->session, next->generation);
+    if (!next->replica.accept(snapshot))
+        throw std::runtime_error("UI preparation snapshot was not admitted");
+    next->state = snapshot;
+    next->set = s.build(snapshot);
+    if (!next->set)
+        throw std::runtime_error(s.error);
+    const auto ticket = next->ticket;
+    s.staged = std::move(next);
+    return ticket;
+}
+bool UiPresenter::prepared(std::uint64_t ticket) const {
+    const auto& s = *impl_;
+    s.check();
+    return s.staged && s.staged->ticket == ticket;
+}
+bool UiPresenter::activate_prepared(std::uint64_t ticket) noexcept {
+    auto& s = *impl_;
+    if (std::this_thread::get_id() != s.thread || !s.staged || s.staged->ticket != ticket)
+        return false;
+    auto previous = std::move(s.live);
+    s.retire(previous);
+    s.live = std::move(s.staged->set);
+    s.current = std::move(s.staged->state);
+    s.replica = std::move(s.staged->replica);
+    s.session = std::move(s.staged->session);
+    s.generation = s.staged->generation;
+    s.staged.reset();
+    s.held_keys.clear();
+    s.pending.clear();
+    s.command_id = 0;
+    s.failed_structure.clear();
+    s.error.clear();
+    ++s.presentation_revision;
+    return true;
+}
+void UiPresenter::cancel_prepared(std::uint64_t ticket) {
+    auto& s = *impl_;
+    s.check();
+    if (!s.staged || s.staged->ticket != ticket)
+        throw std::runtime_error("Stale or missing prepared UI");
+    s.retire(s.staged->set);
+    s.staged.reset();
 }
 bool UiPresenter::accept(const Json& j) {
     auto& s = *impl_;

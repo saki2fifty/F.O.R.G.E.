@@ -64,8 +64,9 @@ struct Fixture {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AudioRuntime> audio;
-    explicit Fixture(const std::filesystem::path& root)
-        : engine(WorldRole::Runtime, false, {audio_module({root, AudioOutput::Offline, true})}),
+    explicit Fixture(const std::filesystem::path& root, float volume = 1)
+        : engine(WorldRole::Runtime, false,
+                 {audio_module({root, AudioOutput::Offline, true, volume})}),
           scene(engine.world()), simulation(engine.world(), scene, module),
           audio(std::static_pointer_cast<AudioRuntime>(engine.services().audio())) {}
     void load(const Json& doc) {
@@ -98,6 +99,20 @@ int main(int argc, char** argv) {
         check(AssetCatalog::register_audio_clip(root, "Assets/tone.wav").id == record.id,
               "Registration changed identity");
         auto catalog = AssetCatalog::open_project(root);
+        {
+            Fixture full(root), quiet(root, .5f), muted(root, 0);
+            full.load(source(record.id));
+            quiet.load(source(record.id));
+            muted.load(source(record.id));
+            full.simulation.audio_paused(false);
+            quiet.simulation.audio_paused(false);
+            muted.simulation.audio_paused(false);
+            const auto energy = full.energy();
+            check(energy > 0 && std::abs(quiet.energy() / energy - .25) < .01 &&
+                      muted.energy() == 0,
+                  "Master volume did not affect actual offline samples");
+            reject([&] { Fixture invalid(root, -1); });
+        }
         check(catalog.resolve(AssetRef<AudioClipAsset>{record.id}).state == AssetState::Available,
               "Typed AudioClip resolution");
         check(catalog.resolve(record.id, SceneAsset::type).state == AssetState::Incompatible,

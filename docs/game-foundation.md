@@ -1,7 +1,7 @@
 # Game configuration, persistence and session ownership
 
 Phase8 is in progress. These are implemented internal runtime building blocks,
-not a claim that a graphical standalone exporter or complete game is delivered.
+not a claim that a complete game exporter or reference game is delivered.
 The existing editor Play worker now uses the shared `RuntimeWorld` composition.
 
 ## Configuration ownership
@@ -25,8 +25,8 @@ device capability claims. The host must query actual capabilities.
 It produces an effective copy and never changes shared defaults. Binding overrides
 use existing ActionIds and the ordinary InputMap validator; action names/kinds and
 IDs remain project-owned. Missing actions and unsupported controls reject the
-candidate. Sensitivity is a preference value; applying it to mouse input belongs
-to the forthcoming platform adapter. Validation does not apply window/audio state.
+candidate. The opt-in [graphical host](standalone-host.md) applies display settings,
+mouse sensitivity and master volume. Validation alone does not apply device state.
 
 ## User data and save slots
 
@@ -94,10 +94,18 @@ reference. Failed preparation
 leaves the active world, input and clock unchanged. Starting another preparation
 retires the previous candidate. Generation tickets reject stale activation/cancel.
 
-Preparation is currently **synchronous structural/physics preparation**. It is not
-a declaration that all CPU/GPU/audio/UI assets are loaded or that preloading and
-progress UX are complete. The visual host must establish required resource readiness
-before activation; that integration remains open.
+Initial `prepare` performs synchronous structural/physics admission. A host can
+install a `GameScenePreparation` factory. Its owner-thread `poll` prepares the
+candidate's resources and reports stage/count progress without running gameplay.
+`activate` polls again and refuses an unready candidate; a previous ready result
+is not a bypass token. Failure destroys candidate resources before their world,
+preserves the active scene, and records the error. Cancellation and supersession
+retire the candidate. Adapters remain owned through active-world lifetime and
+publish only prebuilt ownership through nonthrowing `activate`.
+
+Without a factory, status explicitly reports `scope: structural`. The graphical
+host installs the renderer/UI adapter described in [standalone host](standalone-host.md).
+This does not imply full export closure or a loading-screen authoring workflow.
 
 Activation completes throwable pose preparation before replacing the old world,
 stops the old world before new gameplay ticks, and resets presentation/input debt.

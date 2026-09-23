@@ -9,6 +9,7 @@ struct AudioConfig {
     std::filesystem::path project;
     AudioOutput output = AudioOutput::Device;
     bool required = false;
+    float master_volume = 1;
 };
 EngineModule audio_module(AudioConfig);
 class AudioRuntime : public AudioService {

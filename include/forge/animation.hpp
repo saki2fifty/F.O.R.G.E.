@@ -14,6 +14,9 @@ class AnimationRuntime {
     using PoseValidator = std::function<void(const std::map<std::uint64_t, TransformNode>&)>;
     void pose_validator(PoseValidator);
     void synchronize();
+    // Unpublished scene only: admit initial assets and apply the current sample
+    // without advancing time or running gameplay. False means workers still pending.
+    bool prepare_initial_pose();
     // Development host notifications. Catalog IO runs off-thread; sampling/adoption
     // remains on the world owner. Neither operation edits the authored hierarchy.
     void refresh_assets();

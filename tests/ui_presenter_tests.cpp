@@ -237,6 +237,43 @@ int main(int argc, char** argv) {
             state["generation"] = 2u;
             state["revision"] = 1u;
             check(p.accept(state), "Recovery rebuilds admitted document");
+            auto* previous = Rml::GetContext(0);
+            const auto revision = p.presentation_revision();
+            auto replacement = state;
+            replacement["session"] = "transition";
+            replacement["generation"] = 3u;
+            replacement["documents"] = Json::array();
+            const auto draw_count = renderer.draws;
+            auto ticket = p.prepare(replacement);
+            check(p.prepared(ticket) && Rml::GetNumContexts() == 2 && p.document_count() == 2 &&
+                      p.presentation_revision() == revision && renderer.draws == draw_count,
+                  "Preparing new scene changed live documents/framebuffer");
+            p.update(9, 640, 480);
+            p.render();
+            check(Rml::GetContext(0) == previous && renderer.draws > draw_count,
+                  "Old UI stopped rendering while candidate pending");
+            p.cancel_prepared(ticket);
+            check(!p.prepared(ticket) && Rml::GetNumContexts() == 1 && !p.activate_prepared(ticket),
+                  "Cancelled UI remained publishable");
+            ticket = p.prepare(replacement);
+            auto malformed = replacement;
+            malformed["documents"] = state["documents"];
+            malformed["documents"][0]["asset"] = AssetId::generate();
+            bool rejected = false;
+            try {
+                p.prepare(malformed);
+            } catch (const std::exception&) {
+                rejected = true;
+            }
+            check(rejected && !p.prepared(ticket) && p.document_count() == 2 &&
+                      Rml::GetNumContexts() == 1 && Rml::GetContext(0) == previous,
+                  "Failed candidate damaged live UI or retained superseded candidate");
+            ticket = p.prepare(replacement);
+            check(p.activate_prepared(ticket) && p.document_count() == 0 &&
+                      Rml::GetNumContexts() == 1 && p.presentation_revision() == revision + 1,
+                  "Prepared UI publication failed");
+            check(!p.activate_prepared(ticket) && !p.accept(state),
+                  "Old generation or duplicate publication admitted");
         }
         {
             UiPresenter again(renderer, root, read(argv[2]));

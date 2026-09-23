@@ -8,6 +8,8 @@ Game-runtime foundation work now includes separate save/settings storage and sce
 session ownership. These internal services do not add an Export Game command or
 a player Save/Load menu yet. The packaging steps below still describe the supported
 cooked-content tool.
+An opt-in [standalone development host](../getting-started/standalone-runtime.md)
+now exists in source; it is separate from this incomplete export workflow.
 
 ## Choose the assets
 

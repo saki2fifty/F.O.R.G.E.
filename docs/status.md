@@ -7,7 +7,9 @@ activation, separately validated player save slots/migrations/settings, an SDL O
 user-data adapter and cooked NavMesh delivery are implemented source-level building
 blocks. See [game foundation](game-foundation.md) and
 [content packaging](runtime-content-packaging.md) for exact boundaries.
-The graphical standalone host, full game dependency/export closure, character and
+An opt-in graphical standalone development host and resource-gated scene preparation
+are implemented in source; see [host scope](standalone-host.md).
+Full game dependency/export closure, character and
 collision assets, complete input contexts, game SDK persistence and reference game
 remain open. No new numbered Phase8 package is delivered yet.
 
