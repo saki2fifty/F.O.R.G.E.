@@ -9,7 +9,7 @@ assert manifest['engine']['profile']=='shared-native-sdk'
 assert len(manifest['settings']['modules'])==1
 for name,info in manifest['files'].items():
  assert hashlib.sha256((root/name).read_bytes()).hexdigest()==info['sha256'],name
-for command in [[root/'forge_game.exe','--verify-startup'],[root/'forge_game_fixture.exe','--packaged',evidence]]:
+for command in [[root/'forge_game.exe','--verify-startup'],[root/'forge_game_fixture.exe','--packaged-mixed',evidence]]:
  result=subprocess.run(list(map(str,command)),cwd=root,env=env,text=True,capture_output=True,timeout=120)
  (evidence/(Path(command[0]).stem+'.log')).write_text(result.stdout+'\n'+result.stderr)
  assert result.returncode==0,(result.returncode,result.stdout,result.stderr)
@@ -21,7 +21,7 @@ assert (Path(storage['root'])/'runtime.log').is_file()
 relocated=root.with_name(root.name+' moved again')
 shutil.move(str(root),relocated)
 restarted=evidence/'restarted'
-result=subprocess.run([str(relocated/'forge_game_fixture.exe'),'--packaged',str(restarted)],cwd=relocated,env=env,text=True,capture_output=True,timeout=120)
+result=subprocess.run([str(relocated/'forge_game_fixture.exe'),'--packaged-mixed',str(restarted)],cwd=relocated,env=env,text=True,capture_output=True,timeout=120)
 (evidence/'restarted.log').write_text(result.stdout+'\n'+result.stderr)
 assert result.returncode==0,(result.returncode,result.stdout,result.stderr)
 restored=json.loads((restarted/'storage-result.json').read_text())

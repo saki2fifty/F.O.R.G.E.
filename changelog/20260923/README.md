@@ -503,3 +503,10 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   D3D12, scans both dependency closures and inventories the result. Added an early
   kit assertion and missing-Archiver production rejection probe. No arbitrary
   build-bin copy or hardcoded library output filename was introduced.
+
+- Corrected the mixed standalone acceptance observer to read sampled animation
+  from AnimationRuntime rather than a nonexistent authored-scene field. The
+  production relocated executable now starts with the corrected runtime kit;
+  full capture/fresh-runner acceptance remains pending. Mixed-mode assertions
+  require all expected animation/navigation/audio/imported entities, record
+  actual runtime values, and identify the stage/condition on timeout.

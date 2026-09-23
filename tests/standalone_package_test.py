@@ -78,7 +78,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     env['PATH'] = str(Path(os.environ['SystemRoot'])/'System32')
     checked = run([relocated/'forge_game.exe', '--verify-startup'], cwd=relocated, env=env)
     assert 'FORGE standalone startup verified' in checked.stdout
-    run([relocated/'forge_game_fixture.exe', '--packaged', evidence], cwd=relocated, env=env)
+    mode = '--packaged-mixed' if args.source else '--packaged'
+    run([relocated/'forge_game_fixture.exe', mode, evidence], cwd=relocated, env=env)
     storage_result = json.loads((evidence/'storage-result.json').read_text())
     assert not storage_result['reopened'], 'Fixture application ID unexpectedly reused'
     user_root = Path(storage_result['root'])
@@ -89,7 +90,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     shutil.move(str(relocated), moved_again)
     relocated = moved_again
     restarted = evidence/'restarted'
-    run([relocated/'forge_game_fixture.exe', '--packaged', restarted], cwd=relocated, env=env)
+    run([relocated/'forge_game_fixture.exe', mode, restarted], cwd=relocated, env=env)
     restored = json.loads((restarted/'storage-result.json').read_text())
     assert restored['reopened'] and restored['root'] == storage_result['root']
     assert restored['scene'] == storage_result['scene']
