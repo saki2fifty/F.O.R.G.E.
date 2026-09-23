@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include <forge/material_source.hpp>
+#include <forge/scene_render_settings.hpp>
 namespace forge {
 namespace {
 using Json = nlohmann::json;
@@ -14,6 +15,7 @@ struct Inspect {
     std::size_t visits = 0;
     std::filesystem::path source;
     std::string owner;
+    bool all = false;
     void budget(unsigned depth = 0) {
         if (++visits > 1048576 || depth > 32)
             throw std::runtime_error("Reference inspection exceeds its node/depth budget");
@@ -23,14 +25,15 @@ struct Inspect {
             throw std::runtime_error("Reference inspection has too many opaque fields");
         result.uninspected.push_back(path_utf8(source) + " / " + owner + " / " + field);
     }
-    void reference(const Json& value, const std::string& property, const char* kind) {
+    void reference(const Json& value, const std::string& property, const char* kind,
+                   const std::string& expected_type) {
         if (value.is_null())
             return;
         const auto id = value.get<AssetId>();
-        if (targets.contains(id)) {
+        if (all || targets.contains(id)) {
             if (result.references.size() >= max_entries)
                 throw std::runtime_error("Reference impact exceeds 65536 matching references");
-            result.references.push_back({source, owner, property, kind, id});
+            result.references.push_back({source, owner, property, kind, id, expected_type});
         }
     }
     void fields(const Json& descriptions, const Json& value, const std::string& path,
@@ -55,10 +58,10 @@ struct Inspect {
         budget(depth);
         const auto type = field.at("type").get<std::string>();
         if (type == "asset_ref")
-            reference(value, path, "AssetRef");
+            reference(value, path, "AssetRef", field.at("asset_type").get<std::string>());
         else if (type == "entity_ref") {
             if (!value.is_null())
-                reference(value.at("scene"), path, "EntityRef scene");
+                reference(value.at("scene"), path, "EntityRef scene", SceneAsset::type);
         } else if (type == "struct")
             fields(field.at("fields"), value, path, depth + 1);
         else if (type == "array" || type == "vector") {
@@ -106,7 +109,10 @@ struct Inspect {
                 }
                 if (row.contains("prefab_instance"))
                     reference(row.at("prefab_instance").at("asset"), "prefab_instance.asset",
-                              "Prefab instance");
+                              "Prefab instance", PrefabAsset::type);
+                if (row.contains("spatial") && row.at("spatial").contains("target"))
+                    reference(row.at("spatial").at("target").at("scene"), "spatial.target",
+                              "EntityRef scene", SceneAsset::type);
                 // Both whole-component and per-property intent carry authored values.
                 for (const auto& [key, unused] : row.items()) {
                     (void)unused;
@@ -118,11 +124,41 @@ struct Inspect {
                 }
             }
             owner.clear();
+            if (scene && doc.contains("rendering")) {
+                const auto rendering = scene_render_settings(doc);
+                if (rendering.environment.texture.id)
+                    reference(Json(rendering.environment.texture.id),
+                              "rendering.environment.texture", "Environment texture",
+                              TextureAsset::type);
+                for (const auto& [key, unused] : doc.at("rendering").items()) {
+                    (void)unused;
+                    if (key != "version" && key != "exposure" && key != "environment" &&
+                        key != "shadows")
+                        unknown("rendering." + key);
+                }
+                for (const auto* section : {"environment", "shadows"}) {
+                    if (!doc.at("rendering").contains(section))
+                        continue;
+                    const std::set<std::string> known =
+                        std::string_view(section) == "environment"
+                            ? std::set<std::string>{"texture", "intensity", "rotation", "sky"}
+                            : std::set<std::string>{"enabled", "resolution", "cascades",
+                                                    "max_lights", "distance"};
+                    for (const auto& [key, unused] : doc.at("rendering").at(section).items()) {
+                        (void)unused;
+                        if (!known.contains(key))
+                            unknown(std::string("rendering.") + section + "." + key);
+                    }
+                }
+            }
+            if (prefab)
+                for (const auto& dependency : doc.value("dependencies", Json::array()))
+                    reference(dependency, "dependencies", "Prefab dependency", PrefabAsset::type);
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
                 if (key != "format" && key != "version" && key != "asset_id" && key != "entities" &&
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
-                    key != "render_settings")
+                    key != "rendering" && !(prefab && key == "dependencies"))
                     unknown(key);
             }
         } else if (doc.contains("kind") && doc.at("kind").is_string() &&
@@ -130,11 +166,12 @@ struct Inspect {
             MaterialSource material{doc};
             material.validate();
             if (const auto base = material.base())
-                reference(Json(base->id), "base", "Material base");
+                reference(Json(base->id), "base", "Material base", MaterialAsset::type);
             if (doc.contains("overrides") && doc.at("overrides").contains("textures"))
                 for (const auto& [key, binding] : doc.at("overrides").at("textures").items())
                     if (!binding.is_null())
-                        reference(binding.at("asset"), "textures." + key, "Material texture");
+                        reference(binding.at("asset"), "textures." + key, "Material texture",
+                                  TextureAsset::type);
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
                 if (key != "kind" && key != "version" && key != "asset_id" && key != "base" &&
@@ -151,7 +188,8 @@ struct Inspect {
         } else if (doc.contains("startup_scene")) {
             const auto& startup = doc.at("startup_scene");
             if (startup.is_object())
-                reference(startup.at("asset"), "startup_scene", "Project startup scene");
+                reference(startup.at("asset"), "startup_scene", "Project startup scene",
+                          SceneAsset::type);
             else if (!startup.is_null())
                 unknown("legacy startup locator");
         } else
@@ -159,6 +197,18 @@ struct Inspect {
     }
 };
 } // namespace
+AssetReferenceImpact collect_asset_references(const Json& schema,
+                                              std::span<const AssetReferenceDocument> documents) {
+    const std::set<AssetId> unused;
+    Inspect scan{unused, {}, {}};
+    scan.all = true;
+    for (const auto& component : schema.at("components"))
+        if (!scan.types.emplace(component.at("id").get<std::string>(), component).second)
+            throw std::runtime_error("Duplicate component in reference inspection schema");
+    for (const auto& doc : documents)
+        scan.document(doc);
+    return std::move(scan.result);
+}
 AssetReferenceImpact inspect_asset_references(const Json& schema,
                                               std::span<const AssetReferenceDocument> documents,
                                               const std::set<AssetId>& targets) {

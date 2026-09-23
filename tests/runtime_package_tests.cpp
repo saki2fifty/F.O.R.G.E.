@@ -7,6 +7,9 @@
 #include "runtime_package.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/audio_components.hpp>
+#include <forge/game_content.hpp>
+#include <forge/render_components.hpp>
+#include <forge/scene.hpp>
 #include <fstream>
 #include <iostream>
 #include <source_location>
@@ -223,6 +226,87 @@ int main(int argc, char** argv) {
         for (const auto& entry : std::filesystem::directory_iterator(scratch))
             check(!entry.path().filename().string().starts_with(".forge-package-"),
                   "Failed candidate staging leaked");
+        const auto authored = scratch / "scene-source";
+        std::filesystem::create_directory(authored);
+        WorldContext world;
+        Scene scene(world);
+        const auto entity = EntityId::generate();
+        auto document = empty_scene();
+        document["entities"] =
+            Json::array({{{"id", entity}, {"name", "Cube"}, {"components", Json::object()}}});
+        scene.replace(document);
+        scene.entity(entity.str()).set<MeshRenderer>({engine_primitive(0), {}});
+        document = scene.document();
+        scene.save(authored / "level.scene.json");
+        AssetCatalog scene_catalog(authored);
+        const auto scene_record = scene_catalog.add_scene("level.scene.json");
+        scene_catalog.save(AssetCatalog::project_index(authored));
+        const auto scene_index =
+            read_bytes(AssetCatalog::project_index(authored), max_asset_index_bytes);
+        const std::array scene_roots{scene_record.id};
+        const auto scene_output = scratch / "scene-output";
+        (void)package_runtime_content(authored, scene_output, scene_roots, target);
+        check(read_bytes(AssetCatalog::project_index(authored), max_asset_index_bytes) ==
+                  scene_index,
+              "Export changed source dependency catalog");
+        const auto packaged_catalog = open_runtime_content(scene_output, target);
+        check(packaged_catalog.dependency_graph().dependencies(scene_record.id).size() == 1,
+              "Scene's reflected mesh reference missing from authoritative graph");
+        (void)package_runtime_content(scene_output, scratch / "scene-repacked", scene_roots,
+                                      target);
+        std::filesystem::rename(authored, scratch / "unavailable-project");
+        scene.restore_snapshot(load_game_scene(scene_output, {scene_record.id}));
+        check(scene.entity(entity.str()).is_alive(), "Relocated packaged scene did not load");
+        std::filesystem::rename(scratch / "unavailable-project", authored);
+        auto missing = document;
+        missing["asset_id"] = scene_record.id;
+        missing["entities"][0]["components"]["forge.mesh_renderer"]["mesh"] = AssetId::generate();
+        text(authored / "level.scene.json", missing.dump());
+        rejects([&] {
+            package_runtime_content(authored, scratch / "missing-mesh", scene_roots, target);
+        });
+        check(!std::filesystem::exists(scratch / "missing-mesh"),
+              "Missing typed mesh was silently omitted");
+        missing["entities"][0]["components"].erase("forge.mesh_renderer");
+        missing["entities"][0]["components"]["plugin.unknown"] = {{"asset", AssetId::generate()}};
+        text(authored / "level.scene.json", missing.dump());
+        rejects(
+            [&] { package_runtime_content(authored, scratch / "opaque", scene_roots, target); });
+        const auto prefab_id = AssetId::generate();
+        const auto member_id = PrefabMemberId::generate();
+        Json prefab{{"format", "forge.prefab"},
+                    {"version", 2},
+                    {"asset_id", prefab_id},
+                    {"revision", 1u},
+                    {"root", member_id},
+                    {"members",
+                     Json::array({{{"id", member_id},
+                                   {"name", "Part"},
+                                   {"components", document.at("entities")[0].at("components")}}})}};
+        text(authored / "part.prefab.json", prefab.dump());
+        scene_catalog.add({prefab_id, PrefabAsset::type, "part.prefab.json", 2});
+        scene_catalog.save(AssetCatalog::project_index(authored));
+        auto instance = document;
+        instance["version"] = 5;
+        instance["entities"][0]["components"] = Json::object();
+        instance["entities"][0]["prefab_instance"] = {
+            {"asset", prefab_id}, {"revision", 1u}, {"members", {{member_id.str(), entity}}}};
+        text(authored / "level.scene.json", instance.dump());
+        const auto prefab_output = scratch / "prefab-output";
+        (void)package_runtime_content(authored, prefab_output, scene_roots, target);
+        auto loaded_prefab = load_game_scene(prefab_output, {scene_record.id});
+        check(loaded_prefab.at("_prefab_sources").size() == 1 &&
+                  loaded_prefab.at("entities")[0].at("components").empty(),
+              "Prefab closure changed authored inheritance");
+        scene.restore_snapshot(loaded_prefab);
+        check(!scene.entity(entity.str()).owns<MeshRenderer>() &&
+                  scene.entity(entity.str()).get<MeshRenderer>().mesh == engine_primitive(0),
+              "Relocated prefab lost inherited mesh binding");
+        std::filesystem::rename(authored / "part.prefab.json",
+                                authored / "unavailable.prefab.json");
+        rejects([&] {
+            package_runtime_content(authored, scratch / "missing-prefab", scene_roots, target);
+        });
         std::filesystem::remove_all(native_io_path(scratch));
         std::cout << "Runtime package closure, relocation, source independence, limits, hashes and "
                      "failure preservation passed\n";

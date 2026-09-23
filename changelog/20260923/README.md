@@ -256,3 +256,24 @@ includes OS user-data save/load, independent process saves/blocked replacement,
 world-clock/solver reset and relocated navigation query/agent/corruption tests.
 Formatting passed. The graphical host and complete export/reference-game workflow
 remain open; this source-only foundation bundle creates no new numbered editor ZIP.
+
+## Phase8 export closure — source checkpoint, not a numbered delivery
+
+- Extend the shared reflected-reference inspector with unfiltered typed collection:
+  missing IDs, nested/partial prefab intent, spatial EntityRef scene scope and
+  environment textures are included; unknown payloads remain explicit diagnostics.
+- Add bounded Scene/Prefab adapters to the existing content packager and catalog
+  graph. Preserve authored identity/inheritance and source files; copy admitted
+  document revisions and load their prefab closure after relocation.
+- Extract the shared reference inspector into a runtime-independent library without
+  pulling editor/application services into its consumers.
+- Add missing/opaque dependency, source preservation, repackage, environment
+  reference and prefab inheritance regressions. Rebuilt Linux static2/2 (25.46s),
+  shared-SDK2/2 (23.69s) and strict ASan/UBSan/LSan2/2 (29.00s) pass. Manual3/3,
+  target-boundary checks, formatting and diff checks pass. This is focused source
+  validation, not full Windows game-export/shared-SDK-host acceptance.
+- Reproduce a pinned RmlUi6.3 export-completeness gap: a missing hover-only decorator
+  image passes initial native preparation and fails only after hover. Full UI/game
+  export is not claimed; dependency-declaration contract review is required.
+- Update technical packaging documentation and the content-packaging manual.
+  Build260923-000066 remains the current download. No new ZIP.

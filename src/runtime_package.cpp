@@ -7,9 +7,12 @@
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
 #include "publish_directory.hpp"
+#include "runtime_document_package.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/game_content.hpp>
+#include <forge/scene.hpp>
 #include <forge/shader_resource.hpp>
 #include <fstream>
 #include <set>
@@ -48,6 +51,14 @@ Json target_value(const RuntimePackageTarget& target) {
     return {{"platform", platform(target.platform)}, {"backend", target.backend}};
 }
 std::string revision(const AssetRecord& record) {
+    if (package_detail::authored_document(record)) {
+        const auto& metadata = record.metadata.at("forge.runtime_document");
+        const auto key = metadata.at("sha256").get<std::string>();
+        require(metadata.at("version") == 1 && valid_content_digest(key) &&
+                    valid_content_digest(metadata.at("schema_digest").get<std::string>()),
+                "Invalid authored runtime document revision");
+        return key;
+    }
     if (record.type == NavMeshAsset::type && record.schema_version == 1 && !record.subasset) {
         const auto key = record.metadata.at("sha256").get<std::string>();
         require(valid_content_digest(key), "Invalid navigation artifact revision");
@@ -90,7 +101,7 @@ std::set<AssetId> closure(const AssetCatalog& catalog, std::span<const AssetId> 
             pending.push_back(record.subasset->owner);
         require(record.dependencies.empty() || !record.dependency_edges.empty(),
                 "Runtime packaging requires typed dependencies for " + id.str());
-        for (const auto& edge : record.dependency_edges) {
+        for (const auto& edge : catalog.dependency_graph().dependencies(id)) {
             if (edge.kind != AssetDependencyKind::Runtime)
                 continue;
             const auto other = catalog.records().find(edge.target);
@@ -112,9 +123,11 @@ std::set<AssetId> closure(const AssetCatalog& catalog, std::span<const AssetId> 
 AssetRecord runtime_record(AssetRecord record) {
     const auto key = revision(record);
     const bool navigation = record.type == NavMeshAsset::type;
-    record.source = navigation
-                        ? std::filesystem::path("runtime/navigation") / (record.id.str() + ".fnav")
-                        : artifact_path(key) / "manifest.json";
+    const bool document = package_detail::authored_document(record);
+    record.source =
+        document     ? std::filesystem::path("runtime") / record.type / (record.id.str() + ".json")
+        : navigation ? std::filesystem::path("runtime/navigation") / (record.id.str() + ".fnav")
+                     : artifact_path(key) / "manifest.json";
     record.source_dependencies.clear();
     std::erase_if(record.dependency_edges,
                   [](const auto& edge) { return edge.kind != AssetDependencyKind::Runtime; });
@@ -126,6 +139,11 @@ AssetRecord runtime_record(AssetRecord record) {
     // loader. Its source scene is a build dependency, not a shipped source file.
     if (navigation)
         return record;
+    if (document) {
+        record.metadata = {
+            {"forge.runtime_document", record.metadata.at("forge.runtime_document")}};
+        return record;
+    }
     Json metadata = Json::object();
     for (const auto* name :
          {"forge.import", "forge.model", "forge.material", "forge.shader", "forge.audio"})
@@ -185,7 +203,14 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
         cancelled(stop);
         if (record.subasset)
             continue; // Complete family admission checks all members and bindings.
-        if (record.type == NavMeshAsset::type)
+        if (package_detail::authored_document(record)) {
+            auto bytes = read_bytes(ProjectPaths(root).resolve(record.source), 64 * 1024 * 1024);
+            (void)package_detail::admit_document(record, bytes);
+            require(content_digest(bytes) == revision(record),
+                    "Runtime document revision mismatch");
+            if (record.type == SceneAsset::type)
+                (void)load_game_scene(root, {id});
+        } else if (record.type == NavMeshAsset::type)
             (void)navigation_detail::load(root, record);
         else if (record.type == ModelAsset::type)
             (void)load_model_selection(root, catalog, id, stop);
@@ -237,13 +262,21 @@ void write(const std::filesystem::path& path, std::span<const std::byte> bytes) 
 Json package_runtime_content(const std::filesystem::path& project,
                              const std::filesystem::path& destination,
                              std::span<const AssetId> roots, const RuntimePackageTarget& target,
-                             RuntimePackageLimits budget, std::stop_token stop) {
+                             RuntimePackageLimits budget, std::stop_token stop,
+                             const Json& reference_schema) {
     limits(budget);
     const auto target_json = target_value(target);
     const auto root = std::filesystem::canonical(native_io_path(project));
     const auto before = read_bytes(AssetCatalog::project_index(root), max_asset_index_bytes);
     AssetCatalog catalog(root);
     catalog.restore(parse_bounded_json(before, max_asset_index_bytes, 4000000, 64));
+    Json schema = reference_schema;
+    if (schema.is_null()) {
+        WorldContext world;
+        Scene scene(world);
+        schema = scene.schema();
+    }
+    package_detail::prepare_documents(catalog, root, roots, schema, budget, stop);
     const auto selected = closure(catalog, roots, budget);
     // Directory creation/enumeration need the same extended Windows spelling as
     // file streams. Keep it inside the package I/O owner; manifests remain relative.
@@ -292,6 +325,15 @@ Json package_runtime_content(const std::filesystem::path& project,
             records.push_back(runtime_record(record));
             if (record.subasset)
                 continue;
+            if (package_detail::authored_document(record)) {
+                const auto bytes =
+                    read_bytes(ProjectPaths(root).resolve(record.source), 64 * 1024 * 1024);
+                (void)package_detail::admit_document(record, bytes);
+                require(content_digest(bytes) == revision(record),
+                        "Scene/prefab changed during export");
+                emit(records.back().source, bytes);
+                continue;
+            }
             if (record.type == NavMeshAsset::type) {
                 const auto bytes = read_bytes(ProjectPaths(root).resolve(record.source),
                                               navigation_detail::max_nav_bytes + 65556);
@@ -415,10 +457,11 @@ AssetCatalog open_runtime_content(const std::filesystem::path& package,
                 "Runtime catalog contains authoring-only metadata or source locators");
         if (record.subasset)
             continue;
-        if (record.type == NavMeshAsset::type) {
-            require(files.contains(record.source), "Selected navigation file not packaged");
+        if (record.type == NavMeshAsset::type || package_detail::authored_document(record)) {
+            require(files.contains(record.source),
+                    "Selected runtime document/data file not packaged");
             required_files.insert(record.source);
-            continue; // Existing native envelope loader validates bytes and provenance below.
+            continue; // Existing document/envelope admission validates bytes below.
         }
         const auto key = revision(record);
         const auto artifact =

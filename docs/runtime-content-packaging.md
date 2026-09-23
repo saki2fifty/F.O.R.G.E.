@@ -2,10 +2,10 @@
 
 The Phase7 content tool selects cooked assets for a target without copying their
 original glTF, image, WAV, material source, HLSL, or import sidecars. It does not
-create a standalone visual game executable. Existing Scene/Prefab, legacy Ozz,
-Script, and RmlUi source-based runtime families need explicit packaging
-adapters; selecting one currently fails with a diagnostic rather than producing
-an incomplete package.
+create a standalone visual game executable. Scene/Prefab document closure is implemented in the current Phase8 source
+checkpoint. Legacy Ozz, Script, and RmlUi runtime families still need packaging
+adapters; selecting one fails rather than silently producing an incomplete package.
+This source checkpoint has not been included in a numbered Windows delivery.
 
 ## Identity and dependency ownership
 
@@ -37,11 +37,54 @@ Its CPU data has no graphics-backend binding. No Recast build worker or source
 geometry is needed to load it. The existing native loader validates the envelope
 and tile before returning a usable resource.
 
+## Authored scene and prefab closure
+
+The shared native-Meta reference inspector now has an unfiltered collection mode.
+It records expected asset types, including unresolved IDs, nested component values,
+partial prefab overrides, structured prefab source references, explicit spatial
+EntityRef scene scopes and scene environment textures. Ordinary deletion/move
+impact reviews retain their target-filter semantics. UUID-looking strings remain
+ordinary strings; incompatible or opaque component envelopes are reported.
+
+For reachable scenes/prefabs, export prepares a detached copy of the existing
+AssetCatalog. It refreshes `document:` Runtime edges through that catalog's graph,
+retains separately declared dependencies and traverses the same graph used for
+cooked assets. It does not save the source catalog or construct a second graph.
+An unknown reference-bearing field rejects export, as do missing or wrong-type
+assets and untyped legacy dependency lists. The built-in schema is the default;
+a caller supplying custom metadata is responsible for obtaining that detached
+schema through the existing exact-module admission boundary.
+
+Bounded validated document bytes are copied to `runtime/scene/ASSET_ID.json` and
+`runtime/prefab/ASSET_ID.json`. `forge.runtime_document` metadata records version1,
+byte SHA256 and the reference-schema digest. The existing content-manifest version1
+contains these files in its inventory. Older readers without these asset adapters
+reject them as unsupported; this is not forward compatibility with older runtimes.
+Documents retain their independent local TRS ownership and explicit prefab override
+intent. No prefab values are flattened into scene overrides. The original authored
+scene/prefab formats and identities are unchanged. Loading uses `load_game_scene`
+and the existing prefab realization path, with no source-project fallback.
+
+At most64MiB per document and256MiB of reachable document inputs are admitted.
+This is content packaging only: the standalone startup/distribution manifest,
+module/DLL collection, update promotion and editor export operation remain open.
+
+## UI dependency completeness boundary
+
+A successful RmlUi preview is **not** a complete export dependency declaration.
+Exact pinned RmlUi6.3 instantiates conditional decorators lazily. A hover-only image
+can be absent from both the initial FORGE resource observation and native texture
+source list, then fail when hovered. Its public stylesheet API does not enumerate
+all inactive rules/media blocks. The existing observed-resource catalog must not
+be relabeled as complete. Full UI export remains unavailable pending the dependency
+declaration/admission contract; no private CSS parser, upstream patch, full-project
+copy or silent missing-resource omission has been introduced.
+
 ## Contents and bounds
 
 Supported roots are imported Model families, Texture bundles, built-in Material
-bundles, cooked AudioClip, compiled Shader programs, and baked NavMesh assets. Source-only or unknown
-families are rejected. Existing cooked parsers and selected-resource loaders
+bundles, cooked AudioClip, compiled Shader programs, baked NavMesh assets, and
+registered Scene/Prefab documents. Other source-only or unknown families are rejected. Existing cooked parsers and selected-resource loaders
 validate the candidate, including texture variants, material bindings and shader
 reflection/provenance. Packaging links no Diligent device, HLSL compiler, glTF
 source parser, image codec, or native audio decoder.

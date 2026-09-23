@@ -19,14 +19,30 @@ you want as roots; their required asset dependencies are included automatically.
 Selecting a mesh from an imported model includes its complete model family.
 
 The current tool supports imported Model, Texture, built-in Material, AudioClip,
-compiled Shader assets, and baked NavMesh assets. Scene/Prefab files and legacy
-source-based animation, Script and game UI packaging are not yet supported by this command.
+compiled Shader assets, baked NavMesh assets, and registered Scene/Prefab files
+in the current source checkpoint. Build260923-000066 does not include this new
+Scene/Prefab packaging yet. Legacy source-based animation, Script and game UI
+packaging are not yet supported by this command.
 An unsupported selection reports an error.
 
 For navigation, bake the navigation mesh first (see [Navigation](navigation.md)),
 then include its NavMesh AssetId. The package contains the baked navigation data;
 it does not include its authoring scene. The game must load the matching level:
 existing checks still report stale navigation when its source geometry changes.
+
+## Include a scene and its prefabs
+
+With a tool built from the current source, choose the saved scene's AssetId as a
+root. The tool follows its known asset references, including prefab members and
+instance overrides. It reports missing references and unknown plugin component
+data instead of guessing which files to include. Save your changes before running
+this command; it reads files on disk, not unsaved editor changes.
+
+Scene and prefab IDs are preserved. Prefab instances keep their inherited values
+and independent overrides. The output remains a content folder, not a standalone
+EXE. It cannot currently package a scene whose dependencies include game UI or
+legacy standalone animation archives. A working UI preview alone does not prove
+that all images used by hover states or other UI conditions have been discovered.
 
 ## Create a package
 
@@ -65,7 +81,7 @@ verification fail.
 ## What is included
 
 The package contains its manifest, a compact asset catalog and the selected cooked
-artifacts. It keeps AssetIds and asset references. It excludes raw images, glTF,
+artifacts, plus selected scene/prefab documents. It keeps AssetIds and asset references. It excludes raw images, glTF,
 WAV and HLSL, import sidecars, unrelated cache entries and editor notes. Bounded
 recipe settings and digests remain as artifact provenance.
 

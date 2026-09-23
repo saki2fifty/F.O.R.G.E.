@@ -51,6 +51,28 @@ inline void test_asset_file_service(const std::filesystem::path& root) {
     const std::array inspected{AssetReferenceDocument{"native.scene.json", native_refs}};
     check(inspect_asset_references(scene.schema(), inspected, {target}).references.size() == 2,
           "Native MeshRenderer Meta did not expose mesh and nested material references");
+    const auto collected = collect_asset_references(scene.schema(), inspected);
+    check(collected.references.size() == 2 && collected.uninspected.empty(),
+          "Complete reference collection lost unresolved identities");
+    check(collected.references[0].expected_type == MeshAsset::type &&
+              collected.references[1].expected_type == MaterialAsset::type,
+          "Complete reference collection lost expected asset types");
+    check(inspect_asset_references(scene.schema(), inspected, {}).references.empty(),
+          "Empty impact target filter changed semantics");
+    {
+        auto lighting = empty_scene();
+        lighting["rendering"] = {{"version", 1u}, {"environment", {{"texture", target}}}};
+        const std::array docs{AssetReferenceDocument{"lighting.scene.json", lighting}};
+        const auto refs = collect_asset_references(scene.schema(), docs);
+        check(refs.references.size() == 1 && refs.references[0].target == target &&
+                  refs.references[0].expected_type == TextureAsset::type &&
+                  refs.uninspected.empty(),
+              "Scene environment is absent from complete reference collection");
+        lighting["rendering"]["environment"]["future_binding"] = target;
+        const std::array unknown{AssetReferenceDocument{"future.scene.json", lighting}};
+        check(!collect_asset_references(scene.schema(), unknown).uninspected.empty(),
+              "Unknown rendering dependency coverage was silently accepted");
+    }
     {
         // The same authored reference can occur in partial prefab intent. Only
         // metadata admitted for this exact envelope may interpret custom data.

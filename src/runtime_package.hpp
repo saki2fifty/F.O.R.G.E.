@@ -14,7 +14,8 @@ struct RuntimePackageLimits {
 nlohmann::json package_runtime_content(const std::filesystem::path& project,
                                        const std::filesystem::path& destination,
                                        std::span<const AssetId> roots, const RuntimePackageTarget&,
-                                       RuntimePackageLimits = {}, std::stop_token = {});
+                                       RuntimePackageLimits = {}, std::stop_token = {},
+                                       const nlohmann::json& reference_schema = {});
 // Validates the complete manifest, closure, hashes, target, and cooked formats.
 // Returns the ordinary AssetCatalog used by the existing runtime loaders.
 AssetCatalog open_runtime_content(const std::filesystem::path& package, const RuntimePackageTarget&,
