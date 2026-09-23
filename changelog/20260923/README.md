@@ -496,3 +496,10 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   unchanged help/behavior. Reveal/Open wrap onto separate lines when needed.
   Fixture checks action widths and fully visible scroll targets, and moves away
   from the export button so its tooltip cannot cover the success capture.
+
+- Relocated production launch exposed a missing Diligent Archiver DLL: the exact
+  pinned factory explicitly loads it, so ordinary PE dependency scanning misses
+  it. Runtime-kit installation now seeds the exact Archiver target alongside
+  D3D12, scans both dependency closures and inventories the result. Added an early
+  kit assertion and missing-Archiver production rejection probe. No arbitrary
+  build-bin copy or hardcoded library output filename was introduced.

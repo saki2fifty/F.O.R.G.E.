@@ -13,9 +13,11 @@ if(EXISTS "${_destination}/forge.runtime-kit.json")
 endif()
 file(MAKE_DIRECTORY "${_destination}")
 file(TO_CMAKE_PATH "$ENV{SystemRoot}" _system_root)
+# Diligent's factories explicitly LoadLibrary these modules on Windows. An EXE
+# import-table scan alone cannot discover them; retain exact target-file roots.
 file(GET_RUNTIME_DEPENDENCIES
  EXECUTABLES "${FORGE_KIT_GAME}"
- LIBRARIES "${FORGE_KIT_D3D12}"
+ LIBRARIES "${FORGE_KIT_D3D12}" "${FORGE_KIT_ARCHIVER}"
  DIRECTORIES "@CMAKE_BINARY_DIR@"
  RESOLVED_DEPENDENCIES_VAR _resolved
  UNRESOLVED_DEPENDENCIES_VAR _unresolved
@@ -25,7 +27,7 @@ file(GET_RUNTIME_DEPENDENCIES
 if(_unresolved OR _conflicts_FILENAMES)
  message(FATAL_ERROR "Runtime dependency resolution failed: ${_unresolved}; conflicts: ${_conflicts_FILENAMES}")
 endif()
-set(_files "${FORGE_KIT_GAME}" "${FORGE_KIT_D3D12}" ${_resolved} "@CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS@")
+set(_files "${FORGE_KIT_GAME}" "${FORGE_KIT_D3D12}" "${FORGE_KIT_ARCHIVER}" ${_resolved} "@CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS@")
 list(REMOVE_DUPLICATES _files)
 foreach(_file IN LISTS _files)
  get_filename_component(_name "${_file}" NAME)

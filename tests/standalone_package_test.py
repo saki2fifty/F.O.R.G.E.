@@ -57,6 +57,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     shutil.copytree(kit, testkit)
     shutil.copy2(build/'forge_game_fixture.exe', testkit/'forge_game_fixture.exe')
     metadata = json.loads((testkit/'forge.runtime-kit.json').read_text())
+    archivers = [name for name in metadata['files']
+                 if Path(name).name.startswith('Archiver_') and name.endswith('.dll')]
+    assert len(archivers) == 1, 'Runtime kit must include the dynamically loaded Diligent archiver'
     data = (testkit/'forge_game_fixture.exe').read_bytes()
     metadata['files']['forge_game_fixture.exe'] = {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
     (testkit/'forge.runtime-kit.json').write_text(json.dumps(metadata))
@@ -112,6 +115,13 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     manifest_path.write_text(json.dumps(invalid))
     rejected('wrong-backend')
     manifest_path.write_bytes(original_manifest)
+    archiver_path = relocated/archivers[0]
+    saved_archiver = archiver_path.read_bytes()
+    try:
+        archiver_path.unlink()
+        rejected('missing-render-state-archiver')
+    finally:
+        archiver_path.write_bytes(saved_archiver)
     user_settings = user_root/'settings.json'
     saved_settings = user_settings.read_bytes()
     try:

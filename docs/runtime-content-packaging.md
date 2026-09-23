@@ -275,6 +275,12 @@ ProjectPaths, so Windows short-name aliases resolve to the same destination and
 recovery journal. A destination that is itself a symbolic link is rejected.
 Internal control, candidate and metadata paths retain unredirected-path checks.
 
+Runtime-kit collection explicitly seeds both Diligent D3D12 and Archiver target
+files into CMake's dependency resolver. The pinned Archiver factory uses explicit
+DLL loading on Windows, so an executable import-table scan cannot discover it.
+The kit inventories both libraries and their resolved dependencies; missing
+Archiver bytes reject package admission before presentation startup.
+
 Local service tests use a synthetic executable to validate assembly, configuration,
 relocation, cancellation, corrupt-kit rejection, unrelated-directory protection and
 interrupted replacement. They do not establish native DLL or graphical acceptance;
