@@ -3,13 +3,14 @@
 #include "game_export.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/game_settings.hpp>
+#include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
 using namespace forge;
 int main(int argc, char** argv) {
     try {
-        if (argc != 3)
+        if (argc != 3 && argc != 5)
             throw std::runtime_error("Need scratch and font");
         auto check = [](bool ok, const char* why) {
             if (!ok)
@@ -160,6 +161,64 @@ int main(int argc, char** argv) {
         reject([&] { export_standalone_game(lease, request); });
         check(asset_storage::read(scratch / "unrelated/user.txt") == "keep",
               "Export overwrote unrelated directory");
+        if (argc == 5) {
+            const auto library = std::filesystem::absolute(argv[3]);
+            const auto native = project / "Native" / library.filename();
+            const auto modulekit = scratch / "module-kit";
+            std::filesystem::create_directories(native.parent_path());
+            std::filesystem::create_directories(modulekit);
+            std::filesystem::copy_file(library, native);
+            std::filesystem::copy_file(library, modulekit / library.filename());
+            const auto binary = asset_detail::read_bytes(library, 512ull * 1024 * 1024);
+            Json deployment{
+                {"format", "forge.module-kit"},
+                {"version", 1},
+                {"library", path_utf8(library.filename())},
+                {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
+                {"target", runtime.at("target")},
+                {"files",
+                 {{path_utf8(library.filename()),
+                   {{"bytes", binary.size()}, {"sha256", asset_detail::content_digest(binary)}}}}}};
+            asset_storage::replace(modulekit / "forge.module-kit.json", deployment.dump());
+            runtime["engine"]["profile"] = "shared-native-sdk";
+            runtime["engine"]["sdk_fingerprint"] = FORGE_NATIVE_SDK_FINGERPRINT;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            project_settings["modules"] =
+                Json::array({{{"id", "project.sdk_probe"},
+                              {"sdk", "experimental-1"},
+                              {"implementation", "1"},
+                              {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
+                              {"library", path_utf8(native.lexically_relative(project))},
+                              {"dependencies", {"forge.input", "forge.transforms"}}}});
+            ProjectSettings(project).save(project_settings);
+            request.destination = exported;
+            request.inspection_runtime = std::filesystem::absolute(argv[4]);
+            request.module_kits = {{"project.sdk_probe", modulekit}};
+            result = export_standalone_game(lease, request);
+            check(result.at("manifest")
+                      .at("settings")
+                      .at("modules")[0]
+                      .at("library")
+                      .get<std::string>()
+                      .starts_with("native/"),
+                  "Native module path not relocated");
+            const auto good = asset_storage::read(exported / "forge.standalone.json");
+            reject([&] {
+                export_standalone_game(lease, request, {}, [&](const GameExportProgress& p) {
+                    if (p.completed == 3)
+                        asset_storage::replace(native, "changed module after inspection");
+                });
+            });
+            check(asset_storage::read(exported / "forge.standalone.json") == good,
+                  "Changed source module replaced good export");
+            asset_storage::replace(native,
+                                   {reinterpret_cast<const char*>(binary.data()), binary.size()});
+            deployment["fingerprint"] = std::string(64, '0');
+            asset_storage::replace(modulekit / "forge.module-kit.json", deployment.dump());
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == good,
+                  "Incompatible module kit replaced good export");
+        }
         std::filesystem::rename(project, scratch / "unavailable");
         auto open = [&] {
             return open_standalone_distribution(out, target, "static-abi1", std::string(64, 'a'));

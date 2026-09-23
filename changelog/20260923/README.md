@@ -327,3 +327,26 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
 - Local standalone service tests pass assembly/rebuild, corrupt kit, cancellation,
   unrelated-folder rejection and interrupted replacement. Added input-driven dependency,
   settings and export capture steps; Windows execution/visual review is still pending.
+
+- Added production `--verify-startup` package admission/render check and a separate
+  packaged input/capture observer. Added exact shared-SDK standalone CI and a second
+  fresh Windows runner with no checkout, original build, project or SDK. Execution
+  evidence is pending; these are required acceptance gates, not claimed passes.
+
+- Full regression found that the low-level `--assets package` command had acquired
+  a source-project writer lock during automatic UI preflight. Restored its read-only
+  contract: authoring preflight belongs to Export Game, while low-level packaging
+  requires existing registered metadata. Strengthened conditional UI tests to assert
+  actual texture loads, not merely absence of diagnostics.
+
+- Export now rechecks native module bytes across worker inspection and final
+  promotion, preventing a rebuilt module from replacing the exact inspected one.
+  Added an actual SDK-worker regression for source replacement during export and
+  incompatible deployment fingerprints; native Windows dependency collection
+  remains separately validated by the shared standalone workflow.
+
+- Validation: full rebuilt shared-SDK85/85 passed131.07s; new real-worker module
+  export regression1/1 passed3.65s. Strict ASan/UBSan/leak checks for export recovery
+  and actual conditional UI texture loading2/2 passed19.70s. Core74-test run's
+  packaging regression was corrected; targeted UI/CLI/socket rerun3/3 passed6.13s,
+  and the live-authoring socket test also passed with required local socket access.

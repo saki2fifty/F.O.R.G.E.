@@ -182,9 +182,15 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     require(runtime.at("files").contains("resources/ui/LatoLatin-Regular.ttf"),
             "Runtime kit default font missing");
     std::size_t native_count = 0;
+    std::map<std::filesystem::path, std::string> inspected_binaries;
     for (const auto& module : settings.value("modules", Json::array()))
-        if (module.is_object())
+        if (module.is_object()) {
             ++native_count;
+            const auto path =
+                source.resolve(std::filesystem::u8path(module.at("library").get<std::string>()));
+            inspected_binaries.emplace(path, asset_detail::content_digest(asset_detail::read_bytes(
+                                                 path, 512ull * 1024 * 1024)));
+        }
     require(native_count == request.module_kits.size(),
             "Supply one deployment kit per configured native module");
     auto reference_schema = request.reference_schema;
@@ -249,8 +255,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
                 "Module kit library missing");
         const auto original_library =
             source.resolve(std::filesystem::u8path(module.at("library").get<std::string>()));
-        require(asset_detail::content_digest(
-                    asset_detail::read_bytes(original_library, 512ull * 1024 * 1024)) ==
+        require(inspected_binaries.at(original_library) ==
                     deployment.at("files").at(path_utf8(library)).at("sha256"),
                 "Module deployment is stale: " + id);
         const auto runtime_library = std::filesystem::path("native") / id / library;
@@ -281,6 +286,10 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     require(ProjectSettings(source.root()).document() == original_settings &&
                 AssetCatalog::open_project(source.root()).document() == catalog_before,
             "Project changed during export; retry");
+    for (const auto& [path, expected] : inspected_binaries)
+        require(asset_detail::content_digest(
+                    asset_detail::read_bytes(path, 512ull * 1024 * 1024)) == expected,
+                "Native module changed during export; rebuild/retry");
     progress("Publish validated game", 5);
     // Final cancellation boundary. After the durable journal, complete or recover
     // the two directory renames; never report cancellation halfway through commit.

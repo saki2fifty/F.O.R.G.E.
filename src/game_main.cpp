@@ -63,7 +63,8 @@ int main(int argc, char** argv) {
         std::cout << "FORGE game | Build: " << build_id << '\n';
         return 0;
     }
-    bool software = false;
+    bool software = false, verify_startup = false;
+    unsigned verification_frames = 0;
     std::ofstream log;
     std::streambuf* previous_log = nullptr;
     int result = 0;
@@ -77,12 +78,26 @@ int main(int argc, char** argv) {
         std::optional<StandaloneDistribution> distribution;
 #ifdef FORGE_GAME_FIXTURE
         test::GameHostFixture fixture(argc, argv);
-        root = fixture.project;
+        if (fixture.prepare_only) {
+            std::cout << path_utf8(fixture.project) << std::endl;
+            return 0;
+        }
+        if (!fixture.packaged)
+            root = fixture.project;
         software = true;
+        const bool packaged_start = fixture.packaged;
 #else
-        if (argc == 3 && std::string_view(argv[1]) == "--project")
+        const bool development_project = argc == 3 && std::string_view(argv[1]) == "--project";
+        verify_startup = argc == 2 && std::string_view(argv[1]) == "--verify-startup";
+        const bool packaged_start = argc == 1 || verify_startup;
+        software = verify_startup; // Explicit diagnostic mode uses WARP/offline audio.
+        if (development_project)
             root = std::filesystem::absolute(std::filesystem::u8path(argv[2]));
-        else if (argc == 1) {
+        else if (!packaged_start)
+            throw std::runtime_error(
+                "Usage: forge_game [--project <development directory> | --verify-startup]");
+#endif
+        if (packaged_start) {
             distribution = open_standalone_distribution(executable_root, {"windows", "d3d12"},
                                                         FORGE_NATIVE_SDK_PROFILE,
                                                         FORGE_NATIVE_SDK_FINGERPRINT);
@@ -91,12 +106,12 @@ int main(int argc, char** argv) {
                 throw std::runtime_error(
                     "game.distribution: Executable and distribution build identity differ");
             root = distribution->content;
-        } else
-            throw std::runtime_error(
-                "Usage: forge_game [--project <development project directory>]");
-#endif
+        }
         const ProjectSettings project =
             distribution ? ProjectSettings(root, distribution->settings) : ProjectSettings(root);
+#ifdef FORGE_GAME_FIXTURE
+        fixture.expect_module = fixture.packaged && project.requires_native_sdk();
+#endif
         if (!project.document().contains("game"))
             throw std::runtime_error("Project needs game settings with a durable application_id");
         const auto& defaults = project.document().at("game");
@@ -312,6 +327,10 @@ int main(int argc, char** argv) {
 #endif
             graphics.swap->Present(video.at("vsync").get<bool>() ? 1 : 0);
             graphics.context->FinishFrame();
+            if (verify_startup && active && ++verification_frames >= 4) {
+                std::cout << "FORGE standalone startup verified" << std::endl;
+                running = false;
+            }
             log.flush();
         }
         ui.release_input();

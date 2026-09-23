@@ -63,3 +63,16 @@ The [cooked-content tool](../editor/runtime-content.md) still creates selected a
 packages. It does not yet produce a complete standalone game folder. Scene export,
 all supported asset families, module/DLL collection, the character controller and
 the integrated reference game remain Phase8 work.
+
+## Export and verify a game folder
+
+Use [Export Game](../editor/runtime-content.md) to create a relocatable Development
+standalone folder. A normal launch runs `forge_game.exe` with no arguments and
+uses its validated startup manifest. `--project PATH` remains the explicit
+development-project launch option.
+
+For automated startup diagnosis, `forge_game.exe --verify-startup` admits the
+package, creates the software D3D12 device and offline audio, waits for startup
+resource readiness, renders several frames and exits with a success/failure code.
+This verifies the production executable; it does not measure physical GPU or
+audio-device behavior, or replace testing gameplay interactions.

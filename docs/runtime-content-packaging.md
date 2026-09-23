@@ -4,9 +4,9 @@ The Phase7 content tool selects cooked assets for a target without copying their
 original glTF, image, WAV, material source, HLSL, or import sidecars. It does not
 create a standalone visual game executable. Scene/Prefab document closure is implemented in the current Phase8 source
 checkpoint. Legacy Ozz and bounded RmlUi source adapters are implemented in the current source.
-Unrecognized runtime types still reject export. The complete standalone distribution
-manifest, runtime-kit/native-DLL collection and final graphical export acceptance
-remain in progress.
+Unrecognized runtime types still reject export. Standalone distribution manifests, runtime/module-kit collection and the shared export
+operation are implemented in current source; final Windows graphical acceptance
+remains in progress.
 This source checkpoint has not been included in a numbered Windows delivery.
 
 ## Identity and dependency ownership
@@ -68,8 +68,8 @@ scene/prefab formats and identities are unchanged. Loading uses `load_game_scene
 and the existing prefab realization path, with no source-project fallback.
 
 At most64MiB per document and256MiB of reachable document inputs are admitted.
-This is content packaging only: the standalone startup/distribution manifest,
-module/DLL collection, update promotion and editor export operation remain open.
+The low-level content packager is separate from the standalone assembly operation
+described below. Its new-directory publication contract remains unchanged.
 
 ## Declared runtime closure
 
@@ -267,3 +267,26 @@ relocation, cancellation, corrupt-kit rejection, unrelated-directory protection 
 interrupted replacement. They do not establish native DLL or graphical acceptance;
 Windows runtime-kit/shared-SDK/relocation and captured editor workflows remain
 separate required delivery gates.
+
+## Current runtime-family dispositions
+
+| Family | Export representation |
+| --- | --- |
+| Scene / Prefab | Validated authored bytes and reflected typed closure; no flattening |
+| Model / Mesh / imported Skeleton / AnimationClip | Whole selected immutable model family, stable subasset IDs and provenance |
+| Material | Selected cooked material and required texture bindings; shader preparation data embedded in the cooked revision |
+| Texture | Selected cooked variant(s); admitted raw TGA additionally when used by UI |
+| Shader | Selected target-labelled DXBC artifact; authoring HLSL/includes stay build inputs |
+| Legacy standalone Skeleton / AnimationClip | Strict admitted Ozz archives, converter provenance and skeleton compatibility |
+| Navigation | Admitted baked fnav envelope; build-only source geometry excluded |
+| AudioClip | Selected decoded runtime clip envelope; original WAV/import tools excluded |
+| UiDocument / stylesheet / font / UI image | Admitted native RML/RCSS/font/TGA sources, automatic plus required declarations |
+| Engine primitives/materials/fallback textures | Reserved engine identities supplied by the matching compiled runtime |
+| Default runtime UI font | Runtime-kit resource and license, included in physical inventory |
+| Flecs Script | Authoring input, not an authorized runtime script-file loader; an explicit runtime edge to unsupported script content rejects |
+| Unknown/opaque component data | Retained source data; export requires the admitted owning module/schema/adapter and declared references |
+| Any other type | Explicit unsupported-type rejection, never silent omission |
+
+These are finite current formats. Runtime render-resource requests still support
+their existing typed subset; packaging a family does not invent a generic loaded
+resource API for all subsystems. Standalone target support remains Windows/D3D12.

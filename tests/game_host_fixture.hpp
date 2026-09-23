@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cstring>
 #include <forge/engine_assets.hpp>
 #include <forge/render_components.hpp>
@@ -6,14 +7,19 @@ namespace forge::test {
 struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
-    bool pause_seen = false;
+    bool pause_seen = false, packaged = false, prepare_only = false, expect_module = false;
     std::uint64_t ticket = 0;
     Uint64 started = SDL_GetTicks();
     Json original;
     explicit GameHostFixture(int argc, char** argv) {
-        if (argc != 2)
+        packaged = argc == 3 && std::string_view(argv[1]) == "--packaged";
+        prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
+        if (argc != 2 && !packaged && !prepare_only)
             throw std::runtime_error("Game fixture requires output directory");
-        output = std::filesystem::absolute(argv[1]);
+        output = std::filesystem::absolute(argv[argc == 3 ? 2 : 1]);
+        std::filesystem::create_directories(output);
+        if (packaged)
+            return;
         project = output / ("project-" + AssetId::generate().str());
         std::filesystem::create_directories(project);
         WorldContext world;
@@ -130,6 +136,18 @@ button { position:absolute; left:24px; width:160px; height:40px; line-height:40p
         if (!image || ++frames < 4)
             return;
         if (stage == 0) {
+            if (expect_module) {
+                check(bool(game.active().engine.world().world().lookup("example.state")),
+                      "Packaged gameplay module did not start");
+                const auto diagnostics = game.active().engine.services().diagnostics();
+                const bool ticked =
+                    std::any_of(diagnostics.begin(), diagnostics.end(), [](const auto& d) {
+                        return d.at("text").template get<std::string>().starts_with(
+                            "Example tick=");
+                    });
+                if (!ticked)
+                    return;
+            }
             original = game.active().scene.snapshot();
             capture("standalone-running.ppm", image, device, context);
             click(window, 80, 40);

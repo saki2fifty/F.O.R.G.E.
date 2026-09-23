@@ -218,6 +218,9 @@ int main(int argc, char** argv) {
                 } else
                     trigger(p, pseudo);
                 check(p.diagnostic().empty(), p.diagnostic().c_str());
+                check(std::any_of(renderer.loaded_sources.begin(), renderer.loaded_sources.end(),
+                                  [](const auto& path) { return path.ends_with("later.tga"); }),
+                      "Conditional state did not actually load its declared texture");
             }
             std::filesystem::rename(scratch / "offline", project);
         }

@@ -26,6 +26,8 @@ if(BUILD_TESTING)
  copy_required_dlls(forge_game_fixture)
  add_test(NAME standalone_game_workflow COMMAND forge_game_fixture "${CMAKE_BINARY_DIR}/grid-test-images/game")
  set_tests_properties(standalone_game_workflow PROPERTIES TIMEOUT 120)
+ add_test(NAME standalone_package_workflow COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/standalone_package_test.py --build ${CMAKE_BINARY_DIR} --kit ${CMAKE_BINARY_DIR}/runtime-kit --evidence ${CMAKE_BINARY_DIR}/grid-test-images/game-package)
+ set_tests_properties(standalone_package_workflow PROPERTIES TIMEOUT 300)
 endif()
 
 # Installation produces a source-independent runtime kit for the exporter.

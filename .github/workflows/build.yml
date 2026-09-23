@@ -28,6 +28,10 @@ on:
         description: For audit_source only, build/run the editor input workflow instead of the full audit
         type: boolean
         default: false
+      standalone_audit:
+        description: For audit_source, validate the shared SDK standalone host and clean-room relocation
+        type: boolean
+        default: false
       windows_package:
         description: Build and upload the Windows editor ZIP
         type: boolean
@@ -45,7 +49,7 @@ on:
         type: boolean
         default: false
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}${{ inputs.audit_performance_source_run != '' && format('-benchmark-{0}', inputs.audit_performance_source_run) || '' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}${{ inputs.standalone_audit && '-standalone' || '' }}${{ inputs.audit_performance_source_run != '' && format('-benchmark-{0}', inputs.audit_performance_source_run) || '' }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 permissions:
   contents: read
@@ -55,13 +59,19 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.hlsl_profile
     uses: ./.github/workflows/hlsl-profile.yml
   source-audit:
-    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && !inputs.hlsl_profile
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && !inputs.hlsl_profile && !inputs.standalone_audit
     uses: ./.github/workflows/editor-audit.yml
     with:
       source_commit: ${{ inputs.audit_source }}
       workflow_only: ${{ inputs.audit_workflow_only }}
       performance_source_run: ${{ inputs.audit_performance_source_run }}
       baseline_source_run: ${{ inputs.audit_baseline_source_run }}
+      clean_build: ${{ inputs.clean_build }}
+  standalone-audit:
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && inputs.standalone_audit
+    uses: ./.github/workflows/standalone-audit.yml
+    with:
+      source_commit: ${{ inputs.audit_source }}
       clean_build: ${{ inputs.clean_build }}
   core:
     if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile

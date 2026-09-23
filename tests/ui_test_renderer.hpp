@@ -11,6 +11,7 @@ struct UiTestRenderer final : Rml::RenderInterface {
     std::set<std::uintptr_t> geometry, textures;
     std::uintptr_t next = 1;
     unsigned draws = 0, clips = 0, transforms = 0;
+    std::set<std::string> loaded_sources;
     Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> v,
                                                 Rml::Span<const int> i) override {
         check(!v.empty() && !i.empty(), "Geometry data");
@@ -31,6 +32,7 @@ struct UiTestRenderer final : Rml::RenderInterface {
         Rml::String bytes;
         if (!Rml::GetFileInterface()->LoadFile(path, bytes))
             return 0;
+        loaded_sources.insert(path);
         auto image = forge::decode_ui_image(
             {reinterpret_cast<const std::byte*>(bytes.data()), bytes.size()});
         dims = {int(image.width), int(image.height)};

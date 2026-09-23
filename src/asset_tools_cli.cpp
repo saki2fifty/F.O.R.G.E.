@@ -108,10 +108,6 @@ int asset_tools_cli(int argc, char** argv) {
                                                        "resources/ui/LatoLatin-Regular.ttf",
                                                    project, id, stop);
                 };
-                if (!std::filesystem::exists(project / "forge.runtime-content.json")) {
-                    ProjectLease writer(project);
-                    prepare_runtime_content_catalog(writer, roots, inspect);
-                }
                 result["manifest"] = package_runtime_content(
                     project, std::filesystem::u8path(argv[4]), roots, target, {}, {}, {}, inspect);
             } else {
