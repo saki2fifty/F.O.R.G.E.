@@ -523,3 +523,7 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   textured Cube mesh explicitly, places it visibly beside the built-in cube, and
   checks actual pixels in that separate screen region. Asset presence alone is
   not reported as visible imported-material/texture acceptance.
+
+- Retain production/capture/restart process logs even when a standalone test exits
+  successfully, so renderer diagnostics can be reviewed alongside images. Runtime
+  evidence distinguishes an optional absent module from an actually observed tick.

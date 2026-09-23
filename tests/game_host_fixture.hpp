@@ -143,7 +143,9 @@ struct GameHostFixture {
         if (!image || ++frames < 4)
             return;
         if (stage == 0) {
-            Json proof = {{"module_ticked", !expect_module}, {"mixed_content", mixed}};
+            Json proof = {{"module_required", expect_module},
+                          {"module_ticked", false},
+                          {"mixed_content", mixed}};
             if (expect_module) {
                 check(bool(game.active().engine.world().world().lookup("example.state")),
                       "Packaged gameplay module did not start");
