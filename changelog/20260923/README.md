@@ -39,7 +39,11 @@
   fixture when the selected source has the standalone target.
 - Full rebuilt Linux core72/72 and shared SDK83/83 pass at c8474e5. The first
   Windows audit found the RTTI compile error before tests; its cached objects are
-  reused for the corrected-source audit. No Windows success or new ZIP claimed.
+  reused for the corrected-source audit. At2a595bf, Windows compilation and76
+  selected native tests pass; the new host fixture failed because its camera had
+  no authored transform. Correct the fixture and retain real camera admission.
+  Focused audits also exercise the editor-disabled standalone configuration.
+  Standalone execution/visual acceptance remain pending; no new ZIP.
 
 ## Phase8 game foundation — in progress, not yet packaged
 

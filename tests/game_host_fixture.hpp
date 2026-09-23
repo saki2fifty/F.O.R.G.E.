@@ -31,6 +31,7 @@ struct GameHostFixture {
         camera.background_g = .035f;
         camera.background_b = .055f;
         scene.entity("camera").set(camera);
+        scene.entity("camera").set<LocalTranslation>({});
         scene.entity("cube").set<MeshRenderer>({engine_primitive(0)});
         scene.entity("cube").set<Tint>({.8f, .25f, .1f});
         const std::string markup = R"rml(<rml><head><style>

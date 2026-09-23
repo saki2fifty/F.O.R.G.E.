@@ -177,10 +177,10 @@ jobs:
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
       - name: Validate standalone-only build without editor or import tooling
-        if: ${{ !inputs.workflow_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
+          if (!(Test-Path cmake/game.cmake)) { exit 0 }
           cmake -S . -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=OFF -DFORGE_BUILD_GAME=ON -DFORGE_BUILD_ASSET_TOOLS=OFF -DCMAKE_PROJECT_INCLUDE:FILEPATH=
           if ($LASTEXITCODE) { throw 'Standalone-only configure failed' }
           cmake --build ../AgentFiles/b --target forge_game forge_game_fixture --parallel 2
