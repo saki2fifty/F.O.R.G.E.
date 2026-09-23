@@ -78,3 +78,8 @@ No Phase 8 work or dependency pin changes.
   roughness field for additional captures at all three scales.
 - Correct the hierarchy guide's obsolete default-cube and unavailable-prefab
   statements to match current Mesh Renderer, camera/light and prefab behavior.
+- The high-zoom Hierarchy geometry assertion and opened capture pass. The extended
+  Material input driver must expand Roughness in the stacked layout's own
+  disclosure state and scroll at the document edge, avoiding the preview's
+  intentional wheel-to-camera-zoom input. Correct the fixture; no authoring
+  state is injected to bypass those interactions.

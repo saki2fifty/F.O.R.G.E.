@@ -447,6 +447,8 @@ class EditorInputWorkflow {
         for (int i = 0; i < 5; ++i)
             key(ImGuiKey_Equal, true);
         capture("authored-material-150");
+        // The stacked layout has its own window-local disclosure state.
+        click("material:parameter:roughnessFactor");
         hover("material:value:roughnessFactor");
         capture("material-roughness-150");
         for (int i = 0; i < 5; ++i)
@@ -541,7 +543,9 @@ class EditorInputWorkflow {
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
             if (pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
                 const float direction = pointer_.y < t.clip_minimum.y ? 3.f : -3.f;
-                pointer_.x = std::clamp(pointer_.x, t.clip_minimum.x, t.clip_maximum.x);
+                // Use the scrollable window's edge, outside preview images that
+                // correctly consume the wheel for their own camera/image zoom.
+                pointer_.x = t.clip_maximum.x - 1.f;
                 pointer_.y = (t.clip_minimum.y + t.clip_maximum.y) * .5f;
                 io.AddMousePosEvent(pointer_.x, pointer_.y);
                 io.AddMouseWheelEvent(0, direction);
