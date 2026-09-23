@@ -1,4 +1,5 @@
 #include "sdk_entity_tests.hpp"
+#include "sdk_package_resource_tests.hpp"
 #include "sdk_resource_tests.hpp"
 #include <cmath>
 #include <cstdlib>
@@ -248,6 +249,7 @@ int main(int argc, char** argv) {
         check(failed.find("observer_context") < failed.find("unload") &&
                   failed.find("module_context") < failed.find("unload"),
               "Failed bootstrap unloaded callbacks early");
+        test_sdk_package_resources(std::filesystem::absolute(argv[1]), root);
         std::cout << "Shared Flecs identity, direct registration, dt/input, roles, leases and "
                      "failed teardown passed\n";
     } catch (const std::exception& e) {

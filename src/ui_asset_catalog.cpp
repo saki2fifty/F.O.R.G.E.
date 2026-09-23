@@ -4,15 +4,12 @@
 #include <algorithm>
 #include <set>
 namespace forge {
-AssetCatalog refresh_ui_asset_catalog(const ProjectLease& lease, const UiAssetSnapshot& observed) {
-    lease.check();
-    const ProjectPaths paths(lease.root());
+AssetCatalog prepare_ui_asset_catalog(AssetCatalog catalog, const std::filesystem::path& root,
+                                      const UiAssetSnapshot& observed) {
+    const ProjectPaths paths(root);
     if (paths.root() != ProjectPaths(observed.project).root() || observed.sources.empty() ||
         observed.sources.size() > 32 || observed.documents.size() > 16)
         throw std::runtime_error("UI resource snapshot has a different project or invalid size");
-    const auto index = AssetCatalog::project_index(paths.root());
-    const auto before = asset_storage::read(index, max_asset_index_bytes);
-    auto catalog = AssetCatalog::open_project(paths.root());
     UiResources admitted(paths.root());
     std::set<std::filesystem::path, ProjectLocatorLess> unique;
     for (const auto& source : observed.sources) {
@@ -30,6 +27,10 @@ AssetCatalog refresh_ui_asset_catalog(const ProjectLease& lease, const UiAssetSn
     });
     if (expected != current.sources)
         throw std::runtime_error("UI sources changed since admission; reload the UI and retry");
+    for (const auto& source : observed.automatic_sources)
+        if (std::none_of(current.sources.begin(), current.sources.end(),
+                         [&](const auto& s) { return s.source == source; }))
+            throw std::runtime_error("Automatic UI dependency was not admitted");
     auto records = catalog.records();
     std::map<std::filesystem::path, AssetId, ProjectLocatorLess> identities;
     for (const auto& source : current.sources) {
@@ -71,10 +72,12 @@ AssetCatalog refresh_ui_asset_catalog(const ProjectLease& lease, const UiAssetSn
                     {target, prior->second.type, AssetDependencyKind::Runtime, "legacy", {}});
             }
         }
-        std::erase_if(record.dependency_edges,
-                      [](const auto& edge) { return edge.role == "ui.observed"; });
-        std::erase_if(record.source_dependencies,
-                      [](const auto& edge) { return edge.role == "ui.observed"; });
+        std::erase_if(record.dependency_edges, [](const auto& edge) {
+            return edge.role == "ui.observed" || edge.role == "ui.automatic";
+        });
+        std::erase_if(record.source_dependencies, [](const auto& edge) {
+            return edge.role == "ui.observed" || edge.role == "ui.automatic";
+        });
         for (const auto& dependency : current.sources) {
             // RmlUi may share resources/caches between simultaneous documents.
             // Conservatively index all non-document resources in this good set.
@@ -82,8 +85,13 @@ AssetCatalog refresh_ui_asset_catalog(const ProjectLease& lease, const UiAssetSn
             if (dependency.type == UiDocumentAsset::type)
                 continue;
             const auto target = identities.at(dependency.source);
+            const bool automatic = observed.automatic_sources.contains(dependency.source);
             record.dependency_edges.push_back(
-                {target, records.at(target).type, AssetDependencyKind::Runtime, "ui.observed", {}});
+                {target,
+                 records.at(target).type,
+                 automatic ? AssetDependencyKind::Runtime : AssetDependencyKind::Optional,
+                 automatic ? "ui.automatic" : "ui.observed",
+                 {}});
             record.source_dependencies.push_back(
                 {dependency.source, "ui.observed", dependency.digest});
         }
@@ -98,10 +106,17 @@ AssetCatalog refresh_ui_asset_catalog(const ProjectLease& lease, const UiAssetSn
         replacement.push_back(std::move(record));
     }
     catalog.replace_all(std::move(replacement));
+    return catalog;
+}
+AssetCatalog refresh_ui_asset_catalog(const ProjectLease& lease, const UiAssetSnapshot& observed) {
+    lease.check();
+    const auto index = AssetCatalog::project_index(lease.root());
+    const auto before = asset_storage::read(index, max_asset_index_bytes);
+    auto catalog =
+        prepare_ui_asset_catalog(AssetCatalog::open_project(lease.root()), lease.root(), observed);
     lease.check();
     if (asset_storage::read(index, max_asset_index_bytes) != before)
         throw std::runtime_error("Asset catalog changed; refresh UI resources and retry");
-    // One atomic catalog publication; no source edits or scene Undo operation.
     catalog.save(index);
     return catalog;
 }

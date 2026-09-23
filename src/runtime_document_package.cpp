@@ -2,6 +2,8 @@
 #include "asset_bytes.hpp"
 #include "asset_reference_impact.hpp"
 #include "bounded_json.hpp"
+#include "runtime_dependencies.hpp"
+#include "ui_asset_catalog.hpp"
 #include <forge/engine_assets.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
@@ -29,7 +31,8 @@ Json admit_document(const AssetRecord& r, std::span<const std::byte> bytes) {
 }
 void prepare_documents(AssetCatalog& catalog, const std::filesystem::path& root,
                        std::span<const AssetId> roots, const Json& schema,
-                       RuntimePackageLimits limits, std::stop_token stop) {
+                       RuntimePackageLimits limits, std::stop_token stop, bool packaged,
+                       const RuntimeUiInspector& inspect_ui, bool allow_ui_registration) {
     std::set<AssetId> seen;
     std::vector<AssetId> pending(roots.begin(), roots.end());
     std::size_t total = 0;
@@ -46,6 +49,21 @@ void prepare_documents(AssetCatalog& catalog, const std::filesystem::path& root,
         if (found == catalog.records().end())
             throw std::runtime_error("game.export.missing: Missing dependency " + id.str());
         auto record = found->second;
+        if (!packaged && record.type == UiDocumentAsset::type) {
+            if (!inspect_ui)
+                throw std::runtime_error(
+                    "export.ui.inspection.required: Native UI inspection worker is required");
+            auto candidate = prepare_ui_asset_catalog(catalog, root, inspect_ui(id, stop));
+            if (!allow_ui_registration)
+                for (const auto& [asset_id, unused] : candidate.records())
+                    if (!catalog.records().contains(asset_id))
+                        throw std::runtime_error("export.ui.registration.required: Prepare UI "
+                                                 "asset identities before packaging");
+            catalog = std::move(candidate);
+            record = catalog.records().at(id);
+        }
+        if (!packaged)
+            validate_runtime_declarations(root, record);
         if (authored_document(record)) {
             auto bytes = asset_detail::read_bytes(ProjectPaths(root).resolve(record.source),
                                                   64 * 1024 * 1024);
@@ -93,7 +111,7 @@ void prepare_documents(AssetCatalog& catalog, const std::filesystem::path& root,
         if (record.subasset)
             pending.push_back(record.subasset->owner);
         for (const auto& edge : catalog.dependency_graph().dependencies(id))
-            if (edge.kind == AssetDependencyKind::Runtime)
+            if (edge.kind == AssetDependencyKind::Runtime && edge.role != "ui.observed")
                 pending.push_back(edge.target);
     }
 }

@@ -8,6 +8,8 @@ namespace forge {
 class ProjectSettings {
   public:
     explicit ProjectSettings(std::filesystem::path root);
+    // Already-admitted packaged configuration; never scans or writes a project file.
+    ProjectSettings(std::filesystem::path content_root, nlohmann::json runtime_configuration);
     static void validate(const nlohmann::json& data);
     const nlohmann::json& document() const { return data_; }
     double simulation_hz() const { return data_.value("simulation_hz", 60.0); }
@@ -33,5 +35,6 @@ class ProjectSettings {
     ProjectPaths paths_;
     nlohmann::json data_;
     std::optional<nlohmann::json> disk_;
+    bool read_only_ = false;
 };
 } // namespace forge

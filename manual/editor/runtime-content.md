@@ -40,8 +40,9 @@ this command; it reads files on disk, not unsaved editor changes.
 
 Scene and prefab IDs are preserved. Prefab instances keep their inherited values
 and independent overrides. The output remains a content folder, not a standalone
-EXE. It cannot currently package a scene whose dependencies include game UI or
-legacy standalone animation archives. A working UI preview alone does not prove
+EXE. Current source builds can include admitted game UI and standalone animation
+archives. UI export needs the adjacent `forge_ui_inspect` worker and its packaged
+default font. A working UI preview alone does not prove
 that all images used by hover states or other UI conditions have been discovered.
 
 ## Create a package
@@ -55,6 +56,10 @@ $target = '{"platform":"windows","backend":"d3d12"}'
 $roots = '["12345678-1234-4123-8123-123456789abc"]'
 .\forge_tools.exe --assets package "C:\Projects\MyGame" "C:\Builds\GameContent" $target $roots
 ```
+
+Before copying files, the tool registers newly discovered static UI resources in
+the project catalog. Their AssetIds remain the same on later exports. This metadata
+preparation is separate from publishing the game content folder.
 
 The result is JSON. `ok: true` and exit code0 mean the package passed validation
 and was written. The tool never overwrites an existing package. Use a new destination
@@ -81,7 +86,8 @@ verification fail.
 ## What is included
 
 The package contains its manifest, a compact asset catalog and the selected cooked
-artifacts, plus selected scene/prefab documents. It keeps AssetIds and asset references. It excludes raw images, glTF,
+artifacts, plus selected scene/prefab documents. It keeps AssetIds and asset references. UI RML/RCSS/fonts/TGA resources and legacy Ozz archives are also included when required.
+It excludes unused raw images, glTF,
 WAV and HLSL, import sidecars, unrelated cache entries and editor notes. Bounded
 recipe settings and digests remain as artifact provenance.
 
@@ -93,3 +99,59 @@ may remain; the final destination is published only after candidate validation.
 See [Asset command-line tools](asset-tools.md), [Models](models.md),
 [Textures](textures.md), [Materials](materials.md), [Audio](audio.md), and
 [Shader import](shaders.md).
+
+## Declare content chosen at runtime
+
+These controls are in current source builds; Build260923-000066 does not include them.
+
+1. Select the owning UI document or scene in **Content**.
+2. Open **Runtime Dependencies** in the **Inspector**.
+3. Review **Automatic dependencies**. You do not need to enter ordinary scene, prefab or material references again.
+4. For conditional content, choose **Asset type**, then use **Resource** to search or drag an asset from Content. Enter a **Reason / group**, such as “hover images”.
+5. Choose **Add dependency**, then **Save declarations**. Every declared resource is required for export.
+
+Use **Selection owner** to associate a gameplay-selected resource with a configured
+native module. Keep these declarations on a scene or asset included by the game.
+A changed module build requires reviewing its declarations again.
+
+**Observed resources** lists files seen in preview. Use **Add to Runtime Dependencies**
+to confirm a conditional resource explicitly. Preview observations are not automatically
+shipped: a button can look fine before hovering and still need another image afterward.
+Declare finite alternatives even if you have never shown them in preview.
+
+**Remove** edits the draft. **Discard draft / refresh** reloads saved declarations.
+These catalog saves are separate from scene Undo. Missing resources, wrong types,
+changed source revisions and catalog conflicts appear as diagnostics. Fix the cause,
+review the list and save again. In a packaged game, an undeclared resource request
+is rejected; FORGE does not look in the original project to fill the gap.
+
+## Export a standalone game
+
+Save your scenes and asset drafts first. In **Project Settings**, choose **Use
+saved current scene as startup**, then **Set up game defaults**. Set your game
+name, window mode and resolution, VSync, audio volume and mouse sensitivity. The
+**Application ID** is the stable key for player saves and settings: keep it the
+same across later builds of the same game. Click **Save Settings**.
+
+Open **Run > Export Game** (also available in the Command Palette). Choose a
+**Destination** outside your source project. The supplied **Runtime kit** contains
+the matching game executable, DLLs and default font. A project using native SDK
+modules also needs **Module kits**: the folder holding the matching deployment
+folder for each configured module. The SDK's deployment helper prepares these;
+the exported game does not include the SDK or compiler.
+
+Click **Export / Rebuild**. FORGE validates the complete declared runtime content
+closure and stages a new game folder. Progress shows the current stage. **Cancel
+export** preserves the previous completed export; once final promotion starts,
+FORGE finishes or recovers it before returning. Errors appear in the task and
+Problems. Correct missing dependencies or stale imports/builds, then retry.
+
+After success, **Reveal output** opens the game folder. Copy the whole folder to
+the target Windows machine and run `forge_game.exe`. Keep its content, DLLs and
+manifest together. Player saves, settings and runtime logs live in the OS user-data
+location, independently of the installation folder.
+
+Rebuilding replaces only an existing validated FORGE export. An unrelated folder
+is refused. Source project files and scene Undo are unchanged; newly discovered UI
+resource registrations are a separate saved catalog update. Export packages saved
+content and current cooked artifacts; it does not compile arbitrary gameplay code.

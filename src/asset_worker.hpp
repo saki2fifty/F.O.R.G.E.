@@ -4,7 +4,7 @@
 #include <stop_token>
 namespace forge::asset_detail {
 class WorkerStageLease;
-enum class WorkerKind { Animation, Navigation, Script, Import, Schema };
+enum class WorkerKind { Animation, Navigation, Script, Import, Schema, UiInspection };
 struct WorkerLimits {
     std::uint64_t memory_bytes = 512ull * 1024 * 1024;
     std::uint64_t file_bytes = 16ull * 1024 * 1024;

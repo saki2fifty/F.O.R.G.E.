@@ -59,7 +59,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
         Rml::TextureHandle LoadTexture(Rml::Vector2i& d, const Rml::String& p) override {
             auto h = target.LoadTexture(d, p);
-            if (!h)
+            if (!h && error.empty())
                 error = "UI image could not be loaded: " + p;
             return h;
         }
@@ -233,6 +233,9 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             if (slash == path.npos)
                 throw std::runtime_error("UI resource has no candidate origin");
             auto& bytes = resources.at(path.substr(0, slash))->read(path.substr(slash + 1));
+            if (!loading_prefix.empty() &&
+                (path.ends_with(".rcss") || path.ends_with(".ttf") || path.ends_with(".otf")))
+                resources.at(path.substr(0, slash))->automatic(path.substr(slash + 1));
             if (path.ends_with(".ttf") || path.ends_with(".otf")) {
                 auto digest = asset_detail::content_digest(bytes);
                 if (!admitted_fonts.contains(digest)) {
@@ -322,7 +325,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
         pending.push_back(std::move(request));
     }
-    std::unique_ptr<Set> build(const Json& state) {
+    std::unique_ptr<Set> build(const Json& state, bool static_inspection = false) {
         auto candidate = std::make_unique<Set>();
         candidate->name = "ui" + std::to_string(++serial);
         candidate->resources = std::make_shared<UiResources>(project);
@@ -371,6 +374,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                                            const Rml::VariantList& args) { enqueue(*ptr, args); });
                 d->model = model.GetModelHandle();
                 auto source = candidate->resources->document({desc.at("asset").get<AssetId>()});
+                candidate->resources->automatic(source);
                 const auto& bytes = candidate->resources->read(source);
                 std::string text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
                 if (text.find("data-model") != std::string::npos)
@@ -379,11 +383,31 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 auto body = text.find("<body");
                 if (body == std::string::npos)
                     throw std::runtime_error("UI document needs body");
-                text.insert(body + 5, " data-model=\"" + d->model_name + "\"");
+                if (!static_inspection)
+                    text.insert(body + 5, " data-model=\"" + d->model_name + "\"");
                 d->document = candidate->context->LoadDocumentFromMemory(text, candidate->name +
                                                                                    "/" + source);
                 if (!d->document)
                     throw std::runtime_error("UI document load failed");
+                // Native parsed DOM, not a second RML parser. Only literal image
+                // attributes are automatic; state/data-selected URLs are declared.
+                std::vector<Rml::Element*> elements{d->document};
+                std::size_t visited = 0;
+                while (!elements.empty()) {
+                    auto* element = elements.back();
+                    elements.pop_back();
+                    if (++visited > 8192)
+                        throw std::runtime_error(
+                            "UI automatic resource inspection exceeds node limit");
+                    if (element->GetTagName() == "img" && element->HasAttribute("src") &&
+                        !element->HasAttribute("data-attr-src") &&
+                        element->GetAttribute<Rml::String>("sprite", "").empty()) {
+                        const auto image = element->GetAttribute<Rml::String>("src", "");
+                        candidate->resources->automatic(candidate->resources->join(source, image));
+                    }
+                    for (int i = 0; i < element->GetNumChildren(); ++i)
+                        elements.push_back(element->GetChild(i));
+                }
                 d->document->Show(Rml::ModalFlag::None, Rml::FocusFlag::None);
                 candidate->docs.push_back(std::move(d));
             }
@@ -428,7 +452,30 @@ UiPresenter::UiPresenter(Rml::RenderInterface& r, std::filesystem::path p,
 UiPresenter::~UiPresenter() = default;
 const UiAssetSnapshot* UiPresenter::asset_snapshot() const {
     impl_->check();
+    if (impl_->live && impl_->error.empty() &&
+        impl_->live->assets.sources.size() != impl_->live->resources->source_count())
+        impl_->live->assets = impl_->live->resources->snapshot();
     return impl_->live ? &impl_->live->assets : nullptr;
+}
+UiAssetSnapshot UiPresenter::inspect_static(AssetRef<UiDocumentAsset> asset) {
+    auto& s = *impl_;
+    s.check();
+    if (s.live || s.staged)
+        throw std::runtime_error("Static UI inspection requires an isolated empty presenter");
+    const auto entity = EntityId::generate();
+    Json state{{"documents", Json::array({{{"entity", entity},
+                                           {"asset", asset.id},
+                                           {"instance", entity.str()},
+                                           {"visible", false},
+                                           {"layer", 0u},
+                                           {"model", Json::object()},
+                                           {"commands", Json::array()}}})}};
+    auto candidate = s.build(state, true);
+    if (!candidate)
+        throw std::runtime_error(s.error);
+    auto result = candidate->assets;
+    s.retire(candidate);
+    return result;
 }
 void UiPresenter::reset(std::string session, std::uint64_t generation) {
     auto& s = *impl_;

@@ -8,7 +8,9 @@
 #include "navigation_asset.hpp"
 #include "publish_directory.hpp"
 #include "runtime_document_package.hpp"
+#include "runtime_raw_assets.hpp"
 #include "texture_bundle_validation.hpp"
+#include "ui_asset_catalog.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
@@ -51,6 +53,16 @@ Json target_value(const RuntimePackageTarget& target) {
     return {{"platform", platform(target.platform)}, {"backend", target.backend}};
 }
 std::string revision(const AssetRecord& record) {
+    if (package_detail::legacy_animation(record)) {
+        const auto key = record.metadata.at("artifact_sha256").get<std::string>();
+        require(valid_content_digest(key), "Invalid animation artifact revision");
+        return key;
+    }
+    if (package_detail::raw_only(record)) {
+        const auto key = record.metadata.at("forge.ui_source").at("digest").get<std::string>();
+        require(valid_content_digest(key), "Invalid UI source revision");
+        return key;
+    }
     if (package_detail::authored_document(record)) {
         const auto& metadata = record.metadata.at("forge.runtime_document");
         const auto key = metadata.at("sha256").get<std::string>();
@@ -102,7 +114,7 @@ std::set<AssetId> closure(const AssetCatalog& catalog, std::span<const AssetId> 
         require(record.dependencies.empty() || !record.dependency_edges.empty(),
                 "Runtime packaging requires typed dependencies for " + id.str());
         for (const auto& edge : catalog.dependency_graph().dependencies(id)) {
-            if (edge.kind != AssetDependencyKind::Runtime)
+            if (edge.kind != AssetDependencyKind::Runtime || edge.role == "ui.observed")
                 continue;
             const auto other = catalog.records().find(edge.target);
             const auto* engine = engine_asset(edge.target);
@@ -122,15 +134,20 @@ std::set<AssetId> closure(const AssetCatalog& catalog, std::span<const AssetId> 
 }
 AssetRecord runtime_record(AssetRecord record) {
     const auto key = revision(record);
+    const auto raw = package_detail::raw_locator(record);
+    const bool raw_only = package_detail::raw_only(record);
+    const bool ui = package_detail::ui_source(record);
     const bool navigation = record.type == NavMeshAsset::type;
     const bool document = package_detail::authored_document(record);
     record.source =
-        document     ? std::filesystem::path("runtime") / record.type / (record.id.str() + ".json")
+        raw_only     ? raw
+        : document   ? std::filesystem::path("runtime") / record.type / (record.id.str() + ".json")
         : navigation ? std::filesystem::path("runtime/navigation") / (record.id.str() + ".fnav")
                      : artifact_path(key) / "manifest.json";
     record.source_dependencies.clear();
-    std::erase_if(record.dependency_edges,
-                  [](const auto& edge) { return edge.kind != AssetDependencyKind::Runtime; });
+    std::erase_if(record.dependency_edges, [](const auto& edge) {
+        return edge.kind != AssetDependencyKind::Runtime || edge.role == "ui.observed";
+    });
     std::set<AssetId> targets;
     for (const auto& edge : record.dependency_edges)
         targets.insert(edge.target);
@@ -139,17 +156,21 @@ AssetRecord runtime_record(AssetRecord record) {
     // loader. Its source scene is a build dependency, not a shipped source file.
     if (navigation)
         return record;
+    if (package_detail::legacy_animation(record))
+        return record; // Converter/source hashes are provenance, never source-file reads.
     if (document) {
         record.metadata = {
             {"forge.runtime_document", record.metadata.at("forge.runtime_document")}};
         return record;
     }
     Json metadata = Json::object();
-    for (const auto* name :
-         {"forge.import", "forge.model", "forge.material", "forge.shader", "forge.audio"})
+    for (const auto* name : {"forge.import", "forge.model", "forge.material", "forge.shader",
+                             "forge.audio", "forge.ui_source"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
+    if (ui)
+        record.metadata["forge.runtime_ui"] = {{"source", path_utf8(raw)}};
     return record;
 }
 Json artifact_profile(const CachedArtifact& artifact, const AssetRecord& root,
@@ -199,10 +220,13 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
 }
 void validate_selections(const std::filesystem::path& root, const AssetCatalog& catalog,
                          std::stop_token stop) {
+    package_detail::validate_raw_selections(root, catalog);
     for (const auto& [id, record] : catalog.records()) {
         cancelled(stop);
         if (record.subasset)
             continue; // Complete family admission checks all members and bindings.
+        if (package_detail::raw_only(record))
+            continue;
         if (package_detail::authored_document(record)) {
             auto bytes = read_bytes(ProjectPaths(root).resolve(record.source), 64 * 1024 * 1024);
             (void)package_detail::admit_document(record, bytes);
@@ -216,7 +240,10 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
             (void)load_model_selection(root, catalog, id, stop);
         else if (record.type == MaterialAsset::type) {
             const auto material = load_material_selection(root, catalog, {id}, stop);
-            require(material.data.textures.size() == record.dependency_edges.size(),
+            require(material.data.textures.size() ==
+                        std::count_if(
+                            record.dependency_edges.begin(), record.dependency_edges.end(),
+                            [](const auto& edge) { return !is_declared_runtime_dependency(edge); }),
                     "Material runtime dependency count differs from cooked bindings");
             for (const auto& [role, ref] : material.data.textures)
                 require(std::any_of(record.dependency_edges.begin(), record.dependency_edges.end(),
@@ -259,11 +286,56 @@ void write(const std::filesystem::path& path, std::span<const std::byte> bytes) 
     }
 }
 } // namespace
+void prepare_runtime_content_catalog(const ProjectLease& lease, std::span<const AssetId> roots,
+                                     const RuntimeUiInspector& inspector,
+                                     const Json& reference_schema, std::stop_token stop) {
+    lease.check();
+    const auto before = AssetCatalog::open_project(lease.root());
+    auto candidate = before;
+    Json schema = reference_schema;
+    if (schema.is_null()) {
+        WorldContext world;
+        Scene scene(world);
+        schema = scene.schema();
+    }
+    std::vector<UiAssetSnapshot> snapshots;
+    RuntimeUiInspector capture = [&](AssetId id, std::stop_token token) {
+        if (!inspector)
+            throw std::runtime_error("export.ui.inspection.required: Native UI worker is required");
+        snapshots.push_back(inspector(id, token));
+        return snapshots.back();
+    };
+    package_detail::prepare_documents(candidate, lease.root(), roots, schema, {}, stop, false,
+                                      capture, true);
+    auto publication = before;
+    // Re-admit exact worker bytes and persist only UI registration metadata.
+    // Reflected document-edge preparation remains detached, as before.
+    for (const auto& snapshot : snapshots) {
+        cancelled(stop);
+        publication = prepare_ui_asset_catalog(std::move(publication), lease.root(), snapshot);
+    }
+    if (publication.document() == before.document())
+        return;
+    cancelled(stop);
+    lease.check();
+    require(AssetCatalog::open_project(lease.root()).document() == before.document(),
+            "Asset catalog changed during UI identity preparation");
+    publication.save(AssetCatalog::project_index(lease.root()));
+}
+Json runtime_asset_inventory(const AssetCatalog& catalog) {
+    Json result = Json::array();
+    for (const auto& [id, record] : catalog.records())
+        result.push_back({{"id", id},
+                          {"type", record.type},
+                          {"revision", revision(record)},
+                          {"dependencies", record.dependency_edges}});
+    return result;
+}
 Json package_runtime_content(const std::filesystem::path& project,
                              const std::filesystem::path& destination,
                              std::span<const AssetId> roots, const RuntimePackageTarget& target,
                              RuntimePackageLimits budget, std::stop_token stop,
-                             const Json& reference_schema) {
+                             const Json& reference_schema, const RuntimeUiInspector& ui_inspector) {
     limits(budget);
     const auto target_json = target_value(target);
     const auto root = std::filesystem::canonical(native_io_path(project));
@@ -276,7 +348,11 @@ Json package_runtime_content(const std::filesystem::path& project,
         Scene scene(world);
         schema = scene.schema();
     }
-    package_detail::prepare_documents(catalog, root, roots, schema, budget, stop);
+    const bool packaged_source = std::filesystem::exists(root / manifest_name);
+    if (packaged_source)
+        (void)open_runtime_content(root, target, budget, stop);
+    package_detail::prepare_documents(catalog, root, roots, schema, budget, stop, packaged_source,
+                                      ui_inspector);
     const auto selected = closure(catalog, roots, budget);
     // Directory creation/enumeration need the same extended Windows spelling as
     // file streams. Keep it inside the package I/O owner; manifests remain relative.
@@ -325,6 +401,11 @@ Json package_runtime_content(const std::filesystem::path& project,
             records.push_back(runtime_record(record));
             if (record.subasset)
                 continue;
+            if (package_detail::ui_source(record) || package_detail::legacy_animation(record)) {
+                emit(package_detail::raw_locator(record), package_detail::admit_raw(root, record));
+                if (package_detail::raw_only(record))
+                    continue;
+            }
             if (package_detail::authored_document(record)) {
                 const auto bytes =
                     read_bytes(ProjectPaths(root).resolve(record.source), 64 * 1024 * 1024);
@@ -457,6 +538,13 @@ AssetCatalog open_runtime_content(const std::filesystem::path& package,
                 "Runtime catalog contains authoring-only metadata or source locators");
         if (record.subasset)
             continue;
+        if (package_detail::ui_source(record) || package_detail::legacy_animation(record)) {
+            const auto path = package_detail::raw_locator(record);
+            require(files.contains(path), "Required UI/animation file is not packaged");
+            required_files.insert(path);
+            if (package_detail::raw_only(record))
+                continue;
+        }
         if (record.type == NavMeshAsset::type || package_detail::authored_document(record)) {
             require(files.contains(record.source),
                     "Selected runtime document/data file not packaged");

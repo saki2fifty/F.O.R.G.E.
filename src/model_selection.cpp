@@ -79,6 +79,8 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     require(found_index, "Selected model index is missing");
     std::set<AssetId> unique;
     for (const auto& edge : record.dependency_edges) {
+        if (is_declared_runtime_dependency(edge))
+            continue;
         require(edge.kind == AssetDependencyKind::Runtime &&
                     edge.role.starts_with("model.member:") && edge.revision == result.revision &&
                     unique.insert(edge.target).second &&
@@ -131,8 +133,9 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     }
     // Validate root edge expected types separately after resolving every member.
     for (const auto& edge : record.dependency_edges)
-        require(catalog.records().at(edge.target).type == edge.expected_type,
-                "Model root member expected type mismatch");
+        if (!is_declared_runtime_dependency(edge))
+            require(catalog.records().at(edge.target).type == edge.expected_type,
+                    "Model root member expected type mismatch");
     for (std::size_t i = 0; i < artifact.files.size(); ++i)
         require(result.file_indices.emplace(artifact.files[i].name, i).second,
                 "Selected model artifact filename is duplicated");

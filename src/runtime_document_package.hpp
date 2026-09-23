@@ -6,5 +6,7 @@ nlohmann::json admit_document(const AssetRecord&, std::span<const std::byte>);
 // Populate the SAME catalog-owned typed graph from authoritative Meta and the
 // current reachable documents. Never edits the source project catalog.
 void prepare_documents(AssetCatalog&, const std::filesystem::path&, std::span<const AssetId>,
-                       const nlohmann::json& schema, RuntimePackageLimits, std::stop_token);
+                       const nlohmann::json& schema, RuntimePackageLimits, std::stop_token,
+                       bool packaged, const RuntimeUiInspector&,
+                       bool allow_ui_registration = false);
 } // namespace forge::package_detail

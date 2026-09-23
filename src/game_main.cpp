@@ -3,12 +3,14 @@
 #include "game_device.hpp"
 #include "game_presentation.hpp"
 #include "sdl_input.hpp"
+#include "standalone_manifest.hpp"
 #include <forge/build.hpp>
 #include <forge/game_content.hpp>
 #include <forge/game_platform.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/game_storage.hpp>
 #include <forge/native_sdk.hpp>
+#include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <fstream>
 #include <iostream>
@@ -72,6 +74,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error(SDL_GetError());
         const auto executable_root = std::filesystem::u8path(executable_path);
         auto root = executable_root;
+        std::optional<StandaloneDistribution> distribution;
 #ifdef FORGE_GAME_FIXTURE
         test::GameHostFixture fixture(argc, argv);
         root = fixture.project;
@@ -79,10 +82,21 @@ int main(int argc, char** argv) {
 #else
         if (argc == 3 && std::string_view(argv[1]) == "--project")
             root = std::filesystem::absolute(std::filesystem::u8path(argv[2]));
-        else if (argc != 1)
-            throw std::runtime_error("Usage: forge_game [--project <content directory>]");
+        else if (argc == 1) {
+            distribution = open_standalone_distribution(executable_root, {"windows", "d3d12"},
+                                                        FORGE_NATIVE_SDK_PROFILE,
+                                                        FORGE_NATIVE_SDK_FINGERPRINT);
+            if (distribution->manifest.at("engine").at("source_commit") != source_commit ||
+                distribution->manifest.at("engine").at("build_id") != build_id)
+                throw std::runtime_error(
+                    "game.distribution: Executable and distribution build identity differ");
+            root = distribution->content;
+        } else
+            throw std::runtime_error(
+                "Usage: forge_game [--project <development project directory>]");
 #endif
-        const ProjectSettings project(root);
+        const ProjectSettings project =
+            distribution ? ProjectSettings(root, distribution->settings) : ProjectSettings(root);
         if (!project.document().contains("game"))
             throw std::runtime_error("Project needs game settings with a durable application_id");
         const auto& defaults = project.document().at("game");
@@ -148,11 +162,8 @@ int main(int argc, char** argv) {
         config.input = InputMap(settings.at("input_map"));
         config.audio = AudioConfig{root, software ? AudioOutput::Offline : AudioOutput::Device,
                                    false, settings.at("audio").at("master_volume").get<float>()};
-        for (const auto& module : project.document().value("modules", Json::array()))
-            if (!module.is_object())
-                throw std::runtime_error(
-                    "Standalone host needs explicit native SDK module declarations");
-        config.modules = project_native_modules(root, project.document(), bootstrap.access());
+        config.modules = project_native_modules(distribution ? distribution->root : root,
+                                                project.document(), bootstrap.access());
         config.preparation = [&](std::uint64_t ticket) { return presentation.prepare(ticket); };
         GameSession game(std::move(config)); // Dies before presentation/platform/module services.
         const auto startup = project.document().at("startup_scene").at("asset").get<AssetId>();

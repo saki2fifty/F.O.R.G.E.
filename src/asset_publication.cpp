@@ -350,6 +350,20 @@ AssetPublicationResult AssetPublisher::publish(AssetPublicationCandidate candida
             auto metadata = catalog.records().at(id).metadata;
             metadata.update(record.metadata);
             record.metadata = std::move(metadata);
+            // Runtime declarations are author intent, not importer-owned bindings.
+            // Preserve them across recooking; their reviewed source hashes remain
+            // unchanged so a source edit requires explicit revalidation.
+            if (!record.subasset) {
+                for (const auto& edge : catalog.records().at(id).dependency_edges)
+                    if (is_declared_runtime_dependency(edge) &&
+                        std::find(record.dependency_edges.begin(), record.dependency_edges.end(),
+                                  edge) == record.dependency_edges.end())
+                        record.dependency_edges.push_back(edge);
+                std::set<AssetId> targets;
+                for (const auto& edge : record.dependency_edges)
+                    targets.insert(edge.target);
+                record.dependencies.assign(targets.begin(), targets.end());
+            }
         }
         if (!record.subasset || !record.subasset->removed)
             record.metadata["forge.import"] = {

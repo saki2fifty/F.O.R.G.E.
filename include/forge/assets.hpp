@@ -7,6 +7,9 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t max_asset_index_bytes = 64 * 1024 * 1024;
+inline bool is_declared_runtime_dependency(const AssetDependency& edge) {
+    return edge.kind == AssetDependencyKind::Runtime && edge.role.starts_with("declared:");
+}
 struct AssetSubasset {
     AssetId owner;
     // Durable mapping-entry key, not the current source array index or display name.

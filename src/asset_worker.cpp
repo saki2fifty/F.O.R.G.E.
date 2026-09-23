@@ -61,7 +61,8 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
         throw std::runtime_error("Asset build cancelled");
     validate_limits(resource);
     if (kind != WorkerKind::Animation && kind != WorkerKind::Navigation &&
-        kind != WorkerKind::Script && kind != WorkerKind::Import && kind != WorkerKind::Schema)
+        kind != WorkerKind::Script && kind != WorkerKind::Import && kind != WorkerKind::Schema &&
+        kind != WorkerKind::UiInspection)
         throw std::runtime_error("Unknown asset worker command");
     if (!staging.is_absolute() ||
         std::filesystem::is_symlink(std::filesystem::symlink_status(staging)) ||
@@ -115,12 +116,13 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
                                                &limits, sizeof(limits)))
         throw std::runtime_error("Cannot enforce converter process limits");
     // All variable paths use the explicit executable/cwd parameters; fixed arguments only.
-    std::wstring command = kind == WorkerKind::Animation
-                               ? L"gltf2ozz --file=source.gltf --config_file=config.json"
-                           : kind == WorkerKind::Import ? L"forge_asset_build --build-asset"
-                           : kind == WorkerKind::Script ? L"forge_tools --script-worker"
-                           : kind == WorkerKind::Schema ? L"forge_runtime --inspect-sdk-worker"
-                                                        : L"forge_nav_build --build-navigation";
+    std::wstring command =
+        kind == WorkerKind::Animation ? L"gltf2ozz --file=source.gltf --config_file=config.json"
+        : kind == WorkerKind::Import  ? L"forge_asset_build --build-asset"
+        : kind == WorkerKind::Script  ? L"forge_tools --script-worker"
+        : kind == WorkerKind::Schema  ? L"forge_runtime --inspect-sdk-worker"
+        : kind == WorkerKind::UiInspection ? L"forge_ui_inspect --inspect-ui-worker"
+                                           : L"forge_nav_build --build-navigation";
     HANDLE inherited =
         staging_owner ? reinterpret_cast<HANDLE>(staging_owner->inheritance_handle()) : nullptr;
     struct Attributes {
@@ -214,6 +216,9 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
             execl(file.c_str(), "forge_tools", "--script-worker", static_cast<char*>(nullptr));
         else if (kind == WorkerKind::Schema)
             execl(file.c_str(), "forge_runtime", "--inspect-sdk-worker",
+                  static_cast<char*>(nullptr));
+        else if (kind == WorkerKind::UiInspection)
+            execl(file.c_str(), "forge_ui_inspect", "--inspect-ui-worker",
                   static_cast<char*>(nullptr));
         else if (kind == WorkerKind::Navigation)
             execl(file.c_str(), "forge_nav_build", "--build-navigation",

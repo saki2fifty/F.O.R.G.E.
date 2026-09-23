@@ -36,9 +36,13 @@ selected_correspondence(const AssetPublicationCandidate& c,
             throw std::runtime_error("Selected model correspondence disagrees with "
                                      "catalog/sidecar; restore consistent import metadata");
     };
-    require(owner.dependency_edges.size() == bundle.members.size());
+    require(std::count_if(owner.dependency_edges.begin(), owner.dependency_edges.end(),
+                          [](const auto& edge) { return !is_declared_runtime_dependency(edge); }) ==
+            bundle.members.size());
     std::map<std::string, AssetId> selected;
     for (const auto& edge : owner.dependency_edges) {
+        if (is_declared_runtime_dependency(edge))
+            continue;
         require(edge.kind == AssetDependencyKind::Runtime &&
                 edge.role.starts_with("model.member:") && edge.revision == c.input.key() &&
                 selected.emplace(edge.role.substr(13), edge.target).second);

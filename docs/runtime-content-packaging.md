@@ -3,8 +3,10 @@
 The Phase7 content tool selects cooked assets for a target without copying their
 original glTF, image, WAV, material source, HLSL, or import sidecars. It does not
 create a standalone visual game executable. Scene/Prefab document closure is implemented in the current Phase8 source
-checkpoint. Legacy Ozz, Script, and RmlUi runtime families still need packaging
-adapters; selecting one fails rather than silently producing an incomplete package.
+checkpoint. Legacy Ozz and bounded RmlUi source adapters are implemented in the current source.
+Unrecognized runtime types still reject export. The complete standalone distribution
+manifest, runtime-kit/native-DLL collection and final graphical export acceptance
+remain in progress.
 This source checkpoint has not been included in a numbered Windows delivery.
 
 ## Identity and dependency ownership
@@ -69,25 +71,70 @@ At most64MiB per document and256MiB of reachable document inputs are admitted.
 This is content packaging only: the standalone startup/distribution manifest,
 module/DLL collection, update promotion and editor export operation remain open.
 
-## UI dependency completeness boundary
+## Declared runtime closure
 
-A successful RmlUi preview is **not** a complete export dependency declaration.
-Exact pinned RmlUi6.3 instantiates conditional decorators lazily. A hover-only image
-can be absent from both the initial FORGE resource observation and native texture
-source list, then fail when hovered. Its public stylesheet API does not enumerate
-all inactive rules/media blocks. The existing observed-resource catalog must not
-be relabeled as complete. Full UI export remains unavailable pending the dependency
-declaration/admission contract; no private CSS parser, upstream patch, full-project
-copy or silent missing-resource omission has been introduced.
+The package contains and validates the complete **declared runtime dependency
+closure**. This does not prove every request arbitrary gameplay code could make.
+Automatic reflected/cooked edges and explicit `declared:` Runtime edges share
+AssetCatalog's existing graph. Declarations are finite, typed and required; there
+are no wildcard or optional-runtime semantics. Missing/wrong-type selections,
+unsupported adapters and stale reviewed sources reject export.
+
+`forge.runtime_declarations` version1 stores reviewed source hashes only, not a
+second dependency list. Saving declarations checks the expected catalog revision,
+re-admits any prepared UI source snapshot and atomically saves one catalog. UI
+inspection and failed declaration validation do not publish an intermediate catalog.
+Reimport preserves author-owned declarations; it does not silently refresh their
+reviewed source hashes. A scene/document may own module-selected resources using
+`declared:module/MODULE_ID/REASON`; these additionally track project settings and the
+selected module binary. The owner must be reachable from the exported roots.
+
+### UI resources
+
+Pinned RmlUi6.3 lazily instantiates decorators; an initial successful preview cannot
+certify inactive styles/media rules. `ui.observed` edges remain advisory even if an
+older catalog marked them Runtime. They are excluded from export closure.
+
+Before immutable packaging, `prepare_runtime_content_catalog` registers newly
+found UI sources with persistent UUIDv4s in the authoritative project catalog.
+This metadata preparation is separate from package promotion; it does not modify
+scene/prefab bytes or publish their temporary `document:` edges. Repeating it keeps
+identities unchanged. The low-level packager refuses unregistered UI discoveries
+rather than allocating different logical identities for each export.
+
+A disposable `forge_ui_inspect` worker uses native RmlUi DOM/style loading with
+bounded lifetime/memory/output. It does not evaluate gameplay data bindings. Linked
+RCSS/fonts and literal `<img src>` attributes (including hidden images) form the
+reliable `ui.automatic` subset. Native sprite precedence is preserved. Conditional
+images/decorators, data-selected URLs and finite theme alternatives require explicit
+declarations. There is no private RCSS/RML parser or completeness flag.
+
+Supported RML/RCSS/font/TGA bytes retain relative paths for native resource URLs.
+Their exact admitted hashes/types are verified. A Texture used by both the renderer
+and UI carries its cooked selection and its independently admitted raw UI source.
+Package reads require manifest membership and a matching digest; undeclared paths
+produce `package.resource.undeclared`. Gameplay resource subscriptions enforce
+catalog membership and never refresh immutable packages from project discovery.
+
+### Legacy Ozz archives
+
+Standalone Skeleton/AnimationClip records retain exact converter/settings/source
+hash provenance, skeleton identity and artifact digests. Strict archive admission
+runs before native Ozz load; clip/skeleton compatibility is validated and sampling
+is probed. Archives relocate to `runtime/animation/ASSET_ID.ozz`. Original glTF/source
+records remain provenance, not runtime files. Development source checks stay intact;
+an admitted package does not require its original conversion project.
 
 ## Contents and bounds
 
 Supported roots are imported Model families, Texture bundles, built-in Material
 bundles, cooked AudioClip, compiled Shader programs, baked NavMesh assets, and
-registered Scene/Prefab documents. Other source-only or unknown families are rejected. Existing cooked parsers and selected-resource loaders
+registered Scene/Prefab documents, legacy Ozz archives and admitted runtime UI
+resources. Other source-only or unknown families are rejected. Existing cooked parsers and selected-resource loaders
 validate the candidate, including texture variants, material bindings and shader
 reflection/provenance. Packaging links no Diligent device, HLSL compiler, glTF
-source parser, image codec, or native audio decoder.
+source importer or native audio decoder. The UI adapter uses its existing bounded
+TGA/font/text admission, independently of graphical GPU validation.
 
 The default/hard initial bounds are 16,384 logical identities, 32,768 files,
 256MiB per file, 512MiB per artifact family, and 2GiB total package bytes including
@@ -95,7 +142,7 @@ its manifest. Callers can lower those budgets. Processing releases each copied
 family before reading the next; this is not a claim of constant memory independent
 of the admitted family size. Every selected family is validated before publication.
 
-Raw sources, authoring sidecars, source-dependency catalog entries, unrelated cache
+Unused raw sources, authoring sidecars, source-dependency catalog entries, unrelated cache
 revisions, private metadata, thumbnails and diagnostic logs are not copied. The
 small `forge.import` and format-specific selection metadata remain. Content-addressed
 artifact manifests retain their bounded original recipe inputs and digests because
@@ -169,3 +216,54 @@ relocates it with the original project unavailable, queries a path and advances
 a runtime agent, and rejects a corrupted packaged envelope.
 
 See the [user instructions](../manual/editor/runtime-content.md).
+
+## Standalone assembly and recovery
+
+The UI-independent `export_standalone_game` operation is shared by Run > Export
+Game and `forge_tools --assets export-game PROJECT OPTIONS_JSON`. Options select
+`destination`, `runtime_kit`, and an optional `module_kits` map from configured
+module ID to deployment folder. Export reads saved project configuration; editor
+unsaved authoring drafts must be saved or discarded first. It rebuilds the package
+from current selected cooked artifacts, without rebuilding arbitrary C++ projects.
+Missing/stale artifacts require Reimport or rebuilding the affected module first.
+
+A `GameRuntime` CMake installation provides `forge.runtime-kit.json`, exact engine
+profile/fingerprint/build provenance, the game executable, its resolved native
+runtime dependencies, fonts and dependency notices. It is separate from the SDK.
+CMake's native `GET_RUNTIME_DEPENDENCIES` resolver inspects actual built binaries;
+FORGE does not maintain a second PE dependency parser. The current kit is Windows
+D3D12 Development; logical asset formats and content closure remain backend-neutral.
+
+Shared-SDK consumers call `forge_install_gameplay_runtime(target NAME module.id)`
+and install component `GameplayRuntime` into a fresh directory. One child folder
+per name contains `forge.module-kit.json`, the exact module and its resolved DLLs.
+`EXTRA_LIBRARIES` supplies a finite list for explicitly loaded native libraries that
+cannot be inferred from import tables. Native code/content requirements remain
+trusted declarations, not proof of arbitrary future LoadLibrary or asset requests.
+Export checks source-module bytes against the kit and inspects module compatibility
+in the disposable SDK worker. Conflicting DLL filenames with different bytes fail;
+identical shared Flecs dependencies are copied once beside the executable.
+
+`forge.standalone.json` version1 records Development profile, target, engine build,
+startup Scene AssetId, validated game defaults, derived asset/revision/dependency
+inventory, native module provenance and every physical file hash/size. The existing
+AssetCatalog remains the sole logical graph. Startup admits this manifest and its
+content before opening the game window or loading gameplay modules. Recognized
+linked engine module declarations require no external library. Exported project
+configuration is read-only; saves/settings/logs use OS user-data storage.
+
+Output must be separate from the source and all selected kits. A private sibling
+control directory holds a cooperative writer lock, staging and the narrow export
+journal. A valid existing output is never modified in place. Once the candidate
+passes admission, a durable journal precedes renaming the previous output aside
+and promoting the candidate. Recovery restores the previous output if promotion
+was interrupted before the new destination appeared; completed promotion remains
+committed. This is recoverable directory replacement, not a claim that two renames
+are one atomic filesystem operation. Unrecognized or externally modified output
+is preserved with a diagnostic. Cancellation ends at the promotion boundary.
+
+Local service tests use a synthetic executable to validate assembly, configuration,
+relocation, cancellation, corrupt-kit rejection, unrelated-directory protection and
+interrupted replacement. They do not establish native DLL or graphical acceptance;
+Windows runtime-kit/shared-SDK/relocation and captured editor workflows remain
+separate required delivery gates.

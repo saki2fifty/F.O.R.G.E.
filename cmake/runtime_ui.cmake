@@ -26,7 +26,16 @@ add_library(forge_ui_presenter src/ui_presenter.cpp)
 target_link_libraries(forge_ui_presenter PUBLIC forge_ui_assets forge_ui_protocol PRIVATE RmlUi::Core forge_asset_bytes)
 # No SDL/ImGui dependency. The host translates input and supplies a RenderInterface.
 
+add_executable(forge_ui_inspect src/ui_inspection_main.cpp)
+target_link_libraries(forge_ui_inspect PRIVATE forge_ui_presenter forge_file_storage forge_asset_bytes RmlUi::Core)
+
 if(BUILD_TESTING)
+ add_executable(forge_runtime_ui_package_tests tests/runtime_ui_package_tests.cpp)
+ target_include_directories(forge_runtime_ui_package_tests PRIVATE src)
+ target_link_libraries(forge_runtime_ui_package_tests PRIVATE forge_ui_presenter forge_ui_asset_catalog forge_ui_inspection forge_runtime_dependencies forge_runtime_package RmlUi::Core)
+ add_dependencies(forge_runtime_ui_package_tests forge_ui_inspect)
+ set(FORGE_TEST_UI_INSPECT_EXECUTABLE "$<TARGET_FILE:forge_ui_inspect>" CACHE STRING "Native UI worker for tests; use matching unsanitized worker under bounded-process sanitizer tests")
+ add_test(NAME runtime_ui_package COMMAND forge_runtime_ui_package_tests ${CMAKE_BINARY_DIR}/runtime-ui-package-data "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" ${FORGE_TEST_UI_INSPECT_EXECUTABLE})
  add_executable(forge_ui_presenter_tests tests/ui_presenter_tests.cpp)
  target_link_libraries(forge_ui_presenter_tests PRIVATE forge_ui_presenter RmlUi::Core)
  add_test(NAME ui_presenter COMMAND forge_ui_presenter_tests ${CMAKE_BINARY_DIR}/ui-presenter-data "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf")

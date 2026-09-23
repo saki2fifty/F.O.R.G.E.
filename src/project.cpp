@@ -49,6 +49,10 @@ void ProjectSettings::validate(const Json& data) {
         validate_game_settings(data.at("game"));
     validate_project_modules(data);
 }
+ProjectSettings::ProjectSettings(std::filesystem::path root, Json configuration)
+    : paths_(std::move(root)), data_(std::move(configuration)), read_only_(true) {
+    validate(data_);
+}
 ProjectSettings::ProjectSettings(std::filesystem::path root)
     : paths_(std::move(root)), data_(defaults(path_utf8(paths_.root().filename()))) {
     const auto manifest = paths_.resolve("forge.project.json");
@@ -122,6 +126,9 @@ std::optional<std::filesystem::path> ProjectSettings::startup() const {
     return match;
 }
 void ProjectSettings::save(Json candidate, const Json* expected) {
+    if (read_only_)
+        throw std::runtime_error(
+            "Packaged runtime configuration is immutable; save user settings separately");
     if (expected && data_ != *expected)
         throw std::runtime_error(
             "Settings changed since this draft opened; discard edits and retry");

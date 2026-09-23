@@ -31,7 +31,7 @@ def package(build, dependencies, output):
     cache = (build/'CMakeCache.txt').read_text()
     if 'CMAKE_BUILD_TYPE:STRING=Release' not in cache:
         raise ValueError('A Release build is required; Debug CRT binaries are not distributable')
-    images = [build/'forge_editor.exe', build/'forge_runtime.exe', build/'forge_tools.exe', build/'forge_nav_build.exe', build/'forge_asset_build.exe', build/'forge_shader_build.exe']
+    images = [build/'forge_editor.exe', build/'forge_runtime.exe', build/'forge_tools.exe', build/'forge_nav_build.exe', build/'forge_asset_build.exe', build/'forge_shader_build.exe', build/'forge_ui_inspect.exe']
     dlls = sorted(build.glob('*.dll'))
     if not any('graphicsengined3d12' in p.name.lower() for p in dlls):
         raise ValueError('The Diligent D3D12 runtime DLL is missing from the build output')
@@ -56,6 +56,24 @@ def package(build, dependencies, output):
     manifest = {'build_id': build_id, 'source_commit': metadata['source_commit'], 'architecture': 'windows-x64', 'configuration': 'Release', 'files': {
         p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}}
     manifest['files']['tools/gltf2ozz.exe'] = hashlib.sha256(converter.read_bytes()).hexdigest()
+    kit = build/'runtime-kit'
+    kit_manifest = json.loads((kit/'forge.runtime-kit.json').read_text())
+    if kit_manifest['engine']['build_id'] != build_id or kit_manifest['engine']['source_commit'] != metadata['source_commit']:
+        raise ValueError('Runtime kit is from another build')
+    kit_files = sorted(p for p in kit.rglob('*') if p.is_file())
+    if any(p.is_symlink() for p in kit.rglob('*')):
+        raise ValueError('Runtime kit contains a link')
+    expected = set(kit_manifest['files']) | {'forge.runtime-kit.json'}
+    if {p.relative_to(kit).as_posix() for p in kit_files} != expected:
+        raise ValueError('Runtime kit inventory mismatch')
+    for file in kit_files:
+        relative = file.relative_to(kit).as_posix()
+        digest = hashlib.sha256(file.read_bytes()).hexdigest()
+        if relative != 'forge.runtime-kit.json':
+            info = kit_manifest['files'][relative]
+            if info['sha256'] != digest or info['bytes'] != file.stat().st_size:
+                raise ValueError('Runtime kit file mismatch: '+relative)
+        manifest['files']['runtime-kit/'+relative] = digest
     source = Path(__file__).resolve().parents[1]
     notices.append((source/'docs/licenses/ozz-converter.txt', 'licenses/ozz-converter.txt'))
     for notice, name in notices:
@@ -100,6 +118,8 @@ def package(build, dependencies, output):
             archive.write(animation_source, 'Examples/Animation/two-joints.gltf')
             for image in images:
                 archive.write(image, image.name)
+            for file in kit_files:
+                archive.write(file, "runtime-kit/"+file.relative_to(kit).as_posix())
             for notice, name in notices:
                 archive.write(notice, name)
             for relative in sdk_files:

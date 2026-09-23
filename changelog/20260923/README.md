@@ -277,3 +277,53 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   export is not claimed; dependency-declaration contract review is required.
 - Update technical packaging documentation and the content-packaging manual.
   Build260923-000066 remains the current download. No new ZIP.
+
+## Phase8 declared runtime dependencies — implementation in progress
+
+- Adopt the approved single-graph contract: reliable static dependencies remain
+  automatic; finite typed declarations are required Runtime edges; observations
+  remain advisory. Retain old observation semantics instead of promoting them.
+- Add source-revision review, conflict checks and single-catalog declaration saves.
+  Preserve declarations across reimport and keep cooked binding validation separate
+  from declared conditional dependencies.
+- Add native isolated UI inspection and raw UI/legacy Ozz package admission, with
+  manifest-gated runtime reads and explicit undeclared-resource diagnostics.
+- Add the selected-asset Inspector dependency draft with typed search/drop, reasons,
+  module ownership, observed-resource promotion, remove/reveal/open and save/discard.
+  Native Windows visual validation is pending; this is not a shipped editor claim.
+- New relocated native UI tests cover hover/focus/active states, hidden literal
+  images, never-observed declarations, stale sources and type/missing rejection.
+  Additional runtime family, shared-SDK, sanitizer and Windows validation continues.
+  The complete standalone distribution/export work is still open. No numbered ZIP.
+
+- Keep automatically discovered UI resource identities durable: authoring preflight
+  registers them once; low-level immutable packaging rejects unknown UI identities.
+  Scene/prefab bytes and their detached reflection preparation remain unchanged.
+- Add the standalone manifest reader, read-only runtime configuration and strict
+  default graphical-host startup. Runtime-kit installation resolves native DLL
+  imports with CMake and inventories files/notices. Distribution production,
+  recovery/export UI and native Windows kit acceptance remain in progress.
+
+- Focused Linux validation: content/UI/manifest/material4/4 and strict ASan +
+  UBSan + LSan5/5 pass. Native UI worker retains its512MiB process bound; sanitizer
+  supervision uses the matching normal worker and also executes the native static
+  inspector directly under sanitizers. No sanitizer suppression is added.
+- Shared gameplay-DLL dynamic request test passes after content relocation; model
+  recipe/reimport declaration regression and legacy Ozz relocated playback pass.
+  These are focused Linux results, not full Windows graphical/export acceptance.
+
+### Standalone export assembly and editor task — continued source work
+
+- Added shared CLI/editor export service, verified runtime/module deployment inventories,
+  exact SDK worker admission, standalone configuration, last-good staged replacement,
+  cancellation and interruption recovery. Unknown output folders are preserved.
+- Added Run/Command Palette Export Game task, progress/cancel/result location and Game
+  defaults in Project Settings; global project/import locks cover active export work.
+- SDK CMake helper collects exact module import dependencies and finite explicit dynamic
+  libraries. Runtime-kit installation collects game dependencies and notices; editor
+  packages now include the validated kit. Native Windows installation remains under test.
+- Allowed already validated built-in module declarations in standalone startup. Corrected
+  durable Windows metadata writes to use existing long-path conversion.
+- Local standalone service tests pass assembly/rebuild, corrupt kit, cancellation,
+  unrelated-folder rejection and interrupted replacement. Added input-driven dependency,
+  settings and export capture steps; Windows execution/visual review is still pending.

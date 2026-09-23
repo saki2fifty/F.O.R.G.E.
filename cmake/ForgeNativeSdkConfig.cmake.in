@@ -36,3 +36,19 @@ add_library(ForgeNativeSdk::Client INTERFACE IMPORTED)
 set_target_properties(ForgeNativeSdk::Client PROPERTIES
  INTERFACE_LINK_LIBRARIES "ForgeNativeSdk::Flecs;ForgeNativeSdk::Values"
  INTERFACE_COMPILE_FEATURES cxx_std_20)
+
+# Explicit runtime deployment closure. EXTRA_LIBRARIES are a finite list for
+# libraries selected through LoadLibrary rather than the native import table.
+function(forge_install_gameplay_runtime target)
+ if(NOT TARGET ${target})
+  message(FATAL_ERROR "Unknown gameplay target: ${target}")
+ endif()
+ cmake_parse_arguments(KIT "" "NAME" "EXTRA_LIBRARIES" ${ARGN})
+ if(NOT KIT_NAME MATCHES "^[A-Za-z0-9_.-]+$" OR KIT_NAME MATCHES "^\\.")
+  message(FATAL_ERROR "Choose a simple module-kit NAME")
+ endif()
+ set(FORGE_NATIVE_SDK_FINGERPRINT "@FORGE_NATIVE_SDK_FINGERPRINT@")
+ configure_file("${_forge_sdk_root}/sdk/module_kit_install.cmake.in"
+                "${CMAKE_CURRENT_BINARY_DIR}/${target}-module-kit.cmake" @ONLY)
+ install(CODE "set(FORGE_MODULE_KIT_NAME \"${KIT_NAME}\")\nset(FORGE_MODULE_KIT_LIBRARY \"$<TARGET_FILE:${target}>\")\nset(FORGE_MODULE_KIT_EXTRA_LIBRARIES \"${KIT_EXTRA_LIBRARIES}\")\ninclude(\"${CMAKE_CURRENT_BINARY_DIR}/${target}-module-kit.cmake\")" COMPONENT GameplayRuntime)
+endfunction()

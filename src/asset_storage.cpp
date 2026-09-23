@@ -1,5 +1,6 @@
 #include "asset_storage.hpp"
 #include "asset_bytes.hpp"
+#include "native_io_path.hpp"
 #include <forge/asset_ref.hpp>
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -45,8 +46,8 @@ void replace(const std::filesystem::path& path, std::string_view bytes) {
     const auto temp = path.parent_path() / ("." + AssetId::generate().str() + ".pending");
     try {
 #ifdef _WIN32
-        HANDLE file = CreateFileW(temp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
-                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+        HANDLE file = CreateFileW(asset_detail::native_io_path(temp).c_str(), GENERIC_WRITE, 0,
+                                  nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file == INVALID_HANDLE_VALUE)
             throw std::filesystem::filesystem_error(
                 "Cannot stage asset metadata", temp,
@@ -62,7 +63,8 @@ void replace(const std::filesystem::path& path, std::string_view bytes) {
             throw std::filesystem::filesystem_error(
                 "Cannot flush staged asset metadata", temp,
                 std::error_code(error ? error : ERROR_WRITE_FAULT, std::system_category()));
-        if (!MoveFileExW(temp.c_str(), path.c_str(),
+        if (!MoveFileExW(asset_detail::native_io_path(temp).c_str(),
+                         asset_detail::native_io_path(path).c_str(),
                          MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
             throw std::filesystem::filesystem_error(
                 "Cannot replace asset metadata", temp, path,

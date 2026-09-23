@@ -154,7 +154,8 @@ Json export_project_authoring(const std::filesystem::path& root) {
             {"version", 1},
             {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
             {"profile", FORGE_NATIVE_SDK_PROFILE},
-            {"components", export_authored_types(engine.world().world())}};
+            {"components", export_authored_types(engine.world().world())},
+            {"reference_schema", engine.world().schema()}};
 }
 int authored_inspection_worker() {
     const auto staging = std::filesystem::current_path();

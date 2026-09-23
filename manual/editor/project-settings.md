@@ -39,3 +39,15 @@ See also [Projects](projects.md), [Play mode](play-mode.md), and [Settings and a
 The window title gains an asterisk and shows **Unsaved settings** after an edit. Ctrl+S saves these settings while this task is active. Closing or switching project asks **Save Settings**, **Discard**, or **Cancel**. A validation failure keeps the draft open. Scene Save and scene Undo/Redo do not own project settings.
 
 There are at most 64 input actions and 16 bindings per action. Add controls disable and explain the limit when reached. Settings take effect on the next Play.
+
+## Standalone game defaults
+
+**Set up game defaults** creates the configuration for your standalone game.
+**Game defaults** then exposes the game title, stable application ID, window mode,
+resolution, display index, VSync, master volume and mouse sensitivity. **Save
+Settings** publishes the draft; **Close Settings** asks what to do with unsaved
+changes. These settings have separate ownership from scene Undo.
+
+Keep the application ID unchanged across builds to retain access to the same player
+saves/settings. Choose the saved startup scene here, then use
+[Run > Export Game](runtime-content.md) to assemble a standalone folder.

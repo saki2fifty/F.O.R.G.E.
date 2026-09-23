@@ -1,5 +1,6 @@
 #pragma once
 #include "texture_bundle_validation.hpp"
+#include <forge/assets.hpp>
 #include <forge/shader_asset.hpp>
 namespace forge::test {
 inline AssetId runtime_texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog) {

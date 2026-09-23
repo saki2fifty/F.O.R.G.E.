@@ -7,7 +7,7 @@ add_executable(forge_game src/game_main.cpp src/game_device_d3d12.cpp
  "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp")
 target_include_directories(forge_game PRIVATE src "${rmlui_SOURCE_DIR}/Backends")
 target_compile_definitions(forge_game PRIVATE UNICODE _UNICODE NOMINMAX RMLUI_SDL_VERSION_MAJOR=3)
-target_link_libraries(forge_game PRIVATE forge_game_content forge_game_presentation
+target_link_libraries(forge_game PRIVATE forge_standalone_manifest forge_game_content forge_game_presentation
  forge_game_platform forge_game_storage SDL3::SDL3 RmlUi::Core
  Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings d3d12 dxgi)
 copy_required_dlls(forge_game)
@@ -26,4 +26,21 @@ if(BUILD_TESTING)
  copy_required_dlls(forge_game_fixture)
  add_test(NAME standalone_game_workflow COMMAND forge_game_fixture "${CMAKE_BINARY_DIR}/grid-test-images/game")
  set_tests_properties(standalone_game_workflow PROPERTIES TIMEOUT 120)
+endif()
+
+# Installation produces a source-independent runtime kit for the exporter.
+# Shared/static profiles are separate exact builds, not interchangeable DLL sets.
+if(WIN32)
+ set(_forge_prior_runtime_skip "${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP}")
+ set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+ include(InstallRequiredSystemLibraries)
+ set(FORGE_RUNTIME_LICENSE_ROOTS "")
+ foreach(dependency flecs json sdl diligent jolt miniaudio ozz recast rmlui freetype ktx webp meshoptimizer draco)
+  if(DEFINED ${dependency}_SOURCE_DIR)
+   string(APPEND FORGE_RUNTIME_LICENSE_ROOTS " \"${${dependency}_SOURCE_DIR}\"")
+  endif()
+ endforeach()
+ configure_file(cmake/runtime_kit_install.cmake.in runtime_kit_install.cmake @ONLY)
+ set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP "${_forge_prior_runtime_skip}")
+ install(CODE "set(FORGE_KIT_GAME \"$<TARGET_FILE:forge_game>\")\nset(FORGE_KIT_D3D12 \"$<TARGET_FILE:Diligent-GraphicsEngineD3D12-shared>\")\ninclude(\"${CMAKE_BINARY_DIR}/runtime_kit_install.cmake\")" COMPONENT GameRuntime)
 endif()

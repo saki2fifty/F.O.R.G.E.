@@ -145,6 +145,7 @@ class ContentBrowser {
     std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const AssetRecord&, bool)> file_actions;
     std::function<ui::EditorActions(const AssetRecord*)> action_set;
+    std::function<void(const AssetCatalog&, const AssetRecord&)> runtime_dependencies;
     std::vector<AssetId> selected_assets() const { return view_.selected_assets(); }
     bool selected_assets_complete() const {
         return view_.selected_assets().size() == view_.selection().size();
@@ -331,6 +332,8 @@ class ContentBrowser {
                        "Open the containing folder in your operating system."))
             SDL_OpenURL(ui::local_file_url((files.document.project() / asset->source).parent_path())
                             .c_str());
+        if (runtime_dependencies)
+            runtime_dependencies(*catalog_, *asset);
         if (ImGui::TreeNode("Dependencies and references")) {
             const auto& graph = catalog_->dependency_graph();
             const auto link = [&](AssetId id) {

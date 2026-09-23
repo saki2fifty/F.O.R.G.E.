@@ -6,6 +6,7 @@
 #include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/project_paths.hpp>
+#include <forge/runtime_content_access.hpp>
 #include <forge/scene.hpp>
 #include <forge/schema.hpp>
 #include <fstream>
@@ -95,6 +96,12 @@ std::filesystem::path AssetCatalog::project_index(const std::filesystem::path& r
 AssetCatalog AssetCatalog::open_project(const std::filesystem::path& root) {
     AssetCatalog result(root);
     const auto index = project_index(root);
+    if (std::filesystem::exists(
+            asset_detail::native_io_path(root / "forge.runtime-content.json"))) {
+        RuntimeContentAccess access(root);
+        result.restore(parse_index(access.read("forge.assets.json", max_asset_index_bytes)));
+        return result;
+    }
     if (std::filesystem::exists(asset_detail::native_io_path(index))) {
         if (std::filesystem::file_size(asset_detail::native_io_path(index)) > max_asset_index_bytes)
             throw std::runtime_error("Asset index exceeds 64 MiB");

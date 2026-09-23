@@ -2,11 +2,12 @@
 #include "bounded_json.hpp"
 #include <forge/game_content.hpp>
 #include <forge/prefab.hpp>
+#include <forge/runtime_content_access.hpp>
 #include <forge/scene.hpp>
 #include <set>
 namespace forge {
 Json load_game_scene(const std::filesystem::path& root, AssetRef<SceneAsset> ref) {
-    const ProjectPaths paths(root);
+    const RuntimeContentAccess access(root);
     const auto catalog = AssetCatalog::open_project(root);
     std::size_t bytes = 0;
     auto read = [&](AssetId id, std::string_view type) {
@@ -18,7 +19,7 @@ Json load_game_scene(const std::filesystem::path& root, AssetRef<SceneAsset> ref
         const auto version = found->second.schema_version;
         if (type == SceneAsset::type ? version < 3 || version > 5 : version < 1 || version > 2)
             throw std::runtime_error("game.content: Unsupported catalog schema version");
-        auto data = asset_detail::read_bytes(paths.resolve(found->second.source), 64 * 1024 * 1024);
+        auto data = access.read(found->second.source, 64 * 1024 * 1024);
         if (data.size() > 256 * 1024 * 1024 - bytes)
             throw std::runtime_error("game.content: Scene/prefab closure exceeds 256 MiB");
         bytes += data.size();

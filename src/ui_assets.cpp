@@ -275,8 +275,7 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     const bool text = ext == ".rml" || ext == ".rcss";
     require(text || ext == ".ttf" || ext == ".otf" || ext == ".tga",
             "Unsupported UI resource type");
-    auto data = asset_detail::read_bytes(paths_.resolve(locator),
-                                         text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
+    auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
     if (text)
         validate_ui_text(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
@@ -299,7 +298,7 @@ std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
     return name;
 }
 UiAssetSnapshot UiResources::snapshot() const {
-    UiAssetSnapshot result{paths_.root(), documents_, {}};
+    UiAssetSnapshot result{paths_.root(), documents_, {}, automatic_};
     for (const auto& [name, bytes] : files_) {
         const auto source = std::filesystem::u8path(name);
         const auto extension = lower(source.extension().string());
@@ -320,6 +319,11 @@ UiAssetSnapshot UiResources::snapshot() const {
         result.sources.push_back(std::move(info));
     }
     return result;
+}
+void UiResources::automatic(const std::string& locator) {
+    const auto path = ProjectPaths::normalize(std::filesystem::u8path(locator));
+    (void)read(path_utf8(path));
+    automatic_.insert(path);
 }
 AssetRecord register_ui_document(const std::filesystem::path& root,
                                  const std::filesystem::path& source) {

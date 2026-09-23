@@ -31,6 +31,7 @@
 #include "files.hpp"
 #include "flecs_script.hpp"
 #include "frame_renderer.hpp"
+#include "game_export.hpp"
 #include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
@@ -47,6 +48,7 @@
 #include "prefabs.hpp"
 #include "project_settings.hpp"
 #include "resource_inspector.hpp"
+#include "runtime_dependencies.hpp"
 #include "runtime_ui_host.hpp"
 #include "runtime_ui_tools.hpp"
 #include "scene_asset_drop.hpp"
@@ -168,6 +170,8 @@ int main(int argc, char** argv) {
         forge::ui::ContextScope editor_scope(editor);
         forge::ComponentInspector component_inspector;
         forge::ContentBrowser content;
+        forge::ui::RuntimeDependenciesEditor runtime_dependencies;
+        forge::ui::GameExportTask game_export;
         forge::ui::DocumentWorkspace documents;
         forge::ui::AssetEditors asset_editors;
         content.editors = &asset_editors;
@@ -853,6 +857,15 @@ int main(int argc, char** argv) {
             files.document.save();
         }
 #endif
+        content.runtime_dependencies = [&](const forge::AssetCatalog& catalog,
+                                           const forge::AssetRecord& asset) {
+            runtime_dependencies.draw(
+                files.document, catalog, asset,
+                asset_document_locked || play.active() || native->busy() || files.busy() ||
+                    files.changed || cache_tools.busy() || source_import.busy() ||
+                    content_files.busy(),
+                [&](const forge::AssetRecord& target) { asset_editors.open(target); });
+        };
         content.action_set = [&](const forge::AssetRecord* explicit_target) {
             forge::ui::AssetActionContext context;
             bool selection_complete = true;
@@ -872,10 +885,10 @@ int main(int argc, char** argv) {
                         selection_complete = content.selected_assets_complete();
                 }
             }
-            if (play.active() || native->busy() || files.busy() || files.changed ||
-                cache_tools.busy() || source_import.busy() || content_files.busy() ||
-                scene_asset_drop.busy() || scene_tools.move.active() || modal.active() ||
-                blockout.active())
+            if (game_export.busy() || runtime_dependencies.busy() || play.active() ||
+                native->busy() || files.busy() || files.changed || cache_tools.busy() ||
+                source_import.busy() || content_files.busy() || scene_asset_drop.busy() ||
+                scene_tools.move.active() || modal.active() || blockout.active())
                 context.blocked =
                     "Stop Play and finish the current gesture, file, import, or cache operation.";
             context.openable = context.target && asset_editors.find(context.target->type);
@@ -1057,7 +1070,7 @@ int main(int argc, char** argv) {
             native->gravity = files.document.settings().physics().gravity;
             if (!files.document.settings().requires_native_sdk())
                 native->pump(play, authoring_snapshot.snapshot(scene));
-            files.set_switch_available(!native->busy());
+            files.set_switch_available(!game_export.busy() && !native->busy());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
             if (width <= 0 || height <= 0 ||
@@ -1122,11 +1135,15 @@ int main(int argc, char** argv) {
                                                 [&](ImGuiID center) { documents.dock(center); });
                 initialize_layout = false;
             }
-            const bool edit_locked = play.active() || native->busy() || files.busy() ||
+            game_export.poll(content_imports, [&] { content.refresh(files); });
+            runtime_dependencies.poll([&] { content.refresh(files); });
+            const bool edit_locked = game_export.busy() || runtime_dependencies.busy() ||
+                                     play.active() || native->busy() || files.busy() ||
                                      scene_tools.move.active() || modal.active() ||
                                      blockout.active();
             document_locked = edit_locked;
-            asset_document_locked = native->busy() || files.busy() || scene_tools.move.active() ||
+            asset_document_locked = game_export.busy() || runtime_dependencies.busy() ||
+                                    native->busy() || files.busy() || scene_tools.move.active() ||
                                     modal.active() || blockout.active();
             editor.selection.reconcile(scene.document());
             if (editor.task.owner == forge::ui::DocumentTask::Extension &&
@@ -1171,6 +1188,10 @@ int main(int argc, char** argv) {
                         action.unavailable_reason = "Select an authored entity for this action.";
                 }
             };
+            add_action(
+                "game.export", "Export Game...", "",
+                "Build a relocatable Development standalone game from saved project content.", true,
+                [&] { game_export.open(); });
             for (auto action : content.action_set(nullptr).entries)
                 actions.entries.push_back(std::move(action));
             actions.entries.push_back(model_imports.placement_action(files.document));
@@ -2127,10 +2148,14 @@ int main(int argc, char** argv) {
                         ImGui::EndMenu();
                     }
                     if (ImGui::BeginMenu("Run")) {
+                        FORGE_UI_PROBE("menu:Run");
+                        actions.item("game.export");
+                        ImGui::Separator();
                         for (auto id : {"play", "pause", "step", "stop", "recover"})
                             actions.item(id);
                         ImGui::EndMenu();
                     }
+                    FORGE_UI_PROBE("menu:Run");
                     if (workspace.menu())
                         perform(save_preferences);
                     if (ImGui::BeginMenu("Assets")) {
@@ -2291,11 +2316,19 @@ int main(int argc, char** argv) {
                 forge::ui::report_error("asset_import", message);
             }
             content_files.poll(files.document, scene, content_imports, message);
-            content_imports.suspend(content_files.busy() || source_import.busy() ||
+            content_imports.suspend(game_export.busy() || runtime_dependencies.busy() ||
+                                    content_files.busy() || source_import.busy() ||
                                     cache_tools.busy());
+            game_export.draw(window.get(), files.document, scene,
+                             asset_document_locked || content_files.busy() ||
+                                 source_import.busy() || cache_tools.busy(),
+                             files.document.dirty() || documents.source_drafts_dirty() ||
+                                 runtime_dependencies.dirty(),
+                             [&] { project_settings.open(); });
             cache_tools.poll(files.document, content_imports);
             source_import.poll(files.document, content_imports, message);
-            content_imports.poll(files.document, message);
+            if (!game_export.writing() && !runtime_dependencies.busy())
+                content_imports.poll(files.document, message);
             // Documents and typed pickers also consume the catalog. Finishing
             // its async refresh must not depend on Content being visible.
             content.poll(files);
@@ -3311,6 +3344,10 @@ int main(int argc, char** argv) {
                         ? forge::read_json(files.document.project() /
                                            material_editor.document()->locator())
                         : forge::Json(nullptr);
+                observed["export_output"] = game_export.output();
+                observed["export_error"] = game_export.error();
+                observed["dependencies_busy"] = runtime_dependencies.busy();
+                observed["dependencies_dirty"] = runtime_dependencies.dirty();
                 observed["failed_imports"] = forge::Json::array();
                 observed["selected_asset"] = editor.selection.asset()
                                                  ? forge::Json(editor.selection.asset())

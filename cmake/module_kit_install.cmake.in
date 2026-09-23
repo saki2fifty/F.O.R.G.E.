@@ -1,0 +1,40 @@
+# Installed SDK helper. Run by cmake --install; never loaded by the game.
+if(NOT WIN32)
+ message(FATAL_ERROR "Native gameplay deployment kits currently target Windows")
+endif()
+set(_out "${CMAKE_INSTALL_PREFIX}/${FORGE_MODULE_KIT_NAME}")
+if(EXISTS "${_out}")
+ message(FATAL_ERROR "Module kit destination exists. Choose a fresh install prefix: ${_out}")
+endif()
+file(TO_CMAKE_PATH "$ENV{SystemRoot}" _system_root)
+file(GET_RUNTIME_DEPENDENCIES MODULES "${FORGE_MODULE_KIT_LIBRARY}"
+ LIBRARIES ${FORGE_MODULE_KIT_EXTRA_LIBRARIES}
+ DIRECTORIES "@_forge_sdk_root@/bin"
+ RESOLVED_DEPENDENCIES_VAR _resolved
+ UNRESOLVED_DEPENDENCIES_VAR _unresolved
+ CONFLICTING_DEPENDENCIES_PREFIX _conflicts
+ PRE_EXCLUDE_REGEXES "^api-ms-.*" "^ext-ms-.*"
+ POST_EXCLUDE_REGEXES "${_system_root}/[Ss][Yy][Ss][Tt][Ee][Mm]32/.*")
+if(_unresolved OR _conflicts_FILENAMES)
+ message(FATAL_ERROR "Module dependencies unresolved: ${_unresolved}; conflicts: ${_conflicts_FILENAMES}")
+endif()
+file(MAKE_DIRECTORY "${_out}")
+set(_files "${FORGE_MODULE_KIT_LIBRARY}" ${FORGE_MODULE_KIT_EXTRA_LIBRARIES} ${_resolved})
+list(REMOVE_DUPLICATES _files)
+get_filename_component(_library "${FORGE_MODULE_KIT_LIBRARY}" NAME)
+set(_manifest "{\"format\":\"forge.module-kit\",\"version\":1,\"library\":\"${_library}\",\"fingerprint\":\"@FORGE_NATIVE_SDK_FINGERPRINT@\",\"target\":{\"platform\":\"windows\",\"backend\":\"d3d12\"},\"files\":{}}")
+foreach(_file IN LISTS _files)
+ get_filename_component(_name "${_file}" NAME)
+ file(SHA256 "${_file}" _digest)
+ file(SIZE "${_file}" _size)
+ if(EXISTS "${_out}/${_name}")
+  file(SHA256 "${_out}/${_name}" _existing)
+  if(NOT _existing STREQUAL _digest)
+   message(FATAL_ERROR "Module dependency filename collision: ${_name}")
+  endif()
+ else()
+  file(COPY_FILE "${_file}" "${_out}/${_name}")
+ endif()
+ string(JSON _manifest SET "${_manifest}" files "${_name}" "{\"bytes\":${_size},\"sha256\":\"${_digest}\"}")
+endforeach()
+file(WRITE "${_out}/forge.module-kit.json" "${_manifest}\n")

@@ -105,6 +105,16 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             throw std::runtime_error("Late authoring opt-in escaped schema-stage guard");
         w.component<HostProbe>("sdk.HostProbe");
         w.entity("sdk.host").set<HostProbe>({host});
+        if (const auto* asset = std::getenv("FORGE_SDK_PACKAGE_RESOURCE")) {
+            forge::sdk::Client client(host);
+            const auto token = client.request_resource(FORGE_SDK_RESOURCE_TEXTURE, asset);
+            if (!token)
+                throw std::runtime_error("Declared dynamic resource was rejected");
+            const auto* undeclared = std::getenv("FORGE_SDK_PACKAGE_UNDECLARED");
+            if (!undeclared || client.request_resource(FORGE_SDK_RESOURCE_TEXTURE, undeclared))
+                throw std::runtime_error("Undeclared dynamic resource was accepted");
+            w.entity("sdk.dynamic_resource").set<uint64_t>(token);
+        }
         // Opt-in executable fixture, also built solely from the relocated SDK.
         // Startup queues membership; the fixed system uses ordinary deferred
         // Flecs writes after the engine reports the registered entity Ready.

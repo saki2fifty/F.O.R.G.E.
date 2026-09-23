@@ -78,7 +78,27 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "hierarchy-controls-fit") {
+        if (what == "dependencies-saved") {
+            require(!state.at("dependencies_busy").get<bool>() &&
+                        !state.at("dependencies_dirty").get<bool>(),
+                    "Dependency save still pending");
+            auto catalog = AssetCatalog::open_project(project_);
+            const auto& edges = catalog.records().at(AssetId::parse(scene_)).dependency_edges;
+            require(std::any_of(edges.begin(), edges.end(),
+                                [&](const auto& edge) {
+                                    return edge.target.str() == material_asset_ &&
+                                           edge.role == "declared:Gameplay variants";
+                                }),
+                    "Typed declaration was not saved");
+        } else if (what == "game-exported") {
+            require(state.at("export_error").get<std::string>().empty(),
+                    state.at("export_error").get<std::string>().c_str());
+            require(!state.at("export_output").get<std::string>().empty(), "Export still pending");
+            require(std::filesystem::is_regular_file(
+                        std::filesystem::u8path(state.at("export_output").get<std::string>()) /
+                        "forge.standalone.json"),
+                    "Export manifest missing");
+        } else if (what == "hierarchy-controls-fit") {
             for (const auto* name : {"button:Expand all", "button:Collapse all"}) {
                 const auto& target = ui_targets.at(name);
                 require(target.minimum.x >= target.clip_minimum.x &&
@@ -470,6 +490,35 @@ class EditorInputWorkflow {
         key(ImGuiKey_S, true);
         check("saved");
         capture("scene-material-assignment");
+        click("tab:Content");
+        text("content:search", "scene");
+        click("saved-scene-asset");
+        click("dependencies:section");
+        click("dependencies:type");
+        click("dependencies:type:material");
+        click("asset-picker:material:Resource");
+        click("authored-material-option");
+        text("dependencies:reason", "Gameplay variants");
+        click("button:Add dependency");
+        capture("runtime-dependency-draft");
+        click("dependencies:save");
+        check("dependencies-saved");
+        capture("runtime-dependencies-saved");
+        click("menu:Run");
+        capture("export-run-menu");
+        click("action:game.export");
+        capture("export-task");
+        click("button:Project Settings");
+        click("button:Use saved current scene as startup");
+        click("button:Set up game defaults");
+        capture("standalone-game-settings");
+        click("button:Save Settings");
+        click("button:Close Settings");
+        text("export:Destination", path_utf8(evidence / "exported-game"));
+        click("export:start");
+        check("game-exported");
+        capture("export-complete");
+        click("button:Close Export");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {

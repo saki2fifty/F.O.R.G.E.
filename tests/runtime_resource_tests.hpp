@@ -1,6 +1,8 @@
 #pragma once
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include "runtime_dependencies.hpp"
+#include "runtime_package.hpp"
 #include "runtime_resource_fixtures.hpp"
 #include <forge/engine_assets.hpp>
 #include <forge/material_source.hpp>
@@ -202,5 +204,72 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
         check(!authoring.services().available(Capability::Resources),
               "Runtime provider activated in authored world");
     }
+    // A module-selected resource must be in the admitted finite package closure.
+    auto current = AssetCatalog::open_project(root);
+    auto texture_record = current.records().at(texture_asset);
+    texture_record.metadata["forge.import"]["platform"] = "linux";
+    texture_record.metadata["forge.import"]["backend"] = "none";
+    texture_record.metadata["forge.import"]["profile"] = "cpu";
+    current.replace(texture_record);
+    current.save(AssetCatalog::project_index(root));
+    {
+        std::ofstream source(root / texture_record.source);
+        source << "fixture authoring source";
+    }
+    declare_runtime_dependencies(*lease, asset,
+                                 {{texture_asset,
+                                   "texture",
+                                   AssetDependencyKind::Runtime,
+                                   "declared:gameplay skin selection",
+                                   {}}},
+                                 current.document());
+    publish();
+    const auto recooked = AssetCatalog::open_project(root);
+    check(std::any_of(recooked.records().at(asset).dependency_edges.begin(),
+                      recooked.records().at(asset).dependency_edges.end(),
+                      is_declared_runtime_dependency),
+          "Reimport discarded runtime declaration");
+    const auto package = parent / ("module-package-" + AssetId::generate().str());
+    const std::array roots{asset};
+    package_runtime_content(root, package, roots, {"linux", "none"});
+    lease.reset();
+    const auto offline = parent / ("module-source-offline-" + AssetId::generate().str());
+    std::filesystem::rename(root, offline);
+    {
+        EngineModule consumer;
+        consumer.id = "test.dynamic_consumer";
+        consumer.dependencies = {"forge.resources"};
+        consumer.runtime_roles = role_mask(WorldRole::Runtime);
+        consumer.required_services = capability(Capability::Resources);
+        consumer.allowed_services = capability(Capability::Resources);
+        std::uint64_t token = 0;
+        consumer.start = [&](ModuleContext& c) {
+            token = c.services.resources()->request(RuntimeResourceKind::Texture, texture_asset);
+            try {
+                (void)c.services.resources()->request(RuntimeResourceKind::Shader, shader_asset);
+                throw std::runtime_error("Undeclared dynamic shader accepted");
+            } catch (const std::exception& e) {
+                check(std::string_view(e.what()).starts_with("package.resource.undeclared:"),
+                      "Module request lacks structured undeclared-resource diagnostic");
+            }
+        };
+        EngineContext engine(WorldRole::Runtime, false,
+                             {runtime_resources_module(package), consumer});
+        const auto service = engine.services().resources();
+        const auto end = std::chrono::steady_clock::now() + 5s;
+        for (;;) {
+            service->synchronize();
+            const auto status = service->inspect(token);
+            if (status.state == "ready")
+                break;
+            check(status.state != "failed" && std::chrono::steady_clock::now() < end,
+                  "Declared module request did not become ready after relocation");
+            std::this_thread::sleep_for(1ms);
+        }
+        service->refresh(); // Immutable package does not discover the offline source catalog.
+        check(service->inspect(token).state == "ready",
+              "Rejected request destabilized the active resource");
+    }
+    std::filesystem::rename(offline, root);
 }
 } // namespace forge::test

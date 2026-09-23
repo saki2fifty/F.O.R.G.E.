@@ -20,3 +20,8 @@ set_target_properties(ui_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TR
 add_library(combined_gameplay MODULE combined.cpp)
 target_link_libraries(combined_gameplay PRIVATE ForgeNativeSdk::Client)
 set_target_properties(combined_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+
+if(WIN32)
+ forge_install_gameplay_runtime(gameplay NAME sample.gameplay)
+ forge_install_gameplay_runtime(combined_gameplay NAME sample.combined)
+endif()

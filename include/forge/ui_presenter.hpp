@@ -24,6 +24,9 @@ class UiPresenter {
     ~UiPresenter();
     UiPresenter(const UiPresenter&) = delete;
     UiPresenter& operator=(const UiPresenter&) = delete;
+    // Authoring worker only: native DOM/styles without gameplay model evaluation.
+    // This is the reliable static subset, not conditional-resource completeness.
+    UiAssetSnapshot inspect_static(AssetRef<UiDocumentAsset>);
     void reset(std::string session, std::uint64_t generation);
     bool accept(const nlohmann::json& snapshot);
     bool reload();

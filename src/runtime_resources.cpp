@@ -1,5 +1,6 @@
 #include "model_render_resource.hpp"
 #include <forge/engine_assets.hpp>
+#include <forge/runtime_content_access.hpp>
 #include <forge/runtime_resources.hpp>
 #include <forge/shader_resource.hpp>
 #include <future>
@@ -21,6 +22,7 @@ class RuntimeResources final : public RuntimeResourceService {
     const std::thread::id owner_ = std::this_thread::get_id();
     std::filesystem::path project_;
     ServiceAccess services_;
+    RuntimeContentAccess access_;
     std::shared_ptr<const AssetCatalog> catalog_;
     // Aggregate CPU budget512MiB; each family has one preparation worker.
     ResourcePool<MeshAsset> meshes_{{1, 64, 256, 128ull * 1024 * 1024}};
@@ -61,6 +63,8 @@ class RuntimeResources final : public RuntimeResourceService {
                 throw std::runtime_error("Runtime resource asset type mismatch");
         } else {
             const auto found = catalog_->records().find(asset);
+            if (access_.packaged() && found == catalog_->records().end())
+                throw std::runtime_error("package.resource.undeclared: " + asset.str());
             if (found == catalog_->records().end() || found->second.type != expected ||
                 (found->second.subasset && found->second.subasset->removed))
                 throw std::runtime_error(
@@ -104,7 +108,7 @@ class RuntimeResources final : public RuntimeResourceService {
 
   public:
     RuntimeResources(std::filesystem::path project, ServiceAccess services)
-        : project_(std::move(project)), services_(services),
+        : project_(std::move(project)), services_(services), access_(project_),
           catalog_(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project_))) {}
     void close() {
         check();
@@ -167,6 +171,8 @@ class RuntimeResources final : public RuntimeResourceService {
     }
     void refresh() override {
         check();
+        if (access_.packaged())
+            return; // Immutable admitted package; no project discovery.
         if (refresh_.valid()) {
             refresh_again_ = true;
             return;

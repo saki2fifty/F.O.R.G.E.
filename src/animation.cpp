@@ -2,11 +2,13 @@
 #include "animation_resource.hpp"
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
+#include "legacy_animation_provenance.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/animation.hpp>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
+#include <forge/runtime_content_access.hpp>
 #include <future>
 #include <set>
 namespace forge {
@@ -289,31 +291,17 @@ struct AnimationRuntime::Impl {
             throw ArchiveError("Animation clip unavailable: " + c.diagnostic);
         const auto& sm = s.record->metadata;
         const auto& cm = c.record->metadata;
-        for (const auto* m : {&sm, &cm}) {
-            if (m->at("version") != 1 || m->at("ozz_revision") != ozz_revision ||
-                m->at("ozz_version") != "0.17.0" || m->at("converter") != "gltf2ozz" ||
-                m->at("converter_revision") != ozz_revision)
-                throw ArchiveError("Unsupported animation provenance");
-            auto source = m->at("source_asset").get<AssetId>();
-            auto found = catalog.records().find(source);
-            if (found == catalog.records().end() || found->second.type != "animation_source")
-                throw ArchiveError("Animation source identity is missing");
-            for (const auto& entry : m->at("settings").at("animations"))
-                if (entry.at("iframe_interval") != 0 || entry.at("raw") != false ||
-                    entry.at("additive") != false)
-                    throw ArchiveError("Unsupported animation conversion settings");
-        }
-        if (sm.at("skeleton_asset") != Json(config.skeleton.id) ||
-            cm.at("skeleton_asset") != Json(config.skeleton.id) ||
-            sm.at("artifact_sha256") != cm.at("skeleton_sha256") ||
-            sm.at("skeleton_sha256") != sm.at("artifact_sha256") ||
-            sm.at("source_asset") != cm.at("source_asset") ||
-            sm.at("source_sha256") != cm.at("source_sha256") ||
-            sm.at("settings") != cm.at("settings"))
-            throw ArchiveError("Animation clip is incompatible with this skeleton revision");
-        ProjectPaths paths(project);
+        validate_legacy_pair(config.skeleton.id, sm, cm);
+        const RuntimeContentAccess access(project);
+        if (!access.packaged())
+            for (const auto* m : {&sm, &cm}) {
+                const auto source = m->at("source_asset").get<AssetId>();
+                const auto found = catalog.records().find(source);
+                if (found == catalog.records().end() || found->second.type != "animation_source")
+                    throw ArchiveError("Animation source identity is missing");
+            }
         auto admit = [&](const AssetRecord& record) {
-            auto data = read_bytes(paths.resolve(record.source), max_archive_bytes);
+            auto data = access.read(record.source, max_archive_bytes);
             auto digest = content_digest(data);
             if (digest != record.metadata.at("artifact_sha256").get<std::string>())
                 throw ArchiveError("Animation artifact digest mismatch");

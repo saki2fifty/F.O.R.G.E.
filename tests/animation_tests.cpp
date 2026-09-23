@@ -1,3 +1,4 @@
+#include "runtime_package.hpp"
 #include <bit>
 #include <forge/animation.hpp>
 #include <forge/animation_conversion.hpp>
@@ -84,6 +85,31 @@ int main(int argc, char** argv) {
             std::cout << root.string() << "\n";
             return 0;
         }
+        // Export admitted converter output only. Original glTF and source identity
+        // remain provenance, not runtime dependencies or fallback paths.
+        const auto packaged = root.parent_path() / ("packaged-" + AssetId::generate().str());
+        const std::array animation_roots{clip.id};
+        package_runtime_content(root, packaged, animation_roots, {"linux", "none"});
+        check(!open_runtime_content(packaged, {"linux", "none"}).records().contains(source.id),
+              "Animation source unexpectedly required by shipped runtime");
+        const auto offline = root.parent_path() / ("offline-" + AssetId::generate().str());
+        std::filesystem::rename(root, offline);
+        {
+            Fixture exported(packaged);
+            Json config{{"skeleton", skeleton.id}, {"clip", clip.id}, {"enabled", true},
+                        {"play_on_start", true},   {"loop", true},    {"playback_speed", 1}};
+            exported.load(
+                {{"version", 1},
+                 {"entities", Json::array({{{"id", "actor"},
+                                            {"name", "Actor"},
+                                            {"components",
+                                             {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                                              {"forge.animator", config}}}}})}});
+            exported.simulation.tick(.1f);
+            check(!exported.pose().is_null(), "Relocated legacy animation failed without source");
+        }
+        std::filesystem::rename(offline, root);
+        std::filesystem::remove_all(packaged);
         signed_scale_animation(root / "signed", std::filesystem::absolute(argv[2]),
                                Json::parse(read(root / "Assets/source.gltf")));
         // Pinned converter fallback channels must retain matrix-authored parent rest.

@@ -9,7 +9,9 @@
 #include "model_render_resource.hpp"
 #include "model_selection.hpp"
 #include "model_watch_tests.hpp"
+#include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
+#include <forge/engine_assets.hpp>
 #include <forge/model_asset.hpp>
 #include <fstream>
 #include <iostream>
@@ -147,6 +149,14 @@ int main(int argc, char** argv) {
                                 edge.expected_type,
                         "Model member binding type/revision mismatch");
         }
+        auto declaration_catalog = AssetCatalog::open_project(root);
+        declare_runtime_dependencies(*lease, owner,
+                                     {{engine_material().id,
+                                       "material",
+                                       AssetDependencyKind::Runtime,
+                                       "declared:runtime material alternative",
+                                       {}}},
+                                     declaration_catalog.document());
         const auto packaged_path =
             root.parent_path() / ("model-package-" + AssetId::generate().str());
         const std::array packaged_roots{before.at("/meshes/0")};
@@ -339,6 +349,11 @@ int main(int argc, char** argv) {
         require(repeated.published && repeated.cache_hit &&
                     bindings(repeated.publication->catalog, owner) == before,
                 "Model cache reimport changed identities");
+        require(
+            std::any_of(repeated.publication->catalog.records().at(owner).dependency_edges.begin(),
+                        repeated.publication->catalog.records().at(owner).dependency_edges.end(),
+                        is_declared_runtime_dependency),
+            "Model reimport discarded declared dependency");
         const auto selected = read_bytes(root / "forge.assets.json", max_asset_index_bytes);
         const auto sidecar = AssetPublisher::sidecar_path(source);
         const auto selected_sidecar = read_bytes(root / sidecar, max_asset_index_bytes);

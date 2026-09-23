@@ -1,7 +1,11 @@
 #include "asset_tools_cli.hpp"
 #include "bounded_json.hpp"
 #include "cache_maintenance.hpp"
+#include "game_export.hpp"
 #include "runtime_package.hpp"
+#include "self_executable.hpp"
+#include "ui_inspection.hpp"
+#include <forge/scene.hpp>
 #ifdef FORGE_ASSET_TOOLS
 #include "import_authoring.hpp"
 #include "self_executable.hpp"
@@ -24,7 +28,38 @@ int asset_tools_cli(int argc, char** argv) {
         if (!std::filesystem::is_directory(project))
             throw std::runtime_error("Project root is not a directory");
         Json result{{"api", 1}, {"operation", operation}, {"ok", true}};
-        if (operation.starts_with("cache-")) {
+        if (operation == "export-game" && argc == 5) {
+            const std::string_view text(argv[4]);
+            const auto options =
+                asset_detail::parse_bounded_json(std::as_bytes(std::span(text)), 65536, 1024, 8);
+            GameExportRequest request;
+            request.destination =
+                std::filesystem::u8path(options.at("destination").get<std::string>());
+            request.runtime_kit =
+                std::filesystem::u8path(options.at("runtime_kit").get<std::string>());
+            auto executable = self_executable().parent_path();
+            request.inspection_runtime = executable / "forge_runtime";
+            auto worker = executable / "forge_ui_inspect";
+#ifdef _WIN32
+            request.inspection_runtime += ".exe";
+            worker += ".exe";
+#endif
+            for (const auto& [id, path] : options.value("module_kits", Json::object()).items())
+                request.module_kits.emplace(id, std::filesystem::u8path(path.get<std::string>()));
+            WorldContext world;
+            request.reference_schema = world.schema();
+            ProjectLease lease(project);
+            result.update(export_standalone_game(
+                lease, request,
+                [&](AssetId id, std::stop_token stop) {
+                    return inspect_ui_dependencies(
+                        worker, executable / "resources/ui/LatoLatin-Regular.ttf", project, id,
+                        stop);
+                },
+                [](const GameExportProgress& p) {
+                    std::cerr << p.completed << "/" << p.total << " " << p.stage << '\n';
+                }));
+        } else if (operation.starts_with("cache-")) {
             CacheMaintenance action;
             AssetId asset;
             std::uint64_t budget = 0;
@@ -63,8 +98,22 @@ int asset_tools_cli(int argc, char** argv) {
                 const auto roots = asset_detail::parse_bounded_json(
                                        std::as_bytes(std::span(roots_text)), 1024 * 1024, 32768, 4)
                                        .get<std::vector<AssetId>>();
+                RuntimeUiInspector inspect = [&](AssetId id, std::stop_token stop) {
+                    auto worker = self_executable().parent_path() / "forge_ui_inspect";
+#ifdef _WIN32
+                    worker += ".exe";
+#endif
+                    return inspect_ui_dependencies(worker,
+                                                   self_executable().parent_path() /
+                                                       "resources/ui/LatoLatin-Regular.ttf",
+                                                   project, id, stop);
+                };
+                if (!std::filesystem::exists(project / "forge.runtime-content.json")) {
+                    ProjectLease writer(project);
+                    prepare_runtime_content_catalog(writer, roots, inspect);
+                }
                 result["manifest"] = package_runtime_content(
-                    project, std::filesystem::u8path(argv[4]), roots, target);
+                    project, std::filesystem::u8path(argv[4]), roots, target, {}, {}, {}, inspect);
             } else {
                 const auto catalog = open_runtime_content(project, target);
                 result["assets"] = catalog.records().size();
