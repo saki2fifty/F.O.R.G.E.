@@ -71,10 +71,16 @@ def complete_content(project, work, build, source, run):
         if path.is_file(): shutil.copy2(path, project/'Rendering'/path.name)
     imported = json.loads(run([binary('forge_tools'), '--assets', 'import', project, 'Rendering/Rendering.gltf']).stdout)
     catalog = json.loads((project/'forge.assets.json').read_text())
-    mesh = next(r for r in catalog['assets'] if r['type']=='mesh' and r['subasset']['owner']==imported['asset'])
+    # UUID sort order is not source mesh order. The floor can be first and is
+    # edge-on to this camera; require the known textured cube from this fixture.
+    meshes = [r for r in catalog['assets'] if r['type']=='mesh'
+              and r['subasset']['owner']==imported['asset']
+              and r['metadata']['forge.model']['name']=='Cube']
+    assert len(meshes) == 1, 'Rendering fixture needs exactly one Cube mesh'
+    mesh = meshes[0]
     model = copy.deepcopy(next(e for e in scene['entities'] if e['name']=='Cube'))
     model['id'], model['name'] = str(uuid.uuid4()), 'Imported renderable'
-    model['components']['forge.local_translation'] = dict(x=2, y=0, z=8)
+    model['components']['forge.local_translation'] = dict(x=1.5, y=0, z=8)
     model['components']['forge.mesh_renderer']['mesh'] = mesh['id']
     model['components']['forge.mesh_renderer']['materials'] = []  # Native mesh bindings select its imported material.
     navigation_scene['entities'].append(model)

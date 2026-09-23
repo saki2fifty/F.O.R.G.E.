@@ -105,6 +105,16 @@ struct GameHostFixture {
         unsigned contrast = 0;
         for (unsigned c = 0; c < 3; ++c)
             contrast += unsigned(std::abs(int(center[c]) - int(corner[c])));
+        std::size_t imported_pixels = 0;
+        if (mixed && std::string_view(name) == "standalone-running.ppm")
+            for (unsigned y = desc.Height * 4 / 10; y < desc.Height * 6 / 10; ++y)
+                for (unsigned x = desc.Width * 65 / 100; x < desc.Width * 9 / 10; ++x) {
+                    const auto* pixel = pixels + y * data.Stride + x * 4;
+                    unsigned difference = 0;
+                    for (unsigned c = 0; c < 3; ++c)
+                        difference += unsigned(std::abs(int(pixel[c]) - int(corner[c])));
+                    imported_pixels += difference > 40;
+                }
         std::ofstream file(output / name, std::ios::binary);
         file << "P6\n" << desc.Width << ' ' << desc.Height << "\n255\n";
         for (unsigned y = 0; y < desc.Height; ++y) {
@@ -115,6 +125,9 @@ struct GameHostFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
         check(contrast > 30, "Standalone cube is not distinguishable from the background");
+        if (mixed && std::string_view(name) == "standalone-running.ppm")
+            check(imported_pixels > 100,
+                  "Imported textured mesh is not visible to the right of the built-in cube");
     }
     void frame(GameSession& game, Diligent::ITextureView* image, Diligent::IRenderDevice* device,
                Diligent::IDeviceContext* context, SDL_Window* window, bool& running) {

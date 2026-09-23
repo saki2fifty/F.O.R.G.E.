@@ -517,3 +517,9 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   by default. Acceptance-input upload now explicitly includes hidden directories
   within the already validated standalone distribution, retaining its cooked
   content/.forge bytes. No source/build tree is added to the transfer.
+
+- Opened the successful mixed-game captures and found the fixture had selected
+  an edge-on floor by arbitrary catalog UUID order. It now selects the known
+  textured Cube mesh explicitly, places it visibly beside the built-in cube, and
+  checks actual pixels in that separate screen region. Asset presence alone is
+  not reported as visible imported-material/texture acceptance.
