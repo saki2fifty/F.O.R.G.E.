@@ -468,3 +468,9 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   fixture retained its importer-owned writer lease. The fixture now destroys the
   importer before moving its source. Product locking is unchanged. Rebuilt shared
   material_pipeline passed (11.81s); Windows rerun remains required.
+
+- Real Windows mixed-content export now completes at2818446, with source and kit
+  removal reached. Fixed the relocation fixture's SystemRoot lookup to use the
+  Windows case-insensitive environment mapping before constructing its restricted
+  PATH. Both primary and fresh-runner probes use that same correction; actual
+  production launch/capture remains to be checked by the rerun.

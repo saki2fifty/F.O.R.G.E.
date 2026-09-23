@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     shutil.rmtree(project)
     shutil.rmtree(testkit)
     env = os.environ.copy()
-    env['PATH'] = str(Path(env['SystemRoot'])/'System32')
+    env['PATH'] = str(Path(os.environ['SystemRoot'])/'System32')
     checked = run([relocated/'forge_game.exe', '--verify-startup'], cwd=relocated, env=env)
     assert 'FORGE standalone startup verified' in checked.stdout
     run([relocated/'forge_game_fixture.exe', '--packaged', evidence], cwd=relocated, env=env)

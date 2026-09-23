@@ -3,7 +3,7 @@ import hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
 root,evidence=map(lambda p:Path(p).resolve(),sys.argv[1:])
 evidence.mkdir(parents=True,exist_ok=True)
-env=os.environ.copy();env['PATH']=str(Path(env['SystemRoot'])/'System32')
+env=os.environ.copy();env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
 manifest=json.loads((root/'forge.standalone.json').read_text())
 assert manifest['engine']['profile']=='shared-native-sdk'
 assert len(manifest['settings']['modules'])==1
