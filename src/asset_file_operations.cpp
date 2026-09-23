@@ -4,6 +4,7 @@
 #include "bounded_json.hpp"
 #include "gltf_container.hpp"
 #include <forge/asset_publication.hpp>
+#include <forge/collision_source.hpp>
 #include <forge/material_source.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
@@ -194,7 +195,7 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
                                                 const std::map<AssetId, AssetId>& identities,
                                                 const Json& schema) {
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
-        record.type != "shader")
+        record.type != "shader" && record.type != "collision")
         throw std::runtime_error("No authored-document copy adapter for this source format");
     auto value =
         asset_detail::parse_bounded_json(std::as_bytes(std::span(bytes)), max_asset_index_bytes);
@@ -215,6 +216,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             value["asset_id"] = identities.at(record.id);
         if (record.type == "material")
             MaterialSource{value}.validate();
+        else if (record.type == "collision")
+            CollisionSource{value}.validate();
         else
             (void)shader_program_source(value);
     }

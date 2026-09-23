@@ -34,8 +34,8 @@ class GameSession {
     ~GameSession();
     GameSession(const GameSession&) = delete;
     GameSession& operator=(const GameSession&) = delete;
-    // Synchronous structural/physics preparation. This is NOT an async asset/GPU
-    // readiness promise. The visual host must admit required resources before activate.
+    // Structural preparation starts bounded asynchronous collision loading when
+    // required. The visual host separately admits required GPU/UI resources.
     // Optional game-owned restoration mutates only the unpublished Scene. It runs
     // before physics realization; throwing discards the candidate. No generic ECS dump.
     std::uint64_t prepare(const Json& snapshot,
@@ -73,7 +73,7 @@ class GameSession {
     LoadingState loading_;
     std::thread::id thread_ = std::this_thread::get_id();
     std::uint64_t generation_ = 0, pending_ = 0;
-    bool faulted_ = false, changing_ = false;
+    bool faulted_ = false, changing_ = false, candidate_initialized_ = false;
     std::string error_;
 };
 } // namespace forge

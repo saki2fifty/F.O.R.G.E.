@@ -43,10 +43,11 @@ A body currently needs **exactly one** collider, centered on its transform:
 - **Box Collider:** `x`, `y`, and `z` are full dimensions in meters, before object scale.
 - **Sphere Collider:** `radius` is its radius in meters.
 - **Capsule Collider:** `radius` is its radius; `height` is the straight middle section, excluding the two rounded caps. Its long axis is local Y. Total height is `height + 2 × radius`.
+- **Cylinder Collider:** `radius` and full `height` are in meters. Its long axis is local Y, with flat ends.
 
 Collider geometry is independent of the visible primitive. Changing a mesh's Shape does not change its collider. Match their dimensions yourself. Collider wireframes are not available in this first integration.
 
-Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support signed nonzero scale on each axis. Spheres and capsules require equal nonzero scale magnitudes; their signs may differ. These centered shapes are symmetric, so mirroring does not change their physical solid. Zero/tiny scale rejected by Jolt, shear, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow non-dynamic spatial parents when their final world transform meets these restrictions.
+Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support signed nonzero scale on each axis. Spheres and capsules require equal nonzero scale magnitudes; their signs may differ. Cylinders require matching X/Z magnitudes; Y can scale independently. These centered shapes are symmetric, so mirroring does not change their physical solid. Zero/tiny scale rejected by Jolt, shear, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow non-dynamic spatial parents when their final world transform meets these restrictions.
 
 ## Weight, friction, and bounce
 
@@ -68,7 +69,7 @@ A supported Play recovery restores both the scene/configuration and Jolt's simul
 
 Recovery is private to the current session and exact runtime build. It is not a saved game. Invalid, incompatible, incomplete, or oversized checkpoints are rejected; the editor reports failure and offers a clean Play restart. Native module globals and external resources are not automatically recovered.
 
-This integration supports boxes, spheres, capsules, a default static/moving collision filter, and a gameplay raycast/target service. Mesh colliders, compound authoring, characters, joints, vehicles, cloth, and a collision-layer editor remain future work.
+Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Characters, collision debug drawing and the rest of this Phase8 block are still being integrated; joints, vehicles and cloth are later work.
 
 See [Play mode](play-mode.md), [Transforms](transforms.md), and [Prefabs](prefabs.md).
 
@@ -87,3 +88,98 @@ previous pose and collider. Change the body/collider arrangement, or remove phys
 from a node intended only for visual animation. The source clip is not rewritten.
 Use the [Model import document](models.md) to choose a clip and place the model,
 then press Play to inspect its supported animation and physics behavior.
+
+
+## Reusable collision assets
+
+A rendered Mesh does not automatically collide. Create a separate collision asset
+when you want reusable or complex collision geometry.
+
+1. In **Content**, choose **New collision...** and enter a new `.collision.json` path.
+2. Open the **Collision** document and choose its **Shape**.
+3. Set dimensions and local pose. Rotation is entered in degrees. A convex hull or triangle mesh uses the **Source Mesh** picker; it initially selects the engine cube.
+4. For a compound, choose **Add box child**, then edit the child shape and local pose.
+5. Choose **Save** to save the source and prepare a usable collision revision.
+6. Select a scene entity, add **Physics Body** and **Asset Collider**, and choose the collision asset in its picker. Remove any other collider on that entity.
+
+Triangle meshes, including compounds containing them, require a **Static** body.
+Geometry comes from the selected Mesh's base positions, without animation or morph
+baking. Degenerate triangles are rejected unless **Remove degenerate triangles** is
+selected. Geometry and scale errors retain the previous usable collision revision.
+
+The Collision document has its own Undo/Redo history. Scene Undo does not reverse
+saved source files or cooked publication. Runtime exports include cooked collision
+geometry and do not require its original render Mesh merely to simulate collision.
+
+## Collision layers and sensors
+
+In **Project Settings → Physics → Collision layers**, name the layer slots you need.
+Renaming a slot keeps existing references. Clearing a used slot makes that body's
+configuration invalid at the next Play; save settings and restart Play to apply changes.
+
+In **Physics Body**, choose the named **Layer** and the layers included in **Mask**.
+Two bodies collide only when both masks permit the other's layer. **Enabled** removes
+or restores the body in simulation. **Sensor** reports overlap contacts without
+solid collision response. Static bodies do not generate static/static contacts;
+use an appropriate moving body when that interaction is required.
+
+## Creating collision from a model's Mesh
+
+Expand the imported Model in **Content**, select the Mesh member you want, then
+choose **Assets → Create Collision from Mesh...** (also in its context menu).
+Choose **Convex Hull** for a solid outer envelope, or **Static Triangle Mesh** for
+concave level geometry. Enter a new project filename and choose **Create**. Review
+local pose and the **Source Mesh** in the central Collision document, then **Save**.
+This creates a separate asset; it does not attach a collider to the rendered object.
+
+Box fields show full XYZ **Size (m)**. Sphere fields show **Radius (m)**. Capsule and
+cylinder show radius and **Straight height (m)**; capsule caps add to that height.
+
+## Character Controller (new Phase8 source work)
+
+This batch is still undergoing acceptance and is not included in Build66.
+
+A Character Controller moves a capsule or cylinder through the physics world. It
+provides collision, gravity, ground state, slopes, stairs and moving-platform support.
+It does not assign movement keys or create a first-person camera.
+
+1. Select the character entity and add **Character Controller** under **Physics**.
+2. Set its **Child space** to **World**. Remove or disable a Physics Body on that same entity; the controller supplies its own physical presence.
+3. Place the entity's origin at its feet, above collision geometry. Set radius, straight standing height and crouch height to match its visible geometry.
+4. Choose **Capsule** or **Cylinder**, then set walkable slope, step height and collision layer/mask for your game.
+5. Gameplay code uses the controller service to request movement, jump, crouch or checked placement. Without movement code, Play demonstrates gravity and support.
+
+A crouched character stays crouched when a ceiling prevents standing. A placement
+that overlaps solid geometry is refused. Visual children may follow the character;
+separate physics bodies need independent World space. Controller settings support
+prefab inheritance and Revert. Velocity and ground contacts belong to Play and are
+not saved into the authored prefab.
+
+## Inspecting collision in Scene
+
+In **Scene → View**, turn on **Selected collision**, then select a body or character.
+The wireframe shows collision geometry separately from its visible Mesh. This option
+is saved with your workspace preferences and does not draw into Game View.
+
+- **Green:** prepared collision geometry.
+- **Grey:** a disabled body's authored shape.
+- **Amber:** preparation is pending, or the displayed geometry is an older revision.
+- **Red:** the candidate is rejected; read the message at the bottom of Scene.
+
+Large shapes show a message if the preview reaches its triangle limit; actual
+collision is unaffected. This is a geometry inspection tool. Play still validates
+spatial parenting and the complete physics configuration.
+
+During Play, a selected character also shows its ground classification, a ground
+normal guide and a velocity guide. Its outline follows the current standing or
+crouched shape. Blocked standing/placement is reported in the overlay.
+
+Compound children have **Remove child**, which removes that child and its descendants.
+The last child cannot be removed: every compound needs at least one shape. Document
+Undo restores removed members with their original identities.
+
+For a mesh-based shape, use **Choose mesh geometry...** to inspect its prepared
+Mesh, choose an imported LOD, and select individual triangle parts. **All parts**
+follows later Mesh revisions. A specific selection records the reviewed revision;
+a changed Mesh must be deliberately reselected before collision can be recooked.
+**Use geometry** creates one document Undo step; Save validates and publishes it.

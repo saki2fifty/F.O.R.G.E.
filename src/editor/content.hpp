@@ -515,8 +515,9 @@ class ContentBrowser {
             const auto* a = entry.asset ? record(entry.asset) : nullptr;
             if (a && action_set) {
                 auto actions = action_set(a);
-                for (const auto* id : {"asset.open", "asset.place", "asset.reimport", "asset.move",
-                                       "asset.duplicate", "asset.delete"})
+                for (const auto* id :
+                     {"asset.open", "asset.place", "asset.collision", "asset.reimport",
+                      "asset.move", "asset.duplicate", "asset.delete"})
                     actions.item(id);
             } else if (a && editors) {
                 if (const auto* editor = editors->find(a->type);

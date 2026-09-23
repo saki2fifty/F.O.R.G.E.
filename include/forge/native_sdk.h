@@ -56,6 +56,17 @@ typedef struct ForgeSdkPhysicsHitV1 {
     char scene[37], entity[37]; /* FORGE UUIDs, never Jolt BodyID */
     double position[3], normal[3], fraction;
 } ForgeSdkPhysicsHitV1;
+typedef struct ForgeSdkSweepV1 {
+    uint32_t size, shape, layer_mask, include_sensors;
+    double dimensions[3], origin[3], displacement[3];
+    float rotation[4]; /* normalized XYZW; identity is0,0,0,1 */
+} ForgeSdkSweepV1;
+typedef struct ForgeSdkCharacterV1 {
+    uint32_t size, ground, crouched, shape_change_blocked, jump_accepted;
+    double position[3], velocity[3], ground_position[3], ground_normal[3], ground_velocity[3];
+    float rotation_xyzw[4];
+    char support_scene[37], support_entity[37]; /* empty when unsupported */
+} ForgeSdkCharacterV1;
 typedef struct ForgeSdkActionV1 {
     uint32_t size;
     uint32_t held, pressed, released;
@@ -74,6 +85,7 @@ typedef struct ForgeSdkNavResultV1 {
 #define FORGE_SDK_RESOURCE_MATERIAL 2u
 #define FORGE_SDK_RESOURCE_TEXTURE 3u
 #define FORGE_SDK_RESOURCE_SHADER 4u
+#define FORGE_SDK_RESOURCE_COLLISION 5u
 #define FORGE_SDK_TEXTURE_AUTOMATIC 0u
 #define FORGE_SDK_TEXTURE_COLOR 1u
 #define FORGE_SDK_TEXTURE_DATA 2u
@@ -166,6 +178,21 @@ typedef struct ForgeSdkWorldV1 {
     uint64_t(FORGE_SDK_CALL* entity_request)(void*, const char* scene_uuid, const char* name);
     int32_t(FORGE_SDK_CALL* entity_inspect)(void*, uint64_t token, ForgeSdkEntityV1*);
     int32_t(FORGE_SDK_CALL* entity_release)(void*, uint64_t token);
+    /* Fixed owner thread; copied observations, no native character/body pointers.
+       ground:0 OnGround,1 OnSteepGround,2 NotSupported,3 InAir. */
+    int32_t(FORGE_SDK_CALL* character_state)(void*, const char* scene_uuid, const char* entity_uuid,
+                                             ForgeSdkCharacterV1*);
+    /* Queued:0 planar velocity,1 jump speed,2 crouch flag,3 checked placement.
+       value[3] required for0/3, rotation[4] for3, flag is crouched/clear velocity. */
+    int32_t(FORGE_SDK_CALL* character_command)(void*, const char* scene_uuid,
+                                               const char* entity_uuid, uint32_t operation,
+                                               const double value[3], const float rotation_xyzw[4],
+                                               float speed, uint32_t flag);
+    int32_t(FORGE_SDK_CALL* raycast_filtered)(void*, const double origin[3],
+                                              const double displacement[3], uint32_t layer_mask,
+                                              uint32_t include_sensors, ForgeSdkPhysicsHitV1*);
+    /* Linear Box/Sphere/Capsule/Cylinder sweep(0..3).1 hit,0 miss,-1 invalid. */
+    int32_t(FORGE_SDK_CALL* shape_cast)(void*, const ForgeSdkSweepV1*, ForgeSdkPhysicsHitV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

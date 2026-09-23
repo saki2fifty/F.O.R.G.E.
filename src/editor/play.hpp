@@ -32,6 +32,8 @@ class PlaySession {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
     }
     const Json& timing() const { return timing_; }
+    Json physics_debug_selection;
+    const Json& physics_status() const { return physics_status_; }
     const Json& input_status() const { return input_status_; }
     const Json& ui_snapshot() const { return ui_snapshot_; }
     const Json& ui_ack() const { return ui_ack_; }
@@ -234,6 +236,7 @@ class PlaySession {
                 effective_ = response.at("effective_scene");
                 timing_ = response.at("timing");
                 input_status_ = response.value("input", Json::object());
+                physics_status_ = response.value("physics", Json::object());
                 auto next_ui = response.value("ui", Json());
                 if (!next_ui.is_null() && !ui_snapshot_.is_null() &&
                     next_ui.at("generation") != ui_snapshot_.at("generation"))
@@ -396,6 +399,7 @@ class PlaySession {
         request_id_ = 0;
         input_events_.clear();
         input_status_ = Json::object();
+        physics_status_ = Json::object();
         std::vector<const char*> args{executable_.c_str()};
         if (!audio_project_.empty()) {
             args.push_back(exact_sdk_ ? "--sdk-project" : "--project");
@@ -442,6 +446,8 @@ class PlaySession {
             request["input_events"] = input_events_;
             input_events_.clear();
         }
+        if (!physics_debug_selection.is_null())
+            request["physics_debug"] = physics_debug_selection;
         request["protocol"] = 2;
         request["id"] = ++request_id_;
         if (!session_.empty())
@@ -455,6 +461,7 @@ class PlaySession {
     Double3 gravity_{0, -9.81, 0};
     Json recovery_, initial_recovery_, checkpoint_recovery_;
     double simulation_hz_ = 60;
+    Json physics_status_ = Json::object();
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
     Json ui_snapshot_, ui_ack_, ui_command_;
     bool model_assets_changed_ = false;

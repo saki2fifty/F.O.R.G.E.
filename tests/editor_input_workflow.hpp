@@ -78,7 +78,13 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "dependency-fields-fit") {
+        if (what == "collision-preview") {
+            require(state.at("collision_preview_ready").get<bool>(),
+                    "Collision preview is not ready");
+        } else if (what == "collision-published") {
+            require(state.at("collision_document_ready").get<bool>(),
+                    "Collision document has not published");
+        } else if (what == "dependency-fields-fit") {
             for (const auto* name : {"dependencies:type", "dependencies:reason", "dependencies:add",
                                      "dependencies:save", "dependencies:discard"}) {
                 const auto& field = ui_targets.at(name);
@@ -548,6 +554,39 @@ class EditorInputWorkflow {
         hover("export:reveal");
         capture("export-complete");
         click("button:Close Export");
+        create("3D Primitive", "Cube");
+        key(ImGuiKey_F);
+        click("button:+ Add Component");
+        text("component-search", "Physics Body");
+        click("component-choice:forge.physics_body");
+        key(ImGuiKey_Escape);
+        click("button:+ Add Component");
+        text("component-search", "Box Collider");
+        click("component-choice:forge.box_collider");
+        key(ImGuiKey_Escape);
+        click("scene:view-menu");
+        click("physics:overlay");
+        key(ImGuiKey_Escape);
+        check("collision-preview");
+        capture("collision-box-scene");
+        create("3D Primitive", "Cube");
+        key(ImGuiKey_F);
+        click("button:+ Add Component");
+        text("component-search", "Character Controller");
+        click("component-choice:forge.character_controller");
+        key(ImGuiKey_Escape);
+        check("collision-preview");
+        capture("character-capsule-scene");
+        click("tab:Content");
+        click("button:Actions");
+        click("button:Create / Register");
+        click("button:New collision...");
+        text("collision:path", "Assets/workflow.collision.json");
+        click("button:Create");
+        capture("collision-document");
+        click("collision:save");
+        check("collision-published");
+        capture("collision-published");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {

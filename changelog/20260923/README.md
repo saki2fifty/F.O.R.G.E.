@@ -560,3 +560,84 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   SDK86/86 evidence, plus276-step native editor workflow, retain their provenance.
 - Build260923-000066 remains the downloadable editor; no intermediate numbered ZIP.
   Collision/character/input/SDK session-save/reference-game work remains Phase8 scope.
+
+## Phase8 collision foundation — implementation in progress
+
+- Add a distinct CollisionAsset tag and CPU-only bounded collision envelope,
+  primitive/hull/triangle/compound shape data and stable compound member identities.
+- Validate lengths before allocation, tree structure, IDs, topology, indices,
+  finite values, normalized rotations and explicit shape dimensions. Native Jolt
+  creation/scale validation is a second admission boundary; native binary shape
+  archives are not accepted as user collision files.
+- Add explicit admitted-Mesh part selection for triangle or convex generation,
+  preserving base geometry, excluding unused vertices and reporting explicitly
+  requested degenerate triangle removal. No render mesh automatically gains collision.
+- Prepare immutable native shapes with signed-scale validation, deterministic
+  compound member ordering and stable leaf-hit mapping. Share process registration
+  across worlds and preparation workers with synchronized final teardown.
+- Initial focused collision and existing physics tests passed2/2 (7.44s); added
+  generation checks and subsequent validation are still in progress. This internal
+  source checkpoint does not yet expose Collision assets in Content, realize asset
+  colliders in worlds, package them, or provide a character controller. Build66
+  remains the delivered editor.
+
+
+### Phase8 collision integration — ongoing source work
+
+- Added CylinderCollider and typed AssetCollider, collision-aware asynchronous scene
+  preparation, density/mass admission, completed-boundary replacement and recovery.
+- Added cooked collision package admission and source-free relocation fixtures;
+  source Mesh provenance is a Build dependency, not an implicit runtime render dependency.
+- Added stable named project layers, mutual body masks, native sensors, enabled
+  bodies and filtered ray queries without changing Jolt's ObjectLayer ABI.
+- Added a central Collision source document and shared Material/Collision source
+  history/Save ownership, Content import routes and collision source duplication.
+- Initial relocated collision pipeline passed locally (1/1,1.59s). Subsequent broader
+  tests exposed missing legacy-field admission after adding filter fields; correction
+  and integration validation are in progress. No new Windows build or visual acceptance.
+
+### Phase8 character mechanics and collision workflows — source checkpoint
+
+- Added authored Character Controller mechanics and host-owned Jolt CharacterVirtual
+  capsule/cylinder realization, feet-origin geometry, fixed gravity/movement/jump,
+  native stairs/floor support, platform velocity, bounded push force, crouch-fit
+  rejection, checked placement, copied ground state and separate virtual recovery.
+- Added filtered convex shape sweeps and exact-SDK copied character/query callbacks.
+  No Jolt pointers, FPS key bindings or durable solver handles were introduced.
+- Added Content's deliberate Create Collision from Mesh route, clearer primitive
+  dimension labels and open Collision document handling after source move/delete.
+- Current-source focused collision/pipeline/physics3/3 passed(11.48s). Expanded
+  mechanics physics1/1 passed(11.24s): stairs, tall step, slopes, translating/rotating
+  platforms, jump carry, light/heavy dynamics and filtered sphere sweep.
+- Earlier collision strict ASan/UBSan/LSan2/2 passed(6.55s) outside the sandbox's
+  LSan/ptrace restriction, without leak suppression. Later character code still
+  requires its strict run. Full SDK/editor/Windows/visual acceptance is in progress;
+  Build66 remains the downloadable editor. No new numbered package in this checkpoint.
+
+- Character contract/prefab and collision pipeline checks passed2/2(15.13s); the
+  shared SDK physics/character/query module passed1/1(.23s).
+- Added on-demand Scene selected-collision preview and copied selected-character
+  ground/velocity guides, with explicit pending/disabled/rejected/limited states.
+  Corrected native geometry extraction to collect transformed leaves before requesting
+  triangles; the crouched-capsule dimensions regression and physics suite passed1/1
+  (13.21s). Windows images have not yet validated this new overlay.
+- Added Collision resource subscriptions delegated to the existing physics cache,
+  with bounded optional preloading and retained native revision observations.
+  Related focused and strict validation is running; no second runtime shape pool.
+
+- Strict collision asset, pipeline and character/physics sanitizer checks passed3/3
+  (54.66s), with ASan/UBSan/LSan enabled and no suppression.
+- Collision creation now validates the intended initial recipe before one atomic
+  write; rejected initial recipes leave no temporary box source. Released optional
+  requests discard unused diagnostics. Compound children can be removed with Undo.
+- Character shape choices use native reflected Capsule/Cylinder enum metadata.
+  Added mid-jump recovery and orientation-changing placement velocity regressions;
+  their rebuilt validation is pending at this checkpoint.
+
+- Added asynchronous collision Mesh LOD/part selection with revision-bound subsets,
+  readable wrapped Scene preview diagnostics, and named character support display.
+- Focused authoring/pipeline/physics checks passed2/2(17.14s); expanded masks, sensors,
+  multiple controllers and slope-boundary checks passed1/1(13.55s). Native-source
+  editor syntax checks passed. Extended the actual-input Windows fixture for body
+  and character overlays and collision document publication; execution is pending.
+- Windows package validation now explicitly builds/selects collision regression targets.

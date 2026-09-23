@@ -34,7 +34,7 @@ void raw_path(const std::filesystem::path& relative) {
                 name != "forge.project.json" && name != "forge.assets.json" &&
                 name != "forge.components.json" && !name.ends_with(".scene.json") &&
                 !name.ends_with(".prefab.json") && !name.ends_with(".material.json") &&
-                !name.ends_with(".shader.json"),
+                !name.ends_with(".collision.json") && !name.ends_with(".shader.json"),
             "Import raw sources only; project/asset identities and hidden files are not copied");
     }
 }

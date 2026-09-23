@@ -5,7 +5,7 @@
 namespace forge {
 // CPU admission only. Ready is not GPU/draw readiness. Tokens are process-local,
 // world-scoped subscriptions, never serialized asset identities or native pointers.
-enum class RuntimeResourceKind : unsigned { Mesh = 1, Material, Texture, Shader };
+enum class RuntimeResourceKind : unsigned { Mesh = 1, Material, Texture, Shader, Collision };
 enum class RuntimeTextureVariant : unsigned { Automatic, Color, Data, Normal, HdrColor };
 struct RuntimeResourceStatus {
     std::string state, requested_revision, retained_revision, diagnostic;

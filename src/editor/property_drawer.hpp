@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <forge/engine_assets.hpp>
+#include <forge/project.hpp>
 #include <forge/project_paths.hpp>
 #include <map>
 #include <misc/cpp/imgui_stdlib.h>
@@ -406,6 +407,50 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     if (type == "asset_ref")
         return asset_ref_picker(root, value, field.at("asset_type"), label.c_str());
     bool changed = false;
+    const auto property = field.value("property_id", std::string{});
+    if (property == "forge.physics_body.layer" || property == "forge.physics_body.mask" ||
+        property == "forge.character_controller.layer" ||
+        property == "forge.character_controller.mask") {
+        try {
+            const auto config = ProjectSettings(root).physics();
+            auto selected = value.get<std::uint32_t>();
+            const bool mask = property.ends_with(".mask");
+            const auto preview =
+                mask ? std::string("Choose layers")
+                : selected < config.layers.size() && !config.layers[selected].empty()
+                    ? config.layers[selected]
+                    : std::string("Missing layer");
+            if (ImGui::BeginCombo(label.c_str(), preview.c_str())) {
+                if (mask && ImGui::Selectable("All layers", selected == UINT32_MAX)) {
+                    selected = UINT32_MAX;
+                    changed = true;
+                }
+                if (mask && ImGui::Selectable("No layers", selected == 0)) {
+                    selected = 0;
+                    changed = true;
+                }
+                for (std::uint32_t i = 0; i < config.layers.size(); ++i) {
+                    if (config.layers[i].empty())
+                        continue;
+                    const bool active =
+                        mask ? bool(selected & (std::uint32_t{1} << i)) : selected == i;
+                    if (ImGui::Selectable(config.layers[i].c_str(), active,
+                                          mask ? ImGuiSelectableFlags_DontClosePopups : 0)) {
+                        selected = mask ? selected ^ (std::uint32_t{1} << i) : i;
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ui::help("Named layers are defined in Project Settings / Physics. Renaming preserves "
+                     "their stable slots.");
+            if (changed)
+                value = selected;
+        } catch (const std::exception& e) {
+            ui::field_error(e.what());
+        }
+        return changed;
+    }
     if (type == "bitmask") {
         auto bits = value.get<std::uint32_t>();
         if (ImGui::BeginCombo(label.c_str(), value.dump().c_str())) {

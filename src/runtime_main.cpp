@@ -10,6 +10,16 @@
 #include <iostream>
 #include <random>
 #include <thread>
+namespace {
+void prepare_physics(forge::PhysicsRuntime& physics) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+    while (!physics.prepare_assets()) {
+        if (std::chrono::steady_clock::now() >= deadline)
+            throw std::runtime_error("Runtime collision preparation timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+} // namespace
 int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--sdk-info") {
         std::cout << forge::Json{{"profile", FORGE_NATIVE_SDK_PROFILE},
@@ -239,6 +249,7 @@ int main(int argc, char** argv) {
                                 throw std::runtime_error("Recovery checkpoint integrity, identity, "
                                                          "session or boundary mismatch");
                             candidate->scene.restore_snapshot(recovery.at("scene"));
+                            prepare_physics(*candidate->physics());
                             candidate->physics()->restore(recovery.at("physics"));
                             auto animation = forge::animation_runtime(candidate->engine.world());
                             if (recovery.contains("animation"))
@@ -255,6 +266,7 @@ int main(int argc, char** argv) {
                             recovered_tick = recovery.at("tick").get<std::uint64_t>();
                         } else {
                             candidate->scene.restore_snapshot(request.at("scene"));
+                            prepare_physics(*candidate->physics());
                             candidate->physics()->synchronize(0);
                         }
                         candidate->simulation.restore_input_tick(recovered_tick);
@@ -270,6 +282,7 @@ int main(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Model asset refresh requires a project runtime");
                         animation->refresh_assets();
+                        runtime->physics()->refresh_assets();
                         if (runtime->engine.services().available(forge::Capability::Resources))
                             runtime->engine.services().resources()->refresh();
                     } else if (command == "play" || command == "resume") {
@@ -331,6 +344,26 @@ int main(int argc, char** argv) {
                     if (!tick_failed)
                         response["recovery"] = capture();
                     response["physics"] = runtime->physics()->status();
+                    if (request.contains("physics_debug")) {
+                        try {
+                            const auto ref = request.at("physics_debug").get<forge::EntityRef>();
+                            const auto c = runtime->physics()->character(ref);
+                            response["physics"]["character_debug"] = {
+                                {"entity", ref.entity},
+                                {"ground", unsigned(c.ground)},
+                                {"velocity", c.velocity},
+                                {"ground_normal", c.ground_normal},
+                                {"ground_position", c.ground_position},
+                                {"ground_velocity", c.ground_velocity},
+                                {"crouched", c.crouched},
+                                {"shape_blocked", c.shape_change_blocked}};
+                            if (c.supporting_entity)
+                                response["physics"]["character_debug"]["support"] =
+                                    *c.supporting_entity;
+                        } catch (const std::exception& e) {
+                            response["physics"]["debug_diagnostic"] = e.what();
+                        }
+                    }
                     response["audio"] =
                         runtime->engine.services().available(forge::Capability::Audio)
                             ? std::static_pointer_cast<forge::AudioRuntime>(

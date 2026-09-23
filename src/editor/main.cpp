@@ -19,6 +19,7 @@
 #include "blockout.hpp"
 #include "cache_tools.hpp"
 #include "camera_controls.hpp"
+#include "collision_editor.hpp"
 #include "command_workspace.hpp"
 #include "component_inspector.hpp"
 #include "content.hpp"
@@ -44,6 +45,7 @@
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
 #include "performance.hpp"
+#include "physics_overlay.hpp"
 #include "play.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
@@ -170,6 +172,7 @@ int main(int argc, char** argv) {
         forge::ui::ContextScope editor_scope(editor);
         forge::ComponentInspector component_inspector;
         forge::ContentBrowser content;
+        forge::ui::PhysicsOverlay physics_overlay;
         forge::ui::RuntimeDependenciesEditor runtime_dependencies;
         forge::ui::GameExportTask game_export;
         forge::ui::DocumentWorkspace documents;
@@ -197,6 +200,7 @@ int main(int argc, char** argv) {
                 workspace.load(j);
                 content.load_settings(j.value("content_browser", forge::Json::object()));
                 orientation.visible = j.value("orientation_gizmo", true);
+                physics_overlay.visible = j.value("collision_overlay", false);
                 auto_build = j.value("auto_build", false);
                 blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
@@ -221,6 +225,7 @@ int main(int argc, char** argv) {
                                       {"panels", workspace.settings()},
                                       {"content_browser", content.settings()},
                                       {"orientation_gizmo", orientation.visible},
+                                      {"collision_overlay", physics_overlay.visible},
                                       {"interface_scale", forge::ui::interface_scale},
                                       {"cmake", cmake_path},
                                       {"ninja", ninja_path},
@@ -437,6 +442,7 @@ int main(int argc, char** argv) {
                     forge::asset_detail::diligent_shader_compiler_debug()};
             });
         forge::MaterialEditor material_editor;
+        forge::CollisionEditor collision_editor;
         std::unique_ptr<forge::MaterialPreview> material_preview;
         std::shared_ptr<const forge::AssetCatalog> material_preview_catalog;
         material_editor.update_preview = [&](auto ref, auto data, auto catalog) {
@@ -478,7 +484,7 @@ int main(int argc, char** argv) {
             if (native->busy() || files.busy() || animation_tools.pending() ||
                 navigation_tools.pending() || script_editor.pending() ||
                 texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
-                shader_imports.pending() || material_editor.pending())
+                shader_imports.pending() || material_editor.pending() || collision_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -513,12 +519,19 @@ int main(int argc, char** argv) {
                     if (plan.request.action == forge::AssetFileAction::Move)
                         material_editor.open(files.document, plan.request.destination);
                 }
+                if (collision_editor.document() &&
+                    collision_editor.document()->source().asset() == id) {
+                    collision_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        collision_editor.open(files.document, plan.request.destination);
+                }
                 if (files.document.prefabs().records().contains(id))
                     prefab_editor.request_close();
             }
             if (mesh_resources)
                 mesh_resources->catalog(catalog);
             material_editor.asset_catalog_changed(catalog);
+            collision_editor.asset_catalog_changed(catalog);
             play.model_assets_changed();
             if (plan.request.action == forge::AssetFileAction::Delete) {
                 if (editor.selection.kind() == forge::ui::SelectionKind::Asset &&
@@ -548,10 +561,18 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& plan, const auto&) {
                                   forge::prepare_material_publication(c, plan);
                               }});
+            routes.push_back({"forge.collision.builtin", forge::collision_import_target(),
+                              forge::collision_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_collision_publication(c, p);
+                              }});
             return routes;
         };
         content_imports.blocked = [&](forge::AssetId id) {
             return files.busy() ||
+                   (collision_editor.document() &&
+                    collision_editor.document()->source().asset() == id &&
+                    collision_editor.dirty()) ||
                    (texture_imports.selected_asset() == id && texture_imports.dirty()) ||
                    (audio_imports.selected_asset() == id && audio_imports.dirty()) ||
                    (model_imports.selected_asset() == id && model_imports.dirty()) ||
@@ -565,6 +586,8 @@ int main(int argc, char** argv) {
             model_imports.source_published(id);
             shader_imports.source_published(id);
             material_editor.source_published(files.document, id);
+            collision_editor.source_published(files.document, id);
+            collision_editor.asset_catalog_changed(catalog);
             material_editor.asset_catalog_changed(catalog);
             if (mesh_resources)
                 mesh_resources->catalog(catalog);
@@ -596,6 +619,9 @@ int main(int argc, char** argv) {
             } else if (kind == "audio") {
                 if (open)
                     audio_imports.open(files.document, path);
+            } else if (kind == "collision") {
+                if (open)
+                    collision_editor.open(files.document, path);
             } else if (kind == "material") {
                 if (open)
                     material_editor.open(files.document, path);
@@ -845,6 +871,24 @@ int main(int argc, char** argv) {
                                else
                                    material_editor.open(files.document, asset.source);
                            }});
+        documents.add({"collision",
+                       "Collision",
+                       "Collision###Collision",
+                       true,
+                       [&] { return collision_editor.is_open(); },
+                       [&] { return collision_editor.dirty(); },
+                       [&] { collision_editor.draw(files.document, asset_document_locked); },
+                       [&] { collision_editor.request_save(); },
+                       [&] { collision_editor.undo(); },
+                       [&] { collision_editor.redo(); },
+                       [&] { collision_editor.request_close(); },
+                       [&] { return collision_editor.can_undo(); },
+                       [&] { return collision_editor.can_redo(); },
+                       {},
+                       [&] { return std::exchange(collision_editor.close_cancelled, false); }});
+        asset_editors.add({"collision", "Open collision", [&](const forge::AssetRecord& asset) {
+                               collision_editor.open(files.document, asset.source);
+                           }});
         files.save_active = [&] {
             if (content_files.busy() || cache_tools.busy())
                 throw std::runtime_error("Finish the Content file/cache operation before saving");
@@ -919,6 +963,7 @@ int main(int argc, char** argv) {
             forge::ui::AssetActionHandlers handlers;
             handlers.import_files = [&] { source_import.picker(files.document, window.get()); };
             handlers.open = [&](const auto& asset) { asset_editors.open(asset); };
+            handlers.collision = [&](const auto& asset) { collision_editor.from_mesh(asset); };
             handlers.reimport = [&](const auto& ids) { content_imports.reimport(ids); };
             handlers.files = [&](const auto& asset, auto op) { content_files.begin(asset, op); };
             handlers.place = [&](const auto& asset) {
@@ -2181,6 +2226,7 @@ int main(int argc, char** argv) {
                              {std::pair{"asset.import", "Import files..."},
                               {"asset.open", "Open selected"},
                               {"asset.place", "Place selected in Scene"},
+                              {"asset.collision", "Create Collision from Mesh..."},
                               {"asset.reimport", "Reimport selected"},
                               {"asset.move", "Rename / Move source..."},
                               {"asset.duplicate", "Duplicate source..."},
@@ -2288,6 +2334,12 @@ int main(int argc, char** argv) {
             files.draw_dialogs();
             animation_tools.poll(files.document, message);
             try {
+                collision_editor.poll(files.document, message);
+                if (auto catalog = collision_editor.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 material_editor.poll(files.document, message);
                 if (auto catalog = material_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -2677,6 +2729,7 @@ int main(int argc, char** argv) {
                                     "##view", Icon::View,
                                     "View\nCamera, grid, snapping and overlays."))
                                 ImGui::OpenPopup("##scene-view");
+                            FORGE_UI_PROBE("scene:view-menu");
                             if (ImGui::BeginPopup("##scene-view")) {
                                 ImGui::TextWrapped("Move / Rotate: World | Scale: Local");
                                 forge::ui::help("Manipulator orientation, independent of the "
@@ -2707,6 +2760,14 @@ int main(int argc, char** argv) {
                                     ImGui::Checkbox("Orientation gizmo", &orientation.visible);
                                 forge::ui::help("Show the clickable world-axis navigation widget.");
                                 navigation_tools.overlay_control();
+                                changed |=
+                                    ImGui::Checkbox("Selected collision", &physics_overlay.visible);
+                                FORGE_UI_PROBE("physics:overlay");
+                                forge::ui::help(
+                                    "Scene-only native collision wireframe. Select a body or "
+                                    "character. Green: prepared geometry; amber: pending/stale; "
+                                    "red: rejected; grey: disabled. This preview does not replace "
+                                    "Play validation.");
                                 changed |= ImGui::Checkbox("Camera / light helpers",
                                                            &spatial_helpers.visible);
                                 forge::ui::help("Scene-only camera and light icons. Icons can be "
@@ -2916,6 +2977,14 @@ int main(int argc, char** argv) {
                             spatial_helpers.draw(view_camera, selected, image_origin, size,
                                                  modal.active() ? ImGui::GetTextLineHeight() + 20
                                                                 : 0);
+                        if (!game_view && mesh_resources)
+                            physics_overlay.draw(rendered, selected, view_camera, image_origin,
+                                                 size, files.document.project(),
+                                                 mesh_resources->catalog(), play.physics_status());
+                        play.physics_debug_selection =
+                            physics_overlay.visible && !selected.empty()
+                                ? forge::Json{{"scene", scene.asset_id()}, {"entity", selected}}
+                                : forge::Json();
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active());
@@ -2990,6 +3059,7 @@ int main(int argc, char** argv) {
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
                         material_editor.content(files.document, edit_locked);
+                        collision_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);
                         audio_imports.content(files.document, edit_locked);
                         model_imports.content(files.document, edit_locked);
@@ -3343,6 +3413,9 @@ int main(int argc, char** argv) {
                                         {"ui_scale", forge::ui::interface_scale},
                                         {"status", message}};
                 auto observed = state;
+                observed["collision_preview_ready"] = physics_overlay.ready();
+                observed["collision_document_ready"] =
+                    collision_editor.document() && !collision_editor.dirty();
                 observed["model_ready"] =
                     model_imports.placement_ready() && !model_imports.pending();
                 observed["source_imported"] =

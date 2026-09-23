@@ -29,6 +29,8 @@ inline const char* prefab_component_label(const std::string& key) {
         return "Color";
     if (key == "forge.primitive")
         return "Primitive";
+    if (key == "forge.character_controller")
+        return "Character Controller";
     if (key == "forge.physics_body")
         return "Physics Body";
     if (key == "forge.box_collider")
@@ -37,6 +39,10 @@ inline const char* prefab_component_label(const std::string& key) {
         return "Sphere Collider";
     if (key == "forge.capsule_collider")
         return "Capsule Collider";
+    if (key == "forge.cylinder_collider")
+        return "Cylinder Collider";
+    if (key == "forge.asset_collider")
+        return "Asset Collider";
     return key.c_str();
 }
 inline std::string prefab_member_label(const Json& document, const std::string& id) {

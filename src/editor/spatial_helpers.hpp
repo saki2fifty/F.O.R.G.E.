@@ -292,6 +292,8 @@ class SpatialHelpers {
     unsigned width_ = 0, height_ = 0;
     float extent_ = 0;
     static Vec3 cast(Double3 value) { return {float(value[0]), float(value[1]), float(value[2])}; }
+
+  public:
     static void draw_line(ImDrawList* draw, const EditorCamera& camera, ImVec2 origin, ImVec2 area,
                           Double3 da, Double3 db, ImU32 color) {
         auto a = cast(da), b = cast(db);

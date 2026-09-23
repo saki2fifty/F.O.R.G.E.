@@ -12,7 +12,7 @@ struct AssetActionContext {
 };
 struct AssetActionHandlers {
     std::function<void()> import_files, cache;
-    std::function<void(const AssetRecord&)> open, place;
+    std::function<void(const AssetRecord&)> open, place, collision;
     std::function<void(const std::vector<AssetId>&)> reimport;
     std::function<void(const AssetRecord&, AssetFileAction)> files;
 };
@@ -57,6 +57,17 @@ inline EditorActions asset_actions(AssetActionContext context,
         "Place the selected asset at the creation target. One scene Undo step; source contents "
         "stay unchanged.",
         [target, fn = handlers.place] {
+            if (target && fn)
+                fn(*target);
+        });
+    add("asset.collision", "Assets / Create Collision from Mesh...",
+        target && target->type == "mesh" && bool(handlers.collision),
+        target && target->type == "mesh"
+            ? ""
+            : "Select a Mesh member in Content. Expand its Model to choose geometry.",
+        "Create a separate convex or static triangle collision asset. The rendered Mesh is "
+        "unchanged.",
+        [target, fn = handlers.collision] {
             if (target && fn)
                 fn(*target);
         });

@@ -4,6 +4,9 @@ namespace forge {
 struct MeshAsset {
     static constexpr const char* type = "mesh";
 };
+struct CollisionAsset {
+    static constexpr const char* type = "collision";
+};
 struct MaterialAsset {
     static constexpr const char* type = "material";
 };

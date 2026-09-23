@@ -19,7 +19,8 @@ Json ProjectSettings::defaults(const std::string& name) {
     return {{"version", 2},
             {"name", name},
             {"simulation_hz", 60},
-            {"physics", {{"version", 1}, {"gravity", {0, -9.81, 0}}}},
+            {"physics",
+             {{"version", 1}, {"gravity", {0, -9.81, 0}}, {"layers", PhysicsConfig{}.layers}}},
             {"startup_scene", nullptr},
             {"input", InputMap{}.source()}};
 }
@@ -43,6 +44,8 @@ void ProjectSettings::validate(const Json& data) {
             p.at("gravity").size() != 3)
             throw std::runtime_error("Expected physics settings version 1 and three gravity axes");
         PhysicsConfig config{p.at("gravity").get<std::array<double, 3>>()};
+        if (p.contains("layers"))
+            config.layers = p.at("layers").get<std::array<std::string, 32>>();
         config.validate();
     }
     if (data.contains("game"))

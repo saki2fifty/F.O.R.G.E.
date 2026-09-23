@@ -35,6 +35,7 @@ class ComponentInspector {
         if (ImGui::BeginPopup("Add Component")) {
             ImGui::InputTextWithHint("##component-search", "Search name or category...", search_,
                                      sizeof(search_));
+            FORGE_UI_PROBE("component-search");
             ui::help("Results come from the world's registered component schema. Existing "
                      "components are marked Added.");
             ui::component_choices(scene.schema(), effective, search_, [&](const Json& type) {

@@ -28,6 +28,7 @@ inline void component_choices(const Json& schema, const Json& components, const 
             ImGui::BeginDisabled(present);
             if (ImGui::Selectable((label + (present ? " (Added)" : "")).c_str()))
                 add(type);
+            FORGE_UI_PROBE("component-choice:" + key);
             const auto description =
                 type.value("description", std::string{}) +
                 (present ? " Already attached, including inherited components."

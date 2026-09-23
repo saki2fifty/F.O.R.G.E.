@@ -2,6 +2,7 @@
 #include <array>
 #include <forge/animation_components.hpp>
 #include <forge/audio_components.hpp>
+#include <forge/character_components.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/render_components.hpp>
@@ -10,12 +11,13 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 21;
+inline constexpr std::size_t builtin_count = 24;
 using Value =
     std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
-                 BoxCollider, SphereCollider, CapsuleCollider, AudioSource, AudioListener, Animator,
-                 NavigationSurface, NavigationAgent, UiDocument, MeshRenderer, ModelSource, Camera,
-                 Light, NodeVisibility, NodeSelectability>;
+                 BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider, AssetCollider,
+                 CharacterController, AudioSource, AudioListener, Animator, NavigationSurface,
+                 NavigationAgent, UiDocument, MeshRenderer, ModelSource, Camera, Light,
+                 NodeVisibility, NodeSelectability>;
 struct Builtin {
     const char* name;
     const char* description;

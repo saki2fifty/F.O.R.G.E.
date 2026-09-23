@@ -319,6 +319,8 @@ Json RuntimeSimulation::presentation(double alpha) const {
     // Synchronization does not advance the runtime clock or animation time.
     if (context_.services().available(Capability::Resources))
         context_.services().resources()->synchronize();
+    if (physics_)
+        (void)physics_->prepare_assets();
     if (animation_)
         animation_->synchronize();
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);

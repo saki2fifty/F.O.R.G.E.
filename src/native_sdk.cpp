@@ -421,6 +421,134 @@ struct Bridge {
                 return -1;
             }
         };
+        host.character_state = [](void* p, const char* scene, const char* entity,
+                                  ForgeSdkCharacterV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return 0;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const auto value = c.services.physics()->character(ref);
+                out->ground = static_cast<uint32_t>(value.ground);
+                out->crouched = value.crouched;
+                out->shape_change_blocked = value.shape_change_blocked;
+                out->jump_accepted = value.jump_accepted;
+                const Double3 position{value.position.x, value.position.y, value.position.z};
+                for (unsigned i = 0; i < 3; ++i) {
+                    out->position[i] = position[i];
+                    out->velocity[i] = value.velocity[i];
+                    out->ground_position[i] = value.ground_position[i];
+                    out->ground_normal[i] = value.ground_normal[i];
+                    out->ground_velocity[i] = value.ground_velocity[i];
+                }
+                const float q[]{value.rotation.x, value.rotation.y, value.rotation.z,
+                                value.rotation.w};
+                std::copy(q, q + 4, out->rotation_xyzw);
+                if (value.supporting_entity) {
+                    std::memcpy(out->support_scene, value.supporting_entity->scene.str().c_str(),
+                                37);
+                    std::memcpy(out->support_entity, value.supporting_entity->entity.str().c_str(),
+                                37);
+                }
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.character_command = [](void* p, const char* scene, const char* entity, uint32_t op,
+                                    const double* value, const float* q, float speed,
+                                    uint32_t flag) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || op > 3 || flag > 1 || ((op == 0 || op == 3) && !value) ||
+                    (op == 3 && !q))
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                auto service = c.services.physics();
+                if (op == 0)
+                    service->move_character(ref, {value[0], value[1], value[2]});
+                else if (op == 1)
+                    service->jump_character(ref, speed);
+                else if (op == 2)
+                    service->crouch_character(ref, flag != 0);
+                else
+                    service->place_character(ref, {value[0], value[1], value[2]},
+                                             {q[0], q[1], q[2], q[3]}, flag != 0);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.raycast_filtered = [](void* p, const double* origin, const double* displacement,
+                                   uint32_t mask, uint32_t sensors,
+                                   ForgeSdkPhysicsHitV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !origin || !displacement || sensors > 1)
+                    return -1;
+                const auto hit = c.services.physics()->raycast_filtered(
+                    {origin[0], origin[1], origin[2]},
+                    {displacement[0], displacement[1], displacement[2]}, {mask, sensors != 0});
+                if (!hit)
+                    return 0;
+                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
+                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
+                for (unsigned i = 0; i < 3; ++i) {
+                    out->position[i] = hit->position[i];
+                    out->normal[i] = hit->normal[i];
+                }
+                out->fraction = hit->fraction;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.shape_cast = [](void* p, const ForgeSdkSweepV1* request,
+                             ForgeSdkPhysicsHitV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !request || request->size != sizeof(*request) ||
+                    request->include_sensors > 1)
+                    return -1;
+                PhysicsSweep sweep;
+                sweep.shape = PhysicsSweep::Shape(request->shape);
+                sweep.origin = {request->origin[0], request->origin[1], request->origin[2]};
+                sweep.rotation = {request->rotation[0], request->rotation[1], request->rotation[2],
+                                  request->rotation[3]};
+                for (unsigned i = 0; i < 3; ++i) {
+                    sweep.dimensions[i] = request->dimensions[i];
+                    sweep.displacement[i] = request->displacement[i];
+                }
+                const auto hit = c.services.physics()->shape_cast(
+                    sweep, {request->layer_mask, request->include_sensors != 0});
+                if (!hit)
+                    return 0;
+                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
+                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
+                for (unsigned i = 0; i < 3; ++i) {
+                    out->position[i] = hit->position[i];
+                    out->normal[i] = hit->normal[i];
+                }
+                out->fraction = hit->fraction;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.physics_move = [](void* p, const char* scene, const char* entity,
                                const double* position, const float* rotation, uint32_t motion,
                                uint32_t clear) -> int32_t {

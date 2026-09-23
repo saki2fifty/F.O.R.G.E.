@@ -186,6 +186,26 @@ class ProjectSettingsEditor {
             }
             ui::help("Acceleration in meters per second squared. +Y is up; default Y is -9.81. "
                      "Scene Undo does not change project settings.");
+            if (ImGui::TreeNode("Collision layers")) {
+                ui::help("Stable project layer slots. Rename names without changing references. "
+                         "Clearing a used slot makes those bodies invalid at next Play.");
+                auto layers = draft_.value("physics", Json::object())
+                                  .value("layers", Json(PhysicsConfig{}.layers));
+                for (unsigned i = 0; i < 32; ++i) {
+                    auto name = layers[i].get<std::string>();
+                    const auto label = std::string("Layer ") + std::to_string(i);
+                    if (ImGui::InputText(label.c_str(), &name)) {
+                        if (!draft_.contains("physics"))
+                            draft_["physics"] = {{"version", 1},
+                                                 {"gravity", PhysicsConfig{}.gravity}};
+                        layers[i] = name;
+                        draft_["physics"]["layers"] = layers;
+                    }
+                    ui::help("Unique name, up to 64 bytes. Empty means unavailable; layer zero "
+                             "must retain a name.");
+                }
+                ImGui::TreePop();
+            }
             ui::heading("Input actions",
                         "Project-owned stable action identities. Rename labels without changing "
                         "the identity used by runtime consumers.");

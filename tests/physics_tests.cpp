@@ -54,8 +54,59 @@ Json source() {
 double y(Fixture& f, const char* id = "cube") {
     return f.scene.entity(id).get<LocalTranslation>().y;
 }
+void collision_filters() {
+    Fixture f;
+    auto config = PhysicsConfig{};
+    config.layers[1] = "Environment";
+    config.layers[2] = "Actors";
+    f.physics->configure(config);
+    auto input = source();
+    input["entities"][0]["components"]["forge.physics_body"]["layer"] = 1;
+    input["entities"][1]["components"]["forge.physics_body"]["layer"] = 2;
+    input["entities"][1]["components"]["forge.physics_body"]["mask"] = 0;
+    f.load(input);
+    const auto floor = f.physics->raycast_filtered({0, 10, 0}, {0, -20, 0}, {1u << 1, true});
+    check(floor && floor->position[1] < .01, "Query layer did not select floor");
+    PhysicsSweep sweep;
+    sweep.origin = {0, 10, 0};
+    sweep.displacement = {0, -20, 0};
+    const auto volume = f.physics->shape_cast(sweep, {1u << 1, false});
+    check(volume && volume->entity == floor->entity && std::abs(volume->fraction - .475) < .001 &&
+              volume->normal[1] > .99,
+          "Sphere sweep failed to report floor contact/normal/fraction");
+    check(!f.physics->shape_cast(sweep, {0, false}), "Empty sweep mask hit");
+    sweep.dimensions[0] = 0;
+    reject([&] { f.physics->shape_cast(sweep, {}); });
+    check(!f.physics->raycast_filtered({0, 10, 0}, {0, -20, 0}, {0, true}), "Empty query mask hit");
+    f.tick(90);
+    check(y(f) < -1, "Excluded body mask still collided with floor");
+    Fixture sensor;
+    sensor.load(source());
+    auto cube = sensor.scene.entity("cube");
+    auto body = cube.get<PhysicsBody>();
+    body.sensor = true;
+    cube.set<PhysicsBody>(body);
+    sensor.physics->synchronize(0);
+    auto solid = sensor.physics->raycast_filtered({0, 10, 0}, {0, -20, 0}, {UINT32_MAX, false});
+    check(solid && solid->position[1] < .01, "Sensor exclusion failed");
+    bool overlap = false;
+    for (unsigned i = 0; i < 90; ++i) {
+        sensor.tick();
+        overlap |= !sensor.physics->contacts().empty();
+    }
+    check(overlap && y(sensor) < -1, "Sensor did not report overlap without solid response");
+    body.enabled = false;
+    cube.set<PhysicsBody>(body);
+    sensor.physics->synchronize(0);
+    check(sensor.physics->status().at("bodies") == 1, "Disabled body remained realized");
+    body.enabled = true;
+    body.layer = 31;
+    cube.set<PhysicsBody>(body);
+    reject([&] { sensor.physics->synchronize(0); });
+    check(sensor.physics->status().at("bodies") == 1, "Invalid project layer damaged world");
+}
 void signed_scale_physics() {
-    for (unsigned shape = 0; shape < 3; ++shape) {
+    for (unsigned shape = 0; shape < 4; ++shape) {
         Fixture f;
         auto input = source();
         auto& components = input["entities"][1]["components"];
@@ -63,8 +114,10 @@ void signed_scale_physics() {
             components.erase("forge.box_collider");
             if (shape == 1)
                 components["forge.sphere_collider"] = {{"radius", .5}};
-            else
+            else if (shape == 2)
                 components["forge.capsule_collider"] = {{"radius", .5}, {"height", 1}};
+            else
+                components["forge.cylinder_collider"] = {{"radius", .5}, {"height", 1}};
         }
         f.load(input);
         auto entity = f.scene.entity("cube");
@@ -105,15 +158,26 @@ void signed_scale_physics() {
             f.physics->synchronize(0);
         else
             reject([&] { f.physics->synchronize(0); });
+        if (shape == 3) {
+            entity.set<LocalScale>({-1, 2, 1});
+            f.physics->synchronize(0);
+            check(f.physics->raycast({0, y(f), -10}, {0, 0, 20}).has_value(),
+                  "Cylinder rejected independent Y scaling");
+        }
         entity.set<LocalScale>({-1, 1, 1});
         f.physics->synchronize(0);
         f.tick();
     }
 }
+#include "character_physics.hpp"
 #include "physics_hierarchy.hpp"
 int main() {
     try {
+        character_physics_tests();
+        character_mechanics_tests();
+        character_contract_tests();
         physics_hierarchy_tests();
+        collision_filters();
         signed_scale_physics();
         {
             EngineContext authoring;

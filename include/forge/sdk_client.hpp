@@ -45,6 +45,35 @@ class Client {
                    ? host_->raycast(host_->context, origin, displacement, &out)
                    : -1;
     }
+    bool character(const char* scene, const char* entity, ForgeSdkCharacterV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) &&
+               host_->character_state(host_->context, scene, entity, &out) == 1;
+    }
+    bool character_command(const char* scene, const char* entity, uint32_t operation,
+                           const double* value = nullptr, const float* rotation = nullptr,
+                           float speed = 0, bool flag = false) const {
+        return callable(Capability::Physics) &&
+               host_->character_command(host_->context, scene, entity, operation, value, rotation,
+                                        speed, flag ? 1u : 0u) == 1;
+    }
+    int32_t raycast_filtered(const double origin[3], const double displacement[3], uint32_t mask,
+                             bool sensors, ForgeSdkPhysicsHitV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics)
+                   ? host_->raycast_filtered(host_->context, origin, displacement, mask,
+                                             sensors ? 1u : 0u, &out)
+                   : -1;
+    }
+    int32_t shape_cast(const ForgeSdkSweepV1& request, ForgeSdkPhysicsHitV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) && host_->shape_cast
+                   ? host_->shape_cast(host_->context, &request, &out)
+                   : -1;
+    }
     bool navigation(const char* asset, uint32_t operation, const double start[3],
                     const double end[3], ForgeSdkNavResultV1& out) const {
         out.count = 0;

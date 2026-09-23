@@ -9,7 +9,7 @@ RuntimeWorld::RuntimeWorld(Module& module, std::vector<EngineModule> modules, Ph
              [&] {
                  if (!project.empty())
                      modules.push_back(runtime_resources_module(project));
-                 modules.push_back(physics_module(physics));
+                 modules.push_back(physics_module(physics, project));
                  modules.push_back(animation_module(project));
                  modules.push_back(navigation_module(project));
                  if (ui)

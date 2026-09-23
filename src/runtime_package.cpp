@@ -2,6 +2,8 @@
 #include "asset_bytes.hpp"
 #include "audio_bundle.hpp"
 #include "bounded_json.hpp"
+#include "collision_bundle.hpp"
+#include "collision_selection.hpp"
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
@@ -165,7 +167,7 @@ AssetRecord runtime_record(AssetRecord record) {
     }
     Json metadata = Json::object();
     for (const auto* name : {"forge.import", "forge.model", "forge.material", "forge.shader",
-                             "forge.audio", "forge.ui_source"})
+                             "forge.audio", "forge.ui_source", "forge.collision"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -178,7 +180,9 @@ Json artifact_profile(const CachedArtifact& artifact, const AssetRecord& root,
     const auto& input = artifact.manifest.at("inputs");
     const auto& selected = root.metadata.at("forge.import");
     require(platform(input.at("platform")) == platform(target.platform) &&
-                input.at("backend") == target.backend,
+                (root.type == CollisionAsset::type
+                     ? input.at("backend") == "none" && input.at("profile") == "cpu"
+                     : input.at("backend") == target.backend),
             "Cooked artifact target differs from requested package target: " + root.id.str());
     for (const auto* name : {"importer", "importer_revision", "output_format", "output_version",
                              "platform", "backend", "profile"})
@@ -201,7 +205,15 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         (void)validate_texture_bundle(artifact.files);
     else if (root.type == MaterialAsset::type && format == "forge.material-bundle")
         (void)decode_material_bundle(artifact.files, root.id);
-    else if (root.type == AudioClipAsset::type && format == "forge.audio-clip") {
+    else if (root.type == CollisionAsset::type && format == "forge.collision-bundle") {
+        const auto bundle = collision_detail::decode_bundle(artifact.files, root.id);
+        require(root.metadata.at("forge.collision").at("version") == 1 &&
+                    root.metadata.at("forge.collision").at("jolt_revision") ==
+                        collision_detail::jolt_revision &&
+                    root.metadata.at("forge.collision").at("static_only") ==
+                        collision_contains_triangle_mesh(bundle.geometry),
+                "Cooked Collision metadata differs from selection");
+    } else if (root.type == AudioClipAsset::type && format == "forge.audio-clip") {
         const auto metadata = validate_audio_bundle(artifact.files);
         require(metadata == root.metadata.at("forge.audio") &&
                     metadata.at("source_digest") ==
@@ -236,7 +248,13 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                 (void)load_game_scene(root, {id});
         } else if (record.type == NavMeshAsset::type)
             (void)navigation_detail::load(root, record);
-        else if (record.type == ModelAsset::type)
+        else if (record.type == CollisionAsset::type) {
+            ResourcePool<CollisionAsset> pool;
+            auto ticket =
+                request_collision(pool, root, std::make_shared<const AssetCatalog>(catalog), {id});
+            require(pool.wait(ticket, std::chrono::seconds(60)) && bool(pool.acquire(ticket)),
+                    "Collision package native admission failed: " + ticket.inspect().diagnostic);
+        } else if (record.type == ModelAsset::type)
             (void)load_model_selection(root, catalog, id, stop);
         else if (record.type == MaterialAsset::type) {
             const auto material = load_material_selection(root, catalog, {id}, stop);

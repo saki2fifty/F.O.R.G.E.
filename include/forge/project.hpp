@@ -23,6 +23,8 @@ class ProjectSettings {
         PhysicsConfig c;
         if (data_.contains("physics"))
             c.gravity = data_.at("physics").at("gravity").get<std::array<double, 3>>();
+        if (data_.contains("physics") && data_.at("physics").contains("layers"))
+            c.layers = data_.at("physics").at("layers").get<std::array<std::string, 32>>();
         c.validate();
         return c;
     }

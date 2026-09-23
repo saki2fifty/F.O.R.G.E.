@@ -46,20 +46,27 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         next->scene.restore_snapshot(snapshot);
         if (restore_supported_state)
             restore_supported_state(next->scene);
-        next->physics()->synchronize(0); // Initial realization: no elapsed physics time.
-        next->simulation.restore_input_tick(0);
-        next->simulation.reset_presentation();
-        next->simulation.sync_audio();
+        const bool physics_ready = next->physics()->prepare_assets();
+        if (physics_ready) {
+            next->physics()->synchronize(0); // No elapsed physics time.
+            next->simulation.restore_input_tick(0);
+            next->simulation.reset_presentation();
+            next->simulation.sync_audio();
+        }
         auto preparation = config_.preparation ? config_.preparation(ticket) : nullptr;
         if (config_.preparation && !preparation)
             throw std::runtime_error("game.session: Host returned no preparation owner");
         candidate_ = std::move(next);
+        candidate_initialized_ = physics_ready;
         candidate_preparation_ = std::move(preparation);
         pending_ = ticket;
-        progress_ = {!candidate_preparation_, candidate_preparation_ ? "resources" : "structural",
+        progress_ = {physics_ready && !candidate_preparation_,
+                     !physics_ready           ? "collision"
+                     : candidate_preparation_ ? "resources"
+                                              : "structural",
                      0, 0};
         error_.clear();
-        loading_.state = candidate_preparation_ ? "loading" : "ready";
+        loading_.state = progress_.ready ? "ready" : "loading";
         loading_.stage = progress_.stage;
         loading_.can_cancel = true;
         return ticket;
@@ -74,12 +81,25 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
 void GameSession::discard_candidate() {
     candidate_preparation_.reset();
     candidate_.reset();
+    candidate_initialized_ = false;
     pending_ = 0;
     progress_ = {};
 }
 GamePreparationProgress GameSession::poll_candidate() {
     try {
-        if (candidate_preparation_) {
+        if (!candidate_initialized_) {
+            if (candidate_->physics()->prepare_assets()) {
+                candidate_->physics()->synchronize(0);
+                candidate_->simulation.restore_input_tick(0);
+                candidate_->simulation.reset_presentation();
+                candidate_->simulation.sync_audio();
+                candidate_initialized_ = true;
+                progress_ = {!candidate_preparation_,
+                             candidate_preparation_ ? "resources" : "structural", 0, 0};
+            } else
+                progress_ = {false, "collision", 0, 1};
+        }
+        if (candidate_initialized_ && candidate_preparation_) {
             auto next = candidate_preparation_->poll(*candidate_);
             if (next.completed > next.total || next.stage.empty() || next.stage.size() > 256)
                 throw std::runtime_error("game.session: Invalid preparation progress");

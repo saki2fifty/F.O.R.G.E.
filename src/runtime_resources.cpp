@@ -17,6 +17,8 @@ struct Subscription {
     ResourceTicket ticket;
     Lease retained;
     std::string selection_error;
+    std::shared_ptr<PhysicsService> physics;
+    std::uint64_t collision_token = 0;
 };
 class RuntimeResources final : public RuntimeResourceService {
     const std::thread::id owner_ = std::this_thread::get_id();
@@ -52,6 +54,8 @@ class RuntimeResources final : public RuntimeResourceService {
         case RuntimeResourceKind::Texture:
             expected = TextureAsset::type;
             break;
+        case RuntimeResourceKind::Collision:
+            throw std::runtime_error("Collision admission belongs to the physics resource owner");
         case RuntimeResourceKind::Shader:
             expected = ShaderAsset::type;
             break;
@@ -96,6 +100,8 @@ class RuntimeResources final : public RuntimeResourceService {
             }
             return asset_detail::request_texture(textures_, project_, catalog_, {asset}, semantic);
         }
+        case RuntimeResourceKind::Collision:
+            break;
         case RuntimeResourceKind::Shader:
             return request_shader(shaders_, project_, *catalog_, {asset});
         }
@@ -115,6 +121,13 @@ class RuntimeResources final : public RuntimeResourceService {
         alive_ = false;
         if (refresh_.valid())
             refresh_.wait();
+        for (auto& [token, value] : subscriptions_)
+            if (value.physics) {
+                try {
+                    value.physics->release_collision_asset(value.collision_token);
+                } catch (...) { /* Provider already stopped and cleared its subscriptions. */
+                }
+            }
         subscriptions_.clear();
         meshes_.close();
         materials_.close();
@@ -126,7 +139,19 @@ class RuntimeResources final : public RuntimeResourceService {
         check();
         if (subscriptions_.size() >= 256)
             throw std::runtime_error("Runtime resource subscription limit256 reached");
-        auto ticket = select(kind, asset, variant);
+        const bool collision = kind == RuntimeResourceKind::Collision;
+        if (collision && (variant != RuntimeTextureVariant::Automatic ||
+                          !services_.available(Capability::Physics)))
+            throw std::runtime_error(
+                "Collision preload requires the physics provider and no texture variant");
+        if (collision) {
+            const auto record = catalog_->records().find(asset);
+            if (record == catalog_->records().end() ||
+                record->second.type != CollisionAsset::type || record->second.subasset)
+                throw std::runtime_error(
+                    "Collision preload is missing, undeclared or has the wrong asset type");
+        }
+        auto ticket = collision ? ResourceTicket{} : select(kind, asset, variant);
         // Unique across providers/worlds/modules, without exposing a pointer.
         static std::atomic<std::uint64_t> next{1};
         auto token = next.load();
@@ -134,8 +159,20 @@ class RuntimeResources final : public RuntimeResourceService {
             if (token == std::numeric_limits<std::uint64_t>::max())
                 throw std::runtime_error("Runtime resource token space exhausted");
         } while (!next.compare_exchange_weak(token, token + 1));
-        subscriptions_.emplace(token,
-                               Subscription{kind, asset, variant, std::move(ticket), {}, {}});
+        Subscription value{kind, asset, variant, std::move(ticket), {}, {}};
+        if (collision) {
+            value.physics = services_.physics();
+            value.collision_token = value.physics->request_collision_asset(asset);
+        }
+        const auto physics = value.physics;
+        const auto collision_token = value.collision_token;
+        try {
+            subscriptions_.emplace(token, std::move(value));
+        } catch (...) {
+            if (physics)
+                physics->release_collision_asset(collision_token);
+            throw;
+        }
         return token;
     }
     RuntimeResourceStatus inspect(std::uint64_t token) const override {
@@ -144,6 +181,8 @@ class RuntimeResources final : public RuntimeResourceService {
         if (found == subscriptions_.end())
             throw std::runtime_error("Unknown or released runtime resource subscription");
         const auto& value = found->second;
+        if (value.physics)
+            return value.physics->inspect_collision_asset(value.collision_token);
         const auto info = value.ticket.inspect();
         RuntimeResourceStatus result{resource_state_name(info.state),
                                      info.identity.revision,
@@ -167,7 +206,13 @@ class RuntimeResources final : public RuntimeResourceService {
     bool release(std::uint64_t token) override {
         check();
         // Release only this observer. Shared preparation/other leases remain valid.
-        return subscriptions_.erase(token) != 0;
+        const auto found = subscriptions_.find(token);
+        if (found == subscriptions_.end())
+            return false;
+        if (found->second.physics)
+            found->second.physics->release_collision_asset(found->second.collision_token);
+        subscriptions_.erase(found);
+        return true;
     }
     void refresh() override {
         check();
@@ -189,6 +234,8 @@ class RuntimeResources final : public RuntimeResourceService {
                 catalog_ = refresh_.get();
                 for (auto& [token, value] : subscriptions_) {
                     (void)token;
+                    if (value.physics)
+                        continue; // Physics owns its catalog/revision boundary.
                     try {
                         auto candidate = select(value.kind, value.asset, value.variant);
                         value.ticket = std::move(candidate);
@@ -212,6 +259,8 @@ class RuntimeResources final : public RuntimeResourceService {
             if (!value.selection_error.empty())
                 continue;
             switch (value.kind) {
+            case RuntimeResourceKind::Collision:
+                break; // One shared native collision pool, owned by PhysicsRuntime.
             case RuntimeResourceKind::Mesh:
                 retain(meshes_, value);
                 break;
@@ -234,8 +283,8 @@ EngineModule runtime_resources_module(std::filesystem::path project) {
     module.id = "forge.resources";
     module.dependencies = {"forge.core"};
     module.runtime_roles = role_mask(WorldRole::Runtime);
-    module.allowed_services =
-        capability(Capability::Diagnostics) | capability(Capability::Resources);
+    module.allowed_services = capability(Capability::Diagnostics) |
+                              capability(Capability::Resources) | capability(Capability::Physics);
     module.provided_services = capability(Capability::Resources);
     module.start = [project = std::move(project)](ModuleContext& context) {
         auto owner = std::make_shared<RuntimeResources>(project, context.services);

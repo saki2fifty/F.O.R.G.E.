@@ -75,16 +75,37 @@ template <class T> Json encode(const T& p) {
                 {"maximum_distance", p.maximum_distance}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, CharacterController>)
+        return {{"enabled", p.enabled},
+                {"shape", p.shape},
+                {"radius", p.radius},
+                {"height", p.height},
+                {"crouch_height", p.crouch_height},
+                {"mass", p.mass},
+                {"max_strength", p.max_strength},
+                {"max_slope", p.max_slope},
+                {"step_height", p.step_height},
+                {"step_forward", p.step_forward},
+                {"floor_probe", p.floor_probe},
+                {"gravity_factor", p.gravity_factor},
+                {"layer", p.layer},
+                {"mask", p.mask}};
     else if constexpr (std::is_same_v<T, PhysicsBody>)
         return {{"motion", p.motion},
                 {"density", p.density},
                 {"mass", p.mass},
                 {"friction", p.friction},
                 {"restitution", p.restitution},
-                {"gravity_factor", p.gravity_factor}};
+                {"gravity_factor", p.gravity_factor},
+                {"enabled", p.enabled},
+                {"sensor", p.sensor},
+                {"layer", p.layer},
+                {"mask", p.mask}};
+    else if constexpr (std::is_same_v<T, AssetCollider>)
+        return {{"asset", p.asset.id ? Json(p.asset.id) : Json()}};
     else if constexpr (std::is_same_v<T, SphereCollider>)
         return {{"radius", p.radius}};
-    else if constexpr (std::is_same_v<T, CapsuleCollider>)
+    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider>)
         return {{"radius", p.radius}, {"height", p.height}};
     else if constexpr (std::is_same_v<T, Primitive>)
         return {{"kind", p.kind}};
@@ -187,16 +208,41 @@ template <class T> Value decode(const Json& p) {
         return v;
     } else if constexpr (std::is_same_v<T, AudioListener>)
         return T{p.at("enabled")};
-    else if constexpr (std::is_same_v<T, PhysicsBody>)
+    else if constexpr (std::is_same_v<T, CharacterController>) {
+        T v{p.at("enabled"),
+            p.at("shape").get<std::uint32_t>(),
+            p.at("radius"),
+            p.at("height"),
+            p.at("crouch_height"),
+            p.at("mass"),
+            p.at("max_strength"),
+            p.at("max_slope"),
+            p.at("step_height"),
+            p.at("step_forward"),
+            p.at("floor_probe"),
+            p.at("gravity_factor"),
+            p.at("layer").get<std::uint32_t>(),
+            p.at("mask").get<std::uint32_t>()};
+        if (v.crouch_height > v.height)
+            throw std::runtime_error("Character crouch height exceeds standing height");
+        return v;
+    } else if constexpr (std::is_same_v<T, PhysicsBody>)
         return T{p.at("motion").get<std::uint32_t>(),
                  p.at("density"),
                  p.at("mass"),
                  p.at("friction"),
                  p.at("restitution"),
-                 p.at("gravity_factor")};
+                 p.at("gravity_factor"),
+                 p.value("enabled", true),
+                 p.value("sensor", false),
+                 p.value("layer", std::uint32_t{0}),
+                 p.value("mask", UINT32_MAX)};
+    else if constexpr (std::is_same_v<T, AssetCollider>)
+        return T{p.at("asset").is_null() ? AssetRef<CollisionAsset>{}
+                                         : p.at("asset").get<AssetRef<CollisionAsset>>()};
     else if constexpr (std::is_same_v<T, SphereCollider>)
         return T{p.at("radius")};
-    else if constexpr (std::is_same_v<T, CapsuleCollider>)
+    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider>)
         return T{p.at("radius"), p.at("height")};
     else if constexpr (std::is_same_v<T, Primitive>)
         return T{p.at("kind").get<std::uint32_t>()};
@@ -402,16 +448,38 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("maximum_distance");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
+    else if constexpr (std::is_same_v<T, CharacterController>)
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("shape")
+            .template member<float>("radius")
+            .template member<float>("height")
+            .template member<float>("crouch_height")
+            .template member<float>("mass")
+            .template member<float>("max_strength")
+            .template member<float>("max_slope")
+            .template member<float>("step_height")
+            .template member<float>("step_forward")
+            .template member<float>("floor_probe")
+            .template member<float>("gravity_factor")
+            .template member<std::uint32_t>("layer")
+            .template member<std::uint32_t>("mask");
     else if constexpr (std::is_same_v<T, PhysicsBody>)
         c.template member<std::uint32_t>("motion")
             .template member<float>("density")
             .template member<float>("mass")
             .template member<float>("friction")
             .template member<float>("restitution")
-            .template member<float>("gravity_factor");
-    else if constexpr (std::is_same_v<T, SphereCollider>)
+            .template member<float>("gravity_factor")
+            .template member<bool>("enabled")
+            .template member<bool>("sensor")
+            .template member<std::uint32_t>("layer")
+            .template member<std::uint32_t>("mask");
+    else if constexpr (std::is_same_v<T, AssetCollider>) {
+        register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
+        c.template member<AssetRef<CollisionAsset>>("asset");
+    } else if constexpr (std::is_same_v<T, SphereCollider>)
         c.template member<float>("radius");
-    else if constexpr (std::is_same_v<T, CapsuleCollider>)
+    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider>)
         c.template member<float>("radius").template member<float>("height");
     else if constexpr (std::is_same_v<T, Primitive>)
         c.template member<std::uint32_t>("kind");
@@ -482,6 +550,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.primitive", "Built-in blockout geometry; None disables geometry", "unitless", 0,
             primitive_count - 1,
             [](flecs::world& w) { return register_type<Primitive>(w, "forge.primitive"); }),
+        descriptor<CharacterController>(
+            "forge.character_controller",
+            "Jolt character mechanics; feet origin, no game input bindings", "unitless", 0, 10000,
+            [](flecs::world& w) {
+                return register_type<CharacterController>(w, "forge.character_controller");
+            }),
         descriptor<PhysicsBody>(
             "forge.physics_body", "Body motion: Static, Kinematic, Dynamic. Mass 0 uses density.",
             "unitless", 0, 1000000,
@@ -501,6 +575,19 @@ const std::array<Builtin, builtin_count>& builtins() {
             10000,
             [](flecs::world& w) {
                 return register_type<CapsuleCollider>(w, "forge.capsule_collider");
+            }),
+        descriptor<CylinderCollider>(
+            "forge.cylinder_collider",
+            "Y-axis cylinder radius and full height; X/Z scale magnitudes must match", "meters",
+            .001, 10000,
+            [](flecs::world& w) {
+                return register_type<CylinderCollider>(w, "forge.cylinder_collider");
+            }),
+        descriptor<AssetCollider>(
+            "forge.asset_collider", "Explicit reusable Collision asset; never a render Mesh alias",
+            "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<AssetCollider>(w, "forge.asset_collider");
             }),
         descriptor<AudioSource>(
             "forge.audio_source",
@@ -524,9 +611,8 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<NavigationAgent>(
             "forge.navigation_agent", "Fixed-tick path following for nonphysics entities",
             "unitless", {}, {},
-            [](flecs::world& w) {
-                return register_type<NavigationAgent>(w, "forge.navigation_agent");
-            }),
+            [](flecs::world&
+                   w) { return register_type<NavigationAgent>(w, "forge.navigation_agent"); }),
         descriptor<UiDocument>(
             "forge.ui_document", "Runtime UI document displayed during Play", "unitless", {}, {},
             [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); }),
@@ -659,7 +745,63 @@ Json registration_options(const Builtin& type, const std::string& field) {
         if (field == "range" || field == "shadow_normal_bias")
             value["unit"] = "meters";
     }
+    if (name == "forge.asset_collider" && field == "asset") {
+        value["asset_type"] = CollisionAsset::type;
+        value["nullable"] = true;
+    }
+    if (name == "forge.character_controller") {
+        if (field == "enabled") {
+            value.erase("minimum");
+            value.erase("maximum");
+        }
+        if (field == "shape") {
+            value["maximum"] = 1;
+            value["description"] = "Capsule (0) or Cylinder (1), with feet at local origin";
+        }
+        if (field == "radius" || field == "height" || field == "crouch_height" ||
+            field == "step_forward")
+            value["minimum"] = .001;
+        if (field == "radius" || field.ends_with("height") || field == "step_forward" ||
+            field == "floor_probe")
+            value["unit"] = "meters";
+        if (field == "mass") {
+            value["minimum"] = .001;
+            value["maximum"] = 1000000;
+            value["unit"] = "kg";
+        }
+        if (field == "max_strength") {
+            value["maximum"] = 1000000;
+            value["description"] = "Maximum native pushing force in newtons; zero disables "
+                                   "virtual-character push force";
+        }
+        if (field == "max_slope") {
+            value["maximum"] = 90;
+            value["description"] = "Maximum walkable slope angle in degrees";
+        }
+        if (field == "gravity_factor")
+            value["maximum"] = 1000;
+        if (field == "layer")
+            value["maximum"] = 31;
+        if (field == "mask")
+            value["maximum"] = UINT32_MAX;
+    }
     if (name == "forge.physics_body") {
+        if (field == "enabled" || field == "sensor") {
+            value.erase("minimum");
+            value.erase("maximum");
+        }
+        if (field == "layer") {
+            value["maximum"] = 31;
+            value["description"] = "Named project collision layer; stable slot 0..31";
+        }
+        if (field == "mask") {
+            value["maximum"] = UINT32_MAX;
+            value["description"] = "Collision layer mask; both bodies must permit the other layer";
+        }
+        if (field == "enabled")
+            value["description"] = "Enable this body's collision and simulation";
+        if (field == "sensor")
+            value["description"] = "Report overlap contacts without solid collision response";
         if (field == "motion") {
             value["maximum"] = 2;
         }
@@ -843,8 +985,8 @@ ecs_entity_t enum_type(flecs::world& world, bool primitive) {
         type.lookup(names[i].c_str()).set_doc_name(primitive ? primitive_names[i] : motions[i]);
     return type;
 }
-ecs_entity_t render_enum(flecs::world& world, const std::string& component,
-                         const std::string& field) {
+ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
+                          const std::string& field) {
     const char* type = nullptr;
     std::vector<const char*> names;
     if ((component == "forge.camera" || component == "forge.light") && field == "basis") {
@@ -856,6 +998,9 @@ ecs_entity_t render_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.light" && field == "kind") {
         type = "forge.LightKind";
         names = {"Directional", "Point", "Spot"};
+    } else if (component == "forge.character_controller" && field == "shape") {
+        type = "forge.CharacterShape";
+        names = {"Capsule", "Cylinder"};
     } else
         return 0;
     if (auto existing = world.lookup(type))
@@ -868,7 +1013,7 @@ ecs_entity_t render_enum(flecs::world& world, const std::string& component,
         desc.constants[i].value_unsigned = i;
     }
     if (!ecs_enum_init(world, &desc))
-        throw std::runtime_error("Render enum registration failed");
+        throw std::runtime_error("Builtin enum registration failed");
     return desc.entity;
 }
 void annotate_type(flecs::world& world, flecs::entity component, const Builtin& type) {
@@ -896,7 +1041,7 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         m.use_offset = true;
         const auto options = registration_options(type, m.name);
         m.unit = field_unit(world, options.at("unit"));
-        const auto render_kind = render_enum(world, type.name, names[i]);
+        const auto render_kind = builtin_enum(world, type.name, names[i]);
         const bool enumeration =
             render_kind || std::string(type.name) == "forge.primitive" ||
             (std::string(type.name) == "forge.physics_body" && names[i] == "motion");
@@ -959,13 +1104,15 @@ Json register_builtins(flecs::world& world, unsigned family) {
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
-        const unsigned category = name == "forge.ui_document"             ? 5u
-                                  : name.starts_with("forge.navigation_") ? 4u
-                                  : name == "forge.animator"              ? 3u
-                                  : name.starts_with("forge.audio_")      ? 2u
-                                  : (name == "forge.physics_body" || name.ends_with("_collider"))
-                                      ? 1u
-                                      : 0u;
+        const unsigned category =
+            name == "forge.ui_document"             ? 5u
+            : name.starts_with("forge.navigation_") ? 4u
+            : name == "forge.animator"              ? 3u
+            : name.starts_with("forge.audio_")      ? 2u
+            : (name == "forge.physics_body" || name == "forge.character_controller" ||
+               name.ends_with("_collider"))
+                ? 1u
+                : 0u;
         if (category != family)
             continue;
         const auto c = type.register_type(world);
@@ -983,6 +1130,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<ModelNodeAsset>();
         add_reference.template operator()<MaterialVariantAsset>();
         add_reference.template operator()<MeshAsset>();
+        add_reference.template operator()<CollisionAsset>();
         add_reference.template operator()<MaterialAsset>();
         add_reference.template operator()<AudioClipAsset>();
         add_reference.template operator()<SkeletonAsset>();
@@ -1082,15 +1230,22 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
                                      ": component field outside supported range");
     }
 }
+namespace {
+Json admitted_builtin_source(const Builtin& type, const Json& source) {
+    auto current = source;
+    if (std::string_view(type.name) == "forge.mesh_renderer" &&
+        !current.contains("material_variant"))
+        current["material_variant"] = nullptr;
+    if (std::string_view(type.name) == "forge.physics_body")
+        for (const auto* field : {"enabled", "sensor", "layer", "mask"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
+    return current;
+}
+} // namespace
 Json builtin_extensions(const Builtin& type, const Json& source) {
     const auto& schema = validation_schema(type.name);
-    if (std::string_view(type.name) == "forge.mesh_renderer" &&
-        !source.contains("material_variant")) {
-        auto current = source;
-        current["material_variant"] = nullptr;
-        return reflected_extensions(schema, current);
-    }
-    return reflected_extensions(schema, source);
+    return reflected_extensions(schema, admitted_builtin_source(type, source));
 }
 Json merge_builtin_extensions(const Builtin& type, const Json& known, const Json& extensions) {
     const auto& schema = validation_schema(type.name);
@@ -1108,7 +1263,7 @@ void validate_components(const Json& components) {
     for (const auto& type : builtins()) {
         if (!components.contains(type.name))
             continue;
-        const auto& data = components.at(type.name);
+        const auto data = admitted_builtin_source(type, components.at(type.name));
         const auto& schema = validation_schema(type.name);
         // Preserve the legacy opaque extension envelope. The bounded reflected
         // payload contains only this builtin's known fields, never unknown data.

@@ -90,3 +90,158 @@ sphere/capsule world scale or any other existing configuration failure rejects t
 animation pose before mutation. This is host admission, not a new physics service,
 constraint system, matrix authority or scene-format revision. Animation recovery
 uses this boundary too.
+
+## Phase8 collision asset implementation checkpoint
+
+The independent `CollisionAsset` tag, bounded CPU collision envelope, shared
+import/publication, asynchronous native preparation, AssetCollider realization and
+runtime package adapter are implemented in source. Phase8 validation and character
+integration are ongoing; Build260923-000066 remains the current delivery.
+
+The version1 envelope uses the common cooked-envelope reader with at most1MiB
+metadata and64MiB total file data. Its shape tree has stable typed member UUIDs,
+local TRS, at most1024nodes/depth32 and aggregate1,048,576vertices/triangles.
+Convex inputs have a65,536point preparation budget; Jolt's256point limit applies
+to the resulting hull, not the input cloud. These are initial bounded processing
+profiles, not measured maximum production scene sizes. Geometry/translation and
+composed shape bounds stay within±1million meters; primitive dimensions retain
+the existing1mm–10km profile. These collision limits do not change visual scale.
+
+Supported prepared families are Box, Sphere, Capsule, Cylinder, ConvexHull,
+TriangleMesh and immutable StaticCompound. A compound can contain other compounds
+and has stable child identity independent of array order. A mesh anywhere in the
+tree marks the prepared result static-only under FORGE's initial policy. Native
+Jolt supports some wider moving-mesh cases; this is an engine admission policy.
+
+Exact Jolt5.6.0/e77f175595e64cb44218cc9d9d56fc365ad0e36a source governs shape
+creation and scale. Sphere/capsule require uniform magnitudes; cylinder requires
+uniform XZ magnitudes. Box/hull/mesh support signed nonuniform scale; compounds
+must additionally satisfy child rotation/scale representability. Native zero-scale
+and near-zero checks apply. No MakeScaleValid approximation silently changes
+authored content. Shape origin and center of mass remain distinct.
+
+Mesh generation explicitly chooses admitted LOD/parts and hull or triangle mode.
+Only referenced base POSITION vertices participate; skin/morph deformation is not
+baked implicitly. Degenerate triangles reject by default, or are removed under an
+explicit policy with a count; removal that leaves empty geometry still rejects.
+Jolt retains its own hull creation, duplicate-triangle sanitation and result errors.
+
+FORGE validates geometry before native construction; it does not treat native
+Shape::RestoreBinaryState as an untrusted-file validator. Shared registration
+leases outlive immutable shapes, including preparation results produced off-thread.
+`AssetCollider` holds a typed Collision AssetId and is mutually exclusive with the
+inline collider shapes. Scene preparation waits for required collision resources;
+failed preparation preserves the active world. Native shapes are shared within the
+physics resource owner. Paused polling queues CPU work without adopting a new
+shape; replacements are adopted at physics synchronization boundaries. Checkpoint
+configuration records the realized collision AssetId/revision. Native shape bytes
+are never a durable saved-game format.
+
+Source Mesh edges are Build dependencies. Cooked collision bundles retain their
+provenance but contain all required geometry, so runtime packages omit those render
+sources unless another runtime dependency needs them. Explicit part ordinals bind
+to a reviewed Mesh revision and reject stale revisions; whole-Mesh selection follows
+new revisions. Collision source copies receive new AssetIds while asset-local child
+IDs can remain stable inside the independent copied asset.
+
+PhysicsBody adds enabled/sensor/layer/mask fields. Older component data defaults to
+enabled, solid, layer zero and all masks, preserving its previous behavior. Project
+settings hold 32 stable named slots; names may change without remapping components.
+Both bodies' masks must admit the other's layer. Exact Jolt CollisionGroup supplies
+32-bit values to a stateless GroupFilter; native ObjectLayer stays the existing
+Static/Moving broadphase partition. No Jolt ABI width change or callback into Flecs.
+Sensors use Jolt native overlap semantics; static/static pairs remain excluded.
+Filtered rays independently choose queried layers and whether sensors count.
+
+The Collision document uses the same UI-independent source/history owner as Material,
+with format-specific validation. Source Save and cooked publication remain separate:
+failed cooking preserves the saved source for correction and the prior usable artifact.
+Collision debug drawing, complete character/SDK integration, full validation and
+Windows visual acceptance remain required in this authorized block.
+
+### Character controller integration (Phase8 source work)
+
+`CharacterController` contains authored mechanics only: enabled, capsule/cylinder,
+radius, standing/crouched straight height, mass, maximum push force, walkable slope
+angle, step height/forward probe, floor probe, gravity factor and project layer/mask.
+A controller uses **World** spatial binding and cannot share an enabled PhysicsBody.
+Visual children may follow it. Separate Static/Kinematic bodies may not spatially
+follow it; use World binding or deliberately authored compound collision instead.
+
+PhysicsRuntime owns one Jolt CharacterVirtual and optional-native inner body per
+controller. Character was evaluated: its rigid-body/PostSimulation route does not
+provide the same native ExtendedUpdate stair/floor and collision-tested SetShape
+workflow. FORGE uses CharacterVirtual's native mechanics rather than implementing
+a second character collision solver. The inner body supplies ordinary body/query
+presence; its native ID is resolved back to the owning EntityRef.
+
+The fixed pipeline synchronizes copied requests, advances rigid bodies, advances
+characters, then adopts simulation poses. FORGE integrates gravity explicitly:
+ExtendedUpdate's gravity argument applies support force and does not integrate the
+character's velocity. Movement intent is persistent world-space velocity planar to
+the character up axis. Jump is a one-boundary request accepted only with walkable
+support and no upward separation; it is not buffered until landing. Takeoff retains
+platform planar velocity. Input keys, cameras, sprint and game rules remain outside
+this service. There is no hidden platform parenting.
+
+Characters use feet-origin translated native shapes. Capsule scale magnitudes must
+be uniform; cylinder X/Z magnitudes must match, with independent Y permitted.
+Radial signs preserve the symmetric solid; negative Y reverses the native feet-axis
+orientation without rewriting authored rotation/scale. Native scale admission and
+1mm–10km scaled dimension bounds apply. Crouching/standing updates the virtual and
+inner shapes together. Blocked expansion retains the previous shape. Placement
+first checks the candidate for solid overlap and reports rejection without moving.
+Movement adopts LocalTranslation only; checked placement changes rotation only
+when requested. No generic combined-TRS write materializes unrelated overrides.
+
+Ground observations are copied values: OnGround, OnSteepGround, NotSupported, InAir,
+normal, velocity, contact position and safely resolved supporting EntityRef. They
+are transient. Character settings inherit and override through the same native
+Flecs/component/property prefab paths as other registered components.
+
+Runtime recovery must save both PhysicsSystem and each CharacterVirtual, plus
+controller intent/crouch/request state. Recovery first reconstructs matching scene,
+shape/filter configuration and native inner IDs, then restores native state. This
+remains same-build ephemeral recovery, with the existing aggregate solver budget;
+it is neither an authored Scene format nor a durable game save. Limits of1024
+controllers and8192 combined native bodies are admission bounds, not a throughput
+promise. No arbitrary gameplay callback executes inside native physics workers.
+
+`PhysicsService` exposes copied character observations and queued movement, jump,
+crouch and checked placement. Filtered linear shape casts support centered Box,
+Sphere, Capsule and Cylinder with fixed orientation. Query mask/sensor policy is
+independent of body pair masks. Sweep results use contact on the obstacle, outward
+obstacle normal, fraction and EntityRef; initial overlap has fraction zero. Mesh
+sweeps and angular sweeps are not claimed. Exact-SDK callbacks use size checks,
+module capability and owner/fixed-tick guards; no Jolt pointers cross the boundary.
+
+Observed Linux focused evidence: collision asset/pipeline/physics3/3 passed; expanded
+physics tests passed, including steps/tall steps/stairs, allowed/steep slopes,
+translating/rotating platforms, jump carry, light/heavy dynamics and filtered sphere
+sweep. Broader SDK/editor/Windows/strict acceptance remains in progress. These are
+source capabilities, not a claim that Build66 includes the new controller.
+
+### Collision resource subscriptions and selected-object preview
+
+The runtime resource service's Collision kind delegates to PhysicsRuntime's existing
+pool. It does not allocate another native shape cache. Subscriptions remain scoped
+to the SDK module/world; releasing an observer does not retire a body using that
+shape. Bad optional preloads report failure without making unrelated simulation
+assets required. With realized rigid bodies, ready-result adoption waits for the
+next physics synchronization boundary, including while Play is paused. Gameplay
+must observe readiness before adding a previously unloaded AssetCollider.
+
+The Scene's optional selected-object collision preview prepares immutable copied
+geometry on a worker. It extracts triangles from native **leaf** shapes collected
+by `CollectTransformedShapes`, preserving decorator/compound transformations and
+center of mass. Direct GetTrianglesStart on a non-leaf is invalid in pinned Jolt.
+Geometry remains in scaled local coordinates; moving the object only changes the
+presentation transform. The8192-triangle preview limit is visible and never clips
+actual simulation geometry. Preview colors distinguish prepared, disabled,
+pending/stale and rejected candidates. It is not a substitute for full Play-world
+hierarchy validation and does not appear in Game View.
+
+Play requests copied character debug state only for the inspected entity. Ground
+normal and a quarter-second velocity guide accompany the crouched/standing shape.
+Queries and drawing do not take simulation ownership or serialize debug state into
+Scene/prefab documents. Windows visual acceptance of this workflow remains pending.
