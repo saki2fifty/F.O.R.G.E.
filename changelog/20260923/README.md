@@ -350,3 +350,7 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   and actual conditional UI texture loading2/2 passed19.70s. Core74-test run's
   packaging regression was corrected; targeted UI/CLI/socket rerun3/3 passed6.13s,
   and the live-authoring socket test also passed with required local socket access.
+
+- Windows compiler validation caught ambiguous C++20 JSON comparisons in raw
+  animation/UI export admission. Compare explicitly decoded digest and byte-count
+  values; retain the same rejection rules. Windows rerun remains pending.

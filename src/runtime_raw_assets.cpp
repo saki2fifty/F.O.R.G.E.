@@ -27,7 +27,8 @@ std::vector<std::byte> admit_raw(const std::filesystem::path& root, const AssetR
         animation_detail::validate_legacy_provenance(r.metadata);
         const auto data = asset_detail::read_bytes(ProjectPaths(root).resolve(r.source),
                                                    animation_detail::max_archive_bytes);
-        if (asset_detail::content_digest(data) != r.metadata.at("artifact_sha256"))
+        if (asset_detail::content_digest(data) !=
+            r.metadata.at("artifact_sha256").get<std::string>())
             throw std::runtime_error("export.animation.corrupt: " + r.id.str());
         (void)animation_detail::validate_archive(
             data, r.type == SkeletonAsset::type ? animation_detail::ArchiveKind::Skeleton
@@ -41,8 +42,8 @@ std::vector<std::byte> admit_raw(const std::filesystem::path& root, const AssetR
     auto data = resources.read(path_utf8(path));
     const auto source = resources.snapshot().sources.front();
     const auto& metadata = r.metadata.at("forge.ui_source");
-    if (source.type != r.type || source.digest != metadata.at("digest") ||
-        source.bytes != metadata.at("bytes"))
+    if (source.type != r.type || source.digest != metadata.at("digest").get<std::string>() ||
+        source.bytes != metadata.at("bytes").get<std::uint64_t>())
         throw std::runtime_error("export.ui.stale: Re-admit changed UI source " + path_utf8(path));
     return data;
 }
