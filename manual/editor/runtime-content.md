@@ -4,6 +4,11 @@ A cooked content package contains the imported data needed to load selected asse
 without the original authoring files. This command-line tool is useful for checking
 content delivery. It does not yet create a playable standalone game executable.
 
+Game-runtime foundation work now includes separate save/settings storage and scene
+session ownership. These internal services do not add an Export Game command or
+a player Save/Load menu yet. The packaging steps below still describe the supported
+cooked-content tool.
+
 ## Choose the assets
 
 Import your models, textures, materials, audio clips or shaders first. In a terminal,

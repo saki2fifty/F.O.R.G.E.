@@ -1,5 +1,13 @@
 # Runtime, extension and project foundation
 
+## Phase8 implementation checkpoint
+
+The shared Play/standalone runtime-world composition, portable game-session owner,
+validated game defaults/user overrides and independent save/settings storage are
+implemented in [game foundation](game-foundation.md). Phase8 remains in progress;
+graphical standalone hosting and complete game export are not delivered yet.
+The historical design commitments below remain useful context.
+
 Design commitments for later authorized consumers, alongside existing
 [EngineModule](engine-modules.md), [core services](core-services.md) and
 [extension contracts](extension-contracts.md). This does not implement Phase7.

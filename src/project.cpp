@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
@@ -44,6 +45,8 @@ void ProjectSettings::validate(const Json& data) {
         PhysicsConfig config{p.at("gravity").get<std::array<double, 3>>()};
         config.validate();
     }
+    if (data.contains("game"))
+        validate_game_settings(data.at("game"));
     validate_project_modules(data);
 }
 ProjectSettings::ProjectSettings(std::filesystem::path root)

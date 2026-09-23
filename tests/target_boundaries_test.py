@@ -9,6 +9,9 @@ def link(target):
 runtime=link('forge_runtime')
 for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
  assert forbidden not in runtime,(forbidden,runtime)
+game=link('forge_game_foundation_tests')
+for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
+ assert forbidden not in game,(forbidden,game)
 package=link('forge_runtime_package_tests')
 for forbidden in ('imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native'):
  assert forbidden not in package,(forbidden,package)

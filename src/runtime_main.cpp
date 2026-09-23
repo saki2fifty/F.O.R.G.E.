@@ -4,9 +4,9 @@
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
-#include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
 #include <forge/runtime_ui.hpp>
+#include <forge/runtime_world.hpp>
 #include <iostream>
 #include <random>
 #include <thread>
@@ -91,31 +91,7 @@ int main(int argc, char** argv) {
             sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
         forge::Module module; // Code outlives all systems, scene content and the world.
-        struct Runtime {
-            forge::EngineContext engine;
-            forge::Scene scene;
-            forge::RuntimeSimulation simulation;
-            Runtime(forge::Module& m, std::vector<forge::EngineModule> modules,
-                    forge::PhysicsConfig physics, const std::optional<forge::AudioConfig>& audio,
-                    const std::filesystem::path& project, bool ui)
-                : engine(forge::WorldRole::Runtime, false,
-                         [&] {
-                             if (!project.empty())
-                                 modules.push_back(forge::runtime_resources_module(project));
-                             modules.push_back(forge::physics_module(physics));
-                             modules.push_back(forge::animation_module(project));
-                             modules.push_back(forge::navigation_module(project));
-                             if (ui)
-                                 modules.push_back(forge::ui_module(project));
-                             if (audio)
-                                 modules.push_back(forge::audio_module(*audio));
-                             return std::move(modules);
-                         }()),
-                  scene(engine.world()), simulation(engine.world(), scene, m) {}
-            std::shared_ptr<forge::PhysicsRuntime> physics() {
-                return std::static_pointer_cast<forge::PhysicsRuntime>(engine.services().physics());
-            }
-        };
+        using Runtime = forge::RuntimeWorld;
         auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config, audio_config,
                                                  project_root, ui_enabled);
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};

@@ -1,5 +1,30 @@
 # 2026-09-23
 
+## Phase8 game foundation — in progress, not yet packaged
+
+- Extract reusable RuntimeWorld composition from the Play worker, preserving its
+  existing protocol, native module, physics recovery and subsystem ownership.
+- Add owner-thread GameSession structural scene preparation, generation-checked
+  activation/cancel, replacement/unload, fixed clock controls and fault rejection.
+  Resource-ready asynchronous scene transitions remain under development.
+- Admit optional project game defaults separately from user display/audio/input
+  overrides. Rebinding retains ActionIds and uses the existing input validator.
+- Add independent versioned game-save slots/settings with required game validation,
+  explicit migration steps, checksums, bounded parsing, writer ownership and shared
+  flushed atomic file replacement. Loading/migrating never rewrites a source save.
+- Reuse file storage and writer leases through a UI-independent library instead of
+  linking game persistence to editor authoring. Document implemented boundaries and
+  remaining standalone/export work. Validation results are recorded below as run;
+  these changes do not change the delivered Build66 artifact.
+
+Phase8 foundation validation: local static-core70 tests pass (68 in the main run,
+two loopback tests rerun outside sandbox socket restrictions); focused shared-Flecs
+SDK8/8; strict ASan/UBSan/LSan3/3 without suppression; manual3/3, target dependency
+boundaries, formatting and workflow lint pass. Separate processes save/relaunch and
+restore supported player state into an unpublished Flecs scene without editing its
+authored source. Both CI workflows build the new test target before selecting it.
+Windows validation is pending; graphical standalone export is still in progress.
+
 ## Phase7 hardening
 
 - Correct idle CPU resource eviction after a failed replacement: released last-good
