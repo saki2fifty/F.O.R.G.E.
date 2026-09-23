@@ -3,7 +3,9 @@
 namespace forge {
 namespace {
 std::shared_ptr<UiRuntime> runtime_ui(RuntimeWorld& world) {
-    auto ui = std::dynamic_pointer_cast<UiRuntime>(world.engine.services().ui());
+    // RuntimeWorld installs these concrete built-in owners, as in the Play worker.
+    // The Diligent Windows target disables RTTI; this is not plugin type discovery.
+    auto ui = std::static_pointer_cast<UiRuntime>(world.engine.services().ui());
     if (!ui)
         throw std::runtime_error("Standalone runtime UI service is unavailable");
     return ui;
@@ -46,7 +48,7 @@ struct GamePresentation::Candidate final : GameScenePreparation {
             world.simulation.sync_audio();
             auto services = world.engine.services();
             if (services.available(Capability::Audio)) {
-                auto audio = std::dynamic_pointer_cast<AudioRuntime>(services.audio());
+                auto audio = std::static_pointer_cast<AudioRuntime>(services.audio());
                 if (!audio || audio->status().at("failed_sources").get<std::size_t>())
                     throw std::runtime_error("Scene preparation: required audio sources failed");
             } else

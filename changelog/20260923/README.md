@@ -28,6 +28,19 @@
   manual3/3, formatting, source syntax and workflow lint pass. Windows execution
   and visual acceptance remain pending the unnumbered audit.
 
+### Native host verification follow-up
+
+- Correct service access for pinned Diligent's Windows Release `/GR-` profile.
+  RuntimeWorld installs the concrete UI/audio owners; use the same ownership
+  contract as the existing Play worker rather than RTTI-based discovery.
+- Check SDL executable-directory failures before filesystem conversion.
+- Extend the real SDL host fixture with resize/render-target and scene-retention
+  assertions plus a resized capture. Focused native audits now include the game
+  fixture when the selected source has the standalone target.
+- Full rebuilt Linux core72/72 and shared SDK83/83 pass at c8474e5. The first
+  Windows audit found the RTTI compile error before tests; its cached objects are
+  reused for the corrected-source audit. No Windows success or new ZIP claimed.
+
 ## Phase8 game foundation — in progress, not yet packaged
 
 - Extract reusable RuntimeWorld composition from the Play worker, preserving its

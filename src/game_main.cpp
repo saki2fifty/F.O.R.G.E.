@@ -67,7 +67,11 @@ int main(int argc, char** argv) {
     int result = 0;
     try {
         Sdl sdl;
-        std::filesystem::path root = std::filesystem::u8path(SDL_GetBasePath());
+        const auto* executable_path = SDL_GetBasePath();
+        if (!executable_path)
+            throw std::runtime_error(SDL_GetError());
+        const auto executable_root = std::filesystem::u8path(executable_path);
+        auto root = executable_root;
 #ifdef FORGE_GAME_FIXTURE
         test::GameHostFixture fixture(argc, argv);
         root = fixture.project;
@@ -132,8 +136,7 @@ int main(int argc, char** argv) {
         callbacks.deactivate_text = [&] { (void)SDL_StopTextInput(window.get()); };
         GamePresentation presentation(
             device, graphics.context, root,
-            asset_detail::read_bytes(std::filesystem::u8path(SDL_GetBasePath()) /
-                                         "resources/ui/LatoLatin-Regular.ttf",
+            asset_detail::read_bytes(executable_root / "resources/ui/LatoLatin-Regular.ttf",
                                      4 * 1024 * 1024),
             std::move(callbacks), &ime);
         EngineServices bootstrap;
@@ -260,7 +263,7 @@ int main(int argc, char** argv) {
                 }
                 if (auto command = ui.pending_command()) {
                     auto ack = commands.dispatch(*command, [&](const Json& request) {
-                        auto service = std::dynamic_pointer_cast<UiRuntime>(
+                        auto service = std::static_pointer_cast<UiRuntime>(
                             game.active().engine.services().ui());
                         service->command(
                             game.active().scene, request, [&](const std::string& action) {

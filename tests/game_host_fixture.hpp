@@ -159,11 +159,29 @@ button { position:absolute; left:24px; width:160px; height:40px; background-colo
         } else if (stage == 5) {
             check(game.status().at("state") == "paused", "Replacement did not stay paused");
             capture("standalone-replaced.ppm", image, device, context);
+            check(SDL_SetWindowSize(window, 800, 600), "Standalone resize failed");
+            stage = 6;
+        } else if (stage == 6) {
+            int client_width = 0, client_height = 0;
+            check(SDL_GetWindowSize(window, &client_width, &client_height),
+                  "Standalone client size unavailable");
+            if (client_width != 800 || client_height != 600)
+                return;
+            int width = 0, height = 0;
+            check(SDL_GetWindowSizeInPixels(window, &width, &height),
+                  "Standalone output size unavailable");
+            const auto& desc = image->GetTexture()->GetDesc();
+            if (desc.Width != unsigned(width) || desc.Height != unsigned(height))
+                return;
+            check(game.active().scene.snapshot() == original,
+                  "Window resize changed authored scene state");
+            capture("standalone-resized.ppm", image, device, context);
             atomic_write(output / "standalone-result.json",
                          Json{{"startup", true},
                               {"ui_pause_resume", true},
                               {"failed_gpu_candidate_retained", true},
                               {"prepared_replacement", true},
+                              {"resized", {{"width", width}, {"height", height}}},
                               {"final", game.status()}}
                              .dump(2));
             running = false;

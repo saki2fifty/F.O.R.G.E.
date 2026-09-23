@@ -97,11 +97,14 @@ this adds contexts, not competing global interfaces.
 
 Pinned SDL3.4.16 display APIs and Diligent device/swap/CopyTexture interfaces are
 reused. Raw Win32/D3D12/WARP setup stays in `game_device_d3d12.cpp`; shared rendering
-uses Diligent interfaces. No dependency pins or scene formats change.
+uses Diligent interfaces. The pinned Windows Release build settings disable RTTI;
+service access follows RuntimeWorld's known concrete UI/audio ownership, matching
+the existing Play worker, rather than performing runtime type discovery. No
+dependency pins or scene formats change.
 
 Portable regressions cover bootstrap identity/prefab inheritance/relocation,
 preparation failure/cancel/supersession, stale readiness, UI candidate retention,
 initial animation time and actual offline master-volume samples.
 `standalone_game_workflow` exercises the SDL host on Windows/WARP, captures frames,
-clicks UI controls and tests failed/valid graphical replacement. Its execution and
+clicks UI controls and tests failed/valid graphical replacement and window resize. Its execution and
 image review remain separate from Linux/source validation.
