@@ -13,7 +13,7 @@ game=link('forge_game_foundation_tests')
 for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
  assert forbidden not in game,(forbidden,game)
 package=link('forge_runtime_package_tests')
-for forbidden in ('imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native'):
+for forbidden in ('imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native','forge_recast','forge_nav_build'):
  assert forbidden not in package,(forbidden,package)
 cache=(Path(build)/'CMakeCache.txt').read_text()
 if 'FORGE_BUILD_ASSET_TOOLS:BOOL=ON' in cache:

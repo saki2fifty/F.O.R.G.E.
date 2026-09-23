@@ -1,3 +1,4 @@
+#include "runtime_package.hpp"
 #include <cmath>
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
@@ -113,6 +114,37 @@ int main(int argc, char** argv) {
             std::ofstream(root / "scene.json") << snapshot.dump();
             std::cout << std::filesystem::absolute(root).string() << "\n";
             return 0;
+        }
+        {
+            const auto destination = root.parent_path() / (AssetId::generate().str() + "-game");
+            const std::array roots{record.id};
+            const RuntimePackageTarget target{"windows", "d3d12"};
+            const auto manifest = package_runtime_content(root, destination, roots, target);
+            const auto relocated = destination.string() + "-relocated";
+            std::filesystem::rename(destination, relocated);
+            const auto hidden = root.string() + "-hidden";
+            std::filesystem::rename(root, hidden);
+            const auto packaged = open_runtime_content(relocated, target);
+            check(packaged.records().size() == 1 &&
+                      packaged.records().at(record.id).dependency_edges.empty(),
+                  "Navigation packaging retained build-only scene dependency");
+            Fixture game(relocated);
+            game.scene.restore_snapshot(snapshot);
+            game.simulation.reset_presentation();
+            check(game.navigation->find_path({record.id}, {-8, .1, 0}, {8, .1, 0}).points.size() >
+                      2,
+                  "Relocated game navigation requires original project");
+            game.tick();
+            check(game.position()[0] != -8, "Packaged navigation did not move the game agent");
+            const auto cooked =
+                std::filesystem::path(relocated) / packaged.records().at(record.id).source;
+            const auto bytes = read(cooked);
+            std::ofstream(cooked, std::ios::binary) << "corrupt";
+            reject([&] { open_runtime_content(relocated, target); });
+            std::ofstream(cooked, std::ios::binary) << bytes;
+            (void)open_runtime_content(relocated, target);
+            std::filesystem::rename(hidden, root);
+            std::filesystem::remove_all(relocated);
         }
         Fixture f(root);
         f.scene.restore_snapshot(snapshot);

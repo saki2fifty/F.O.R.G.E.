@@ -17,9 +17,14 @@ you want as roots; their required asset dependencies are included automatically.
 Selecting a mesh from an imported model includes its complete model family.
 
 The current tool supports imported Model, Texture, built-in Material, AudioClip,
-and compiled Shader assets. Scene/Prefab files and legacy source-based animation,
-navigation, Script and game UI packaging are not yet supported by this command.
+compiled Shader assets, and baked NavMesh assets. Scene/Prefab files and legacy
+source-based animation, Script and game UI packaging are not yet supported by this command.
 An unsupported selection reports an error.
+
+For navigation, bake the navigation mesh first (see [Navigation](navigation.md)),
+then include its NavMesh AssetId. The package contains the baked navigation data;
+it does not include its authoring scene. The game must load the matching level:
+existing checks still report stale navigation when its source geometry changes.
 
 ## Create a package
 

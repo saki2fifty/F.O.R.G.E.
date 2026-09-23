@@ -33,6 +33,10 @@ Add an opt-in Windows-only core dispatch for focused platform corrections. It st
 runs both static-core and native-SDK profiles; normal pushes and numbered package
 builds retain the full platform matrix. Earlier Linux results remain attributed to
 their actual source rather than relabeled as results for another commit.
+Correct the new session's initial physics synchronization to pass zero elapsed
+seconds, and reset the simulation/input clock with each fresh physics world.
+Regressions compare clock and solver checkpoint ticks immediately after scene
+activation and after Step; world time is not an application/session identity.
 
 ## Phase7 hardening
 
@@ -133,3 +137,32 @@ rebuild against the paired package because the resource contract header changed.
   Roughness value and its contextual help at 100/150/200%. Both Hierarchy actions
   remain reachable at 200%. Correct the manual's sibling-order description to
   match authored Flecs child order rather than obsolete alphabetical ordering.
+
+### Phase8 OS user-data adapter and validation
+
+- Added a separate SDL OS-directory adapter for game saves/settings, with no video
+  initialization or editor linkage. Windows uses its native Roaming AppData path;
+  Linux uses the SDL XDG location. Invalid Linux directory environments reject
+  before entering the pinned native implementation. No install/project fallback.
+- Added actual save/load through that adapter and Linux invalid-environment
+  regression tests; the portable simulation/storage libraries remain SDL-free.
+- Windows CI35820752072 passed70 core and81 shared-SDK tests at source d2f6ceb,
+  including blocked save replacement and separate-process restoration. These
+  results precede the subsequent world-clock correction and OS adapter changes.
+- The world-clock correction passes focused static/shared-SDK/strict sanitizer
+  regression tests (2 each). No new numbered package or Phase8 completion claim.
+
+### Navigation delivery
+
+- Cooked-content packages now include baked NavMesh assets using the existing
+  admitted navigation envelope and ordinary AssetCatalog. Source scenes remain
+  build dependencies; Recast and editor code are unnecessary for package loading.
+- Added a real baked-level relocation/query/agent regression with the original
+  project unavailable, plus corrupt packaged-navigation rejection. Existing
+  fixed-clock, asset identity and geometry-staleness contracts remain unchanged.
+- Updated the command-line packaging manual and technical format documentation.
+
+- Follow-up local validation: navigation/package/link tests3/3; shared-SDK
+  navigation/package/process/SDK/link tests5/5; strict sanitizer navigation/package
+  tests2/2. OS path tests pass in static, shared SDK and strict sanitizer profiles.
+  Manual3/3, formatting and workflow lint pass. Windows follow-up remains pending.

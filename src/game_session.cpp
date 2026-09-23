@@ -45,8 +45,8 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         next->scene.restore_snapshot(snapshot);
         if (restore_supported_state)
             restore_supported_state(next->scene);
-        next->physics()->synchronize(clock_.tick());
-        next->simulation.restore_input_tick(clock_.tick());
+        next->physics()->synchronize(0); // Initial realization: no elapsed physics time.
+        next->simulation.restore_input_tick(0);
         next->simulation.reset_presentation();
         next->simulation.sync_audio();
         candidate_ = std::move(next);
@@ -64,11 +64,11 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
         throw std::runtime_error("game.session: Stale or missing prepared scene");
     Mutation guard(changing_);
     // Finish potentially failing preparation before pausing or replacing active.
-    candidate_->simulation.restore_input_tick(clock_.tick());
+    candidate_->simulation.restore_input_tick(0);
     candidate_->simulation.reset_presentation();
     if (active_)
         active_->simulation.audio_paused(true);
-    clock_.pause(now);
+    clock_.restore_tick(0, now); // A new world starts a new simulation timeline.
     active_.swap(candidate_);
     pending_ = 0;
     faulted_ = false;

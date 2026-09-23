@@ -208,12 +208,16 @@ void session() {
     rejects([&] { game.activate(second, at(25), true); });
     game.activate(third, at(10000), false);
     check(game.active().scene.entity("third").is_alive(), "Scene activation failed");
-    check(game.status().at("clock").at("tick") == 1, "Scene change reset session tick");
+    check(game.status().at("clock").at("tick") == 0 &&
+              game.active().physics()->checkpoint().at("tick") == 0,
+          "New world clock disagrees with fresh physics state");
     game.step();
-    check(game.status().at("clock").at("tick") == 2, "Paused step failed");
+    check(game.status().at("clock").at("tick") == 1 &&
+              game.active().physics()->checkpoint().at("tick") == 1,
+          "Paused clock/physics step disagrees");
     game.resume(at(11000));
     game.advance(at(11001));
-    check(game.status().at("clock").at("tick") == 2, "Transition created catch-up debt");
+    check(game.status().at("clock").at("tick") == 1, "Transition created catch-up debt");
     game.pause(at(11002));
     auto invalid_body = game.active().scene.entity("third");
     invalid_body.set<PhysicsBody>({});

@@ -286,3 +286,14 @@ as a prerelease; it is not an engine stable-version selection. Exact release
 archive/source provenance, observed supported extensions and validation limits
 are recorded in [glTF validation evidence](gltf-validation.md). The pinned official
 sample corpus retains per-asset notices and hashes in its test-data directory.
+
+### SDL standalone user data — verified 2026-09-23
+
+The unchanged release3.4.16 pin supplies `SDL_GetPrefPath` in the separate
+`forge_game_platform` target. Exact `SDL_filesystem.h` and Windows/Unix
+`SDL_sysfilesystem.c` define returned UTF-8 buffer ownership (`SDL_free`) and
+Windows Roaming AppData/Linux XDG directory selection. No video initialization
+is required. FORGE validates nonempty absolute Unix environment inputs before
+calling this implementation; it does not patch SDL or choose the install directory
+on failure. Headless builds disable SDL video/audio/joystick/haptic facilities.
+No live-documentation drift was used to infer this API behavior.

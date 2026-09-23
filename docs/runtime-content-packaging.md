@@ -2,8 +2,8 @@
 
 The Phase7 content tool selects cooked assets for a target without copying their
 original glTF, image, WAV, material source, HLSL, or import sidecars. It does not
-create a standalone visual game executable. Existing Scene/Prefab, legacy Ozz/
-navigation, Script, and RmlUi source-based runtime families need explicit packaging
+create a standalone visual game executable. Existing Scene/Prefab, legacy Ozz,
+Script, and RmlUi source-based runtime families need explicit packaging
 adapters; selecting one currently fails with a diagnostic rather than producing
 an incomplete package.
 
@@ -29,10 +29,18 @@ manifest. It does not resolve a development filename. Model member/owner locator
 remain equal, and the existing complete-family loader checks all identities,
 bindings, member formats, animation provenance and selected revisions.
 
+The Phase8 navigation adapter copies the already baked, admitted `.fnav` envelope
+to `runtime/navigation/ASSET_ID.fnav`. It retains the exact Recast revision, Detour
+layout, geometry/settings/identity provenance and byte digest. The build-only
+source scene is excluded; runtime stale-geometry checks still use the loaded scene.
+Its CPU data has no graphics-backend binding. No Recast build worker or source
+geometry is needed to load it. The existing native loader validates the envelope
+and tile before returning a usable resource.
+
 ## Contents and bounds
 
 Supported roots are imported Model families, Texture bundles, built-in Material
-bundles, cooked AudioClip, and compiled Shader programs. Source-only or unknown
+bundles, cooked AudioClip, compiled Shader programs, and baked NavMesh assets. Source-only or unknown
 families are rejected. Existing cooked parsers and selected-resource loaders
 validate the candidate, including texture variants, material bindings and shader
 reflection/provenance. Packaging links no Diligent device, HLSL compiler, glTF
@@ -112,5 +120,9 @@ package an actual imported member and verify its complete source-free family.
 Native Windows shader-worker tests package real compiled bytecode and reload it
 from a relocated directory. Native execution results belong to the corresponding
 build's validation record; merely declaring these tests is not acceptance.
+
+The navigation regression additionally packages an actual baked obstacle course,
+relocates it with the original project unavailable, queries a path and advances
+a runtime agent, and rejects a corrupted packaged envelope.
 
 See the [user instructions](../manual/editor/runtime-content.md).

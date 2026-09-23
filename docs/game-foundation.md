@@ -32,8 +32,14 @@ to the forthcoming platform adapter. Validation does not apply window/audio stat
 
 `GameStorage` requires an absolute OS user-data base supplied by the host. It uses
 `game-APPLICATION_ID` beneath that base, separate from source/installation/cache
-paths. The OS directory adapter is not part of this portable library yet. Never
-pass the game installation or project folder as the production base.
+paths. The separate `forge_game_platform` target supplies `game_user_data_base()` using
+the pinned SDL `GetPrefPath("FORGE", "Games")`. This resolves to Roaming AppData
+on Windows and XDG user data on Linux, with per-application isolation supplied
+by GameStorage. The display title never selects the save directory. No video
+initialization is needed. Missing, empty or relative Linux directory environment
+values reject before SDL; directory errors never fall back to the installation,
+project or current-working directory. The portable storage/runtime targets remain
+SDL-free. `FORGE_BUILD_GAME_PLATFORM=OFF` omits this optional OS adapter.
 
 One cooperative writer lease protects the application's user directory. It reuses
 the existing OS-handle lease; no PID guessing or stale-lock-file deletion. Operations
@@ -95,7 +101,10 @@ before activation; that integration remains open.
 
 Activation completes throwable pose preparation before replacing the old world,
 stops the old world before new gameplay ticks, and resets presentation/input debt.
-The session tick remains monotonic across transitions. Optional paused activation,
+Fresh scene activation resets the world clock, input tick and physics timeline
+together, matching existing runtime replacement. Game/session progress is separate
+from this per-world simulation time; no persistent time identity is introduced.
+Optional paused activation,
 Pause/Resume/Step and unload use the existing fixed clock. A failed fixed tick faults
 the session; resuming that partially executed world is rejected. A validated new
 candidate can replace it. Reentrant lifecycle and foreign-thread calls reject.
@@ -109,7 +118,7 @@ as persistent gameplay identity.
 ## Remaining Phase8 integration
 
 Graphical standalone host, full runtime asset packaging, async resource-ready
-scene transitions/progress, game SDK save/session access, OS data-directory adapter,
+scene transitions/progress, game SDK save/session access,
 character/collision assets, input contexts/platform settings, independent diagnostics
 and the reference-game acceptance flow are still required. Additive scenes/streaming
 and advanced authoring tools are deferred. No new dependency pin, scene format,

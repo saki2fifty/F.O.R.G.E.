@@ -5,6 +5,7 @@
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
+#include "navigation_asset.hpp"
 #include "publish_directory.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/audio_components.hpp>
@@ -47,6 +48,11 @@ Json target_value(const RuntimePackageTarget& target) {
     return {{"platform", platform(target.platform)}, {"backend", target.backend}};
 }
 std::string revision(const AssetRecord& record) {
+    if (record.type == NavMeshAsset::type && record.schema_version == 1 && !record.subasset) {
+        const auto key = record.metadata.at("sha256").get<std::string>();
+        require(valid_content_digest(key), "Invalid navigation artifact revision");
+        return key;
+    }
     require(record.schema_version == 1 && record.metadata.contains("forge.import"),
             "Asset " + record.id.str() + " (" + record.type +
                 ") has no supported cooked selection; import it before packaging");
@@ -105,7 +111,10 @@ std::set<AssetId> closure(const AssetCatalog& catalog, std::span<const AssetId> 
 }
 AssetRecord runtime_record(AssetRecord record) {
     const auto key = revision(record);
-    record.source = artifact_path(key) / "manifest.json";
+    const bool navigation = record.type == NavMeshAsset::type;
+    record.source = navigation
+                        ? std::filesystem::path("runtime/navigation") / (record.id.str() + ".fnav")
+                        : artifact_path(key) / "manifest.json";
     record.source_dependencies.clear();
     std::erase_if(record.dependency_edges,
                   [](const auto& edge) { return edge.kind != AssetDependencyKind::Runtime; });
@@ -113,6 +122,10 @@ AssetRecord runtime_record(AssetRecord record) {
     for (const auto& edge : record.dependency_edges)
         targets.insert(edge.target);
     record.dependencies.assign(targets.begin(), targets.end());
+    // Native navigation's complete envelope provenance is admitted by its existing
+    // loader. Its source scene is a build dependency, not a shipped source file.
+    if (navigation)
+        return record;
     Json metadata = Json::object();
     for (const auto* name :
          {"forge.import", "forge.model", "forge.material", "forge.shader", "forge.audio"})
@@ -172,7 +185,9 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
         cancelled(stop);
         if (record.subasset)
             continue; // Complete family admission checks all members and bindings.
-        if (record.type == ModelAsset::type)
+        if (record.type == NavMeshAsset::type)
+            (void)navigation_detail::load(root, record);
+        else if (record.type == ModelAsset::type)
             (void)load_model_selection(root, catalog, id, stop);
         else if (record.type == MaterialAsset::type) {
             const auto material = load_material_selection(root, catalog, {id}, stop);
@@ -277,6 +292,19 @@ Json package_runtime_content(const std::filesystem::path& project,
             records.push_back(runtime_record(record));
             if (record.subasset)
                 continue;
+            if (record.type == NavMeshAsset::type) {
+                const auto bytes = read_bytes(ProjectPaths(root).resolve(record.source),
+                                              navigation_detail::max_nav_bytes + 65556);
+                const auto admitted = navigation_detail::admit(bytes);
+                auto expected = record.metadata;
+                expected.erase("sha256");
+                require(admitted.metadata == expected &&
+                            admitted.metadata.at("asset_id") == Json(record.id) &&
+                            content_digest(bytes) == revision(record),
+                        "Navigation selection differs from admitted immutable bytes");
+                emit(records.back().source, bytes);
+                continue;
+            }
             const auto key = revision(record);
             auto artifact =
                 DerivedDataCache(root, {256 * 1024 * 1024, 512 * 1024 * 1024, 4096})
@@ -387,6 +415,11 @@ AssetCatalog open_runtime_content(const std::filesystem::path& package,
                 "Runtime catalog contains authoring-only metadata or source locators");
         if (record.subasset)
             continue;
+        if (record.type == NavMeshAsset::type) {
+            require(files.contains(record.source), "Selected navigation file not packaged");
+            required_files.insert(record.source);
+            continue; // Existing native envelope loader validates bytes and provenance below.
+        }
         const auto key = revision(record);
         const auto artifact =
             DerivedDataCache(root, {256 * 1024 * 1024, 512 * 1024 * 1024, 4096})
