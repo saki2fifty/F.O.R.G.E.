@@ -159,6 +159,7 @@ class Problems {
                         navigated = true;
                     }
                 }
+                FORGE_UI_PROBE("problem:" + p.key);
                 ImGui::GetWindowDrawList()->AddText(
                     ImGui::GetFont(), ImGui::GetFontSize(), position,
                     (p.severity == "warning" || p.severity == "Warning")

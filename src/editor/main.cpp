@@ -3275,6 +3275,8 @@ int main(int argc, char** argv) {
                     problems.push_back({{"severity", problem.severity},
                                         {"text", problem.text},
                                         {"entity", problem.entity},
+                                        {"asset", problem.asset ? forge::Json(problem.asset)
+                                                                : forge::Json(nullptr)},
                                         {"source", problem.source}});
                 const forge::Json state{{"problems", problems},
                                         {"scene", scene.document()},
@@ -3294,10 +3296,15 @@ int main(int argc, char** argv) {
                     model_imports.placement_ready() && !model_imports.pending();
                 observed["source_imported"] =
                     source_import.finished() && source_import.published_count() == 1;
-                observed["model_asset"] = model_imports.selected_asset();
+                observed["model_asset"] = model_imports.selected_asset()
+                                              ? forge::Json(model_imports.selected_asset())
+                                              : forge::Json(nullptr);
                 observed["model_generation"] = model_imports.selection_generation();
                 observed["project"] = forge::path_utf8(files.document.project());
                 observed["failed_imports"] = forge::Json::array();
+                observed["selected_asset"] = editor.selection.asset()
+                                                 ? forge::Json(editor.selection.asset())
+                                                 : forge::Json(nullptr);
                 for (const auto& [id, activity] : content_imports.activity())
                     if (activity == forge::AssetJobState::Failed)
                         observed["failed_imports"].push_back(id);

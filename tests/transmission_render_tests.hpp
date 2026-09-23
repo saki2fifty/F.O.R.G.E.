@@ -39,7 +39,7 @@ void check_transmission_render(forge::DiligentPresentation& presentation,
     lens.far_plane = 10;
     AffineTransform origin;
     origin.m[3] = 1e12;
-    const auto view = camera_view(lens, origin, 32, 32);
+    auto view = camera_view(lens, origin, 32, 32);
     AffineTransform world = origin;
     world.m[11] = 2;
     TransmissionBackground background(presentation);
@@ -106,6 +106,42 @@ void check_transmission_render(forge::DiligentPresentation& presentation,
     white[0] = white[1] = white[2] = 1;
     glass.parameters.erase("attenuationDistance");
     require(render(glass) == clear, "Omitted attenuation distance did not mean no absorption");
+    {
+        // Exercise the exit interface seen from inside a volume. KHR volume
+        // boundaries ignore doubleSided; a positive thickness must not cull it.
+        const auto outside = view;
+        AffineTransform inside = origin;
+        inside.m[0] = inside.m[10] = -1;
+        inside.m[11] = 4;
+        view = camera_view(lens, inside, 32, 32);
+        auto exit = glass;
+        exit.double_sided = false;
+        exit.parameters["attenuationColor"].value = {.25f, .5f, 1};
+        exit.parameters["attenuationDistance"] = {MaterialParameterType::Scalar, {1}};
+        const auto from_inside = render(exit);
+        require(from_inside[center][0] < from_inside[center][1] &&
+                    from_inside[center][1] < from_inside[center][2] &&
+                    from_inside[center][0] < clear[center][0] - 30,
+                "Volume exit interface was culled or lost its absorption");
+        save(from_inside, 32, 32, images / "transmission-inside-exit.ppm");
+        exit.double_sided = true;
+        require(render(exit) == from_inside, "doubleSided changed a volume exit interface");
+        world.m[0] = -1;
+        require(render(exit) == from_inside, "Mirroring changed volume exit transport");
+        world.m[0] = 1;
+        // Incidence 60 degrees exceeds asin(1/1.5). No background transmission
+        // may survive total internal reflection. There are no reflection lights
+        // or environment in this fixture, so the interface is black.
+        const double sine = std::sqrt(.75);
+        inside.m = {-.5, 0, -sine, origin.m[3] + 2 * sine, 0, 1, 0, 0, sine, 0, -.5, 3};
+        view = camera_view(lens, inside, 32, 32);
+        exit.parameters["ior"].value[0] = 1.5f;
+        const auto reflected = render(exit);
+        require(reflected[center][0] < 5 && reflected[center][1] < 5 && reflected[center][2] < 5,
+                "Total internal reflection leaked opaque-background transmission");
+        save(reflected, 32, 32, images / "transmission-inside-total-reflection.ppm");
+        view = outside;
+    }
     // Alternating opaque bands distinguish spatial refraction/roughness from a
     // color-factor-only implementation. No authored scene data is involved.
     std::vector<std::array<std::uint16_t, 4>> bands(32 * 32);

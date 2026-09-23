@@ -22,3 +22,12 @@ Build output is also available in **Gameplay Code**. Runtime UI, asset conversio
 **Tools → Component schema** shows registered components and their field identities, types, defaults, units and limits. These are the same schemas used by Add Component and the typed Inspector. Quaternion storage is shown here; authored rotation editing presents Euler degrees.
 
 See [Inspector](inspector.md), [Native gameplay](native-gameplay.md) and [Play mode](play-mode.md).
+
+## Automatic asset reimport errors
+
+When a watched source fails to reimport, its Problems entry identifies the asset
+and source path. Select the entry to inspect that asset, correct the source, and
+save it again or request Reimport. The last published revision remains usable.
+Successful reimport clears that asset's error. **Open source** is offered for the
+supported bounded text-source formats. When unavailable, use the asset/import view
+or your external editor.

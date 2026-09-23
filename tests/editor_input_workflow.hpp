@@ -110,6 +110,17 @@ class EditorInputWorkflow {
                         state.at("model_asset") == model_asset_ && doc == saved_ &&
                         state.at("disk") == saved_,
                     "Corrupt source discarded the usable model or changed authored state");
+            const auto& problems = state.at("problems");
+            require(std::any_of(problems.begin(), problems.end(),
+                                [&](const auto& problem) {
+                                    return problem.at("asset") == model_asset_ &&
+                                           problem.at("source") ==
+                                               "Assets/Imported/Source-1/workflow.gltf";
+                                }),
+                    "Automatic reimport error has no navigable asset/source context");
+        } else if (what == "failed-asset-selected") {
+            require(state.at("selected_asset") == model_asset_ && doc == saved_,
+                    "Selecting the reimport diagnostic did not inspect its asset safely");
         } else if (what == "hot-reimported") {
             require(state.at("model_ready").get<bool>() &&
                         state.at("model_asset") == model_asset_ &&
@@ -353,7 +364,11 @@ class EditorInputWorkflow {
         // Simulate an external DCC save, without invoking the importer directly.
         steps_.push_back({Kind::SourceEdit, "corrupt-external-model"});
         check("hot-reimport-rejected");
+        click("tab:Problems");
+        click("failed-model-problem");
+        check("failed-asset-selected");
         capture("rejected-model-source-keeps-last-good");
+        click("tab:Scene");
         steps_.push_back({Kind::SourceEdit, "change-external-model-material"});
         check("hot-reimported");
         capture("hot-reimported-model");
@@ -418,7 +433,9 @@ class EditorInputWorkflow {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
-            const auto target = step.value == "saved-cube-row"      ? "entity:" + cube_
+            const auto target = step.value == "saved-cube-row" ? "entity:" + cube_
+                                : step.value == "failed-model-problem"
+                                    ? "problem:reimport:" + model_asset_
                                 : step.value == "placed-model-row"  ? "entity:" + model_root_
                                 : step.value == "camera-marker"     ? "marker:" + camera_
                                 : step.value == "light-marker"      ? "marker:" + light_

@@ -21,3 +21,24 @@ manual generation/link checks pass. Expanded native workflow and final matrix ar
 Build260922-000065 remains the current immutable delivery until the consolidated
 correction passes its release gate. Physical acceptance remains PARTIAL / PENDING.
 No Phase8 work or dependency pin changes.
+
+## Asset diagnostics
+
+- Automatic reimport failures now retain the affected AssetId and source path in
+  Problems. Selecting the entry navigates to the asset; supported text sources use
+  the existing contained source viewer. Successful publication clears the same error.
+- The native corrupt-source workflow checks that this context exists and that
+  selecting the diagnostic inspects the asset without changing scene state.
+
+- Correct transform-guide contradictions about negative scale, flattened mesh
+  picking and delivered prefab tools. Apply to Prefab stays deferred.
+- The first expanded Windows input run exposed a test-observation error at startup:
+  absent AssetIds must be represented as null rather than serialized as valid UUIDs.
+  Corrected the fixture; that run supplies no successful UI acceptance.
+
+## Renderer verification
+
+- Add native readback/captures for the existing inside-facing volume exit path:
+  absorption, two-sided-flag independence, mirrored parity and total internal
+  reflection above the critical angle. These exercise the current screen-space
+  transmission approximation; they do not add nested-volume ray tracing.

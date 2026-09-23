@@ -29,7 +29,7 @@ For example, **R → Z → 90 → Enter** rotates 90 degrees around world Z. **S
 
 The on-screen strip shows the operation, axis and value. Each accepted transform is one Undo step. Cancelling, losing focus, hiding/resizing the Scene panel, or switching documents discards the preview. Invalid scale values cannot be accepted; correct the value or cancel.
 
-Rotation uses **world axes**, or the captured viewing axis when unconstrained. Scale uses the object's **local axes**, or all axes together when unconstrained. The pivot is the selected object's origin. Children set to **Follow parent** follow these transforms. A rotated child under a stretched parent can have a sheared world shape; FORGE preserves that shape. A world rotation that cannot be represented by the child’s local rotation alone is rejected with a message. World-axis scaling of rotated objects, negative scale, multi-selection, plane constraints and rotation/scale drag handles are not implemented.
+Rotation uses **world axes**, or the captured viewing axis when unconstrained. Scale uses the object's **local axes**, or all axes together when unconstrained. The pivot is the selected object's origin. Children set to **Follow parent** follow these transforms. A rotated child under a stretched parent can have a sheared world shape; FORGE preserves that shape. A world rotation that cannot be represented by the child’s local rotation alone is rejected with a message. World-axis scaling of rotated objects, plane constraints and rotation/scale drag handles are not implemented. Negative and zero scale are supported as described below. For multiple selected entities, use the Inspector controls described in [Inspector](inspector.md).
 
 Shortcuts start only over the Scene image, outside text editing and camera gestures. **RMB+S still flies backward**.
 
@@ -63,7 +63,7 @@ A missing attachment hides the object instead of placing it at a guessed locatio
 
 The three channels inherit independently. Moving an instance overrides its position only; rotation and scale can continue following its prefab. Rotating or scaling similarly overrides just that channel. Right-click the **Scale** field to access **Revert translation**, **Revert rotation**, and **Revert scale** individually. Removing an override restores the inherited value, or the default/absence when no prefab supplies it.
 
-Preserving world placement during reparenting can require new local values. FORGE creates only the needed channel overrides; a rotated/scaled parent may require all three. **Paste transform** and **Reset transform** intentionally override all three. Full prefab authoring tools are still pending.
+Preserving world placement during reparenting can require new local values. FORGE creates only the needed channel overrides; a rotated/scaled parent may require all three. **Paste transform** and **Reset transform** intentionally override all three. Structured prefab creation, source editing, instantiation and Revert are available; **Apply to Prefab** remains deferred. See [Prefabs](prefabs.md).
 
 ## Mirroring and zero scale
 
@@ -74,8 +74,9 @@ Confirm creates one Undo step; Escape restores the original. Multiplying an axis
 that was already zero keeps it zero: select the object in Hierarchy and type a
 nonzero Scale value to restore it.
 
-A collapsed object remains in the scene and Hierarchy. Geometry clicking is
-unavailable if its transform cannot be safely inverted. Parenting with
+A collapsed object remains in the scene and Hierarchy. Loaded mesh selection tests forward-transformed geometry, including surviving
+flattened surfaces; it does not require inverting the object transform. Completely
+collapsed geometry may have no pickable area, so select it from Hierarchy. Parenting with
 **Keep local** still works under a zero-scale parent; **Preserve world** or a
 world-space gesture can fail with an inverse-unavailable diagnostic. The failed
 operation leaves the scene unchanged. Collider restrictions are separate: see

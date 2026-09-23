@@ -1,5 +1,6 @@
 #pragma once
 #include "../asset_reimport.hpp"
+#include "diagnostic_source.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
 namespace forge {
@@ -65,7 +66,18 @@ class ContentImports {
                         published(result.job.asset, service_->catalog());
                 } else {
                     message = result.diagnostic;
-                    ui::report_error(key, result.diagnostic);
+                    if (ui::editor_context) {
+                        ui::Problem problem{key, "Error", result.diagnostic, {},
+                                            {},  {},      result.job.asset};
+                        const auto catalog = service_->catalog();
+                        if (const auto found = catalog->records().find(result.job.asset);
+                            found != catalog->records().end()) {
+                            problem.source = path_utf8(found->second.source);
+                            problem.source_navigation =
+                                ui::diagnostic_text_source(found->second.source);
+                        }
+                        ui::editor_context->problems.report(std::move(problem));
+                    }
                 }
             }
             if (service_->generation() != observed_) {
