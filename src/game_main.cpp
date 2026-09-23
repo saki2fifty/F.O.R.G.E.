@@ -124,6 +124,10 @@ int main(int argc, char** argv) {
         if (!log)
             throw std::runtime_error("Cannot open runtime log");
         previous_log = std::clog.rdbuf(log.rdbuf());
+#ifdef FORGE_GAME_FIXTURE
+        fixture.storage_probe(storage, defaults, project.input(),
+                              project.document().at("startup_scene").at("asset").get<AssetId>());
+#endif
         const auto user = storage.load_settings([&](const Json& overrides) {
             (void)resolve_game_settings(defaults, overrides, project.input());
         });

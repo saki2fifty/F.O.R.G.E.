@@ -12,6 +12,33 @@ struct GameHostFixture {
     std::uint64_t ticket = 0;
     Uint64 started = SDL_GetTicks();
     Json original;
+    void storage_probe(GameStorage& storage, const Json& settings, const InputMap& input,
+                       AssetId startup) {
+        const GameSaveSchema schema{1,
+                                    [startup](const GameSave& save) {
+                                        check(save.scene == startup && save.data.at("marker") == 42,
+                                              "Relocation changed saved fixture state");
+                                    },
+                                    {}};
+        const auto slots = storage.slots();
+        const bool reopened = std::find(slots.begin(), slots.end(), "relocation") != slots.end();
+        const auto validate = [&](const Json& overrides) {
+            (void)resolve_game_settings(settings, overrides, input);
+        };
+        if (reopened) {
+            (void)storage.load("relocation", schema);
+            check(storage.load_settings(validate).at("audio").at("master_volume") == .75,
+                  "Relocation lost persistent user settings");
+        } else {
+            storage.save("relocation", {startup, {{"marker", 42}}}, schema);
+            storage.save_settings({{"audio", {{"master_volume", .75}}}}, validate);
+        }
+        atomic_write(output / "storage-result.json", Json{{"root", path_utf8(storage.root())},
+                                                          {"reopened", reopened},
+                                                          {"scene", startup},
+                                                          {"settings_persisted", true}}
+                                                         .dump(2));
+    }
     explicit GameHostFixture(int argc, char** argv) {
         packaged = argc == 3 && std::string_view(argv[1]) == "--packaged";
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";

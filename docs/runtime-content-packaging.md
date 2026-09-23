@@ -292,3 +292,9 @@ separate required delivery gates.
 These are finite current formats. Runtime render-resource requests still support
 their existing typed subset; packaging a family does not invent a generic loaded
 resource API for all subsystems. Standalone target support remains Windows/D3D12.
+
+The standalone acceptance fixture also writes an explicitly validated game save
+slot and user audio preferences through GameStorage, then restarts after a second
+installation move and verifies both. Saves, settings and runtime.log must remain
+outside the installation. This checks the existing host storage API; it does not
+represent gameplay-module session/save access as implemented.

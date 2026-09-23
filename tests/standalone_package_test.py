@@ -76,6 +76,20 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     checked = run([relocated/'forge_game.exe', '--verify-startup'], cwd=relocated, env=env)
     assert 'FORGE standalone startup verified' in checked.stdout
     run([relocated/'forge_game_fixture.exe', '--packaged', evidence], cwd=relocated, env=env)
+    storage_result = json.loads((evidence/'storage-result.json').read_text())
+    assert not storage_result['reopened'], 'Fixture application ID unexpectedly reused'
+    user_root = Path(storage_result['root'])
+    assert user_root.is_absolute() and not user_root.is_relative_to(relocated)
+    assert (user_root/'runtime.log').is_file()
+    # Move the same installation again, restart, and load its existing OS-scoped data.
+    moved_again = work/'Moved Again'
+    shutil.move(str(relocated), moved_again)
+    relocated = moved_again
+    restarted = evidence/'restarted'
+    run([relocated/'forge_game_fixture.exe', '--packaged', restarted], cwd=relocated, env=env)
+    restored = json.loads((restarted/'storage-result.json').read_text())
+    assert restored['reopened'] and restored['root'] == storage_result['root']
+    assert restored['scene'] == storage_result['scene']
     manifest = json.loads((relocated/'forge.standalone.json').read_text())
     actual = {p.relative_to(relocated).as_posix() for p in relocated.rglob('*') if p.is_file()}
     assert actual == set(manifest['files']) | {'forge.standalone.json'}, 'Runtime wrote into its installation'
@@ -98,6 +112,15 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     manifest_path.write_text(json.dumps(invalid))
     rejected('wrong-backend')
     manifest_path.write_bytes(original_manifest)
+    user_settings = user_root/'settings.json'
+    saved_settings = user_settings.read_bytes()
+    try:
+        user_settings.write_bytes(b'{"payload":')
+        rejected('corrupt-user-settings')
+        assert user_settings.read_bytes() == b'{"payload":', 'Failed startup overwrote preferences'
+        assert 'Fatal:' in (user_root/'runtime.log').read_text()
+    finally:
+        user_settings.write_bytes(saved_settings)
     if modules:
         invalid = json.loads(original_manifest)
         invalid['settings']['modules'][0]['fingerprint'] = '0'*64
@@ -118,5 +141,6 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
         'profile': manifest['engine']['profile'],
         'engine': manifest['engine'], 'module_count': len(modules),
         'installation_unchanged': True,
+        'saves_settings_survive_second_move': True,
         'mixed_runtime_content': bool(args.source), 'remaining': 'Gameplay SDK session/save consumer acceptance tracked separately.'}, indent=2))
 print('Relocated production standalone startup and captured host workflow passed')

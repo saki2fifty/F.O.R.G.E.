@@ -400,3 +400,15 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   shared-SDK cache with a different CRT profile. Shared-game keys now have a
   separate prefix and explicit SDK/CRT identity; editor configuration explicitly
   resets to its static profile and enables its required asset tools.
+
+- Extended standalone acceptance to create game-owned save data and user audio
+  preferences through the real storage service, move the installation a second
+  time, restart and verify the same OS user-data scope and saved content. Both the
+  build runner and fresh runner check this; no gameplay SDK save bridge is claimed.
+  Fixture syntax checks pass; native execution remains a Windows acceptance gate.
+
+- Full rebuilt Linux shared-SDK regression suite passes86/86 in73.89s, including
+  the separately identified expected upstream Flecs include result. Fixed legacy
+  cache lookup to retain Windows environment-key case handling; a plain copied
+  dictionary had lost the case-insensitive ImageVersion lookup. Added actual
+  production-host corrupt-preferences rejection/log/preservation acceptance.

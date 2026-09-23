@@ -75,7 +75,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: |
           python tools/ci_cache_key.py
-          python -c "import os; from pathlib import Path; from tools.ci_cache_key import cache_key; old=dict(os.environ, FORGE_LINKAGE_PROFILE='static-abi1', FORGE_CRT_PROFILE='MultiThreaded'); key=cache_key(Path.cwd(),old); open(os.environ['GITHUB_OUTPUT'],'a').write('legacy_shared='+key+'\n')"
+          python -c "import os; from pathlib import Path; from tools.ci_cache_key import cache_key; os.environ['FORGE_LINKAGE_PROFILE']='static-abi1'; os.environ['FORGE_CRT_PROFILE']='MultiThreaded'; key=cache_key(Path.cwd(),os.environ); open(os.environ['GITHUB_OUTPUT'],'a').write('legacy_shared='+key+'\n')"
       - name: Restore Windows dependencies and build outputs
         id: editor-cache
         continue-on-error: true
