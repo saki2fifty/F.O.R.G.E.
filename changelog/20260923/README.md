@@ -443,3 +443,10 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   ASan/UBSan/LSan1/1 (9.82s), shared consumer/export5/5 (22.50s), native editor
   source/fixture syntax, manual3/3, formatting and workflow checks. Updated native
   capture fixture verifies dependency input widths at100% and200% UI scale.
+
+- Windows shared deployment now passes all six selected host/SDK/export regressions
+  (30.10s at04afc93). The subsequent real CLI export exposed a borrowed JSON view
+  whose temporary owner had expired while reading nonempty module-kit options.
+  Retain the owner through iteration and reject non-object module maps clearly.
+  Added a real CLI regression and explicit missing-reference rejection for all
+  twelve supported graph asset families; no failed export is counted as acceptance.

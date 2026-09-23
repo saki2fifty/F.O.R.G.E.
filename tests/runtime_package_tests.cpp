@@ -307,6 +307,34 @@ int main(int argc, char** argv) {
         rejects([&] {
             package_runtime_content(authored, scratch / "missing-prefab", scene_roots, target);
         });
+        // Each current dependency family must fail closure before any output is
+        // published. Use typed graph edges, never infer references from UUID text.
+        const auto missing_root = scratch / "missing-families";
+        std::filesystem::create_directories(missing_root);
+        WorldContext missing_world;
+        Scene missing_scene(missing_world);
+        missing_scene.save(missing_root / "main.scene.json");
+        AssetCatalog missing_catalog(missing_root);
+        const auto root_record = missing_catalog.add_scene("main.scene.json");
+        const std::array missing_roots{root_record.id};
+        for (const std::string type :
+             {"scene", "prefab", "model", "mesh", "material", "texture", "shader", "skeleton",
+              "animation_clip", "navmesh", "audio_clip", "ui_document"}) {
+            const auto absent = AssetId::generate();
+            missing_catalog.set_dependencies(
+                root_record.id,
+                {{absent, type, AssetDependencyKind::Runtime, "fixture.required", {}}});
+            missing_catalog.save(AssetCatalog::project_index(missing_root));
+            const auto candidate = scratch / ("missing-family-" + type);
+            bool failed = false;
+            try {
+                package_runtime_content(missing_root, candidate, missing_roots, target);
+            } catch (const std::exception& e) {
+                failed = std::string_view(e.what()).find(absent.str()) != std::string_view::npos;
+            }
+            check(failed && !std::filesystem::exists(candidate),
+                  "Missing typed runtime family was not rejected before publication");
+        }
         std::filesystem::remove_all(native_io_path(scratch));
         std::cout << "Runtime package closure, relocation, source independence, limits, hashes and "
                      "failure preservation passed\n";

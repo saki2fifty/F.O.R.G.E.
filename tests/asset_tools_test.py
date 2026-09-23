@@ -86,6 +86,15 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
     request('cache-unknown', project, success=False)
     assert index_path.read_bytes() == before['forge.assets.json']
     assert (project / 'Assets/picture.PNG').read_bytes() == before['Assets/picture.PNG']
+    # A nonempty module map must survive option parsing and reach project
+    # validation. Iterating items() on a temporary JSON owner used to dangle.
+    export_options = dict(destination=str(root/'Export'), runtime_kit=str(root/'Kit'),
+                          module_kits={'example.game': str(root/'Module kit')})
+    rejected = request('export-game', project, json.dumps(export_options), success=False)
+    assert 'Set Game defaults and Startup Scene' in rejected['error']['message'], rejected
+    export_options['module_kits'] = []
+    rejected = request('export-game', project, json.dumps(export_options), success=False)
+    assert 'module_kits must be an object' in rejected['error']['message'], rejected
     index_path.write_text('{broken', encoding='utf-8')
     request('query', project, success=False)
     assert request('scan', project)['complete'], 'File scan unnecessarily depends on valid catalog'

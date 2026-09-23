@@ -44,7 +44,11 @@ int asset_tools_cli(int argc, char** argv) {
             request.inspection_runtime += ".exe";
             worker += ".exe";
 #endif
-            for (const auto& [id, path] : options.value("module_kits", Json::object()).items())
+            // items() is a borrowing view; retain its JSON owner for the loop.
+            const auto module_kits = options.value("module_kits", Json::object());
+            if (!module_kits.is_object())
+                throw std::runtime_error("module_kits must be an object of module IDs and paths");
+            for (const auto& [id, path] : module_kits.items())
                 request.module_kits.emplace(id, std::filesystem::u8path(path.get<std::string>()));
             WorldContext world;
             request.reference_schema = world.schema();
