@@ -13,6 +13,7 @@ for command in [[root/'forge_game.exe','--verify-startup'],[root/'forge_game_fix
  result=subprocess.run(list(map(str,command)),cwd=root,env=env,text=True,capture_output=True,timeout=120)
  (evidence/(Path(command[0]).stem+'.log')).write_text(result.stdout+'\n'+result.stderr)
  assert result.returncode==0,(result.returncode,result.stdout,result.stderr)
+ assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
 assert {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}==set(manifest['files'])|{'forge.standalone.json'}
 storage=json.loads((evidence/'storage-result.json').read_text())
 assert not storage['reopened']
@@ -24,6 +25,7 @@ restarted=evidence/'restarted'
 result=subprocess.run([str(relocated/'forge_game_fixture.exe'),'--packaged-mixed',str(restarted)],cwd=relocated,env=env,text=True,capture_output=True,timeout=120)
 (evidence/'restarted.log').write_text(result.stdout+'\n'+result.stderr)
 assert result.returncode==0,(result.returncode,result.stdout,result.stderr)
+assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
 restored=json.loads((restarted/'storage-result.json').read_text())
 assert restored['reopened'] and restored['root']==storage['root'] and restored['scene']==storage['scene']
 assert {p.relative_to(relocated).as_posix() for p in relocated.rglob('*') if p.is_file()}==set(manifest['files'])|{'forge.standalone.json'}

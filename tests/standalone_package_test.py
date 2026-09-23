@@ -29,6 +29,8 @@ def run(argv, evidence_log=None, **kwargs):
         evidence_log.write_text(result.stdout+'\n'+result.stderr, encoding='utf-8')
     if result.returncode:
         raise AssertionError((argv, result.returncode, result.stdout, result.stderr))
+    if evidence_log:
+        assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr, evidence_log
     return result
 
 with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary:

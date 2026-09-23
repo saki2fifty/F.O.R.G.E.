@@ -162,3 +162,14 @@ a module/world-scoped request queue, safe host-boundary execution and deliberate
 game-owned save-schema/migration registration. Existing GameStorage already owns
 versioned slots, atomic writes and validation; it must not be replaced by automatic
 ECS dumping. That bridge remains in the authorized later Phase8 SDK block.
+
+### Frame completion and software verification
+
+The primary Diligent swap chain ends the immediate-context frame during Present;
+the host does not call FinishFrame a second time. The native fixture asserts
+one frame-number increment per presentation. WARP/offline diagnostic mode waits
+for its GPU work before presenting, so slow software execution does not overrun
+the pinned DXGI half-second frame-latency wait. Physical-device gameplay retains
+asynchronous presentation. Acceptance checks keep process logs and reject native
+Diligent error messages even if the process otherwise exits successfully. Software
+verification is a correctness check, not a gameplay throughput measurement.

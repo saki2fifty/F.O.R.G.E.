@@ -368,9 +368,18 @@ int main(int argc, char** argv) {
             }
 #ifdef FORGE_GAME_FIXTURE
             fixture.frame(game, image, graphics.device, graphics.context, window.get(), running);
+            const auto frame_number = graphics.context->GetFrameNumber();
 #endif
+            // WARP/offline verification measures correctness, not throughput.
+            // Drain software work before DXGI's bounded frame-latency wait;
+            // physical-device gameplay retains asynchronous presentation.
+            if (software)
+                graphics.context->WaitForIdle();
             graphics.swap->Present(video.at("vsync").get<bool>() ? 1 : 0);
-            graphics.context->FinishFrame();
+#ifdef FORGE_GAME_FIXTURE
+            test::GameHostFixture::check(graphics.context->GetFrameNumber() == frame_number + 1,
+                                         "Primary presentation must finish exactly one frame");
+#endif
             if (verify_startup && active && ++verification_frames >= 4) {
                 std::cout << "FORGE standalone startup verified" << std::endl;
                 running = false;

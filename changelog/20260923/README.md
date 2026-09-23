@@ -527,3 +527,10 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
 - Retain production/capture/restart process logs even when a standalone test exits
   successfully, so renderer diagnostics can be reviewed alongside images. Runtime
   evidence distinguishes an optional absent module from an actually observed tick.
+
+- Retained fresh-runner logs exposed Diligent frame-wait timeout diagnostics despite
+  successful exits. Removed redundant FinishFrame after primary Present, following
+  the pinned Diligent contract, and assert one frame increment per presentation.
+  Software-only WARP verification drains submitted GPU work before Present; normal
+  hardware gameplay remains asynchronous. Production/capture/fresh-runner checks
+  now reject Diligent error logs, not merely nonzero exit codes.
