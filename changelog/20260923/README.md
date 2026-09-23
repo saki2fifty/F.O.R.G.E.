@@ -534,3 +534,29 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   Software-only WARP verification drains submitted GPU work before Present; normal
   hardware gameplay remains asynchronous. Production/capture/fresh-runner checks
   now reject Diligent error logs, not merely nonzero exit codes.
+
+### Export manual workflow order
+
+- Put the ordinary Project Settings → Run > Export Game → Reveal output workflow
+  first, followed by runtime dependency authoring. Content-only CLI packaging is
+  explicitly an advanced workflow; ordinary exports do not require hand-entered IDs.
+- Existing CLI reference headings and instructions remain available.
+- Runtime packaging documentation now enumerates exact catalog type identifiers,
+  including model-node/material-variant family members and UI stylesheet/font
+  identities, and distinguishes build-only animation source data.
+
+### Complete standalone export acceptance
+
+- Source75bfb73 passed Windows run35917936862:6/6 focused regressions29.94s, real
+  shared-SDK export, production startup, six malformed/missing/incompatible-package
+  rejection cases, and fresh-runner execution without source/build/FORGE SDK.
+- Captures were opened and reviewed: imported checker texture, native UI, loading
+  cancellation, retained scene on failure, resize and second installation move.
+  Animation sampling, navigation, offline audio voice and module execution pass.
+- Save/settings survive the second move; installation stays unchanged. All six
+  successful primary/fresh/restarted logs have no Diligent ERROR after the frame
+  correction. Shader warnings and physical GPU/audio validation remain distinct.
+- Manual checks pass3/3. Earlier unaffected Linux/Windows core74/74 and shared
+  SDK86/86 evidence, plus276-step native editor workflow, retain their provenance.
+- Build260923-000066 remains the downloadable editor; no intermediate numbered ZIP.
+  Collision/character/input/SDK session-save/reference-game work remains Phase8 scope.

@@ -293,6 +293,7 @@ separate required delivery gates.
 | --- | --- |
 | Scene / Prefab | Validated authored bytes and reflected typed closure; no flattening |
 | Model / Mesh / imported Skeleton / AnimationClip | Whole selected immutable model family, stable subasset IDs and provenance |
+| ModelNode / MaterialVariant | Stable `model_node` / `material_variant` member records and bindings inside the selected model family; not standalone model files |
 | Material | Selected cooked material and required texture bindings; shader preparation data embedded in the cooked revision |
 | Texture | Selected cooked variant(s); admitted raw TGA additionally when used by UI |
 | Shader | Selected target-labelled DXBC artifact; authoring HLSL/includes stay build inputs |
@@ -305,6 +306,14 @@ separate required delivery gates.
 | Flecs Script | Authoring input, not an authorized runtime script-file loader; an explicit runtime edge to unsupported script content rejects |
 | Unknown/opaque component data | Retained source data; export requires the admitted owning module/schema/adapter and declared references |
 | Any other type | Explicit unsupported-type rejection, never silent omission |
+
+Exact catalog type identifiers covered by these rows are `scene`, `prefab`,
+`model`, `model_node`, `material_variant`, `mesh`, `material`, `texture`, `shader`,
+`skeleton`, `animation_clip`, `navmesh`, `audio_clip`, `ui_document`,
+`ui_stylesheet`, and `ui_font`. Model-owned members are admitted as a complete
+family; engine-reserved IDs resolve to the matching compiled built-ins. UI images
+use `texture` identity rather than a second UI image type. `animation_source` and
+`flecs_script` remain build/authoring inputs, not runtime loaders.
 
 These are finite current formats. Runtime render-resource requests still support
 their existing typed subset; packaging a family does not invent a generic loaded

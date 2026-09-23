@@ -173,3 +173,13 @@ the pinned DXGI half-second frame-latency wait. Physical-device gameplay retains
 asynchronous presentation. Acceptance checks keep process logs and reject native
 Diligent error messages even if the process otherwise exits successfully. Software
 verification is a correctness check, not a gameplay throughput measurement.
+
+## Export acceptance —2026-09-23
+
+Source75bfb73413e3e190432989e0a3356af679627cfd passes Windows shared-SDK
+workflow35917936862: six focused regressions, real mixed-content export, production
+startup, captured UI interaction, six production rejection cases, fresh-runner
+startup without the source project/build/FORGE SDK, and a second move/relaunch
+with retained OS saves/settings. Primary and fresh-runner successful logs contain
+no Diligent ERROR; shader compiler warnings remain. Software D3D12/offline audio
+are explicit acceptance modes, not physical-device or full-reference-game claims.

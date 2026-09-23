@@ -3,7 +3,9 @@
 This Phase8 feature is available from source builds. **Build66 does not include
 it.** It opens a separate game window using the scene's camera and game UI.
 The source-build [Export Game workflow](../editor/runtime-content.md) prepares a
-standalone folder; its native Windows acceptance is still in progress.
+standalone folder. Windows shared-SDK startup and relocation have passed automated
+software-rendering checks without the source project or FORGE SDK. Physical graphics
+and audio devices still need testing on the target machine.
 
 ## Before launching
 
