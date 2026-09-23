@@ -25,6 +25,7 @@ struct GameHostFixture {
                            {{"id", "cube"},
                             {"name", "Cube"},
                             {"components", {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 3}}}}}},
+                           {{"id", "light"}, {"name", "Light"}, {"components", Json::object()}},
                            {{"id", "hud"}, {"name", "HUD"}, {"components", Json::object()}}})}});
         Camera camera;
         camera.background_r = .025f;
@@ -32,13 +33,17 @@ struct GameHostFixture {
         camera.background_b = .055f;
         scene.entity("camera").set(camera);
         scene.entity("camera").set<LocalTranslation>({});
-        scene.entity("cube").set<MeshRenderer>({engine_primitive(0)});
-        scene.entity("cube").set<Tint>({.8f, .25f, .1f});
+        scene.entity("camera").set<Primitive>({no_primitive});
+        scene.entity("light").set<LocalTranslation>({0, 3, 0});
+        scene.entity("light").set<Primitive>({no_primitive});
+        scene.entity("light").set<Light>({});
+        scene.entity("cube").set<MeshRenderer>(
+            {engine_primitive(0), {{"surface", engine_material()}}});
         const std::string markup = R"rml(<rml><head><style>
-body { font-family:Lato; font-size:20px; color:#eeeeee; }
-button { position:absolute; left:24px; width:160px; height:40px; background-color:#305070; }
-#pause { top:20px; } #resume { top:72px; } h1 { position:absolute; left:24px; top:130px; font-size:24px; }
-#status { position:absolute; left:24px; top:200px; }
+body { width:100%; height:100%; font-family:Lato; font-size:20px; color:#eeeeee; pointer-events:none; }
+button { position:absolute; left:24px; width:160px; height:40px; line-height:40px; text-align:center; background-color:#305070; pointer-events:auto; }
+#pause { top:20px; } #resume { top:72px; } h1 { position:absolute; left:24px; right:24px; top:130px; font-size:24px; }
+#status { position:absolute; left:24px; right:24px; top:190px; }
 </style></head><body><button id="pause" data-event-click="command('Pause')">Pause</button>
 <button id="resume" data-event-click="command('Resume')">Resume</button>
 <h1>FORGE standalone</h1><div id="status">Paused: {{paused}} | Tick: {{tick}}</div></body></rml>)rml";
@@ -102,6 +107,12 @@ button { position:absolute; left:24px; width:160px; height:40px; background-colo
         context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr,
                                        data);
         check(data.pData != nullptr, "Standalone readback map failed");
+        const auto* pixels = static_cast<const unsigned char*>(data.pData);
+        const auto* center = pixels + (desc.Height / 2) * data.Stride + (desc.Width / 2) * 4;
+        const auto* corner = pixels + (desc.Height - 8) * data.Stride + (desc.Width - 8) * 4;
+        unsigned contrast = 0;
+        for (unsigned c = 0; c < 3; ++c)
+            contrast += unsigned(std::abs(int(center[c]) - int(corner[c])));
         std::ofstream file(output / name, std::ios::binary);
         file << "P6\n" << desc.Width << ' ' << desc.Height << "\n255\n";
         for (unsigned y = 0; y < desc.Height; ++y) {
@@ -111,6 +122,7 @@ button { position:absolute; left:24px; width:160px; height:40px; background-colo
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
+        check(contrast > 30, "Standalone cube is not distinguishable from the background");
     }
     void frame(GameSession& game, Diligent::ITextureView* image, Diligent::IRenderDevice* device,
                Diligent::IDeviceContext* context, SDL_Window* window, bool& running) {

@@ -43,7 +43,13 @@
   selected native tests pass; the new host fixture failed because its camera had
   no authored transform. Correct the fixture and retain real camera admission.
   Focused audits also exercise the editor-disabled standalone configuration.
-  Standalone execution/visual acceptance remain pending; no new ZIP.
+  Standalone interaction and editor-disabled build/link checks pass at4053f3b.
+- Opening the native captures found two fixture defects that input assertions
+  alone missed: its camera also inherited legacy implicit-cube rendering, and
+  absolute HUD labels had insufficient layout width. Match existing non-mesh
+  authoring semantics, add an authored light/material, correct HUD layout and
+  assert that the rendered cube differs from its background in every capture.
+  Final corrected visual acceptance remains pending; no new ZIP.
 
 ## Phase8 game foundation — in progress, not yet packaged
 
