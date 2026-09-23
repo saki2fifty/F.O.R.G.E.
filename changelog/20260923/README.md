@@ -354,3 +354,15 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
 - Windows compiler validation caught ambiguous C++20 JSON comparisons in raw
   animation/UI export admission. Compare explicitly decoded digest and byte-count
   values; retain the same rejection rules. Windows rerun remains pending.
+
+- Expanded the standalone fixture with production-imported glTF material/texture
+  data, cooked audio, converted Ozz animation and baked navigation. Added a shared
+  native fixture source generator for portable admission checks. Local mixed-content
+  export admission passed; the expanded Windows presentation test remains pending.
+- Preserve unsaved Runtime Dependencies drafts across switch/close requests,
+  returning to their Inspector owner with a Save/Discard instruction. Added an
+  input-driven guard assertion. CLI UI preflight uses the checked runtime kit's
+  font, so command-line tools need no unrelated installed editor font directory.
+- Deliver the shared graphical runtime kit and its exact SDK from the same build;
+  final assembly checks both provenance and the shared Flecs DLL. Added integrity
+  regressions for wrong-build/corrupt kits and updated export/standalone instructions.

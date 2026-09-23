@@ -17,6 +17,7 @@ parser.add_argument('--kit', type=Path, required=True)
 parser.add_argument('--evidence', type=Path, required=True)
 parser.add_argument('--module-kit', type=Path)
 parser.add_argument('--retain', type=Path)
+parser.add_argument('--source', type=Path)
 args = parser.parse_args()
 build, kit, evidence = (p.resolve() for p in (args.build, args.kit, args.evidence))
 evidence.mkdir(parents=True, exist_ok=True)
@@ -32,6 +33,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     work = Path(temporary)
     prepared = run([build/'forge_game_fixture.exe', '--prepare', work/'fixture'])
     project = Path(prepared.stdout.strip().splitlines()[-1])
+    if args.source:
+        from standalone_content_fixture import complete_content
+        complete_content(project, work, build, args.source.resolve(), run)
     settings = json.loads((project/'forge.project.json').read_text())
     modules = {}
     if args.module_kit:
@@ -114,5 +118,5 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
         'profile': manifest['engine']['profile'],
         'engine': manifest['engine'], 'module_count': len(modules),
         'installation_unchanged': True,
-        'remaining': 'Full animated/nav/audio content and shared-SDK persistence consumer acceptance tracked separately.'}, indent=2))
+        'mixed_runtime_content': bool(args.source), 'remaining': 'Gameplay SDK session/save consumer acceptance tracked separately.'}, indent=2))
 print('Relocated production standalone startup and captured host workflow passed')

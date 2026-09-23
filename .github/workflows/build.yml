@@ -73,6 +73,13 @@ jobs:
     with:
       source_commit: ${{ inputs.audit_source }}
       clean_build: ${{ inputs.clean_build }}
+  shared-game:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
+    uses: ./.github/workflows/standalone-audit.yml
+    with:
+      source_commit: ${{ github.sha }}
+      build_id: ${{ inputs.build_id }}
+      clean_build: ${{ inputs.clean_build }}
   core:
     if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     strategy:
@@ -329,8 +336,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   package:
-    needs: [core, editor, format]
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success')) && !inputs.hlsl_profile
+    needs: [core, editor, format, shared-game]
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success' && needs.shared-game.result == 'success')) && !inputs.hlsl_profile
     runs-on: windows-2022
     timeout-minutes: 10
     steps:
@@ -370,7 +377,7 @@ jobs:
           $base = '${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/' + $run
           $source = Invoke-RestMethod -Uri $base -Headers $headers
           $jobs = (Invoke-RestMethod -Uri "$base/jobs?per_page=100" -Headers $headers).jobs
-          foreach ($name in @('core (ubuntu-22.04, core)', 'core (ubuntu-22.04, native-sdk)', 'core (windows-2022, core)', 'core (windows-2022, native-sdk)', 'editor', 'format')) {
+          foreach ($name in @('core (ubuntu-22.04, core)', 'core (ubuntu-22.04, native-sdk)', 'core (windows-2022, core)', 'core (windows-2022, native-sdk)', 'editor', 'format', 'shared-game / build', 'shared-game / relocated')) {
             $job = @($jobs | Where-Object { $_.name -eq $name })
             if ($job.Count -ne 1 -or $job[0].conclusion -ne 'success') { throw "Source validation missing: $name" }
           }
@@ -384,10 +391,16 @@ jobs:
           path: ${{ runner.temp }}/forge-package/editor
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: FORGE-Experimental-SDK-windows-2022
+          name: FORGE-Game-SDK-Windows
           run-id: ${{ steps.compiled.outputs.run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-package/sdk
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Shared-Game-Runtime-Kit
+          run-id: ${{ steps.compiled.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-package/shared-game
       - name: Assemble and verify matching editor and exact SDK
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -397,7 +410,7 @@ jobs:
         run: |
           $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
           $root = Join-Path $env:RUNNER_TEMP 'forge-package'
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name"
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }

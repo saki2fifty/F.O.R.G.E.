@@ -119,3 +119,16 @@ An added center/background pixel check rejects an obscured scene. This is a
 diagnostic acceptance scene, not the reference game or physical-device acceptance.
 The Windows shared-SDK graphical-host profile remains a release gate; the shared
 SDK result above is the portable Linux runtime matrix.
+
+## Exact runtime kit delivery
+
+The editor distribution carries two separate runtime kits: `runtime-kit` for
+static-ABI gameplay and `runtime-kits/shared-native-sdk` for exact C++ native
+modules. The latter and `NativeSdk` are installed from the same shared graphical
+build, ensuring the module's imported Flecs DLL is the same byte revision that
+the graphical host carries. Assembly checks source/build identities, file hashes,
+and that shared DLL. It never merges different Flecs libraries into one process.
+The shared Windows workflow tests the installed SDK, creates module deployment
+kits, exports a game, and sends only the resulting folder to a fresh runner.
+Source inspection and local mixed-content admission are not Windows visual
+acceptance; pending native checks remain explicit in release evidence.

@@ -5,6 +5,9 @@ on:
       source_commit:
         required: true
         type: string
+      build_id:
+        type: string
+        default: unassigned
       clean_build:
         type: boolean
         default: false
@@ -15,7 +18,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 90
     env:
-      FORGE_BUILD_ID: unassigned
+      FORGE_BUILD_ID: ${{ inputs.build_id }}
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: core.longpaths
@@ -106,10 +109,10 @@ jobs:
           }
       - name: Configure shared SDK graphical standalone
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=OFF -DFORGE_BUILD_GAME=ON -DFORGE_ENABLE_NATIVE_SDK=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_ID=unassigned -DFORGE_SOURCE_COMMIT="${{ inputs.source_commit }}" -DCMAKE_PROJECT_INCLUDE:FILEPATH=
+        run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=OFF -DFORGE_BUILD_GAME=ON -DFORGE_ENABLE_NATIVE_SDK=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_ID="${{ inputs.build_id }}" -DFORGE_SOURCE_COMMIT="${{ inputs.source_commit }}" -DCMAKE_PROJECT_INCLUDE:FILEPATH=
       - name: Build exact standalone and export tools
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_game forge_game_fixture forge_tools forge_runtime forge_ui_inspect forge_standalone_manifest_tests forge_runtime_ui_package_tests forge_sdk_tests --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_sample forge_game forge_game_fixture forge_tools forge_runtime forge_ui_inspect forge_standalone_manifest_tests forge_runtime_ui_package_tests forge_sdk_tests forge_navigation_tests forge_nav_build forge_animation_tests forge_asset_build_worker gltf2ozz --parallel 2
       - name: Install runtime and matching SDK; build a consumer deployment
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -129,11 +132,25 @@ jobs:
           if($LASTEXITCODE) { throw 'Installed consumer build failed' }
           cmake --install "$b/module-build" --component GameplayRuntime --prefix "$b/module-kits"
           if($LASTEXITCODE) { throw 'Module kit install failed' }
-          ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|standalone_game_workflow)$' --output-on-failure
+          ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|native_sdk_package|standalone_game_workflow)$' --output-on-failure
           if($LASTEXITCODE) { throw 'Shared standalone regressions failed' }
-          python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --retain "$b/standalone-delivery/game"
+          python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --source . --retain "$b/standalone-delivery/game"
           if($LASTEXITCODE) { throw 'Shared standalone export failed' }
           Copy-Item tests/standalone_relocated_probe.py "$b/standalone-delivery/probe.py"
+      - name: Upload matching graphical-host SDK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Game-SDK-Windows
+          path: ${{ runner.temp }}/forge-work/AgentFiles/b/experimental-native-sdk.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload exact shared graphical runtime kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Shared-Game-Runtime-Kit
+          path: ${{ runner.temp }}/forge-work/AgentFiles/b/runtime-kit
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload clean-room acceptance input
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -149,6 +166,10 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
           retention-days: 14
+      - name: Record source timestamps for incremental reuse
+        if: always()
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_source_stamps.py record ../AgentFiles/b/forge-source-stamps.json
       - name: Save reusable shared build cache
         if: ${{ always() && !inputs.clean_build && steps.editor-cache.outputs.cache-hit != 'true' }}
         continue-on-error: true

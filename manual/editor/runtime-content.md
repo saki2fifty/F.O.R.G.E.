@@ -120,6 +120,8 @@ shipped: a button can look fine before hovering and still need another image aft
 Declare finite alternatives even if you have never shown them in preview.
 
 **Remove** edits the draft. **Discard draft / refresh** reloads saved declarations.
+The editor keeps a draft when you select another asset and blocks project/scene
+switching or closing until you save or discard it in Inspector.
 These catalog saves are separate from scene Undo. Missing resources, wrong types,
 changed source revisions and catalog conflicts appear as diagnostics. Fix the cause,
 review the list and save again. In a packaged game, an undeclared resource request
@@ -136,7 +138,8 @@ same across later builds of the same game. Click **Save Settings**.
 Open **Run > Export Game** (also available in the Command Palette). Choose a
 **Destination** outside your source project. The supplied **Runtime kit** contains
 the matching game executable, DLLs and default font. A project using native SDK
-modules also needs **Module kits**: the folder holding the matching deployment
+modules uses the matching shared kit in `runtime-kits/shared-native-sdk` and also
+needs **Module kits**: the folder holding the matching deployment
 folder for each configured module. The SDK's deployment helper prepares these;
 the exported game does not include the SDK or compiler.
 

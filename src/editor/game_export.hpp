@@ -32,12 +32,15 @@ class GameExportTask {
     bool writing() const { return job_.valid(); }
     const std::string& output() const { return output_; }
     const std::string& error() const { return error_; }
-    void open() {
+    void open(bool native_modules = false) {
         open_ = true;
         if (!kit_[0])
-            SDL_strlcpy(kit_.data(),
-                        path_utf8(self_executable().parent_path() / "runtime-kit").c_str(),
-                        kit_.size());
+            SDL_strlcpy(
+                kit_.data(),
+                path_utf8(self_executable().parent_path() /
+                          (native_modules ? "runtime-kits/shared-native-sdk" : "runtime-kit"))
+                    .c_str(),
+                kit_.size());
     }
     void cancel() {
         stop_.request_stop();

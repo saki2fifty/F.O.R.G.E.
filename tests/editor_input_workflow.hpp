@@ -78,7 +78,13 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "dependencies-saved") {
+        if (what == "dependency-draft-guard") {
+            require(state.at("dependencies_dirty").get<bool>() &&
+                        doc.at("asset_id").get<AssetId>() == AssetId::parse(scene_) &&
+                        state.at("status").get<std::string>().find("Runtime Dependencies draft") !=
+                            std::string::npos,
+                    "Scene switch discarded a dependency draft or lacked a useful diagnostic");
+        } else if (what == "dependencies-saved") {
             require(!state.at("dependencies_busy").get<bool>() &&
                         !state.at("dependencies_dirty").get<bool>(),
                     "Dependency save still pending");
@@ -501,6 +507,8 @@ class EditorInputWorkflow {
         text("dependencies:reason", "Gameplay variants");
         click("button:Add dependency");
         capture("runtime-dependency-draft");
+        key(ImGuiKey_N, true);
+        check("dependency-draft-guard");
         click("dependencies:save");
         check("dependencies-saved");
         capture("runtime-dependencies-saved");

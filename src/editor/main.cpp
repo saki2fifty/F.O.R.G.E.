@@ -626,6 +626,17 @@ int main(int argc, char** argv) {
         std::string name_entity, authored_name;
         std::optional<forge::EditorFiles::Action> pending_switch;
         files.before_request = [&](const forge::EditorFiles::Action& action) {
+            if (game_export.busy() || runtime_dependencies.busy()) {
+                message =
+                    "Finish or cancel the export/dependency task before switching or closing.";
+                return false;
+            }
+            if (runtime_dependencies.dirty()) {
+                runtime_dependencies.reveal_draft();
+                message = "Save declarations or discard the Runtime Dependencies draft in "
+                          "Inspector before switching or closing.";
+                return false;
+            }
             if (content_files.busy()) {
                 message =
                     "Finish or cancel the Content file operation before switching or closing.";
@@ -1191,7 +1202,13 @@ int main(int argc, char** argv) {
             add_action(
                 "game.export", "Export Game...", "",
                 "Build a relocatable Development standalone game from saved project content.", true,
-                [&] { game_export.open(); });
+                [&] {
+                    const auto modules =
+                        files.document.settings().document().value("modules", forge::Json::array());
+                    game_export.open(
+                        std::any_of(modules.begin(), modules.end(),
+                                    [](const auto& module) { return module.is_object(); }));
+                });
             for (auto action : content.action_set(nullptr).entries)
                 actions.entries.push_back(std::move(action));
             actions.entries.push_back(model_imports.placement_action(files.document));

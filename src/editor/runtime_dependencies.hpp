@@ -34,6 +34,12 @@ class RuntimeDependenciesEditor {
   public:
     bool busy() const { return job_.valid(); }
     bool dirty() const { return dirty_; }
+    void reveal_draft() const {
+        if (editor_context && dirty_) {
+            editor_context->selection.select_asset(owner_);
+            editor_context->reveal_content = true;
+        }
+    }
     void poll(const std::function<void()>& refresh) {
         if (job_.valid() && job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {

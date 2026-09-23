@@ -53,8 +53,8 @@ int asset_tools_cli(int argc, char** argv) {
                 lease, request,
                 [&](AssetId id, std::stop_token stop) {
                     return inspect_ui_dependencies(
-                        worker, executable / "resources/ui/LatoLatin-Regular.ttf", project, id,
-                        stop);
+                        worker, request.runtime_kit / "resources/ui/LatoLatin-Regular.ttf", project,
+                        id, stop);
                 },
                 [](const GameExportProgress& p) {
                     std::cerr << p.completed << "/" << p.total << " " << p.stage << '\n';

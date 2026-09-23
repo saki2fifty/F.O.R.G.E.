@@ -33,14 +33,33 @@ class Assembly(unittest.TestCase):
                 with tarfile.open(root/'sdk.tar.gz','w:gz') as archive:
                     for k,v in files.items():
                         t=tarfile.TarInfo(k);t.size=len(v);archive.addfile(t,io.BytesIO(v))
+            kit=root/'kit'; kit.mkdir()
+            (kit/'flecs.dll').write_bytes(b'flecs')
+            (kit/'forge_game.exe').write_bytes(b'game')
+            def runtime(change=False, corrupt=False):
+                records={p.name:dict(bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+                         for p in kit.iterdir() if p.name!='forge.runtime-kit.json'}
+                engine=dict(identity,profile='shared-native-sdk',sdk_fingerprint='a'*64)
+                if change:engine['build_id']='260919-000064'
+                (kit/'forge.runtime-kit.json').write_text(json.dumps(dict(format='forge.runtime-kit',version=1,
+                    executable='forge_game.exe',target=dict(platform='windows',backend='d3d12'),engine=engine,files=records)))
+                if corrupt:(kit/'forge_game.exe').write_bytes(b'corrupt')
+            runtime()
             sdk(); output=root/'final.zip'
-            assemble(root/'editor.zip',root/'sdk.tar.gz',output)
+            assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit)
             original=output.read_bytes()
             with zipfile.ZipFile(output) as archive:
                 self.assertEqual(archive.read('NativeSdk/bin/flecs.dll'),b'flecs')
+                self.assertEqual(archive.read('runtime-kits/shared-native-sdk/forge_game.exe'),b'game')
             for kwargs in (dict(change=True),dict(corrupt=True),dict(escape=True)):
                 sdk(**kwargs)
-                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output)
+                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit)
+                self.assertEqual(output.read_bytes(),original)
+
+            sdk()
+            for kwargs in (dict(change=True),dict(corrupt=True)):
+                runtime(**kwargs)
+                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit)
                 self.assertEqual(output.read_bytes(),original)
 
 

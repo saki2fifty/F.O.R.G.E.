@@ -2,7 +2,8 @@
 
 This Phase8 feature is available from source builds. **Build66 does not include
 it.** It opens a separate game window using the scene's camera and game UI.
-The complete Export Game workflow is still being built.
+The source-build [Export Game workflow](../editor/runtime-content.md) prepares a
+standalone folder; its native Windows acceptance is still in progress.
 
 ## Before launching
 
@@ -11,11 +12,12 @@ DLLs and `resources/ui` folder beside the executable. Your prepared project need
 
 - A saved, registered startup scene with an enabled Camera.
 - Imported assets with usable cooked data for the Windows target.
-- A `game` block in `forge.project.json`, including a persistent `application_id`. This currently requires editing the project file; there is no editor control yet.
+- Saved **Game defaults** in **Project Settings**, including a persistent Application ID.
 - A matching shared-SDK host if the project uses native SDK gameplay modules.
 
-Add this `game` member to the existing project JSON object, choosing your own
-application ID and title. Keep the ID unchanged when renaming the game, so its
+Use **Set up game defaults** in Project Settings for ordinary editing. For a
+headless development project, the equivalent `game` JSON member is shown below.
+Choose your own application ID and title. Keep the ID unchanged when renaming the game, so its
 personal settings and saves remain in the same place.
 
 ```json
@@ -57,12 +59,12 @@ Close the window to stop. Messages appear in `runtime.log` inside the game's
 user-data folder; failures also appear in the launching console. On Windows the
 base is `%APPDATA%\FORGE\Games`, with a `game-APPLICATION_ID` subfolder.
 
-## What this checkpoint does not export
+## Remaining Phase8 work
 
-The [cooked-content tool](../editor/runtime-content.md) still creates selected asset
-packages. It does not yet produce a complete standalone game folder. Scene export,
-all supported asset families, module/DLL collection, the character controller and
-the integrated reference game remain Phase8 work.
+The character controller, full input/menu workflow, gameplay SDK session/save
+access and integrated reference game remain in progress. A successful export
+validates the declared content closure; it does not prove every possible request
+a native gameplay module could construct.
 
 ## Export and verify a game folder
 
