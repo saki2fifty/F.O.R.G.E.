@@ -248,7 +248,9 @@ identical shared Flecs dependencies are copied once beside the executable.
 startup Scene AssetId, validated game defaults, derived asset/revision/dependency
 inventory, native module provenance and every physical file hash/size. The existing
 AssetCatalog remains the sole logical graph. Startup admits this manifest and its
-content before opening the game window or loading gameplay modules. Recognized
+content before opening the game window or loading gameplay modules. Runtime
+profile, executable inventory membership and native deployment provenance are
+cross-checked against the actual delivered configuration and file digests. Recognized
 linked engine module declarations require no external library. Exported project
 configuration is read-only; saves/settings/logs use OS user-data storage.
 

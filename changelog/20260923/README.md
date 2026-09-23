@@ -389,3 +389,14 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
 - Final focused loading/UI/diagnostic core4/4 passed5.81s; strict ASan/UBSan/LSan
   4/4 passed16.31s. Rebuilt manifest/export recovery1/1 passed3.28s after explicit
   conversion corrections. Windows compiler and capture gates remain pending.
+
+- Tightened distribution self-consistency: require the declared executable and
+  Development profile, match game defaults to that profile, and cross-check each
+  native module's deployment provenance against its actual packaged file inventory.
+  Added missing/orphan provenance, incompatible module metadata and mismatched
+  dependency-byte regressions.
+
+- Windows evidence exposed a cache namespace collision: editor restore selected a
+  shared-SDK cache with a different CRT profile. Shared-game keys now have a
+  separate prefix and explicit SDK/CRT identity; editor configuration explicitly
+  resets to its static profile and enables its required asset tools.

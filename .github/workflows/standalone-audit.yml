@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 90
     env:
       FORGE_BUILD_ID: ${{ inputs.build_id }}
+      FORGE_LINKAGE_PROFILE: shared-native-sdk
+      FORGE_CRT_PROFILE: MultiThreadedDLL
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: core.longpaths
@@ -71,7 +73,9 @@ jobs:
       - name: Identify compatible Windows build cache
         id: cache-key
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: python tools/ci_cache_key.py
+        run: |
+          python tools/ci_cache_key.py
+          python -c "import os; from pathlib import Path; from tools.ci_cache_key import cache_key; old=dict(os.environ, FORGE_LINKAGE_PROFILE='static-abi1', FORGE_CRT_PROFILE='MultiThreaded'); key=cache_key(Path.cwd(),old); open(os.environ['GITHUB_OUTPUT'],'a').write('legacy_shared='+key+'\n')"
       - name: Restore Windows dependencies and build outputs
         id: editor-cache
         continue-on-error: true
@@ -83,9 +87,10 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
-          key: ${{ steps.cache-key.outputs.key }}-shared-game-${{ inputs.source_commit }}
+          key: forge-shared-game-${{ steps.cache-key.outputs.key }}-${{ inputs.source_commit }}
           restore-keys: |
-            ${{ steps.cache-key.outputs.key }}-shared-game-
+            forge-shared-game-${{ steps.cache-key.outputs.key }}-
+            ${{ steps.cache-key.outputs.legacy_shared }}-shared-game-
       - name: Discard an incomplete cache restore
         if: ${{ !inputs.clean_build && (steps.editor-cache.outcome == 'failure' || steps.editor-cache.outputs.cache-matched-key == '') }}
         shell: pwsh
@@ -180,7 +185,7 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
-          key: ${{ steps.cache-key.outputs.key }}-shared-game-${{ inputs.source_commit }}
+          key: forge-shared-game-${{ steps.cache-key.outputs.key }}-${{ inputs.source_commit }}
   relocated:
     needs: build
     runs-on: windows-2022

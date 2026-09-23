@@ -61,6 +61,8 @@ int main(int argc, char** argv) {
                                      {"source", path_utf8(catalog.records().at(id).source)}};
         Json manifest{{"format", "forge.standalone"},
                       {"version", 1},
+                      {"profile", "development"},
+                      {"executable", "forge_game"},
                       {"content", "content"},
                       {"target", {{"platform", "linux"}, {"backend", "none"}}},
                       {"engine",
@@ -203,6 +205,24 @@ int main(int argc, char** argv) {
                       .starts_with("native/"),
                   "Native module path not relocated");
             const auto good = asset_storage::read(exported / "forge.standalone.json");
+            for (unsigned mismatch = 0; mismatch < 3; ++mismatch) {
+                auto altered = result.at("manifest");
+                if (mismatch == 0)
+                    altered["native_modules"] = Json::array();
+                else if (mismatch == 1)
+                    altered["native_modules"][0]["deployment"]["fingerprint"] =
+                        std::string(64, '0');
+                else {
+                    auto& files = altered["native_modules"][0]["deployment"]["files"];
+                    files.begin().value()["sha256"] = std::string(64, '0');
+                }
+                asset_storage::replace(exported / "forge.standalone.json", altered.dump());
+                reject([&] {
+                    open_standalone_distribution(exported, target, "shared-native-sdk",
+                                                 FORGE_NATIVE_SDK_FINGERPRINT);
+                });
+            }
+            asset_storage::replace(exported / "forge.standalone.json", good.value());
             reject([&] {
                 export_standalone_game(lease, request, {}, [&](const GameExportProgress& p) {
                     if (p.completed == 3)
@@ -240,7 +260,7 @@ int main(int argc, char** argv) {
         reject([&] {
             open_standalone_distribution(out, target, "static-abi1", std::string(64, 'c'));
         });
-        for (unsigned test = 0; test < 4; ++test) {
+        for (unsigned test = 0; test < 8; ++test) {
             auto bad = manifest;
             if (test == 0)
                 bad["settings"]["startup_scene"] = nullptr;
@@ -250,6 +270,14 @@ int main(int argc, char** argv) {
                 bad["content"] = "../source";
             if (test == 3)
                 bad["files"]["forge_game"]["bytes"] = 0u;
+            if (test == 4)
+                bad["profile"] = "shipping";
+            if (test == 5)
+                bad["settings"]["game"]["profile"] = "shipping";
+            if (test == 6)
+                bad["executable"] = "absent.exe";
+            if (test == 7)
+                bad["native_modules"] = Json::array({{{"id", "orphan"}}});
             write(bad);
             reject(open);
         }

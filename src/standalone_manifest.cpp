@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include "native_io_path.hpp"
+#include <algorithm>
 #include <forge/game_content.hpp>
 #include <forge/project.hpp>
 #include <set>
@@ -70,6 +71,12 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
                                                     std::stop_token stop) {
     auto manifest =
         verify_distribution_files(root, "forge.standalone.json", "forge.standalone", stop);
+    require(manifest.at("profile") == "development", "Unsupported standalone runtime profile");
+    const auto executable = ProjectPaths::normalize(
+        std::filesystem::u8path(manifest.at("executable").get<std::string>()));
+    require(executable.parent_path().empty() &&
+                manifest.at("files").contains(path_utf8(executable)),
+            "Standalone executable is missing from its inventory");
     require(manifest.at("target").at("platform") == target.platform &&
                 manifest.at("target").at("backend") == target.backend,
             "Runtime platform/backend does not match this distribution");
@@ -87,12 +94,18 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
     ProjectSettings::validate(settings);
     require(settings.contains("game") && !settings.at("startup_scene").is_null(),
             "Game defaults and startup scene are required");
+    require(settings.at("game").at("profile") == manifest.at("profile"),
+            "Standalone and game configuration profiles differ");
     const auto content = paths.resolve(content_locator);
     const auto catalog = open_runtime_content(content, target, {}, stop);
     const auto startup = settings.at("startup_scene").at("asset").get<AssetId>();
     (void)load_game_scene(content, {startup});
     require(manifest.at("assets") == runtime_asset_inventory(catalog),
             "Distribution closure differs from the admitted catalog");
+    const auto deployments = manifest.value("native_modules", Json::array());
+    require(deployments.is_array() && deployments.size() <= 64,
+            "Invalid native module provenance inventory");
+    std::set<std::string> native_ids;
     for (const auto& module : settings.value("modules", Json::array())) {
         if (module.is_string())
             continue; // Recognized linked engine module; ProjectSettings validated it.
@@ -103,7 +116,36 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
             std::filesystem::u8path(module.at("library").get<std::string>())));
         require(file.starts_with("native/") && manifest.at("files").contains(file),
                 "Native module is absent from the distribution");
+        const auto id = module.at("id").get<std::string>();
+        require(native_ids.insert(id).second, "Duplicate native module identity");
+        const auto found =
+            std::find_if(deployments.begin(), deployments.end(), [&](const auto& entry) {
+                return entry.at("id").template get<std::string>() == id;
+            });
+        require(found != deployments.end(), "Native module provenance missing: " + id);
+        const auto& deployment = found->at("deployment");
+        require(deployment.at("format") == "forge.module-kit" && deployment.at("version") == 1 &&
+                    deployment.at("fingerprint").get<std::string>() == fingerprint &&
+                    deployment.at("target") == manifest.at("target"),
+                "Native module provenance is incompatible: " + id);
+        const auto library = ProjectPaths::normalize(
+            std::filesystem::u8path(deployment.at("library").template get<std::string>()));
+        require(library.parent_path().empty() &&
+                    file == path_utf8(std::filesystem::path("native") / id / library) &&
+                    deployment.at("files").is_object() &&
+                    deployment.at("files").contains(path_utf8(library)),
+                "Native module library and deployment disagree: " + id);
+        for (const auto& [name, info] : deployment.at("files").items()) {
+            const auto locator = ProjectPaths::normalize(std::filesystem::u8path(name));
+            require(locator.parent_path().empty(), "Module provenance contains a non-native path");
+            const auto destination = locator == library ? file : path_utf8(locator);
+            require(manifest.at("files").contains(destination) &&
+                        manifest.at("files").at(destination) == info,
+                    "Native module dependency differs from deployed bytes: " + destination);
+        }
     }
+    require(native_ids.size() == deployments.size(),
+            "Orphan or duplicate native module provenance");
     require(manifest.at("files").contains("resources/ui/LatoLatin-Regular.ttf"),
             "Default UI font is missing");
     return {paths.root(), content, std::move(manifest), std::move(settings)};

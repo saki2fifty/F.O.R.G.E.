@@ -271,7 +271,8 @@ int main(int argc, char** argv) {
                     continue;
                 }
             }
-            ui.loading(game.loading_state());
+            if (!active)
+                ui.loading(game.loading_state());
             auto* image =
                 active ? presentation.draw(game, double(SDL_GetTicksNS()) / 1e9) : nullptr;
             if (!active) {
