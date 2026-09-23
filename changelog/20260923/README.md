@@ -23,7 +23,8 @@ SDK8/8; strict ASan/UBSan/LSan3/3 without suppression; manual3/3, target depende
 boundaries, formatting and workflow lint pass. Separate processes save/relaunch and
 restore supported player state into an unpublished Flecs scene without editing its
 authored source. Both CI workflows build the new test target before selecting it.
-Windows validation is pending; graphical standalone export is still in progress.
+Windows foundation/follow-up results are recorded below; graphical standalone
+export is still in progress.
 
 Windows compile follow-up: explicitly extract the user-document kind string before
 comparison. MSVC rejected the JSON/string_view overload accepted by GCC; the fix
@@ -165,4 +166,23 @@ rebuild against the paired package because the resource contract header changed.
 - Follow-up local validation: navigation/package/link tests3/3; shared-SDK
   navigation/package/process/SDK/link tests5/5; strict sanitizer navigation/package
   tests2/2. OS path tests pass in static, shared SDK and strict sanitizer profiles.
-  Manual3/3, formatting and workflow lint pass. Windows follow-up remains pending.
+  Manual3/3, formatting and workflow lint pass. Windows follow-up results appear below.
+
+### Documentation status reconciliation
+
+- Refreshed the README's outdated primitive-preview/import wording to match current
+  implemented rendering/import/navigation/UI features and distinguish internal
+  Phase8 services from the still-unfinished graphical game/export workflow.
+- Recorded delivered Build260923-000066/source794a88a3/run35815081663 in the product
+  status page. Earlier Phase7 evidence above remains unchanged; current Phase8
+  work has separate source/test attribution and has not replaced that ZIP.
+
+### Phase8 Windows foundation follow-up — verified
+
+Source `b7558c14c706856647722763b1000054f5c9d50b` passed
+[run35823097419](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35823097419):
+**Windows core71/71 and shared SDK82/82**, with runtime installation checks. This
+includes OS user-data save/load, independent process saves/blocked replacement,
+world-clock/solver reset and relocated navigation query/agent/corruption tests.
+Formatting passed. The graphical host and complete export/reference-game workflow
+remain open; this source-only foundation bundle creates no new numbered editor ZIP.

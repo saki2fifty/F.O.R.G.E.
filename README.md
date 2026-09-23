@@ -12,17 +12,21 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 
 ## Current implementation
 
-- Flecs scene state, stable authored IDs, parent/prefab relationships, reflected position metadata, atomic scene replacement and saves, undo/redo, unknown-component preservation.
+- Flecs scene state, stable authored IDs, independent local translation/rotation/scale, derived world transforms, structured prefabs, reflected properties, atomic scene replacement and saves, undo/redo, and unknown-component preservation.
 - Headless runtime with its own fixed clock, Pause/Step/Resume, derived hierarchical pose interpolation, protocol 2 and a minimal C17-compatible gameplay module ABI.
 - Native C/C++ project generation, incremental CMake builds, source watching, unique module artifacts, isolated candidate probing, constrained reload and runtime checkpoint recovery through a CLI.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
-- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and a Diligent primitive preview. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
+- Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and shared Diligent Scene/Game rendering with imported models, PBR materials, cameras, lights, skins and morphs. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
 
 - Structured prefab assets with stable member identities, candidate publication and independent property overrides/Revert.
 - [Skeletal animation](manual/editor/animation.md): validated glTF conversion, Animator playback, fixed-clock recovery and debug bones.
 - Experimental exact-version shared-Flecs gameplay SDK, [Jolt physics](manual/editor/physics.md), and [WAV audio sources/listeners](manual/editor/audio.md).
 
-Production importing/cooking, full game export, advanced animation/navigation/runtime UI, broad public plugin SDK and the first-person sample remain planned. See [implementation status](docs/status.md) for validation and the current delivered build.
+- Model/texture/material/shader importing, cooked resources and dependency-aware content packages; source-free game export remains in progress.
+- [Navigation](manual/editor/navigation.md), [runtime UI](manual/editor/runtime-ui.md), and the [asset workflow](manual/editor/content-browser.md).
+- [Phase8 runtime foundations](docs/game-foundation.md): reusable scene sessions, separate versioned player saves/settings, and OS user-data storage. These internal services do not yet provide a graphical standalone game or a complete Export Game workflow.
+
+Full game export, the first-person reference game, advanced authoring systems and a broad public plugin SDK remain planned. See [implementation status](docs/status.md) for validation and the current delivered build.
 
 ## Build and test
 Requires Git, CMake 3.30+, Ninja, Python 3.10+, and a C++20/C17 compiler. Windows requires an MSVC developer shell and Windows SDK.

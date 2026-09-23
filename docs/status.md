@@ -1,5 +1,36 @@
 # FORGE implementation and validation status
 
+## Current work — Phase8 standalone foundation
+
+Phase8 is in progress. Shared runtime/session composition, candidate scene
+activation, separately validated player save slots/migrations/settings, an SDL OS
+user-data adapter and cooked NavMesh delivery are implemented source-level building
+blocks. See [game foundation](game-foundation.md) and
+[content packaging](runtime-content-packaging.md) for exact boundaries.
+The graphical standalone host, full game dependency/export closure, character and
+collision assets, complete input contexts, game SDK persistence and reference game
+remain open. No new numbered Phase8 package is delivered yet.
+
+Foundation source `d2f6ceb` passed Windows core70/70 and shared SDK81/81 in
+[run35820752072](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35820752072).
+The later OS/navigation/world-clock bundle `b7558c1` has focused static/shared/strict
+sanitizer coverage and passed Windows core71/71 and shared SDK82/82, plus
+runtime installation checks, in
+[run35823097419](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35823097419).
+These internal changes are not present in the previously delivered editor ZIP.
+
+## Latest delivered editor — Build 260923-000066
+
+Source `794a88a3baed6ccd3e64ea6dfbe6b0f9f6389064` completed Phase7 hardening in
+[run35815081663](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35815081663).
+It corrects failed-replacement resource eviction and contextual import diagnostics,
+and extends the native import/reimport/recovery input workflow to221 steps.
+Windows/Linux static68 and shared-SDK79 tests pass per platform; native editor and
+rendering acceptance passed, with changed captures retrieved and reviewed. The
+packaged manual, archive contents and build identity were verified. Physical
+GPU/audio/DPI acceptance remains separate and partial/pending. The detailed daily
+record is [2026-09-23](../changelog/20260923/README.md).
+
 ## Phase 7 — Build 260922-000065
 
 This package completes the Phase 7 implementation and automated acceptance with
