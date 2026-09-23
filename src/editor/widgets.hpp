@@ -5,6 +5,7 @@
 #include <functional>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <string>
 #include <type_traits>
 namespace forge::ui {
 inline bool tooltips = true;
@@ -80,8 +81,12 @@ inline void help(const char* text) {
         return;
     show_help_at(text, {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()});
 }
-inline bool button(const char* label, const char* description) {
-    const bool result = ImGui::Button(label);
+inline bool button(const char* label, const char* description, const char* compact = nullptr) {
+    std::string visible;
+    if (compact && ImGui::CalcTextSize(label).x + 2 * ImGui::GetStyle().FramePadding.x >
+                       ImGui::GetContentRegionAvail().x)
+        visible = std::string(compact) + "###" + label;
+    const bool result = ImGui::Button(visible.empty() ? label : visible.c_str());
     FORGE_UI_PROBE(std::string("button:") + label);
     help(description);
     return result;
@@ -92,6 +97,12 @@ inline void next_text_button(const char* label) {
     if (ImGui::GetItemRectMax().x + style.ItemSpacing.x + width <=
         ImGui::GetCurrentWindow()->WorkRect.Max.x)
         ImGui::SameLine();
+}
+inline bool responsive_tree_node(const char* label, const char* compact) {
+    const bool narrow = ImGui::CalcTextSize(label).x + ImGui::GetTreeNodeToLabelSpacing() >
+                        ImGui::GetContentRegionAvail().x;
+    const auto visible = narrow ? std::string(compact) + "###" + label : std::string(label);
+    return ImGui::TreeNode(visible.c_str());
 }
 inline void heading(const char* label, const char* description) {
     ImGui::SeparatorText(label);

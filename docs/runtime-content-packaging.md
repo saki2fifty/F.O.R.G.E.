@@ -164,7 +164,13 @@ Compiled custom Shader assets currently use the admitted D3D12 FXC5.1 artifact
 adapter. Packaging ships its compiled bytecode and copied reflection; loading it
 needs no HLSL source or full compiler. That does not claim a Vulkan/Metal/WebGPU
 custom-shader cooker is implemented. See [backend validation](render-backends.md).
-The editor's development shader compilation remains a separate behavior.
+This describes loading cooked custom Shader assets. The shared renderer still
+asks Diligent to compile its embedded engine/UI shader source when creating
+pipelines, including in the Development standalone host. Those strings ship in
+the executable; they do not resolve editor/project HLSL files. The Windows host
+uses the platform shader-compiler runtime for that path, not an installed FORGE
+SDK or development shader-worker executable. Do not describe the entire host as
+performing no runtime shader compilation.
 
 ## Publication, loading and failure
 

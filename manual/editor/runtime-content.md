@@ -133,6 +133,11 @@ changed source revisions and catalog conflicts appear as diagnostics. Fix the ca
 review the list and save again. In a packaged game, an undeclared resource request
 is rejected; FORGE does not look in the original project to fill the gap.
 
+In a narrow Inspector or at high interface zoom, labels shorten to **Dependencies**,
+**Automatic**, **Observed**, **Add**, **Save**, **Review** and **Discard**. Their
+actions and contextual help stay the same. Scroll to reach lower fields, or widen
+the Inspector to show more content at once.
+
 ## Export a standalone game
 
 Save your scenes and asset drafts first. In **Project Settings**, choose **Use

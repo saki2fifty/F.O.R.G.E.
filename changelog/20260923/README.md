@@ -482,3 +482,17 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   view before capture; offscreen geometry alone is not visual acceptance.
 - Strict ASan/UBSan/LSan manifest and material-resource tests passed2/2 (33.42s),
   including the canonical output boundary and importer teardown corrections.
+
+- Clarified the shader distribution boundary: cooked custom Shader assets load
+  bytecode, while the shared Development renderer still compiles embedded engine
+  and UI shader strings through Diligent's platform compiler runtime. No external
+  editor/project HLSL files or FORGE SDK are required; the whole host is not
+  advertised as free of runtime shader compilation.
+
+- Windows/Linux core and shared-SDK full matrices now pass at8b3911c. Native editor
+  workflow90295e8 completes declaration Save, project defaults and actual Export.
+  Opened final captures.200% review exposed clipped long action labels in a narrow
+  Inspector: dependency actions/groups now use compact labels with stable IDs and
+  unchanged help/behavior. Reveal/Open wrap onto separate lines when needed.
+  Fixture checks action widths and fully visible scroll targets, and moves away
+  from the export button so its tooltip cannot cover the success capture.

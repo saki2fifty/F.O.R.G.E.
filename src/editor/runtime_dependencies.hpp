@@ -62,7 +62,7 @@ class RuntimeDependenciesEditor {
     void draw(SceneDocument& document, const AssetCatalog& catalog, const AssetRecord& asset,
               bool locked, const std::function<void(const AssetRecord&)>& open) {
         project_ = document.project();
-        const bool expanded = ImGui::TreeNode("Runtime Dependencies");
+        const bool expanded = responsive_tree_node("Runtime Dependencies", "Dependencies");
         FORGE_UI_PROBE("dependencies:section");
         if (!expanded) {
             help("Declare finite conditional content needed by this asset or its gameplay. "
@@ -73,10 +73,11 @@ class RuntimeDependenciesEditor {
              "their own Save and are separate from scene Undo.");
         if (owner_ != asset.id && dirty_ && !busy()) {
             ImGui::TextWrapped("Unsaved dependency draft for the previous asset.");
-            if (button("Return to draft", "Select the owner of the unsaved dependency draft."))
+            if (button("Return to draft", "Select the owner of the unsaved dependency draft.",
+                       "Return"))
                 editor_context->selection.select_asset(owner_);
             if (button("Discard draft and inspect selection",
-                       "Discard unsaved dependency changes only."))
+                       "Discard unsaved dependency changes only.", "Discard"))
                 load(catalog, asset.id);
             ImGui::TreePop();
             return;
@@ -105,7 +106,7 @@ class RuntimeDependenciesEditor {
                     editor_context->selection.select_asset(edge.target);
                     editor_context->reveal_content = true;
                 }
-                ImGui::SameLine();
+                next_text_button("Open");
                 if (button("Open", "Open this dependency through its registered asset editor.")) {
                     try {
                         open(*resolution.record);
@@ -116,7 +117,7 @@ class RuntimeDependenciesEditor {
                 }
             }
         };
-        if (ImGui::TreeNode("Automatic dependencies")) {
+        if (responsive_tree_node("Automatic dependencies", "Automatic")) {
             help("Recorded static dependencies. Export also refreshes reflected scene/prefab "
                  "references and native UI resources.");
             for (const auto& edge : asset.dependency_edges)
@@ -127,7 +128,7 @@ class RuntimeDependenciesEditor {
                 }
             ImGui::TreePop();
         }
-        if (ImGui::TreeNode("Observed resources")) {
+        if (responsive_tree_node("Observed resources", "Observed")) {
             help("Preview observations are advisory. Confirm resources needed in conditional "
                  "states to include them in export.");
             for (const auto& edge : asset.dependency_edges)
@@ -136,7 +137,8 @@ class RuntimeDependenciesEditor {
                     show(edge);
                     if (button("Add to Runtime Dependencies",
                                "Explicitly declare this observed resource; save the draft to "
-                               "publish.")) {
+                               "publish.",
+                               "Declare")) {
                         auto value = edge;
                         value.kind = AssetDependencyKind::Runtime;
                         value.role = "declared:UI state";
@@ -148,7 +150,10 @@ class RuntimeDependenciesEditor {
                 }
             ImGui::TreePop();
         }
-        ImGui::SeparatorText("Declared runtime dependencies");
+        ImGui::SeparatorText(ImGui::CalcTextSize("Declared runtime dependencies").x >
+                                     ImGui::GetContentRegionAvail().x
+                                 ? "Declared"
+                                 : "Declared runtime dependencies");
         help("Required finite set. Scene-owned declarations may cover gameplay-selected scenes, "
              "skins and other module content.");
         for (std::size_t i = 0; i < edges_.size();) {
@@ -210,7 +215,7 @@ class RuntimeDependenciesEditor {
         help("Explain the runtime selection that needs this finite resource. This reason stays on "
              "the authoritative graph edge.");
         ImGui::BeginDisabled(selected_.is_null() || !reason_[0]);
-        if (button("Add dependency", "Add a typed required dependency to the draft.")) {
+        if (button("Add dependency", "Add a typed required dependency to the draft.", "Add")) {
             AssetDependency edge{
                 selected_.get<AssetId>(),
                 type_,
@@ -223,10 +228,12 @@ class RuntimeDependenciesEditor {
             dirty_ = true;
             selected_ = nullptr;
         }
+        FORGE_UI_PROBE("dependencies:add");
         ImGui::EndDisabled();
         if (button(dirty_ ? "Save declarations *" : "Review / save declarations",
                    "Refresh native UI static dependencies, validate types and reviewed source "
-                   "revisions, then atomically publish the catalog. Scene Undo is unchanged.")) {
+                   "revisions, then atomically publish the catalog. Scene Undo is unchanged.",
+                   dirty_ ? "Save *" : "Review")) {
             try {
                 auto lease = document.writer_guard();
                 auto expected = expected_;
@@ -270,9 +277,12 @@ class RuntimeDependenciesEditor {
             }
         }
         FORGE_UI_PROBE("dependencies:save");
-        if (button("Discard draft / refresh", "Reload saved declarations and current catalog "
-                                              "status without changing project data."))
+        if (button("Discard draft / refresh",
+                   "Reload saved declarations and current catalog "
+                   "status without changing project data.",
+                   "Discard"))
             load(catalog, asset.id);
+        FORGE_UI_PROBE("dependencies:discard");
         ImGui::EndDisabled();
         ImGui::TreePop();
     }

@@ -79,7 +79,8 @@ class EditorInputWorkflow {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
         if (what == "dependency-fields-fit") {
-            for (const auto* name : {"dependencies:type", "dependencies:reason"}) {
+            for (const auto* name : {"dependencies:type", "dependencies:reason", "dependencies:add",
+                                     "dependencies:save", "dependencies:discard"}) {
                 const auto& field = ui_targets.at(name);
                 require(field.minimum.x >= field.clip_minimum.x &&
                             field.maximum.x <= field.clip_maximum.x,
@@ -523,6 +524,8 @@ class EditorInputWorkflow {
         capture("runtime-dependency-type-200");
         hover("dependencies:reason");
         capture("runtime-dependency-draft-200");
+        hover("dependencies:save");
+        capture("runtime-dependency-actions-200");
         key(ImGuiKey_0, true);
         key(ImGuiKey_N, true);
         check("dependency-draft-guard");
@@ -542,6 +545,7 @@ class EditorInputWorkflow {
         text("export:Destination", path_utf8(evidence / "exported-game"));
         click("export:start");
         check("game-exported");
+        hover("export:reveal");
         capture("export-complete");
         click("button:Close Export");
     }
@@ -615,8 +619,8 @@ class EditorInputWorkflow {
             }
             const auto& t = it->second;
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
-            if (pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
-                const float direction = pointer_.y < t.clip_minimum.y ? 3.f : -3.f;
+            if (t.minimum.y < t.clip_minimum.y || t.maximum.y > t.clip_maximum.y) {
+                const float direction = t.minimum.y < t.clip_minimum.y ? 3.f : -3.f;
                 // Use the scrollable window's edge, outside preview images that
                 // correctly consume the wheel for their own camera/image zoom.
                 pointer_.x = t.clip_maximum.x - 1.f;
