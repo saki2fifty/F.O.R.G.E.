@@ -463,3 +463,8 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   leaves and retains strict internal metadata checks. Shared manifest/module export
   regressions passed2/2 (5.88s), including symbolic-link rejection where available.
   Actual Windows short-alias acceptance remains in the deployment rerun.
+
+- Full Windows core run at04afc93 passed73/74; the remaining resource-relocation
+  fixture retained its importer-owned writer lease. The fixture now destroys the
+  importer before moving its source. Product locking is unchanged. Rebuilt shared
+  material_pipeline passed (11.81s); Windows rerun remains required.

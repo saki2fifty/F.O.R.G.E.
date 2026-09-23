@@ -34,23 +34,24 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
     AssetCatalog initial(root);
     initial.add({asset, "material", "surface.material.json"});
     initial.save(AssetCatalog::project_index(root));
-    AssetImportService importer(lease, material_import_registry(), {"linux", "none", "cpu"});
+    auto importer = std::make_unique<AssetImportService>(lease, material_import_registry(),
+                                                         ImportTarget{"linux", "none", "cpu"});
     auto publish = [&] {
         {
             std::ofstream out(root / "surface.material.json");
             out << document.document.dump();
             check(bool(out.flush()), "Failed material fixture save");
         }
-        importer.submit(
-            importer.prepare("surface.material.json"),
+        importer->submit(
+            importer->prepare("surface.material.json"),
             [](auto& candidate, const auto& plan, const auto&) {
                 prepare_material_publication(candidate, plan);
             },
             [](const auto&, const auto& artifact) {
                 (void)asset_detail::decode_material_bundle(artifact.files);
             });
-        check(importer.wait_idle(10s), "Fixture material import stalled");
-        auto done = importer.poll();
+        check(importer->wait_idle(10s), "Fixture material import stalled");
+        auto done = importer->poll();
         check(done.size() == 1 && done.front().published, "Fixture material import failed");
     };
     publish();
@@ -232,6 +233,7 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
     const auto package = parent / ("module-package-" + AssetId::generate().str());
     const std::array roots{asset};
     package_runtime_content(root, package, roots, {"linux", "none"});
+    importer.reset(); // Joins the worker and releases its shared project writer lease.
     lease.reset();
     const auto offline = parent / ("module-source-offline-" + AssetId::generate().str());
     std::filesystem::rename(root, offline);
