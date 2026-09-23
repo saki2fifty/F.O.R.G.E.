@@ -161,6 +161,9 @@ jobs:
         with:
           name: FORGE-Standalone-Acceptance-Input
           path: ${{ runner.temp }}/forge-work/AgentFiles/b/standalone-delivery
+          # The validated package contains admitted cooked bytes under content/.forge.
+          # Upload only this reviewed distribution, including its hidden directories.
+          include-hidden-files: true
           retention-days: 7
       - name: Upload build and capture evidence
         if: always()

@@ -510,3 +510,10 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   full capture/fresh-runner acceptance remains pending. Mixed-mode assertions
   require all expected animation/navigation/audio/imported entities, record
   actual runtime values, and identify the stage/condition on timeout.
+
+- The real shared-SDK export, graphical interaction, production rejection checks
+  and second-move save/settings test pass at0c09e3d. The fresh runner correctly
+  rejected an incomplete Actions transfer: upload-artifact excludes hidden paths
+  by default. Acceptance-input upload now explicitly includes hidden directories
+  within the already validated standalone distribution, retaining its cooked
+  content/.forge bytes. No source/build tree is added to the transfer.
