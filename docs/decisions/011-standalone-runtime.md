@@ -1,5 +1,13 @@
 # ADR 011 — Standalone visual runtime
 
+## Implementation checkpoint — 2026-09-23
+
+Phase7 Game rendering uses authored Camera components rather than copying the editor navigation camera. The shared visual renderer and cooked-resource relocation tests are implemented; the full standalone exporter remains future work. See [camera/light contracts](../cameras-lights.md), [Play mode](../../manual/editor/play-mode.md) and [runtime content](../../manual/editor/runtime-content.md).
+
+The original decision and its baseline/deferred descriptions below retain their
+2026-09-19 context. This checkpoint and linked current contracts describe what has
+since been delivered; historical future-tense text is not a current capability limit.
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 

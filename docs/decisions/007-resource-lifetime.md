@@ -1,5 +1,13 @@
 # ADR 007 — Resource handles and lifetime
 
+## Implementation checkpoint — 2026-09-23
+
+Phase7 implements typed immutable CPU resource leases, async coalesced requests, last-good replacement, bounded residency and Diligent fence retirement. See [runtime resources](../runtime-resources.md) for the actual owners, APIs and limits. The private cache described below is the decision-time baseline, not the current loading contract.
+
+The original decision and its baseline/deferred descriptions below retain their
+2026-09-19 context. This checkpoint and linked current contracts describe what has
+since been delivered; historical future-tense text is not a current capability limit.
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 

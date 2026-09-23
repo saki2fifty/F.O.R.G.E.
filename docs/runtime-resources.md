@@ -58,6 +58,12 @@ ticket. Final collection changes that ticket to unloaded.
 owner adoption. A wait timeout does not implicitly cancel another observer's load.
 Runtime consumers normally request asynchronously and pump at their safe boundary.
 
+Explicit idle eviction can reclaim an unleased last-good revision after a failed
+or cancelled replacement, once that request has drained. Failure diagnostics remain
+available, but `previous_good` becomes false when those bytes are evicted. Held
+leases and pending jobs prevent eviction. A failed update does not by itself evict
+anything, and its source generation can be retried after memory is reclaimed.
+
 ## Budgets and ownership
 
 The pool bounds workers, pending requests, indexed asset/variant selections and retained bytes.
@@ -163,8 +169,9 @@ their semantic/format; it does not infer color space from a filename. Missing
 variants fail explicitly while existing leases remain usable. A draw consumer must
 retain compatible mesh, material and texture leases together; individual successful
 loads are not a claim of atomic GPU draw-set publication. Current preparation
-validates a bounded family per requested member; shared family preparation and
-measured production draw workloads remain integration work.
+validates a bounded family per requested member; shared family-decoding optimization is not claimed. Production draw consumers and
+measurements are described in [render features](render-features.md) and
+[editor performance](editor-performance.md).
 
 ## Physical GPU residency checkpoint
 

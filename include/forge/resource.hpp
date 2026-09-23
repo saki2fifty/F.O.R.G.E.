@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <stop_token>
 #include <thread>
 
@@ -490,11 +491,13 @@ template <class T> class ResourcePool {
         collect();
         std::lock_guard lock(state_->mutex);
         std::vector<Slot*> candidates;
+        std::set<resource_detail::Key> pending;
+        for (const auto& job : state_->jobs)
+            pending.insert(resource_detail::key(ResourceTicket(job->ticket).inspect().identity));
         for (auto& [id, slot] : state_->slots) {
-            (void)id;
-            if (slot.current && slot.current.use_count() == 1 &&
+            if (slot.current && slot.current.use_count() == 1 && !pending.contains(id) &&
                 (!slot.request ||
-                 ResourceTicket(slot.request).inspect().state == ResourceState::Ready))
+                 resource_detail::terminal(ResourceTicket(slot.request).inspect().state)))
                 candidates.push_back(&slot);
         }
         std::sort(candidates.begin(), candidates.end(),
@@ -508,8 +511,12 @@ template <class T> class ResourcePool {
             ++count;
             if (slot->request) {
                 std::lock_guard ticket_lock(slot->request->mutex);
-                slot->request->info.state = ResourceState::Unloaded;
+                // A failed replacement is a separate request from the last-good
+                // revision being evicted. Preserve its failure and retry context.
+                if (slot->request->info.state == ResourceState::Ready)
+                    slot->request->info.state = ResourceState::Unloaded;
                 slot->request->info.memory = {};
+                slot->request->info.previous_good = false;
             }
         }
         return count;

@@ -1,4 +1,5 @@
 #pragma once
+#include "ui_probe.hpp"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -81,6 +82,7 @@ inline void help(const char* text) {
 }
 inline bool button(const char* label, const char* description) {
     const bool result = ImGui::Button(label);
+    FORGE_UI_PROBE(std::string("button:") + label);
     help(description);
     return result;
 }

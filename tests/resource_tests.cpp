@@ -219,6 +219,33 @@ int main(int argc, char** argv) {
         require(budget.evict_idle(0) == 1, "Idle LRU eviction failed");
         two = budget.request(child, revision('b'), 1, load());
         require(budget.wait(two, 5s), "Retry after eviction failed");
+        // A failed replacement must not make an unleased last-good revision
+        // permanently immune to explicit idle eviction under memory pressure.
+        {
+            Pool retries(limits);
+            auto good = retries.request(asset, revision('a'), 1, load());
+            require(retries.wait(good, 5s), "Eviction recovery fixture did not load");
+            auto held = retries.current(asset);
+            auto bad = retries.request(asset, revision('b'), 2,
+                                       [](std::stop_token) -> ResourceCandidate<MeshAsset> {
+                                           throw std::runtime_error("invalid replacement");
+                                       });
+            require(!retries.wait(bad, 5s) && bad.inspect().previous_good,
+                    "Failed update lost its last-good resource");
+            require(retries.evict_idle(0) == 0, "Failed update allowed eviction of a live lease");
+            held = {};
+            require(retries.evict_idle(0) == 1 && retries.statistics().memory.total() == 0,
+                    "Failed replacement pinned idle resource memory indefinitely");
+            require(bad.inspect().state == ResourceState::Failed &&
+                        bad.inspect().diagnostic == "invalid replacement" &&
+                        !bad.inspect().previous_good && !retries.current(asset),
+                    "Eviction lost the failure or claimed a nonexistent last-good revision");
+            auto other = retries.request(child, revision('c'), 1, load());
+            require(retries.wait(other, 5s), "Eviction did not recover the resource budget");
+            require(retries.evict_idle(0) == 1, "Recovery resource was not idle");
+            auto retry = retries.request(asset, revision('b'), 2, load(2));
+            require(retries.wait(retry, 5s), "Retry of the failed source generation failed");
+        }
         // Rejected weak promotion cannot move physical destruction to another thread.
         {
             std::atomic<bool> destroyed = false, wrong_thread = false;

@@ -98,6 +98,7 @@ class ContentView {
                                  sizeof(search_));
         ui::help("Case-insensitive words match together across display name, source path, "
                  "extension, type and status.");
+        FORGE_UI_PROBE("content:search");
         query_.text = search_;
         ui::next_text_button("Filters");
         const bool filtered = !query_.type.empty() || query_.state.has_value();
@@ -410,6 +411,7 @@ class ContentView {
                             open(entry);
                     }
                     FORGE_UI_PROBE("asset:" + entry.asset.str());
+                    FORGE_UI_PROBE("source:" + entry.path);
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                         primary(entry, selection);
                     const auto preview = grid_ && entry.asset && thumbnail && ImGui::IsItemVisible()

@@ -224,7 +224,7 @@ controls how much light passes through; metallic regions do not transmit. Roughn
 blurs the view through the surface. A thickness value adds refraction and distance-based
 absorption; dispersion can separate the red, green and blue refraction paths.
 
-The current optical path is being validated as part of the larger Phase7 update.
+D3D12/WARP fixtures validate the implemented optical path.
 It samples the opaque view behind the object. It cannot show another transparent
 object through the same glass layer, recover objects outside the camera image, or
 produce colored glass shadows and caustics. Looking from inside a volume remains

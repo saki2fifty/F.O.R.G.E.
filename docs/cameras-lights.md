@@ -105,9 +105,9 @@ valid components. Retention is256 diagnostics plus an explicit omitted count.
 
 `prepare_game_cameras` validates target-dependent projection and preserves ascending
 composition order. It reports absent valid cameras instead of copying the Scene
-navigation camera. Shader/resource revisions, skinning and actual draw composition
-remain renderer integration work; this copied subset is not the complete production
-render-state bridge. Existing runtime interpolation supplies world poses before
+navigation camera. The renderer combines this copied subset with managed resource revisions,
+skinning/morph pose data and camera draw composition; see [render features](render-features.md).
+This extraction function alone does not own those resources or their lifetimes. Existing runtime interpolation supplies world poses before
 this consumer runs, so camera/light/mesh motion uses the same presentation sample.
 
 The selected FXC5.1 profile also rejects nonzero projection/range coefficients that

@@ -1,5 +1,13 @@
 # ADR 006 — Asset candidate pipeline
 
+## Implementation checkpoint — 2026-09-23
+
+Phase7 implements the importer registry, supervised candidate cooking, dependency-aware reimport, immutable selected artifacts, derived-data cache and transactional source-file operations. See [asset formats](../asset-formats.md), [asset discovery](../asset-discovery.md) and [Content workflows](../../manual/editor/content-browser.md).
+
+The original decision and its baseline/deferred descriptions below retain their
+2026-09-19 context. This checkpoint and linked current contracts describe what has
+since been delivered; historical future-tense text is not a current capability limit.
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 

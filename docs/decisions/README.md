@@ -1,8 +1,11 @@
 # Foundation decisions
 
 These records separate architectural commitments from delivered implementation.
-They govern future authorized work; they do not authorize Phase 7 or claim its
-features exist. The pre-Phase-7 verification package is complete and awaits architecture approval.
+The freeze was approved and Phase7 has since been implemented. Dated implementation
+checkpoints link to the current contracts; decision-time baseline and deferred text
+remains historical. See [render features](../render-features.md), [asset formats](../asset-formats.md)
+and [delivery status](../status.md) for current capability and validation limits.
+Physical acceptance is PARTIAL / PENDING; Phase8 has not begun.
 
 | Record | Decision |
 | --- | --- |

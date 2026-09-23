@@ -1,5 +1,13 @@
 # ADR 009 — Coordinates, units and precision
 
+## Implementation checkpoint — 2026-09-23
+
+Phase7 signed/zero-scale admission and native D3D12/WARP transform, winding, normal, skin and morph fixtures have executed. See [transforms](../transforms.md) and [render features](../render-features.md). Physical GPU acceptance remains partial/pending; unavailable inverse-dependent operations and physics scale restrictions remain explicit.
+
+The original decision and its baseline/deferred descriptions below retain their
+2026-09-19 context. This checkpoint and linked current contracts describe what has
+since been delivered; historical future-tense text is not a current capability limit.
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 

@@ -1,5 +1,13 @@
 # ADR 014 — Extension boundaries
 
+## Implementation checkpoint — 2026-09-23
+
+Exact-version SDK component authoring/Play, checked resource subscriptions and host-created runtime renderable entities are implemented and tested. See [native SDK](../native-modules.md), [runtime resources](../runtime-resources.md) and [custom component authoring](../custom-component-authoring.md). A public editor binary plugin ABI remains future work; trusted native editor extensions remain restart-bound.
+
+The original decision and its baseline/deferred descriptions below retain their
+2026-09-19 context. This checkpoint and linked current contracts describe what has
+since been delivered; historical future-tense text is not a current capability limit.
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 

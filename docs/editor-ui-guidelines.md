@@ -1,5 +1,14 @@
 # Editor placement and extension guidelines
 
+## Current implementation — 2026-09-23
+
+Phase7 implements the Mesh/Material/Texture pipeline and central asset documents
+for models, materials, textures and shaders. New primitive recipes use built-in
+Mesh assets; legacy Primitive/Tint data remains compatible. The blockout and future
+placement sections below describe the original redesign checkpoint and placement
+intent. See [render features](render-features.md) and the
+[Content manual](../manual/editor/content-browser.md) for delivered workflows.
+
 This is the standing policy for FORGE editor additions. Place a control by **what it affects**, not by the subsystem that implements it. Describe implemented features in the user manual; this document also defines future direction.
 
 ## The shell

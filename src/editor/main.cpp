@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
-        forge::test::EditorInputWorkflow input_workflow(fixture.workflow);
+        forge::test::EditorInputWorkflow input_workflow(fixture.workflow, fixture.output);
 #endif
         auto* factory = LoadAndGetEngineFactoryD3D12();
         if (!factory)
@@ -2561,6 +2561,7 @@ int main(int argc, char** argv) {
                 if (ImGui::Begin(game_view ? "Game" : scene_title.c_str(), &view_open,
                                  ImGuiWindowFlags_NoScrollWithMouse |
                                      ImGuiWindowFlags_NoScrollbar)) {
+                    FORGE_UI_TAB_PROBE(game_view ? "tab:Game" : "tab:Scene");
                     if (game_view)
                         game_visible = true;
                     editor.task.focus(forge::ui::DocumentTask::Scene);
@@ -3288,8 +3289,20 @@ int main(int argc, char** argv) {
                                         {"cameras", game_viewport.cameras().size()},
                                         {"ui_scale", forge::ui::interface_scale},
                                         {"status", message}};
+                auto observed = state;
+                observed["model_ready"] =
+                    model_imports.placement_ready() && !model_imports.pending();
+                observed["source_imported"] =
+                    source_import.finished() && source_import.published_count() == 1;
+                observed["model_asset"] = model_imports.selected_asset();
+                observed["model_generation"] = model_imports.selection_generation();
+                observed["project"] = forge::path_utf8(files.document.project());
+                observed["failed_imports"] = forge::Json::array();
+                for (const auto& [id, activity] : content_imports.activity())
+                    if (activity == forge::AssetJobState::Failed)
+                        observed["failed_imports"].push_back(id);
                 input_workflow.finish(
-                    state,
+                    observed,
                     [&](const std::string& name) {
                         fixture.capture(device, context, rtv, true, name);
                     },

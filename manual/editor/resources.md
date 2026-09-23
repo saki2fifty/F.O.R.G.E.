@@ -24,7 +24,16 @@ This window covers the editor's main scene resource owner. Independent asset-pre
 owners and resources inside the separate Play process have their own lifetimes and
 are not included in these counts.
 
-## Check the disk cache
+## Check the cache inside the editor
+
+Open **Assets > Derived cache...** (also available in the Command Palette). Use
+**Statistics** to inspect its size or **Verify** to check manifests, sizes and
+hashes. Clearing all derived data requires confirmation; source files and authored
+scene data remain. These operations wait for active imports to drain and run in the
+background. Scene Undo does not undo cache maintenance. Reimport affected assets
+after clearing their cooked data.
+
+## Check the disk cache from a terminal
 
 The import cache contains generated files that FORGE can recreate from your sources.
 Close the editor for that project before running these maintenance commands. Each

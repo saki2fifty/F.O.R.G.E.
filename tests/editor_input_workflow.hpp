@@ -1,16 +1,18 @@
 #pragma once
 #include "ui_probe.hpp"
 #include <SDL3/SDL.h>
+#include <bit>
 #include <cmath>
 #include <forge/scene.hpp>
+#include <fstream>
 #include <functional>
 #include <stdexcept>
 
 namespace forge::test {
-// The only writes here are input events and evidence. Scene state is observed,
-// never edited through commands or model APIs by this driver.
+// Scene state is observed, never edited through commands or model APIs.
+// Inputs drive authoring; raw files supply a DCC import/reimport scenario.
 class EditorInputWorkflow {
-    enum class Kind { Click, Hover, Text, Key, Check, Capture };
+    enum class Kind { Click, Hover, Text, Key, Check, Capture, DropFile, SourceEdit };
     struct Step {
         Kind kind;
         std::string value;
@@ -24,7 +26,33 @@ class EditorInputWorkflow {
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
     std::uint64_t paused_tick_ = 0;
-    Json cache_scene_, saved_, trace_ = Json::array();
+    Json cache_scene_, saved_, before_model_, trace_ = Json::array();
+    std::filesystem::path external_source_, project_;
+    std::string drop_path_, model_asset_, model_root_;
+    std::uint64_t model_generation_ = 0;
+    static Json model_source(bool changed = false) {
+        auto source = Json::parse(R"({"asset":{"version":"2.0"},
+            "extensionsUsed":["KHR_materials_unlit"],
+            "buffers":[{"uri":"workflow.bin","byteLength":36}],
+            "bufferViews":[{"buffer":0,"byteLength":36}],
+            "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3",
+                "min":[-1,-1,0],"max":[1,1,0]}],
+            "materials":[{"name":"Workflow surface","doubleSided":true,
+                "extensions":{"KHR_materials_unlit":{}},
+                "pbrMetallicRoughness":{"baseColorFactor":[0.8,0.2,0.04,1]}}],
+            "meshes":[{"name":"Workflow triangle","primitives":[{"attributes":{"POSITION":0},"material":0}]}],
+            "nodes":[{"name":"Imported triangle","mesh":0}],"scenes":[{"nodes":[0]}],"scene":0})");
+        if (changed)
+            source["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"] = {.05, .8, .25, 1};
+        return source;
+    }
+    static void write(const std::filesystem::path& path, const std::string& bytes) {
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        file.write(bytes.data(), std::streamsize(bytes.size()));
+        file.close();
+        if (!file)
+            throw std::runtime_error("Cannot write external workflow source");
+    }
     void click(std::string target, bool ctrl = false) {
         steps_.push_back({Kind::Click, std::move(target), ImGuiKey_None, ctrl});
     }
@@ -50,7 +78,46 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "before-cache")
+        if (what == "source-imported") {
+            require(state.at("source_imported").get<bool>(),
+                    "Source import did not publish its model");
+            project_ = std::filesystem::u8path(state.at("project").get<std::string>());
+            before_model_ = doc;
+        } else if (what == "model-ready") {
+            require(state.at("model_ready").get<bool>() && !state.at("model_asset").is_null(),
+                    "Model settings/preview have not loaded the published source");
+            model_asset_ = state.at("model_asset");
+            model_generation_ = state.at("model_generation");
+            require(doc == before_model_, "Import/reimport changed scene history/state");
+        } else if (what == "model-placed") {
+            if (model_root_.empty())
+                model_root_ = state.at("selected");
+            require(
+                entities.size() == before_model_.at("entities").size() + 2 &&
+                    std::any_of(entities.begin(), entities.end(),
+                                [&](const auto& entity) {
+                                    return entity.at("id") == model_root_ &&
+                                           entity.at("components").contains("forge.model_source");
+                                }),
+                "Place configured model did not create its root and mesh node");
+        } else if (what == "model-undone") {
+            require(doc == before_model_, "Scene Undo did not remove complete model placement");
+        } else if (what == "hot-reimport-rejected") {
+            const auto& failures = state.at("failed_imports");
+            require(std::find(failures.begin(), failures.end(), model_asset_) != failures.end(),
+                    "Corrupt source was not reported as a failed import");
+            require(state.at("model_ready").get<bool>() &&
+                        state.at("model_asset") == model_asset_ && doc == saved_ &&
+                        state.at("disk") == saved_,
+                    "Corrupt source discarded the usable model or changed authored state");
+        } else if (what == "hot-reimported") {
+            require(state.at("model_ready").get<bool>() &&
+                        state.at("model_asset") == model_asset_ &&
+                        state.at("model_generation").get<std::uint64_t>() > model_generation_,
+                    "Changed source did not update the open model while retaining AssetId");
+            require(doc == saved_ && state.at("disk") == saved_,
+                    "Model source publication mutated authored scene or saved scene");
+        } else if (what == "before-cache")
             cache_scene_ = doc;
         else if (what == "cache-complete") {
             require(ui_targets.contains("cache:complete"), "Cache maintenance not complete");
@@ -143,10 +210,21 @@ class EditorInputWorkflow {
     }
 
   public:
-    explicit EditorInputWorkflow(bool enabled) {
+    explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence) {
         observe_ui = enabled;
         if (!enabled)
             return;
+        external_source_ = evidence / "external-source" / "workflow.gltf";
+        std::filesystem::create_directories(external_source_.parent_path());
+        write(external_source_, model_source().dump());
+        std::string vertices;
+        for (float value : std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) {
+            const auto bits = std::bit_cast<std::uint32_t>(value);
+            for (unsigned byte = 0; byte < 4; ++byte)
+                vertices.push_back(char((bits >> (byte * 8)) & 255));
+        }
+        write(external_source_.parent_path() / "workflow.bin", vertices);
+        drop_path_ = external_source_.string();
         key(ImGuiKey_0, true);
         check("empty");
         capture("empty-scene");
@@ -243,12 +321,76 @@ class EditorInputWorkflow {
         click("icon:stop");
         check("stopped");
         capture("returned-to-edit");
+        // File-drop uses SDL's production route. The fixture supplies raw DCC
+        // source files only; every import/publication/placement uses real controls.
+        hover("content-results");
+        steps_.push_back({Kind::DropFile, "external-glTF"});
+        capture("source-import-review");
+        click("button:Prepare import");
+        click("button:Copy sources");
+        check("source-imported");
+        capture("source-import-complete");
+        click("button:Close");
+        text("content:search", "workflow.gltf model");
+        click("source:Assets/Imported/Source-1/workflow.gltf");
+        click("menu:Assets");
+        click("action:asset.open");
+        check("model-ready");
+        capture("imported-model-preview");
+        click("button:Import / Reimport");
+        check("model-ready");
+        click("button:Place model");
+        check("model-placed");
+        click("tab:Scene");
+        capture("placed-imported-model");
+        key(ImGuiKey_Z, true);
+        check("model-undone");
+        key(ImGuiKey_Y, true);
+        check("model-placed");
+        click("placed-model-row");
+        key(ImGuiKey_S, true);
+        check("saved");
+        // Simulate an external DCC save, without invoking the importer directly.
+        steps_.push_back({Kind::SourceEdit, "corrupt-external-model"});
+        check("hot-reimport-rejected");
+        capture("rejected-model-source-keeps-last-good");
+        steps_.push_back({Kind::SourceEdit, "change-external-model-material"});
+        check("hot-reimported");
+        capture("hot-reimported-model");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        capture("imported-content-150");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        capture("imported-content-200");
+        key(ImGuiKey_0, true);
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {
         if (done())
             return;
         const auto& step = steps_[index_];
+        if (step.kind == Kind::DropFile && frame_ == 0) {
+            const auto it = ui_targets.find("content-results");
+            if (it == ui_targets.end())
+                return;
+            const auto origin = ImGui::GetMainViewport()->Pos;
+            const auto& target = it->second;
+            for (auto type : {SDL_EVENT_DROP_BEGIN, SDL_EVENT_DROP_POSITION, SDL_EVENT_DROP_FILE,
+                              SDL_EVENT_DROP_COMPLETE}) {
+                SDL_Event event{};
+                event.type = type;
+                event.drop.windowID = window;
+                event.drop.x = (target.minimum.x + target.maximum.x) * .5f - origin.x;
+                event.drop.y = (target.minimum.y + target.maximum.y) * .5f - origin.y;
+                event.drop.data = type == SDL_EVENT_DROP_FILE ? drop_path_.c_str() : nullptr;
+                if (!SDL_PushEvent(&event))
+                    throw std::runtime_error(SDL_GetError());
+            }
+        }
+        if (step.kind == Kind::SourceEdit && frame_ == 0)
+            write(project_ / "Assets/Imported/Source-1/workflow.gltf",
+                  step.value == "corrupt-external-model" ? "{" : model_source(true).dump());
         // Interface zoom is handled by the production SDL event loop, before ImGui.
         if (step.kind != Kind::Key || !step.control ||
             (step.key != ImGuiKey_0 && step.key != ImGuiKey_Equal) || frame_ > 1)
@@ -277,6 +419,7 @@ class EditorInputWorkflow {
                        last_check_;
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             const auto target = step.value == "saved-cube-row"      ? "entity:" + cube_
+                                : step.value == "placed-model-row"  ? "entity:" + model_root_
                                 : step.value == "camera-marker"     ? "marker:" + camera_
                                 : step.value == "light-marker"      ? "marker:" + light_
                                 : step.value == "saved-scene-asset" ? "asset:" + scene_
@@ -289,6 +432,15 @@ class EditorInputWorkflow {
             }
             const auto& t = it->second;
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
+            if (pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
+                const float direction = pointer_.y < t.clip_minimum.y ? 3.f : -3.f;
+                pointer_.x = std::clamp(pointer_.x, t.clip_minimum.x, t.clip_maximum.x);
+                pointer_.y = (t.clip_minimum.y + t.clip_maximum.y) * .5f;
+                io.AddMousePosEvent(pointer_.x, pointer_.y);
+                io.AddMouseWheelEvent(0, direction);
+                ui_targets.clear();
+                return;
+            }
             trace_.push_back({{"step", index_},
                               {"target", target},
                               {"rect", {t.minimum.x, t.minimum.y, t.maximum.x, t.maximum.y}},
@@ -363,7 +515,9 @@ class EditorInputWorkflow {
                               {"image", "editor-" + name + ".ppm"},
                               {"ui_scale", state.at("ui_scale")}});
         }
-        constexpr const char* names[] = {"click", "hover", "type", "shortcut", "assert", "capture"};
+        constexpr const char* names[] = {
+            "click",  "hover",   "type",          "shortcut",
+            "assert", "capture", "SDL file drop", "external source edit"};
         trace_.push_back({{"step", index_},
                           {"operation", names[int(step.kind)]},
                           {"value", step.value},
