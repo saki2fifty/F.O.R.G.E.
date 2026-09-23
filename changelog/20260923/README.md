@@ -25,6 +25,15 @@ restore supported player state into an unpublished Flecs scene without editing i
 authored source. Both CI workflows build the new test target before selecting it.
 Windows validation is pending; graphical standalone export is still in progress.
 
+Windows compile follow-up: explicitly extract the user-document kind string before
+comparison. MSVC rejected the JSON/string_view overload accepted by GCC; the fix
+retains the same envelope, validation and runtime behavior. Revalidate the changed
+storage path and Windows matrix; no dependency or format change.
+Add an opt-in Windows-only core dispatch for focused platform corrections. It still
+runs both static-core and native-SDK profiles; normal pushes and numbered package
+builds retain the full platform matrix. Earlier Linux results remain attributed to
+their actual source rather than relabeled as results for another commit.
+
 ## Phase7 hardening
 
 - Correct idle CPU resource eviction after a failed replacement: released last-good

@@ -32,6 +32,10 @@ on:
         description: Build and upload the Windows editor ZIP
         type: boolean
         default: true
+      core_windows_only:
+        description: For a core-only dispatch, validate both Windows profiles while retaining separately attributed Linux evidence
+        type: boolean
+        default: false
       build_id:
         description: Reserved UTC yymmdd-counter identifier (required for a Windows package)
         type: string
@@ -64,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022]
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && !inputs.windows_package && inputs.core_windows_only && '["windows-2022"]' || '["ubuntu-22.04","windows-2022"]') }}
         profile: [core, native-sdk]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30

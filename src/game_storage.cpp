@@ -58,7 +58,7 @@ Json read(const std::filesystem::path& path, const std::string& application, std
         throw std::runtime_error("game.storage: Unsupported user document envelope");
     auto payload = document.at("payload");
     if (document.at("sha256") != digest(payload) || payload.at("application_id") != application ||
-        payload.at("kind") != kind)
+        payload.at("kind").get<std::string>() != kind)
         throw std::runtime_error("game.storage: Corrupt or foreign user document");
     return payload;
 }
