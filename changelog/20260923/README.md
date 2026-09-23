@@ -16,11 +16,23 @@
 ## Validation and delivery
 
 The new resource regression reproduced the original failure; strict ASan/UBSan/LSan
-passes after correction. Editor interaction tests pass locally with strict sanitizers;
-manual generation/link checks pass. Expanded native workflow and final matrix are pending.
-Build 260922-000065 remains the current immutable delivery until the consolidated
-correction passes its release gate. Physical acceptance remains PARTIAL / PENDING.
-No Phase 8 work or dependency pin changes.
+passes after correction. Rebuilt portable validation passes 91/91 (315.29s), with
+the approved exact Flecs managed-include leak separately signature-checked as an
+expected upstream issue, without sanitizer suppression. Editor process/scale tests
+pass normally (17.24s) and under strict sanitizers (46.35s). The Vulkan shared-build,
+device, sampler and readback probe passes (3.40s); this does not claim a full Vulkan editor.
+
+All four static/shared core profiles pass: Linux and Windows each run 68 static
+tests and 79 SDK tests. The complete native rendering gate passes, including
+inside-volume optical assertions and 103 prepared UI stages. The expanded real-input
+workflow passes 221/221 steps (61.80s); changed import, recovery, Material and high-zoom
+captures were retrieved and opened. Manual generation/link tests pass.
+
+Baseline reviewed: Build 260922-000065. The consolidated correction gets its own
+numbered package after the complete release gate; the embedded build identity is
+authoritative. Physical acceptance remains PARTIAL / PENDING. No Phase 8 work,
+dependency pin, scene identity/format or ABI1 change. Exact SDK consumers must
+rebuild against the paired package because the resource contract header changed.
 
 ## Asset diagnostics
 
@@ -83,3 +95,7 @@ No Phase 8 work or dependency pin changes.
   disclosure state and scroll at the document edge, avoiding the preview's
   intentional wheel-to-camera-zoom input. Correct the fixture; no authoring
   state is injected to bypass those interactions.
+- Final focused Windows input run passes all 221 steps; opened the scrolled
+  Roughness value and its contextual help at 100/150/200%. Both Hierarchy actions
+  remain reachable at 200%. Correct the manual's sibling-order description to
+  match authored Flecs child order rather than obsolete alphabetical ordering.

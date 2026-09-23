@@ -28,7 +28,7 @@ See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 
 Use **Search names or IDs...** in Hierarchy to filter the hierarchy. Matching descendants keep their ancestor rows visible, and matching paths open automatically. Matching is case-insensitive for ASCII text. Clear the search to show all entities again.
 
-Entities are listed alphabetically within each parent. **Expand all** opens all branches; **Collapse all** closes them. An active search keeps matching paths open even after Collapse all.
+Entities retain their authored sibling order within each parent. **Expand all** opens all branches; **Collapse all** closes them. An active search keeps matching paths open even after Collapse all.
 
 The two buttons stack when the panel is too narrow to fit them side by side,
 including at high interface zoom. Widen Hierarchy to show more of names and search text.
