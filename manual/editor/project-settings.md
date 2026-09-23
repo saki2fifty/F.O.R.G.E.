@@ -7,14 +7,14 @@ Project settings define shared game behavior. Open **Tools → Project Settings*
 1. Stop Play and wait for any native build to finish.
 2. Open **Tools → Project Settings**.
 3. Change **Simulation Hz** to a value from **1 to 240**.
-4. Click **Save settings**.
+4. Click **Save Settings**.
 5. Start Play and check **Console → Fixed**.
 
 The default is 60 Hz. Step still advances exactly one tick; at 120 Hz that tick represents 1/120 second. Settings apply when you next start Play. Saving settings does not alter scene Undo/Redo or the authored scene.
 
 ## Choose the startup scene
 
-Save your current scene, then click **Use saved current scene as startup** and **Save settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save scene As... workflow for an independent scene.
+Save your current scene, then click **Use saved current scene as startup** and **Save Settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save scene As... workflow for an independent scene.
 
 ## Configure controls
 
@@ -22,7 +22,7 @@ The **Input actions** section defines project actions and their bindings. See [G
 
 ## Save and discard
 
-**Save settings** validates the complete candidate before atomically replacing `forge.project.json`. Invalid frequency, bindings or startup references leave the previous configuration intact. An externally changed manifest is rejected; reopen the project before editing it again.
+**Save Settings** validates the complete candidate before atomically replacing `forge.project.json`. Invalid frequency, bindings or startup references leave the previous configuration intact. An externally changed manifest is rejected; reopen the project before editing it again.
 
 **Discard edits** restores the currently loaded settings. Closing an unsaved window asks Save, Discard or Cancel. Scene Undo does not undo project settings.
 

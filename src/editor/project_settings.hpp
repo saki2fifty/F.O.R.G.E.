@@ -304,7 +304,7 @@ class ProjectSettingsEditor {
             }
             if (remove >= 0)
                 actions.erase(actions.begin() + remove);
-            if (ui::button("Save settings",
+            if (ui::button("Save Settings",
                            "Validate and atomically save this project manifest. Changes take "
                            "effect next Play. Scene Undo does not own project settings.")) {
                 save(document, status);

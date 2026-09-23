@@ -514,10 +514,14 @@ class EditorInputWorkflow {
         text("dependencies:reason", "Gameplay variants");
         click("button:Add dependency");
         check("dependency-fields-fit");
+        hover("dependencies:reason");
         capture("runtime-dependency-draft");
         for (int i = 0; i < 10; ++i)
             key(ImGuiKey_Equal, true);
         check("dependency-fields-fit");
+        hover("dependencies:type");
+        capture("runtime-dependency-type-200");
+        hover("dependencies:reason");
         capture("runtime-dependency-draft-200");
         key(ImGuiKey_0, true);
         key(ImGuiKey_N, true);

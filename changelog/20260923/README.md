@@ -474,3 +474,11 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   Windows case-insensitive environment mapping before constructing its restricted
   PATH. Both primary and fresh-runner probes use that same correction; actual
   production launch/capture remains to be checked by the rerun.
+
+- Native editor04afc93 now completes typed declaration editing, dirty-draft guard
+  and Save. Opened actual100%/200% captures. Standardized the ordinary project
+  save label to **Save Settings**, matching its close dialog/manual and input
+  fixture. Large-scale evidence now scrolls the actual dependency fields into
+  view before capture; offscreen geometry alone is not visual acceptance.
+- Strict ASan/UBSan/LSan manifest and material-resource tests passed2/2 (33.42s),
+  including the canonical output boundary and importer teardown corrections.

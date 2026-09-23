@@ -6,7 +6,7 @@ Input actions give your project named controls with stable identities. They are 
 
 1. Stop Play. Open **Tools → Project Settings**.
 2. Click **Add action**, expand **New action**, and name it `Test jump`.
-3. Keep **Kind: digital** and **Control: key.space**. Click **Save settings**.
+3. Keep **Kind: digital** and **Control: key.space**. Click **Save Settings**.
 4. Open Console and expand **Gameplay input** after starting Play.
 5. In the Game panel, click **Capture gameplay input**.
 6. Press and hold Space. The action shows **held**, and **presses** increases once.
