@@ -8,7 +8,8 @@ user-data adapter and cooked NavMesh delivery are implemented source-level build
 blocks. See [game foundation](game-foundation.md) and
 [content packaging](runtime-content-packaging.md) for exact boundaries.
 An opt-in graphical standalone development host and resource-gated scene preparation
-are implemented in source; see [host scope](standalone-host.md).
+are implemented in source and verified on Windows/WARP, including a build with
+the editor/import tooling disabled; see [host scope](standalone-host.md).
 Full game dependency/export closure, character and
 collision assets, complete input contexts, game SDK persistence and reference game
 remain open. No new numbered Phase8 package is delivered yet.

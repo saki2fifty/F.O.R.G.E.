@@ -106,5 +106,16 @@ Portable regressions cover bootstrap identity/prefab inheritance/relocation,
 preparation failure/cancel/supersession, stale readiness, UI candidate retention,
 initial animation time and actual offline master-volume samples.
 `standalone_game_workflow` exercises the SDL host on Windows/WARP, captures frames,
-clicks UI controls and tests failed/valid graphical replacement and window resize. Its execution and
-image review remain separate from Linux/source validation.
+clicks UI controls and tests failed/valid graphical replacement and window resize.
+
+Checkpoint evidence (2026-09-23): local core72/72, shared SDK83/83, strict focused
+ASan/UBSan/LSan5/5 and native model pipeline1/1. Windows source2a595bf passed76
+existing native tests; the new fixture required authored camera setup corrections.
+At057d324, run35837706448 passed editor/standalone interactions2/2 and the
+editor-disabled standalone workflow1/1, including final link-boundary inspection.
+All five final game captures were opened:960×540 running/paused/rejected-load/
+replacement and800×600 resized output show visible scene content and readable HUD.
+An added center/background pixel check rejects an obscured scene. This is a
+diagnostic acceptance scene, not the reference game or physical-device acceptance.
+The Windows shared-SDK graphical-host profile remains a release gate; the shared
+SDK result above is the portable Linux runtime matrix.

@@ -23,10 +23,10 @@
 - Update technical contracts and the function-based manual. Full export, all runtime
   asset adapters, character/collision, complete input/menu contexts, SDK save/session
   access, logging/crash completion and the reference game remain open. No new ZIP.
-- Validation: focused shared SDK5/5, strict ASan/UBSan/LSan5/5, native model
+- Initial validation: focused shared SDK5/5, strict ASan/UBSan/LSan5/5, native model
   pipeline1/1, portable preparation/UI/animation/audio and corrected bootstrap pass;
   manual3/3, formatting, source syntax and workflow lint pass. Windows execution
-  and visual acceptance remain pending the unnumbered audit.
+  and visual acceptance were pending; completed native results are recorded below.
 
 ### Native host verification follow-up
 
@@ -49,7 +49,26 @@
   absolute HUD labels had insufficient layout width. Match existing non-mesh
   authoring semantics, add an authored light/material, correct HUD layout and
   assert that the rendered cube differs from its background in every capture.
-  Final corrected visual acceptance remains pending; no new ZIP.
+  Final corrected visual acceptance is recorded below; no new ZIP.
+
+### Graphical-host checkpoint — verified
+
+- Final native source057d324 / Windows run35837706448: editor/standalone actual
+  input workflows2/2 pass (51.46s); editor-disabled standalone1/1 passes (4.29s),
+  with final link checks excluding editor/ImGui/import tooling from forge_game.
+- Opened all five final running, paused, rejected-load-retained, replaced and
+  resized captures. The authored scene is visible, UI text stays readable and
+  output adapts from960×540 to800×600. Assertions and visual review are recorded
+  separately; physical GPU/audio/display behavior is not claimed.
+- Reuse76 passing native regressions from2a595bf: subsequent changes corrected
+  the fixture, not production rendering. Local core72/72, shared SDK83/83, strict
+  focused sanitizers5/5, model pipeline1/1 and manual3/3 pass.
+- Keep the game target explicitly opt-in when restoring the current editor-package
+  profile and when cleaning audit configuration for cache reuse; workflow lint passes.
+- Technical status/host docs and the separate end-user manual reflect this source
+  checkpoint. Full export, shared-SDK graphical-host Windows acceptance, remaining
+  input/character/collision/session SDK work and the reference game are still open.
+  Build260923-000066 remains the current download. No numbered ZIP was produced.
 
 ## Phase8 game foundation — in progress, not yet packaged
 

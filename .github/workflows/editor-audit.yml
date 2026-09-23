@@ -220,7 +220,7 @@ jobs:
       - name: Remove benchmark-only CMake injection before caching
         if: ${{ always() && steps.configure.outcome == 'success' }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake -S . -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=ON -DFORGE_BUILD_ASSET_TOOLS=ON -DCMAKE_PROJECT_INCLUDE:FILEPATH=
+        run: cmake -S . -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=ON -DFORGE_BUILD_GAME=OFF -DFORGE_BUILD_ASSET_TOOLS=ON -DCMAKE_PROJECT_INCLUDE:FILEPATH=
       - name: Record source content and input timestamps for incremental reuse
         if: ${{ always() && !inputs.clean_build && steps.configure.outcome == 'success' }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
