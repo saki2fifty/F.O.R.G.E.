@@ -2,6 +2,7 @@
 #include <cmath>
 #include <deque>
 #include <forge/services.hpp>
+#include <limits>
 #include <set>
 #include <thread>
 namespace forge {
@@ -12,6 +13,7 @@ struct ServiceState {
     bool alive = true, profiling = false;
     EngineServices::Now now;
     std::deque<Json> diagnostics, profiles;
+    std::uint64_t diagnostic_sequence = 0;
     void check() const {
         if (owner != std::this_thread::get_id() || !alive)
             throw std::runtime_error("Engine service access requires its live owner thread");
@@ -155,6 +157,9 @@ void ServiceAccess::emit(Diagnostic d) const {
     auto record = diagnostic_json(d);
     if (record.dump().size() > 16384)
         throw std::runtime_error("Diagnostic context exceeds 16 KiB");
+    if (state->diagnostic_sequence == std::numeric_limits<std::uint64_t>::max())
+        throw std::runtime_error("Diagnostic sequence exhausted");
+    record["sequence"] = ++state->diagnostic_sequence;
     if (state->diagnostics.size() == 256)
         state->diagnostics.pop_front();
     state->diagnostics.push_back(std::move(record));

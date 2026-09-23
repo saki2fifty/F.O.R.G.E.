@@ -120,6 +120,7 @@ std::unique_ptr<GameScenePreparation> GamePresentation::prepare(std::uint64_t ti
     return std::make_unique<Candidate>(*this, ticket);
 }
 Diligent::ITextureView* GamePresentation::draw(GameSession& game, double time) {
+    ui_.loading(game.loading_state());
     ui_.update(time, int(width_), int(height_), density_);
     if (!active_)
         return nullptr;

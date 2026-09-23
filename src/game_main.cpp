@@ -116,10 +116,6 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Project needs game settings with a durable application_id");
         const auto& defaults = project.document().at("game");
         GameStorage storage(game_user_data_base(), defaults.at("application_id"));
-        const auto user = storage.load_settings([&](const Json& overrides) {
-            (void)resolve_game_settings(defaults, overrides, project.input());
-        });
-        const auto settings = resolve_game_settings(defaults, user, project.input());
         // Session-local log. Saves and preferences use separate files.
         const auto log_path = ProjectPaths(storage.root()).resolve("runtime.log");
         if (std::filesystem::is_symlink(log_path))
@@ -128,6 +124,10 @@ int main(int argc, char** argv) {
         if (!log)
             throw std::runtime_error("Cannot open runtime log");
         previous_log = std::clog.rdbuf(log.rdbuf());
+        const auto user = storage.load_settings([&](const Json& overrides) {
+            (void)resolve_game_settings(defaults, overrides, project.input());
+        });
+        const auto settings = resolve_game_settings(defaults, user, project.input());
         std::clog << "FORGE game | Build: " << build_id << "\nStarting "
                   << settings.at("title").get<std::string>() << '\n';
         const auto& video = settings.at("display");
@@ -187,7 +187,8 @@ int main(int argc, char** argv) {
         ui_protocol::CommandGate commands;
         bool running = true, active = false, focused = true;
         std::uint64_t command_generation = 0;
-        std::string loading_stage;
+        std::string loading_stage, last_ui_error;
+        std::uint64_t log_generation = 0, diagnostic_cursor = 0;
         auto& ui = presentation.ui();
         while (running) {
             const auto now = RuntimeClock::Clock::now();
@@ -261,6 +262,16 @@ int main(int argc, char** argv) {
                 graphics.swap->Resize(unsigned(width), unsigned(height));
             presentation.dimensions(unsigned(width), unsigned(height),
                                     std::clamp(SDL_GetWindowDisplayScale(window.get()), .5f, 4.f));
+            if (const auto cancel = ui.take_loading_cancel();
+                cancel && *cancel == game.status().at("prepared_ticket").get<std::uint64_t>()) {
+                game.cancel(*cancel);
+                std::clog << "Scene preparation cancelled: " << *cancel << '\n';
+                if (!active) {
+                    running = false;
+                    continue;
+                }
+            }
+            ui.loading(game.loading_state());
             auto* image =
                 active ? presentation.draw(game, double(SDL_GetTicksNS()) / 1e9) : nullptr;
             if (!active) {
@@ -306,6 +317,34 @@ int main(int argc, char** argv) {
                     ui.acknowledge(ack);
                 }
                 game.advance(now);
+            }
+            if (active) {
+                if (log_generation != presentation.generation()) {
+                    log_generation = presentation.generation();
+                    diagnostic_cursor = 0;
+                }
+                const auto records = game.active().engine.services().diagnostics();
+                for (const auto& record : records) {
+                    const auto sequence = record.at("sequence").get<std::uint64_t>();
+                    if (sequence <= diagnostic_cursor)
+                        continue;
+                    if (sequence > diagnostic_cursor + 1)
+                        std::clog << Json{{"category", "game.log.gap"},
+                                          {"missed", sequence - diagnostic_cursor - 1}}
+                                         .dump()
+                                  << '\n';
+                    std::clog << record.dump() << '\n';
+                    diagnostic_cursor = sequence;
+                }
+            }
+            if (ui.diagnostic() != last_ui_error) {
+                last_ui_error = ui.diagnostic();
+                if (!last_ui_error.empty())
+                    std::clog << Json{{"severity", "error"},
+                                      {"category", "game.ui"},
+                                      {"text", last_ui_error}}
+                                     .dump()
+                              << '\n';
             }
             auto* target = graphics.swap->GetCurrentBackBufferRTV();
             if (image) {

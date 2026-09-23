@@ -34,8 +34,10 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         throw std::runtime_error("game.session: Transition generation exhausted");
     // Starting a new request retires the previous unpublished request. The active
     // world and its clock/input remain untouched even if the new request fails.
+    const auto superseded = pending_;
     discard_candidate();
     const auto ticket = ++generation_;
+    loading_ = {ticket, superseded, "preparing", "structure", {}, {}, 0, 0, false};
     try {
         auto next = std::make_unique<RuntimeWorld>(module_, config_.modules, config_.physics,
                                                    config_.audio, config_.content_root, config_.ui);
@@ -57,9 +59,15 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         progress_ = {!candidate_preparation_, candidate_preparation_ ? "resources" : "structural",
                      0, 0};
         error_.clear();
+        loading_.state = candidate_preparation_ ? "loading" : "ready";
+        loading_.stage = progress_.stage;
+        loading_.can_cancel = true;
         return ticket;
     } catch (const std::exception& e) {
         error_ = e.what();
+        loading_.state = "failed";
+        loading_.error_code = "game.scene.prepare";
+        loading_.error = error_.substr(0, 1024);
         throw;
     }
 }
@@ -77,14 +85,26 @@ GamePreparationProgress GameSession::poll_candidate() {
                 throw std::runtime_error("game.session: Invalid preparation progress");
             progress_ = std::move(next);
         }
+        loading_.state = progress_.ready ? "ready" : "loading";
+        loading_.stage = progress_.stage;
+        loading_.completed = progress_.completed;
+        loading_.total = progress_.total;
         return progress_;
     } catch (const std::exception& e) {
         error_ = e.what();
         discard_candidate();
+        loading_.state = "failed";
+        loading_.error_code = "game.scene.resources";
+        loading_.error = error_.substr(0, 1024);
+        loading_.can_cancel = false;
         throw;
     } catch (...) {
         error_ = "Non-standard native exception in scene preparation";
         discard_candidate();
+        loading_.state = "failed";
+        loading_.error_code = "game.scene.native_exception";
+        loading_.error = error_;
+        loading_.can_cancel = false;
         throw;
     }
 }
@@ -116,6 +136,8 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     faulted_ = false;
     error_.clear();
     discard_candidate(); // Stops old consumers/world before new gameplay starts.
+    loading_.state = "activated";
+    loading_.can_cancel = false;
     // Resume is post-commit. A device/native callback failure is a session fault,
     // never a claim that the old world has been restored.
     try {
@@ -125,6 +147,9 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     } catch (const std::exception& e) {
         faulted_ = true;
         error_ = e.what();
+        loading_.state = "faulted";
+        loading_.error_code = "game.scene.activate";
+        loading_.error = error_.substr(0, 1024);
         throw;
     }
 }
@@ -134,6 +159,8 @@ void GameSession::cancel(std::uint64_t ticket) {
         throw std::runtime_error("game.session: Stale or missing prepared scene");
     Mutation guard(changing_);
     discard_candidate();
+    loading_.state = "cancelled";
+    loading_.can_cancel = false;
 }
 void GameSession::unload(RuntimeClock::Time now) {
     owner();
@@ -145,6 +172,11 @@ void GameSession::unload(RuntimeClock::Time now) {
     pending_ = 0;
     faulted_ = false;
     error_.clear();
+    loading_ = {};
+}
+LoadingState GameSession::loading_state() const {
+    owner();
+    return loading_;
 }
 void GameSession::pause(RuntimeClock::Time now) {
     require_active();

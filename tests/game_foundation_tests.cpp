@@ -215,6 +215,9 @@ void preparation() {
     game.activate(first, at(0), true);
     auto next = game.prepare(snapshot("next"));
     check(!game.poll_preparation(next).ready, "Pending resources reported ready");
+    check(game.loading_state().state == "loading" && game.loading_state().completed == 1 &&
+              game.loading_state().total == 2 && game.loading_state().can_cancel,
+          "Loading progress is not exposed as copied host state");
     game.advance(at(20));
     check(game.status().at("clock").at("tick") == 1, "Old scene stopped during preload");
     requests[1]->ready = true;
@@ -227,13 +230,20 @@ void preparation() {
     check(requests[1]->destroyed == 1 && game.status().at("prepared_ticket") == 0 &&
               game.active().scene.entity("old").is_alive(),
           "Failed load did not retire only candidate");
+    check(game.loading_state().state == "failed" &&
+              game.loading_state().error_code == "game.scene.resources" &&
+              !game.loading_state().can_cancel,
+          "Resource failure lost structured loading outcome");
     rejects([&] { game.activate(next, at(30), true); });
     next = game.prepare(snapshot("cancelled"));
     game.cancel(next);
     check(requests[2]->destroyed == 1, "Cancellation kept candidate resources");
+    check(game.loading_state().state == "cancelled", "Cancellation outcome was not retained");
     next = game.prepare(snapshot("superseded"));
     auto final = game.prepare(snapshot("final"));
     check(requests[3]->destroyed == 1, "Supersession kept candidate resources");
+    check(game.loading_state().superseded_ticket == next && game.loading_state().ticket == final,
+          "Loading state lost superseded request identity");
     rejects([&] { game.poll_preparation(next); });
     requests[4]->ready = true;
     game.activate(final, at(100), false);

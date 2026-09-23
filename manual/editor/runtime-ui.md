@@ -128,3 +128,30 @@ or dependency differs; that status does not automatically reload presentation.
 Use **Reload UI** for RML/RCSS/images and restart Play for changed font families.
 The generic asset **Reimport** command is for cooked importer routes and does not
 replace this UI workflow. Metadata publication is separate from scene Undo.
+
+## Standalone loading state
+
+In current source builds, a game UI can show the host's scene-loading state
+without receiving access to the host or graphics objects. These read-only values
+are supplied to every RmlUi document:
+
+- `forge_loading_state`: idle, preparing, loading, ready, activated, cancelled, failed or faulted.
+- `forge_loading_stage`: current preparation stage.
+- `forge_loading_completed` / `forge_loading_total`: completed stages and total; zero total means no measurable progress yet.
+- `forge_loading_error_code` / `forge_loading_error`: failure category and readable reason.
+- `forge_loading_can_cancel`: whether the unpublished scene can still be cancelled.
+
+For example:
+
+```html
+<div>{{forge_loading_stage}} {{forge_loading_completed}} / {{forge_loading_total}}</div>
+<div>{{forge_loading_error}}</div>
+<button data-if="forge_loading_can_cancel" data-event-click="cancel_loading()">Cancel</button>
+```
+
+Cancellation leaves the currently active scene intact. An old Cancel request
+cannot cancel a newer scene request. Progress counts preparation stages, not
+bytes or an estimated time. The initial host displays a loading title until its
+first UI is ready; an already loaded menu/scene can present later transitions.
+The game supplies the loading-screen design. These names are reserved for the
+presentation host; do not publish gameplay values under the same names.

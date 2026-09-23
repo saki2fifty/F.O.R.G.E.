@@ -366,3 +366,14 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
 - Deliver the shared graphical runtime kit and its exact SDK from the same build;
   final assembly checks both provenance and the shared Flecs DLL. Added integrity
   regressions for wrong-build/corrupt kits and updated export/standalone instructions.
+
+- Added copied scene-loading outcomes, measured preparation progress, superseded
+  ticket tracking, failure categories and RmlUi loading bindings with ticketed
+  cancellation. Portable loading/conditional-UI tests3/3 passed8.94s; expanded
+  native loading/cancel captures await Windows execution.
+- Standalone now streams sequenced service diagnostics and deferred UI failures
+  to its runtime log. Settings loading happens after log creation. File rotation
+  and crash bundles remain later Phase8 hardening.
+- The shared acceptance workflow explicitly enables CPU asset import tools while
+  keeping the editor disabled; its previous configuration had omitted the worker
+  target required to construct the mixed-content fixture.

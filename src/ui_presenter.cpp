@@ -7,6 +7,7 @@
 #include <limits>
 #include <set>
 #include <thread>
+#include <utility>
 namespace forge {
 namespace {
 bool presenter_active = false; // Single presentation owner/thread in this phase.
@@ -107,6 +108,12 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
     };
     std::string session, error, loading_prefix, failed_structure;
+    LoadingState loading;
+    std::optional<std::uint64_t> cancel_loading;
+    Json loading_values{{"forge_loading_state", "idle"},    {"forge_loading_stage", ""},
+                        {"forge_loading_completed", 0u},    {"forge_loading_total", 0u},
+                        {"forge_loading_error_code", ""},   {"forge_loading_error", ""},
+                        {"forge_loading_can_cancel", false}};
     RenderGate renderer;
     UiPlatformCallbacks platform;
     std::set<int> held_keys;
@@ -352,6 +359,31 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 if (!model)
                     throw std::runtime_error("UI data model creation failed");
                 auto* ptr = d.get();
+                for (const auto& [key, value] : loading_values.items()) {
+                    (void)value;
+                    if (desc.at("model").contains(key))
+                        throw std::runtime_error("UI model uses reserved host value: " + key);
+                    if (!model.BindFunc(key, [this, key](Rml::Variant& out) {
+                            const auto& value = loading_values.at(key);
+                            if (value.is_boolean())
+                                out = value.get<bool>();
+                            else if (value.is_number())
+                                out = value.get<std::uint64_t>();
+                            else
+                                out = value.get<std::string>();
+                        }))
+                        throw std::runtime_error("UI host loading binding failed");
+                }
+                model.BindEventCallback("cancel_loading", [this,
+                                                           ptr](Rml::DataModelHandle, Rml::Event&,
+                                                                const Rml::VariantList& args) {
+                    if (args.empty() && loading.can_cancel && live &&
+                        std::any_of(live->docs.begin(), live->docs.end(), [ptr](const auto& doc) {
+                            return doc.get() == ptr &&
+                                   doc->descriptor.at("visible").template get<bool>();
+                        }))
+                        cancel_loading = loading.ticket;
+                });
                 for (const auto& [key, value] : desc.at("model").items()) {
                     (void)value;
                     if (!model.BindFunc(key, [ptr, key](Rml::Variant& out) {
@@ -486,6 +518,7 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
     s.retire(s.live);
     s.held_keys.clear();
     s.pending.clear();
+    s.cancel_loading.reset();
     s.command_id = 0;
     s.session = std::move(session);
     s.generation = generation;
@@ -534,6 +567,7 @@ bool UiPresenter::activate_prepared(std::uint64_t ticket) noexcept {
     s.replica = std::move(s.staged->replica);
     s.session = std::move(s.staged->session);
     s.generation = s.staged->generation;
+    s.cancel_loading.reset();
     s.staged.reset();
     s.held_keys.clear();
     s.pending.clear();
@@ -629,6 +663,38 @@ bool UiPresenter::reload() {
     if (ok)
         s.failed_structure.clear();
     return ok;
+}
+void UiPresenter::loading(const LoadingState& value) {
+    auto& s = *impl_;
+    s.check();
+    static const std::set<std::string> states{"idle",      "preparing", "loading", "ready",
+                                              "activated", "cancelled", "failed",  "faulted"};
+    if (!states.contains(value.state) || value.stage.size() > 256 || value.error.size() > 1024 ||
+        value.error_code.size() > 64 || value.completed > value.total ||
+        (value.can_cancel && !value.ticket))
+        throw std::runtime_error("Invalid host loading state");
+    Json next{{"forge_loading_state", value.state},           {"forge_loading_stage", value.stage},
+              {"forge_loading_completed", value.completed},   {"forge_loading_total", value.total},
+              {"forge_loading_error_code", value.error_code}, {"forge_loading_error", value.error},
+              {"forge_loading_can_cancel", value.can_cancel}};
+    if (s.loading.ticket != value.ticket || !value.can_cancel)
+        s.cancel_loading.reset();
+    s.loading = value;
+    if (next == s.loading_values)
+        return;
+    s.loading_values = std::move(next);
+    auto dirty = [](auto& set) {
+        if (set)
+            for (auto& doc : set->docs)
+                doc->model.DirtyAllVariables();
+    };
+    dirty(s.live);
+    if (s.staged)
+        dirty(s.staged->set);
+}
+std::optional<std::uint64_t> UiPresenter::take_loading_cancel() {
+    impl_->check();
+    return std::exchange(impl_->cancel_loading, std::nullopt);
 }
 void UiPresenter::update(double t, int w, int h, float dp) {
     auto& s = *impl_;

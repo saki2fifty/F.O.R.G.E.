@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/loading_state.hpp>
 #include <forge/ui_assets.hpp>
 #include <forge/ui_protocol.hpp>
 #include <memory>
@@ -30,6 +31,10 @@ class UiPresenter {
     void reset(std::string session, std::uint64_t generation);
     bool accept(const nlohmann::json& snapshot);
     bool reload();
+    // Presentation-only host values bound as forge_loading_* in every document.
+    // Does not modify authored/gameplay models or their protocol budget.
+    void loading(const LoadingState&);
+    std::optional<std::uint64_t> take_loading_cancel();
     // Explicit scene transition trust. Loads a second native context and its GPU
     // resources without replacing visible documents or routing candidate input.
     // One candidate; a new request retires the old candidate even on failure.

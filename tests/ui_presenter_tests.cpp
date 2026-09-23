@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
         auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         const std::string rml =
-            R"rml(<rml><head><style>body {font-family:Lato;font-size:18px;} button {display:block;width:180px;height:40px;background-color:#305070;} #field {display:block;width:180px;height:30px;} #box {width:150px;height:30px;overflow:hidden;transform:translateX(10px);}</style></head><body><button id="pause" data-event-click="command('Pause')">Pause {{tick}}</button><input id="field" type="text"/><div id="box">Bound value {{tick}} paused {{paused}}</div></body></rml>)rml";
+            R"rml(<rml><head><style>body {font-family:Lato;font-size:18px;} button {display:block;width:180px;height:40px;background-color:#305070;} #field {display:block;width:180px;height:30px;} #box {width:150px;height:30px;overflow:hidden;transform:translateX(10px);}</style></head><body><button id="pause" data-event-click="command('Pause')">Pause {{tick}}</button><input id="field" type="text"/><div id="box">Bound value {{tick}} paused {{paused}}</div><div id="loading">{{forge_loading_state}} {{forge_loading_stage}} {{forge_loading_completed}}/{{forge_loading_total}} {{forge_loading_error}}</div><button id="cancel-loading" data-event-click="cancel_loading()">Cancel loading</button></body></rml>)rml";
         std::ofstream(root / "hud.rml") << rml;
         auto asset = register_ui_document(root, "hud.rml");
         auto entity = EntityId::generate();
@@ -56,6 +56,30 @@ int main(int argc, char** argv) {
                   "Successful presenter exposes admitted source observation");
             const auto initial_sources = p.asset_snapshot()->sources;
             auto* context = Rml::GetContext(0);
+            LoadingState loading{7, 0, "loading", "graphics", {}, {}, 1, 4, true};
+            p.loading(loading);
+            p.update(1, 800, 600);
+            auto* loading_label = context->GetDocument(0)->GetElementById("loading");
+            check(loading_label->GetInnerRML().find("loading graphics 1/4") != std::string::npos,
+                  "Copied loading progress did not reach native RmlUi binding");
+            auto* cancel_button = context->GetDocument(0)->GetElementById("cancel-loading");
+            cancel_button->DispatchEvent("click", Rml::Dictionary{});
+            check(p.take_loading_cancel() == 7 && !p.take_loading_cancel(),
+                  "Loading cancellation was not single-consumption/ticketed");
+            cancel_button->DispatchEvent("click", Rml::Dictionary{});
+            loading.ticket = 8;
+            p.loading(loading);
+            check(!p.take_loading_cancel(), "Superseded loading cancellation survived");
+            loading.state = "failed";
+            loading.can_cancel = false;
+            loading.error = "Required mesh missing";
+            p.loading(loading);
+            p.update(1, 800, 600);
+            check(loading_label->GetInnerRML().find("Required mesh missing") != std::string::npos,
+                  "Loading error absent from RmlUi");
+            cancel_button->DispatchEvent("click", Rml::Dictionary{});
+            check(!p.take_loading_cancel(), "Terminal loading state accepted cancel");
+            p.loading({});
             auto* button = context->GetDocument(0)->GetElementById("pause");
             check(button, "Button loaded");
             auto position = button->GetAbsoluteOffset();

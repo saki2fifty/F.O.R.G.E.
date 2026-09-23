@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/loading_state.hpp>
 #include <forge/runtime_world.hpp>
 namespace forge {
 struct GamePreparationProgress {
@@ -52,6 +53,7 @@ class GameSession {
     void advance(RuntimeClock::Time now);
     void input(const std::vector<InputEvent>&);
     Json status() const;
+    LoadingState loading_state() const;
     Json presentation() const;
     RuntimeWorld& active(); // Borrowed until activation/unload; never persisted.
 
@@ -68,6 +70,7 @@ class GameSession {
     // Destroy resource consumers before the worlds/code they may refer to.
     std::unique_ptr<GameScenePreparation> active_preparation_, candidate_preparation_;
     GamePreparationProgress progress_;
+    LoadingState loading_;
     std::thread::id thread_ = std::this_thread::get_id();
     std::uint64_t generation_ = 0, pending_ = 0;
     bool faulted_ = false, changing_ = false;

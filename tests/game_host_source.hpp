@@ -36,9 +36,12 @@ body { width:100%; height:100%; font-family:Lato; font-size:20px; color:#eeeeee;
 button { position:absolute; left:24px; width:160px; height:40px; line-height:40px; text-align:center; background-color:#305070; pointer-events:auto; }
 #pause { top:20px; } #resume { top:72px; } h1 { position:absolute; left:24px; right:24px; top:130px; font-size:24px; }
 #status { position:absolute; left:24px; right:24px; top:190px; }
+#cancel-loading { top:235px; } #loading { position:absolute; left:24px; right:24px; top:290px; font-size:16px; }
 </style></head><body><button id="pause" data-event-click="command('Pause')">Pause</button>
 <button id="resume" data-event-click="command('Resume')">Resume</button>
-<h1>FORGE standalone</h1><div id="status">Paused: {{paused}} | Tick: {{tick}}</div></body></rml>)rml";
+<h1>FORGE standalone</h1><div id="status">Paused: {{paused}} | Tick: {{tick}}</div>
+<button id="cancel-loading" data-if="forge_loading_can_cancel" data-event-click="cancel_loading()">Cancel loading</button>
+<div id="loading">{{forge_loading_state}} {{forge_loading_stage}} {{forge_loading_completed}}/{{forge_loading_total}}<br/>{{forge_loading_error}}</div></body></rml>)rml";
     atomic_write(project / "hud.rml", markup);
     const auto ui = register_ui_document(project, "hud.rml");
     scene.entity("hud").set<UiDocument>({{ui.id}});

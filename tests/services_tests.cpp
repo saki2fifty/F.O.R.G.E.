@@ -248,6 +248,11 @@ static void service_tests() {
         for (int i = 0; i < 300; ++i)
             access.emit(diagnostic);
         check(access.diagnostics().size() == 256, "Diagnostics unbounded");
+        const auto records = access.diagnostics();
+        for (std::size_t i = 1; i < records.size(); ++i)
+            check(records[i].at("sequence").get<std::uint64_t>() ==
+                      records[i - 1].at("sequence").get<std::uint64_t>() + 1,
+                  "Diagnostic ring lost sequence ordering");
     }
     check(!expired.available(Capability::Diagnostics), "Service outlived EngineContext owner");
     reject([&] { expired.emit({Severity::Info, "test", "expired", {}}); });

@@ -132,3 +132,30 @@ The shared Windows workflow tests the installed SDK, creates module deployment
 kits, exports a game, and sends only the resulting folder to a fresh runner.
 Source inspection and local mixed-content admission are not Windows visual
 acceptance; pending native checks remain explicit in release evidence.
+
+## Loading and standalone diagnostics
+
+`GameSession::loading_state()` returns a copied, owner-thread `LoadingState`.
+Its request ticket is temporary correlation only. Supersession records the prior
+ticket; terminal cancellation/failure persists until the next request/unload.
+Structural preparation and resource admission have separate failure codes. A
+post-publication activation failure is faulted, never reported as rolled back.
+`UiPresenter::loading` binds bounded `forge_loading_*` host values independently
+of the gameplay model protocol and its value budget. Native RmlUi BindFunc and
+DirtyAllVariables drive updates; a `cancel_loading()` event queues one copied
+ticket only from a live visible document. Reset/publication/supersession retires
+stale requests. GamePresentation supplies state; the standalone loop owns cancel.
+
+Service diagnostics carry an owner-local monotonic sequence. Standalone writes
+new records once per world generation and reports a gap if the bounded 256-entry
+service ring overflowed before collection. Deferred UI errors are logged too.
+The log is opened before reading user settings, so corrupt settings are reported
+there as well as stderr. File rotation and OS crash bundles remain subsequent
+Phase8 hardening, not guarantees of this checkpoint.
+
+The gameplay SDK currently supplies resources, entity creation, simulation and
+UI actions, but no session/save host pointers. The session/save bridge still needs
+a module/world-scoped request queue, safe host-boundary execution and deliberate
+game-owned save-schema/migration registration. Existing GameStorage already owns
+versioned slots, atomic writes and validation; it must not be replaced by automatic
+ECS dumping. That bridge remains in the authorized later Phase8 SDK block.

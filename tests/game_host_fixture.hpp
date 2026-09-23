@@ -155,10 +155,24 @@ struct GameHostFixture {
             if (failed) {
                 check(game.active().scene.snapshot() == original,
                       "Failed graphical candidate changed the active scene");
-                capture("standalone-failed-load-retained.ppm", image, device, context);
-                ticket = game.prepare(original);
-                stage = 4;
+                stage = 30; // Let the visible loading binding show the failed outcome.
             }
+        } else if (stage == 30) {
+            capture("standalone-failed-load-retained.ppm", image, device, context);
+            ticket = game.prepare(original);
+            stage = 31;
+        } else if (stage == 31) {
+            capture("standalone-loading.ppm", image, device, context);
+            click(window, 80, 252);
+            stage = 32;
+        } else if (stage == 32) {
+            if (game.loading_state().state != "cancelled")
+                return;
+            check(game.active().scene.snapshot() == original,
+                  "Loading cancel changed active scene");
+            capture("standalone-cancelled.ppm", image, device, context);
+            ticket = game.prepare(original);
+            stage = 4;
         } else if (stage == 4 && game.poll_preparation(ticket).ready) {
             game.activate(ticket, RuntimeClock::Clock::now(), false);
             stage = 5;
@@ -187,6 +201,7 @@ struct GameHostFixture {
                               {"ui_pause_resume", true},
                               {"failed_gpu_candidate_retained", true},
                               {"prepared_replacement", true},
+                              {"loading_ui_cancel", true},
                               {"resized", {{"width", width}, {"height", height}}},
                               {"final", game.status()}}
                              .dump(2));
