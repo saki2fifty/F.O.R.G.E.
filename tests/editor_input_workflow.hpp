@@ -78,7 +78,14 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "dependency-draft-guard") {
+        if (what == "dependency-fields-fit") {
+            for (const auto* name : {"dependencies:type", "dependencies:reason"}) {
+                const auto& field = ui_targets.at(name);
+                require(field.minimum.x >= field.clip_minimum.x &&
+                            field.maximum.x <= field.clip_maximum.x,
+                        "Dependency field exceeds the narrow Inspector width");
+            }
+        } else if (what == "dependency-draft-guard") {
             require(state.at("dependencies_dirty").get<bool>() &&
                         doc.at("asset_id").get<AssetId>() == AssetId::parse(scene_) &&
                         state.at("status").get<std::string>().find("Runtime Dependencies draft") !=
@@ -502,11 +509,17 @@ class EditorInputWorkflow {
         click("dependencies:section");
         click("dependencies:type");
         click("dependencies:type:material");
-        click("asset-picker:material:Resource");
+        click("asset-picker:material:##dependency-resource");
         click("authored-material-option");
         text("dependencies:reason", "Gameplay variants");
         click("button:Add dependency");
+        check("dependency-fields-fit");
         capture("runtime-dependency-draft");
+        for (int i = 0; i < 10; ++i)
+            key(ImGuiKey_Equal, true);
+        check("dependency-fields-fit");
+        capture("runtime-dependency-draft-200");
+        key(ImGuiKey_0, true);
         key(ImGuiKey_N, true);
         check("dependency-draft-guard");
         click("dependencies:save");

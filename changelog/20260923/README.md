@@ -420,3 +420,26 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   still fail; no missing DLL is broadly ignored or copied from the OS.
 - Final rebuilt Linux core74/74 passed124.81s; Windows kit and visual acceptance
   remain pending this installer correction.
+
+- Native editor interaction caught a real declaration-save defect: Content's
+  discovered Scene/Prefab view was incorrectly used as a persisted revision token.
+  Drafts now capture the saved index, and the shared save operation admits only
+  requested discovered documents into its validated single-catalog candidate.
+  Added rejection/no-partial-registration, identity mismatch and stale-save tests.
+- Runtime Dependencies fields now stack labels above full-width inputs so labels
+  remain readable in a narrow Inspector. The existing input fixture scrolls the
+  real panel and exercises Save; no test-only authoring bypass was added.
+- Windows static standalone loading/cancel workflow passed6.10s at7f03c18. Agent
+  opened loading and cancelled captures: readable state, usable Cancel button and
+  retained scene. The editor declaration/export workflow still requires its rerun.
+
+- Windows shared graphical host, native SDK consumer build/install, runtime UI
+  package and standalone interaction passed at7f03c18. The manifest relocation
+  tests exposed a fixture holding its own Windows project lock during directory
+  rename; the fixture now releases that lease before moving the source. Product
+  writer protection remains intact. Fresh-runner distribution acceptance is pending.
+
+- Declaration/discovery correction passed rebuilt core1/1 (6.35s), strict
+  ASan/UBSan/LSan1/1 (9.82s), shared consumer/export5/5 (22.50s), native editor
+  source/fixture syntax, manual3/3, formatting and workflow checks. Updated native
+  capture fixture verifies dependency input widths at100% and200% UI scale.

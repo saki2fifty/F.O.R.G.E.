@@ -5,6 +5,7 @@
 #include "ui_asset_catalog.hpp"
 #include "ui_inspection.hpp"
 #include "ui_test_renderer.hpp"
+#include <forge/scene.hpp>
 #include <forge/ui_presenter.hpp>
 #include <iostream>
 #include <source_location>
@@ -260,6 +261,68 @@ int main(int argc, char** argv) {
         auto corrupt = scratch / "hover" / "never.tga";
         asset_storage::replace(corrupt, "bad");
         rejects([&] { open_runtime_content(scratch / "hover", target); }, "hash");
+        // Content can display discovered documents absent from the persisted index.
+        // Saving their declarations must register only requested documents in the
+        // same candidate, never compare that discovered view as a disk revision.
+        {
+            WorldContext world;
+            Scene scene(world);
+            const auto id = scene.snapshot().at("asset_id").get<AssetId>();
+            scene.save(project / "discovered.scene.json");
+            const auto prefab = AssetId::generate();
+            const auto member = PrefabMemberId::generate();
+            asset_storage::replace(
+                project / "discovered.prefab.json",
+                Json{{"format", "forge.prefab"},
+                     {"version", 2},
+                     {"asset_id", prefab},
+                     {"revision", 1u},
+                     {"root", member},
+                     {"members",
+                      Json::array(
+                          {{{"id", member}, {"name", "Part"}, {"components", Json::object()}}})}}
+                    .dump());
+            ProjectLease writer(project);
+            const auto expected = AssetCatalog::open_project(project).document();
+            const std::array<AssetRecord, 2> discoveries{
+                {{id, "scene", "discovered.scene.json", 3},
+                 {prefab, "prefab", "discovered.prefab.json", 2}}};
+            rejects(
+                [&] {
+                    declare_runtime_dependencies(writer, id,
+                                                 {{AssetId::generate(),
+                                                   "texture",
+                                                   AssetDependencyKind::Runtime,
+                                                   "declared:missing",
+                                                   {}}},
+                                                 expected, nullptr, discoveries);
+                },
+                "discovery");
+            check(AssetCatalog::open_project(project).document() == expected,
+                  "Rejected declaration published document discovery");
+            auto wrong = discoveries;
+            wrong[0].id = AssetId::generate();
+            const std::vector<AssetDependency> edges{
+                {prefab, "prefab", AssetDependencyKind::Runtime, "declared:runtime spawn", {}}};
+            rejects(
+                [&] {
+                    declare_runtime_dependencies(writer, wrong[0].id, edges, expected, nullptr,
+                                                 wrong);
+                },
+                "identity changed");
+            const auto saved =
+                declare_runtime_dependencies(writer, id, edges, expected, nullptr, discoveries);
+            check(saved.records().contains(id) && saved.records().contains(prefab) &&
+                      saved.records().at(id).dependency_edges == edges,
+                  "Discovered owner/target declarations did not publish together");
+            rejects(
+                [&] {
+                    declare_runtime_dependencies(writer, id, {}, expected, nullptr, discoveries);
+                },
+                "conflict");
+            check(AssetCatalog::open_project(project).document() == saved.document(),
+                  "Stale declaration overwrote the accepted graph");
+        }
         std::cout << "Native static UI inspection, advisory separation, declared finite closure, "
                      "relocated conditional loads, stale/missing/type rejection passed\n";
     } catch (const std::exception& e) {

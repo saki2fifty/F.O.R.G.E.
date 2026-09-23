@@ -12,6 +12,7 @@ namespace forge::ui {
 // the draft and job status below are transient, not another dependency registry.
 class RuntimeDependenciesEditor {
     AssetId owner_;
+    std::filesystem::path project_;
     Json expected_;
     std::vector<AssetDependency> edges_;
     Json selected_;
@@ -21,10 +22,13 @@ class RuntimeDependenciesEditor {
     std::future<AssetCatalog> job_;
     void load(const AssetCatalog& catalog, AssetId owner) {
         owner_ = owner;
-        expected_ = catalog.document();
+        const auto persisted = AssetCatalog::open_project(project_);
+        expected_ = persisted.document();
         edges_.clear();
         selected_ = nullptr;
-        for (const auto& edge : catalog.records().at(owner).dependency_edges)
+        const auto& record = persisted.records().contains(owner) ? persisted.records().at(owner)
+                                                                 : catalog.records().at(owner);
+        for (const auto& edge : record.dependency_edges)
             if (declared_runtime_edge(edge))
                 edges_.push_back(edge);
         dirty_ = false;
@@ -57,6 +61,7 @@ class RuntimeDependenciesEditor {
     }
     void draw(SceneDocument& document, const AssetCatalog& catalog, const AssetRecord& asset,
               bool locked, const std::function<void(const AssetRecord&)>& open) {
+        project_ = document.project();
         const bool expanded = ImGui::TreeNode("Runtime Dependencies");
         FORGE_UI_PROBE("dependencies:section");
         if (!expanded) {
@@ -158,7 +163,10 @@ class RuntimeDependenciesEditor {
         std::set<std::string> types;
         for (const auto& [id, r] : catalog.records())
             types.insert(r.type);
-        if (ImGui::BeginCombo("Asset type", type_.c_str())) {
+        ImGui::TextWrapped("Asset type");
+        help("Expected type for the runtime dependency.");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##dependency-type", type_.c_str())) {
             for (const auto& value : types) {
                 if (ImGui::Selectable(value.c_str(), value == type_)) {
                     type_ = value;
@@ -171,8 +179,14 @@ class RuntimeDependenciesEditor {
         }
         FORGE_UI_PROBE("dependencies:type");
         help("Choose the expected asset type, then search or drag an asset from Content.");
-        asset_ref_picker(catalog, selected_, type_, "Resource", false);
-        if (ImGui::BeginCombo("Selection owner",
+        ImGui::TextWrapped("Resource");
+        help("Search registered or discovered assets, or drop one from Content.");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        asset_ref_picker(catalog, selected_, type_, "##dependency-resource", false);
+        ImGui::TextWrapped("Selection owner");
+        help("The document or gameplay module that selects this content at runtime.");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##dependency-owner",
                               module_.empty() ? "This asset / document" : module_.c_str())) {
             if (ImGui::Selectable("This asset / document", module_.empty()))
                 module_.clear();
@@ -187,7 +201,10 @@ class RuntimeDependenciesEditor {
         }
         help("Native-module selections stay on this asset's graph. Export requires this owner to "
              "be reachable; changing the module build requires reviewing its declarations again.");
-        ImGui::InputTextWithHint("Reason / group", "For example: hover images or character skins",
+        ImGui::TextWrapped("Reason / group");
+        help("Describe why runtime selection needs this asset.");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputTextWithHint("##dependency-reason", "Hover images or character skins",
                                  reason_.data(), reason_.size());
         FORGE_UI_PROBE("dependencies:reason");
         help("Explain the runtime selection that needs this finite resource. This reason stays on "
@@ -216,7 +233,18 @@ class RuntimeDependenciesEditor {
                 auto edges = edges_;
                 auto owner = owner_;
                 auto kind = asset.type;
-                job_ = std::async(std::launch::async, [lease, expected, edges, owner, kind] {
+                std::vector<AssetRecord> discoveries;
+                std::set<AssetId> requested{owner};
+                for (const auto& edge : edges)
+                    requested.insert(edge.target);
+                for (const auto id : requested)
+                    if (const auto found = catalog.records().find(id);
+                        found != catalog.records().end() &&
+                        (found->second.type == SceneAsset::type ||
+                         found->second.type == PrefabAsset::type))
+                        discoveries.push_back(found->second);
+                job_ = std::async(std::launch::async, [lease, expected, edges, owner, kind,
+                                                       discoveries] {
                     if (AssetCatalog::open_project(lease->root()).document() != expected)
                         throw std::runtime_error("Catalog changed. Discard this draft and review "
                                                  "the new dependency list.");
@@ -232,7 +260,8 @@ class RuntimeDependenciesEditor {
                                                            lease->root(), owner);
                     }
                     return declare_runtime_dependencies(*lease, owner, edges, expected,
-                                                        snapshot ? &*snapshot : nullptr);
+                                                        snapshot ? &*snapshot : nullptr,
+                                                        discoveries);
                 });
                 status_ = "Validating and saving dependencies...";
             } catch (const std::exception& e) {

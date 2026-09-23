@@ -110,6 +110,12 @@ These controls are in current source builds; Build260923-000066 does not include
 4. For conditional content, choose **Asset type**, then use **Resource** to search or drag an asset from Content. Enter a **Reason / group**, such as “hover images”.
 5. Choose **Add dependency**, then **Save declarations**. Every declared resource is required for export.
 
+Scenes and prefabs discovered in Content may not yet be registered in the saved
+asset catalog. Saving declarations validates and registers the selected owner and
+requested scene/prefab resources together. It preserves their existing identities
+and does not register every document shown in Content. If validation fails, neither
+the registrations nor the declarations are saved.
+
 Use **Selection owner** to associate a gameplay-selected resource with a configured
 native module. Keep these declarations on a scene or asset included by the game.
 A changed module build requires reviewing its declarations again.

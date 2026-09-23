@@ -81,7 +81,7 @@ are no wildcard or optional-runtime semantics. Missing/wrong-type selections,
 unsupported adapters and stale reviewed sources reject export.
 
 `forge.runtime_declarations` version1 stores reviewed source hashes only, not a
-second dependency list. Saving declarations checks the expected catalog revision,
+second dependency list. Saving declarations checks the expected **persisted** catalog revision,
 re-admits any prepared UI source snapshot and atomically saves one catalog. UI
 inspection and failed declaration validation do not publish an intermediate catalog.
 Reimport preserves author-owned declarations; it does not silently refresh their
@@ -305,3 +305,11 @@ CMake4.3 or later (the validated tool is4.4.3). Missing application DLLs remain
 errors; operating-system libraries are left to the supported Windows installation.
 The exact upstream behavior is documented by
 [CMP0207](https://cmake.org/cmake/help/v4.4/policy/CMP0207.html).
+
+The editor's Content catalog may include read-only discovered Scene/Prefab records.
+That view is not a persisted revision token. Declaration drafts capture the actual
+saved index and may supply requested discovered documents to the shared operation.
+It validates their bounded authored bytes and existing identity, reconstructs clean
+records, rechecks their hashes and publishes registrations plus declarations in one
+catalog save. Unrelated discoveries are never copied wholesale; failed/stale requests
+preserve the saved catalog. Existing registered records remain authoritative.
