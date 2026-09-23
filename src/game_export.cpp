@@ -97,8 +97,8 @@ void copy_checked(const ProjectPaths& from, const std::filesystem::path& locator
             "Runtime kit changed during copy: " + path_utf8(locator));
     const auto path = to.resolve(destination);
     if (std::filesystem::exists(path)) {
-        require(asset_detail::content_digest(
-                    asset_detail::read_bytes(path, 512ull * 1024 * 1024)) == info.at("sha256"),
+        require(asset_detail::content_digest(asset_detail::read_bytes(
+                    path, 512ull * 1024 * 1024)) == info.at("sha256").get<std::string>(),
                 "Conflicting runtime DLL/file: " + path_utf8(destination));
         return;
     }
@@ -256,7 +256,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
         const auto original_library =
             source.resolve(std::filesystem::u8path(module.at("library").get<std::string>()));
         require(inspected_binaries.at(original_library) ==
-                    deployment.at("files").at(path_utf8(library)).at("sha256"),
+                    deployment.at("files").at(path_utf8(library)).at("sha256").get<std::string>(),
                 "Module deployment is stale: " + id);
         const auto runtime_library = std::filesystem::path("native") / id / library;
         for (const auto& [file, info] : deployment.at("files").items()) {

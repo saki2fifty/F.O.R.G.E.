@@ -10,7 +10,8 @@ void UiRuntime::check() const {
 }
 void UiRuntime::publish(EntityId entity, const std::string& name, const Json& value) {
     check();
-    if (!active_ || !entity || !ui_protocol::identifier(name) || name == "tick" || name == "paused")
+    if (!active_ || !entity || !ui_protocol::identifier(name) || name == "tick" ||
+        name == "paused" || name.starts_with("forge_loading_"))
         throw std::runtime_error("Invalid/reserved UI model publication");
     ui_protocol::validate_value(value);
     if (!models_.contains(entity) && models_.size() >= ui_protocol::max_documents)

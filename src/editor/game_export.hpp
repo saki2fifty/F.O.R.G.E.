@@ -56,25 +56,31 @@ class GameExportTask {
             auto request = request_;
             auto progress = progress_;
             const auto token = stop_.get_token();
-            job_ = std::async(std::launch::async, [writer, request, progress, token] {
-                auto root = self_executable().parent_path();
-                auto worker = root / "forge_ui_inspect";
+            try {
+                job_ = std::async(std::launch::async, [writer, request, progress, token] {
+                    auto root = self_executable().parent_path();
+                    auto worker = root / "forge_ui_inspect";
 #ifdef _WIN32
-                worker += ".exe";
+                    worker += ".exe";
 #endif
-                return export_standalone_game(
-                    *writer, request,
-                    [&](AssetId id, std::stop_token stop) {
-                        return inspect_ui_dependencies(worker,
-                                                       root / "resources/ui/LatoLatin-Regular.ttf",
-                                                       writer->root(), id, stop);
-                    },
-                    [progress](const GameExportProgress& value) {
-                        std::lock_guard lock(progress->mutex);
-                        progress->value = value;
-                    },
-                    token);
-            });
+                    return export_standalone_game(
+                        *writer, request,
+                        [&](AssetId id, std::stop_token stop) {
+                            return inspect_ui_dependencies(
+                                worker, root / "resources/ui/LatoLatin-Regular.ttf", writer->root(),
+                                id, stop);
+                        },
+                        [progress](const GameExportProgress& value) {
+                            std::lock_guard lock(progress->mutex);
+                            progress->value = value;
+                        },
+                        token);
+                });
+            } catch (const std::exception& e) {
+                writer_.reset();
+                error_ = e.what();
+                report_error("game-export", error_);
+            }
         }
         if (job_.valid() && job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {

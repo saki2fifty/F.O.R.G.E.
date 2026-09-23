@@ -377,3 +377,15 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
 - The shared acceptance workflow explicitly enables CPU asset import tools while
   keeping the editor disabled; its previous configuration had omitted the worker
   target required to construct the mixed-content fixture.
+
+- Reject gameplay publication into the reserved host loading namespace before
+  presentation. Export task launch failures now stay in the task/Problems view
+  and release the pending writer instead of escaping the editor loop.
+
+- Follow-up Windows compilation found additional JSON/string-view comparisons in
+  standalone manifest admission. Decode strings explicitly throughout the affected
+  provenance and DLL checks, retaining validation behavior across MSVC and GCC.
+
+- Final focused loading/UI/diagnostic core4/4 passed5.81s; strict ASan/UBSan/LSan
+  4/4 passed16.31s. Rebuilt manifest/export recovery1/1 passed3.28s after explicit
+  conversion corrections. Windows compiler and capture gates remain pending.

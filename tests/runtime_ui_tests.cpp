@@ -211,6 +211,7 @@ int main(int argc, char** argv) {
         check(newer["documents"][0]["instance"] != command["instance"],
               "Document incarnation renewed");
         reject([&] { service->command(scene, command, [](const auto&) {}); });
+        reject([&] { service->publish(entity, "forge_loading_state", "fake ready"); });
         service->shutdown();
         reject([&] { service->publish(entity, "health", 5); });
         reject([&] { service->snapshot(scene, "stopped", 1, 0, true); });

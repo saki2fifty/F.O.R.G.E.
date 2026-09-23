@@ -24,7 +24,7 @@ Json verify_distribution_files(const std::filesystem::path& root,
     const auto name = ProjectPaths::normalize(manifest);
     const auto bytes = asset_detail::read_bytes(paths.resolve(name), 16 * 1024 * 1024);
     auto result = asset_detail::parse_bounded_json(bytes, 16 * 1024 * 1024, 1000000, 32);
-    require(result.at("format") == format && result.at("version") == 1,
+    require(result.at("format").get<std::string>() == format && result.at("version") == 1,
             "Unsupported manifest format/version");
     const auto& files = result.at("files");
     require(files.is_object() && !files.empty() && files.size() <= 65536, "Invalid file inventory");
@@ -74,7 +74,8 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
                 manifest.at("target").at("backend") == target.backend,
             "Runtime platform/backend does not match this distribution");
     const auto& engine = manifest.at("engine");
-    require(engine.at("profile") == profile && engine.at("sdk_fingerprint") == fingerprint,
+    require(engine.at("profile").get<std::string>() == profile &&
+                engine.at("sdk_fingerprint").get<std::string>() == fingerprint,
             "Runtime engine/SDK fingerprint mismatch");
     require(engine.at("source_commit").is_string() && engine.at("build_id").is_string(),
             "Missing engine build provenance");
@@ -96,7 +97,7 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
         if (module.is_string())
             continue; // Recognized linked engine module; ProjectSettings validated it.
         require(module.is_object() && profile == "shared-native-sdk" &&
-                    module.at("fingerprint") == fingerprint,
+                    module.at("fingerprint").get<std::string>() == fingerprint,
                 "Standalone native modules require the exact shared SDK");
         const auto file = path_utf8(ProjectPaths::normalize(
             std::filesystem::u8path(module.at("library").get<std::string>())));
