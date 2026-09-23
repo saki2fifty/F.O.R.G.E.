@@ -1,4 +1,6 @@
 # Installed SDK helper. Run by cmake --install; never loaded by the game.
+cmake_policy(PUSH)
+cmake_policy(SET CMP0207 NEW) # Normalize Win32 separators before System32 filtering.
 if(NOT WIN32)
  message(FATAL_ERROR "Native gameplay deployment kits currently target Windows")
 endif()
@@ -38,3 +40,4 @@ foreach(_file IN LISTS _files)
  string(JSON _manifest SET "${_manifest}" files "${_name}" "{\"bytes\":${_size},\"sha256\":\"${_digest}\"}")
 endforeach()
 file(WRITE "${_out}/forge.module-kit.json" "${_manifest}\n")
+cmake_policy(POP)

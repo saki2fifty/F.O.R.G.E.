@@ -230,7 +230,7 @@ Missing/stale artifacts require Reimport or rebuilding the affected module first
 A `GameRuntime` CMake installation provides `forge.runtime-kit.json`, exact engine
 profile/fingerprint/build provenance, the game executable, its resolved native
 runtime dependencies, fonts and dependency notices. It is separate from the SDK.
-CMake's native `GET_RUNTIME_DEPENDENCIES` resolver inspects actual built binaries;
+The pinned CMake4.4.3 native `GET_RUNTIME_DEPENDENCIES` resolver inspects actual built binaries;
 FORGE does not maintain a second PE dependency parser. The current kit is Windows
 D3D12 Development; logical asset formats and content closure remain backend-neutral.
 
@@ -298,3 +298,10 @@ slot and user audio preferences through GameStorage, then restarts after a secon
 installation move and verifies both. Saves, settings and runtime.log must remain
 outside the installation. This checks the existing host storage API; it does not
 represent gameplay-module session/save access as implemented.
+
+Runtime/module kit installation selects CMake CMP0207 NEW to normalize Win32 path
+separators before filtering System32 dependencies. This packaging helper requires
+CMake4.3 or later (the validated tool is4.4.3). Missing application DLLs remain
+errors; operating-system libraries are left to the supported Windows installation.
+The exact upstream behavior is documented by
+[CMP0207](https://cmake.org/cmake/help/v4.4/policy/CMP0207.html).

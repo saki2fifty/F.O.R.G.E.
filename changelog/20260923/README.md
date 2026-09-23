@@ -412,3 +412,11 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   cache lookup to retain Windows environment-key case handling; a plain copied
   dictionary had lost the case-insensitive ImageVersion lookup. Added actual
   production-host corrupt-preferences rejection/log/preservation acceptance.
+
+- Native Windows kit installation exposed mixed Windows path separators bypassing
+  the System32 filter, recursively scanning OS components and reporting a false
+  compiler-DLL conflict. Both runtime and module installers now select pinned
+  CMake's CMP0207 normalized-path behavior. Unresolved application dependencies
+  still fail; no missing DLL is broadly ignored or copied from the OS.
+- Final rebuilt Linux core74/74 passed124.81s; Windows kit and visual acceptance
+  remain pending this installer correction.

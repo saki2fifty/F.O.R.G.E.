@@ -1,5 +1,9 @@
 # Script/install mode: exact built executables plus CMake's native dependency
 # resolver. No hand-written PE parser and no recursive copy of a developer bin dir.
+cmake_policy(PUSH)
+# Exact pinned CMake normalizes mixed Win32 separators only under this policy.
+# Otherwise the System32 exclusion misses OS DLLs and recursively scans the OS.
+cmake_policy(SET CMP0207 NEW)
 if(NOT WIN32 OR "@CMAKE_BUILD_TYPE@" STREQUAL "Debug")
  message(FATAL_ERROR "Standalone runtime kits currently require a Windows non-Debug build")
 endif()
@@ -62,3 +66,4 @@ foreach(_relative IN LISTS _inventory)
  string(JSON _manifest SET "${_manifest}" files "${_relative}" "{\"sha256\":\"${_digest}\",\"bytes\":${_size}}")
 endforeach()
 file(WRITE "${_destination}/forge.runtime-kit.json" "${_manifest}\n")
+cmake_policy(POP)
