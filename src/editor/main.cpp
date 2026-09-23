@@ -2353,7 +2353,7 @@ int main(int argc, char** argv) {
                     int expand = 0;
                     if (forge::ui::button("Expand all", "Expand all hierarchy branches."))
                         expand = 1;
-                    ImGui::SameLine();
+                    forge::ui::next_text_button("Collapse all");
                     if (forge::ui::button(
                             "Collapse all",
                             "Collapse all hierarchy branches. Search keeps matching paths open."))

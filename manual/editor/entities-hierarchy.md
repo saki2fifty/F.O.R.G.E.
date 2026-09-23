@@ -1,10 +1,10 @@
 # Entities and hierarchy
 
-Entities are the things you author in a scene. Hierarchy lists them in a tree; Inspector edits the selected entity. An entity with a resolved transform appears as a built-in primitive in the viewport, defaulting to a cube.
+Entities are the things you author in a scene. Hierarchy lists them in a tree; Inspector edits the selected entity. A Mesh Renderer gives an entity visible geometry. Empty entities have no surface; cameras and lights have selectable Scene icons and selected guides.
 
 ## Add and select an entity
 
-Select **Scene Add (+) → 3D Primitive → Cube** or **Entity → Create → 3D Primitive → Cube**. FORGE creates a cube with a unique authored ID, transform, and color. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible block in **Scene**, to select it. Viewport selection chooses the nearest block under the pointer.
+Select **Scene Add (+) → 3D Primitive → Cube** or **Entity → Create → 3D Primitive → Cube**. FORGE creates a cube with a unique authored ID, transform, and built-in Mesh reference. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible geometry in **Scene**, to select it. Viewport selection chooses the nearest supported surface under the pointer.
 
 ## Rename an entity
 
@@ -20,7 +20,7 @@ Choosing a Parent preserves the object’s world placement, then makes it follow
 
 **Entity → Duplicate subtree**, or Ctrl+D, copies the selection and its descendants with new IDs. Copies start at the original positions, so move them in Inspector to see them separately.
 
-**Command palette → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a prefab that is referenced outside the subtree is rejected; full prefab authoring controls are not available yet. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
+**Command palette → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a legacy scene-local prefab referenced outside the subtree is rejected. Structured prefab instances can be duplicated or deleted from their root; edit their interiors in the [prefab source](prefabs.md). Apply to Prefab remains deferred. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
 
 See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 
@@ -29,6 +29,9 @@ See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 Use **Search names or IDs...** in Hierarchy to filter the hierarchy. Matching descendants keep their ancestor rows visible, and matching paths open automatically. Matching is case-insensitive for ASCII text. Clear the search to show all entities again.
 
 Entities are listed alphabetically within each parent. **Expand all** opens all branches; **Collapse all** closes them. An active search keeps matching paths open even after Collapse all.
+
+The two buttons stack when the panel is too narrow to fit them side by side,
+including at high interface zoom. Widen Hierarchy to show more of names and search text.
 
 ## Structured groups
 

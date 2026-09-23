@@ -66,3 +66,15 @@ No Phase 8 work or dependency pin changes.
   renderer. Correct the remaining input recorder: observe the Content child region
   after EndChild supplies its rectangle, and use the compact Actions menu to reach
   Create / Register. The product's Content interaction is unchanged.
+
+- The corrected input audit passes all 213 steps (71.37s); opened import,
+  placement, rejected/valid reimport, Material and assignment captures at
+  100/150/200%. The valid replacement visibly changes the retained model from
+  orange to green. Failed reimport keeps the prior orange geometry and selection
+  of its Problems entry inspects the affected asset.
+- That visual review found Hierarchy's Collapse all button clipped at 200% in a
+  narrow dock. Use the shared responsive button placement so it stacks below
+  Expand all. Add a native geometry assertion and scroll to the edited Material
+  roughness field for additional captures at all three scales.
+- Correct the hierarchy guide's obsolete default-cube and unavailable-prefab
+  statements to match current Mesh Renderer, camera/light and prefab behavior.

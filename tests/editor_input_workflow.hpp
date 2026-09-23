@@ -78,7 +78,14 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "material-created") {
+        if (what == "hierarchy-controls-fit") {
+            for (const auto* name : {"button:Expand all", "button:Collapse all"}) {
+                const auto& target = ui_targets.at(name);
+                require(target.minimum.x >= target.clip_minimum.x &&
+                            target.maximum.x <= target.clip_maximum.x,
+                        "Hierarchy action is clipped at the current UI scale");
+            }
+        } else if (what == "material-created") {
             require(state.at("material_document").is_object(), "New material did not open");
             initial_material_ = state.at("material_document");
             material_asset_ = initial_material_.at("asset_id");
@@ -412,6 +419,7 @@ class EditorInputWorkflow {
         capture("imported-content-150");
         for (int i = 0; i < 5; ++i)
             key(ImGuiKey_Equal, true);
+        check("hierarchy-controls-fit");
         capture("imported-content-200");
         key(ImGuiKey_0, true);
         // Continue through an independently owned material document and the
@@ -434,12 +442,18 @@ class EditorInputWorkflow {
         key(ImGuiKey_S, true);
         check("material-saved");
         capture("authored-material-100");
+        hover("material:value:roughnessFactor");
+        capture("material-roughness-100");
         for (int i = 0; i < 5; ++i)
             key(ImGuiKey_Equal, true);
         capture("authored-material-150");
+        hover("material:value:roughnessFactor");
+        capture("material-roughness-150");
         for (int i = 0; i < 5; ++i)
             key(ImGuiKey_Equal, true);
         capture("authored-material-200");
+        hover("material:value:roughnessFactor");
+        capture("material-roughness-200");
         key(ImGuiKey_0, true);
         click("tab:Scene");
         click("saved-cube-row");
