@@ -450,3 +450,16 @@ remain open; this source-only foundation bundle creates no new numbered editor Z
   Retain the owner through iteration and reject non-object module maps clearly.
   Added a real CLI regression and explicit missing-reference rejection for all
   twelve supported graph asset families; no failed export is counted as acceptance.
+
+- Strict ASan/UBSan/LSan export CLI and content-package regressions passed2/2
+  (21.39s). Corrected stale manual/host introductions that still described export
+  as unavailable, clarified the content-only versus executable workflows and the
+  strict no-argument manifest startup. Manual generation/link checks passed3/3.
+  Current source features remain explicitly separate from downloadable Build66.
+
+- Windows mixed export reached destination admission and exposed ordinary 8.3 TEMP
+  aliases being rejected as redirected paths. Export now canonicalizes its selected
+  output boundary consistently with project roots, rejects symbolic-link output
+  leaves and retains strict internal metadata checks. Shared manifest/module export
+  regressions passed2/2 (5.88s), including symbolic-link rejection where available.
+  Actual Windows short-alias acceptance remains in the deployment rerun.

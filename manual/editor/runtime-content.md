@@ -1,15 +1,15 @@
-# Package cooked content
+# Export a game or package content
 
-A cooked content package contains the imported data needed to load selected assets
-without the original authoring files. This command-line tool is useful for checking
-content delivery. It does not yet create a playable standalone game executable.
+Use **Export a standalone game** below to create a Windows game
+folder containing the executable, required libraries and game content. Use the
+**command-line content tool** below to package selected assets
+without an executable, for content-delivery checks.
 
-Game-runtime foundation work now includes separate save/settings storage and scene
-session ownership. These internal services do not add an Export Game command or
-a player Save/Load menu yet. The packaging steps below still describe the supported
-cooked-content tool.
-An opt-in [standalone development host](../getting-started/standalone-runtime.md)
-now exists in source; it is separate from this incomplete export workflow.
+The export controls and expanded content support described here are available in
+current source builds. **Build260923-000066 does not include them.** Windows
+distribution acceptance is still in progress. The runtime has separate save and
+settings storage; a player Save/Load menu and gameplay SDK save access remain
+later Phase8 work. See [Standalone runtime](../getting-started/standalone-runtime.md).
 
 ## Choose the assets
 
@@ -18,12 +18,12 @@ use `forge_tools --assets query PROJECT` to find their AssetIds. Include the ass
 you want as roots; their required asset dependencies are included automatically.
 Selecting a mesh from an imported model includes its complete model family.
 
-The current tool supports imported Model, Texture, built-in Material, AudioClip,
-compiled Shader assets, baked NavMesh assets, and registered Scene/Prefab files
-in the current source checkpoint. Build260923-000066 does not include this new
-Scene/Prefab packaging yet. Legacy source-based animation, Script and game UI
-packaging are not yet supported by this command.
-An unsupported selection reports an error.
+Current source builds support Scene, Prefab, Model, Mesh, Material, Texture,
+compiled Shader, Skeleton, AnimationClip, baked NavMesh, AudioClip and runtime UI
+documents with their required styles, fonts and supported images. Standalone Ozz
+archives require validated conversion provenance and skeleton compatibility.
+Flecs Script files remain authoring inputs; there is no packaged runtime Script
+loader. Unsupported runtime asset types report an error.
 
 For navigation, bake the navigation mesh first (see [Navigation](navigation.md)),
 then include its NavMesh AssetId. The package contains the baked navigation data;

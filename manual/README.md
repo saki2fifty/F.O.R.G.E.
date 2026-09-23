@@ -54,7 +54,12 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Current boundaries
 
-The current Phase7 source adds imported and skinned mesh rendering, material authoring, textures and scene lighting alongside the existing blockout and gameplay tools. The complete Phase7 package is still in validation; repository instructions describe source behavior, not a new numbered delivery. Terrain, material graphs and standalone game export remain outside the current delivered workflows.
+Build260923-000066 includes imported and skinned mesh rendering, material authoring,
+textures and scene lighting alongside blockout and gameplay tools. Current Phase8
+source builds add the standalone host, export controls and runtime dependency
+declarations; these are still in validation and are not in Build66. Their manual
+pages identify this source-build boundary. Terrain, material graphs, the complete
+character/input workflow and reference game remain future work.
 
 ## Commands and inspection
 

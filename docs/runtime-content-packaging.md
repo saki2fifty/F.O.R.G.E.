@@ -264,6 +264,11 @@ committed. This is recoverable directory replacement, not a claim that two renam
 are one atomic filesystem operation. Unrecognized or externally modified output
 is preserved with a diagnostic. Cancellation ends at the promotion boundary.
 
+The user-selected output root is canonicalized at admission, consistently with
+ProjectPaths, so Windows short-name aliases resolve to the same destination and
+recovery journal. A destination that is itself a symbolic link is rejected.
+Internal control, candidate and metadata paths retain unredirected-path checks.
+
 Local service tests use a synthetic executable to validate assembly, configuration,
 relocation, cancellation, corrupt-kit rejection, unrelated-directory protection and
 interrupted replacement. They do not establish native DLL or graphical acceptance;

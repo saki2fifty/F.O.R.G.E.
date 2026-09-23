@@ -6,16 +6,19 @@ It does not link ImGui, editor authoring or source asset importers.
 `FORGE_BUILD_EDITOR=OFF` is supported; upstream GUI tools are disabled in that
 configuration. Shared rendering composition is in `cmake/presentation.cmake`.
 
-This is a development host, **not the completed game exporter**. It reads a prepared
-project/content directory. The content packager still cannot assemble all runtime
-families or collect the executable/module distribution. No new numbered editor
-package accompanies this source checkpoint.
+This is the Development standalone host. The shared
+[export operation](runtime-content-packaging.md) assembles supported runtime
+content, the executable and admitted native-module deployments. Windows complete
+distribution acceptance is still in progress. No new numbered editor package
+accompanies this source checkpoint.
 
 ## Startup and ownership
 
-`forge_game [--project <directory>]` defaults to its executable directory, never
-the current working directory. Existing `forge.project.json` supplies game defaults,
-clock, physics, input, module declarations and startup Scene AssetId. A persistent
+`forge_game` with no arguments admits `forge.standalone.json` beside its executable,
+never from the current working directory. `--project <directory>` explicitly uses
+a prepared development project's `forge.project.json` instead. The admitted
+configuration supplies game defaults, clock, physics, input, module declarations
+and startup Scene AssetId. A persistent
 `game.application_id` is required. GameStorage reads user overrides from the OS
 user-data directory without changing shared defaults. Native SDK modules require
 the exact compatible shared-SDK host/profile. Legacy string module declarations

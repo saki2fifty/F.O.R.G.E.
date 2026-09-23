@@ -29,6 +29,12 @@ struct Output {
         destination = std::filesystem::absolute(requested).lexically_normal();
         require(!destination.filename().empty() && destination.has_parent_path(),
                 "Choose a named destination directory");
+        require(!std::filesystem::is_symlink(destination),
+                "Export destination must not be a symbolic link");
+        // User-selected roots use the same canonical boundary as ProjectPaths.
+        // Windows TEMP may contain an ordinary 8.3 alias (e.g. RUNNER~1).
+        // Internal control/candidate paths still require ordinary, unredirected IO.
+        destination = std::filesystem::weakly_canonical(destination);
         asset_storage::ordinary(destination);
         require(std::filesystem::is_directory(destination.parent_path()),
                 "Destination parent must exist");

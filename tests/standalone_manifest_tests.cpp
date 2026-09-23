@@ -165,6 +165,15 @@ int main(int argc, char** argv) {
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(scratch / "unrelated/user.txt") == "keep",
                   "Export overwrote unrelated directory");
+            std::error_code link_error;
+            std::filesystem::create_directory_symlink(exported, scratch / "linked-output",
+                                                      link_error);
+            if (!link_error) {
+                request.destination = scratch / "linked-output";
+                reject([&] { export_standalone_game(lease, request); });
+                check(asset_storage::read(exported / "forge.standalone.json") == committed,
+                      "Symbolic-link export changed its target");
+            }
             if (argc == 5) {
                 const auto library = std::filesystem::absolute(argv[3]);
                 const auto native = project / "Native" / library.filename();
