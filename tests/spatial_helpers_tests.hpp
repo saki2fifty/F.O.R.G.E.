@@ -140,6 +140,11 @@ inline void test_asset_action_routes() {
         require(a.id == context.target->id, "Placement changed target");
         calls.push_back("place");
     };
+    handlers.collision = [&](const auto& a) {
+        require(a.id == context.target->id && a.type == "mesh",
+                "Collision creation changed target or accepted a non-Mesh");
+        calls.push_back("collision");
+    };
     handlers.files = [&](const auto&, auto) { calls.push_back("files"); };
     handlers.cache = [&] { calls.push_back("cache"); };
     auto actions = ui::asset_actions(context, handlers);
@@ -183,18 +188,31 @@ inline void test_asset_action_routes() {
         frame();
     };
     frame();
-    for (const auto& action : actions.entries) {
-        const auto before = calls.size();
-        search(action.label.c_str());
-        key(ImGuiKey_Enter);
-        require(calls.size() == before + 1, "Asset palette did not invoke the shared action");
-    }
+    auto exercise_palette = [&] {
+        for (const auto& action : actions.entries) {
+            const auto before = calls.size();
+            search(action.label.c_str());
+            key(ImGuiKey_Enter);
+            require(calls.size() == before + (action.available ? 1 : 0),
+                    "Asset palette disagrees with shared action availability");
+            if (!action.available)
+                key(ImGuiKey_Escape);
+        }
+    };
+    require(!actions.invoke("asset.collision"), "Model accepted Mesh-only collision creation");
+    exercise_palette();
+    context.target->type = "mesh";
+    actions = ui::asset_actions(context, handlers);
+    exercise_palette();
+    require(std::count(calls.begin(), calls.end(), "collision") == 1,
+            "Mesh palette did not invoke collision creation exactly once");
     context.blocked = "Play is active";
     actions = ui::asset_actions(context, handlers);
+    const auto before_blocked = calls.size();
     for (const auto& action : actions.entries) {
         search(action.label.c_str());
         key(ImGuiKey_Enter);
-        require(calls.size() == 16, "Disabled asset palette action executed");
+        require(calls.size() == before_blocked, "Disabled asset palette action executed");
         key(ImGuiKey_Escape);
     }
     ImGui::DestroyContext();
@@ -203,7 +221,7 @@ inline void test_asset_action_routes() {
     for (const auto& a : actions.entries)
         require(!actions.invoke(a.id) && a.help_text().find(context.blocked) != std::string::npos,
                 "Busy action missing rejection/help");
-    require(calls.size() == 16, "Blocked asset action changed state");
+    require(calls.size() == before_blocked, "Blocked asset action changed state");
     context.blocked.clear();
     context.target.reset();
     context.selected.clear();
