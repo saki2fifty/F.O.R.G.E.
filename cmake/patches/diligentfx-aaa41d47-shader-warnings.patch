@@ -14,7 +14,7 @@
      // Handle TIR:
      float cosTheta2Sq = 1.0 - sinTheta2Sq;
 -    if (cosTheta2Sq < 0.0)
-+    if (!(cosTheta2Sq < 0.0))
++    if (cosTheta2Sq >= 0.0 || (asuint(cosTheta2Sq) & 0x7fffffffu) > 0x7f800000u)
      {
 -        return float3(1.0, 1.0, 1.0);
 +        float cosTheta2 = sqrt(cosTheta2Sq);

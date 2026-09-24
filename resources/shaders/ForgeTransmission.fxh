@@ -11,24 +11,30 @@ float ForgeNormalThickness(float thickness,float3 geometric,float3x3 basis,float
     // A = largest * basis. ||A^T N|| is the affine scale of normal
     // thickness. This supports shear/reflections without an inverse. A surviving
     // rank-two surface has zero normal thickness; keep it a thin surface.
-    if(singular || thickness==0)return 0;
-    return thickness*largest*length(mul(geometric,basis));
+    float result=0;
+    if(!singular && thickness!=0)
+        result=thickness*largest*length(mul(geometric,basis));
+    return result;
 }
 float3 ForgeTransportChannel(float3 position,float3 view,float3 normal,float3 geometric,
                               float2 sightline,float normalThickness,float ior,float roughness,
                               float attenuationDistance,float3 attenuationColor,bool front) {
     float3 ray=-view;
     float distance=0;
+    bool valid=true;
     if(normalThickness>0) {
         // Entry and exit differ. A zero refraction vector means total internal
         // reflection: no transmitted radiance may pass this interface.
         ray=refract(-view,normal,front?1/ior:ior);
-        if(!any(ray!=0))return 0;
         float cosine=abs(dot(ray,geometric));
-        if(cosine==0)return 0;
-        distance=normalThickness/cosine;
-        if(!isfinite(distance))return float3(0,0,0);
+        valid=any(ray!=0) && cosine!=0;
+        if(valid) {
+            distance=normalThickness/cosine;
+            valid=isfinite(distance);
+        }
     }
+    float3 radiance=0;
+    if(valid) {
     float2 uv=sightline;
     if(distance>0) {
         float4 clip=ForgeProject(position+ray*distance);
@@ -41,7 +47,7 @@ float3 ForgeTransportChannel(float3 position,float3 view,float3 normal,float3 ge
         }
     }
     float lod=roughness*saturate(2*(ior-1))*g_TransmissionInfo.x;
-    float3 radiance=ForgeBackground(uv,lod);
+    radiance=ForgeBackground(uv,lod);
     if(distance>0 && attenuationDistance>0) {
         float ratio=distance/attenuationDistance;
         // Separate exact zero/one endpoints, avoiding log(0) and 0*infinity.
@@ -51,6 +57,7 @@ float3 ForgeTransportChannel(float3 position,float3 view,float3 normal,float3 ge
                 radiance[c]*=exp(log(attenuationColor[c])*ratio);
         }
     }
+    }
     return radiance;
 }
 float3 ForgeTransport(float3 position,float3 view,float3 normal,float3 geometric,
@@ -59,15 +66,17 @@ float3 ForgeTransport(float3 position,float3 view,float3 normal,float3 geometric
                       float3x3 basis,float largest,bool singular) {
     float2 uv=(pixel-g_TransmissionViewport.xy)*g_TransmissionViewport.zw;
     float worldThickness=ForgeNormalThickness(thickness,geometric,basis,largest,singular);
-    if(dispersion==0 || worldThickness==0)
-        return ForgeTransportChannel(position,view,normal,geometric,uv,worldThickness,ior,
-                                      roughness,attenuationDistance,attenuationColor,front);
-    float spread=(ior-1)*(.025*dispersion);
-    float3 indices=float3(max(1,ior-spread),ior,ior+spread);
     float3 result=0;
-    [unroll]for(uint c=0;c<3;c++)
-        result[c]=ForgeTransportChannel(position,view,normal,geometric,uv,worldThickness,indices[c],
-                                       roughness,attenuationDistance,attenuationColor,front)[c];
+    if(dispersion==0 || worldThickness==0) {
+        result=ForgeTransportChannel(position,view,normal,geometric,uv,worldThickness,ior,
+                                     roughness,attenuationDistance,attenuationColor,front);
+    } else {
+        float spread=(ior-1)*(.025*dispersion);
+        float3 indices=float3(max(1,ior-spread),ior,ior+spread);
+        [unroll]for(uint c=0;c<3;c++)
+            result[c]=ForgeTransportChannel(position,view,normal,geometric,uv,worldThickness,indices[c],
+                                           roughness,attenuationDistance,attenuationColor,front)[c];
+    }
     return result;
 }
 #endif

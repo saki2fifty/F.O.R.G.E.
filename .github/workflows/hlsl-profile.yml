@@ -96,7 +96,7 @@ jobs:
           Copy-Item tests/lighting_diagnostics.hlsl $shaders
           Push-Location $output
           try {
-            & ./surface.exe "$shaders/lighting_diagnostics.hlsl" upstream_iridescence upstream_sheen forge_lighting forge_shadow | Tee-Object lighting-results.txt
+            & ./surface.exe "$shaders/lighting_diagnostics.hlsl" upstream_iridescence upstream_sheen forge_lighting forge_shadow forge_transport | Tee-Object lighting-results.txt
             if ($LASTEXITCODE) { throw 'Lighting shader diagnostics failed; inspect individual logs' }
           } finally { Pop-Location }
       - name: Preserve compiler evidence

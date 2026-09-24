@@ -317,3 +317,10 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   evidence and extended normal-mapping compiler coverage for a newly exposed
   early-return diagnostic. Distribution notices now identify the local patch in
   editor and standalone runtime packages.
+- Differential evidence isolates the mismatch to NaN cosine/IOR inputs; all
+  finite and TIR samples match. Made NaN branch selection explicit using binary32
+  classification, retaining the original BRDF and requiring the same comparison
+  to pass. Updated the reviewed patch hash and notices.
+- Extended strict coverage to transmission after the native optics run exposed
+  the same early-return diagnostics there. Kept initialized zero-transmission
+  fallback through one return; no physical formula or authoring-domain change.

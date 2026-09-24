@@ -8,6 +8,6 @@ and Shaders/Common/public/PBR_Common.fxh (LambdaSheenNumericHelper):
 initialized single-return TIR handling and an explicit nonnegative pow base.
 The supported BRDF formula is preserved. No Diligent C++ runtime change.
 
-Patch SHA256: e043acb1b8bf48fce73f46314ce5a890e00541c0889d94b7a7ac7c9d724a27f4
+Patch SHA256: b2558b2620ad38bcf5270d8588d2b88b1e61242c132fcb3fd06be96b07b48151
 Reviewed patch and exact input manifest: cmake/patches/diligentfx-aaa41d47-shader-warnings.*
 FORGE patch staging never modifies the original dependency checkout.

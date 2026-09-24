@@ -6,7 +6,7 @@ Exact Engine `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06` + Core
 This is not a different dependency version. Native C++ remains unmodified.
 
 The adjacent JSON records normalized-LF input SHA256 values and patch SHA256
-`e043acb1b8bf48fce73f46314ce5a890e00541c0889d94b7a7ac7c9d724a27f4`.
+`b2558b2620ad38bcf5270d8588d2b88b1e61242c132fcb3fd06be96b07b48151`.
 `tools/stage_diligentfx_patch.py` checks exact git revisions, source bytes and patch
 identity before applying the diff to disposable build inputs. It never changes
 upstream sources. CMake embeds only the two staged replacements. All other native
@@ -16,8 +16,9 @@ upstream Apache2 licensing is retained in DiligentFX-LICENSE.txt.
 ## Semantics and upstream status
 
 - `EvalIridescence`: initialize the TIR result and use one return. The formula,
-  TIR result and branch behavior for NaN inputs are preserved (`!(x < 0)` is
-  intentional; replacing it with `x >= 0` would change NaN behavior).
+  TIR result and branch behavior for NaN inputs are preserved. An explicit binary32
+  NaN test accompanies `x >= 0`: FXC did not preserve the negated-comparison
+  formulation for NaN in two differential GPU cases.
 - `LambdaSheenNumericHelper`: use `pow(abs(x), c)`. All supported callers use
   nonnegative cosine-derived inputs, so their formula is unchanged. Unlike
   `max(x,0)`, `abs(x)` does not turn NaN into zero. No epsilon or authoring-domain

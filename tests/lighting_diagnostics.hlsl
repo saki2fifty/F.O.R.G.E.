@@ -30,3 +30,16 @@ float4 forge_shadow() : SV_Target {
 }
 
 #endif
+
+#if defined(FORGE_PROBE_forge_transport)
+SamplerState g_ForgeLightSampler;
+cbuffer Project {float4x4 ProbeProjection;};
+float4 ForgeProject(float3 p) {return mul(ProbeProjection,float4(p,1));}
+#include "ForgeTransmission.fxh"
+float4 forge_transport() : SV_Target {
+    float3 color=ForgeTransport(Shading.Pos,Shading.View,Shading.BaseLayer.Normal,
+        Shading.BaseLayer.Normal,Values.xy,Values.x,Values.y,Values.z,Values.w,
+        Values.x,Values.xyz,true,(float3x3)ProbeProjection,Values.y,false);
+    return float4(color,1);
+}
+#endif
