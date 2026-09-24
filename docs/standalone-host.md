@@ -152,16 +152,18 @@ stale requests. GamePresentation supplies state; the standalone loop owns cancel
 Service diagnostics carry an owner-local monotonic sequence. Standalone writes
 new records once per world generation and reports a gap if the bounded 256-entry
 service ring overflowed before collection. Deferred UI errors are logged too.
-The log is opened before reading user settings, so corrupt settings are reported
-there as well as stderr. File rotation and OS crash bundles remain subsequent
-Phase8 hardening, not guarantees of this checkpoint.
+The log is opened before reading user settings. Corrupt preferences are preserved;
+startup uses project defaults and exposes a diagnostic through the game-control
+query so the reference menu can explain recovery. A later deliberate settings
+change writes the user's new preferences. File rotation and OS crash bundles
+remain separate hardening work.
 
-The gameplay SDK currently supplies resources, entity creation, simulation and
-UI actions, but no session/save host pointers. The session/save bridge still needs
-a module/world-scoped request queue, safe host-boundary execution and deliberate
-game-owned save-schema/migration registration. Existing GameStorage already owns
-versioned slots, atomic writes and validation; it must not be replaced by automatic
-ECS dumping. That bridge remains in the authorized later Phase8 SDK block.
+The exact SDK now exposes copied, module/world-scoped session and save requests,
+executed after gameplay callbacks return. Native save-schema/migration registrations
+retain code leases and are revoked before retirement. GameStorage continues to own
+versioned slots, atomic writes and validation; arbitrary ECS memory is not saved.
+See [gameplay control services](gameplay-services.md) for operations, ownership,
+bounds and availability. No session/save host pointers cross the SDK boundary.
 
 ### Frame completion and software verification
 

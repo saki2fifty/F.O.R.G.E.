@@ -87,6 +87,14 @@ void run(const std::filesystem::path& root) {
           "Settings update failed");
     check(storage.load_settings([](const Json&) {}).at("input").at("mouse_sensitivity") == 2,
           "User settings not persisted");
+    game.input({{"key.space", 1}});
+    game.active().simulation.input().latch(0);
+    check(
+        request({{"operation", "set_settings"},
+                 {"values", {{"display", {{"vsync", true}}}, {"audio", {{"master_volume", .5}}}}}})
+                    .state == "succeeded" &&
+            applications == 0 && game.active().simulation.input().latch(1).actions.at(action).held,
+        "Volume/VSync change reset held controls or repositioned the window");
     check(request({{"operation", "set_settings"}, {"values", {{"display", {{"width", 777}}}}}})
                       .state == "failed" &&
               host.settings().at("display").at("width") == 1280 && applications == 2,

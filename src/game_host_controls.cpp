@@ -34,12 +34,21 @@ std::uint64_t GameHostControls::prepare(AssetId asset, const Json& state, bool a
 }
 void GameHostControls::apply_settings(Json user) {
     const auto candidate = resolve_game_settings(defaults_, user, project_input_);
-    const bool display_changed = candidate.at("display") != settings_.at("display");
+    auto window_settings = [](const Json& value) {
+        auto display = value.at("display");
+        display.erase("vsync"); // Present reads VSync directly; it does not resize the SDL window.
+        return display;
+    };
+    const bool display_changed = window_settings(candidate) != window_settings(settings_);
+    const bool input_changed = candidate.at("input_map") != settings_.at("input_map");
+    const bool audio_changed = candidate.at("audio") != settings_.at("audio");
     try {
         if (display_changed && platform_.settings)
             platform_.settings(candidate);
-        game_.input_map(InputMap(candidate.at("input_map")));
-        game_.master_volume(candidate.at("audio").at("master_volume").get<float>());
+        if (input_changed)
+            game_.input_map(InputMap(candidate.at("input_map")));
+        if (audio_changed)
+            game_.master_volume(candidate.at("audio").at("master_volume").get<float>());
         storage_.save_settings(user, [&](const Json& value) {
             (void)resolve_game_settings(defaults_, value, project_input_);
         });
@@ -48,8 +57,10 @@ void GameHostControls::apply_settings(Json user) {
         try {
             if (display_changed && platform_.settings)
                 platform_.settings(settings_);
-            game_.input_map(InputMap(settings_.at("input_map")));
-            game_.master_volume(settings_.at("audio").at("master_volume").get<float>());
+            if (input_changed)
+                game_.input_map(InputMap(settings_.at("input_map")));
+            if (audio_changed)
+                game_.master_volume(settings_.at("audio").at("master_volume").get<float>());
         } catch (const std::exception& e) {
             std::clog << "Settings rollback failed: " << e.what() << '\n';
         }

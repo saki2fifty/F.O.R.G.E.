@@ -134,9 +134,13 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     saved_settings = user_settings.read_bytes()
     try:
         user_settings.write_bytes(b'{"payload":')
-        rejected('corrupt-user-settings')
-        assert user_settings.read_bytes() == b'{"payload":', 'Failed startup overwrote preferences'
-        assert 'Fatal:' in (user_root/'runtime.log').read_text()
+        run([relocated/'forge_game.exe', '--verify-startup'], evidence/'settings-recovery.log',
+            cwd=relocated, env=env)
+        assert user_settings.read_bytes() == b'{"payload":', 'Recovery overwrote corrupt preferences'
+        diagnostic = (user_root/'runtime.log').read_text()
+        assert 'Saved settings could not be loaded; using defaults.' in diagnostic
+        (evidence/'settings-recovery.json').write_text(json.dumps(dict(
+            recovered=True, original_preserved=True, diagnostic=diagnostic[-4096:])))
     finally:
         user_settings.write_bytes(saved_settings)
     if modules:

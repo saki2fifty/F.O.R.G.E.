@@ -183,3 +183,9 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   and the final numbered delivery are still pending.
 - Added a visible corrupt-preferences recovery check: project defaults are used,
   the menu explains the problem, and the original preferences are preserved.
+- Settings apply only to changed subsystems. Volume/sensitivity updates retain held
+  input; VSync changes no longer reapply SDL window placement. Added a regression.
+- Updated the older standalone package test to the authorized corrupt-preferences
+  recovery contract: defaults, logged explanation and preserved source bytes.
+  The first Windows audit had correctly recovered and failed the obsolete
+  abort-startup expectation; no reference-game visual acceptance was claimed.
