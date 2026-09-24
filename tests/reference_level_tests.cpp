@@ -96,6 +96,13 @@ int main(int argc, char** argv) {
         wait_scene(reference::level_scene);
         check_render();
         require(captured, "Level failed to capture through scoped service");
+        const auto level_render = extract_render_scene(game.active().simulation.presentation(1));
+        require(std::any_of(level_render.lights.begin(), level_render.lights.end(),
+                            [](const RenderLight& light) {
+                                return light.light.kind == std::uint32_t(LightKind::Directional) &&
+                                       light.light.intensity > 0 && light.light.direction[1] < -.25;
+                            }),
+                "Reference sun does not illuminate the upward-facing floor");
         double nav_start = 0;
         flecs::entity_t nav_entity = 0, animated = 0;
         game.active().engine.world().world().each([&](flecs::entity e, const NavigationAgent&) {

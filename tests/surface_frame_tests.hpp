@@ -92,7 +92,10 @@ void main(uint id:SV_DispatchThreadID) {
     Output o;
     o.Normal=float4(f.Normal,0);o.Tangent=float4(f.Tangent,0);o.Bitangent=float4(f.Bitangent,0);
     o.Mapped=float4(ForgePerturbNormal(f,float3(.3,.4,.8660254)),0);
-    o.Flags=float4(f.NormalValid?1:0,f.TangentValid?1:0,0,0);
+    ForgeSurfaceFrame zero=ForgeMakeSurfaceFrame((float3x3)0,float3(0,1,0),float4(1,0,0,1));
+    o.Flags=float4(f.NormalValid?1:0,f.TangentValid?1:0,
+        dot(ForgeUnit(float3(0,0,0)),float3(1,1,1)),
+        dot(abs(zero.Normal)+abs(zero.Tangent)+abs(zero.Bitangent),float3(1,1,1)));
     Destination[id]=o;
 })";
     RefCntAutoPtr<IShader> compute;
@@ -133,6 +136,8 @@ void main(uint id:SV_DispatchThreadID) {
             for (const auto scalar : *v)
                 require(std::isfinite(scalar),
                         "Signed/singular GPU surface frame generated NaN/Inf");
+        require(value.flags[2] == 0 && value.flags[3] == 0,
+                "Constant zero normal/basis did not produce a finite zero frame");
         const auto& world = worlds[i / 2];
         const auto normals = forge::normal_transform(world);
         forge::Double3 expected{normals.m[2], normals.m[6], normals.m[10]};

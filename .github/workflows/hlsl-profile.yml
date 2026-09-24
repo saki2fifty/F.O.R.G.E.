@@ -49,6 +49,19 @@ jobs:
             & ./probe.exe | Tee-Object results.txt
             if ($LASTEXITCODE) { throw 'Register-free bounded sampler array plus environment/comparison samplers failed SM5.1 compilation' }
           } finally { Pop-Location }
+      - name: Validate zero and dynamic surface normalization with FXC
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'forge-sampler-profile'
+          $shader = (Resolve-Path tests/surface_normalization.hlsl).Path
+          cl /nologo /EHsc /std:c++20 tests/hlsl_surface_profile.cpp "/Fo$output/surface.obj" "/Fe$output/surface.exe" /link d3dcompiler.lib
+          if ($LASTEXITCODE) { throw 'Surface compiler probe did not compile' }
+          Push-Location $output
+          try {
+            & ./surface.exe $shader | Tee-Object surface-results.txt
+            if ($LASTEXITCODE) { throw 'FXC surface normalization warnings/errors' }
+          } finally { Pop-Location }
       - name: Preserve compiler evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

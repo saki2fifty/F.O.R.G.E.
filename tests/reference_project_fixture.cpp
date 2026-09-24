@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
         Light sun;
         sun.intensity = 3;
         scene.entity(light_id).set<LocalTranslation>({}).set(sun).set<LocalRotation>(
-            {-.3f, .2f, 0, .9327379f});
+            {.3f, .2f, 0, .9327379f});
         for (auto [id, x] : {std::pair{reference::switch_id, 0.0}, {reference::door_id, 3.0}})
             scene.entity(id)
                 .set<LocalTranslation>({x, 1.5, -4})

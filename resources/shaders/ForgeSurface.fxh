@@ -5,10 +5,12 @@
 float3 ForgeUnit(float3 v)
 {
     float largest = max(abs(v.x), max(abs(v.y), abs(v.z)));
-    if (!(largest > 0) || !all(isfinite(v)))
-        return float3(0, 0, 0);
-    v /= largest;
-    return v * rsqrt(dot(v, v));
+    bool valid = largest > 0 && all(isfinite(v));
+    // Select safe operands before division, not a potentially invalid quotient
+    // afterward. Both paths remain finite if a compiler flattens control flow.
+    float3 scaled = (valid ? v : float3(0, 0, 0)) / (valid ? largest : 1.0);
+    float length_squared = dot(scaled, scaled);
+    return scaled * rsqrt(length_squared > 0 ? length_squared : 1.0);
 }
 struct ForgeSurfaceFrame
 {
@@ -23,10 +25,9 @@ ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 basis, float3 normal, float4 ta
     ForgeSurfaceFrame result = (ForgeSurfaceFrame)0;
     float3 row_max = max(abs(basis[0]), max(abs(basis[1]), abs(basis[2])));
     float largest = max(row_max.x, max(row_max.y, row_max.z));
-    if (!(largest > 0) || !all(isfinite(basis[0])) ||
-        !all(isfinite(basis[1])) || !all(isfinite(basis[2])))
-        return result;
-    basis /= largest;
+    bool valid = largest > 0 && all(isfinite(basis[0])) &&
+                 all(isfinite(basis[1])) && all(isfinite(basis[2]));
+    basis = (valid ? basis : (float3x3)0) / (valid ? largest : 1.0);
     float3 c0 = float3(basis[0][0], basis[1][0], basis[2][0]);
     float3 c1 = float3(basis[0][1], basis[1][1], basis[2][1]);
     float3 c2 = float3(basis[0][2], basis[1][2], basis[2][2]);
@@ -38,8 +39,6 @@ ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 basis, float3 normal, float4 ta
     float parity = determinant < -16.0 * 1.192092896e-7 * error_scale ? -1.0 : 1.0;
     result.Normal = ForgeUnit((k0 * normal.x + k1 * normal.y + k2 * normal.z) * parity);
     result.NormalValid = any(result.Normal != 0);
-    if (!result.NormalValid)
-        return result;
     float3 t = mul(basis, tangent.xyz);
     result.Tangent = ForgeUnit(t - result.Normal * dot(result.Normal, t));
     // Transform the source bitangent too. Its orientation includes both source

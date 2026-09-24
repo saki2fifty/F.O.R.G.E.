@@ -94,6 +94,12 @@ products is treated as numerically indeterminate/singular for parity, avoiding
 frame-to-frame sign flips on composed rank-two matrices. This derived numerical
 classification never invalidates authored LocalScale.
 
+GPU direction normalization selects finite operands and nonzero denominators before
+division/reciprocal square root. Zero or invalid vectors return zero; zero bases
+produce invalid zero frames. This does not impose an epsilon scale cutoff or rely
+on an early return preventing evaluation of an invalid quotient. Constant-zero
+and dynamic shader probes supplement the signed/singular GPU readback tests.
+
 Preview rasterization uses opposite front-face state for reflected solid draws;
 planar primitives and singular surfaces are explicitly two-sided. Old procedural
 triangles are oriented to their outward normals before upload. No descendants

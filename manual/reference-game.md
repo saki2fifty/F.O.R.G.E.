@@ -27,6 +27,9 @@ interact. These names describe physical button positions rather than controller
 brand labels. The camera eases down when the character successfully crouches and
 returns to standing height when there is room to stand.
 
+This is a functional blockout course with simple geometry, not finished game art.
+Its directional sun is intended to illuminate the floor from above.
+
 The level includes steps, slopes, a moving platform, a dynamic object, imported
 collision, a navigation guide, spatial audio and a skinned animated flag. The exit
 door returns to the main menu.

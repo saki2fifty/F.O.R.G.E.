@@ -260,3 +260,17 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   open. This completes the input/reference-game block, not all of Phase 8.
 - Reconciled implementation status and cache documentation. These post-delivery
   documentation records do not alter the reserved compiled source or ZIP bytes.
+
+### Reference lighting and shader warnings — source correction after Build 74
+
+- Corrected the reference sun's rotation: its +Z light ray pointed upward and left
+  the upward-facing floor unlit. A headless regression rejects the old level;
+  regenerated content passes the complete reference-level integration.
+- Made zero/invalid GPU normalization and zero-basis arithmetic use safe operands
+  before division, preserving signed/singular/tiny-scale behavior without an epsilon
+  clamp. Added constant-zero coverage to GPU readback and a focused Windows FXC
+  warnings-as-errors probe in debug and optimized profiles.
+- Six local DXC DirectX/SPIR-V compile probes pass. FXC diagnostics, D3D12 GPU
+  readback and updated Windows captures remain pending; the other reported
+  lighting/shadow/upstream warnings are not claimed resolved. No dependency patch
+  or warning suppression was added. Build 74 remains the available package.
