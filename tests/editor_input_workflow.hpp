@@ -732,9 +732,21 @@ class EditorInputWorkflow {
         if (!since_)
             since_ = SDL_GetTicks();
         const auto& step = steps_[index_];
-        if (SDL_GetTicks() - since_ > 12000)
+        if (SDL_GetTicks() - since_ > 12000) {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;
+            if (step.value == "authored-collision-option") {
+                failure_ += " expected picker-option:" + collision_asset_;
+                for (const auto& [name, target] : ui_targets)
+                    if (name.starts_with("picker-option:"))
+                        failure_ += " observed " + name +
+                                    " enabled=" + std::to_string(target.enabled) +
+                                    " y=" + std::to_string(target.minimum.y) + ":" +
+                                    std::to_string(target.maximum.y) +
+                                    " clip=" + std::to_string(target.clip_minimum.y) + ":" +
+                                    std::to_string(target.clip_maximum.y);
+            }
+        }
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             const auto target =
                 step.value == "saved-cube-row"              ? "entity:" + cube_

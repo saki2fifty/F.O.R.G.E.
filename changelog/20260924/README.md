@@ -65,3 +65,5 @@
 - Selected collision preview now follows the enabled physics representation when an entity retains both a Body and Character component. A disabled Character no longer masks an active Body; an active Character does not load an unused disabled Body's Collision asset. Both enabled representations still report their configuration conflict. Added native shape-selection regression coverage; simulation authority and persistence are unchanged.
 
 - Clean Windows package builds now build the graphical game target before installing its runtime kit; installation no longer depends on a previously cached executable.
+
+- Retain editor input-workflow state alongside Windows captures and report picker target identity/clipping on assignment timeouts, so a failed interaction can be diagnosed without relying on screenshots alone.
