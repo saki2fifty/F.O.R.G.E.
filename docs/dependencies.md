@@ -305,3 +305,11 @@ composition, staged RmlUi contexts and miniaudio gameplay-group volume now have
 standalone consumers. See [host contracts and exact-source notes](standalone-host.md)
 for build options, limits, ownership and pending acceptance. RmlUi global font
 cleanup must not run while a prepared or live context still owns those resources.
+
+### Maintained DiligentFX shader patch
+
+The selected Diligent snapshot includes a narrowly reviewed FORGE shader patch,
+without changing any upstream pin. See the [patch contract and provenance](../cmake/patches/README.md)
+and [validation and remaining warnings](dependency-known-issues.md#pinned-diligentfx-fxc-warnings--verified-2026-09-24).
+Clean builds verify exact revisions, source hashes and patch identity before
+staging modified shader inputs. Upgrades must explicitly review or remove it.

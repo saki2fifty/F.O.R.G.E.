@@ -141,13 +141,24 @@ a negative input in FORGE. The approved maintained-source exception is now stage
 [tracked patch manifest and diff](../cmake/patches/README.md). No warning suppression
 or dependency upgrade is used. The original checkout remains unchanged.
 
-FORGE surface, lighting and shadow isolated probes pass strict debug/optimized FXC
-on source `5eb3ab0`; full generated-material/GPU acceptance of this follow-up remains
-pending. The focused workflow now stages the same reviewed patch as CMake and
-retains warnings-as-errors. This does not upgrade Build75.
-
-The exception was approved2026-09-24. Exact upstream history through
+The exception was approved and verified on2026-09-24. Exact upstream history through
 `6d900ba904bda33b3ec48980cebca00bf9e6db6f` contains no suitable correction.
-Patch source/hash checks, cache identity regression and local DXC DXIL/SPIR-V
-checks pass. Fresh patched FXC and native GPU/material acceptance are pending;
-Build75 remains the delivery until the complete gate passes.
+Final patch SHA256:
+`b2558b2620ad38bcf5270d8588d2b88b1e61242c132fcb3fd06be96b07b48151`.
+
+Source `614cbbd9618e76288a33e91a4969d7d94a5886c2` passes20 strict FXC
+debug/optimized checks (run36050867368), DXC DXIL/SPIR-V surface and lighting
+checks, and13 native Windows/D3D12 material/shader/GPU tests (run36051118935).
+Generated SampleGrad, material variants, normal mapping, lighting, shadows,
+transmission and23 original-versus-patched BRDF cases execute successfully.
+The comparison includes TIR and NaN/Inf; explicit NaN classification was necessary
+to preserve original FXC behavior. Relevant render captures were inspected.
+Revision/hash refusal, idempotence and patch/cache invalidation regressions pass.
+
+This is **not** a claim that every shader is warning-free. Native X3595 in pinned
+`PBR_Shading.fxh` (derivatives in a varying loop) and X3557 (one-iteration loop)
+also occur in the earlier unpatched Windows correction baseline. Neither is new
+or suppressed by this patch. DXC shadow includes retain the same two upstream
+PCF comment-format warnings. The deliberately unpatched differential-reference
+shader retains its original X4000; production patched functions do not.
+Package publication remains subject to the separate complete delivery gate.

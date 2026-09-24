@@ -324,3 +324,13 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
 - Extended strict coverage to transmission after the native optics run exposed
   the same early-return diagnostics there. Kept initialized zero-transmission
   fallback through one return; no physical formula or authoring-domain change.
+
+### Shader correction validated
+
+- Final correction passes20 strict FXC checks and13 native Windows material/shader/
+  GPU tests, including generated SampleGrad and23 original/patched BRDF cases.
+- DXIL/SPIR-V checks and patch/cache refusal/identity tests pass. Fresh material,
+  iridescence, sheen, grid, shadow and transmission captures were inspected.
+- Preserved original NaN/Inf and TIR behavior without a compiler/dependency change.
+- Recorded remaining baseline loop/derivative and DXC comment warnings explicitly;
+  no blanket warning-clean claim or suppression. Full package validation follows.

@@ -178,3 +178,18 @@ regression suite. After a successful compilation, reusable compilation outputs m
 be cached even if a later test fails. Such a cache is not accepted delivery evidence:
 subsequent runs still configure, rebuild changed inputs, and run all required tests
 before packaging. Toolchain/profile/source-content checks remain unchanged.
+
+## Focused shader/material native acceptance
+
+For renderer shader corrections, dispatch `build.yml` with `windows_package=false`,
+`audit_source` set to the full immutable source SHA, and `audit_shader_only=true`.
+This reuses the editor audit's cache and capture machinery, compiling the material/
+shader test targets and running patch, material, shader, viewport, morph, skin,
+frame and optics checks. It uploads `FORGE-Editor-Source-Audit` with test logs and
+captures. It does not reserve a build number or produce a delivery ZIP.
+
+The separate HLSL profile workflow verifies debug/optimized FXC with warnings as
+errors against the same staged dependency patch. The GPU differential reference
+intentionally compiles the original upstream function with its original warning;
+review production warnings separately. A focused audit does not replace the full
+core/shared-SDK/editor/relocation/package gate for numbered delivery.
