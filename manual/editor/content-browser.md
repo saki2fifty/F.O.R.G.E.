@@ -201,9 +201,8 @@ or source bytes invalidate the review and require preparing it again.
 
 Current source adapters cover Scene, Prefab, Material, Shader program, glTF model/
 animation source, Texture and WAV. Unsupported formats report an error during
-preparation. Case-only renames require a different intermediate filename. These
-workflows describe the Phase7 source under validation; the final numbered package
-has not been delivered yet.
+preparation. Case-only renames require a different intermediate filename. Collision sources use the same catalog and deliberate import/publication workflow;
+see [Physics](physics.md) for creating and assigning collision geometry.
 
 
 ### Existing subsystem sources

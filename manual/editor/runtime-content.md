@@ -5,8 +5,8 @@ folder containing the executable, required libraries and game content. Use the
 **command-line content tool** below to package selected assets
 without an executable, for content-delivery checks.
 
-The export controls and expanded content support described here are available in
-current source builds. **Build260923-000066 does not include them.** Windows shared-SDK export and fresh-machine relocation have passed automated
+**Build260923-000066 predates these export controls.** Windows shared-SDK export
+and fresh-machine relocation have passed automated
 software-rendering checks. The runtime has separate save and
 settings storage; a player Save/Load menu and gameplay SDK save access remain
 later Phase8 work. See [Standalone runtime](../getting-started/standalone-runtime.md).
@@ -44,8 +44,6 @@ resource registrations are a separate saved catalog update. Export packages save
 content and current cooked artifacts; it does not compile arbitrary gameplay code.
 
 ## Declare content chosen at runtime
-
-These controls are in current source builds; Build260923-000066 does not include them.
 
 1. Select the owning UI document or scene in **Content**.
 2. Open **Runtime Dependencies** in the **Inspector**.

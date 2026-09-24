@@ -91,12 +91,12 @@ animation pose before mutation. This is host admission, not a new physics servic
 constraint system, matrix authority or scene-format revision. Animation recovery
 uses this boundary too.
 
-## Phase8 collision asset implementation checkpoint
+## Collision assets
 
 The independent `CollisionAsset` tag, bounded CPU collision envelope, shared
 import/publication, asynchronous native preparation, AssetCollider realization and
-runtime package adapter are implemented in source. Phase8 validation and character
-integration are ongoing; Build260923-000066 remains the current delivery.
+runtime package adapter share the existing asset, scene and physics owners.
+Build260923-000066 predates this Collision/Character implementation.
 
 The version1 envelope uses the common cooked-envelope reader with at most1MiB
 metadata and64MiB total file data. Its shape tree has stable typed member UUIDs,
@@ -159,7 +159,7 @@ failed cooking preserves the saved source for correction and the prior usable ar
 Collision debug drawing and character/SDK integration are implemented below. Final
 Windows execution and visual acceptance are tracked separately from source support.
 
-### Character controller integration (Phase8 source work)
+### Character controller integration
 
 `CharacterController` contains authored mechanics only: enabled, capsule/cylinder,
 radius, standing/crouched straight height, mass, maximum push force, walkable slope
@@ -215,11 +215,12 @@ obstacle normal, fraction and EntityRef; initial overlap has fraction zero. Mesh
 sweeps and angular sweeps are not claimed. Exact-SDK callbacks use size checks,
 module capability and owner/fixed-tick guards; no Jolt pointers cross the boundary.
 
-Observed Linux focused evidence: collision asset/pipeline/physics3/3 passed; expanded
-physics tests passed, including steps/tall steps/stairs, allowed/steep slopes,
-translating/rotating platforms, jump carry, light/heavy dynamics and filtered sphere
-sweep. Broader SDK/editor/Windows/strict acceptance remains in progress. These are
-source capabilities, not a claim that Build66 includes the new controller.
+Validation covers steps/tall steps/stairs, allowed/steep slopes, translating/rotating
+platforms, jump carry, light/heavy dynamics and filtered queries. Linux core/shared
+SDK and strict sanitizer suites pass. Windows audit35944038189 passed339 general
+editor input steps and76 physics-level steps, plus standalone-only startup. Physics
+captures were retrieved and reviewed; physical graphics/audio remain separate.
+Build260923-000066 predates these features.
 
 ### Collision resource subscriptions and selected-object preview
 
@@ -247,7 +248,8 @@ hierarchy validation and does not appear in Game View.
 Play requests copied character debug state only for the inspected entity. Ground
 normal and a quarter-second velocity guide accompany the crouched/standing shape.
 Queries and drawing do not take simulation ownership or serialize debug state into
-Scene/prefab documents. Windows visual acceptance of this workflow remains pending.
+Scene/prefab documents. Windows/WARP captures verify imported/convex/compound
+outlines, the character reference envelope and grounded Play feedback.
 
 ### Physics material decision
 

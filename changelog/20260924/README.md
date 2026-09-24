@@ -55,3 +55,9 @@
 - Windows actual-input authoring passed339 steps, including collision creation, explicit Mesh-part choice, convex publication, compound editing and Undo. The physics-level captures exposed an asset-backed preview worker crossing a resource owner-thread boundary. Preview preparation now receives an immutable native shape snapshot; resource thread checks remain intact. Added all-seven-family worker extraction after resource retirement, before and after package relocation, and actionable preview timeout diagnostics.
 - Made the internal physics preview header self-contained for its new direct test consumer. The new Windows follow-up remains pending; no numbered package has been released for this block yet.
 - Collision-document publication now refreshes the viewport's catalog immediately, matching other asset documents. Extended actual-input acceptance to assign the newly published Collision through its typed Inspector picker and display its Scene preview without reopening the project.
+
+- Reconciled the status page with the accepted export/relocation block and removed an obsolete Phase7 source-only notice from the Content manual. Collision/character Windows delivery remains under verification.
+
+- Updated the accompanying manual to cover the runtime/export/collision additions together, retaining an explicit boundary for older Build66. Standalone instructions now lead with normal editor export rather than requiring an end user to compile a host.
+
+- Windows audit35944038189 atca4c476 passed339 general editor input steps,76 physics-level input steps and standalone-only startup. Retrieved and opened imported triangle, convex, compound, character-envelope and grounded-Play captures; the preview ownership correction is visibly verified. The hosted runner reports unavailable audio and continues silently; no physical audio claim is made. Final package validation also includes the newer direct-publication assignment regression.

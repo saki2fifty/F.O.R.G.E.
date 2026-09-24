@@ -1,16 +1,17 @@
 # Run the standalone development host
 
-This Phase8 feature is available from source builds. **Build66 does not include
-it.** It opens a separate game window using the scene's camera and game UI.
-The source-build [Export Game workflow](../editor/runtime-content.md) prepares a
+The standalone host opens a separate game window using the scene's camera and game
+UI. **Build260923-000066 predates this feature.** The [Export Game workflow](../editor/runtime-content.md) prepares a
 standalone folder. Windows shared-SDK startup and relocation have passed automated
 software-rendering checks without the source project or FORGE SDK. Physical graphics
 and audio devices still need testing on the target machine.
 
 ## Before launching
 
-Build the Windows target `forge_game` with `FORGE_BUILD_GAME=ON`. Keep its generated
-DLLs and `resources/ui` folder beside the executable. Your prepared project needs:
+For normal use, export from the editor and run the game executable in the exported
+folder. Keep that folder intact, including its libraries and UI resources.
+When building from source, enable `FORGE_BUILD_GAME=ON` and build `forge_game`.
+Your prepared project needs:
 
 - A saved, registered startup scene with an enabled Camera.
 - Imported assets with usable cooked data for the Windows target.

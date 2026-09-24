@@ -54,12 +54,13 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Current boundaries
 
-Build260923-000066 includes imported and skinned mesh rendering, material authoring,
-textures and scene lighting alongside blockout and gameplay tools. Current Phase8
-source builds add the standalone host, export controls and runtime dependency
-declarations; these are still in validation and are not in Build66. Their manual
-pages identify this source-build boundary. Terrain, material graphs, the complete
-character/input workflow and reference game remain future work.
+This manual describes the source or packaged build it accompanies. FORGE includes
+imported and skinned mesh rendering, materials, textures, scene lighting, standalone
+export, runtime dependency declarations, Collision assets and reusable character
+mechanics. Build260923-000066 predates these Phase8 runtime/export/physics additions.
+Terrain, material graphs, complete gameplay/menu input contexts, game SDK save access
+and the reference game remain future work. The controller supplies physics mechanics;
+gameplay code still supplies movement keys and camera behavior.
 
 ## Commands and inspection
 

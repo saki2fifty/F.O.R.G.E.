@@ -135,9 +135,9 @@ This creates a separate asset; it does not attach a collider to the rendered obj
 Box fields show full XYZ **Size (m)**. Sphere fields show **Radius (m)**. Capsule and
 cylinder show radius and **Straight height (m)**; capsule caps add to that height.
 
-## Character Controller (new Phase8 source work)
+## Character Controller
 
-This batch is still undergoing acceptance and is not included in Build66.
+Build260923-000066 predates this controller and Collision asset workflow.
 
 A Character Controller moves a capsule or cylinder through the physics world. It
 provides collision, gravity, ground state, slopes, stairs and moving-platform support.

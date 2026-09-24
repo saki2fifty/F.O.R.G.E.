@@ -10,9 +10,15 @@ blocks. See [game foundation](game-foundation.md) and
 An opt-in graphical standalone development host and resource-gated scene preparation
 are implemented in source and verified on Windows/WARP, including a build with
 the editor/import tooling disabled; see [host scope](standalone-host.md).
-Full game dependency/export closure, character and
-collision assets, complete input contexts, game SDK persistence and reference game
-remain open. No new numbered Phase8 package is delivered yet.
+Complete game dependency/export closure is implemented and accepted through Windows
+shared-SDK startup and source-free fresh-machine relocation. Collision assets and
+the reusable Jolt character controller are implemented. Windows audit
+[35944038189](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35944038189)
+passed339 general editor and76 physics-level input steps; changed captures were
+retrieved and reviewed. Final combined package validation follows; see
+[physics](physics.md). Complete gameplay/menu input contexts,
+game SDK persistence and the reference game remain open. No new numbered Phase8
+package is delivered yet.
 
 Foundation source `d2f6ceb` passed Windows core70/70 and shared SDK81/81 in
 [run35820752072](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35820752072).
@@ -22,7 +28,7 @@ runtime installation checks, in
 [run35823097419](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35823097419).
 These internal changes are not present in the previously delivered editor ZIP.
 
-## Latest delivered editor — Build 260923-000066
+## Phase 7 delivery — Build 260923-000066
 
 Source `794a88a3baed6ccd3e64ea6dfbe6b0f9f6389064` completed Phase7 hardening in
 [run35815081663](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35815081663).
