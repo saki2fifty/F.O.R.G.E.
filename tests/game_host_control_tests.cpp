@@ -36,13 +36,20 @@ void run(const std::filesystem::path& root) {
     module.dependencies = {"forge.game"};
     module.allowed_services = capability(Capability::Game);
     module.runtime_roles = role_mask(WorldRole::Runtime);
-    GameSaveSchema schema{1,
+    bool reject_migration = false;
+    GameSaveSchema schema{2,
                           [](const GameSave& save) {
                               if (!save.data.at("counter").is_number_integer() ||
                                   save.data.at("counter") < 0)
                                   throw std::runtime_error("Invalid counter");
                           },
                           {}};
+    schema.migrations[1] = [&](GameSave save) {
+        if (reject_migration)
+            throw std::runtime_error("Game migration rejected legacy state");
+        save.data["migrated"] = true;
+        return save;
+    };
     module.start = [schema](ModuleContext& c) {
         c.services.game()->save_schema(c.id, schema, c.code);
     };
@@ -158,6 +165,30 @@ void run(const std::filesystem::path& root) {
               game.active().scene.asset_id() == asset &&
               std::filesystem::file_size(storage.root() / "slot-broken.json") == 11,
           "Corrupt save request lost the world or modified the file");
+    const GameSaveSchema legacy{1, schema.validate, {}};
+    storage.save("legacy", {asset, {{"counter", 7}}}, legacy);
+    auto legacy_bytes = [&] {
+        std::ifstream file(storage.root() / "slot-legacy.json", std::ios::binary);
+        return std::string(std::istreambuf_iterator<char>(file), {});
+    };
+    const auto original_legacy = legacy_bytes();
+    const auto migrated = request({{"operation", "load"}, {"slot", "legacy"}, {"activate", false}});
+    check(migrated.state == "succeeded" && migrated.value.at("data").at("migrated") == true &&
+              legacy_bytes() == original_legacy,
+          "Queued save migration failed or rewrote the source slot");
+    const auto multiple = request({{"operation", "slots"}}).value;
+    check(multiple.size() == 3, "Queued enumeration omitted independent/corrupt slots");
+    reject_migration = true;
+    const auto failed = request({{"operation", "load"}, {"slot", "legacy"}});
+    check(failed.state == "failed" && failed.error == "Game migration rejected legacy state" &&
+              legacy_bytes() == original_legacy && game.active().scene.asset_id() == asset &&
+              game.status().at("prepared_ticket") == 0,
+          "Failed queued migration damaged the save or changed the current scene");
+    reject_migration = false;
+    check(request({{"operation", "erase"}, {"slot", "legacy"}}).state == "succeeded" &&
+              !std::filesystem::exists(storage.root() / "slot-legacy.json") &&
+              storage.load("one", schema).data.at("counter") == 43,
+          "Deleting one slot affected another slot");
     auto old = game.active().engine.services().game();
     old->request("game.test", {{"operation", "load"}, {"slot", "one"}, {"run", false}});
     host.pump(RuntimeClock::Time{});

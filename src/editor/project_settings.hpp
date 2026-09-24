@@ -277,6 +277,7 @@ class ProjectSettingsEditor {
                         int priority = context.value("priority", 0);
                         if (ImGui::InputInt("Priority", &priority))
                             context["priority"] = priority;
+                        FORGE_UI_PROBE("input-context-priority:" + old_name);
                         ui::help("Higher values route first. Accepted range: -10000 to 10000.");
                         bool active = context.value("active", false),
                              consume = context.value("consume", true);
@@ -300,6 +301,7 @@ class ProjectSettingsEditor {
                                     context["phase"] = choice;
                             ImGui::EndCombo();
                         }
+                        FORGE_UI_PROBE("input-context-evaluation:" + old_name);
                         ui::help(
                             "Fixed actions feed simulation snapshots. Control actions run in the "
                             "standalone host's control callback, including while paused.");

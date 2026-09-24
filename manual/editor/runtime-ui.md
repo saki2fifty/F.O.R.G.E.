@@ -49,6 +49,22 @@ button:hover { background-color: #477da9; }
 
 FORGE supplies the data model automatically; omit `data-model` attributes. `tick` and `paused` reflect gameplay state. Registered gameplay commands and additional values require gameplay code; the included pause/step example works without it. Events request changes from gameplay. A text field's local contents are transient and do not automatically change game state.
 
+## Layout your document
+
+RmlUi does not supply a browser's default HTML layout. If a menu collapses into a
+narrow strip, give its containers block layout in your stylesheet:
+
+```css
+body, div, h1, h2, p { display: block; }
+```
+
+Set the sizes and spacing your design needs. Use percentage widths with a maximum
+width and scrolling for long menus so controls remain reachable in smaller windows.
+The reference game's stylesheet provides a working example.
+Scrollable documents must also style native `scrollbarvertical` with an explicit
+width; otherwise its auto-sized box can consume the menu content width. The
+reference stylesheet includes a visible track and draggable thumb.
+
 ## Styles, fonts and images
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.

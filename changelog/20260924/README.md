@@ -212,3 +212,15 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   menu cards, with geometry regressions at 1280×720 and 640×480.
 - Restricted the old cube-only capture contrast assertion to its original fixture;
   the reference game uses its own menu/input/geometry and visual acceptance.
+- Editor acceptance now scrolls to and captures the active/default and new inactive
+  context policies, rather than only capturing the section header.
+- Documented RmlUi's inline layout defaults and explicit container styling in both
+  runtime UI technical documentation and the user manual.
+- Added queued gameplay-service regression coverage for successful migration,
+  migration-callback failure preserving file/world, multiple slots and isolated deletion.
+- Continue appears only after a valid save is found. Generic RmlUi button elements
+  do not implement HTML disabled attributes; native binding/focus tests now check
+  that Continue is absent without a save and reachable when one exists.
+- Corrected Options scrollbar styling: the default auto-width scrollbar consumed
+  the content width. A regression now rejects narrow button content at both tested
+  resolutions, in addition to checking the outer card and keyboard navigation.

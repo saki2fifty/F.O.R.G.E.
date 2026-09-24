@@ -626,6 +626,10 @@ class EditorInputWorkflow {
         capture("input-context-default");
         click("button:Add context");
         capture("input-context-authoring");
+        hover("input-context-evaluation:Gameplay");
+        capture("input-context-gameplay-policy");
+        hover("input-context-evaluation:Context 1");
+        capture("input-context-inactive-policy");
         click("button:Save Settings");
         click("button:Close Settings");
         text("export:Destination", path_utf8(evidence / "exported-game"));

@@ -303,6 +303,14 @@ int main(int argc, char** argv) {
                               offset.x + size.x <= width + 1 && offset.y + size.y <= height + 1,
                           "Reference menu collapsed or extends outside the viewport");
                 }
+                Rml::ElementList buttons;
+                Rml::GetContext(0)->GetDocument(0)->GetElementsByTagName(buttons, "button");
+                for (auto* button : buttons) {
+                    if (!button->IsVisible(true))
+                        continue;
+                    check(button->GetBox().GetSize(Rml::BoxArea::Content).x >= 150,
+                          "Reference menu control content is squeezed into a narrow column");
+                }
                 check(visible == 1, "Reference menu has missing or overlapping cards");
             };
             menu_geometry(1280, 720);
@@ -315,6 +323,18 @@ int main(int argc, char** argv) {
             auto ack = *command;
             ack["ok"] = true;
             p.acknowledge(ack);
+            p.navigate("next");
+            check(Rml::GetContext(0)->GetFocusElement()->GetInnerRML() == "Load Game",
+                  "Continue remained reachable without a valid save");
+            sample["revision"] = sample.at("revision").get<unsigned>() + 1;
+            sample["documents"][0]["model"]["have_save"] = true;
+            check(p.accept(sample), p.diagnostic().c_str());
+            p.update(1.1, 1280, 720);
+            p.release_input();
+            p.navigate("next");
+            p.navigate("next");
+            check(Rml::GetContext(0)->GetFocusElement()->GetInnerRML() == "Continue",
+                  "A valid save did not expose Continue to menu navigation");
             double reference_time = 2;
             for (auto page : {"play", "pause", "options"}) {
                 sample["revision"] = sample.at("revision").get<unsigned>() + 1;

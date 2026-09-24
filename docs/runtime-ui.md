@@ -44,6 +44,19 @@ Bounds include: 256 KiB per RML/RCSS, 32 resources / 32 MiB per candidate contex
 
 Reload UI creates a fresh context/resource snapshot, binds copied values, loads documents, updates layout and prepares initial geometry/textures through a non-drawing render gate. Only a successful candidate replaces the previous context. Failure retains the prior usable presentation and reports an error. RmlUi deferred document destruction is completed by destroying the candidate/old context while its callbacks and resources are still alive. Global styles are cleared for each candidate; old documents retain their own live references. Font family caches are global to the presenter: change the family or restart Play when replacing a font with the same family.
 
+## Layout defaults
+
+RmlUi is not a browser with an HTML user-agent stylesheet. At the pinned revision,
+`StyleSheetSpecification.cpp` registers `display: inline` as the default; the
+upstream `Samples/assets/rml.rcss` explicitly makes `div`, `p` and `h1` block elements.
+Game documents must declare their intended layout, for example
+`body, div, h1, h2, p { display: block; }`. FORGE does not inject a global style
+reset into authored UI assets. Bound menu widths/heights to the viewport and check
+actual element geometry as well as command navigation and rendered captures.
+Scrollable documents must also style native `scrollbarvertical` with an explicit
+width; otherwise its auto-sized box can consume the menu content width. The
+reference stylesheet includes a visible track and draggable thumb.
+
 ## Rendering
 
 RmlUi geometry uses immutable Diligent buffers, a dynamic transform/screen constant buffer, scissor rectangles, transformed geometry and stencil clip masks. UI draws over the freshly rendered scene into its RGBA8 UNORM target. The viewport already redraws during Play, so transparent HUDs do not accumulate over a retained scene.
