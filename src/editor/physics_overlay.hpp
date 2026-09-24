@@ -9,6 +9,7 @@ namespace forge::ui {
 class PhysicsOverlay {
   public:
     bool visible = false;
+    const std::string& status() const { return status_; }
     bool ready() const {
         return visible && !geometry_.triangles.empty() && good_ == key_ && error_.empty();
     }
@@ -39,6 +40,7 @@ class PhysicsOverlay {
             attempt_.clear();
             good_.clear();
             error_.clear();
+            status_.clear();
             entity_ = selected;
             project_ = project;
         }
@@ -134,12 +136,13 @@ class PhysicsOverlay {
                    Json::array({pose.scale.x, pose.scale.y, pose.scale.z}).dump() + revision +
                    (crouched ? "crouched" : "standing");
             if (!job_.valid() && key_ != attempt_) {
+                const auto snapshot = snapshot_physics_debug_collision(collision);
                 work_ = attempt_ = key_;
                 work_entity_ = entity_;
                 work_project_ = project_;
                 job_ = std::async(
-                    std::launch::async, [components, scale = pose.scale, collision, crouched] {
-                        return prepare_physics_debug(components, scale, collision, crouched);
+                    std::launch::async, [components, scale = pose.scale, snapshot, crouched] {
+                        return prepare_physics_debug(components, scale, snapshot, crouched);
                     });
             }
             if (good_ != key_) {
@@ -211,10 +214,11 @@ class PhysicsOverlay {
         draw->AddText(ImGui::GetFont(), ImGui::GetFontSize(), text, color, note.c_str(), nullptr,
                       width);
         draw->PopClipRect();
+        status_ = note;
     }
 
   private:
-    std::string entity_, key_, attempt_, good_, work_, error_, selection_;
+    std::string entity_, key_, attempt_, good_, work_, error_, selection_, status_;
     std::string work_entity_;
     std::filesystem::path project_, work_project_;
     AssetId asset_;

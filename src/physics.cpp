@@ -323,8 +323,14 @@ std::string digest(const std::string& text) {
     return std::to_string(h);
 }
 } // namespace
+PhysicsDebugCollision
+snapshot_physics_debug_collision(const ResourceLease<CollisionAsset>& collision) {
+    if (!collision)
+        return {};
+    return {collision.identity().asset, collision->native};
+}
 PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale scale,
-                                           ResourceLease<CollisionAsset> collision, bool crouched,
+                                           PhysicsDebugCollision collision, bool crouched,
                                            std::size_t limit) {
     if (!limit || limit > 65536)
         throw std::runtime_error("Physics preview triangle budget must be1..65536");
@@ -361,11 +367,11 @@ PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale sc
         if (components.contains("forge.asset_collider")) {
             const auto ref =
                 decoded.template operator()<AssetCollider>("forge.asset_collider").asset;
-            if (!collision || collision.identity().asset != ref.id)
+            if (!collision.native || collision.asset != ref.id)
                 throw std::runtime_error("Collision asset preview is not ready");
-            validate_asset_shape(body, scale, *collision->native);
+            validate_asset_shape(body, scale, *collision.native);
             c.shape = 4;
-            c.prepared = collision->native;
+            c.prepared = collision.native;
         } else {
             if (components.contains("forge.box_collider")) {
                 const auto v = decoded.template operator()<BoxCollider>("forge.box_collider");

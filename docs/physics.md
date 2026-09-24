@@ -232,7 +232,10 @@ next physics synchronization boundary, including while Play is paused. Gameplay
 must observe readiness before adding a previously unloaded AssetCollider.
 
 The Scene's optional selected-object collision preview prepares immutable copied
-geometry on a worker. It extracts triangles from native **leaf** shapes collected
+geometry on a worker. The editor first extracts an immutable native shape snapshot
+on the resource-owner thread; the worker never dereferences an owner-thread resource
+lease. The snapshot retains its Jolt registration and shape across resource retirement.
+It extracts triangles from native **leaf** shapes collected
 by `CollectTransformedShapes`, preserving decorator/compound transformations and
 center of mass. Direct GetTrianglesStart on a non-leaf is invalid in pinned Jolt.
 Geometry remains in scaled local coordinates; moving the object only changes the

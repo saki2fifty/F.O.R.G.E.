@@ -1,4 +1,6 @@
 #include "asset_bytes.hpp"
+#include "collision_selection.hpp"
+#include "physics_debug.hpp"
 #include "runtime_package.hpp"
 #include <forge/game_session.hpp>
 #include <forge/project_lease.hpp>
@@ -7,6 +9,7 @@
 #include <forge/sdk_client.hpp>
 #endif
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <thread>
 using namespace forge;
@@ -47,6 +50,31 @@ Json run_level(const std::filesystem::path& project, const Json& scene,
     require(physics->status().at("characters") == 1, "Acceptance character was not realized");
     require(physics->status().at("collision_resources").size() == 7,
             "Acceptance level missed collision families");
+    {
+        ResourcePool<CollisionAsset> previews;
+        const auto catalog =
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project));
+        for (const auto& row : scene.at("entities")) {
+            const auto& components = row.at("components");
+            if (!components.contains("forge.asset_collider"))
+                continue;
+            const auto asset = components.at("forge.asset_collider").at("asset").get<AssetId>();
+            const auto load = request_collision(previews, project, catalog, {asset});
+            require(previews.wait(load, 30s), "Acceptance collision preview load failed");
+            const auto& scale = components.at("forge.local_scale");
+            const auto snapshot = snapshot_physics_debug_collision(previews.acquire(load));
+            previews.unload({asset}); // Worker snapshot outlives owner-side resource retirement.
+            // Match the editor's owner -> immutable snapshot -> worker route.
+            const auto geometry =
+                std::async(std::launch::async, [components, scale, snapshot] {
+                    return prepare_physics_debug(
+                        components, {scale.at("x"), scale.at("y"), scale.at("z")}, snapshot);
+                }).get();
+            if (geometry.triangles.empty())
+                throw std::runtime_error("Empty collision preview: " +
+                                         row.at("name").get<std::string>());
+        }
+    }
 #ifdef FORGE_ENABLE_NATIVE_SDK
     if (!sdk_library.empty()) {
         const auto& w = world.engine.world().world();

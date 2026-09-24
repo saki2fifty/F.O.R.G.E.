@@ -3419,6 +3419,7 @@ int main(int argc, char** argv) {
                                         {"status", message}};
                 auto observed = state;
                 observed["collision_preview_ready"] = physics_overlay.ready();
+                observed["collision_preview_status"] = physics_overlay.status();
                 observed["physics"] = play.physics_status();
                 observed["collision_document_ready"] =
                     collision_editor.document() && !collision_editor.dirty();

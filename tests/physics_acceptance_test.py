@@ -3,6 +3,8 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import sys
+sys.dont_write_bytecode = True
 from physics_acceptance_fixture import make_project
 
 parser = argparse.ArgumentParser()

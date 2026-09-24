@@ -79,8 +79,9 @@ class EditorInputWorkflow {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
         if (what == "collision-preview") {
-            require(state.at("collision_preview_ready").get<bool>(),
-                    "Collision preview is not ready");
+            if (!state.at("collision_preview_ready").get<bool>())
+                throw std::runtime_error("Collision preview is not ready: " +
+                                         state.value("collision_preview_status", std::string{}));
         } else if (what == "physics-playing") {
             require(state.at("playing").get<bool>() && state.at("control_ready").get<bool>() &&
                         state.at("physics").value("characters", 0) == 1 &&
