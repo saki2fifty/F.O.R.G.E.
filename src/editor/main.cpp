@@ -3422,6 +3422,8 @@ int main(int argc, char** argv) {
                 observed["physics"] = play.physics_status();
                 observed["collision_document_ready"] =
                     collision_editor.document() && !collision_editor.dirty();
+                if (collision_editor.document())
+                    observed["collision_source"] = collision_editor.document()->source().document;
                 observed["model_ready"] =
                     model_imports.placement_ready() && !model_imports.pending();
                 observed["source_imported"] =

@@ -102,6 +102,7 @@ Open **Create / Register**:
 
 - **Import model...** opens [Model import](models.md) for glTF settings, identity review, scene/animation selection and placement.
 - **Import texture...** opens the [Texture import](textures.md) document for image/container settings and safe reimport.
+- **New collision...** creates a reusable [Collision asset](physics.md) with its own source document, shape settings and Save/history. A selected Mesh also offers **Assets → Create Collision from Mesh...**.
 - **New material...** creates a reusable source in the central [Material editor](materials.md).
 - **Import shader...** opens [Shader import](shaders.md) for an existing project program.
 - **New scene** creates an untitled scene through the save guard.
@@ -145,7 +146,7 @@ Copy source files into the project, then choose **Refresh**. Recognized sources
 that have not been registered have the **Not imported** state; choose it in the
 state filter to see them separately. Selecting a source shows its relative path, size
 and kind in Inspector. **Open import / source** opens supported Model, Texture,
-Material or Shader workflows. A source row has no AssetId and cannot be dragged
+Material, Collision or Shader workflows. A source row has no AssetId and cannot be dragged
 into a typed asset field until it has been imported.
 
 FORGE checks project source contents in the background approximately every two

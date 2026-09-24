@@ -298,6 +298,7 @@ separate required delivery gates.
 | Texture | Selected cooked variant(s); admitted raw TGA additionally when used by UI |
 | Shader | Selected target-labelled DXBC artifact; authoring HLSL/includes stay build inputs |
 | Legacy standalone Skeleton / AnimationClip | Strict admitted Ozz archives, converter provenance and skeleton compatibility |
+| Collision | Selected immutable portable geometry bundle and recipe provenance; Build-only Mesh sources excluded; native Jolt shapes prepared at runtime |
 | Navigation | Admitted baked fnav envelope; build-only source geometry excluded |
 | AudioClip | Selected decoded runtime clip envelope; original WAV/import tools excluded |
 | UiDocument / stylesheet / font / UI image | Admitted native RML/RCSS/font/TGA sources, automatic plus required declarations |
@@ -309,7 +310,7 @@ separate required delivery gates.
 
 Exact catalog type identifiers covered by these rows are `scene`, `prefab`,
 `model`, `model_node`, `material_variant`, `mesh`, `material`, `texture`, `shader`,
-`skeleton`, `animation_clip`, `navmesh`, `audio_clip`, `ui_document`,
+`skeleton`, `animation_clip`, `collision`, `navmesh`, `audio_clip`, `ui_document`,
 `ui_stylesheet`, and `ui_font`. Model-owned members are admitted as a complete
 family; engine-reserved IDs resolve to the matching compiled built-ins. UI images
 use `texture` identity rather than a second UI image type. `animation_source` and

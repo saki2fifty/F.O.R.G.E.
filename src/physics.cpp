@@ -739,8 +739,10 @@ struct PhysicsRuntime::Impl {
                 const auto found = collision_tickets.find(id);
                 const auto& selected = catalog->records().at(id).metadata.at("forge.import");
                 if (found != collision_tickets.end() &&
-                    found->second.inspect().identity.revision == selected.at("key") &&
-                    found->second.inspect().source_generation == selected.at("generation"))
+                    found->second.inspect().identity.revision ==
+                        selected.at("key").get<std::string>() &&
+                    found->second.inspect().source_generation ==
+                        selected.at("generation").get<std::uint64_t>())
                     request = found->second;
                 else
                     request = request_collision(*collision_pool, project, catalog, {id});

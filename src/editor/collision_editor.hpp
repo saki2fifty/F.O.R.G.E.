@@ -222,6 +222,21 @@ class CollisionEditor {
     }
 
   private:
+    static const char* shape_label(std::string_view kind) {
+        if (kind == "box")
+            return "Box";
+        if (kind == "sphere")
+            return "Sphere";
+        if (kind == "capsule")
+            return "Capsule";
+        if (kind == "cylinder")
+            return "Cylinder";
+        if (kind == "convex_hull")
+            return "Convex Hull";
+        if (kind == "triangle_mesh")
+            return "Triangle Mesh";
+        return "Compound";
+    }
     std::unique_ptr<CollisionDocument> document_;
     std::unique_ptr<AssetImportService> service_;
     std::shared_ptr<const AssetCatalog> catalog_, published_;
@@ -345,6 +360,7 @@ class CollisionEditor {
             ui::help("Use one imported level of detail for collision. No animated pose or morph "
                      "deformation is baked.");
             ImGui::Checkbox("All parts", &all_parts_);
+            FORGE_UI_PROBE("collision:all-parts");
             ui::help("All parts follows Mesh reimports. A specific part selection is bound to this "
                      "revision and must be deliberately reselected after reimport.");
             if (lod_selection_ < lods.size()) {
@@ -359,7 +375,9 @@ class CollisionEditor {
                                        std::to_string(part.material_slot) + " / " +
                                        std::to_string(part.vertices) + " vertices";
                     ImGui::BeginDisabled(part.topology != MeshTopology::Triangles);
-                    if (ImGui::Checkbox(title.c_str(), &chosen)) {
+                    const bool toggled = ImGui::Checkbox(title.c_str(), &chosen);
+                    FORGE_UI_PROBE("collision:part:" + std::to_string(i));
+                    if (toggled) {
                         if (chosen)
                             part_selection_.insert(i);
                         else
@@ -425,12 +443,18 @@ class CollisionEditor {
             auto& node = draft["nodes"][i];
             ui::IdScope scope(node["id"].get<std::string>().c_str());
             const auto kind = node["kind"].get<std::string>();
-            ImGui::Text("%s%s", node["id"] == draft["root"] ? "Root / " : "Child / ", kind.c_str());
+            ImGui::Text("%s%s", node["id"] == draft["root"] ? "Root / " : "Child / ",
+                        shape_label(kind));
             ui::help("Stable child identity is retained when dimensions and local pose change.");
-            if (ImGui::BeginCombo("Shape", kind.c_str())) {
+            const bool shape_open = ImGui::BeginCombo("Shape", shape_label(kind));
+            if (node["id"] == draft["root"])
+                FORGE_UI_PROBE("collision:shape");
+            if (shape_open) {
                 for (auto name : {"box", "sphere", "capsule", "cylinder", "convex_hull",
                                   "triangle_mesh", "compound"}) {
-                    if (ImGui::Selectable(name, kind == name)) {
+                    const bool picked = ImGui::Selectable(shape_label(name), kind == name);
+                    FORGE_UI_PROBE(std::string("collision:kind:") + name);
+                    if (picked) {
                         node["kind"] = name;
                         node.erase("source");
                         node["children"] = Json::array();

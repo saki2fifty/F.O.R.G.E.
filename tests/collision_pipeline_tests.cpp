@@ -170,6 +170,8 @@ int main(int argc, char** argv) {
         auto source = CollisionSource::from_mesh(AssetId::generate(), CollisionKind::ConvexHull,
                                                  engine_primitive(0));
         auto& node = source.document["nodes"][0];
+        node["source"]["parts"] = {0};
+        node["source"]["revision"] = engine_asset_revision(engine_primitive(0).id);
         const auto path = root / "Assets/test.collision.json";
         save(path, source);
         AssetImportService service(lease, collision_import_registry(), {"linux", "none", "cpu"});
@@ -188,6 +190,15 @@ int main(int argc, char** argv) {
                 "Published collision failed runtime preparation: " + ticket.inspect().diagnostic);
         auto original = pool.acquire(ticket);
         require(bool(original), "Published collision resource has no lease");
+        node["source"]["revision"] = std::string(64, '0');
+        save(path, source);
+        const auto stale = import(service, source);
+        require(!stale.published && stale.diagnostic.find("stale") != std::string::npos &&
+                    AssetCatalog::open_project(root).document() == selected &&
+                    pool.current({source.asset()}).identity() == original.identity(),
+                "Stale Mesh part selection did not preserve last-good collision");
+        node["source"]["revision"] = engine_asset_revision(engine_primitive(0).id);
+        save(path, source);
         {
             Module module;
             RuntimeWorld runtime(module, {}, PhysicsConfig{}, std::nullopt, root, false);

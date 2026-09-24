@@ -44,3 +44,9 @@
 
 - Added the reusable physics-level workflow to Windows editor audits and package validation. It captures imported/compound collision, slopes, steps and the character reference shape through real editor input. Execution and image review remain pending.
 - Mesh-part selection now clears stale revision-bound ordinals and requires explicit review after source changes. Recovery rejects mismatched character orientation and nonfinite velocity.
+
+- Final checkpoint Linux core76/76, shared SDK88/88 and strict collision/physics/resource sanitizer4/4 passed. The generated acceptance-level orchestration passed, including cooking and source-free relocation. Windows validation remains pending.
+- Reconciled earlier physics documentation and manual text with the implemented compound, character, named-layer and selected-collision workflows.
+- Added a regression for revision-bound Mesh part selection: a stale source revision must report the mismatch while preserving the published catalog and retained collision shape.
+- Updated Content, asset-format, packaging and SDK documentation for Collision and character/query callbacks, including paused replacement boundaries. Added rotated/nonuniform compound scale regressions against the pinned native validator.
+- Corrected another MSVC JSON comparison in collision revision polling by comparing explicit string/integer values. Extended the Windows input workflow to Mesh-part choice, convex publication, compound editing and Undo; shape labels now use readable names.

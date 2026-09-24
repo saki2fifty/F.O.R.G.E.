@@ -32,7 +32,7 @@ To keep structural ownership while the bodies act independently, set the child's
 
 Objects without a Physics Body—such as a camera mount or visual mesh—can still follow a Dynamic parent. Static and Kinematic bodies can follow supported non-dynamic ancestors. A World-bound intermediary also breaks the spatial chain.
 
-This is an initial restriction on separate simulated bodies. Physically connected collision shapes and bodies need future compound-collider or joint features; transform parenting does not create those connections.
+This is an initial restriction on separate simulated bodies. Use one compound collision asset for multiple shapes belonging to the same body. Connecting separate bodies requires future joint support; transform parenting does not create that connection.
 
 Gameplay translation/rotation targets preserve the current local scale. A target that would require changing that scale, or creating shear, is rejected. Rejected target batches leave existing transforms unchanged.
 
@@ -45,7 +45,7 @@ A body currently needs **exactly one** collider, centered on its transform:
 - **Capsule Collider:** `radius` is its radius; `height` is the straight middle section, excluding the two rounded caps. Its long axis is local Y. Total height is `height + 2 × radius`.
 - **Cylinder Collider:** `radius` and full `height` are in meters. Its long axis is local Y, with flat ends.
 
-Collider geometry is independent of the visible primitive. Changing a mesh's Shape does not change its collider. Match their dimensions yourself. Collider wireframes are not available in this first integration.
+Collider geometry is independent of the visible primitive. Changing a mesh's Shape does not change its collider. Match their dimensions yourself. Use **Scene → View → Selected collision** to inspect the collider outline.
 
 Scaled collider dimensions must stay between .001 and 10000 meters. Boxes support signed nonzero scale on each axis. Spheres and capsules require equal nonzero scale magnitudes; their signs may differ. Cylinders require matching X/Z magnitudes; Y can scale independently. These centered shapes are symmetric, so mirroring does not change their physical solid. Zero/tiny scale rejected by Jolt, shear, unresolved spatial parents, and invalid dimensions are rejected before physics realization. Static and kinematic bodies may follow non-dynamic spatial parents when their final world transform meets these restrictions.
 
@@ -69,7 +69,7 @@ A supported Play recovery restores both the scene/configuration and Jolt's simul
 
 Recovery is private to the current session and exact runtime build. It is not a saved game. Invalid, incompatible, incomplete, or oversized checkpoints are rejected; the editor reports failure and offers a clean Play restart. Native module globals and external resources are not automatically recovered.
 
-Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Characters, collision debug drawing and the rest of this Phase8 block are still being integrated; joints, vehicles and cloth are later work.
+Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Character mechanics and selected collision outlines are described below; joints, vehicles and cloth are later work.
 
 See [Play mode](play-mode.md), [Transforms](transforms.md), and [Prefabs](prefabs.md).
 
@@ -95,7 +95,7 @@ then press Play to inspect its supported animation and physics behavior.
 A rendered Mesh does not automatically collide. Create a separate collision asset
 when you want reusable or complex collision geometry.
 
-1. In **Content**, choose **New collision...** and enter a new `.collision.json` path.
+1. In **Content**, choose **Create / Register → New collision...** and enter a new `.collision.json` path. In a short Content panel, open **Actions** first.
 2. Open the **Collision** document and choose its **Shape**.
 3. Set dimensions and local pose. Rotation is entered in degrees. A convex hull or triangle mesh uses the **Source Mesh** picker; it initially selects the engine cube.
 4. For a compound, choose **Add box child**, then edit the child shape and local pose.

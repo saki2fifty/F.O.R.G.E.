@@ -23,7 +23,7 @@ The service slot is per world, while diagnostics/profiling retain existing engin
 
 ## Authored model
 
-`PhysicsBody`: `motion` 0 Static / 1 Kinematic / 2 Dynamic; density kg/m³; mass kg (zero means density); friction; restitution; gravity multiplier. `BoxCollider` has full XYZ dimensions; `SphereCollider` has radius; `CapsuleCollider` has radius and straight cylinder height, Y axis. All use meters before effective world scale. One centered primitive per body is the current subset. A later shape-owner/compound representation can add associated shapes without changing these dimensions or turning Jolt indices into asset identity.
+`PhysicsBody`: `motion` 0 Static / 1 Kinematic / 2 Dynamic; density kg/m³; mass kg (zero means density); friction; restitution; gravity multiplier. `BoxCollider` has full XYZ dimensions; `SphereCollider` has radius; `CapsuleCollider` has radius and straight cylinder height, Y axis. All use meters before effective world scale. CylinderCollider adds a radius and full height. Each enabled body requires exactly one inline collider or AssetCollider. AssetCollider references a separately authored CollisionAsset, including local shape poses and compounds; native subshape indices are not asset identities.
 
 Optional reflected components use existing scene-v3/v4 and prefab-v1 containers. No scene version bump, extra resource manager, persisted solver handles, or separate prefab mechanism. Components retain Flecs inheritance, independent channel ownership and property-level explicit intent. `component.add` creates optional default values; `property.set`, `property.revert`, and `component.revert` share existing transaction/history behavior.
 
@@ -39,7 +39,7 @@ Config changes are compared against realized settings at a safe boundary. Compat
 
 Raycast returns closest hit EntityRef, point, normal and fraction; displacement defines ray length. Results are owning FORGE values and never expose BodyID. Teleport/kinematic commands are bounded to 4096 pending requests and processed at the next pre-physics boundary. PostPhysics commands therefore take effect next tick. Direct physics-component writes belong in Gameplay before synchronization; capture rejects unsynchronized component or world-pose changes after adoption, including movement inherited from nonphysics ancestors. Commands preserve world-space target semantics for supported parent transforms.
 
-Static and moving are internal filtering classes. Static/static pairs are excluded; moving bodies interact with static/moving. These Jolt layer numbers are not serialized. Future authored collision layers need their own versioned project contract.
+Static and moving are internal filtering classes. Static/static pairs are excluded; moving bodies interact with static/moving. These Jolt layer numbers are not serialized. Authored layers use stable named project slots and symmetric masks through native CollisionGroup filtering, described below.
 
 Contact callbacks append bounded token records under a mutex. After Update, the owner thread resolves current tokens to EntityRefs, drops retired-body tokens and exposes `PhysicsContact` values until the next adoption. These are **solver contact-cache Begin/End**, not a promise of geometric overlap Begin/End: Jolt can remove contacts when bodies sleep. Events are transient; no generic bus or persisted contact entities. The narrow exact SDK currently exposes raycast and movement, not contact iteration.
 
@@ -61,7 +61,7 @@ The exact fingerprint covers the callback table plus FORGE physics component def
 
 ## Deferred
 
-Compound authoring, mesh/heightfield collision, character/vehicle/joint/soft-body/cloth systems, authored named collision filters, advanced material assets, collider visualization, broad physics query families, and durable savegames. Physics does not authorize the audio/animation/navigation/game-UI phases.
+Heightfield collision, vehicles, joints, soft bodies, cloth, advanced material assets and additional query families remain future work. Durable game saves use explicit game-owned data; private solver checkpoints are not a save-game format. Compound, triangle-mesh, character, named-layer and collision-preview support are described below.
 
 ### Signed visual scale versus collider admission
 
@@ -156,8 +156,8 @@ Filtered rays independently choose queried layers and whether sensors count.
 The Collision document uses the same UI-independent source/history owner as Material,
 with format-specific validation. Source Save and cooked publication remain separate:
 failed cooking preserves the saved source for correction and the prior usable artifact.
-Collision debug drawing, complete character/SDK integration, full validation and
-Windows visual acceptance remain required in this authorized block.
+Collision debug drawing and character/SDK integration are implemented below. Final
+Windows execution and visual acceptance are tracked separately from source support.
 
 ### Character controller integration (Phase8 source work)
 
@@ -168,7 +168,7 @@ A controller uses **World** spatial binding and cannot share an enabled PhysicsB
 Visual children may follow it. Separate Static/Kinematic bodies may not spatially
 follow it; use World binding or deliberately authored compound collision instead.
 
-PhysicsRuntime owns one Jolt CharacterVirtual and optional-native inner body per
+PhysicsRuntime owns one Jolt CharacterVirtual and a native inner body per
 controller. Character was evaluated: its rigid-body/PostSimulation route does not
 provide the same native ExtendedUpdate stair/floor and collision-tested SetShape
 workflow. FORGE uses CharacterVirtual's native mechanics rather than implementing

@@ -123,6 +123,21 @@ int main() {
                 "Compound child order changed cooked bytes");
         auto reordered = physics_detail::prepare_collision(d);
         require(reordered->members == compound->members, "Reorder changed member mapping");
+        {
+            auto scaled = d;
+            scaled.nodes[0].scale = {-2, 2, 2};
+            require(bool(physics_detail::prepare_collision(scaled)->shape),
+                    "Uniform-magnitude reflected compound rejected");
+            scaled.nodes[0].scale = {2, 1, 1};
+            rejects([&] { physics_detail::prepare_collision(scaled); }); // Sphere child.
+            scaled.nodes[2] = node(CollisionKind::Box);
+            scaled.nodes[1].rotation = {0, 0, .38268343f, .92387953f};
+            rejects(
+                [&] { physics_detail::prepare_collision(scaled); }); // Rotated nonuniform scale.
+            scaled.nodes[0].scale = {2, 2, 2};
+            require(bool(physics_detail::prepare_collision(scaled)->shape),
+                    "Representable rotated compound rejected");
+        }
         d.nodes[0].children = {0, 2};
         rejects([&] { encode_collision(d); });
         d.nodes[0].children = {1, 1};

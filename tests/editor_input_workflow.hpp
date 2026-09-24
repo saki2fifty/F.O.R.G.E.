@@ -87,6 +87,17 @@ class EditorInputWorkflow {
                         state.at("physics").contains("character_debug") &&
                         state.at("physics").at("character_debug").at("ground") == 0,
                     "Character Play ground observation is not ready");
+        } else if (what == "collision-convex-parts" || what == "collision-compound") {
+            const auto& source = state.at("collision_source");
+            const auto& root = source.at("nodes").at(0);
+            if (what == "collision-compound")
+                require(root.at("kind") == "compound" && source.at("nodes").size() == 2,
+                        "Compound authoring did not create its child");
+            else
+                require(root.at("kind") == "convex_hull" && source.at("nodes").size() == 1 &&
+                            root.at("source").at("parts") == Json::array({0}) &&
+                            !root.at("source").at("revision").get<std::string>().empty(),
+                        "Explicit convex Mesh-part selection was not preserved");
         } else if (what == "collision-published") {
             require(state.at("collision_document_ready").get<bool>(),
                     "Collision document has not published");
@@ -626,6 +637,24 @@ class EditorInputWorkflow {
         click("collision:save");
         check("collision-published");
         capture("collision-published");
+        click("collision:shape");
+        click("collision:kind:convex_hull");
+        click("button:Choose mesh geometry...");
+        click("collision:all-parts");
+        click("collision:part:0");
+        capture("collision-mesh-part-selection");
+        click("button:Use geometry");
+        check("collision-convex-parts");
+        click("collision:save");
+        check("collision-published");
+        capture("collision-convex-published");
+        click("collision:shape");
+        click("collision:kind:compound");
+        check("collision-compound");
+        capture("collision-compound-document");
+        key(ImGuiKey_Z, true);
+        check("collision-convex-parts");
+        capture("collision-compound-undo");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {

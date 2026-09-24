@@ -130,7 +130,7 @@ resource limits before owner-thread schema admission. This extraction checkpoint
 alone does not make a custom component editable, persisted or prefab-aware; those
 consumers are still under implementation. Rebuild modules after this exact SDK change.
 
-## Cooked render resources in gameplay
+## Cooked resources in gameplay
 
 The exact SDK exposes CPU resource admission through `sdk::Client`. Add
 `FORGE_SDK_RESOURCES` to the module's allowed capabilities. If startup requires
@@ -149,7 +149,7 @@ if (token && client.inspect_resource(token, status)) {
 client.release_resource(token);
 ```
 
-Supported kinds are Mesh, Material, Texture and Shader. Typed identity is checked
+Supported kinds are Mesh, Material, Texture, Shader and Collision. Typed identity is checked
 before dispatch. Only already-cooked content is loaded; gameplay does not invoke
 source importers or shader compilers. Texture requests default to color (HDR where
 available). Pass `FORGE_SDK_TEXTURE_COLOR`, `FORGE_SDK_TEXTURE_DATA`,
@@ -163,7 +163,11 @@ the headless simulation worker.
 Requests and observations are owner-thread operations during native startup or
 running state; they do not require a fixed tick. Adoption occurs before fixed
 simulation and during presentation extraction, including while paused. The
-existing asset-publication notification refreshes the captured catalog. Compare
+existing asset-publication notification refreshes the captured catalog. Collision
+subscriptions delegate to the physics owner: preparation can advance while paused,
+but an existing body adopts replacement geometry only at a physics synchronization
+boundary. Collision uses its existing256MiB native-shape pool rather than another
+render-resource cache. Compare
 revision strings to detect a successful replacement. While it is pending or
 failed, `retained_revision` can still identify the previous usable resource.
 A failed catalog refresh keeps the prior selection and emits a diagnostic.
@@ -228,3 +232,26 @@ does not alter the editor's authored scene, add scene Undo, write project files,
 or promise generic recovery of custom native runtime state. No Diligent pointer or
 resource ownership is exposed. The appended callbacks and value headers are part
 of the exact fingerprint; rebuild matching modules. ABI1 remains unchanged.
+
+## Character mechanics and filtered physics queries
+
+Declare the Physics capability and provider dependency for fixed-tick calls. The
+size-checked exact SDK exposes `Client::character` and `character_command` with
+operation0 (planar velocity),1 (jump),2 (crouch), or3 (checked placement),
+as documented in `native_sdk.h`. Observations copy pose, velocity,
+ground classification/normal/velocity/position, supporting EntityRef, crouch state
+and blocked/jump results. Commands request planar world velocity, grounded jump,
+crouch or checked placement. No input binding or FPS camera is implied.
+
+`raycast_filtered` accepts a layer mask and sensor policy. `shape_cast` accepts a
+centered Box/Sphere/Capsule/Cylinder with fixed orientation and linear displacement;
+results are copied entity/point/normal/fraction values. No mesh or angular sweep is
+claimed. These APIs share the owner/fixed-tick guards and existing PhysicsService;
+Jolt pointers and native BodyIDs never cross this boundary.
+
+`FORGE_SDK_RESOURCE_COLLISION` requests a cooked asset through the resource service,
+with ordinary module/world token ownership. Observe readiness before introducing a
+new unloaded AssetCollider. Optional failed preloads do not fault unrelated physics.
+The sample `samples/native_sdk/physics_probe.cpp` executes controller/query callbacks;
+the physics acceptance runner checks all seven collision families through actual
+shared-SDK resource callbacks before and after source-free relocation.
