@@ -212,6 +212,8 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
+          cmake -S . -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=ON -DFORGE_BUILD_ASSET_TOOLS=ON -DCMAKE_PROJECT_INCLUDE:FILEPATH="${{ runner.temp }}/forge-work/AgentFiles/benchmark-target/inject.cmake"
+          if ($LASTEXITCODE) { throw 'Benchmark configure failed' }
           cmake --build ../AgentFiles/b --target forge_editor_benchmark --parallel 2
           if ($LASTEXITCODE) { throw 'Benchmark build failed' }
           $out='../AgentFiles/benchmark-current'

@@ -68,7 +68,8 @@ int main(int argc, char** argv) {
             .set<AudioListener>({});
         Light sun;
         sun.intensity = 3;
-        scene.entity(light_id).set(sun).set<LocalRotation>({-.3f, .2f, 0, .9327379f});
+        scene.entity(light_id).set<LocalTranslation>({}).set(sun).set<LocalRotation>(
+            {-.3f, .2f, 0, .9327379f});
         for (auto [id, x] : {std::pair{reference::switch_id, 0.0}, {reference::door_id, 3.0}})
             scene.entity(id)
                 .set<LocalTranslation>({x, 1.5, -4})
@@ -127,7 +128,10 @@ int main(int argc, char** argv) {
                                                  {"name", "Menu background"},
                                                  {"components", Json::object()}}})}});
         menu.entity(menu_ui.str()).set<UiDocument>({{ui.id}});
-        menu.entity(menu_camera.str()).set<Camera>({}).set<Primitive>({no_primitive});
+        menu.entity(menu_camera.str())
+            .set<LocalTranslation>({})
+            .set<Camera>({})
+            .set<Primitive>({no_primitive});
         menu.save(root / "menu.scene.json");
         catalog = AssetCatalog::open_project(root);
         catalog.add_scene("level.scene.json");

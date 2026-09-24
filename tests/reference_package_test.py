@@ -38,6 +38,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE reference export ') as temporary:
     result = run([build / 'forge_tools.exe', '--assets', 'export-game', project, json.dumps(dict(
         destination=str(work / 'export'), runtime_kit=str(testkit), module_kits={'project.reference': str(module_kit)}))], 'export.log')
     assert json.loads(result.stdout)['ok'], result.stdout
+    production = run([build / 'forge_tools.exe', '--assets', 'export-game', project, json.dumps(dict(
+        destination=str(work / 'production'), runtime_kit=str(kit), module_kits={'project.reference': str(module_kit)}))], 'production-export.log')
+    assert json.loads(production.stdout)['ok'], production.stdout
     destination = work / 'Relocated Field Test'
     shutil.move(str(work / 'export'), destination)
     shutil.rmtree(project)
@@ -100,4 +103,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE reference export ') as temporary:
         preferences.write_bytes(good_preferences)
     if retain.exists():
         raise RuntimeError('Refusing to overwrite prior reference evidence package')
-    shutil.copytree(moved, retain)
+    shipping = work / 'Relocated Production Field Test'
+    shutil.move(str(work / 'production'), shipping)
+    assert not (shipping / 'forge_game_fixture.exe').exists()
+    run([shipping / 'forge_game.exe', '--verify-startup'], 'production-startup.log', cwd=shipping, env=env)
+    shutil.copytree(shipping, retain)

@@ -6,6 +6,7 @@
 #include <forge/native_sdk.hpp>
 #include <forge/navigation.hpp>
 #include <forge/project.hpp>
+#include <forge/render_scene.hpp>
 #include <forge/runtime_ui.hpp>
 #include <fstream>
 #include <iostream>
@@ -79,10 +80,21 @@ int main(int argc, char** argv) {
                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
                     .count());
         };
+        auto check_render = [&] {
+            const auto scene = extract_render_scene(game.active().simulation.presentation(1));
+            require(scene.diagnostics.empty() && scene.omitted_diagnostics == 0,
+                    "Reference scene has invalid presentation components");
+            const auto cameras = prepare_game_cameras(scene, 1280, 720);
+            require(!cameras.cameras.empty() && cameras.diagnostics.empty() &&
+                        cameras.omitted_diagnostics == 0,
+                    "Reference scene has no usable authored camera");
+        };
+        check_render();
         control();
         require(!captured, "Main menu captured the mouse");
         command("start");
         wait_scene(reference::level_scene);
+        check_render();
         require(captured, "Level failed to capture through scoped service");
         double nav_start = 0;
         flecs::entity_t nav_entity = 0, animated = 0;

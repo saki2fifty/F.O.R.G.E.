@@ -189,3 +189,14 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   recovery contract: defaults, logged explanation and preserved source bytes.
   The first Windows audit had correctly recovered and failed the obsolete
   abort-startup expectation; no reference-game visual acceptance was claimed.
+- Reference acceptance now retains a second production export from the normal
+  runtime kit. It is relocated and startup-verified without source content and
+  contains no instrumented fixture executable; the input-test package stays separate.
+
+- Windows reference startup exposed missing authored translations on the generated
+  menu camera and sun. Corrected both and added headless render/camera admission
+  assertions before the longer gameplay acceptance sequence.
+- Standalone graphics now drain pending Diligent commands on exception cleanup,
+  including rejected startup candidates.
+- Restored the editor benchmark target after the standalone-only build check;
+  that check intentionally disables editor targets and clears benchmark injection.

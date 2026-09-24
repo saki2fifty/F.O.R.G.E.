@@ -11,5 +11,11 @@ struct GameDevice {
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> swap;
     explicit GameDevice(SDL_Window*, bool software);
+    ~GameDevice() {
+        // Also drain rejected startup/candidate work during exception unwinding.
+        // Diligent retains submitted resources until their commands complete.
+        if (context)
+            context->WaitForIdle();
+    }
 };
 } // namespace forge
