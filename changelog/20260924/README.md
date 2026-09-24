@@ -1,5 +1,38 @@
 # 2026-09-24
 
+## Delivered — Build 260924-000070
+
+Source `b7f08ba5f18d268d03d5eb46a4004a7411cbab35`,
+[successful validation and package run](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35952645128).
+This is the combined Phase8 standalone/export, Collision asset and reusable character
+foundation delivery. Earlier checkpoint notes below preserve the validation history.
+
+- Seven Collision families: Box, Sphere, Capsule, Cylinder, Convex Hull, static
+  Triangle Mesh and Compound; explicit Mesh-derived recipes, safe publication,
+  last-good retention, runtime loading and source-free export/relocation.
+- Reusable Jolt CharacterVirtual mechanics: grounding, slopes, stairs, jump requests,
+  translating/rotating platforms, bounded pushing, checked placement, crouch/stand,
+  filtering, private recovery and exact-SDK access. No FPS movement keys are added.
+- Central Collision editing, independent source history, typed asset assignment,
+  named collision layers and optional selected-object collision/character guides.
+  User manual and technical contracts describe the supported workflows and limits.
+- Linux core76/76 (135.60s), shared SDK88/88 (74.65s); Windows core76/76
+  (375.45s), shared SDK88/88 (118.09s). Windows editor controllers2/2 (21.83s),
+  broader editor/render/asset suite123/123 (469.94s), shared standalone6/6 (25.90s)
+  and fresh-machine relocation passed. The361-step editor and76-step physics
+  workflows passed; final assignment and grounded-character captures were reviewed.
+- Retained strict sanitizer evidence covers collision admission/publication,
+  resource lifetime, character/physics mechanics and the focused preview corrections.
+  The separately documented Flecs managed-include exception is unchanged.
+- Download verification passed build/source identity, ZIP CRC,777 outer hashes,
+  255 SDK hashes, four x64 executable headers and42 matching offline manual pages.
+  SHA256: `a6214ee1d24cd32bcc6b7d20d1dcb9f4c53bd1d117a84c6ee0b973dddf100887`.
+- Package staging and duplicate extractions were cleaned; the prior delivered ZIP
+  was archived. Builds67–69 failed validation and were never delivered.
+- Physical GPU/display/audio checks remain separate. Phase8 input/reference-game
+  integration remains unfinished; Phase9 has not begun.
+
+
 ## Collision and reusable character foundation — verification in progress
 
 - Continued full core/shared-SDK and Windows input validation of internal checkpoint

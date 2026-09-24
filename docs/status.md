@@ -12,13 +12,20 @@ are implemented in source and verified on Windows/WARP, including a build with
 the editor/import tooling disabled; see [host scope](standalone-host.md).
 Complete game dependency/export closure is implemented and accepted through Windows
 shared-SDK startup and source-free fresh-machine relocation. Collision assets and
-the reusable Jolt character controller are implemented. Windows audit
-[35944038189](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35944038189)
-passed339 general editor and76 physics-level input steps; changed captures were
-retrieved and reviewed. Final combined package validation follows; see
-[physics](physics.md). Complete gameplay/menu input contexts,
-game SDK persistence and the reference game remain open. No new numbered Phase8
-package is delivered yet.
+the reusable Jolt character controller are delivered in **Build 260924-000070**,
+source `b7f08ba5f18d268d03d5eb46a4004a7411cbab35`,
+[run 35952645128](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35952645128).
+Linux and Windows each passed core **76/76** and shared SDK **88/88**. Windows
+editor controllers passed **2/2**, the broader editor/render/asset suite **123/123**,
+and shared standalone **6/6** plus fresh-machine relocation. The **361-step editor**
+and **76-step physics** workflows passed; final assignment and grounded-character
+captures were opened and reviewed. ZIP identity, 777 outer hashes, 255 SDK hashes,
+four x64 executable headers and the matching 42-page offline manual were verified.
+See [physics](physics.md) and [the daily changelog](../changelog/20260924/README.md).
+
+Complete gameplay/menu input contexts, game SDK persistence and the reference game
+remain open. This delivery completes the collision/character block, not all of Phase8.
+Physical GPU/display/audio acceptance remains separate from hosted WARP validation.
 
 Foundation source `d2f6ceb` passed Windows core70/70 and shared SDK81/81 in
 [run35820752072](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35820752072).
@@ -26,7 +33,7 @@ The later OS/navigation/world-clock bundle `b7558c1` has focused static/shared/s
 sanitizer coverage and passed Windows core71/71 and shared SDK82/82, plus
 runtime installation checks, in
 [run35823097419](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35823097419).
-These internal changes are not present in the previously delivered editor ZIP.
+Those earlier source-only checkpoints are now included in Build 260924-000070.
 
 ## Phase 7 delivery — Build 260923-000066
 
