@@ -622,6 +622,10 @@ class EditorInputWorkflow {
         click("button:Use saved current scene as startup");
         click("button:Set up game defaults");
         capture("standalone-game-settings");
+        click("button:Enable input contexts");
+        capture("input-context-default");
+        click("button:Add context");
+        capture("input-context-authoring");
         click("button:Save Settings");
         click("button:Close Settings");
         text("export:Destination", path_utf8(evidence / "exported-game"));

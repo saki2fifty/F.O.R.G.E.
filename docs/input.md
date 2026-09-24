@@ -103,3 +103,9 @@ Runtime UI actions remain argument-free unless the module explicitly registers a
 value action. Value actions accept one bounded string, with copied two-pass SDK
 polling. Semantic menu navigation uses RmlUi's own Tab/ShiftTab/Return behavior;
 controller mapping remains in the normal input map.
+
+A radial binding reads both axes of its stick even when it contributes only one
+axis to an action. Both axes participate in context routing/conflict discovery;
+a higher context can suppress either sample. Changes to the perpendicular axis
+also update digital threshold edges. This keeps a one-axis radial binding radial,
+instead of silently reverting to an axis-wise deadzone.

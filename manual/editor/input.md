@@ -70,3 +70,27 @@ listen for a new key, mouse button or gamepad control. Escape cancels listening.
 The [reference game](../reference-game.md) exercises these operations in its
 Options screen. Game settings are stored for the current operating-system user;
 rebinding does not edit the project's default input map.
+
+## Author input contexts
+
+Open **Project Settings**. For a project using the older action map, choose
+**Enable input contexts**. Existing actions keep their IDs and bindings and enter
+an initially active **Gameplay** context. Changes remain a draft until **Save Settings**.
+
+**Add context** creates an inactive context. Its **Priority** determines routing:
+higher values run first; equal values use the displayed declaration order.
+**Consume controls** blocks those controls in lower-priority contexts. Clear it
+for deliberate pass-through. **Initially active** sets the state of a new world.
+Gameplay code can change active contexts through the session service.
+
+Choose **Fixed simulation** for movement and other simulation actions, or
+**Control frame (menus)** for the standalone host's paused-menu callbacks.
+Each action has a **Context** selector. Reassign its actions before removing a
+context; the last context cannot be removed. Press **Enter** to confirm a unique
+context name. Renaming updates project action
+references, but gameplay code using the old name must be updated separately.
+
+For stick bindings, **Radial deadzone** uses the stick's circular magnitude.
+Digital actions can use **Press threshold** and **Negative direction** on analog
+controls. Mouse movement cannot be a digital binding. Save validates the complete
+candidate; invalid or duplicate bindings leave the previous project settings intact.

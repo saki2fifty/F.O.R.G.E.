@@ -206,6 +206,122 @@ class ProjectSettingsEditor {
                 }
                 ImGui::TreePop();
             }
+            auto& input = draft_["input"];
+            if (input.at("version") == 1) {
+                if (ui::button("Enable input contexts",
+                               "Put existing actions in an active Gameplay context. Save settings "
+                               "validates the candidate; action identities and bindings stay "
+                               "unchanged.")) {
+                    input["version"] = 2;
+                    input["contexts"] = Json::array({{{"name", "Gameplay"},
+                                                      {"priority", 0},
+                                                      {"consume", true},
+                                                      {"active", true},
+                                                      {"phase", "fixed"}}});
+                    for (auto& action : input["actions"])
+                        action["context"] = "Gameplay";
+                }
+            }
+            if (input.at("version") == 2) {
+                ui::heading("Input contexts",
+                            "Higher priority routes first; equal priorities use "
+                            "declaration order. Gameplay code selects active contexts at runtime.");
+                auto& contexts = input["contexts"];
+                ImGui::BeginDisabled(contexts.size() >= 32);
+                if (ui::button("Add context",
+                               "Add an inactive context. Assign actions below, then "
+                               "activate it through the gameplay service when needed.")) {
+                    unsigned suffix = 1;
+                    std::string name;
+                    do {
+                        name = "Context " + std::to_string(suffix++);
+                    } while (std::any_of(contexts.begin(), contexts.end(), [&](const Json& item) {
+                        return item.at("name") == name;
+                    }));
+                    contexts.push_back({{"name", name},
+                                        {"priority", 0},
+                                        {"consume", true},
+                                        {"active", false},
+                                        {"phase", "fixed"}});
+                }
+                ImGui::EndDisabled();
+                int remove_context = -1;
+                for (std::size_t index = 0; index < contexts.size(); ++index) {
+                    auto& context = contexts[index];
+                    ImGui::PushID(static_cast<int>(index));
+                    const auto old_name = context.at("name").get<std::string>();
+                    if (ImGui::TreeNodeEx("Context", ImGuiTreeNodeFlags_DefaultOpen, "%s",
+                                          old_name.c_str())) {
+                        ui::help(
+                            "Context policy. Renaming also updates these project actions; "
+                            "gameplay code that uses the old name must be updated separately.");
+                        char name[129]{};
+                        SDL_strlcpy(name, old_name.c_str(), sizeof(name));
+                        if (ImGui::InputText("Context name", name, sizeof(name),
+                                             ImGuiInputTextFlags_EnterReturnsTrue)) {
+                            const bool duplicate = std::any_of(
+                                contexts.begin(), contexts.end(), [&](const Json& item) {
+                                    return &item != &context && item.at("name") == name;
+                                });
+                            if (!name[0] || duplicate) {
+                                error_ = "Context name must be nonempty and unique";
+                            } else {
+                                context["name"] = name;
+                                for (auto& action : input["actions"])
+                                    if (action.at("context") == old_name)
+                                        action["context"] = name;
+                            }
+                        }
+                        ui::help("Unique context name, used by gameplay activation requests. Press "
+                                 "Enter to rename.");
+                        int priority = context.value("priority", 0);
+                        if (ImGui::InputInt("Priority", &priority))
+                            context["priority"] = priority;
+                        ui::help("Higher values route first. Accepted range: -10000 to 10000.");
+                        bool active = context.value("active", false),
+                             consume = context.value("consume", true);
+                        if (ImGui::Checkbox("Initially active", &active))
+                            context["active"] = active;
+                        ui::help(
+                            "Initial state in a newly activated world; gameplay can change it.");
+                        if (ImGui::Checkbox("Consume controls", &consume))
+                            context["consume"] = consume;
+                        ui::help("Block these physical controls in lower-priority contexts. Clear "
+                                 "for pass-through.");
+                        const auto phase = context.value("phase", std::string("fixed"));
+                        if (ImGui::BeginCombo("Evaluation", phase == "fixed"
+                                                                ? "Fixed simulation"
+                                                                : "Control frame (menus)")) {
+                            for (const char* choice : {"fixed", "control"})
+                                if (ImGui::Selectable(std::string_view(choice) == "fixed"
+                                                          ? "Fixed simulation"
+                                                          : "Control frame (menus)",
+                                                      phase == choice))
+                                    context["phase"] = choice;
+                            ImGui::EndCombo();
+                        }
+                        ui::help(
+                            "Fixed actions feed simulation snapshots. Control actions run in the "
+                            "standalone host's control callback, including while paused.");
+                        const bool used =
+                            std::any_of(input["actions"].begin(), input["actions"].end(),
+                                        [&](const Json& action) {
+                                            return action.at("context") == context.at("name");
+                                        });
+                        ImGui::BeginDisabled(used || contexts.size() == 1);
+                        if (ui::button("Remove context",
+                                       "Only unused contexts can be removed. "
+                                       "Keep at least one context; reassign its actions first."))
+                            remove_context = static_cast<int>(index);
+                        ImGui::EndDisabled();
+                        ImGui::TreePop();
+                    } else
+                        ui::help("Expand this context's routing and execution settings.");
+                    ImGui::PopID();
+                }
+                if (remove_context >= 0)
+                    contexts.erase(contexts.begin() + remove_context);
+            }
             ui::heading("Input actions",
                         "Project-owned stable action identities. Rename labels without changing "
                         "the identity used by runtime consumers.");
@@ -213,7 +329,7 @@ class ProjectSettingsEditor {
             if (ui::button("Add action",
                            "Create a digital action with a Space binding. Rename it and choose "
                            "digital, one-dimensional or two-dimensional values.")) {
-                if (draft_["input"]["actions"].size() < 64)
+                if (draft_["input"]["actions"].size() < 64) {
                     draft_["input"]["actions"].push_back(
                         {{"id", ActionId::generate()},
                          {"name", "New action"},
@@ -221,6 +337,9 @@ class ProjectSettingsEditor {
                          {"bindings",
                           Json::array(
                               {{{"control", "key.space"}, {"x", 1}, {"y", 0}, {"deadzone", 0}}})}});
+                    if (input.at("version") == 2)
+                        input["actions"].back()["context"] = input["contexts"][0].at("name");
+                }
             }
             ImGui::EndDisabled();
             if (draft_["input"]["actions"].size() >= 64)
@@ -238,11 +357,28 @@ class ProjectSettingsEditor {
                     if (ImGui::InputText("Name", name, sizeof(name)))
                         a["name"] = name;
                     ui::help("Display label only; stable UUID stays unchanged.");
+                    if (input.at("version") == 2) {
+                        if (ImGui::BeginCombo(
+                                "Context", a.at("context").get_ref<const std::string&>().c_str())) {
+                            for (const auto& context : input["contexts"]) {
+                                const auto& name = context.at("name").get_ref<const std::string&>();
+                                if (ImGui::Selectable(name.c_str(), a.at("context") == name))
+                                    a["context"] = name;
+                            }
+                            ImGui::EndCombo();
+                        }
+                        ui::help("This action only runs when its context is active; routing and "
+                                 "phase come from that context.");
+                    }
                     if (ImGui::BeginCombo("Kind",
                                           a.at("kind").get_ref<const std::string&>().c_str())) {
                         for (const char* k : {"digital", "axis1", "axis2"}) {
                             if (ImGui::Selectable(k, a.at("kind") == k)) {
                                 a["kind"] = k;
+                                for (auto& binding : a["bindings"]) {
+                                    binding.erase("threshold");
+                                    binding.erase("direction");
+                                }
                                 if (std::string(k) != "axis2")
                                     for (auto& b : a["bindings"]) {
                                         b["y"] = 0;
@@ -253,7 +389,7 @@ class ProjectSettingsEditor {
                                     }
                             }
                             ui::help("Digital held/edges, scalar axis, or two-axis vector. Digital "
-                                     "actions require button/key bindings.");
+                                     "actions support buttons or analog threshold crossings.");
                         }
                         ImGui::EndCombo();
                     }
@@ -267,21 +403,25 @@ class ProjectSettingsEditor {
                                 "Control",
                                 binding.at("control").get_ref<const std::string&>().c_str())) {
                             for (const auto& c : input_controls())
-                                if (a.at("kind") != "digital" || c.digital) {
+                                if (a.at("kind") != "digital" ||
+                                    !c.id.starts_with("mouse.delta_")) {
                                     if (ImGui::Selectable(c.id.c_str(),
                                                           binding.at("control") == c.id)) {
                                         binding["control"] = c.id;
                                         binding["deadzone"] = 0;
+                                        binding.erase("radial");
+                                        binding.erase("threshold");
+                                        binding.erase("direction");
                                     }
-                                    ui::help("Physical control on keyboard, mouse or the first "
-                                             "connected gamepad. Escape/F6/F7 are reserved for "
+                                    ui::help("Physical control on keyboard, mouse or the "
+                                             "active gamepad. Escape/F6/F7 are reserved for "
                                              "editor capture and clock controls.");
                                 }
                             ImGui::EndCombo();
                         }
                         ui::help("FORGE control identifier; no SDL numeric code is persisted.");
                         for (const char* field : {"x", "y", "deadzone"}) {
-                            if (a.at("kind") == "digital" ||
+                            if ((a.at("kind") == "digital" && std::string(field) != "deadzone") ||
                                 (std::string(field) == "y" && a.at("kind") != "axis2"))
                                 continue;
                             const auto& control =
@@ -295,6 +435,32 @@ class ProjectSettingsEditor {
                             ui::help("x/y are contribution scales. Use -1 for opposite directions. "
                                      "y requires axis2. Axis deadzone must be at least zero and "
                                      "below one.");
+                        }
+                        const auto& physical =
+                            input_control(binding.at("control").get<std::string>());
+                        const bool stick =
+                            physical.id == "pad.left_x" || physical.id == "pad.left_y" ||
+                            physical.id == "pad.right_x" || physical.id == "pad.right_y";
+                        if (stick) {
+                            bool radial = binding.value("radial", false);
+                            if (ImGui::Checkbox("Radial deadzone", &radial))
+                                binding["radial"] = radial;
+                            ui::help("Remap the stick's circular deadzone before applying this "
+                                     "axis contribution.");
+                        }
+                        if (a.at("kind") == "digital" && !physical.digital) {
+                            double threshold = binding.value("threshold", .5);
+                            if (ImGui::InputDouble("Press threshold", &threshold, 0, 0, "%.3f"))
+                                binding["threshold"] = threshold;
+                            ui::help("Analog input becomes held at this threshold, greater than "
+                                     "zero and at most one.");
+                            if (!physical.id.ends_with("_trigger")) {
+                                bool negative = binding.value("direction", 1) < 0;
+                                if (ImGui::Checkbox("Negative direction", &negative))
+                                    binding["direction"] = negative ? -1 : 1;
+                                ui::help("Use the negative axis or wheel direction to press this "
+                                         "action.");
+                            }
                         }
                         if (ui::button("Remove binding", "Remove this binding from the candidate. "
                                                          "Save settings publishes the change."))

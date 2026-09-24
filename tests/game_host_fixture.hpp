@@ -12,7 +12,9 @@ struct GameHostFixture {
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false;
-    bool reference = false, reference_reopen = false;
+    bool reference = false, reference_reopen = false, reference_error = false,
+         reference_missing = false, reference_settings = false;
+    std::filesystem::path missing_source, missing_held;
     ReferenceGameWorkflow reference_workflow;
     std::string waiting = "startup";
     std::uint64_t ticket = 0;
@@ -52,7 +54,14 @@ struct GameHostFixture {
     }
     explicit GameHostFixture(int argc, char** argv) {
         reference = argc == 3 && (std::string_view(argv[1]) == "--reference" ||
-                                  std::string_view(argv[1]) == "--reference-load");
+                                  std::string_view(argv[1]) == "--reference-load" ||
+                                  std::string_view(argv[1]) == "--reference-error" ||
+                                  std::string_view(argv[1]) == "--reference-missing" ||
+                                  std::string_view(argv[1]) == "--reference-settings");
+        reference_settings = reference && std::string_view(argv[1]) == "--reference-settings";
+        reference_missing = reference && std::string_view(argv[1]) == "--reference-missing";
+        reference_error =
+            reference && (std::string_view(argv[1]) == "--reference-error" || reference_missing);
         reference_reopen = reference && std::string_view(argv[1]) == "--reference-load";
         mixed = argc == 3 && std::string_view(argv[1]) == "--packaged-mixed";
         packaged = reference || mixed || (argc == 3 && std::string_view(argv[1]) == "--packaged");
@@ -140,12 +149,30 @@ struct GameHostFixture {
             check(imported_pixels > 100,
                   "Imported textured mesh is not visible to the right of the built-in cube");
     }
+    ~GameHostFixture() {
+        if (!missing_held.empty()) {
+            std::error_code error;
+            std::filesystem::rename(missing_held, missing_source, error);
+        }
+    }
     void frame(GameSession& game, Diligent::ITextureView* image, Diligent::IRenderDevice* device,
                Diligent::IDeviceContext* context, SDL_Window* window, bool& running) {
         if (reference) {
+            if (reference_missing && image && frames >= 3 && missing_held.empty()) {
+                // Fault injection after startup integrity admission: emulate content disappearing.
+                const auto root = std::filesystem::current_path() / "content";
+                const auto catalog = AssetCatalog::open_project(root);
+                const auto record = catalog.records().at(AssetId::parse(reference::level_scene));
+                missing_source = ProjectPaths(root).resolve(record.source);
+                missing_held = missing_source;
+                missing_held += ".test-held";
+                check(!std::filesystem::exists(missing_held), "Missing-content fixture collision");
+                std::filesystem::rename(missing_source, missing_held);
+            }
             if (image && ++frames >= 4)
                 reference_workflow.frame(
                     game, window, output, reference_reopen,
+                    reference_settings ? 2u : (reference_error ? 1u : 0u),
                     [&](const char* name) { capture(name, image, device, context); });
             return;
         }

@@ -1,4 +1,5 @@
 #include "../samples/reference_game/ids.hpp"
+#include <algorithm>
 #include <forge/animation.hpp>
 #include <forge/game_content.hpp>
 #include <forge/game_host_controls.hpp>
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <thread>
+#include <vector>
 using namespace forge;
 void require(bool value, const char* why) {
     if (!value)
@@ -44,9 +46,14 @@ int main(int argc, char** argv) {
                 ->snapshot(game.active().scene, "acceptance", 1, 0,
                            game.status().at("state") == "paused");
         };
+        std::vector<double> control_us, fixed_us, transitions_ms;
         auto control = [&] {
+            const auto began = std::chrono::steady_clock::now();
             game.control_frame();
             host.pump(now);
+            control_us.push_back(
+                std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - began)
+                    .count());
         };
         auto command = [&](const char* value) {
             const auto snapshot = model();
@@ -59,6 +66,7 @@ int main(int argc, char** argv) {
             control();
         };
         auto wait_scene = [&](const char* id) {
+            const auto began = std::chrono::steady_clock::now();
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
             while (game.active().scene.asset_id().str() != id) {
                 require(std::chrono::steady_clock::now() < deadline,
@@ -67,6 +75,9 @@ int main(int argc, char** argv) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
             control();
+            transitions_ms.push_back(
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                    .count());
         };
         control();
         require(!captured, "Main menu captured the mouse");
@@ -84,7 +95,11 @@ int main(int argc, char** argv) {
         require(nav_entity && animated, "Reference assets omitted navigation or animation");
         for (unsigned i = 0; i < 181; ++i) {
             now += std::chrono::nanoseconds(16666667);
+            const auto began = std::chrono::steady_clock::now();
             game.advance(now);
+            fixed_us.push_back(
+                std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - began)
+                    .count());
             host.pump(now);
             control();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -121,12 +136,19 @@ int main(int argc, char** argv) {
         wait_scene(reference::level_scene);
         require(model().at("documents")[0].at("model").at("interactions") == 1,
                 "Reference save did not restore interaction state");
+        auto median = [](std::vector<double> samples) {
+            std::sort(samples.begin(), samples.end());
+            return samples.at(samples.size() / 2);
+        };
         atomic_write(evidence / "reference-level.json",
                      Json{{"navigation_distance", std::abs(nav_end - nav_start)},
                           {"offline_audio_energy", energy},
                           {"animation_ready", true},
                           {"scene_round_trip", true},
-                          {"save_restored", true}}
+                          {"save_restored", true},
+                          {"headless_fixed_step_us_median", median(fixed_us)},
+                          {"headless_control_and_host_us_median", median(control_us)},
+                          {"transition_wait_ms", transitions_ms}}
                          .dump(2));
         std::cout << "Reference level integration passed\n";
     } catch (const std::exception& e) {

@@ -135,6 +135,32 @@ static void input_tests() {
           "Stick center/dead zone invalid");
     check(std::abs(input_stick(.6, 0, .2).x - .5) < 1e-9,
           "Radial dead zone did not remap magnitude");
+    {
+        const auto id = ActionId::generate();
+        RuntimeInput radial;
+        auto source =
+            Json{{"version", 1},
+                 {"actions", Json::array({{{"id", id},
+                                           {"name", "Single stick axis"},
+                                           {"kind", "axis1"},
+                                           {"bindings", Json::array({{{"control", "pad.left_x"},
+                                                                      {"radial", true},
+                                                                      {"deadzone", .2}}})}}})}};
+        radial.configure(InputMap(source));
+        radial.submit({{"pad.left_x", .1}, {"pad.left_y", 1}});
+        check(std::abs(radial.latch(1).actions.at(id).x - input_stick(.1, 1, .2).x) < 1e-9,
+              "Single-axis radial binding ignored its perpendicular stick sample");
+        check(!radial.map().binding_conflicts(id, "pad.left_y").empty(),
+              "Radial binding hid its perpendicular control dependency");
+        source["actions"][0]["kind"] = "digital";
+        source["actions"][0]["bindings"][0]["threshold"] = .09;
+        radial.configure(InputMap(source));
+        radial.submit({{"pad.left_x", .1}});
+        check(!radial.latch(1).actions.at(id).held, "Radial button crossed threshold at rest");
+        radial.submit({{"pad.left_y", 1}});
+        check(radial.latch(2).actions.at(id).pressed,
+              "Perpendicular stick change did not update a radial button edge");
+    }
     const auto corner = input_stick(1, 1, .2);
     check(std::abs(std::hypot(corner.x, corner.y) - 1) < 1e-9 && corner.x == corner.y,
           "Stick diagonal saturation changed direction");

@@ -1,10 +1,12 @@
 #pragma once
 #include "../samples/reference_game/ids.hpp"
 #include <RmlUi/Core.h>
+#include <algorithm>
 #include <forge/character_components.hpp>
 #include <forge/runtime_ui.hpp>
 #include <fstream>
 #include <set>
+#include <vector>
 
 namespace forge::test {
 // Observer and native SDL input only. Never mutates gameplay/session state.
@@ -15,6 +17,8 @@ class ReferenceGameWorkflow {
     Uint64 started_ = SDL_GetTicks();
     double before_z_ = 0, before_x_ = 0;
     unsigned pad_probe_ = 0;
+    Uint64 idle_previous_ = 0;
+    std::vector<double> idle_frame_ms_;
     std::set<std::string> captures_;
     static void push(SDL_Event event) {
         if (!SDL_PushEvent(&event))
@@ -93,7 +97,7 @@ class ReferenceGameWorkflow {
     }
     template <class Capture>
     void frame(GameSession& game, SDL_Window* window, const std::filesystem::path& output,
-               bool reopen, Capture capture_raw) {
+               bool reopen, unsigned error_mode, Capture capture_raw) {
         auto capture = [&](const char* name) {
             if (captures_.insert(name).second)
                 capture_raw(name);
@@ -111,6 +115,37 @@ class ReferenceGameWorkflow {
         }
         const auto data = model(game);
         const auto page = data.value("page", "");
+        if (error_mode) {
+            if (stage_ == 0 && page == "main") {
+                if (error_mode == 2) {
+                    if (!data.value("message", "")
+                             .starts_with("Saved settings could not be loaded"))
+                        return;
+                    for (const auto& action :
+                         game.active().simulation.input().map().source().at("actions"))
+                        if (action.at("id") == reference::jump)
+                            require(action.at("bindings")[0].at("control") == "key.space",
+                                    "Corrupt settings did not recover project default bindings");
+                    ++stage_;
+                } else if (activate(window, "Load Game"))
+                    ++stage_;
+            } else if (stage_ == 1 && page == "main" && !data.value("message", "").empty()) {
+                require(game.active().scene.asset_id().str() == reference::menu_scene,
+                        "Rejected load retired the main menu");
+                require(!SDL_GetWindowRelativeMouseMode(window),
+                        "Rejected load captured the mouse");
+                capture("reference-load-error.ppm");
+                atomic_write(output / "reference-error.json", Json{{"rejected", true},
+                                                                   {"message", data.at("message")},
+                                                                   {"menu_retained", true}}
+                                                                  .dump(2));
+                ++stage_;
+            } else if (stage_ == 2 && page == "main") {
+                if (activate(window, "Quit"))
+                    ++stage_;
+            }
+            return;
+        }
         if (reopen) {
             if (stage_ == 0 && page == "main") {
                 const auto& map = game.active().simulation.input().map().source();
@@ -142,6 +177,22 @@ class ReferenceGameWorkflow {
             return;
         }
         if (stage_ == 0 && page == "main") {
+            const auto now = SDL_GetTicksNS();
+            if (idle_previous_)
+                idle_frame_ms_.push_back(double(now - idle_previous_) / 1e6);
+            idle_previous_ = now;
+            if (idle_frame_ms_.size() < 120)
+                return;
+            auto samples = idle_frame_ms_;
+            std::sort(samples.begin(), samples.end());
+            atomic_write(
+                output / "reference-performance.json",
+                Json{{"menu_idle_frames", samples.size()},
+                     {"menu_frame_ms_median", samples[samples.size() / 2]},
+                     {"menu_frame_ms_p95", samples[samples.size() * 95 / 100]},
+                     {"scope",
+                      "Hosted graphical menu incl. presentation; not physical input latency"}}
+                    .dump(2));
             capture("reference-main-menu.ppm");
             SDL_VirtualJoystickDesc desc{};
             SDL_INIT_INTERFACE(&desc);

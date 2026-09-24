@@ -121,6 +121,35 @@ void run(const std::filesystem::path& root) {
     check(request({{"operation", "prepare"}, {"asset", AssetId::generate()}}).state == "failed" &&
               game.active().scene.asset_id() == asset,
           "Failed scene request lost current scene");
+    const auto candidate =
+        request({{"operation", "prepare"}, {"asset", asset}, {"activate", false}});
+    check(candidate.state == "succeeded" && game.active().scene.asset_id() == asset,
+          "Prepared candidate replaced the active world before publication");
+    check(request({{"operation", "cancel"}, {"ticket", candidate.value.at("ticket")}}).state ==
+                  "succeeded" &&
+              game.active().scene.asset_id() == asset && game.status().at("prepared_ticket") == 0,
+          "Queued cancellation lost the current world or retained the candidate");
+    check(request({{"operation", "rebind_begin"}, {"action", action}, {"index", 0}}).state ==
+              "succeeded",
+          "Could not begin cancelled rebind");
+    check(request({{"operation", "rebind_reset"}}).state == "succeeded" &&
+              !game.active().simulation.input().rebinding(),
+          "Restoring defaults retained pending binding capture");
+    check(request({{"operation", "rebind_begin"}, {"action", action}, {"index", 0}}).state ==
+                  "succeeded" &&
+              request({{"operation", "rebind_commit"}, {"clear", true}}).state == "succeeded" &&
+              game.active().simulation.input().map().actions()[0].bindings.empty() &&
+              !game.active().simulation.input().rebinding(),
+          "Clear binding retained the binding or captured later input");
+    request({{"operation", "rebind_reset"}});
+    {
+        std::ofstream broken(storage.root() / "slot-broken.json");
+        broken << "{\"payload\":";
+    }
+    check(request({{"operation", "load"}, {"slot", "broken"}}).state == "failed" &&
+              game.active().scene.asset_id() == asset &&
+              std::filesystem::file_size(storage.root() / "slot-broken.json") == 11,
+          "Corrupt save request lost the world or modified the file");
     auto old = game.active().engine.services().game();
     old->request("game.test", {{"operation", "load"}, {"slot", "one"}, {"run", false}});
     host.pump(RuntimeClock::Time{});

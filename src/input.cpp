@@ -4,6 +4,17 @@
 #include <set>
 namespace forge {
 using Json = nlohmann::json;
+namespace {
+std::string radial_partner(const InputBinding& binding) {
+    auto partner = binding.control;
+    partner.back() = partner.back() == 'x' ? 'y' : 'x';
+    return partner;
+}
+bool binding_reads(const InputBinding& binding, const std::string& control) {
+    return binding.control == control || (binding.radial && radial_partner(binding) == control);
+}
+} // namespace
+
 InputVector input_stick(double x, double y, double deadzone) {
     if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > 1 || std::abs(y) > 1 ||
         !std::isfinite(deadzone) || deadzone < 0 || deadzone >= 1)
@@ -170,7 +181,7 @@ std::vector<InputBindingConflict> InputMap::binding_conflicts(ActionId id,
     std::vector<InputBindingConflict> result;
     for (const auto& action : actions_)
         for (const auto& binding : action.bindings)
-            if (binding.control == control)
+            if (binding_reads(binding, control))
                 result.push_back(
                     {action.id, action.context, control, action.context == target->context});
     return result;
@@ -259,8 +270,11 @@ void RuntimeInput::rebuild_routes() {
     routes_.clear();
     if (map_.contexts().empty()) {
         for (const auto& action : map_.actions())
-            for (const auto& binding : action.bindings)
+            for (const auto& binding : action.bindings) {
                 routes_[action.id].insert(binding.control);
+                if (binding.radial)
+                    routes_[action.id].insert(radial_partner(binding));
+            }
         return;
     }
     std::vector<const InputContext*> contexts;
@@ -279,6 +293,13 @@ void RuntimeInput::rebuild_routes() {
                         routes_[action.id].insert(binding.control);
                     if (context->consume)
                         claims.insert(binding.control);
+                    if (binding.radial) {
+                        const auto partner = radial_partner(binding);
+                        if (!consumed.contains(partner))
+                            routes_[action.id].insert(partner);
+                        if (context->consume)
+                            claims.insert(partner);
+                    }
                 }
         consumed.insert(claims.begin(), claims.end());
     }
@@ -349,7 +370,7 @@ void RuntimeInput::event(const InputEvent& e) {
     for (const auto& a : map_.actions())
         if (a.kind == ActionKind::Digital &&
             std::any_of(a.bindings.begin(), a.bindings.end(),
-                        [&](const auto& binding) { return binding.control == e.control; })) {
+                        [&](const auto& binding) { return binding_reads(binding, e.control); })) {
             auto& previous = pending_[a.id];
             const auto next = evaluate(a, false);
             previous.pressed |= next.held && !previous.held;

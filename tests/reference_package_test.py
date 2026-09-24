@@ -55,6 +55,49 @@ with tempfile.TemporaryDirectory(prefix='FORGE reference export ') as temporary:
     user_root = Path(json.loads((evidence / 'reference-storage.json').read_text())['root'])
     assert user_root == Path(json.loads((evidence / 'reopened/reference-storage.json').read_text())['root'])
     assert not user_root.is_relative_to(moved)
+    slot = user_root / 'slot-one.json'
+    good_save = slot.read_bytes()
+    def changed_save(**fields):
+        document = json.loads(good_save)
+        document['payload'].update(fields)
+        encoded = json.dumps(document['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+        document['sha256'] = hashlib.sha256(encoded).hexdigest()
+        return json.dumps(document).encode()
+    try:
+        for name, data, expected in (
+            ('corrupt', b'{"payload":', ''),
+            ('newer', changed_save(schema=2), 'Unsupported save schema version'),
+            ('unavailable-scene', changed_save(scene='df2eaf46-0139-470a-b60d-86c47e42c2bf'), 'unavailable reference level'),
+        ):
+            slot.write_bytes(data)
+            output = evidence / ('error-' + name)
+            run([moved / 'forge_game_fixture.exe', '--reference-error', output],
+                'error-' + name + '.log', cwd=moved, env=env)
+            result = json.loads((output / 'reference-error.json').read_text())
+            assert result['rejected'] and result['menu_retained'] and result['message'], result
+            assert expected in result['message'], result
+            assert slot.read_bytes() == data, 'Rejected load rewrote the player save'
+    finally:
+        slot.write_bytes(good_save)
+    missing_output = evidence / 'error-missing-file'
+    run([moved / 'forge_game_fixture.exe', '--reference-missing', missing_output],
+        'error-missing-file.log', cwd=moved, env=env)
+    missing = json.loads((missing_output / 'reference-error.json').read_text())
+    assert missing['rejected'] and missing['menu_retained'] and missing['message'], missing
+    assert slot.read_bytes() == good_save
+    run([moved / 'forge_game.exe', '--verify-startup'], 'restored-content.log', cwd=moved, env=env)
+    preferences = user_root / 'settings.json'
+    good_preferences = preferences.read_bytes()
+    try:
+        preferences.write_bytes(b'{"payload":')
+        output = evidence / 'error-settings'
+        run([moved / 'forge_game_fixture.exe', '--reference-settings', output],
+            'error-settings.log', cwd=moved, env=env)
+        message = json.loads((output / 'reference-error.json').read_text())['message']
+        assert message.startswith('Saved settings could not be loaded'), message
+        assert preferences.read_bytes() == b'{"payload":'
+    finally:
+        preferences.write_bytes(good_preferences)
     if retain.exists():
         raise RuntimeError('Refusing to overwrite prior reference evidence package')
     shutil.copytree(moved, retain)

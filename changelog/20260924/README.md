@@ -155,3 +155,31 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   are not evidence that the Windows workflow has passed.
 - Updated the input manual and added the reference-game guide. Offline manual checks
   pass. RmlUi first keyboard/controller focus now enters a document deliberately.
+
+### Gameplay verification follow-up
+
+- Rebuilt local core 78/78, shared SDK 91/91 and portable editor/input 3/3 pass.
+  Local socket-only regressions were rerun with socket creation permitted after
+  sandbox rejections. Strict sanitizers and Windows acceptance remain pending.
+- The reference camera eases to the controller's accepted crouch height, including
+  blocked standing behavior. The rebuilt headless camera regression passes.
+- Extended queued host tests for candidate cancellation, rebinding clear/defaults
+  and corrupt-save preservation. Added Windows visible error workflows for corrupt,
+  newer, unavailable-scene and disappeared-content loads; execution remains pending.
+- Added headless fixed/control/transition timing records and hosted menu frame
+  measurements. These are measurements of the stated workloads, not physical
+  mouse/controller latency or unrestricted game performance guarantees.
+- Project Settings now authors input contexts, priority, consumption, initial state
+  and fixed/control phase; actions can select a context. New actions in a version2
+  project receive a valid initial context. Analog digital thresholds and radial
+  stick deadzones are exposed. Added native context-authoring captures; pending.
+- Radial bindings now account for the perpendicular stick sample in routing,
+  conflict discovery and digital threshold edges, including one-axis actions.
+  Added regressions for this integration boundary.
+- Checkpoint93b8efb passed core78/78 and exact SDK91/91 on both Linux and Windows.
+  Strict Linux core suite78/78 passed with the existing Flecs upstream-include
+  exception separately classified. Shared SDK sanitizer subset4/4 passed; the
+  subsequent radial regression also passes strict sanitizers. Graphical acceptance
+  and the final numbered delivery are still pending.
+- Added a visible corrupt-preferences recovery check: project defaults are used,
+  the menu explains the problem, and the original preferences are preserved.
