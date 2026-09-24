@@ -1,49 +1,47 @@
 # FORGE implementation and validation status
 
-## Current work — Phase8 standalone foundation
+## Phase8 delivery — Build 260924-000074
 
-Phase8 is in progress. Shared runtime/session composition, candidate scene
-activation, separately validated player save slots/migrations/settings, an SDL OS
-user-data adapter and cooked NavMesh delivery are implemented source-level building
-blocks. See [game foundation](game-foundation.md) and
-[content packaging](runtime-content-packaging.md) for exact boundaries.
-An opt-in graphical standalone development host and resource-gated scene preparation
-are implemented in source and verified on Windows/WARP, including a build with
-the editor/import tooling disabled; see [host scope](standalone-host.md).
-Complete game dependency/export closure is implemented and accepted through Windows
-shared-SDK startup and source-free fresh-machine relocation. Collision assets and
-the reusable Jolt character controller are delivered in **Build 260924-000070**,
-source `b7f08ba5f18d268d03d5eb46a4004a7411cbab35`,
-[run 35952645128](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35952645128).
-Linux and Windows each passed core **76/76** and shared SDK **88/88**. Windows
-editor controllers passed **2/2**, the broader editor/render/asset suite **123/123**,
-and shared standalone **6/6** plus fresh-machine relocation. The **361-step editor**
-and **76-step physics** workflows passed; final assignment and grounded-character
-captures were opened and reviewed. ZIP identity, 777 outer hashes, 255 SDK hashes,
-four x64 executable headers and the matching 42-page offline manual were verified.
-See [physics](physics.md) and [the daily changelog](../changelog/20260924/README.md).
+The input, scoped gameplay services and reference-game block is delivered from
+source `4a3470a4506aa235f49a32e7fbb936801343eda5`, validated in
+[run 36002588893](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36002588893).
+It extends Build70's standalone export, collision assets and Jolt character controller.
 
-The subsequent source implements gameplay/menu input contexts, rebinding, shared
-SDL device/cursor handling, queued session/save SDK services and the standalone
-reference game. Windows native input acceptance has exercised menu → play →
-interaction → pause/options/rebind → transition → save → quit → relaunch/load
-without the original source project. Corrected menu/control/error captures have
-been opened and reviewed. Final combined package validation is still in progress;
-Build70 remains the delivered baseline until that gate passes. See
-[gameplay services](gameplay-services.md) and [reference game](../manual/reference-game.md).
+Implemented: input contexts and routing, player rebinding/settings, shared SDL
+cursor/gamepad ownership, queued session/save SDK services, and a standalone
+reference game. The shipped **ReferenceGame/forge_game.exe** exercises menu → play
+→ interaction → pause/options/rebind → transition → save → quit → relaunch/load.
+It runs without the source project, editor or installed SDK.
 
-Editor Play does not yet host the standalone session/storage control loop.
-The collision/character delivery and subsequent input/gameplay work do not complete
-all of Phase8.
-Physical GPU/display/audio acceptance remains separate from hosted WARP validation.
+Final automated results:
 
-Foundation source `d2f6ceb` passed Windows core70/70 and shared SDK81/81 in
-[run35820752072](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35820752072).
-The later OS/navigation/world-clock bundle `b7558c1` has focused static/shared/strict
-sanitizer coverage and passed Windows core71/71 and shared SDK82/82, plus
-runtime installation checks, in
-[run35823097419](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35823097419).
-Those earlier source-only checkpoints are now included in Build 260924-000070.
+- Linux and Windows: core **78/78**, shared SDK **91/91** per platform.
+- Windows editor controllers **2/2**, native editor/render/assets **123/123**.
+- Native editor input **379/379** steps and physics **76/76** steps.
+- Shared graphical **6/6**, installed SDK consumer **3/3**, fresh-machine relocation.
+- Combined-package hashes, relocated workers, shared DLL/SDK loading and game startup.
+- Local package identity, **942 file hashes**, matching **43-page offline manual**
+  and promotion/cleanup verified. Changed Windows captures were opened and reviewed.
+
+Strict sanitizer evidence includes the affected worker/UI-package tests after the
+publication-race correction, plus attributable earlier core and focused SDK checks.
+The approved Flecs managed-include finding remains separately classified.
+
+Phase8 is not complete: editor Play does not yet host the standalone session/storage
+control loop. Physical mouse/controller feel, GPU/display, speakers, mixed DPI and
+extended play remain separate from hosted WARP acceptance. No Phase9 work is included.
+
+See [reference game](../manual/reference-game.md), [gameplay services](gameplay-services.md),
+[input](input.md), [standalone host](standalone-host.md),
+[packaging](runtime-content-packaging.md) and [daily changes](../changelog/20260924/README.md).
+
+### Earlier Phase8 baseline
+
+Build **260924-000070**, source `b7f08ba5f18d268d03d5eb46a4004a7411cbab35`,
+[run 35952645128](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35952645128),
+delivered collision assets and the reusable Jolt character controller. Its core
+76/76 and SDK88/88 profiles, native123/123, controller2/2 and standalone6/6 checks
+passed. Its earlier foundation checkpoints are included in subsequent deliveries.
 
 ## Phase 7 delivery — Build 260923-000066
 

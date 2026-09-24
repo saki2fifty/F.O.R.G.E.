@@ -12,9 +12,9 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Cache behavior
 
-Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out rather than restored from cache, so Ninja sees fresh source files and recompiles them.
+Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out. Verified source-content records preserve timestamps only for unchanged inputs, allowing Ninja to reuse compatible outputs; changed inputs rebuild.
 
-The compatibility key includes the runner image, architecture, MSVC version, Windows SDK, CMake/Ninja versions, absolute checkout path, and CMake configuration/dependency pins. The source commit is appended to the cache entry key; a compatible prior commit can supply a restore fallback. There is no fallback across different compatibility keys. Only successful tested/package builds save a cache. Cache upload failures do not prevent artifact delivery; a failed restore is discarded before a fresh configure.
+The compatibility key includes the runner image, architecture, MSVC version, Windows SDK, CMake/Ninja versions, absolute checkout path, and CMake configuration/dependency pins. The source commit is appended to the cache entry key; a compatible prior commit can supply a restore fallback. There is no fallback across different compatibility keys. Successful native compilation can save an editor cache even if a later test fails; the shared-game job saves its cache after its successful validation. Cache reuse never bypasses required tests or delivery gates. Cache upload failures do not prevent artifact delivery; a failed restore is discarded before a fresh configure.
 
 Enable **clean_build** to bypass both cache restore and cache save for a clean verification. Cache misses after runner/toolchain updates or cache eviction are expected. The first build has to populate the cache.
 

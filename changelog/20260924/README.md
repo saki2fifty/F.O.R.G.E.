@@ -242,3 +242,21 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
 - Reconciled the README and implementation-status overview with the delivered
   export/collision foundation and the new input/reference-game source. Keep final
   package acceptance and the remaining editor Play session integration explicit.
+
+### Input/reference-game delivery — Build 260924-000074
+
+- Delivered source `4a3470a4506aa235f49a32e7fbb936801343eda5` after
+  [full acceptance](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36002588893).
+  The ZIP includes the independent `ReferenceGame/forge_game.exe`.
+- Linux/Windows each passed core 78/78 and SDK 91/91; Windows native 123/123,
+  controllers 2/2, editor 379 steps, physics 76 steps, graphical 6/6 and installed SDK 3/3.
+  Relocated menu/play/rebind/transition/save/quit/relaunch/load and combined-package
+  checks passed. Final Main Menu, Controls and Collision refresh captures were opened;
+  unchanged visual evidence retains its original source attribution.
+- Verified 942 package hashes and the 43-page matching manual. Archived Build 70 and
+  removed redundant download/extraction staging; only the latest ZIP and executable
+  folder remain in the packages directory.
+- Physical hardware acceptance and editor Play session/storage integration remain
+  open. This completes the input/reference-game block, not all of Phase 8.
+- Reconciled implementation status and cache documentation. These post-delivery
+  documentation records do not alter the reserved compiled source or ZIP bytes.
