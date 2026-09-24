@@ -23,8 +23,18 @@ captures were opened and reviewed. ZIP identity, 777 outer hashes, 255 SDK hashe
 four x64 executable headers and the matching 42-page offline manual were verified.
 See [physics](physics.md) and [the daily changelog](../changelog/20260924/README.md).
 
-Complete gameplay/menu input contexts, game SDK persistence and the reference game
-remain open. This delivery completes the collision/character block, not all of Phase8.
+The subsequent source implements gameplay/menu input contexts, rebinding, shared
+SDL device/cursor handling, queued session/save SDK services and the standalone
+reference game. Windows native input acceptance has exercised menu → play →
+interaction → pause/options/rebind → transition → save → quit → relaunch/load
+without the original source project. Corrected menu/control/error captures have
+been opened and reviewed. Final combined package validation is still in progress;
+Build70 remains the delivered baseline until that gate passes. See
+[gameplay services](gameplay-services.md) and [reference game](../manual/reference-game.md).
+
+Editor Play does not yet host the standalone session/storage control loop.
+The collision/character delivery and subsequent input/gameplay work do not complete
+all of Phase8.
 Physical GPU/display/audio acceptance remains separate from hosted WARP validation.
 
 Foundation source `d2f6ceb` passed Windows core70/70 and shared SDK81/81 in

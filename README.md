@@ -22,11 +22,12 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 - [Skeletal animation](manual/editor/animation.md): validated glTF conversion, Animator playback, fixed-clock recovery and debug bones.
 - Experimental exact-version shared-Flecs gameplay SDK, [Jolt physics](manual/editor/physics.md), and [WAV audio sources/listeners](manual/editor/audio.md).
 
-- Model/texture/material/shader importing, cooked resources and dependency-aware content packages; source-free game export remains in progress.
+- Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
 - [Navigation](manual/editor/navigation.md), [runtime UI](manual/editor/runtime-ui.md), and the [asset workflow](manual/editor/content-browser.md).
-- [Phase8 runtime foundations](docs/game-foundation.md): reusable scene sessions, separate versioned player saves/settings, and OS user-data storage. These internal services do not yet provide a graphical standalone game or a complete Export Game workflow.
+- [Phase8 runtime foundations](docs/game-foundation.md): resource-gated scene sessions, separate versioned player saves/settings, OS user-data storage, collision assets and a Jolt character controller.
+- [Gameplay services](docs/gameplay-services.md): input contexts, player rebinding and queued session/save requests through the exact SDK. The [reference game](manual/reference-game.md) exercises menus, first-person movement, interaction, transitions and save/relaunch/load in the standalone host. Editor Play does not yet host that complete session/save lifecycle.
 
-Full game export, the first-person reference game, advanced authoring systems and a broad public plugin SDK remain planned. See [implementation status](docs/status.md) for validation and the current delivered build.
+Phase8 remains in progress. Advanced authoring systems and a broad public plugin SDK remain planned. See [implementation status](docs/status.md) for validation and the current delivered build; source implementation and downloadable delivery are recorded separately.
 
 ## Build and test
 Requires Git, CMake 3.30+, Ninja, Python 3.10+, and a C++20/C17 compiler. Windows requires an MSVC developer shell and Windows SDK.

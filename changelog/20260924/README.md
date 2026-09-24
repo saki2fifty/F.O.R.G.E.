@@ -239,3 +239,6 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   preserve all output and execution limits and the completed-output scan.
   A minimal repeated-rename regression failed before the correction. Both affected
   worker and UI-package tests passed ten repetitions afterward.
+- Reconciled the README and implementation-status overview with the delivered
+  export/collision foundation and the new input/reference-game source. Keep final
+  package acceptance and the remaining editor Play session integration explicit.
