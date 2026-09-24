@@ -11,6 +11,9 @@ on:
       performance_source_run:
         type: string
         default: ""
+      shader_only:
+        type: boolean
+        default: false
       workflow_only:
         type: boolean
         default: false
@@ -30,6 +33,9 @@ on:
       performance_source_run:
         type: string
         default: ""
+      shader_only:
+        type: boolean
+        default: false
       workflow_only:
         type: boolean
         default: false
@@ -139,11 +145,11 @@ jobs:
             if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
           }
       - name: Prepare matched WARP benchmark target
-        if: ${{ !inputs.workflow_only }}
+        if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/prepare_editor_benchmark.py . ../AgentFiles/benchmark-target
       - id: configure
-        run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_ENABLE_NATIVE_SDK=OFF -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_BUILD_GAME=ON -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_PROJECT_INCLUDE:FILEPATH="${{ !inputs.workflow_only && format('{0}/forge-work/AgentFiles/benchmark-target/inject.cmake', runner.temp) || '' }}" -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
+        run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_ENABLE_NATIVE_SDK=OFF -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_BUILD_GAME=ON -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_PROJECT_INCLUDE:FILEPATH="${{ !inputs.workflow_only && !inputs.shader_only && format('{0}/forge-work/AgentFiles/benchmark-target/inject.cmake', runner.temp) || '' }}" -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build input-driven native fixtures
         if: inputs.workflow_only
@@ -155,10 +161,11 @@ jobs:
           cmake --build ../AgentFiles/b --target $targets --parallel 2
           if ($LASTEXITCODE) { throw 'Native workflow fixture build failed' }
       - name: Build actual editor with audit fixture
-        if: ${{ !inputs.workflow_only }}
+        if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: cmake --build ../AgentFiles/b --target forge_game forge_game_fixture forge_game_content_tests forge_game_foundation_tests forge_game_control_tests forge_game_host_control_tests forge_game_platform_tests forge_asset_worker_tests forge_asset_worker_fixture forge_gltf_animation_tests forge_draw_fallback_tests forge_cache_maintenance_tests forge_asset_scale_tests forge_runtime_package_tests forge_standalone_manifest_tests forge_authored_schema_tests forge_authored_component_tests forge_authored_migration_tests forge_authored_components_editor_tests forge_render_bounds_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_editor_tests forge_fault_runtime forge_editor_fixture forge_tools forge_viewport_tests forge_mesh_asset_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_content_files_tests forge_source_copy_tests forge_texture_asset_tests forge_texture_import_tests forge_texture_ktx_tests forge_texture_dds_tests forge_texture_bmp_tests forge_texture_webp_tests forge_texture_pipeline_tests forge_texture_bundle_tests forge_texture_editor_tests forge_model_editor_tests forge_asset_import_service_tests forge_asset_discovery_tests forge_asset_file_transaction_tests forge_asset_file_operations_tests forge_gltf_source_tests forge_asset_build_worker forge_resource_tests forge_asset_publication_tests forge_asset_robustness_tests forge_gltf_official_corpus_tests forge_gltf_official_tests forge_mesh_processing_tests forge_gltf_meshopt_tests forge_gltf_draco_tests forge_gltf_surfaces_tests forge_gltf_snapshot_tests forge_model_bundle_tests forge_model_pipeline_tests forge_audio_asset_tests forge_ui_asset_catalog_tests forge_runtime_ui_package_tests forge_ui_catalog_presenter_tests forge_runtime_ui_tests forge_ui_presenter_tests forge_runtime forge_model_scene_tests forge_gltf_ozz_tests forge_morph_animation_tests gltf2ozz forge_gltf_mesh_tests --parallel 2
       - name: Install exact standalone runtime kit
+        if: ${{ !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -171,9 +178,17 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(editor_input_workflow|editor_physics_workflow|standalone_game_workflow)$" --output-on-failure
       - name: Render fresh reset-layout evidence
-        if: ${{ !inputs.workflow_only }}
+        if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(standalone_game_workflow|game_content|asset_worker_policy|audio_recipe|audio_pipeline|audio_tools|ui_asset_catalog|runtime_ui_package|ui_catalog_presenter|runtime_ui|ui_presenter|draw_fallbacks|cache_maintenance|asset_scale_workloads|game_control_lifetime|game_host_controls|game_foundation|game_storage_process|game_platform|runtime_content_package|standalone_manifest|authored_schema|authored_component|authored_migration|authored_components_editor|render_bounds|shader_assets|shader_pipeline|shader_worker|shader_editor|editor_process_and_scale|editor_redesign_render|editor_input_workflow|editor_physics_workflow|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|mesh_asset|material_asset|material_pipeline|material_editor|content_files|source_copy|texture_asset|texture_import|texture_ktx|texture_dds|texture_bmp|texture_webp|texture_recipe|texture_pipeline|texture_bundle|texture_tools|texture_editor|model_editor|asset_import_service|asset_discovery|asset_file_transaction|asset_file_operations|gltf_source|gltf_animation_admission|resource_lifetime|asset_publication|asset_robustness_corpus|gltf_official_corpus|gltf_official_negative_scale|mesh_processing|gltf_meshopt|gltf_draco|gltf_surfaces|gltf_snapshot|model_bundle|model_scene|gltf_ozz|morph_animation|model_recipe|model_pipeline|model_tools|model_animation_process|gltf_mesh_processing)$" --output-on-failure
+      - name: Build shader and material acceptance targets
+        if: inputs.shader_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: cmake --build ../AgentFiles/b --target forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests --parallel 2
+      - name: Execute shader and material GPU acceptance
+        if: inputs.shader_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -181,10 +196,11 @@ jobs:
           $actual = git rev-parse HEAD
           if ($actual -ne $env:FORGE_SOURCE_COMMIT) { throw 'Source mismatch' }
           New-Item -ItemType Directory -Force ../AgentFiles/b/grid-test-images/editor | Out-Null
-          @{ workflow_only = '${{ inputs.workflow_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
+          @{ shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
       - name: Validate standalone-only build without editor or import tooling
+        if: ${{ !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -208,7 +224,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Build and stage current benchmark executable
-        if: ${{ !inputs.workflow_only }}
+        if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -222,7 +238,7 @@ jobs:
           Copy-Item resources "$out/resources" -Recurse -Force
           Copy-Item ../AgentFiles/benchmark-target/provenance.json $out
       - name: Retain current benchmark executable
-        if: ${{ !inputs.workflow_only }}
+        if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: FORGE-Editor-Benchmark-current
@@ -261,7 +277,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}-partial-${{ inputs.source_commit }}
 
   benchmark-baseline:
-    if: ${{ !inputs.workflow_only && inputs.baseline_source_run == '' }}
+    if: ${{ !inputs.workflow_only && !inputs.shader_only && inputs.baseline_source_run == '' }}
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -380,7 +396,7 @@ jobs:
 
   editor-performance:
     needs: [editor, benchmark-baseline]
-    if: ${{ always() && !cancelled() && !inputs.workflow_only && (needs.benchmark-baseline.result == 'success' || inputs.baseline_source_run != '') && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
+    if: ${{ always() && !cancelled() && !inputs.workflow_only && !inputs.shader_only && (needs.benchmark-baseline.result == 'success' || inputs.baseline_source_run != '') && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
     runs-on: windows-2022
     timeout-minutes: 45
     steps:

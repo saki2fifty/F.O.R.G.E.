@@ -35,7 +35,7 @@ class PatchTests(unittest.TestCase):
             source = directory/'engine'
             local_manifest = directory/manifest.name
             patch_path = directory/metadata['patch']
-            shutil.copy2(manifest.parent/metadata['patch'], patch_path)
+            patch_path.write_bytes((manifest.parent/metadata['patch']).read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))
             for name in metadata['files']:
                 p = source/'DiligentFX'/name
                 p.parent.mkdir(parents=True, exist_ok=True)

@@ -38,8 +38,10 @@ def stage(engine, destination, manifest):
             p = scratch / name
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(data)
-        subprocess.run(['git', 'apply', '--check', str(patch)], cwd=scratch, check=True)
-        subprocess.run(['git', 'apply', str(patch)], cwd=scratch, check=True)
+        normalized_patch = scratch / 'reviewed.patch'
+        normalized_patch.write_bytes(patch_bytes)
+        subprocess.run(['git', '-c', 'core.autocrlf=false', 'apply', '--check', str(normalized_patch)], cwd=scratch, check=True)
+        subprocess.run(['git', '-c', 'core.autocrlf=false', 'apply', str(normalized_patch)], cwd=scratch, check=True)
         # Put patch identity into the embedded shader bytes (Diligent hashes
         # included source by content), even for a metadata-only patch revision.
         identity = sha(manifest.read_bytes().replace(b'\r\n', b'\n') + patch_bytes)
