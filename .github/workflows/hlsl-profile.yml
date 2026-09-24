@@ -62,7 +62,7 @@ jobs:
             & ./surface.exe $shader | Tee-Object surface-results.txt
             if ($LASTEXITCODE) { throw 'FXC surface normalization warnings/errors' }
           } finally { Pop-Location }
-      - name: Diagnose pinned lighting shaders independently
+      - name: Validate patched pinned lighting shaders independently
         if: always()
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -86,6 +86,11 @@ jobs:
             if (Test-Path $target) { throw "Ambiguous shader include: $target" }
             Copy-Item $_.FullName $target
           }
+          python tools/stage_diligentfx_patch.py $engine "$output/patched-fx"
+          if ($LASTEXITCODE) { throw 'Reviewed shader patch failed' }
+          python tests/diligentfx_patch_test.py $engine
+          if ($LASTEXITCODE) { throw 'Patch reproducibility tests failed' }
+          Get-ChildItem "$output/patched-fx" -Recurse -Filter '*.fxh' | ForEach-Object { Copy-Item $_.FullName (Join-Path $shaders $_.Name) -Force }
           Copy-Item "$engine/DiligentCore/Graphics/ShaderTools/include/HLSLDefinitions.fxh" $shaders
           Copy-Item resources/shaders/*.fxh $shaders
           Copy-Item tests/lighting_diagnostics.hlsl $shaders

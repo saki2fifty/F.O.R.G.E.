@@ -1,0 +1,10 @@
+{
+  "engine_commit": "a279e5fa8593cbc758ec46ea1eba0b435cbc2f06",
+  "fx_commit": "aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da",
+  "patch": "diligentfx-aaa41d47-shader-warnings.patch",
+  "patch_sha256": "e043acb1b8bf48fce73f46314ce5a890e00541c0889d94b7a7ac7c9d724a27f4",
+  "files": {
+    "Shaders/PBR/private/Iridescence.fxh": "a25e5d129f57c9b4d06b2c62a0ae73939115a0d01ffe39851df6ae1185d01f42",
+    "Shaders/Common/public/PBR_Common.fxh": "935029077af6ebfc8befe05a689ba6080603fc860a4dcb16e86683f938e9beec"
+  }
+}

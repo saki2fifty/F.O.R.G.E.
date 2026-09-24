@@ -29,6 +29,11 @@ class CacheIdentity(unittest.TestCase):
             (root/'CMakeLists.txt').write_text('project(FORGE)')
             (root/'CMakePresets.json').write_text('{}')
             (root/'cmake').mkdir()
+            (root/'tools').mkdir()
+            (root/'tools/stage_diligentfx_patch.py').write_text('patch staging implementation')
+            (root/'cmake/patches').mkdir()
+            shader_patch = root/'cmake/patches/diligentfx.patch'
+            shader_patch.write_text('reviewed patch A')
             dependency = root/'cmake/dependencies.cmake'
             dependency.write_text('pinned dependency A')
             environment = dict(ImageVersion='image1', VCToolsVersion='msvc1',
@@ -41,6 +46,9 @@ class CacheIdentity(unittest.TestCase):
             for key in environment:
                 changed = dict(environment, **{key: 'different'})
                 self.assertNotEqual(first, cache.cache_key(root, changed))
+            shader_patch.write_text('reviewed patch B')
+            self.assertNotEqual(first, cache.cache_key(root, environment))
+            shader_patch.write_text('reviewed patch A')
             dependency.write_text('pinned dependency B')
             self.assertNotEqual(first, cache.cache_key(root, environment))
             with self.assertRaises(RuntimeError):

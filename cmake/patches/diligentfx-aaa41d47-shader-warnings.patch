@@ -1,0 +1,124 @@
+--- a/Shaders/PBR/private/Iridescence.fxh
++++ b/Shaders/PBR/private/Iridescence.fxh
+@@ -50,7 +50,7 @@
+ 
+ float3 EvalIridescence(float outsideIOR, float eta2, float cosTheta1, float thinFilmThickness, float3 baseF0)
+ {
+-    float3 I;
++    float3 I = float3(1.0, 1.0, 1.0);
+ 
+     // Force iridescenceIor -> outsideIOR when thinFilmThickness -> 0.0
+     float iridescenceIor = lerp(outsideIOR, eta2, smoothstep(0.0, 0.03, thinFilmThickness));
+@@ -59,55 +59,54 @@
+ 
+     // Handle TIR:
+     float cosTheta2Sq = 1.0 - sinTheta2Sq;
+-    if (cosTheta2Sq < 0.0)
++    if (!(cosTheta2Sq < 0.0))
+     {
+-        return float3(1.0, 1.0, 1.0);
++        float cosTheta2 = sqrt(cosTheta2Sq);
++
++        // First interface
++        float R0 = IorToFresnel0(iridescenceIor, outsideIOR);
++        float R12 = SchlickReflection(cosTheta1, R0, 1.0);
++        float R21 = R12;
++        float T121 = 1.0 - R12;
++        float phi12 = 0.0;
++        if (iridescenceIor < outsideIOR) phi12 = PI;
++        float phi21 = PI - phi12;
++
++        // Second interface
++        float3 baseIOR = Fresnel0ToIor(clamp(baseF0, 0.0, 0.9999)); // guard against 1.0
++        float3 R1 = IorToFresnel0(baseIOR, iridescenceIor);
++        float3 R23 = SchlickReflection(cosTheta2, R1, float3(1.0, 1.0, 1.0));
++        float3 phi23 = float3(0.0, 0.0, 0.0);
++        if (baseIOR[0] < iridescenceIor) phi23[0] = PI;
++        if (baseIOR[1] < iridescenceIor) phi23[1] = PI;
++        if (baseIOR[2] < iridescenceIor) phi23[2] = PI;
++
++        // Phase shift
++        float OPD = 2.0 * iridescenceIor * thinFilmThickness * cosTheta2;
++        float3 phi = float3(phi21, phi21, phi21) + phi23;
++
++        // Compound terms
++        float3 R123 = clamp(R12 * R23, 1e-5, 0.9999);
++        float3 r123 = sqrt(R123);
++        float3 Rs = Sqr(T121) * R23 / (float3(1.0, 1.0, 1.0) - R123);
++
++        // Reflectance term for m = 0 (DC term amplitude)
++        float3 C0 = R12 + Rs;
++        I = C0;
++
++        // Reflectance term for m > 0 (pairs of diracs)
++        float3 Cm = Rs - float3(T121, T121, T121);
++        for (int m = 1; m <= 2; ++m)
++        {
++            Cm *= r123;
++            float3 Sm = 2.0 * EvalSensitivity(float(m) * OPD, float(m) * phi);
++            I += Cm * Sm;
++        }
++
++        // Since out of gamut colors might be produced, negative color values are clamped to 0.
++        I = max(I, float3(0.0, 0.0, 0.0));
+     }
+-
+-    float cosTheta2 = sqrt(cosTheta2Sq);
+-
+-    // First interface
+-    float R0 = IorToFresnel0(iridescenceIor, outsideIOR);
+-    float R12 = SchlickReflection(cosTheta1, R0, 1.0);
+-    float R21 = R12;
+-    float T121 = 1.0 - R12;
+-    float phi12 = 0.0;
+-    if (iridescenceIor < outsideIOR) phi12 = PI;
+-    float phi21 = PI - phi12;
+-
+-    // Second interface
+-    float3 baseIOR = Fresnel0ToIor(clamp(baseF0, 0.0, 0.9999)); // guard against 1.0
+-    float3 R1 = IorToFresnel0(baseIOR, iridescenceIor);
+-    float3 R23 = SchlickReflection(cosTheta2, R1, float3(1.0, 1.0, 1.0));
+-    float3 phi23 = float3(0.0, 0.0, 0.0);
+-    if (baseIOR[0] < iridescenceIor) phi23[0] = PI;
+-    if (baseIOR[1] < iridescenceIor) phi23[1] = PI;
+-    if (baseIOR[2] < iridescenceIor) phi23[2] = PI;
+-
+-    // Phase shift
+-    float OPD = 2.0 * iridescenceIor * thinFilmThickness * cosTheta2;
+-    float3 phi = float3(phi21, phi21, phi21) + phi23;
+-
+-    // Compound terms
+-    float3 R123 = clamp(R12 * R23, 1e-5, 0.9999);
+-    float3 r123 = sqrt(R123);
+-    float3 Rs = Sqr(T121) * R23 / (float3(1.0, 1.0, 1.0) - R123);
+-
+-    // Reflectance term for m = 0 (DC term amplitude)
+-    float3 C0 = R12 + Rs;
+-    I = C0;
+-
+-    // Reflectance term for m > 0 (pairs of diracs)
+-    float3 Cm = Rs - float3(T121, T121, T121);
+-    for (int m = 1; m <= 2; ++m)
+-    {
+-        Cm *= r123;
+-        float3 Sm = 2.0 * EvalSensitivity(float(m) * OPD, float(m) * phi);
+-        I += Cm * Sm;
+-    }
+-
+-    // Since out of gamut colors might be produced, negative color values are clamped to 0.
+-    return max(I, float3(0.0, 0.0, 0.0));
++    return I;
+ }
+ 
+ #endif // _IRIDESCENCE_FXH_
+--- a/Shaders/Common/public/PBR_Common.fxh
++++ b/Shaders/Common/public/PBR_Common.fxh
+@@ -472,7 +472,7 @@
+     float c = lerp( 0.19823,  0.16801, OneMinusAlphaSq);
+     float d = lerp(-1.97760, -1.27393, OneMinusAlphaSq);
+     float e = lerp(-4.32054, -4.85967, OneMinusAlphaSq);
+-    return a / (1.0 + b * pow(x, c)) + d * x + e;
++    return a / (1.0 + b * pow(abs(x), c)) + d * x + e;
+ }
+ 
+ float LambdaSheen(float CosTheta, float AlphaG)

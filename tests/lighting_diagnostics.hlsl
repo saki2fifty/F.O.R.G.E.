@@ -5,7 +5,9 @@
 #define USE_IBL 1
 #include "ForgeLighting.fxh"
 #include "Iridescence.fxh"
+#if defined(FORGE_PROBE_forge_shadow)
 #include "ForgeShadows.fxh"
+#endif
 cbuffer Probe {
     SurfaceShadingInfo Shading;
     PBRLightAttribs Light;
@@ -22,6 +24,9 @@ float4 forge_lighting() : SV_Target {
     bool valid = ForgeApplyPunctualLight(Shading, Light, lighting);
     return float4(lighting.Base.Punctual, valid ? 1 : 0);
 }
+#if defined(FORGE_PROBE_forge_shadow)
 float4 forge_shadow() : SV_Target {
     return ForgeShadowVisibility((int)Values.x, Shading.Pos, Shading.BaseLayer.Normal, Values.y).xxxx;
 }
+
+#endif

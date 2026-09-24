@@ -137,10 +137,17 @@ reproduces X4000 in `EvalIridescence` (debug/optimized) and X3571 in
 but its accumulator is assigned before later use; the diagnostic does not
 establish an actual uninitialized read. The latter uses `pow(x,c)` while the
 normal BRDF/LUT callers supply nonnegative cosines; the warning does not establish
-a negative input in FORGE. No upstream shader modification or warning suppression
-has been applied. A maintained patch requires an explicit dependency-boundary decision.
+a negative input in FORGE. The approved maintained-source exception is now staged through the
+[tracked patch manifest and diff](../cmake/patches/README.md). No warning suppression
+or dependency upgrade is used. The original checkout remains unchanged.
 
 FORGE surface, lighting and shadow isolated probes pass strict debug/optimized FXC
 on source `5eb3ab0`; full generated-material/GPU acceptance of this follow-up remains
-pending. The diagnostic workflow intentionally reports the unchanged upstream
-failures rather than treating them as a clean gate. This does not upgrade Build75.
+pending. The focused workflow now stages the same reviewed patch as CMake and
+retains warnings-as-errors. This does not upgrade Build75.
+
+The exception was approved2026-09-24. Exact upstream history through
+`6d900ba904bda33b3ec48980cebca00bf9e6db6f` contains no suitable correction.
+Patch source/hash checks, cache identity regression and local DXC DXIL/SPIR-V
+checks pass. Fresh patched FXC and native GPU/material acceptance are pending;
+Build75 remains the delivery until the complete gate passes.

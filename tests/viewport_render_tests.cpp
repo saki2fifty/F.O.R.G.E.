@@ -174,6 +174,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
     require(checked >= 2, "Axis fixture does not cover visible world coordinates");
 }
 } // namespace
+#include "diligentfx_patch_gpu_tests.hpp"
 #include "display_resolve_tests.hpp"
 #include "frame_renderer_tests.hpp"
 #include "gpu_residency_tests.hpp"
@@ -294,6 +295,7 @@ int main(int argc, char** argv) {
         };
         check_punctual_lights(presentation, context);
         check_surface_frames(presentation, context);
+        check_diligentfx_patch(presentation, context);
         check_mesh_upload(presentation, context);
         check_mesh_vertex_fetch(presentation, context);
         check_mesh_draw(presentation, context, images);

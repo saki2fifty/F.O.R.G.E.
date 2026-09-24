@@ -299,3 +299,15 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   in unchanged pinned Diligent iridescence/sheen source; a dependency-boundary
   decision is required before patching those files. Fresh full GPU/generated
   material acceptance and a replacement package remain pending.
+
+### Approved narrow DiligentFX source exception — validation in progress
+
+- Checked newer official FX history; neither affected function has a suitable fix.
+- Added the reviewed iridescence/sheen diff, exact-pin/hash manifest and upstream
+  license to the checkout. CMake stages only those two shader inputs, leaves
+  upstream research/dependency checkouts unchanged and rejects mismatched inputs.
+- Shader and build cache identities include the patch. Added refusal/idempotence/
+  identity tests and a native original-versus-patched GPU comparison including
+  TIR and special values. No dependency upgrade or warning suppression.
+- Local staging/cache and DXC checks pass; fresh strict FXC and full native
+  rendering acceptance remain pending. No numbered package for patch application.
