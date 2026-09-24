@@ -50,6 +50,10 @@ std::optional<UiAction> UiRuntime::poll_action(const std::string& name) {
     pending_.erase(it);
     return result;
 }
+void UiRuntime::allow_value_action(const std::string& name) {
+    allow_action(name);
+    value_actions_.insert(name);
+}
 Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::uint64_t generation,
                          std::uint64_t tick, bool paused) {
     check();
@@ -137,8 +141,13 @@ void UiRuntime::command(const Scene& scene, const Json& request,
     if (AssetCatalog::open_project(project_).resolve(d.document).state != AssetState::Available)
         throw std::runtime_error("UI document asset is unavailable");
     const auto name = request.at("command").get<std::string>();
-    if (request.contains("value"))
-        throw std::runtime_error("Registered UI actions currently accept no arguments");
+    if (request.contains("value")) {
+        if (!value_actions_.contains(name) || !request.at("value").is_string())
+            throw std::runtime_error("UI action does not accept a string value");
+        ui_protocol::validate_value(request.at("value"));
+    } else if (value_actions_.contains(name)) {
+        throw std::runtime_error("UI action requires a string value");
+    }
     if (name == "Pause" || name == "Resume" || name == "Step") {
         control(name);
         return;
@@ -156,6 +165,7 @@ void UiRuntime::shutdown() {
     instances_.clear();
     models_.clear();
     actions_.clear();
+    value_actions_.clear();
     pending_.clear();
 }
 EngineModule ui_module(std::filesystem::path project) {

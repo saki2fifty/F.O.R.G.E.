@@ -26,6 +26,7 @@ inline std::string sdl_key_control(SDL_Scancode key) {
         FORGE_KEY(TAB, "tab");
         FORGE_KEY(RETURN, "enter");
         FORGE_KEY(BACKSPACE, "backspace");
+        FORGE_KEY(ESCAPE, "escape");
 #undef FORGE_KEY
     default:
         return {};

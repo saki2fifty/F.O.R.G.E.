@@ -4,6 +4,7 @@
 #include <forge/schema.hpp>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <thread>
 using namespace forge;
 static void check(bool value, const char* message) {
@@ -22,7 +23,153 @@ template <class F> static void reject(F&& f) {
 static Json action(ActionId id, const char* kind, Json bindings) {
     return {{"id", id}, {"name", "Test"}, {"kind", kind}, {"bindings", bindings}};
 }
+static void input_context_tests() {
+    const auto game = ActionId::generate(), menu = ActionId::generate(),
+               pass = ActionId::generate();
+    auto game_action = action(game, "digital", Json::array({{{"control", "key.space"}}}));
+    auto menu_action = action(menu, "digital", Json::array({{{"control", "key.space"}}}));
+    auto pass_action = action(pass, "digital", Json::array({{{"control", "key.space"}}}));
+    game_action["context"] = "game";
+    menu_action["context"] = "menu";
+    pass_action["context"] = "overlay";
+    Json source = {
+        {"version", 2},
+        {"contexts", Json::array({{{"name", "game"}, {"active", true}},
+                                  {{"name", "menu"}, {"priority", 10}},
+                                  {{"name", "overlay"}, {"priority", 20}, {"consume", false}}})},
+        {"actions", Json::array({game_action, menu_action, pass_action})}};
+    RuntimeInput input;
+    input.configure(InputMap(source));
+    input.submit({{"key.space", 1}});
+    check(input.latch(1).actions.at(game).pressed, "Default game context inactive");
+    input.activate_contexts({"game", "menu", "overlay"});
+    const auto neutral = input.latch(2);
+    check(neutral.actions.at(game).released && !neutral.actions.at(menu).held,
+          "Context switch leaked held input");
+    input.submit({{"key.space", 1}});
+    auto routed = input.latch(3);
+    check(!routed.actions.at(game).held && routed.actions.at(menu).pressed &&
+              routed.actions.at(pass).pressed,
+          "Context priority/consumption/pass-through failed");
+    input.activate_contexts({"overlay", "menu", "game"});
+    check(input.latch(4).actions.at(menu).held, "Equivalent stack reset input");
+    reject([&] { input.activate_contexts({"game", "unknown"}); });
+    reject([&] { input.activate_contexts({"game", "game"}); });
+    check(input.context_active("menu") && input.latch(5).actions.at(menu).held,
+          "Rejected context change modified live state");
+    input.activate_contexts({});
+    input.submit({{"key.space", 1}});
+    check(!input.latch(6).actions.at(game).held, "Inactive context received input");
+    source["contexts"][1]["priority"] = 0;
+    input.configure(InputMap(source));
+    input.activate_contexts({"menu", "game"});
+    input.submit({{"key.space", 1}});
+    routed = input.latch(7);
+    check(routed.actions.at(game).held && !routed.actions.at(menu).held,
+          "Equal priority must follow declaration order, not activation order");
+    auto invalid = source;
+    invalid["actions"][0]["context"] = "missing";
+    reject([&] { (void)InputMap(invalid); });
+    invalid = source;
+    invalid["contexts"][0]["priority"] = 1.5;
+    reject([&] { (void)InputMap(invalid); });
+    invalid = source;
+    invalid["contexts"][1]["name"] = "game";
+    reject([&] { (void)InputMap(invalid); });
+    const InputMap map(source);
+    const auto conflicts = map.binding_conflicts(menu, "key.space");
+    check(conflicts.size() == 3 && !conflicts[0].same_context && conflicts[1].same_context,
+          "Conflict query lost context ownership");
+    const auto cleared = map.with_bindings(game, Json::array());
+    check(cleared.actions()[0].bindings.empty() && !map.actions()[0].bindings.empty(),
+          "Binding candidate mutated original map");
+    reject([&] {
+        (void)map.with_bindings(game,
+                                Json::array({{{"control", "key.w"}}, {{"control", "key.w"}}}));
+    });
+    reject([&] { (void)map.with_bindings(ActionId::generate(), Json::array()); });
+    input.begin_rebind(); // space was held when the dialog opened
+    input.submit({{"key.space", 1}, {"mouse.delta_x", 40}, {"pad.left_x", .1}});
+    check(input.rebinding() && !input.take_rebind(), "Rebind captured opening button or noise");
+    input.submit({{"key.space", 0}, {"pad.south", 1}, {"key.space", 1}});
+    check(!input.rebinding() && input.take_rebind()->control == "pad.south",
+          "Gamepad button capture failed");
+    check(!input.latch(8).actions.at(game).held && !input.take_rebind(),
+          "Captured batch leaked into gameplay or repeated result");
+    input.begin_rebind();
+    input.submit({{"key.escape", 1}, {"key.w", 1}});
+    check(!input.rebinding() && !input.take_rebind(), "Escape did not cancel listening");
+    input.begin_rebind();
+    reject([&] { input.submit({{"key.w", 1}, {"unknown", 0}}); });
+    check(input.rebinding() && !input.take_rebind(), "Invalid batch partially captured");
+    input.submit({{"", 0, true}});
+    check(!input.rebinding(), "Focus/reset did not cancel listening");
+    source["contexts"][1]["phase"] = "control";
+    source["contexts"][1]["consume"] = false;
+    source["contexts"][1]["priority"] = 10;
+    input.configure(InputMap(source));
+    input.activate_contexts({"menu", "game"});
+    input.submit({{"key.space", 1}});
+    const auto controls = input.latch_controls(1);
+    check(controls.actions.size() == 1 && controls.actions.at(menu).pressed &&
+              input.snapshot().actions.empty(),
+          "Control frame mutated fixed snapshot");
+    check(!input.latch_controls(2).actions.at(menu).pressed &&
+              input.latch(1).actions.at(game).pressed && !input.snapshot().actions.contains(menu),
+          "Control frame consumed gameplay edge or entered fixed snapshot");
+    source["actions"][0]["kind"] = "axis1";
+    source["actions"][1]["kind"] = "axis1";
+    source["actions"][0]["bindings"] = Json::array({{{"control", "mouse.delta_x"}}});
+    source["actions"][1]["bindings"] = source["actions"][0]["bindings"];
+    input.configure(InputMap(source));
+    input.activate_contexts({"menu", "game"});
+    input.submit({{"mouse.delta_x", 5}});
+    check(input.latch_controls(1).actions.at(menu).x == 5 &&
+              input.latch_controls(2).actions.at(menu).x == 0 &&
+              input.latch(1).actions.at(game).x == 5 && input.latch(2).actions.at(game).x == 0,
+          "Pass-through relative input lost its domain consumption cursor");
+}
 static void input_tests() {
+    input_context_tests();
+    check(input_stick(0, 0, 0).x == 0 && input_stick(.1, .1, .2).y == 0,
+          "Stick center/dead zone invalid");
+    check(std::abs(input_stick(.6, 0, .2).x - .5) < 1e-9,
+          "Radial dead zone did not remap magnitude");
+    const auto corner = input_stick(1, 1, .2);
+    check(std::abs(std::hypot(corner.x, corner.y) - 1) < 1e-9 && corner.x == corner.y,
+          "Stick diagonal saturation changed direction");
+    reject([] { (void)input_stick(0, 0, 1); });
+    reject([] { (void)input_stick(0, 0, -.1); });
+    reject([] { (void)input_stick(std::numeric_limits<double>::quiet_NaN(), 0, .2); });
+    reject([] { (void)input_stick(0, std::numeric_limits<double>::infinity(), .2); });
+    reject([] { (void)input_stick(1.01, 0, .2); });
+    {
+        const auto trigger = ActionId::generate(), left = ActionId::generate(),
+                   wheel = ActionId::generate();
+        RuntimeInput analog_buttons;
+        analog_buttons.configure(InputMap(
+            {{"version", 1},
+             {"actions",
+              Json::array(
+                  {action(trigger, "digital",
+                          Json::array({{{"control", "pad.left_trigger"}, {"threshold", .6}}})),
+                   action(left, "digital",
+                          Json::array({{{"control", "pad.left_x"}, {"direction", -1}}})),
+                   action(wheel, "digital", Json::array({{{"control", "mouse.wheel_y"}}}))})}}));
+        analog_buttons.submit(
+            {{"pad.left_trigger", .7}, {"pad.left_x", -.8}, {"mouse.wheel_y", 1}});
+        const auto snapshot = analog_buttons.latch(1);
+        check(snapshot.actions.at(trigger).pressed && snapshot.actions.at(left).pressed &&
+                  snapshot.actions.at(wheel).pressed && snapshot.actions.at(wheel).released &&
+                  !snapshot.actions.at(wheel).held,
+              "Analog digital thresholds/direction/wheel pulses failed");
+        check(!analog_buttons.latch(2).actions.at(wheel).pressed,
+              "Wheel pulse repeated on catch-up tick");
+        analog_buttons.submit({{"pad.left_trigger", .4}, {"pad.left_x", .8}});
+        const auto released = analog_buttons.latch(3);
+        check(released.actions.at(trigger).released && released.actions.at(left).released,
+              "Analog digital actions remained held past their threshold");
+    }
     const auto button = ActionId::generate(), move = ActionId::generate(),
                look = ActionId::generate();
     InputMap map(

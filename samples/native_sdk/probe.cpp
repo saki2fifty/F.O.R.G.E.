@@ -105,6 +105,43 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             throw std::runtime_error("Late authoring opt-in escaped schema-stage guard");
         w.component<HostProbe>("sdk.HostProbe");
         w.entity("sdk.host").set<HostProbe>({host});
+        if (forge::sdk::Client(host).available(forge::sdk::Capability::Game)) {
+            ForgeSdkSaveSchemaV1 schema{};
+            schema.size = sizeof(schema);
+            schema.version = 2;
+            schema.validate = [](void*, const char* text, char*, uint32_t) -> int32_t {
+                try {
+                    const auto save = nlohmann::json::parse(text);
+                    (void)save.at("scene").get<forge::AssetId>();
+                    return save.at("data").at("counter").is_number_integer() &&
+                           save.at("data").at("counter") >= 0;
+                } catch (...) {
+                    return 0;
+                }
+            };
+            schema.migrate = [](void*, uint32_t from, const char* text, char* output,
+                                uint32_t capacity) -> int32_t {
+                try {
+                    if (from != 1)
+                        return 0;
+                    auto save = nlohmann::json::parse(text);
+                    save["data"]["counter"] = save.at("data").at("score");
+                    save["data"].erase("score");
+                    const auto copy = save.dump();
+                    if (copy.size() >= capacity)
+                        return 0;
+                    std::memcpy(output, copy.c_str(), copy.size() + 1);
+                    return 1;
+                } catch (...) {
+                    return 0;
+                }
+            };
+            const uint32_t migration = 1;
+            schema.migration_versions = &migration;
+            schema.migration_count = 1;
+            if (!host->game_save_schema(host->context, &schema))
+                throw std::runtime_error("SDK save schema registration failed");
+        }
         if (const auto* asset = std::getenv("FORGE_SDK_PACKAGE_RESOURCE")) {
             forge::sdk::Client client(host);
             const auto token = client.request_resource(FORGE_SDK_RESOURCE_TEXTURE, asset);
@@ -193,6 +230,24 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
     }
 }
 void FORGE_SDK_CALL stop(const ForgeSdkWorldV1*) { trace("stop"); }
+int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* host, char* error, uint32_t size) {
+    try {
+        forge::sdk::Client client(host);
+        if (!client.available(forge::sdk::Capability::Game))
+            return 1;
+        if (!client.callable(forge::sdk::Capability::ControlInput) ||
+            client.callable(forge::sdk::Capability::Input))
+            throw std::runtime_error("SDK control callback has wrong input domain");
+        const auto token = host->game_request(host->context, R"({"operation":"pause"})");
+        if (!token)
+            throw std::runtime_error("SDK control request rejected");
+        flecs::world(host->world).entity("sdk.game_token").set<uint64_t>(token);
+        return 1;
+    } catch (const std::exception& e) {
+        std::snprintf(error, size, "%s", e.what());
+        return 0;
+    }
+}
 #ifdef FORGE_SDK_SCHEMA_PHYSICS
 const char* deps[] = {"forge.input", "forge.transforms", "forge.physics"};
 #else
@@ -214,17 +269,18 @@ const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
 #ifdef FORGE_SDK_SCHEMA_PHYSICS
                               FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PHYSICS,
                               FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI |
-                                  FORGE_SDK_RESOURCES | FORGE_SDK_PHYSICS,
+                                  FORGE_SDK_RESOURCES | FORGE_SDK_PHYSICS | FORGE_SDK_GAME,
 #else
                               FORGE_SDK_DIAGNOSTICS,
                               FORGE_SDK_DIAGNOSTICS | FORGE_SDK_PROFILING | FORGE_SDK_UI |
-                                  FORGE_SDK_RESOURCES,
+                                  FORGE_SDK_RESOURCES | FORGE_SDK_GAME,
 #endif
                               &ecs_init,
                               &ecs_os_api,
                               schemas,
                               start,
-                              stop};
+                              stop,
+                              controls};
 } // namespace forge_sdk_example
 extern "C" FORGE_SDK_EXPORT const ForgeNativeSdkV1* FORGE_SDK_CALL forge_native_sdk_v1() {
     return &forge_sdk_example::api;

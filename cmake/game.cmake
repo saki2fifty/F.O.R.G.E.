@@ -8,7 +8,7 @@ add_executable(forge_game src/game_main.cpp src/game_device_d3d12.cpp
 target_include_directories(forge_game PRIVATE src "${rmlui_SOURCE_DIR}/Backends")
 target_compile_definitions(forge_game PRIVATE UNICODE _UNICODE NOMINMAX RMLUI_SDL_VERSION_MAJOR=3)
 target_link_libraries(forge_game PRIVATE forge_standalone_manifest forge_game_content forge_game_presentation
- forge_game_platform forge_game_storage SDL3::SDL3 RmlUi::Core
+ forge_game_platform forge_game_storage forge_game_host_controls SDL3::SDL3 RmlUi::Core
  Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings d3d12 dxgi)
 copy_required_dlls(forge_game)
 add_custom_command(TARGET forge_game POST_BUILD

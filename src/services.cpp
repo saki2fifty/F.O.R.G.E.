@@ -78,6 +78,7 @@ ServiceAccess ServiceAccess::world_scope() const {
     result.navigation_ = std::make_shared<detail::ServiceSlot<NavigationService>>();
     result.ui_ = std::make_shared<detail::ServiceSlot<UiService>>();
     result.resources_ = std::make_shared<detail::ServiceSlot<RuntimeResourceService>>();
+    result.game_ = std::make_shared<detail::ServiceSlot<GameControlService>>();
     return result;
 }
 template <class T>
@@ -124,6 +125,13 @@ std::shared_ptr<UiService> ServiceAccess::ui() const {
 void ServiceAccess::publish_resources(const std::shared_ptr<RuntimeResourceService>& value) const {
     publish(Capability::Resources, resources_, value);
 }
+void ServiceAccess::publish_game(const std::shared_ptr<GameControlService>& value) const {
+    publish(Capability::Game, game_, value);
+}
+std::shared_ptr<GameControlService> ServiceAccess::game() const {
+    require(Capability::Game);
+    return game_->service.lock();
+}
 std::shared_ptr<RuntimeResourceService> ServiceAccess::resources() const {
     require(Capability::Resources);
     return resources_->service.lock();
@@ -137,7 +145,8 @@ bool ServiceAccess::available(Capability c) const {
            (c != Capability::Audio || (audio_ && !audio_->service.expired())) &&
            (c != Capability::Navigation || (navigation_ && !navigation_->service.expired())) &&
            (c != Capability::Ui || (ui_ && !ui_->service.expired())) &&
-           (c != Capability::Resources || (resources_ && !resources_->service.expired()));
+           (c != Capability::Resources || (resources_ && !resources_->service.expired())) &&
+           (c != Capability::Game || (game_ && !game_->service.expired()));
 }
 void ServiceAccess::require(Capability c) const {
     if (!available(c))

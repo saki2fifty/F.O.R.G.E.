@@ -249,6 +249,7 @@ int main(int argc, char** argv) {
                                 throw std::runtime_error("Recovery checkpoint integrity, identity, "
                                                          "session or boundary mismatch");
                             candidate->scene.restore_snapshot(recovery.at("scene"));
+                            candidate->engine.world().modules().scene_ready();
                             prepare_physics(*candidate->physics());
                             candidate->physics()->restore(recovery.at("physics"));
                             auto animation = forge::animation_runtime(candidate->engine.world());
@@ -266,6 +267,7 @@ int main(int argc, char** argv) {
                             recovered_tick = recovery.at("tick").get<std::uint64_t>();
                         } else {
                             candidate->scene.restore_snapshot(request.at("scene"));
+                            candidate->engine.world().modules().scene_ready();
                             prepare_physics(*candidate->physics());
                             candidate->physics()->synchronize(0);
                         }

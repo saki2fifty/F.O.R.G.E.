@@ -19,6 +19,7 @@ class AudioRuntime : public AudioService {
     void shutdown() noexcept;
     void synchronize(std::uint64_t tick);
     void paused(bool value);
+    void master_volume(float value);
     void play(EntityRef) override;
     void stop_source(EntityRef) override;
     Json status() const;

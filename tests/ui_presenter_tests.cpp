@@ -258,6 +258,55 @@ int main(int argc, char** argv) {
             UiPresenter again(renderer, root, read(argv[2]));
             again.reset("second", 1);
         }
+        {
+            const auto source = std::filesystem::path(__FILE__).parent_path().parent_path() /
+                                "samples/reference_game/reference.rml";
+            std::filesystem::copy_file(source, root / "reference.rml");
+            const auto reference = register_ui_document(root, "reference.rml");
+            auto sample = state;
+            sample["session"] = "reference";
+            sample["generation"] = 1u;
+            sample["revision"] = 1u;
+            sample["documents"] =
+                Json::array({{{"entity", entity},
+                              {"asset", reference.id},
+                              {"instance", entity.str() + ":" + reference.id.str()},
+                              {"visible", true},
+                              {"layer", 0u},
+                              {"commands", {"Reference"}},
+                              {"model",
+                               {{"page", "main"},
+                                {"message", ""},
+                                {"prompt", ""},
+                                {"interactions", 0},
+                                {"have_save", false},
+                                {"binding", "Choose Rebind Jump"},
+                                {"conflicts", ""},
+                                {"settings_text", "Volume 1.00 | Mouse 1.00 | Gamepad 1.00"}}}}});
+            UiPresenter p(renderer, root, read(argv[2]));
+            p.reset("reference", 1);
+            check(p.accept(sample), p.diagnostic().c_str());
+            p.update(1, 1280, 720);
+            p.render();
+            check(p.diagnostic().empty(), p.diagnostic().c_str());
+            p.navigate("next");
+            p.navigate("accept");
+            auto command = p.pending_command();
+            check(command && command->at("command") == "Reference" &&
+                      command->at("value") == "start",
+                  "Controller navigation did not activate the reference New Game control");
+            auto ack = *command;
+            ack["ok"] = true;
+            p.acknowledge(ack);
+            for (auto page : {"play", "pause", "options"}) {
+                sample["revision"] = sample.at("revision").get<unsigned>() + 1;
+                sample["documents"][0]["model"]["page"] = page;
+                check(p.accept(sample), p.diagnostic().c_str());
+                p.update(2, 1280, 720);
+                p.render();
+                check(p.diagnostic().empty(), p.diagnostic().c_str());
+            }
+        }
         check(renderer.geometry.empty() && renderer.textures.empty(),
               "RmlUi releases resources before renderer destruction");
         std::filesystem::remove_all(root);

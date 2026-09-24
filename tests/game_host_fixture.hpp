@@ -1,5 +1,6 @@
 #pragma once
 #include "game_host_source.hpp"
+#include "reference_game_workflow.hpp"
 #include <algorithm>
 #include <cstring>
 #include <forge/animation.hpp>
@@ -11,12 +12,19 @@ struct GameHostFixture {
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false;
+    bool reference = false, reference_reopen = false;
+    ReferenceGameWorkflow reference_workflow;
     std::string waiting = "startup";
     std::uint64_t ticket = 0;
     Uint64 started = SDL_GetTicks();
     Json original;
     void storage_probe(GameStorage& storage, const Json& settings, const InputMap& input,
                        AssetId startup) {
+        if (reference) {
+            atomic_write(output / "reference-storage.json",
+                         Json{{"root", path_utf8(storage.root())}}.dump(2));
+            return;
+        }
         const GameSaveSchema schema{1,
                                     [startup](const GameSave& save) {
                                         check(save.scene == startup && save.data.at("marker") == 42,
@@ -43,8 +51,11 @@ struct GameHostFixture {
                                                          .dump(2));
     }
     explicit GameHostFixture(int argc, char** argv) {
+        reference = argc == 3 && (std::string_view(argv[1]) == "--reference" ||
+                                  std::string_view(argv[1]) == "--reference-load");
+        reference_reopen = reference && std::string_view(argv[1]) == "--reference-load";
         mixed = argc == 3 && std::string_view(argv[1]) == "--packaged-mixed";
-        packaged = mixed || (argc == 3 && std::string_view(argv[1]) == "--packaged");
+        packaged = reference || mixed || (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
             throw std::runtime_error("Game fixture requires output directory");
@@ -131,6 +142,13 @@ struct GameHostFixture {
     }
     void frame(GameSession& game, Diligent::ITextureView* image, Diligent::IRenderDevice* device,
                Diligent::IDeviceContext* context, SDL_Window* window, bool& running) {
+        if (reference) {
+            if (image && ++frames >= 4)
+                reference_workflow.frame(
+                    game, window, output, reference_reopen,
+                    [&](const char* name) { capture(name, image, device, context); });
+            return;
+        }
         if (SDL_GetTicks() - started >= 90000) {
             atomic_write(output / "workflow-timeout.json", Json{{"stage", stage},
                                                                 {"frames", frames},

@@ -112,6 +112,12 @@ int main(int argc, char** argv) {
                       muted.energy() == 0,
                   "Master volume did not affect actual offline samples");
             reject([&] { Fixture invalid(root, -1); });
+            full.audio->master_volume(0);
+            check(full.energy() == 0 && full.audio->status().at("master_volume") == 0,
+                  "Runtime master volume did not mute actual samples");
+            full.audio->master_volume(1);
+            check(full.energy() > 0, "Runtime master volume did not restore audio");
+            reject([&] { full.audio->master_volume(-1); });
         }
         check(catalog.resolve(AssetRef<AudioClipAsset>{record.id}).state == AssetState::Available,
               "Typed AudioClip resolution");

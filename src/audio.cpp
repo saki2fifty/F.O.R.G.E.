@@ -381,6 +381,13 @@ void AudioRuntime::paused(bool value) {
     impl_->is_paused = value;
 }
 void AudioRuntime::play(EntityRef ref) { impl_->queue(ref, true); }
+void AudioRuntime::master_volume(float value) {
+    impl_->check();
+    if (!std::isfinite(value) || value < 0 || value > 1)
+        throw std::runtime_error("Master volume must be finite and between zero and one");
+    ma_sound_group_set_volume(&impl_->group, value);
+    impl_->config.master_volume = value;
+}
 void AudioRuntime::stop_source(EntityRef ref) { impl_->queue(ref, false); }
 Json AudioRuntime::status() const {
     impl_->check();

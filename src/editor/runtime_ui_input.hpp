@@ -54,6 +54,15 @@ class RuntimeUiInput {
             captured_ = false;
             return false;
         }
+        if (game.relative()) {
+            if (captured_) {
+                presenter.release_input();
+                ui_keys_.clear();
+                ui_buttons_.clear();
+                captured_ = false;
+            }
+            return game.event(e, play);
+        }
         captured_ = true;
         if ((e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) &&
             (e.key.scancode == SDL_SCANCODE_ESCAPE || e.key.scancode == SDL_SCANCODE_F6 ||

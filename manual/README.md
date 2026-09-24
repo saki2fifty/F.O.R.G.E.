@@ -47,6 +47,8 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 
 ## Testing gameplay
 
+- [Reference game](reference-game.md): standalone controls, menus, rebinding and saves.
+
 - [Physics](editor/physics.md): make bodies fall and collide, with Pause/Step and prefab support.
 - [Play mode](editor/play-mode.md): run an isolated copy of your scene.
 - [Gameplay input](editor/input.md): bind actions and inspect fixed-tick input without writing code.
@@ -58,8 +60,7 @@ This manual describes the source or packaged build it accompanies. FORGE include
 imported and skinned mesh rendering, materials, textures, scene lighting, standalone
 export, runtime dependency declarations, Collision assets and reusable character
 mechanics. Build260923-000066 predates these Phase8 runtime/export/physics additions.
-Terrain, material graphs, complete gameplay/menu input contexts, game SDK save access
-and the reference game remain future work. The controller supplies physics mechanics;
+Terrain and material graphs remain future work. The controller supplies physics mechanics;
 gameplay code still supplies movement keys and camera behavior.
 
 ## Commands and inspection

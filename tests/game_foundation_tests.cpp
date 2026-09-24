@@ -180,6 +180,70 @@ Json snapshot(const char* name) {
                         {"components", {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 0}}}}}}})}});
     return scene.snapshot();
 }
+void control_frames() {
+    const auto id = ActionId::generate();
+    GameSessionConfig config;
+    config.controls = std::make_shared<GameControlQueue>();
+    config.input = InputMap(
+        {{"version", 2},
+         {"contexts", Json::array({{{"name", "menu"}, {"active", true}, {"phase", "control"}}})},
+         {"actions", Json::array({{{"id", id},
+                                   {"name", "Select"},
+                                   {"context", "menu"},
+                                   {"kind", "digital"},
+                                   {"bindings", Json::array({{{"control", "key.enter"}}})}}})}});
+    unsigned calls = 0, presses = 0;
+    bool fail = false;
+    GameSession* owner = nullptr;
+    EngineModule module;
+    module.id = "test.controls";
+    module.dependencies = {"forge.game"};
+    module.allowed_services = capability(Capability::Game);
+    module.runtime_roles = role_mask(WorldRole::Runtime);
+    module.controls = [&](ModuleContext& c) {
+        check(c.controls && !c.input, "Control callback entered fixed domain");
+        ++calls;
+        presses += c.controls->actions.at(id).pressed;
+        const auto request = c.services.game()->request(c.id, {{"operation", "pause"}});
+        check(c.services.game()->inspect(c.id, request).state == "queued",
+              "Session request ran inside module callback");
+        rejects([&] { owner->pause(at(0)); });
+        rejects([&] { owner->input_map(InputMap{}); });
+        rejects([&] { owner->master_volume(.5f); });
+        rejects([&] { owner->prepare(snapshot("illegal")); });
+        if (fail)
+            throw std::runtime_error("control fixture fault");
+    };
+    config.modules.push_back(module);
+    GameSession game(config);
+    owner = &game;
+    auto ticket = game.prepare(snapshot("first"));
+    check(calls == 0, "Candidate executed controls during preparation");
+    game.activate(ticket, at(0), false);
+    game.input({{"key.enter", 1}});
+    game.control_frame();
+    game.control_frame();
+    check(calls == 2 && presses == 1 && game.status().at("clock").at("tick") == 0,
+          "Paused menu repeated edge or advanced simulation");
+    ticket = game.prepare(snapshot("second"));
+    game.control_frame();
+    check(calls == 3, "Candidate got active-world controls");
+    game.activate(ticket, at(0), false);
+    unsigned retired_requests = 0;
+    config.controls->drain([&](const Json&, const GameSaveSchema*, const std::string&) {
+        ++retired_requests;
+        return Json();
+    });
+    check(retired_requests == 0, "Replaced world retained queued session requests");
+    game.control_frame();
+    check(calls == 4 && presses == 1, "Activation leaked old menu input");
+    fail = true;
+    rejects([&] { game.control_frame(); });
+    check(game.status().at("state") == "faulted", "Control failure did not fault world");
+    rejects([&] { game.control_frame(); });
+    rejects([&] { game.resume(at(1)); });
+    check(calls == 5, "Faulted world executed controls again");
+}
 void preparation() {
     struct State {
         bool ready = false, fail = false;
@@ -404,6 +468,7 @@ int main(int argc, char** argv) {
         storage(root);
         session();
         preparation();
+        control_frames();
         std::filesystem::remove_all(root);
         std::cout << "Game configuration, persistence and session tests passed\n";
     } catch (const std::exception& e) {

@@ -2,6 +2,7 @@
 #include <forge/identity.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 namespace forge {
@@ -16,6 +17,9 @@ class UiService {
     virtual ~UiService() = default;
     virtual void publish(EntityId, const std::string& name, const nlohmann::json& value) = 0;
     virtual void allow_action(const std::string& name) = 0;
+    virtual void allow_value_action(const std::string&) {
+        throw std::runtime_error("UI provider does not support value actions");
+    }
     virtual std::optional<UiAction>
     poll_action(const std::string&) = 0; // Consume from a fixed simulation system.
 };

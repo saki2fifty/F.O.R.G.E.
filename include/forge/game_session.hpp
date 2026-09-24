@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/game_control_queue.hpp>
 #include <forge/loading_state.hpp>
 #include <forge/runtime_world.hpp>
 namespace forge {
@@ -25,6 +26,7 @@ struct GameSessionConfig {
     bool ui = false;
     std::vector<EngineModule> modules;
     std::function<std::unique_ptr<GameScenePreparation>(std::uint64_t)> preparation;
+    std::shared_ptr<GameControlQueue> controls;
 };
 // Owner-thread simulation session. Presentation/window and persistent saves remain
 // separate owners. One active scene and at most one unpublished candidate world.
@@ -39,7 +41,8 @@ class GameSession {
     // Optional game-owned restoration mutates only the unpublished Scene. It runs
     // before physics realization; throwing discards the candidate. No generic ECS dump.
     std::uint64_t prepare(const Json& snapshot,
-                          const std::function<void(Scene&)>& restore_supported_state = {});
+                          const std::function<void(Scene&)>& restore_supported_state = {},
+                          const Json& module_state = Json::object());
     // Nonblocking host work is polled without advancing either world's clock.
     // An installed preparation adapter is mandatory: activate polls it again and
     // refuses publication until ready. Without one, scope remains structural only.
@@ -51,7 +54,12 @@ class GameSession {
     void resume(RuntimeClock::Time now);
     void step();
     void advance(RuntimeClock::Time now);
+    // Runs menu/control callbacks in the active world, including while paused.
+    // Does not advance the clock or run the Flecs simulation pipeline.
+    void control_frame();
     void input(const std::vector<InputEvent>&);
+    void input_map(InputMap);
+    void master_volume(float);
     Json status() const;
     LoadingState loading_state() const;
     Json presentation() const;
@@ -73,6 +81,7 @@ class GameSession {
     LoadingState loading_;
     std::thread::id thread_ = std::this_thread::get_id();
     std::uint64_t generation_ = 0, pending_ = 0;
+    std::uint64_t control_frame_ = 0;
     bool faulted_ = false, changing_ = false, candidate_initialized_ = false;
     std::string error_;
 };

@@ -31,6 +31,8 @@ struct ModuleContext {
     const InputSnapshot* input = nullptr; // Borrowed during a fixed tick only.
     WorldContext* owner = nullptr;
     std::shared_ptr<void> state; // Host bridge, retained until after Flecs finalization.
+    const InputSnapshot* controls = nullptr; // Borrowed during a control frame only.
+    std::shared_ptr<void> code;              // Explicit lease for registered non-Flecs callbacks.
 };
 // Internal/source contract. Flecs owns ECS registrations; FORGE owns policy and lifetime.
 struct EngineModule {
@@ -40,6 +42,9 @@ struct EngineModule {
     unsigned required_services = 0, allowed_services = 0, provided_services = 0;
     std::shared_ptr<void> code;
     std::function<void(ModuleContext&)> schemas, start, stop;
+    std::function<void(ModuleContext&)> controls;
+    std::function<void(ModuleContext&, const nlohmann::json&)> restore;
+    std::function<void(ModuleContext&)> scene_ready;
 };
 class ModuleLifecycle {
   public:
@@ -49,6 +54,9 @@ class ModuleLifecycle {
     void stop() noexcept;
     void begin_tick(const InputSnapshot&);
     void end_tick() noexcept;
+    void control_frame(const InputSnapshot&);
+    void restore_state(const nlohmann::json& module_values);
+    void scene_ready();
     const std::vector<std::string>& order() const { return order_; }
 
   private:

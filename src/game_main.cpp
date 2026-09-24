@@ -2,10 +2,13 @@
 #include "asset_bytes.hpp"
 #include "game_device.hpp"
 #include "game_presentation.hpp"
+#include "sdl_game_cursor.hpp"
+#include "sdl_gamepads.hpp"
 #include "sdl_input.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/build.hpp>
 #include <forge/game_content.hpp>
+#include <forge/game_host_controls.hpp>
 #include <forge/game_platform.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/game_storage.hpp>
@@ -54,6 +57,9 @@ void display(SDL_Window* window, const Json& settings) {
     } else
         checked(SDL_SetWindowFullscreenMode(window, nullptr));
     checked(SDL_SetWindowFullscreen(window, mode != "windowed"));
+    if (mode == "windowed")
+        checked(SDL_SetWindowSize(window, settings.at("width").get<int>(),
+                                  settings.at("height").get<int>()));
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -128,9 +134,17 @@ int main(int argc, char** argv) {
         fixture.storage_probe(storage, defaults, project.input(),
                               project.document().at("startup_scene").at("asset").get<AssetId>());
 #endif
-        const auto user = storage.load_settings([&](const Json& overrides) {
-            (void)resolve_game_settings(defaults, overrides, project.input());
-        });
+        Json user = Json::object();
+        std::string settings_error;
+        try {
+            user = storage.load_settings([&](const Json& overrides) {
+                (void)resolve_game_settings(defaults, overrides, project.input());
+            });
+        } catch (const std::exception& e) {
+            settings_error =
+                std::string("Saved settings could not be loaded; using defaults. ") + e.what();
+            std::clog << settings_error << '\n';
+        }
         const auto settings = resolve_game_settings(defaults, user, project.input());
         std::clog << "FORGE game | Build: " << build_id << "\nStarting "
                   << settings.at("title").get<std::string>() << '\n';
@@ -174,6 +188,8 @@ int main(int argc, char** argv) {
             std::move(callbacks), &ime);
         EngineServices bootstrap;
         GameSessionConfig config;
+        auto game_requests = std::make_shared<GameControlQueue>();
+        config.controls = game_requests;
         config.content_root = root;
         config.ui = true;
         config.clock.simulation_hz = project.simulation_hz();
@@ -187,9 +203,29 @@ int main(int argc, char** argv) {
         GameSession game(std::move(config)); // Dies before presentation/platform/module services.
         const auto startup = project.document().at("startup_scene").at("asset").get<AssetId>();
         auto ticket = game.prepare(load_game_scene(root, {startup}));
+        SdlGameCursor cursor(window.get());
+        SdlGamepads gamepads;
+        gamepads.discover();
+        GamePlatformControls platform;
+        platform.navigation = [&](const std::string& direction) {
+            presentation.ui().navigate(direction);
+        };
+        platform.input_device = [&] { return std::string(gamepads.activity()); };
+        platform.settings = [&](const Json& value) { display(window.get(), value.at("display")); };
+        platform.cursor = [&](bool capture) {
+            presentation.ui().release_input();
+            if (capture)
+                cursor.capture();
+            else
+                cursor.release();
+        };
+        GameHostControls game_controls(game, game_requests, storage, root, defaults,
+                                       project.input(), user, std::move(platform));
+        if (!settings_error.empty())
+            game_controls.diagnostic(settings_error);
         const auto deadline = RuntimeClock::Clock::now() + std::chrono::seconds(60);
         ui_protocol::CommandGate commands;
-        bool running = true, active = false, focused = true;
+        bool running = true, active = false, focused = true, startup_complete = false;
         std::uint64_t command_generation = 0;
         std::string loading_stage, last_ui_error;
         std::uint64_t log_generation = 0, diagnostic_cursor = 0;
@@ -206,15 +242,19 @@ int main(int argc, char** argv) {
                 if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
                     focused = false;
                     ui.release_input();
-                    if (active)
-                        game.input({{{}, 0, true}});
+                    game_controls.release_cursor();
                 } else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
                     focused = true;
+                const auto pad_events = gamepads.event(event, active && focused, SDL_GetTicks());
+                if (active && !pad_events.empty())
+                    game.input(pad_events);
                 if (!active || !focused)
                     continue;
                 const int modifiers = RmlSDL::GetKeyModifierState();
+                const bool listening = game.active().simulation.input().rebinding();
                 if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
-                    if (ui.key(RmlSDL::ConvertKey(event.key.key), event.key.down, modifiers))
+                    if (!listening && !cursor.captured() &&
+                        ui.key(RmlSDL::ConvertKey(event.key.key), event.key.down, modifiers))
                         game.input({{{}, 0, true}});
                     else if (!event.key.repeat) {
                         const auto key = sdl_key_control(event.key.scancode);
@@ -229,16 +269,16 @@ int main(int argc, char** argv) {
                     int lw = 1, lh = 1, pw = 1, ph = 1;
                     SDL_GetWindowSize(window.get(), &lw, &lh);
                     SDL_GetWindowSizeInPixels(window.get(), &pw, &ph);
-                    if (!ui.mouse_move(int(event.motion.x * pw / std::max(lw, 1)),
+                    if (listening || cursor.captured() ||
+                        !ui.mouse_move(int(event.motion.x * pw / std::max(lw, 1)),
                                        int(event.motion.y * ph / std::max(lh, 1)), modifiers)) {
-                        const auto sensitivity =
-                            settings.at("input").at("mouse_sensitivity").get<double>();
-                        game.input({{"mouse.delta_x", event.motion.xrel * sensitivity},
-                                    {"mouse.delta_y", event.motion.yrel * sensitivity}});
+                        game.input({{"mouse.delta_x", event.motion.xrel},
+                                    {"mouse.delta_y", event.motion.yrel}});
                     }
                 } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
                            event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-                    if (ui.mouse_button(RmlSDL::ConvertMouseButton(event.button.button),
+                    if (!listening && !cursor.captured() &&
+                        ui.mouse_button(RmlSDL::ConvertMouseButton(event.button.button),
                                         event.button.down, modifiers))
                         game.input({{{}, 0, true}});
                     else {
@@ -246,10 +286,18 @@ int main(int argc, char** argv) {
                             event.button.button == SDL_BUTTON_LEFT     ? "mouse.left"
                             : event.button.button == SDL_BUTTON_RIGHT  ? "mouse.right"
                             : event.button.button == SDL_BUTTON_MIDDLE ? "mouse.middle"
+                            : event.button.button == SDL_BUTTON_X1     ? "mouse.x1"
+                            : event.button.button == SDL_BUTTON_X2     ? "mouse.x2"
                                                                        : nullptr;
                         if (control)
                             game.input({{control, event.button.down ? 1.0 : 0.0}});
                     }
+                } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                    const float sign = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.f : 1.f;
+                    if (listening || cursor.captured() ||
+                        !ui.wheel(event.wheel.x * sign, event.wheel.y * sign, modifiers))
+                        game.input({{"mouse.wheel_x", event.wheel.x * sign},
+                                    {"mouse.wheel_y", event.wheel.y * sign}});
                 }
             }
             if (!running)
@@ -277,9 +325,8 @@ int main(int argc, char** argv) {
             }
             if (!active)
                 ui.loading(game.loading_state());
-            auto* image =
-                active ? presentation.draw(game, double(SDL_GetTicksNS()) / 1e9) : nullptr;
-            if (!active) {
+            ITextureView* image = nullptr;
+            if (!startup_complete) {
                 ui.update(double(SDL_GetTicksNS()) / 1e9, width, height,
                           std::clamp(SDL_GetWindowDisplayScale(window.get()), .5f, 4.f));
                 const auto progress = game.poll_preparation(ticket);
@@ -291,14 +338,16 @@ int main(int argc, char** argv) {
                 }
                 if (progress.ready) {
                     game.activate(ticket, now, true);
+                    game_controls.pump(now);
                     commands.reset(presentation.session(), presentation.generation());
                     command_generation = presentation.generation();
                     active = true;
+                    startup_complete = true;
                     (void)SDL_SetWindowTitle(window.get(), title.c_str());
                     std::clog << "Scene ready: " << startup.str() << '\n';
                 } else if (now > deadline)
                     throw std::runtime_error("Scene preparation timed out before activation");
-            } else {
+            } else if (active) {
                 if (command_generation != presentation.generation()) {
                     commands.reset(presentation.session(), presentation.generation());
                     command_generation = presentation.generation();
@@ -321,8 +370,23 @@ int main(int argc, char** argv) {
                     });
                     ui.acknowledge(ack);
                 }
-                game.advance(now);
+                game.control_frame();
+                game_controls.pump(now);
+                const auto state = game.status().at("state").get<std::string>();
+                active = state == "running" || state == "paused";
+                if (active && !game_controls.quit_requested()) {
+                    game.advance(now);
+                    game_controls.pump(now);
+                    const auto updated = game.status().at("state").get<std::string>();
+                    active = updated == "running" || updated == "paused";
+                }
+                if (game_controls.quit_requested()) {
+                    running = false;
+                    continue;
+                }
             }
+            if (active)
+                image = presentation.draw(game, double(SDL_GetTicksNS()) / 1e9);
             if (active) {
                 if (log_generation != presentation.generation()) {
                     log_generation = presentation.generation();
@@ -375,7 +439,8 @@ int main(int argc, char** argv) {
             // physical-device gameplay retains asynchronous presentation.
             if (software)
                 graphics.context->WaitForIdle();
-            graphics.swap->Present(video.at("vsync").get<bool>() ? 1 : 0);
+            graphics.swap->Present(
+                game_controls.settings().at("display").at("vsync").get<bool>() ? 1 : 0);
 #ifdef FORGE_GAME_FIXTURE
             test::GameHostFixture::check(graphics.context->GetFrameNumber() == frame_number + 1,
                                          "Primary presentation must finish exactly one frame");

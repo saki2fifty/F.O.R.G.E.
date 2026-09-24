@@ -1,0 +1,223 @@
+{
+  "version": 2,
+  "contexts": [
+    {
+      "name": "Global",
+      "priority": 100,
+      "consume": true,
+      "active": true,
+      "phase": "control"
+    },
+    {
+      "name": "Menu",
+      "priority": 50,
+      "consume": true,
+      "active": true,
+      "phase": "control"
+    },
+    {
+      "name": "Gameplay",
+      "priority": 0,
+      "consume": true,
+      "active": false,
+      "phase": "fixed"
+    }
+  ],
+  "actions": [
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1301",
+      "name": "Move",
+      "kind": "axis2",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "key.w",
+          "y": 1,
+          "x": 0
+        },
+        {
+          "control": "key.s",
+          "y": -1,
+          "x": 0
+        },
+        {
+          "control": "key.a",
+          "x": -1
+        },
+        {
+          "control": "key.d",
+          "x": 1
+        },
+        {
+          "control": "pad.left_x",
+          "x": 1,
+          "radial": true
+        },
+        {
+          "control": "pad.left_y",
+          "y": -1,
+          "radial": true,
+          "x": 0
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1302",
+      "name": "Mouse look",
+      "kind": "axis2",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "mouse.delta_x",
+          "x": 1
+        },
+        {
+          "control": "mouse.delta_y",
+          "y": 1,
+          "x": 0
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1303",
+      "name": "Gamepad look",
+      "kind": "axis2",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "pad.right_x",
+          "x": 1,
+          "radial": true
+        },
+        {
+          "control": "pad.right_y",
+          "y": 1,
+          "radial": true,
+          "x": 0
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1304",
+      "name": "Jump",
+      "kind": "digital",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "key.space"
+        },
+        {
+          "control": "pad.south"
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1305",
+      "name": "Crouch",
+      "kind": "digital",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "key.c"
+        },
+        {
+          "control": "pad.east"
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1306",
+      "name": "Sprint",
+      "kind": "digital",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "key.lshift"
+        },
+        {
+          "control": "pad.left_stick"
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1307",
+      "name": "Interact",
+      "kind": "digital",
+      "context": "Gameplay",
+      "bindings": [
+        {
+          "control": "key.e"
+        },
+        {
+          "control": "pad.west"
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1308",
+      "name": "Pause",
+      "kind": "digital",
+      "context": "Global",
+      "bindings": [
+        {
+          "control": "key.escape"
+        },
+        {
+          "control": "pad.start"
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1309",
+      "name": "Next menu control",
+      "kind": "digital",
+      "context": "Menu",
+      "bindings": [
+        {
+          "control": "pad.down"
+        },
+        {
+          "control": "pad.left_y",
+          "direction": 1
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1310",
+      "name": "Previous menu control",
+      "kind": "digital",
+      "context": "Menu",
+      "bindings": [
+        {
+          "control": "pad.up"
+        },
+        {
+          "control": "pad.left_y",
+          "direction": -1
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1311",
+      "name": "Select menu control",
+      "kind": "digital",
+      "context": "Menu",
+      "bindings": [
+        {
+          "control": "pad.south"
+        }
+      ]
+    },
+    {
+      "id": "663e9451-b573-4dc7-811b-c9852c5e1312",
+      "name": "Back",
+      "kind": "digital",
+      "context": "Menu",
+      "bindings": [
+        {
+          "control": "pad.east"
+        }
+      ]
+    }
+  ]
+}

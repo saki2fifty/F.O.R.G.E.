@@ -20,6 +20,46 @@ ModuleLifecycle::~ModuleLifecycle() {
     while (!entries_.empty())
         entries_.pop_back();
 }
+void ModuleLifecycle::control_frame(const InputSnapshot& snapshot) {
+    if (std::any_of(entries_.begin(), entries_.end(), [](const auto& entry) {
+            return entry.context->input || entry.context->controls;
+        }))
+        throw std::logic_error("Control callbacks cannot nest or run inside a fixed tick");
+    for (auto& entry : entries_) {
+        if (!entry.started || !entry.module.controls)
+            continue;
+        auto& context = *entry.context;
+        context.controls = &snapshot;
+        try {
+            entry.module.controls(context);
+        } catch (...) {
+            context.controls = nullptr;
+            throw;
+        }
+        context.controls = nullptr;
+    }
+}
+void ModuleLifecycle::restore_state(const nlohmann::json& values) {
+    if (!values.is_object() || values.size() > 32 || values.dump().size() > 1024 * 1024)
+        throw std::runtime_error("Invalid/bounded module restoration state");
+    for (const auto& [id, value] : values.items()) {
+        const auto entry = std::find_if(entries_.begin(), entries_.end(),
+                                        [&](const auto& item) { return item.module.id == id; });
+        if (entry == entries_.end() || !entry->started || !entry->module.restore)
+            throw std::runtime_error("Module does not support saved-state restoration: " + id);
+        if (entry->context->input || entry->context->controls)
+            throw std::logic_error("Restoration must occur before candidate activation");
+        entry->module.restore(*entry->context, value);
+    }
+}
+void ModuleLifecycle::scene_ready() {
+    for (auto& entry : entries_)
+        if (entry.started && entry.module.scene_ready) {
+            if (entry.context->input || entry.context->controls)
+                throw std::logic_error("Scene initialization cannot run inside an input callback");
+            entry.module.scene_ready(*entry.context);
+        }
+}
 void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAccess services,
                                 std::vector<EngineModule> modules, WorldContext* owner) {
     if (bootstrapped_)
@@ -77,6 +117,7 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
             auto m = std::move(selected.at(id));
             auto context = std::make_unique<ModuleContext>(ModuleContext{
                 world, role, services.restricted(m.allowed_services), id, nullptr, owner});
+            context->code = m.code;
             entries_.push_back({std::move(m), std::move(context), false});
         }
         for (auto& entry : entries_) {
@@ -88,9 +129,10 @@ void ModuleLifecycle::bootstrap(flecs::world& world, WorldRole role, ServiceAcce
         for (auto& entry : entries_)
             if (entry.module.runtime_roles & role_mask(role)) {
                 current = entry.module.id;
-                for (auto cap : {Capability::Diagnostics, Capability::Profiling,
-                                 Capability::Rendering, Capability::Physics, Capability::Audio,
-                                 Capability::Navigation, Capability::Ui, Capability::Resources})
+                for (auto cap :
+                     {Capability::Diagnostics, Capability::Profiling, Capability::Rendering,
+                      Capability::Physics, Capability::Audio, Capability::Navigation,
+                      Capability::Ui, Capability::Resources, Capability::Game})
                     if (entry.module.required_services & capability(cap))
                         entry.context->services.require(cap);
                 entry.started = true; // Stop must handle partial startup.

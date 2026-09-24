@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
         editor.scene = &scene;
         forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
-        forge::GameInput game_input;
+        forge::GameInput game_input(window.get());
         forge::ProjectSettingsEditor project_settings;
         bool scene_lighting_open = false;
         const char* base = SDL_GetBasePath();
@@ -1048,7 +1048,8 @@ int main(int argc, char** argv) {
                      event.key.key == SDLK_KP_PLUS || event.key.key == SDLK_0 ||
                      event.key.key == SDLK_KP_0);
                 if (zoom_key || (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                                 game_input.outside(event.button.x, event.button.y)))
+                                 (!game_input.relative() &&
+                                  game_input.outside(event.button.x, event.button.y))))
                     game_input.release(play);
                 if (runtime_ui.event(event, game_input, play))
                     continue;
@@ -3406,19 +3407,22 @@ int main(int argc, char** argv) {
                                         {"asset", problem.asset ? forge::Json(problem.asset)
                                                                 : forge::Json(nullptr)},
                                         {"source", problem.source}});
-                const forge::Json state{{"problems", problems},
-                                        {"scene", scene.document()},
-                                        {"selected", selected},
-                                        {"selected_preview", selected_preview},
-                                        {"dirty", files.document.dirty()},
-                                        {"disk", disk},
-                                        {"playing", play.active()},
-                                        {"control_ready", play.control_ready()},
-                                        {"paused", play.paused()},
-                                        {"tick", play.timing().value("tick", std::uint64_t{0})},
-                                        {"cameras", game_viewport.cameras().size()},
-                                        {"ui_scale", forge::ui::interface_scale},
-                                        {"status", message}};
+                const forge::Json state{
+                    {"problems", problems},
+                    {"scene", scene.document()},
+                    {"selected", selected},
+                    {"selected_preview", selected_preview},
+                    {"dirty", files.document.dirty()},
+                    {"disk", disk},
+                    {"playing", play.active()},
+                    {"game_input_captured", game_input.captured()},
+                    {"game_mouse_relative", SDL_GetWindowRelativeMouseMode(window.get())},
+                    {"control_ready", play.control_ready()},
+                    {"paused", play.paused()},
+                    {"tick", play.timing().value("tick", std::uint64_t{0})},
+                    {"cameras", game_viewport.cameras().size()},
+                    {"ui_scale", forge::ui::interface_scale},
+                    {"status", message}};
                 auto observed = state;
                 observed["collision_preview_ready"] = physics_overlay.ready();
                 observed["collision_preview_status"] = physics_overlay.status();

@@ -52,6 +52,8 @@ class UiPresenter {
     bool key(int key, bool down, int modifiers);
     bool text(const std::string& utf8);
     bool wants_text() const;
+    // Semantic action routed by RuntimeInput; delegates to native RmlUi focus.
+    void navigate(const std::string& direction);
     void release_input();
     std::optional<nlohmann::json> pending_command() const;
     void acknowledge(const nlohmann::json& ack);

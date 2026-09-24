@@ -33,12 +33,27 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_RESOURCES 256u
 /* Intrinsic owner-thread runtime entity requests; not a descriptor permission bit. */
 #define FORGE_SDK_RUNTIME_ENTITIES 512u
+#define FORGE_SDK_CONTROL_INPUT 1024u
+#define FORGE_SDK_GAME 2048u
 #define FORGE_SDK_CAPABILITY_VERSION 1u
 #define FORGE_SDK_FIXED_ONLY 1u
 #define FORGE_SDK_OWNER_THREAD 2u
+#define FORGE_SDK_CONTROL_ONLY 4u
 typedef struct ForgeSdkCapabilityV1 {
     uint32_t size, version, available, callable, flags;
 } ForgeSdkCapabilityV1;
+typedef struct ForgeSdkSaveSchemaV1 {
+    uint32_t size, version;
+    void* userdata;
+    /* Input is {scene: AssetId, data: explicitly admitted game state}. */
+    int32_t(FORGE_SDK_CALL* validate)(void*, const char* save_json, char* error, uint32_t capacity);
+    /* Pure N -> N+1 migration; output capacity is 1 MiB including terminator.
+       Return 0 on failure; never retain any borrowed input/output pointers. */
+    int32_t(FORGE_SDK_CALL* migrate)(void*, uint32_t from_version, const char* save_json,
+                                     char* output, uint32_t capacity);
+    const uint32_t* migration_versions;
+    uint32_t migration_count;
+} ForgeSdkSaveSchemaV1;
 typedef enum ForgeSdkNavStatusV1 {
     FORGE_SDK_NAV_SUCCESS = 0,
     FORGE_SDK_NAV_PARTIAL,
@@ -136,10 +151,10 @@ typedef struct ForgeSdkWorldV1 {
     /* Private exact-build UI bridge. No RmlUi/native callbacks cross to presentation.
        Register an argument-free semantic action during module start. */
     int32_t(FORGE_SDK_CALL* ui_allow_action)(void*, const char* command);
-    /* Fixed owner tick only. Publish a finite copied number for an authored entity. */
+    /* Fixed tick or control frame. Publish a finite copied number for an authored entity. */
     int32_t(FORGE_SDK_CALL* ui_publish_number)(void*, const char* entity_uuid, const char* name,
                                                double value);
-    /* Fixed owner tick: 1 event, 0 no event/unavailable, -1 invalid. Entity buffer
+    /* Fixed tick or control frame: 1 event, 0 no event/unavailable, -1 invalid. Entity buffer
        is caller-owned and must hold at least 37 bytes. Consumes only this command. */
     int32_t(FORGE_SDK_CALL* ui_poll_action)(void*, const char* command, char* entity_uuid,
                                             uint32_t capacity);
@@ -193,6 +208,26 @@ typedef struct ForgeSdkWorldV1 {
                                               uint32_t include_sensors, ForgeSdkPhysicsHitV1*);
     /* Linear Box/Sphere/Capsule/Cylinder sweep(0..3).1 hit,0 miss,-1 invalid. */
     int32_t(FORGE_SDK_CALL* shape_cast)(void*, const ForgeSdkSweepV1*, ForgeSdkPhysicsHitV1*);
+    /* Control callback only. Sequence is a control-frame index, NOT simulation time. */
+    int32_t(FORGE_SDK_CALL* read_control)(void*, const char* action_uuid, ForgeSdkActionV1*);
+    /* Copied bounded JSON. Query/inspect return required bytes including NUL;
+       output is written only when capacity suffices. 0 means rejection.
+       Requests execute only after the calling module callback returns. */
+    uint32_t(FORGE_SDK_CALL* game_query)(void*, char* output, uint32_t capacity);
+    uint64_t(FORGE_SDK_CALL* game_request)(void*, const char* command_json);
+    uint32_t(FORGE_SDK_CALL* game_inspect)(void*, uint64_t token, char* output, uint32_t capacity);
+    int32_t(FORGE_SDK_CALL* game_release)(void*, uint64_t token);
+    int32_t(FORGE_SDK_CALL* game_save_schema)(void*, const ForgeSdkSaveSchemaV1*);
+    /* Explicit opt-in to one bounded string argument; module startup only. */
+    int32_t(FORGE_SDK_CALL* ui_allow_value_action)(void*, const char* command);
+    /* Publish a copied protocol-supported value in initialization, fixed tick
+       or control frame; no native presentation pointers. */
+    int32_t(FORGE_SDK_CALL* ui_publish_json)(void*, const char* entity_uuid, const char* name,
+                                             const char* value_json);
+    /* Copied {entity,command,value}; two-pass sizing retains the event until a
+       sufficient output buffer is supplied. 0 means no event/rejection. */
+    uint32_t(FORGE_SDK_CALL* ui_poll_event)(void*, const char* command, char* output,
+                                            uint32_t capacity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;
@@ -209,6 +244,17 @@ typedef struct ForgeNativeSdkV1 {
     int32_t(FORGE_SDK_CALL* start)(const ForgeSdkWorldV1*, char* error, uint32_t capacity);
     /* Stop/drain only. Flecs-owned callbacks/contexts are destroyed at world finalization. */
     void(FORGE_SDK_CALL* stop)(const ForgeSdkWorldV1*);
+    /* Optional owner-thread menu/control callback. Runs while paused, outside
+       the fixed pipeline. Return 0 to fault the active world with a diagnostic.
+       Session requests must be queued, never replace the world from this callback. */
+    int32_t(FORGE_SDK_CALL* controls)(const ForgeSdkWorldV1*, char* error, uint32_t capacity);
+    /* Candidate only, after scene restoration and before physics realization.
+       Restore only the game's explicitly admitted state; failure rejects candidate. */
+    int32_t(FORGE_SDK_CALL* restore)(const ForgeSdkWorldV1*, const char* state_json, char* error,
+                                     uint32_t capacity);
+    /* Optional scene initialization, before saved-state restoration and physics.
+       No simulation tick or gameplay input; failure rejects the candidate. */
+    int32_t(FORGE_SDK_CALL* scene_ready)(const ForgeSdkWorldV1*, char* error, uint32_t capacity);
 } ForgeNativeSdkV1;
 typedef const ForgeNativeSdkV1*(FORGE_SDK_CALL* ForgeNativeSdkEntryV1)(void);
 FORGE_SDK_EXPORT const ForgeNativeSdkV1* FORGE_SDK_CALL forge_native_sdk_v1(void);

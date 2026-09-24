@@ -20,6 +20,7 @@
 #endif
 namespace forge {
 namespace {
+using Json = nlohmann::json;
 static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
               unsigned(NavStatus::Partial) == FORGE_SDK_NAV_PARTIAL &&
               unsigned(NavStatus::Missing) == FORGE_SDK_NAV_MISSING &&
@@ -30,9 +31,10 @@ static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
               unsigned(NavStatus::Limit) == FORGE_SDK_NAV_LIMIT &&
               unsigned(NavStatus::Invalid) == FORGE_SDK_NAV_INVALID &&
               unsigned(NavStatus::Unavailable) == FORGE_SDK_NAV_UNAVAILABLE);
-const std::set<std::string> builtins{
-    "forge.core",  "forge.transforms", "forge.prefabs",    "forge.input", "forge.physics",
-    "forge.audio", "forge.animation",  "forge.navigation", "forge.ui",    "forge.resources"};
+const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
+                                     "forge.input",     "forge.physics",    "forge.audio",
+                                     "forge.animation", "forge.navigation", "forge.ui",
+                                     "forge.resources", "forge.game"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};
@@ -60,7 +62,14 @@ struct Bridge {
     ModuleContext& context;
     ForgeSdkWorldV1 host{};
     std::thread::id owner = std::this_thread::get_id();
-    enum class Stage { Schema, Registered, Starting, Running, Stopped } stage = Stage::Schema;
+    enum class Stage {
+        Schema,
+        Registered,
+        Starting,
+        Preparing,
+        Running,
+        Stopped
+    } stage = Stage::Schema;
     static Bridge& get(void* p) {
         if (!p)
             throw std::runtime_error("Null SDK context");
@@ -71,6 +80,25 @@ struct Bridge {
     }
     std::set<std::uint64_t> resources;
     std::set<std::uint64_t> entity_requests;
+    std::set<std::uint64_t> game_requests;
+    std::map<std::string, UiAction> ui_events;
+    bool game_callable() const {
+        return context.role == WorldRole::Runtime && runtime_active() &&
+               context.services.available(Capability::Game);
+    }
+    static Json game_json(const char* input) {
+        const auto text = bounded(input, 1024 * 1024);
+        return asset_detail::parse_bounded_json(std::as_bytes(std::span(text.data(), text.size())),
+                                                1024 * 1024);
+    }
+    static uint32_t copy_json(const Json& value, char* output, uint32_t capacity) {
+        const auto text = value.dump();
+        if (text.size() >= 1024 * 1024)
+            throw std::runtime_error("Game service response exceeds limit");
+        if (output && capacity > text.size())
+            std::memcpy(output, text.c_str(), text.size() + 1);
+        return static_cast<uint32_t>(text.size() + 1);
+    }
     bool entities_callable() const {
         return context.owner && context.role == WorldRole::Runtime && runtime_active();
     }
@@ -90,7 +118,9 @@ struct Bridge {
         return context.role == WorldRole::Runtime && runtime_active() &&
                context.services.available(Capability::Resources);
     }
-    bool runtime_active() const { return stage == Stage::Starting || stage == Stage::Running; }
+    bool runtime_active() const {
+        return stage == Stage::Starting || stage == Stage::Preparing || stage == Stage::Running;
+    }
 
     explicit Bridge(ModuleContext& c) : context(c) {
         host.size = sizeof(host);
@@ -105,6 +135,162 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.game_query = [](void* p, char* output, uint32_t capacity) -> uint32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (!bridge.game_callable())
+                    return 0;
+                return copy_json(bridge.context.services.game()->query(), output, capacity);
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.ui_allow_value_action = [](void* p, const char* command) -> int32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (bridge.stage != Stage::Starting)
+                    return 0;
+                bridge.context.services.ui()->allow_value_action(bounded(command, 64));
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.ui_publish_json = [](void* p, const char* entity, const char* name,
+                                  const char* value) -> int32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                auto& c = bridge.context;
+                if (!bridge.runtime_active() ||
+                    (!c.input && !c.controls && bridge.stage != Stage::Preparing))
+                    return 0;
+                c.services.ui()->publish(EntityId::parse(bounded(entity, 36)), bounded(name, 64),
+                                         game_json(value));
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.ui_poll_event = [](void* p, const char* command, char* output,
+                                uint32_t capacity) -> uint32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (!bridge.runtime_active() || (!bridge.context.input && !bridge.context.controls))
+                    return 0;
+                const auto name = bounded(command, 64);
+                if (!bridge.ui_events.contains(name)) {
+                    const auto event = bridge.context.services.ui()->poll_action(name);
+                    if (!event)
+                        return 0;
+                    bridge.ui_events.emplace(name, *event);
+                }
+                const auto& event = bridge.ui_events.at(name);
+                const auto needed = copy_json(
+                    {{"entity", event.entity}, {"command", event.command}, {"value", event.value}},
+                    output, capacity);
+                if (output && capacity >= needed)
+                    bridge.ui_events.erase(name);
+                return needed;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.game_request = [](void* p, const char* command) -> uint64_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (!bridge.game_callable() || bridge.game_requests.size() >= 128 ||
+                    (!bridge.context.input && !bridge.context.controls))
+                    return 0;
+                auto service = bridge.context.services.game();
+                const auto token = service->request(bridge.context.id, game_json(command));
+                try {
+                    bridge.game_requests.insert(token);
+                } catch (...) {
+                    service->release(bridge.context.id, token);
+                    throw;
+                }
+                return token;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.game_inspect = [](void* p, uint64_t token, char* output,
+                               uint32_t capacity) -> uint32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (!bridge.game_callable() || !bridge.game_requests.contains(token))
+                    return 0;
+                const auto status =
+                    bridge.context.services.game()->inspect(bridge.context.id, token);
+                return copy_json(
+                    {{"state", status.state}, {"value", status.value}, {"error", status.error}},
+                    output, capacity);
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.game_release = [](void* p, uint64_t token) -> int32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (!bridge.game_callable() || !bridge.game_requests.contains(token))
+                    return 0;
+                bridge.context.services.game()->release(bridge.context.id, token);
+                bridge.game_requests.erase(token);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.game_save_schema = [](void* p, const ForgeSdkSaveSchemaV1* registration) -> int32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                if (!bridge.game_callable() || bridge.stage != Stage::Starting || !registration ||
+                    registration->size != sizeof(*registration) || !registration->validate ||
+                    registration->migration_count > 128 ||
+                    (registration->migration_count &&
+                     (!registration->migrate || !registration->migration_versions)))
+                    return 0;
+                const auto native = *registration;
+                GameSaveSchema schema;
+                schema.version = native.version;
+                schema.validate = [validate = native.validate,
+                                   userdata = native.userdata](const GameSave& save) {
+                    const auto input = Json{{"scene", save.scene}, {"data", save.data}}.dump();
+                    char error[1024]{};
+                    if (!validate(userdata, input.c_str(), error, sizeof(error))) {
+                        error[1023] = 0;
+                        throw std::runtime_error(std::string("Game save validation failed: ") +
+                                                 error);
+                    }
+                };
+                for (uint32_t i = 0; i < native.migration_count; ++i) {
+                    const auto version = native.migration_versions[i];
+                    if (!schema.migrations
+                             .emplace(
+                                 version,
+                                 [migrate = native.migrate, userdata = native.userdata,
+                                  version](GameSave save) {
+                                     const auto input =
+                                         Json{{"scene", save.scene}, {"data", save.data}}.dump();
+                                     std::vector<char> output(1024 * 1024);
+                                     if (!migrate(userdata, version, input.c_str(), output.data(),
+                                                  static_cast<uint32_t>(output.size())) ||
+                                         output.back() != 0)
+                                         throw std::runtime_error("Game save migration failed");
+                                     const auto result = game_json(output.data());
+                                     return GameSave{result.at("scene").get<AssetId>(),
+                                                     result.at("data")};
+                                 })
+                             .second)
+                        throw std::runtime_error("Duplicate save migration version");
+                }
+                bridge.context.services.game()->save_schema(bridge.context.id, std::move(schema),
+                                                            bridge.context.code);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.entity_request = [](void* p, const char* scene, const char* name) -> uint64_t {
             try {
                 auto& b = Bridge::get(p);
@@ -258,28 +444,38 @@ struct Bridge {
             try {
                 auto& b = Bridge::get(p);
                 if (!cap || (cap & (cap - 1)) ||
-                    (cap & ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES)))
+                    (cap & ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES |
+                             FORGE_SDK_CONTROL_INPUT)))
                     return 0;
                 out->version = FORGE_SDK_CAPABILITY_VERSION;
                 out->flags = FORGE_SDK_OWNER_THREAD;
                 bool fixed = cap == FORGE_SDK_INPUT || cap == FORGE_SDK_PHYSICS ||
-                             cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION ||
-                             cap == FORGE_SDK_UI;
+                             cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION;
                 if (fixed)
                     out->flags |= FORGE_SDK_FIXED_ONLY;
+                if (cap == FORGE_SDK_CONTROL_INPUT)
+                    out->flags |= FORGE_SDK_CONTROL_ONLY;
                 if (version != out->version)
                     return 1;
-                bool available = cap == FORGE_SDK_INPUT
+                bool available = (cap == FORGE_SDK_INPUT || cap == FORGE_SDK_CONTROL_INPUT)
                                      ? b.context.role == WorldRole::Runtime && b.runtime_active()
                                      : b.context.services.available(static_cast<Capability>(cap));
                 if (cap == FORGE_SDK_RESOURCES)
                     available = b.resources_callable();
                 if (cap == FORGE_SDK_RUNTIME_ENTITIES)
                     available = b.entities_callable();
+                if (cap == FORGE_SDK_GAME)
+                    available = b.game_callable();
                 if (fixed && !b.runtime_active())
                     available = false;
                 out->available = available;
                 out->callable = available && (!fixed || b.context.input != nullptr);
+                if (cap == FORGE_SDK_CONTROL_INPUT)
+                    out->callable = available && b.context.controls != nullptr;
+                if (cap == FORGE_SDK_UI)
+                    out->callable =
+                        available && b.runtime_active() &&
+                        (b.context.input || b.context.controls || b.stage == Stage::Preparing);
                 return 1;
             } catch (...) {
                 return 0;
@@ -313,8 +509,9 @@ struct Bridge {
             try {
                 if (!p)
                     return 0;
-                auto& c = Bridge::get(p).context;
-                if (!c.input)
+                auto& b = Bridge::get(p);
+                auto& c = b.context;
+                if (!c.input && !c.controls && b.stage != Stage::Preparing)
                     return 0;
                 c.services.ui()->publish(EntityId::parse(bounded(entity, 36)), bounded(name, 64),
                                          value);
@@ -330,7 +527,7 @@ struct Bridge {
                     return -1;
                 entity[0] = 0;
                 auto& c = Bridge::get(p).context;
-                if (!c.input || !c.services.available(Capability::Ui))
+                if ((!c.input && !c.controls) || !c.services.available(Capability::Ui))
                     return 0;
                 auto action = c.services.ui()->poll_action(bounded(name, 64));
                 if (!action)
@@ -590,6 +787,28 @@ struct Bridge {
                 return 0;
             }
         };
+        host.read_control = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return 0;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.runtime_active() || !b.context.controls)
+                    return 0;
+                const auto& snapshot = *b.context.controls;
+                const auto it = snapshot.actions.find(ActionId::parse(bounded(id, 36)));
+                if (it == snapshot.actions.end())
+                    return 0;
+                const auto& a = it->second;
+                *out = {
+                    sizeof(*out), uint32_t(a.held), uint32_t(a.pressed), uint32_t(a.released), a.x,
+                    a.y,          snapshot.tick};
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.diagnostic = [](void* p, uint32_t severity, const char* text) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;
@@ -715,7 +934,7 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             auto& bridge = *static_cast<Bridge*>(c.state.get());
             bridge.stage = Bridge::Stage::Starting;
             for (auto cap : {Capability::Physics, Capability::Audio, Capability::Navigation,
-                             Capability::Ui, Capability::Resources})
+                             Capability::Ui, Capability::Resources, Capability::Game})
                 if (c.services.available(cap))
                     static_cast<Bridge*>(c.state.get())->host.capabilities |= capability(cap);
             char error[1024]{};
@@ -728,11 +947,62 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
             }
             bridge.stage = Bridge::Stage::Running;
         };
+        result.controls = [api](ModuleContext& c) {
+            auto& bridge = *static_cast<Bridge*>(c.state.get());
+            if (!api->controls || bridge.stage != Bridge::Stage::Running)
+                return;
+            char error[1024]{};
+            if (!api->controls(&bridge.host, error, sizeof(error))) {
+                error[1023] = 0;
+                throw std::runtime_error(std::string("Native control callback failed: ") + error);
+            }
+        };
+        if (api->scene_ready)
+            result.scene_ready = [api](ModuleContext& c) {
+                auto& bridge = *static_cast<Bridge*>(c.state.get());
+                bridge.stage = Bridge::Stage::Preparing;
+                char error[1024]{};
+                try {
+                    if (!api->scene_ready(&bridge.host, error, sizeof(error))) {
+                        error[1023] = 0;
+                        throw std::runtime_error(
+                            std::string("Native scene initialization failed: ") + error);
+                    }
+                } catch (...) {
+                    bridge.stage = Bridge::Stage::Running;
+                    throw;
+                }
+                bridge.stage = Bridge::Stage::Running;
+            };
+        if (api->restore)
+            result.restore = [api](ModuleContext& c, const Json& state) {
+                auto& bridge = *static_cast<Bridge*>(c.state.get());
+                const auto text = state.dump();
+                char error[1024]{};
+                if (bridge.stage != Bridge::Stage::Running)
+                    throw std::runtime_error("Saved-state restoration requires a started module");
+                bridge.stage = Bridge::Stage::Preparing;
+                try {
+                    if (!api->restore(&bridge.host, text.c_str(), error, sizeof(error))) {
+                        error[1023] = 0;
+                        throw std::runtime_error(
+                            std::string("Native saved-state restoration failed: ") + error);
+                    }
+                } catch (...) {
+                    bridge.stage = Bridge::Stage::Running;
+                    throw;
+                }
+                bridge.stage = Bridge::Stage::Running;
+            };
         result.stop = [api](ModuleContext& c) {
             if (c.state) {
                 auto& bridge = *static_cast<Bridge*>(c.state.get());
                 bridge.release_entities();
                 bridge.release_resources();
+                if (bridge.context.services.available(Capability::Game))
+                    bridge.context.services.game()->revoke(bridge.context.id);
+                bridge.game_requests.clear();
+                bridge.ui_events.clear();
                 bridge.stage = Bridge::Stage::Stopped;
             }
             if (api->stop && c.state)

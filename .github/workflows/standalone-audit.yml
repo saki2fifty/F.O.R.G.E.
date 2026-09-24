@@ -1,5 +1,17 @@
 name: Standalone shared SDK audit
 on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Immutable source revision (unnumbered standalone audit)
+        required: true
+        type: string
+      build_id:
+        type: string
+        default: unassigned
+      clean_build:
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       source_commit:
@@ -117,13 +129,13 @@ jobs:
         run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=OFF -DFORGE_BUILD_GAME=ON -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_ENABLE_NATIVE_SDK=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_ID="${{ inputs.build_id }}" -DFORGE_SOURCE_COMMIT="${{ inputs.source_commit }}" -DCMAKE_PROJECT_INCLUDE:FILEPATH=
       - name: Build exact standalone and export tools
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_sample forge_game forge_game_fixture forge_tools forge_runtime forge_ui_inspect forge_standalone_manifest_tests forge_runtime_ui_package_tests forge_sdk_tests forge_navigation_tests forge_nav_build forge_animation_tests forge_asset_build_worker gltf2ozz --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_sample forge_game forge_game_fixture forge_tools forge_runtime forge_ui_inspect forge_standalone_manifest_tests forge_runtime_ui_package_tests forge_sdk_tests forge_reference_game_tests forge_reference_level_tests forge_reference_project_fixture forge_game_control_tests forge_game_host_control_tests forge_navigation_tests forge_nav_build forge_animation_tests forge_asset_build_worker gltf2ozz --parallel 2
       - name: Install runtime and matching SDK; build a consumer deployment
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
           $b=(Resolve-Path ../AgentFiles/b).Path
-          foreach($dir in @('runtime-kit','installed-sdk','module-kits','module-build','standalone-delivery')) {
+          foreach($dir in @('runtime-kit','installed-sdk','module-kits','module-build','standalone-delivery','reference-build','reference-kits','reference-delivery')) {
             $path=Join-Path $b $dir
             if(Test-Path $path) { Remove-Item -LiteralPath $path -Recurse -Force }
           }
@@ -142,6 +154,24 @@ jobs:
           python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --source . --retain "$b/standalone-delivery/game"
           if($LASTEXITCODE) { throw 'Shared standalone export failed' }
           Copy-Item tests/standalone_relocated_probe.py "$b/standalone-delivery/probe.py"
+          cmake -S samples/reference_game -B "$b/reference-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DFORGE_NATIVE_SDK="$b/installed-sdk"
+          if($LASTEXITCODE) { throw 'Reference SDK consumer configure failed' }
+          cmake --build "$b/reference-build" --parallel 2
+          if($LASTEXITCODE) { throw 'Reference SDK consumer build failed' }
+          cmake --install "$b/reference-build" --component GameplayRuntime --prefix "$b/reference-kits"
+          if($LASTEXITCODE) { throw 'Reference SDK deployment failed' }
+          ctest --test-dir $b -R '^(reference_game|game_control_lifetime|game_host_controls)$' --output-on-failure
+          if($LASTEXITCODE) { throw 'Reference core regressions failed' }
+          python tests/reference_package_test.py --build $b --source . --kit "$b/runtime-kit" --module-kit "$b/reference-kits/project.reference" --evidence "$b/grid-test-images/reference-game" --retain "$b/reference-delivery"
+          if($LASTEXITCODE) { throw 'Reference relocated input workflow failed' }
+      - name: Upload reference acceptance game
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Reference-Game-Acceptance
+          path: ${{ runner.temp }}/forge-work/AgentFiles/b/reference-delivery
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload matching graphical-host SDK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

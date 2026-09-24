@@ -184,6 +184,18 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.ui"; }))
         composition.push_back(ui_schema_module());
+    if (std::none_of(modules.begin(), modules.end(),
+                     [](const auto& m) { return m.id == "forge.game"; }) &&
+        std::any_of(modules.begin(), modules.end(), [](const auto& m) {
+            return std::find(m.dependencies.begin(), m.dependencies.end(), "forge.game") !=
+                   m.dependencies.end();
+        })) {
+        // Schema/inspection worlds admit the dependency but supply no runtime
+        // session or persistence capability. Gameplay must query availability.
+        EngineModule game;
+        game.id = "forge.game";
+        composition.push_back(std::move(game));
+    }
     for (auto& module : modules)
         composition.push_back(std::move(module));
     modules_.bootstrap(world_, role_, services_, std::move(composition), this);

@@ -51,7 +51,13 @@ Json default_game_settings(std::string application_id, std::string title) {
                      {"display", 0},
                      {"vsync", false}}},
                    {"audio", {{"master_volume", 1.0}}},
-                   {"input", {{"mouse_sensitivity", 1.0}}}};
+                   {"input",
+                    {{"mouse_sensitivity", 1.0},
+                     {"gamepad_sensitivity", 1.0},
+                     {"invert_mouse_y", false},
+                     {"invert_gamepad_y", false},
+                     {"stick_deadzone", .15},
+                     {"trigger_deadzone", .05}}}};
     validate_game_settings(result);
     return result;
 }
@@ -73,6 +79,15 @@ void validate_game_settings(const Json& data) {
     number(data.at("audio").at("master_volume"), 0, 1, "master volume");
     object(data.at("input"), "input");
     number(data.at("input").at("mouse_sensitivity"), .01, 100, "mouse sensitivity");
+    const auto& input = data.at("input");
+    if (input.contains("gamepad_sensitivity"))
+        number(input.at("gamepad_sensitivity"), .01, 100, "gamepad sensitivity");
+    for (const auto* name : {"invert_mouse_y", "invert_gamepad_y"})
+        if (input.contains(name) && !input.at(name).is_boolean())
+            throw std::runtime_error(std::string("game.settings: Expected boolean for ") + name);
+    for (const auto* name : {"stick_deadzone", "trigger_deadzone"})
+        if (input.contains(name))
+            number(input.at(name), 0, std::nextafter(1.0, 0.0), name);
 }
 Json resolve_game_settings(const Json& defaults, const Json& user, const InputMap& project_input) {
     validate_game_settings(defaults);
@@ -91,7 +106,10 @@ Json resolve_game_settings(const Json& defaults, const Json& user, const InputMa
                 (key == "display" && (member == "mode" || member == "width" || member == "height" ||
                                       member == "display" || member == "vsync")) ||
                 (key == "audio" && member == "master_volume") ||
-                (key == "input" && member == "mouse_sensitivity");
+                (key == "input" &&
+                 (member == "mouse_sensitivity" || member == "gamepad_sensitivity" ||
+                  member == "invert_mouse_y" || member == "invert_gamepad_y" ||
+                  member == "stick_deadzone" || member == "trigger_deadzone"));
             if (!allowed)
                 throw std::runtime_error("game.settings: Unsupported user setting: " + key + "." +
                                          member);
@@ -117,6 +135,19 @@ Json resolve_game_settings(const Json& defaults, const Json& user, const InputMa
                                          text);
         }
     }
+    for (auto& action : map["actions"])
+        for (auto& binding : action["bindings"]) {
+            const auto control = binding.at("control").get<std::string>();
+            if (control.starts_with("pad.") && !input_control(control).digital) {
+                const bool trigger = control.ends_with("_trigger");
+                const auto* setting = trigger ? "trigger_deadzone" : "stick_deadzone";
+                if (result["input"].contains(setting)) {
+                    binding["deadzone"] = result["input"][setting];
+                    if (!trigger)
+                        binding["radial"] = true;
+                }
+            }
+        }
     result["input_map"] = InputMap(std::move(map)).source();
     return result;
 }

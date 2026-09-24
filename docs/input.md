@@ -31,3 +31,75 @@ Phase6A's separate exact native SDK exposes borrowed action snapshots through Ac
 ## Runtime UI routing
 
 During captured Play input, Escape/F6/F7 retain editor control priority. RmlUi receives viewport mouse, keyboard, text and IME events next; gameplay receives unconsumed input. UI-owned releases remain consumed after focus changes. Capture changes and document replacement neutralize held gameplay input. The new SDL router is tested independently of Diligent against the real runtime. See [Runtime UI ownership and density](runtime-ui.md).
+
+## Phase8 context and binding primitives (source checkpoint)
+
+Input map version2 adds 1–32 named `contexts`. Each declares integer `priority`
+(-10000…10000), `consume` (default true), and initial `active` (default false).
+Each action belongs to exactly one declared context. Version1 maps retain their
+existing always-active behavior. ActionIds remain the durable binding identity.
+
+`RuntimeInput::activate_contexts` validates a complete replacement set before
+changing it. Higher priority routes first; equal priority follows declaration
+order, independent of activation-call order. A consuming context reserves its
+bound controls from lower contexts, including when a control is up. Actions in
+the same context may share a control; pass-through contexts do not reserve it.
+Changing the active set clears pending presses and relative motion and releases
+held actions. Reapplying the same set does not interrupt input.
+
+`InputMap::with_bindings` creates a validated candidate without mutating the old
+map. Empty bindings clear an action. Duplicate controls within a replacement
+are rejected. `binding_conflicts` returns action/context ownership so a UI can
+separate same-context conflicts from cross-context shadowing. Cross-context
+sharing is not inherently an error: gameplay and menu actions commonly share keys.
+
+`begin_rebind` listens through the existing RuntimeInput event path. It ignores
+controls already held until released, stick noise below0.5 and incidental mouse
+motion. A key, button, wheel or significant analog sample completes capture;
+Escape or reset cancels. The captured sample retains direction. Captured batches
+never also enter gameplay. The caller still validates and commits the candidate.
+
+Stick-axis bindings may opt into `radial: true`. Pair both axes of the same stick
+in the action with the same deadzone. Magnitude inside the deadzone maps to zero;
+the remaining magnitude maps continuously to the unit disk. Higher-context
+consumption of the other axis is respected. Existing axial deadzones remain the
+default. SDL revision and runtime fixed-clock ownership are unchanged.
+
+These are engine primitives under integration, not a claim that the standalone
+Controls menu or gamepad/cursor completion has been delivered yet.
+
+### Control frames and paused menus
+
+Version2 contexts may set `phase: "control"` (default `"fixed"`). Control actions
+are consumed by `latch_controls` and excluded from fixed snapshots. Separate edge
+and relative-delta consumption cursors prevent a menu frame from consuming the
+next gameplay tick's input, including deliberate pass-through mappings.
+
+`GameSession::control_frame` invokes started module control callbacks only in the
+active world. It also runs while paused, without advancing simulation. Reentrant
+session mutation is rejected. A callback exception faults the world; it cannot be
+resumed. Exact-SDK `controls` and `read_control` expose this boundary; the returned
+sequence is a control-frame index, not a physics tick. UI publication/polling is
+allowed in fixed ticks or control callbacks. Physics commands remain fixed-only.
+These extensions are exact-build SDK changes; legacy gameplay ABI1 is unchanged.
+
+### Runtime control callbacks and host requests
+
+Exact-SDK modules can implement `controls` for menu actions while simulation is
+paused. `read_control` reads only control-phase contexts; `read_action` remains
+fixed-tick input. Neither callback may replace its own world. `FORGE_SDK_GAME`
+provides copied queries and bounded request tokens; the host drains requests after
+callbacks return. Tokens belong to the submitting module and world. Retirement
+revokes pending requests and save schemas, retaining native code during any
+synchronous validator/migration already executing.
+
+`GameHostControls` delegates requests to `GameSession`, `GameStorage`, input and
+narrow platform adapters. A scene candidate runs optional `scene_ready`, then
+explicit saved-state restoration, before physics/resource admission. These stages
+receive no gameplay input and cannot queue active-session mutations. A failed
+candidate leaves the active scene intact.
+
+Runtime UI actions remain argument-free unless the module explicitly registers a
+value action. Value actions accept one bounded string, with copied two-pass SDK
+polling. Semantic menu navigation uses RmlUi's own Tab/ShiftTab/Return behavior;
+controller mapping remains in the normal input map.

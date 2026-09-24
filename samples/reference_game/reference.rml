@@ -1,0 +1,59 @@
+<rml>
+<head><title>FORGE Reference Game</title><style>
+body { font-family: Lato; font-size: 20px; color: #eef2fa; margin: 0; }
+.screen { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #101724e8; }
+.card { width: 620px; margin: 8% auto; padding: 28px; background: #1b2639; border-radius: 12px; }
+h1 { font-size: 36px; margin: 0 0 12px 0; color: #87caff; }
+p { margin: 10px 0; line-height: 1.4; }
+button { display: block; width: 100%; margin: 8px 0; padding: 10px; background: #304761; color: white; border: 1px #4a6682; border-radius: 5px; tab-index: auto; }
+button:hover, button:focus { background: #326b9b; border-color: #91d5ff; }
+button:disabled { color: #8b96a8; background: #293346; }
+.row button { display: inline-block; width: 45%; margin: 5px 1%; }
+.options { width: 750px; margin-top: 3%; max-height: 85%; overflow-y: auto; }
+.hud { position: absolute; left: 24px; bottom: 24px; padding: 12px; background: #101724dd; }
+.crosshair { position: absolute; left: 50%; top: 50%; font-size: 22px; }
+.notice { color: #ffdb92; }
+.loading { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #101724f5; }
+</style></head>
+<body>
+<div class="screen" data-if="page == 'main'"><div class="card">
+<h1>FORGE / FIELD TEST</h1><p>A small game built with the same SDK available to your projects.</p>
+<button data-event-click="command('Reference', 'start')">New Game</button>
+<button data-attr-disabled="!have_save" data-event-click="command('Reference', 'load')">Continue</button>
+<button data-event-click="command('Reference', 'load')">Load Game</button>
+<button data-event-click="command('Reference', 'options')">Options</button>
+<button data-event-click="command('Reference', 'quit')">Quit</button>
+<p class="notice">{{message}}</p><p>Keyboard: Tab / Enter · Controller: up / down / A</p>
+</div></div>
+<div data-if="page == 'play'"><div class="crosshair">+</div><div class="hud">
+<p>{{prompt}}</p><p>Beacons activated: {{interactions}}</p><p class="notice">{{message}}</p>
+<p>Move · Jump · Crouch · Interact | Escape / Start: Pause</p></div></div>
+<div class="screen" data-if="page == 'pause'"><div class="card"><h1>Paused</h1>
+<button data-event-click="command('Reference', 'resume')">Resume</button>
+<button data-event-click="command('Reference', 'options')">Options</button>
+<button data-event-click="command('Reference', 'save')">Save Game</button>
+<button data-event-click="command('Reference', 'load')">Load Game</button>
+<button data-event-click="command('Reference', 'main')">Main Menu</button>
+<button data-event-click="command('Reference', 'quit')">Quit</button><p class="notice">{{message}}</p>
+</div></div>
+<div class="screen" data-if="page == 'options'"><div class="card options"><h1>Options</h1>
+<p>{{settings_text}}</p><h2>Display</h2><div class="row">
+<button data-event-click="command('Reference', 'setting:{&quot;display&quot;:{&quot;mode&quot;:&quot;windowed&quot;,&quot;width&quot;:1280,&quot;height&quot;:720}}')">Windowed 1280 × 720</button>
+<button data-event-click="command('Reference', 'setting:{&quot;display&quot;:{&quot;mode&quot;:&quot;borderless&quot;}}')">Borderless</button>
+<button data-event-click="command('Reference', 'vsync')">Toggle VSync</button></div>
+<h2>Audio</h2><div class="row"><button data-event-click="command('Reference', 'volume_down')">Volume −</button><button data-event-click="command('Reference', 'volume_up')">Volume +</button></div>
+<h2>Controls</h2><div class="row">
+<button data-event-click="command('Reference', 'mouse_down')">Mouse sensitivity −</button><button data-event-click="command('Reference', 'mouse_up')">Mouse sensitivity +</button>
+<button data-event-click="command('Reference', 'pad_down')">Gamepad sensitivity −</button><button data-event-click="command('Reference', 'pad_up')">Gamepad sensitivity +</button>
+<button data-event-click="command('Reference', 'invert_mouse')">Invert mouse Y</button><button data-event-click="command('Reference', 'invert_pad')">Invert gamepad Y</button>
+</div><button data-event-click="command('Reference', 'rebind_jump')">Rebind Jump</button>
+<p>{{binding}}</p><p class="notice">{{conflicts}}</p><div class="row">
+<button data-event-click="command('Reference', 'rebind_apply')">Apply binding</button><button data-event-click="command('Reference', 'rebind_cancel')">Cancel binding</button>
+<button data-if="conflicts != ''" data-event-click="command('Reference', 'rebind_share')">Apply and share control</button>
+<button data-event-click="command('Reference', 'rebind_clear')">Clear Jump primary binding</button>
+<button data-event-click="command('Reference', 'rebind_reset')">Restore default bindings</button></div>
+<p>Changes are saved automatically for this user.</p><p class="notice">{{message}}</p>
+<button data-event-click="command('Reference', 'back')">Back</button></div></div>
+<div class="loading" data-if="forge_loading_state == 'loading'"><div class="card"><h1>Loading</h1><p>{{forge_loading_stage}}</p><p>{{forge_loading_completed}} / {{forge_loading_total}}</p><button data-if="forge_loading_can_cancel" data-event-click="cancel_loading()">Cancel loading</button></div></div>
+<div class="hud" data-if="forge_loading_state == 'failed'"><p class="notice">{{forge_loading_error}}</p></div>
+</body></rml>

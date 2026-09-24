@@ -745,6 +745,17 @@ bool UiPresenter::key(int k, bool down, int m) {
         s.held_keys.insert(k);
     else
         s.held_keys.erase(k);
+    // Documents are shown without stealing pointer/text focus. The first Tab
+    // (including a controller next/previous action) deliberately enters the
+    // highest visible document, then native RmlUi owns control traversal.
+    auto* focused = s.live->context->GetFocusElement();
+    if (down && k == Rml::Input::KI_TAB && (!focused || !focused->GetOwnerDocument())) {
+        for (auto it = s.live->docs.rbegin(); it != s.live->docs.rend(); ++it)
+            if ((*it)->document->IsVisible()) {
+                (*it)->document->Focus();
+                break;
+            }
+    }
     const bool capture = wants_text();
     return !(down ? s.live->context->ProcessKeyDown(static_cast<Rml::Input::KeyIdentifier>(k), m)
                   : s.live->context->ProcessKeyUp(static_cast<Rml::Input::KeyIdentifier>(k), m)) ||
@@ -760,6 +771,14 @@ bool UiPresenter::text(const std::string& t) {
         return true;
     }
     return s.live && !s.live->context->ProcessTextInput(t);
+}
+void UiPresenter::navigate(const std::string& direction) {
+    if (direction != "next" && direction != "previous" && direction != "accept")
+        throw std::runtime_error("Unknown UI navigation action");
+    const auto key_code = direction == "accept" ? Rml::Input::KI_RETURN : Rml::Input::KI_TAB;
+    const int modifiers = direction == "previous" ? Rml::Input::KM_SHIFT : 0;
+    key(key_code, true, modifiers);
+    key(key_code, false, modifiers);
 }
 bool UiPresenter::wants_text() const {
     auto& s = *impl_;

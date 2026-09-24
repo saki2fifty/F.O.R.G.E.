@@ -122,6 +122,20 @@ int main(int argc, char** argv) {
                             })["ok"],
               "Pause command succeeds");
         check(pauses == 1, "Runtime controls simulation policy");
+        service->allow_value_action("SetPreference");
+        auto value_command = command;
+        value_command["command"] = "SetPreference";
+        reject([&] { dispatch(value_command); });
+        value_command["value"] = 42;
+        reject([&] { dispatch(value_command); });
+        value_command["value"] = "0.75";
+        dispatch(value_command);
+        auto preference = service->poll_action("SetPreference");
+        check(preference && preference->value == "0.75", "Explicit value action lost its value");
+        value_command["command"] = "DecreaseHealth";
+        reject([&] { dispatch(value_command); });
+        value_command["command"] = "Pause";
+        reject([&] { dispatch(value_command); });
         const auto saved = scene.document();
         check(saved.dump().find("health") == std::string::npos,
               "Presentation model is not authored state");

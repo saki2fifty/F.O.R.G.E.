@@ -103,3 +103,55 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
 
 - The queued-input fixture scrolls a selectable row only when its click center is clipped. Exact ImGui source and a native geometry probe showed that first-row hit padding always extends above a child clip edge, despite a visible click target. This corrects the new Collision picker acceptance timeout without changing normal picker behavior.
 - An unassigned Asset Collider now shows an actionable preview message asking the user to choose a Collision asset, instead of a JSON conversion error.
+
+## Phase8 input/reference game — source integration in progress
+
+- Extended the existing input authority with version2 context declarations,
+  deterministic priority, consumption/pass-through and neutral context changes.
+- Added candidate binding replacement, context-aware conflict queries and input
+  listening with cancellation, opening-button suppression and noise filtering.
+- Added optional radial stick deadzones and Escape as a standard control.
+- Added focused context, binding, capture and numeric-edge regressions; validation
+  is pending. Standalone menu/SDK/reference-game integration is not complete.
+- Build260924-000070 remains the delivered package; no new numbered build.
+
+- Added explicit active-world control frames for paused menus, independently
+  consumed control-phase action snapshots and exact-SDK control callbacks.
+  Reentrant session changes reject and callback faults stop further execution.
+- Focused rebuilt Linux core-services and game-foundation tests passed2/2(4.35s).
+  Exact-SDK and graphical-host checks remain pending.
+- Shared SDL gamepad ownership now serves editor and standalone, with deliberate
+  active-device switching, switch debounce and neutralization on disconnect.
+  Virtual-device regressions have been added; execution remains pending.
+
+### Phase 8 input/session integration — source work in progress
+
+- Added world/module-scoped game request services, deferred host execution,
+  native save-schema leases and revocation, and copied exact-SDK control queries.
+- Connected real session pause/transition, save/load/slot metadata, persistent
+  rebinding/settings, cursor requests and live master audio volume.
+- Added candidate scene-initialization and explicit game save-restoration callbacks
+  before admission; neither advances simulation or receives gameplay input.
+- Added explicitly registered bounded UI value actions and controller navigation
+  through native RmlUi focus behavior.
+- Started a separate reference-game SDK consumer, input map and RmlUi menus.
+  Reference-game, standalone visual and relocated acceptance are still pending.
+- Focused Linux input/control/session/storage/UI/audio checks passed 6/6 (9.76 s)
+  before the subsequent navigation/reference additions. No new numbered package.
+
+### Reference gameplay and native input acceptance
+
+- Added an exact-SDK reference project with game-owned FPS controls, ray interaction,
+  main/pause/options/HUD/loading screens, explicit save state, scene requests and
+  controls rebinding. Engine code supplies services, not FPS/menu policy.
+- Added an editable acceptance level built through ordinary collision imports,
+  skinned-model placement, spatial audio and navigation baking. Its combined
+  headless check observed navigation movement, admitted animation, nonzero offline
+  audio, scene round trips and restored interaction state.
+- Added explicit relative-mouse capture to editor Game input. Pointer mode retains
+  runtime UI interaction; native Escape/focus loss release relative capture.
+- Added native Windows reference-game input/capture, source-free relocation and
+  relaunch workflows. Execution/visual acceptance is pending; these fixture additions
+  are not evidence that the Windows workflow has passed.
+- Updated the input manual and added the reference-game guide. Offline manual checks
+  pass. RmlUi first keyboard/controller focus now enters a document deliberately.

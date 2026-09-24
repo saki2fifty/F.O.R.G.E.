@@ -13,6 +13,7 @@ class UiRuntime final : public UiService {
     explicit UiRuntime(std::filesystem::path project, ServiceAccess services = {});
     void publish(EntityId, const std::string&, const Json&) override;
     void allow_action(const std::string&) override;
+    void allow_value_action(const std::string&) override;
     std::optional<UiAction> poll_action(const std::string&) override;
     Json snapshot(const Scene&, const std::string& session, std::uint64_t generation,
                   std::uint64_t tick, bool paused);
@@ -34,6 +35,7 @@ class UiRuntime final : public UiService {
     std::uint64_t next_instance_ = 0;
     std::map<EntityId, Json> models_;
     std::set<std::string> actions_;
+    std::set<std::string> value_actions_;
     std::vector<UiAction> pending_;
     std::uint64_t revision_ = 0;
     bool active_ = true;

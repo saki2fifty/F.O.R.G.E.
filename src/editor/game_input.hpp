@@ -1,4 +1,6 @@
 #pragma once
+#include "../sdl_game_cursor.hpp"
+#include "../sdl_gamepads.hpp"
 #include "../sdl_input.hpp"
 #include "play.hpp"
 #include "widgets.hpp"
@@ -7,14 +9,14 @@ namespace forge {
 // One active gamepad, keyboard and mouse. SDL is confined to this platform adapter.
 class GameInput {
   public:
-    ~GameInput() {
-        if (pad_)
-            SDL_CloseGamepad(pad_);
+    explicit GameInput(SDL_Window* window = nullptr) {
+        if (window)
+            cursor_ = std::make_unique<SdlGameCursor>(window);
     }
-    GameInput() = default;
     GameInput(const GameInput&) = delete;
     GameInput& operator=(const GameInput&) = delete;
     bool captured() const { return captured_; }
+    bool relative() const { return captured_ && relative_capture_; }
     void viewport(ImVec2 origin, ImVec2 size) {
         origin_ = origin;
         size_ = size;
@@ -24,47 +26,55 @@ class GameInput {
         return bounded_ && (x < origin_.x || y < origin_.y || x >= origin_.x + size_.x ||
                             y >= origin_.y + size_.y);
     }
-    void capture(PlaySession& play) {
+    void capture(PlaySession& play, bool relative = false) {
         if (play.ready()) {
+            try {
+                if (cursor_) {
+                    if (relative)
+                        cursor_->capture();
+                    else
+                        cursor_->release();
+                }
+                capture_error_.clear();
+            } catch (const std::exception& e) {
+                capture_error_ = e.what();
+                return;
+            }
             play.input_event({{}, 0, true});
             captured_ = true;
+            relative_capture_ = relative;
         }
     }
     void release(PlaySession& play) {
+        if (cursor_)
+            cursor_->release();
         if (captured_)
             play.input_event({{}, 0, true});
         captured_ = false;
+        relative_capture_ = false;
     }
     void pump(PlaySession& play, bool allowed) {
         if (!allowed || !play.ready() || session_ != play.session())
             release(play);
         session_ = play.session();
-        if (!pad_ && devices_dirty_) {
+        if (devices_dirty_) {
             devices_dirty_ = false;
-            int count = 0;
-            auto* ids = SDL_GetGamepads(&count);
-            if (ids && count > 0)
-                pad_ = SDL_OpenGamepad(ids[0]);
-            SDL_free(ids);
+            pads_.discover();
         }
     }
     // Returns true for input owned by gameplay. Window/lifecycle events still reach the UI.
     bool event(const SDL_Event& e, PlaySession& play) {
-        if (e.type == SDL_EVENT_GAMEPAD_ADDED)
-            devices_dirty_ = true;
+        const auto pad_events = pads_.event(e, captured_ && play.ready(), SDL_GetTicks());
+        for (const auto& value : pad_events)
+            play.input_event(value);
         if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
             release(play);
             return false;
         }
-        if (e.type == SDL_EVENT_GAMEPAD_REMOVED && pad_ &&
-            e.gdevice.which == SDL_GetGamepadID(pad_)) {
-            play.input_event({{}, 0, true});
-            SDL_CloseGamepad(pad_);
-            pad_ = nullptr;
-            devices_dirty_ = true;
-            return false;
-        }
-        if (captured_ && e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && outside(e.button.x, e.button.y)) {
+        if (!pad_events.empty() && e.type != SDL_EVENT_GAMEPAD_REMOVED)
+            return true;
+        if (captured_ && !relative() && e.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+            outside(e.button.x, e.button.y)) {
             release(play);
             return false;
         }
@@ -119,26 +129,20 @@ class GameInput {
             send("mouse.wheel_y", e.wheel.y * sign);
             return true;
         }
-        if ((e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP) &&
-            pad_ && e.gbutton.which == SDL_GetGamepadID(pad_)) {
-            if (e.gbutton.button < buttons_.size())
-                send(std::string("pad.") + buttons_[e.gbutton.button], e.gbutton.down ? 1 : 0);
-            return true;
-        }
-        if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && pad_ &&
-            e.gaxis.which == SDL_GetGamepadID(pad_)) {
-            if (e.gaxis.axis < axes_.size())
-                send(std::string("pad.") + axes_[e.gaxis.axis],
-                     e.gaxis.value < 0 ? e.gaxis.value / 32768.0 : e.gaxis.value / 32767.0);
-            return true;
-        }
         return e.type == SDL_EVENT_TEXT_INPUT || e.type == SDL_EVENT_TEXT_EDITING;
     }
     static std::string key_control(SDL_Scancode key) { return sdl_key_control(key); }
     void controls(PlaySession& play) {
+        ImGui::BeginDisabled(captured_);
+        ImGui::Checkbox("Relative mouse", &relative_mode_);
+        FORGE_UI_PROBE("game-relative-mouse");
+        ui::help("Hide and capture the mouse for gameplay look. Escape always releases it. "
+                 "Turn this off to use a pointer with runtime menus. Release capture before "
+                 "changing modes.");
+        ImGui::EndDisabled();
         ImGui::BeginDisabled(!play.ready());
         if (ui::button(captured_ ? "Release gameplay input (Esc)" : "Capture gameplay input",
-                       "Send keyboard, mouse and the first connected gamepad to project actions. "
+                       "Send keyboard, mouse and the active gamepad to project actions. "
                        "Escape releases; F6 pauses/resumes and F7 steps. Editor navigation is "
                        "suspended during capture.")) {
             if (captured_)
@@ -147,10 +151,12 @@ class GameInput {
                 ImGui::ClearActiveID();
                 ImGui::GetIO().ClearInputKeys();
                 ImGui::GetIO().ClearInputMouse();
-                capture(play);
+                capture(play, relative_mode_);
             }
         }
         ImGui::EndDisabled();
+        if (!capture_error_.empty())
+            ImGui::TextWrapped("%s", capture_error_.c_str());
         if (captured_) {
             ImGui::TextWrapped("GAME INPUT | Esc: release | F6: pause/resume | F7: step");
             ui::help(
@@ -162,15 +168,12 @@ class GameInput {
   private:
     ImVec2 origin_{}, size_{};
     bool bounded_ = false;
-    SDL_Gamepad* pad_ = nullptr;
-    bool captured_ = false, devices_dirty_ = true;
+    SdlGamepads pads_;
+    std::unique_ptr<SdlGameCursor> cursor_;
+    std::string capture_error_;
+    bool captured_ = false, devices_dirty_ = true, relative_mode_ = false,
+         relative_capture_ = false;
     std::string session_;
-    static constexpr std::array<const char*, 15> buttons_{
-        "south",          "east",  "west",       "north",       "back",
-        "guide",          "start", "left_stick", "right_stick", "left_shoulder",
-        "right_shoulder", "up",    "down",       "left",        "right"};
-    static constexpr std::array<const char*, 6> axes_{"left_x",  "left_y",       "right_x",
-                                                      "right_y", "left_trigger", "right_trigger"};
 };
 inline void draw_input_monitor(const PlaySession& play) {
     if (!ImGui::CollapsingHeader("Gameplay input"))

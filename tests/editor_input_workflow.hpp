@@ -299,7 +299,15 @@ class EditorInputWorkflow {
                     "Rendering menu did not create/select the requested component");
             require(entities.size() == (what == "camera" ? 2u : 3u),
                     "Rendering menu created an unexpected entity count");
-        } else if (what == "playing")
+        } else if (what == "game-relative-captured")
+            require(state.at("game_input_captured").get<bool>() &&
+                        state.at("game_mouse_relative").get<bool>(),
+                    "SDL relative capture was not acquired");
+        else if (what == "game-relative-released")
+            require(!state.at("game_input_captured").get<bool>() &&
+                        !state.at("game_mouse_relative").get<bool>(),
+                    "Native Escape did not release relative capture");
+        else if (what == "playing")
             require(state.at("playing").get<bool>() && state.at("control_ready").get<bool>() &&
                         !state.at("paused").get<bool>() && state.at("cameras").get<unsigned>() == 1,
                     "Play has not produced the authored game camera");
@@ -462,6 +470,13 @@ class EditorInputWorkflow {
         click("icon:play");
         check("playing");
         capture("game-camera");
+        click("game-relative-mouse");
+        click("button:Capture gameplay input");
+        check("game-relative-captured");
+        capture("game-relative-mouse-captured");
+        steps_.push_back({Kind::Key, "game-native-escape", ImGuiKey_Escape});
+        check("game-relative-released");
+        click("game-relative-mouse");
         click("tab:Problems");
         check("no-domain-errors");
         capture("runtime-problems");
@@ -709,6 +724,16 @@ class EditorInputWorkflow {
         if (step.kind == Kind::SourceEdit && frame_ == 0)
             write(project_ / "Assets/Imported/Source-1/workflow.gltf",
                   step.value == "corrupt-external-model" ? "{" : model_source(true).dump());
+        if (step.value == "game-native-escape" && frame_ < 2) {
+            SDL_Event event{};
+            event.type = frame_ == 0 ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+            event.key.windowID = window;
+            event.key.key = SDLK_ESCAPE;
+            event.key.scancode = SDL_SCANCODE_ESCAPE;
+            event.key.down = frame_ == 0;
+            if (!SDL_PushEvent(&event))
+                throw std::runtime_error(SDL_GetError());
+        }
         // Interface zoom is handled by the production SDL event loop, before ImGui.
         if (step.kind != Kind::Key || !step.control ||
             (step.key != ImGuiKey_0 && step.key != ImGuiKey_Equal) || frame_ > 1)
@@ -810,7 +835,7 @@ class EditorInputWorkflow {
                 io.AddKeyEvent(ImGuiKey_Enter, true);
             if (frame_ == 4)
                 io.AddKeyEvent(ImGuiKey_Enter, false);
-        } else if (step.kind == Kind::Key && frame_ < 2) {
+        } else if (step.kind == Kind::Key && frame_ < 2 && step.value != "game-native-escape") {
             io.AddKeyEvent(ImGuiMod_Ctrl, frame_ == 0 && step.control);
             io.AddKeyEvent(step.key, frame_ == 0);
         }

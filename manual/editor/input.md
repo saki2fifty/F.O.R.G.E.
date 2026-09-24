@@ -1,6 +1,6 @@
 # Gameplay input
 
-Input actions give your project named controls with stable identities. They are separate from editor shortcuts. This foundation provides values to runtime systems; it does not automatically add a player controller or change the current native-module API.
+Input actions give your project named controls with stable identities. They are separate from editor shortcuts. Runtime systems read these values. Your gameplay code decides how they move a character or camera.
 
 ## Test a button without writing code
 
@@ -40,11 +40,13 @@ For a two-dimensional movement action, use four bindings:
 
 Continuous axes are clamped; two-dimensional continuous input is normalized if its length exceeds one. Relative mouse deltas are not normalized. Mouse delta units are SDL motion units, and wheel values are scroll units; they are not automatically multiplied by frame time.
 
-Gamepad controls use **pad.** names. FORGE uses the first connected gamepad. Sticks range from -1 to 1; triggers from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Digital actions require keys/buttons. Rumble, sensors, device rebinding UI and multiple-player device assignment are deferred.
+Gamepad controls use **pad.** names. FORGE starts with the first connected gamepad. A deliberate button press or strong stick movement on another connected pad selects it; a short guard prevents rapid switching. Sticks range from -1 to 1; triggers from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Digital actions can also use a directional analog threshold or a wheel pulse. Rumble, sensors and multiple-player device assignment remain deferred.
 
 ## Who owns the controls?
 
-Outside capture, keyboard/mouse input belongs to the editor: camera navigation, shortcuts and text fields keep their normal behavior. Capture is explicit in the Game panel during Play. While captured, keyboard/mouse clicks go to gameplay, with Esc/F6/F7 reserved. Clicking outside the Game image releases capture and sends the click to the editor.
+Outside capture, keyboard/mouse input belongs to the editor: camera navigation, shortcuts and text fields keep their normal behavior. Capture is explicit in the Game panel during Play. While captured, keyboard/mouse clicks go to gameplay, with Esc/F6/F7 reserved. In pointer mode, clicking outside the Game image releases capture and sends the click to the editor.
+
+For mouse-look gameplay, enable **Relative mouse** before clicking **Capture gameplay input**. The pointer is hidden and motion continues without hitting the edge of the screen. Press **Esc** to release it. Release capture and turn **Relative mouse** off to operate runtime menus with a pointer. Focus loss and Stop also release relative capture; returning focus does not recapture it automatically.
 
 Focus loss, capture release, device disconnect and play-process restart neutralize input. Pending presses and mouse deltas are cleared so they do not fire later. Held controls must be released and pressed again after regaining capture. A live module replacement also clears runtime input at its load boundary.
 
@@ -54,4 +56,17 @@ See also [Project settings](project-settings.md), [Play mode](play-mode.md), and
 
 ## Game HUD input
 
-[Runtime UI](runtime-ui.md) receives captured Play input before gameplay actions. Typing in a HUD field should not move the player. Escape releases capture; F6 and F7 remain available. UI capture clears held gameplay controls; release/repress keys when returning to gameplay.
+In pointer mode, [Runtime UI](runtime-ui.md) receives captured Play input before gameplay actions. Relative-mouse mode sends motion/buttons to gameplay; release it before using pointer-driven HUD controls. Typing in a HUD field should not move the player. Escape releases capture; F6 and F7 remain available. UI capture clears held gameplay controls; release/repress keys when returning to gameplay.
+
+## Input contexts and player rebinding
+
+An input context groups controls for one activity, such as gameplay or a menu.
+The engine now supports context priority and control consumption: a menu can
+reserve its controls while gameplay is inactive. Switching contexts clears held
+input so a press cannot carry into the next activity.
+
+The binding API can clear or replace an action's controls, report conflicts and
+listen for a new key, mouse button or gamepad control. Escape cancels listening.
+The [reference game](../reference-game.md) exercises these operations in its
+Options screen. Game settings are stored for the current operating-system user;
+rebinding does not edit the project's default input map.

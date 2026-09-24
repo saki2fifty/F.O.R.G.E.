@@ -98,6 +98,72 @@ inline void test_game_input(const char* runtime) {
         play.stop();
     }
     require(SDL_DetachVirtualJoystick(device), SDL_GetError());
+    {
+        const auto first = SDL_AttachVirtualJoystick(&desc);
+        const auto second = SDL_AttachVirtualJoystick(&desc);
+        require(first && second, SDL_GetError());
+        SdlGamepads pads;
+        pads.discover();
+        require(pads.count() >= 2, "Multiple gamepads were not discovered");
+        SDL_Event event{};
+        event.type = SDL_EVENT_GAMEPAD_AXIS_MOTION;
+        event.gaxis.which = second;
+        event.gaxis.axis = SDL_GAMEPAD_AXIS_LEFTX;
+        event.gaxis.value = 100;
+        require(pads.event(event, true, 1000).empty(), "Inactive stick noise stole device");
+        event.gaxis.value = -32768;
+        const auto switched = pads.event(event, true, 1000);
+        require(pads.active() == second && switched.size() == 2 && switched[0].reset &&
+                    switched[1].value == -1,
+                "Deliberate device switch did not neutralize previous input");
+        event.gaxis.which = first;
+        require(pads.event(event, true, 1100).empty(), "Device switch guard failed");
+        event = {};
+        event.type = SDL_EVENT_GAMEPAD_REMOVED;
+        event.gdevice.which = second;
+        require(SDL_DetachVirtualJoystick(second), SDL_GetError());
+        const auto removed = pads.event(event, false, 1200);
+        require(removed.size() == 1 && removed[0].reset && pads.active() != second,
+                "Removal retained stale handle or held input");
+        const auto reconnected = SDL_AttachVirtualJoystick(&desc);
+        require(reconnected && reconnected != second, "Reconnect did not get new runtime ID");
+        event.type = SDL_EVENT_GAMEPAD_ADDED;
+        event.gdevice.which = reconnected;
+        pads.event(event, false, 1300);
+        event.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+        event.gbutton.which = reconnected;
+        event.gbutton.button = SDL_GAMEPAD_BUTTON_SOUTH;
+        event.gbutton.down = true;
+        require(pads.event(event, true, 1500).size() == 2 && pads.active() == reconnected,
+                "Reconnected gamepad could not take over");
+        require(std::string(pads.activity()) == "Gamepad",
+                "Deliberate pad input did not select prompts");
+        event = {};
+        event.type = SDL_EVENT_KEY_DOWN;
+        event.key.down = true;
+        pads.event(event, true, 1800);
+        require(std::string(pads.activity()) == "KeyboardMouse",
+                "Keyboard did not take prompt ownership");
+        event = {};
+        event.type = SDL_EVENT_GAMEPAD_AXIS_MOTION;
+        event.gaxis.which = reconnected;
+        event.gaxis.axis = SDL_GAMEPAD_AXIS_LEFTX;
+        event.gaxis.value = 200;
+        pads.event(event, true, 2100);
+        require(std::string(pads.activity()) == "KeyboardMouse",
+                "Analog noise changed prompt ownership");
+        event.gaxis.value = 32767;
+        pads.event(event, true, 2200);
+        require(std::string(pads.activity()) == "Gamepad",
+                "Deliberate axis did not select prompts");
+        event = {};
+        event.type = SDL_EVENT_MOUSE_MOTION;
+        event.motion.xrel = 4;
+        pads.event(event, true, 2250);
+        require(std::string(pads.activity()) == "Gamepad", "Prompt ownership debounce failed");
+        require(SDL_DetachVirtualJoystick(first), SDL_GetError());
+        require(SDL_DetachVirtualJoystick(reconnected), SDL_GetError());
+    }
     SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
 }
 inline void test_project_settings_ui() {

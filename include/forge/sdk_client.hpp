@@ -13,7 +13,9 @@ enum class Capability : uint32_t {
     Ui = FORGE_SDK_UI,
     Input = FORGE_SDK_INPUT,
     Resources = FORGE_SDK_RESOURCES,
-    RuntimeEntities = FORGE_SDK_RUNTIME_ENTITIES
+    RuntimeEntities = FORGE_SDK_RUNTIME_ENTITIES,
+    ControlInput = FORGE_SDK_CONTROL_INPUT,
+    Game = FORGE_SDK_GAME
 };
 class Client {
   public:
@@ -35,6 +37,12 @@ class Client {
         out = {};
         out.size = sizeof(out);
         return callable(Capability::Input) && host_->read_action(host_->context, id, &out) == 1;
+    }
+    bool control(const char* id, ForgeSdkActionV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::ControlInput) &&
+               host_->read_control(host_->context, id, &out) == 1;
     }
     // 1 hit, 0 miss, -1 invalid/unavailable. No stale output on miss/failure.
     int32_t raycast(const double origin[3], const double displacement[3],
