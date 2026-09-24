@@ -230,7 +230,14 @@ int main(int argc, char** argv) {
                                        [](std::stop_token) -> ResourceCandidate<MeshAsset> {
                                            throw std::runtime_error("invalid replacement");
                                        });
-            require(!retries.wait(bad, 5s) && bad.inspect().previous_good,
+            const auto failure_deadline = std::chrono::steady_clock::now() + 5s;
+            while (!resource_detail::terminal(bad.inspect().state)) {
+                require(std::chrono::steady_clock::now() < failure_deadline,
+                        "Replacement failure never became observable");
+                std::this_thread::yield();
+            }
+            // Deliberately observe worker failure before any owner-thread pump.
+            require(bad.inspect().state == ResourceState::Failed && bad.inspect().previous_good,
                     "Failed update lost its last-good resource");
             require(retries.evict_idle(0) == 0, "Failed update allowed eviction of a live lease");
             held = {};

@@ -236,6 +236,8 @@ class CollisionEditor {
     ResourceTicket mesh_ticket_;
     AssetId mesh_selection_;
     std::string member_selection_;
+    std::string mesh_reviewed_revision_;
+    bool mesh_review_checked_ = false, mesh_revision_changed_ = false;
     std::uint64_t selection_revision_ = 0;
     unsigned lod_selection_ = 0;
     std::set<unsigned> part_selection_;
@@ -313,6 +315,21 @@ class CollisionEditor {
                                                              : info.diagnostic.c_str());
         } else {
             const auto& lods = selected->mesh.lods;
+            if (!mesh_review_checked_) {
+                mesh_review_checked_ = true;
+                mesh_revision_changed_ =
+                    !all_parts_ && mesh_reviewed_revision_ != selected.identity().revision;
+                if (mesh_revision_changed_)
+                    part_selection_.clear();
+                if (lod_selection_ < lods.size())
+                    std::erase_if(part_selection_, [&](unsigned part) {
+                        return part >= lods[lod_selection_].parts.size() ||
+                               lods[lod_selection_].parts[part].topology != MeshTopology::Triangles;
+                    });
+            }
+            if (mesh_revision_changed_)
+                ImGui::TextWrapped("The Mesh revision changed. Review and select the intended "
+                                   "parts again; old ordinals have not been reused.");
             ImGui::TextWrapped("Mesh revision: %.12s", selected.identity().revision.c_str());
             const auto label = "LOD " + std::to_string(lod_selection_);
             if (ImGui::BeginCombo("Geometry detail", label.c_str())) {
@@ -395,6 +412,8 @@ class CollisionEditor {
             mesh_selection_ = {};
             ImGui::CloseCurrentPopup();
         }
+        if (!error_.empty())
+            ui::field_error(error_);
         ImGui::EndPopup();
     }
     void fields() {
@@ -553,6 +572,8 @@ class CollisionEditor {
                                                                     catalog_, {mesh_selection_});
                     member_selection_ = node.at("id").get<std::string>();
                     selection_revision_ = document_->revision();
+                    mesh_reviewed_revision_ = selection.value("revision", std::string{});
+                    mesh_review_checked_ = mesh_revision_changed_ = false;
                     lod_selection_ = selection.at("lod").get<unsigned>();
                     all_parts_ = selection.at("parts").is_string();
                     part_selection_.clear();

@@ -23,26 +23,31 @@ struct EditorFixture {
     std::filesystem::path output, project, config;
     unsigned stage = 0, frames = 0;
     Uint64 started = SDL_GetTicks(), stage_started = started;
-    bool prepared = false, workflow = false;
+    bool prepared = false, workflow = false, physics = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     AssetId prefab;
     explicit EditorFixture(int argc, char** argv) {
-        if (argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
-            throw std::runtime_error("Expected fixture output directory [--workflow]");
-        workflow = argc == 3;
+        physics = argc == 4 && std::string(argv[2]) == "--physics";
+        if (!physics && argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
+            throw std::runtime_error(
+                "Expected fixture output directory [--workflow | --physics PROJECT]");
+        workflow = argc == 3 || physics;
         output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
-        project = output / ("project-" + AssetId::generate().str());
-        config = project / ".fixture-preferences";
-        SceneDocument::create_project(project, "UX fixture");
+        project = physics ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
+                          : output / ("project-" + AssetId::generate().str());
+        config = physics ? output / ".fixture-preferences" : project / ".fixture-preferences";
+        if (!physics)
+            SceneDocument::create_project(project, "UX fixture");
         std::filesystem::create_directories(config);
     }
     ~EditorFixture() {
         active_wait_probe = nullptr;
         std::error_code ec;
-        std::filesystem::remove_all(project, ec);
+        if (!physics)
+            std::filesystem::remove_all(project, ec);
     }
     const char* focused_document() const {
         if (workflow)

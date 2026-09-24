@@ -4,6 +4,7 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
+| [2026-09-24](20260924/README.md) | Phase8 collision and character foundation verification, resource cleanup and acceptance tooling. |
 | [2026-09-23](20260923/README.md) | Phase7 resource lifetime, workflow verification and documentation hardening. |
 | [2026-09-22](20260922/README.md) | Runtime content packaging and authoring performance correction. |
 | [2026-09-21](20260921/README.md) | Phase7 complete draw-resource preparation and native rendering validation; no numbered delivery. |

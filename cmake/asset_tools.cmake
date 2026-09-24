@@ -285,7 +285,29 @@ endif()
 
 add_library(forge_import_authoring STATIC src/import_authoring.cpp)
 target_link_libraries(forge_import_authoring PUBLIC forge_model_authoring forge_texture_authoring forge_audio_authoring)
-target_link_libraries(forge_tools PRIVATE forge_import_authoring)
+target_link_libraries(forge_tools PRIVATE forge_import_authoring forge_collision_authoring)
+if(BUILD_TESTING AND NOT FORGE_ENABLE_SANITIZERS)
+ add_dependencies(forge_physics_acceptance forge_tools forge_asset_build_worker)
+ set(_forge_physics_sdk_args "")
+ if(FORGE_ENABLE_NATIVE_SDK)
+  add_dependencies(forge_physics_acceptance forge_sdk_probe)
+  set(_forge_physics_sdk_args --sdk $<TARGET_FILE:forge_sdk_probe>)
+ endif()
+ add_test(NAME physics_acceptance_level COMMAND ${Python3_EXECUTABLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/physics_acceptance_test.py
+  --tools $<TARGET_FILE:forge_tools> --runner $<TARGET_FILE:forge_physics_acceptance>
+  --output ${CMAKE_BINARY_DIR}/physics-acceptance ${_forge_physics_sdk_args})
+ set_tests_properties(physics_acceptance_level PROPERTIES TIMEOUT 240)
+ if(TARGET forge_editor_fixture)
+  add_dependencies(forge_editor_fixture forge_physics_acceptance)
+  add_test(NAME editor_physics_workflow COMMAND ${Python3_EXECUTABLE}
+   ${CMAKE_CURRENT_SOURCE_DIR}/tests/physics_acceptance_test.py
+   --tools $<TARGET_FILE:forge_tools> --runner $<TARGET_FILE:forge_physics_acceptance>
+   --editor $<TARGET_FILE:forge_editor_fixture>
+   --output ${CMAKE_BINARY_DIR}/grid-test-images/physics-level ${_forge_physics_sdk_args})
+  set_tests_properties(editor_physics_workflow PROPERTIES TIMEOUT 360)
+ endif()
+endif()
 if(BUILD_TESTING AND NOT FORGE_ENABLE_SANITIZERS)
  add_test(NAME audio_tools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_tools_test.py $<TARGET_FILE:forge_tools> ${CMAKE_BINARY_DIR}/audio-tools-tests)
  set_tests_properties(audio_tools PROPERTIES TIMEOUT 90)

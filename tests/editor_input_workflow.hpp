@@ -81,6 +81,12 @@ class EditorInputWorkflow {
         if (what == "collision-preview") {
             require(state.at("collision_preview_ready").get<bool>(),
                     "Collision preview is not ready");
+        } else if (what == "physics-playing") {
+            require(state.at("playing").get<bool>() && state.at("control_ready").get<bool>() &&
+                        state.at("physics").value("characters", 0) == 1 &&
+                        state.at("physics").contains("character_debug") &&
+                        state.at("physics").at("character_debug").at("ground") == 0,
+                    "Character Play ground observation is not ready");
         } else if (what == "collision-published") {
             require(state.at("collision_document_ready").get<bool>(),
                     "Collision document has not published");
@@ -302,10 +308,43 @@ class EditorInputWorkflow {
     }
 
   public:
-    explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence) {
+    explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
+                                 const std::filesystem::path& physics_project = {}) {
         observe_ui = enabled;
         if (!enabled)
             return;
+        if (!physics_project.empty()) {
+            std::ifstream input(physics_project / "main.scene.json");
+            const auto level = Json::parse(input);
+            key(ImGuiKey_0, true);
+            click("scene:view-menu");
+            click("scene:fit");
+            capture("physics-level-overview");
+            click("scene:view-menu");
+            click("physics:overlay");
+            key(ImGuiKey_Escape);
+            for (const auto* name :
+                 {"Stair 3", "Too high step", "Gentle slope", "Steep slope", "Moving platform",
+                  "Imported static collision", "Convex obstacle", "Asset compound", "Character"}) {
+                const auto entity =
+                    std::find_if(level.at("entities").begin(), level.at("entities").end(),
+                                 [&](const Json& row) { return row.at("name") == name; });
+                require(entity != level.at("entities").end(), "Physics fixture entity missing");
+                text("hierarchy:search", name);
+                click("entity:" + entity->at("id").get<std::string>());
+                click("scene:view-menu");
+                click("scene:frame");
+                check("collision-preview");
+                capture(std::string("physics-") + name);
+            }
+            click("icon:play");
+            click("tab:Scene");
+            check("physics-playing");
+            capture("physics-character-grounded-play");
+            click("icon:stop");
+            check("stopped");
+            return;
+        }
         external_source_ = evidence / "external-source" / "workflow.gltf";
         std::filesystem::create_directories(external_source_.parent_path());
         write(external_source_, model_source().dump());

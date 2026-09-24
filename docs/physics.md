@@ -245,3 +245,23 @@ Play requests copied character debug state only for the inspected entity. Ground
 normal and a quarter-second velocity guide accompany the crouched/standing shape.
 Queries and drawing do not take simulation ownership or serialize debug state into
 Scene/prefab documents. Windows visual acceptance of this workflow remains pending.
+
+### Physics material decision
+
+This block retains per-body friction/restitution rather than adding an unnecessary
+PhysicsMaterial asset. The existing reflected PhysicsBody fields are copied into
+Jolt BodyCreationSettings. At the exact5.6.0 pin,
+`Jolt/Physics/Constraints/ContactConstraintManager.h` initializes combined friction
+as the square root of the product and restitution as the maximum of the two bodies.
+FORGE uses those native defaults; it does not advertise artist-selectable combine
+modes or per-triangle materials. Compound children currently share the owning body's
+material response. Future per-surface reuse can justify a separate asset contract.
+
+### Headless collision authoring
+
+When asset tools are built, `forge_tools --assets import PROJECT SOURCE.collision.json`
+uses the same Collision importer and publication validation as the editor. It reads
+the authored AssetId, selects the platform's backend-neutral CPU profile, and rejects
+subasset correspondence decisions (collision members are authored identities). Failed
+cooking retains the previous catalog publication. Ordinary users can use the editor's
+Save workflow; this entry point serves automation and acceptance-project generation.

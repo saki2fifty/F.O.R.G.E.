@@ -1643,6 +1643,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         state.WriteBytes(raw.data(), raw.size());
         state.Rewind();
         auto& c = s.characters.at(id).owner->native();
+        const auto expected_rotation = c.GetRotation();
         c.RestoreState(state);
         if (state.IsFailed())
             throw std::runtime_error("Truncated native character checkpoint");
@@ -1652,6 +1653,17 @@ void PhysicsRuntime::restore(const Json& payload) {
             throw std::runtime_error("Trailing native character checkpoint bytes");
         const auto pos = c.GetPosition();
         valid_position({pos.GetX(), pos.GetY(), pos.GetZ()});
+        const auto q = c.GetRotation();
+        if (!q.IsNormalized() ||
+            !equivalent(normalized({q.GetX(), q.GetY(), q.GetZ(), q.GetW()}),
+                        LocalRotation{expected_rotation.GetX(), expected_rotation.GetY(),
+                                      expected_rotation.GetZ(), expected_rotation.GetW()}))
+            throw std::runtime_error(
+                "Character checkpoint orientation differs from restored scene");
+        const auto velocity = c.GetLinearVelocity();
+        for (auto v : {velocity.GetX(), velocity.GetY(), velocity.GetZ()})
+            if (!std::isfinite(v))
+                throw std::runtime_error("Character checkpoint contains nonfinite velocity");
         const auto& expected = s.characters.at(id).last.translation;
         if (!equivalent(LocalTranslation{pos.GetX(), pos.GetY(), pos.GetZ()}, expected))
             throw std::runtime_error("Character checkpoint pose differs from restored scene");

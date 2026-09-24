@@ -2,7 +2,7 @@
 #include <forge/collision_source.hpp>
 #include <forge/derived_cache.hpp>
 namespace forge::collision_detail {
-inline constexpr std::string_view jolt_revision = "e77f175595e64cb44218cc9d9d56fc365ad0e36a";
+inline constexpr char jolt_revision[] = "e77f175595e64cb44218cc9d9d56fc365ad0e36a";
 struct Bundle {
     AssetId asset;
     CollisionData geometry;

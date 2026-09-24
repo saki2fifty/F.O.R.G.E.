@@ -1,5 +1,6 @@
 #pragma once
 #include "../src/physics_debug.hpp"
+#include <chrono>
 #include <forge/character_components.hpp>
 #include <numbers>
 void character_physics_tests() {
@@ -123,6 +124,59 @@ struct CharacterFixture : Fixture {
     CharacterState state() const { return physics->character(ref); }
     EntityRef reference(const char* id) { return *engine.world().reference(scene.entity(id).id()); }
 };
+void character_workload_measurement() {
+    using Clock = std::chrono::steady_clock;
+    CharacterFixture f;
+    auto input = source();
+    input["entities"].erase(input["entities"].begin());
+    for (int x = -10; x < 10; ++x)
+        for (int z = -10; z < 10; ++z) {
+            const auto name = "Tile " + std::to_string(x) + "/" + std::to_string(z);
+            auto tile = body(name.c_str(), -.5, 0);
+            tile["components"]["forge.position"]["x"] = x * 5 + 2.5;
+            tile["components"]["forge.position"]["z"] = z * 5 + 2.5;
+            tile["components"]["forge.box_collider"] = {{"x", 5}, {"y", 1}, {"z", 5}};
+            input["entities"].push_back(std::move(tile));
+        }
+    const auto begin = Clock::now();
+    f.load_character(input, {1, .02, 1});
+    const auto realized = Clock::now();
+    f.physics->move_character(f.ref, {1, 0, 1});
+    f.tick(120);
+    const auto simulated = Clock::now();
+    unsigned hits = 0;
+    for (unsigned i = 0; i < 1000; ++i)
+        hits +=
+            bool(f.physics->raycast({double(i % 80) - 40, 5, double(i % 73) - 36}, {0, -10, 0}));
+    const auto rays = Clock::now();
+    PhysicsSweep sweep;
+    sweep.shape = PhysicsSweep::Shape::Sphere;
+    sweep.dimensions = {.25, 0, 0};
+    sweep.displacement = {0, -10, 0};
+    for (unsigned i = 0; i < 200; ++i) {
+        sweep.origin = {double(i % 80) - 40, 5, double(i % 73) - 36};
+        hits += bool(f.physics->shape_cast(sweep, {}));
+    }
+    const auto end = Clock::now();
+    check(hits == 1200 && f.state().ground == CharacterGround::OnGround &&
+              f.state().position.x > 2.8 && f.physics->status().at("bodies") == 400,
+          "Representative static-world character/query workload failed");
+    const auto ms = [](auto a, auto b) {
+        return std::chrono::duration<double, std::milli>(b - a).count();
+    };
+    std::cout << Json{{"static_bodies", 400},
+                      {"level_meters", {100, 100}},
+                      {"characters", 1},
+                      {"fixed_ticks", 120},
+                      {"realization_ms", ms(begin, realized)},
+                      {"simulation_ms", ms(realized, simulated)},
+                      {"raycasts", 1000},
+                      {"raycast_ms", ms(simulated, rays)},
+                      {"sphere_sweeps", 200},
+                      {"sweep_ms", ms(rays, end)}}
+                     .dump(2)
+              << '\n';
+}
 void character_mechanics_tests() {
     {
         CharacterFixture f;
@@ -136,6 +190,12 @@ void character_mechanics_tests() {
         f.tick();
         check(std::abs(f.state().velocity[0] - 1) < .001 && std::abs(f.state().velocity[1]) < .001,
               "Placement with a new up axis did not preserve world velocity");
+        Fixture restored;
+        restored.scene.restore_snapshot(f.scene.snapshot());
+        restored.physics->restore(f.physics->checkpoint());
+        check(equivalent(restored.physics->character(f.ref).rotation, f.state().rotation) &&
+                  restored.physics->character(f.ref).velocity == f.state().velocity,
+              "Reoriented character recovery changed orientation or velocity");
     }
     for (float height : {.25f, .8f}) {
         CharacterFixture f;
@@ -272,6 +332,26 @@ void character_mechanics_tests() {
 }
 
 void character_contract_tests() {
+    {
+        CharacterFixture f;
+        auto input = source();
+        auto platform = body("platform", .125, 1);
+        platform["components"]["forge.position"]["z"] = 3;
+        platform["components"]["forge.box_collider"] = {{"x", 3}, {"y", .25}, {"z", 2}};
+        input["entities"].push_back(platform);
+        f.load_character(input);
+        const auto moving = f.reference("platform"), floor = f.reference("floor");
+        f.tick(10);
+        f.physics->move_character(f.ref, {0, 0, 1});
+        bool on = false, off = false;
+        for (unsigned i = 1; i <= 360; ++i) {
+            f.physics->move_kinematic(moving, {.25 * std::sin(i / 60.), .125, 3}, {});
+            f.tick();
+            on |= f.state().supporting_entity == moving;
+            off |= on && f.state().position.z > 4.5 && f.state().supporting_entity == floor;
+        }
+        check(on && off, "Character failed to step onto and off a moving platform");
+    }
     for (bool sensor : {false, true}) {
         CharacterFixture f;
         auto settings = PhysicsConfig{};

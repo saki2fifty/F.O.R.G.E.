@@ -492,8 +492,14 @@ template <class T> class ResourcePool {
         std::lock_guard lock(state_->mutex);
         std::vector<Slot*> candidates;
         std::set<resource_detail::Key> pending;
-        for (const auto& job : state_->jobs)
-            pending.insert(resource_detail::key(ResourceTicket(job->ticket).inspect().identity));
+        for (const auto& job : state_->jobs) {
+            const auto info = ResourceTicket(job->ticket).inspect();
+            // Failure can become visible after wait()'s pump. A completed
+            // terminal job cannot publish a candidate or still use this slot.
+            // Do not pump here: eviction must not trigger resource adoption.
+            if (!job->complete || !resource_detail::terminal(info.state))
+                pending.insert(resource_detail::key(info.identity));
+        }
         for (auto& [id, slot] : state_->slots) {
             if (slot.current && slot.current.use_count() == 1 && !pending.contains(id) &&
                 (!slot.request ||

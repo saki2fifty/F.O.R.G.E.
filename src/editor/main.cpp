@@ -102,7 +102,9 @@ int main(int argc, char** argv) {
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
-        forge::test::EditorInputWorkflow input_workflow(fixture.workflow, fixture.output);
+        forge::test::EditorInputWorkflow input_workflow(fixture.workflow, fixture.output,
+                                                        fixture.physics ? fixture.project
+                                                                        : std::filesystem::path{});
 #endif
         auto* factory = LoadAndGetEngineFactoryD3D12();
         if (!factory)
@@ -2449,6 +2451,7 @@ int main(int argc, char** argv) {
                     ImGui::SetNextItemWidth(-1);
                     ImGui::InputTextWithHint("##entity-filter", "Search names or IDs...",
                                              hierarchy_filter, sizeof(hierarchy_filter));
+                    FORGE_UI_PROBE("hierarchy:search");
                     forge::ui::help(
                         "Filter entity names and IDs; matching descendants retain their "
                         "ancestors. ASCII case-insensitive.");
@@ -2735,9 +2738,11 @@ int main(int argc, char** argv) {
                                 forge::ui::help("Manipulator orientation, independent of the "
                                                 "object's spatial parent binding.");
                                 frame_selected = ImGui::MenuItem("Frame selected", "F");
+                                FORGE_UI_PROBE("scene:frame");
                                 forge::ui::help(
                                     "Center the camera on the selected visible object.");
                                 fit_scene = ImGui::MenuItem("Fit scene");
+                                FORGE_UI_PROBE("scene:fit");
                                 forge::ui::help("Frame all visible objects.");
                                 if (ImGui::MenuItem("Reset view"))
                                     view_camera = {};
@@ -3414,6 +3419,7 @@ int main(int argc, char** argv) {
                                         {"status", message}};
                 auto observed = state;
                 observed["collision_preview_ready"] = physics_overlay.ready();
+                observed["physics"] = play.physics_status();
                 observed["collision_document_ready"] =
                     collision_editor.document() && !collision_editor.dirty();
                 observed["model_ready"] =

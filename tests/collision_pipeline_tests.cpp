@@ -4,6 +4,7 @@
 #include "collision_selection.hpp"
 #include "physics_debug.hpp"
 #include "runtime_package.hpp"
+#include <forge/character_components.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_session.hpp>
 #include <fstream>
@@ -62,7 +63,15 @@ void runtime_collision(const std::filesystem::path& root, AssetId asset,
                                               {"restitution", 0},
                                               {"gravity_factor", 1}}},
                                             {"forge.asset_collider", {{"asset", asset}}}}}}})}};
-    const auto ticket = game.prepare(scene);
+    scene["entities"].push_back(
+        {{"id", "character"},
+         {"name", "Character"},
+         {"components", {{"forge.position", {{"x", 0}, {"y", 3}, {"z", 0}}}}}});
+    const auto ticket = game.prepare(scene, [](Scene& candidate) {
+        auto character = candidate.entity("character");
+        character.set<CharacterController>({});
+        character.set<SpatialBinding>({SpatialMode::World, {}});
+    });
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     while (!game.poll_preparation(ticket).ready) {
         require(std::chrono::steady_clock::now() < deadline, "Scene collision readiness timed out");
@@ -70,6 +79,20 @@ void runtime_collision(const std::filesystem::path& root, AssetId asset,
     }
     game.activate(ticket, RuntimeClock::Time{}, false);
     auto physics = game.active().physics();
+    const auto ref =
+        *game.active().engine.world().reference(game.active().scene.entity("character").id());
+    const auto initial = physics->character(ref).position;
+    game.advance(RuntimeClock::Time{} + 1s);
+    require(equivalent(physics->character(ref).position, initial),
+            "Paused session advanced its character");
+    game.step();
+    require(physics->character(ref).position.y < initial.y,
+            "Paused single-step did not simulate character gravity");
+    game.resume(RuntimeClock::Time{} + 2s);
+    game.advance(RuntimeClock::Time{} + 2020ms);
+    game.pause(RuntimeClock::Time{} + 2021ms);
+    require(physics->status().at("tick").get<unsigned>() >= 2,
+            "Resumed character session did not advance");
     require(physics->raycast({0, 0, -5}, {0, 0, 10}).has_value(),
             "Asset collider has no native collision");
     const auto checkpoint = physics->checkpoint();
@@ -80,6 +103,9 @@ void runtime_collision(const std::filesystem::path& root, AssetId asset,
     recovery.physics()->restore(checkpoint);
     require(recovery.physics()->raycast({0, 0, -5}, {0, 0, 10}).has_value(),
             "Asset collider recovery lost geometry");
+    require(
+        equivalent(recovery.physics()->character(ref).position, physics->character(ref).position),
+        "Collision/character recovery lost the controller pose");
     if (replacement)
         replacement(game);
     // Missing resources reject only the unpublished candidate, preserving old world.
@@ -98,6 +124,16 @@ void runtime_collision(const std::filesystem::path& root, AssetId asset,
     require(rejected && game.active().physics() == physics &&
                 physics->raycast({0, 0, -5}, {0, 0, 10}).has_value(),
             "Failed collision load replaced active scene");
+    require(physics->status().at("characters") == 1,
+            "Failed scene preparation destroyed the active character");
+    game.unload(RuntimeClock::Time{} + 3s);
+    bool stopped = false;
+    try {
+        (void)physics->character(ref);
+    } catch (const std::exception&) {
+        stopped = true;
+    }
+    require(stopped, "Unloaded world's character service remained callable");
 }
 } // namespace
 int main(int argc, char** argv) {

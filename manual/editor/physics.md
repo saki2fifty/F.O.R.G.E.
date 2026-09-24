@@ -144,7 +144,7 @@ provides collision, gravity, ground state, slopes, stairs and moving-platform su
 It does not assign movement keys or create a first-person camera.
 
 1. Select the character entity and add **Character Controller** under **Physics**.
-2. Set its **Child space** to **World**. Remove or disable a Physics Body on that same entity; the controller supplies its own physical presence.
+2. Set its **Spatial binding** to **World**. Remove or disable a Physics Body on that same entity; the controller supplies its own physical presence.
 3. Place the entity's origin at its feet, above collision geometry. Set radius, straight standing height and crouch height to match its visible geometry.
 4. Choose **Capsule** or **Cylinder**, then set walkable slope, step height and collision layer/mask for your game.
 5. Gameplay code uses the controller service to request movement, jump, crouch or checked placement. Without movement code, Play demonstrates gravity and support.

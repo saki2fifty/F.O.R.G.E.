@@ -7,6 +7,8 @@
 #include "ui_inspection.hpp"
 #include <forge/scene.hpp>
 #ifdef FORGE_ASSET_TOOLS
+#include "asset_bytes.hpp"
+#include "collision_authoring.hpp"
 #include "import_authoring.hpp"
 #include "self_executable.hpp"
 #include "texture_authoring.hpp"
@@ -178,10 +180,19 @@ int asset_tools_cli(int argc, char** argv) {
 #ifdef _WIN32
             worker += ".exe";
 #endif
-            auto registry = asset_import_registry(worker);
+            const auto source = std::filesystem::u8path(argv[4]);
+            const bool collision = path_utf8(source).ends_with(".collision.json");
+            auto registry = collision ? collision_import_registry() : asset_import_registry(worker);
             auto lease = std::make_shared<ProjectLease>(project);
-            AssetImportService service(lease, registry, desktop_texture_target());
-            auto draft = service.prepare(std::filesystem::u8path(argv[4]));
+            AssetImportService service(
+                lease, registry, collision ? collision_import_target() : desktop_texture_target());
+            AssetId identity;
+            if (collision)
+                identity =
+                    CollisionSource::parse(asset_detail::read_bytes(
+                                               ProjectPaths(project).resolve(source), 1024 * 1024))
+                        .asset();
+            auto draft = service.prepare(source, {}, identity);
             if (argc >= 6) {
                 const std::string_view text(argv[5]);
                 const auto overrides = asset_detail::parse_bounded_json(
@@ -216,8 +227,14 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions](auto& candidate, const auto& plan, const auto& catalog) {
-                    prepare_asset_publication(candidate, plan, catalog, decisions);
+                [decisions, collision](auto& candidate, const auto& plan, const auto& catalog) {
+                    if (collision) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Collision has no imported subasset correspondence decisions");
+                        prepare_collision_publication(candidate, plan);
+                    } else
+                        prepare_asset_publication(candidate, plan, catalog, decisions);
                 },
                 [](const auto&, const auto&) {});
             // CLI owns no live world/device. Importer format validation remains mandatory.
