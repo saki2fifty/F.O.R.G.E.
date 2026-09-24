@@ -28,7 +28,7 @@ class EditorInputWorkflow {
     std::uint64_t paused_tick_ = 0;
     Json cache_scene_, saved_, before_model_, initial_material_, trace_ = Json::array();
     std::filesystem::path external_source_, project_;
-    std::string drop_path_, model_asset_, model_root_, material_asset_;
+    std::string drop_path_, model_asset_, model_root_, material_asset_, collision_asset_;
     std::uint64_t model_generation_ = 0;
     static Json model_source(bool changed = false) {
         auto source = Json::parse(R"({"asset":{"version":"2.0"},
@@ -102,6 +102,16 @@ class EditorInputWorkflow {
         } else if (what == "collision-published") {
             require(state.at("collision_document_ready").get<bool>(),
                     "Collision document has not published");
+            collision_asset_ = state.at("collision_source").at("asset_id").get<std::string>();
+        } else if (what == "collision-assigned") {
+            require(std::any_of(entities.begin(), entities.end(),
+                                [&](const Json& row) {
+                                    const auto& c = row.at("components");
+                                    return c.contains("forge.asset_collider") &&
+                                           c.at("forge.asset_collider").at("asset") ==
+                                               collision_asset_;
+                                }),
+                    "Typed Collision picker did not assign the published asset");
         } else if (what == "dependency-fields-fit") {
             for (const auto* name : {"dependencies:type", "dependencies:reason", "dependencies:add",
                                      "dependencies:save", "dependencies:discard"}) {
@@ -656,6 +666,22 @@ class EditorInputWorkflow {
         key(ImGuiKey_Z, true);
         check("collision-convex-parts");
         capture("collision-compound-undo");
+        click("tab:Scene");
+        create("3D Primitive", "Cube");
+        key(ImGuiKey_F);
+        click("button:+ Add Component");
+        text("component-search", "Physics Body");
+        click("component-choice:forge.physics_body");
+        key(ImGuiKey_Escape);
+        click("button:+ Add Component");
+        text("component-search", "Asset Collider");
+        click("component-choice:forge.asset_collider");
+        key(ImGuiKey_Escape);
+        click("asset-picker:collision:##Asset");
+        click("authored-collision-option");
+        check("collision-assigned");
+        check("collision-preview");
+        capture("collision-published-asset-assigned");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {
@@ -711,14 +737,15 @@ class EditorInputWorkflow {
                        last_check_;
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             const auto target =
-                step.value == "saved-cube-row"             ? "entity:" + cube_
-                : step.value == "authored-material-option" ? "picker-option:" + material_asset_
-                : step.value == "failed-model-problem"     ? "problem:reimport:" + model_asset_
-                : step.value == "placed-model-row"         ? "entity:" + model_root_
-                : step.value == "camera-marker"            ? "marker:" + camera_
-                : step.value == "light-marker"             ? "marker:" + light_
-                : step.value == "saved-scene-asset"        ? "asset:" + scene_
-                                                           : step.value;
+                step.value == "saved-cube-row"              ? "entity:" + cube_
+                : step.value == "authored-material-option"  ? "picker-option:" + material_asset_
+                : step.value == "authored-collision-option" ? "picker-option:" + collision_asset_
+                : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
+                : step.value == "placed-model-row"          ? "entity:" + model_root_
+                : step.value == "camera-marker"             ? "marker:" + camera_
+                : step.value == "light-marker"              ? "marker:" + light_
+                : step.value == "saved-scene-asset"         ? "asset:" + scene_
+                                                            : step.value;
             const auto it = ui_targets.find(target);
             if (it == ui_targets.end() || !it->second.enabled) {
                 io.AddMousePosEvent(pointer_.x, pointer_.y);

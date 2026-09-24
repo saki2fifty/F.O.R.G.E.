@@ -2339,6 +2339,8 @@ int main(int argc, char** argv) {
                 collision_editor.poll(files.document, message);
                 if (auto catalog = collision_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
                     play.model_assets_changed();
                     content.refresh(files);
                 }
