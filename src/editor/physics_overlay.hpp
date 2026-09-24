@@ -69,7 +69,8 @@ class PhysicsOverlay {
         bool disabled = false, stale = false, pose_valid = false;
         std::string note;
         const Json* character = nullptr;
-        if (runtime.is_object() && runtime.contains("character_debug") &&
+        const bool show_character = physics_debug_uses_character(components);
+        if (show_character && runtime.is_object() && runtime.contains("character_debug") &&
             runtime["character_debug"].value("entity", std::string{}) == selected)
             character = &runtime["character_debug"];
         try {
@@ -93,7 +94,7 @@ class PhysicsOverlay {
             const bool crouched = character && character->value("crouched", false);
             ResourceLease<CollisionAsset> collision;
             std::string revision;
-            if (components.contains("forge.asset_collider")) {
+            if (!show_character && components.contains("forge.asset_collider")) {
                 const auto id = components["forge.asset_collider"]["asset"].get<AssetId>();
                 if (!pool_)
                     pool_ = std::make_unique<ResourcePool<CollisionAsset>>(
@@ -129,7 +130,7 @@ class PhysicsOverlay {
                                    "is not the active collider";
                         }
             }
-            disabled = components.contains("forge.character_controller")
+            disabled = show_character
                            ? !components["forge.character_controller"].value("enabled", true)
                            : !components["forge.physics_body"].value("enabled", true);
             key_ = components.dump() +

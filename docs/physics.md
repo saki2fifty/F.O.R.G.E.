@@ -244,6 +244,10 @@ presentation transform. The8192-triangle preview limit is visible and never clip
 actual simulation geometry. Preview colors distinguish prepared, disabled,
 pending/stale and rejected candidates. It is not a substitute for full Play-world
 hierarchy validation and does not appear in Game View.
+When both controller and body components are retained, preview selection follows
+the enabled representation. A disabled Character does not hide an active rigid
+body; a disabled body's unused asset is not requested for a character preview.
+Both enabled remain invalid. Both disabled preview the authored character shape.
 
 Play requests copied character debug state only for the inspected entity. Ground
 normal and a quarter-second velocity guide accompany the crouched/standing shape.

@@ -86,6 +86,34 @@ void character_physics_tests() {
             top = std::max(top, p[1]);
     check(std::abs(top - 1.15f) < .01f,
           "Native character preview does not match crouched dimensions");
+    {
+        auto components = row->at("components");
+        const auto rigid =
+            std::find_if(snapshot.at("entities").begin(), snapshot.at("entities").end(),
+                         [](const auto& item) {
+                             return item.at("components").contains("forge.physics_body");
+                         })
+                ->at("components");
+        components["forge.physics_body"] = rigid.at("forge.physics_body");
+        components["forge.box_collider"] = rigid.at("forge.box_collider");
+        components["forge.character_controller"]["enabled"] = false;
+        check(!physics_debug_uses_character(components),
+              "Disabled character hid the active rigid-body preview");
+        const auto box = prepare_physics_debug(components, {1, 1, 1});
+        float box_top = 0;
+        for (const auto& tri : box.triangles)
+            for (const auto& p : tri)
+                box_top = std::max(box_top, p[1]);
+        check(!box.triangles.empty() && box_top < 1,
+              "Active body preview used the disabled character shape");
+        components["forge.character_controller"]["enabled"] = true;
+        reject([&] { prepare_physics_debug(components, {1, 1, 1}); });
+        components["forge.physics_body"]["enabled"] = false;
+        check(physics_debug_uses_character(components),
+              "Disabled body hid the active character preview");
+        check(!prepare_physics_debug(components, {1, 1, 1}).triangles.empty(),
+              "Character preview missing beside disabled body");
+    }
     Fixture recovered;
     recovered.scene.restore_snapshot(snapshot);
     recovered.physics->restore(checkpoint);

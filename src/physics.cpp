@@ -329,6 +329,13 @@ snapshot_physics_debug_collision(const ResourceLease<CollisionAsset>& collision)
         return {};
     return {collision.identity().asset, collision->native};
 }
+bool physics_debug_uses_character(const Json& components) {
+    if (!components.contains("forge.character_controller"))
+        return false;
+    return components.at("forge.character_controller").value("enabled", true) ||
+           !components.contains("forge.physics_body") ||
+           !components.at("forge.physics_body").value("enabled", true);
+}
 PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale scale,
                                            PhysicsDebugCollision collision, bool crouched,
                                            std::size_t limit) {
@@ -345,7 +352,7 @@ PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale sc
     };
     JPH::RefConst<JPH::Shape> geometry;
     bool invert_character = false;
-    if (components.contains("forge.character_controller")) {
+    if (physics_debug_uses_character(components)) {
         const auto config =
             decoded.template operator()<CharacterController>("forge.character_controller");
         if (components.contains("forge.physics_body") &&

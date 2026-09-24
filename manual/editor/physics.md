@@ -166,6 +166,10 @@ is saved with your workspace preferences and does not draw into Game View.
 - **Amber:** preparation is pending, or the displayed geometry is an older revision.
 - **Red:** the candidate is rejected; read the message at the bottom of Scene.
 
+If an entity retains both Character Controller and Physics Body components, disable
+one. The preview follows the enabled representation. With both disabled, it shows
+the authored character shape; enabling both reports their configuration conflict.
+
 Large shapes show a message if the preview reaches its triangle limit; actual
 collision is unaffected. This is a geometry inspection tool. Play still validates
 spatial parenting and the complete physics configuration.
