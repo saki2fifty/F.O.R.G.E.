@@ -766,8 +766,11 @@ class EditorInputWorkflow {
             }
             const auto& t = it->second;
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
-            if (t.minimum.y < t.clip_minimum.y || t.maximum.y > t.clip_maximum.y) {
-                const float direction = t.minimum.y < t.clip_minimum.y ? 3.f : -3.f;
+            // Selectable expands its hit rectangle into ItemSpacing. The first
+            // visible row can extend above its child clip edge even though its
+            // click center is fully visible; scrolling cannot remove that padding.
+            if (pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
+                const float direction = pointer_.y < t.clip_minimum.y ? 3.f : -3.f;
                 // Use the scrollable window's edge, outside preview images that
                 // correctly consume the wheel for their own camera/image zoom.
                 pointer_.x = t.clip_maximum.x - 1.f;

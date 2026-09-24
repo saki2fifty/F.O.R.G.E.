@@ -95,7 +95,11 @@ class PhysicsOverlay {
             ResourceLease<CollisionAsset> collision;
             std::string revision;
             if (!show_character && components.contains("forge.asset_collider")) {
-                const auto id = components["forge.asset_collider"]["asset"].get<AssetId>();
+                const auto& reference = components["forge.asset_collider"]["asset"];
+                if (reference.is_null())
+                    throw std::runtime_error("Choose a Collision asset in Asset Collider to "
+                                             "preview this body's collision shape.");
+                const auto id = reference.get<AssetId>();
                 if (!pool_)
                     pool_ = std::make_unique<ResourcePool<CollisionAsset>>(
                         ResourcePoolLimits{1, 8, 8, 128ull * 1024 * 1024});

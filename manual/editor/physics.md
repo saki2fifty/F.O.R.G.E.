@@ -170,6 +170,8 @@ If an entity retains both Character Controller and Physics Body components, disa
 one. The preview follows the enabled representation. With both disabled, it shows
 the authored character shape; enabling both reports their configuration conflict.
 
+An empty Asset Collider asks you to choose a Collision asset in its picker.
+
 Large shapes show a message if the preview reaches its triangle limit; actual
 collision is unaffected. This is a geometry inspection tool. Play still validates
 spatial parenting and the complete physics configuration.

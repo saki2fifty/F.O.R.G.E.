@@ -67,3 +67,6 @@
 - Clean Windows package builds now build the graphical game target before installing its runtime kit; installation no longer depends on a previously cached executable.
 
 - Retain editor input-workflow state alongside Windows captures and report picker target identity/clipping on assignment timeouts, so a failed interaction can be diagnosed without relying on screenshots alone.
+
+- The queued-input fixture scrolls a selectable row only when its click center is clipped. Exact ImGui source and a native geometry probe showed that first-row hit padding always extends above a child clip edge, despite a visible click target. This corrects the new Collision picker acceptance timeout without changing normal picker behavior.
+- An unassigned Asset Collider now shows an actionable preview message asking the user to choose a Collision asset, instead of a JSON conversion error.
