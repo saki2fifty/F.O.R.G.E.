@@ -76,6 +76,7 @@ def package(build, dependencies, output):
         manifest['files']['runtime-kit/'+relative] = digest
     source = Path(__file__).resolve().parents[1]
     notices.append((source/'docs/licenses/ozz-converter.txt', 'licenses/ozz-converter.txt'))
+    notices.append((source/'docs/licenses/diligentfx-shader-patch.txt', 'licenses/diligentfx-shader-patch.txt'))
     for notice, name in notices:
         manifest['files'][name] = hashlib.sha256(notice.read_bytes()).hexdigest()
     ui_resources = sorted(p for p in (source/'resources/ui').rglob('*') if p.is_file())

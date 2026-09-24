@@ -311,3 +311,9 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   TIR and special values. No dependency upgrade or warning suppression.
 - Local staging/cache and DXC checks pass; fresh strict FXC and full native
   rendering acceptance remain pending. No numbered package for patch application.
+- Patched strict FXC gate passes16/16. Native acceptance passes12/13, but the
+  new differential GPU test found a BRDF output mismatch requiring investigation;
+  the shader correction is not accepted or packaged. Added exact per-case output
+  evidence and extended normal-mapping compiler coverage for a newly exposed
+  early-return diagnostic. Distribution notices now identify the local patch in
+  editor and standalone runtime packages.

@@ -9,8 +9,8 @@ int wmain(int argc, wchar_t** argv) {
     if (argc < 2)
         return 2;
     bool passed = true;
-    std::vector<std::string> entries{"zero_normal", "zero_basis", "dynamic_frame",
-                                     "special_values"};
+    std::vector<std::string> entries{"zero_normal", "zero_basis", "dynamic_frame", "special_values",
+                                     "pixel_frame"};
     if (argc > 2) {
         entries.clear();
         for (int i = 2; i < argc; ++i) {

@@ -59,13 +59,17 @@ ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 basis, float3 normal, float4 ta
 }
 float3 ForgePerturbNormal(ForgeSurfaceFrame frame, float3 tangent_normal)
 {
-    if (!frame.TangentValid)
-        return frame.Normal;
-    tangent_normal = ForgeUnit(tangent_normal);
-    float3 result = ForgeUnit(frame.Tangent * tangent_normal.x +
-                             frame.Bitangent * tangent_normal.y +
-                             frame.Normal * tangent_normal.z);
-    return any(result != 0) ? result : frame.Normal;
+    float3 result = frame.Normal;
+    if (frame.TangentValid)
+    {
+        tangent_normal = ForgeUnit(tangent_normal);
+        float3 mapped = ForgeUnit(frame.Tangent * tangent_normal.x +
+                                  frame.Bitangent * tangent_normal.y +
+                                  frame.Normal * tangent_normal.z);
+        if (any(mapped != 0))
+            result = mapped;
+    }
+    return result;
 }
 // Pixel interpolation can break orthogonality. Prefer the authored frame and
 // rebuild from the chosen texture's derivatives only when it has collapsed.
@@ -76,8 +80,8 @@ ForgeSurfaceFrame ForgePixelFrame(float3 normal, float3 tangent, float3 bitangen
     ForgeSurfaceFrame result = (ForgeSurfaceFrame)0;
     result.Normal = ForgeUnit(normal);
     result.NormalValid = any(result.Normal != 0);
-    if (!result.NormalValid)
-        return result;
+    if (result.NormalValid)
+    {
     float3 n = result.Normal;
     float3 t = ForgeUnit(tangent - n * dot(n, tangent));
     float3 b = ForgeUnit(bitangent);
@@ -98,6 +102,7 @@ ForgeSurfaceFrame ForgePixelFrame(float3 normal, float3 tangent, float3 bitangen
     {
         result.Tangent = t;
         result.Bitangent = cross(n, t) * (handedness < 0 ? -1 : 1);
+    }
     }
     return result;
 }

@@ -98,6 +98,12 @@ void main(uint id:SV_DispatchThreadID) {
     context->UnmapBuffer(staging, MAP_READ);
     context->FinishFrame();
     for (unsigned i = 0; i < 23; ++i) {
+        std::cout << "BRDF differential case " << i << ":";
+        for (unsigned c = 0; c < 4; ++c)
+            std::cout << " " << result[i * 2][c] << "/" << result[i * 2 + 1][c];
+        std::cout << '\n';
+    }
+    for (unsigned i = 0; i < 23; ++i) {
         for (unsigned c = 0; c < 4; ++c) {
             const float actual = result[i * 2][c], expected = result[i * 2 + 1][c];
             require(std::isnan(actual) == std::isnan(expected) &&

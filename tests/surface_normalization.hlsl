@@ -19,3 +19,8 @@ float4 special_values(float3 v:TEXCOORD0) : SV_Target {
         !ForgeFinite(asfloat(0x7fc00001u));
     return float4(rejected + ForgeUnit(v), classified ? 1 : 0);
 }
+
+float4 pixel_frame(float3 v:TEXCOORD0) : SV_Target {
+    ForgeSurfaceFrame f=ForgePixelFrame(v,v.yzx,v.zxy,ddx(v),ddy(v),ddx(v.xy),ddy(v.xy));
+    return float4(ForgePerturbNormal(f,v), f.NormalValid?1:0);
+}
