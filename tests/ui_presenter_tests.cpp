@@ -297,6 +297,8 @@ int main(int argc, char** argv) {
                     if (!card->IsVisible(true))
                         continue;
                     ++visible;
+                    check(card->GetScrollWidth() <= card->GetClientWidth() + 1,
+                          "Reference menu content overflows horizontally");
                     const auto size = card->GetBox().GetSize(Rml::BoxArea::Border);
                     const auto offset = card->GetAbsoluteOffset(Rml::BoxArea::Border);
                     check(size.x >= width * .4f && size.y > 100 && offset.x >= 0 && offset.y >= 0 &&
@@ -313,6 +315,11 @@ int main(int argc, char** argv) {
                 }
                 check(visible == 1, "Reference menu has missing or overlapping cards");
             };
+            sample["revision"] = sample.at("revision").get<unsigned>() + 1;
+            sample["documents"][0]["model"]["message"] =
+                "Cannot read packaged content: C:/runtime/" + std::string(200, 'a') + ".scene";
+            check(p.accept(sample), p.diagnostic().c_str());
+            p.update(1.01, 1280, 720);
             menu_geometry(1280, 720);
             p.navigate("next");
             p.navigate("accept");

@@ -224,3 +224,5 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
 - Corrected Options scrollbar styling: the default auto-width scrollbar consumed
   the content width. A regression now rejects narrow button content at both tested
   resolutions, in addition to checking the outer card and keyboard navigation.
+- Long runtime diagnostic paths now wrap within menu notices using native RmlUi
+  word breaking; missing-content errors remain readable without horizontal clipping.
