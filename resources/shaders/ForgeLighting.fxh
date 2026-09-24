@@ -17,71 +17,75 @@ bool ForgeApplyPunctualLight(in SurfaceShadingInfo Shading, in PBRLightAttribs L
 #endif
     inout SurfaceLightingInfo Lighting)
 {
+    // Keep one initialized result through all rejection paths. FXC's inlined
+    // definite-assignment analysis misdiagnoses locals after early returns.
+    bool valid = true;
     float3 light_direction = float3(Light.DirectionX, Light.DirectionY, Light.DirectionZ);
     if (Light.Type != PBR_LIGHT_TYPE_DIRECTIONAL)
     {
         float3 delta = Shading.Pos - float3(Light.PosX, Light.PosY, Light.PosZ);
         float distance_squared = dot(delta, delta);
-        if (!(distance_squared >= 1.175494351e-38) || !isfinite(distance_squared))
-            return false;
-        float3 ray = delta * rsqrt(distance_squared);
-        if (Light.Type == PBR_LIGHT_TYPE_SPOT)
+        valid = distance_squared >= 1.175494351e-38 && isfinite(distance_squared);
+        if (valid)
         {
-            float angular = saturate(dot(ray, light_direction) * Light.SpotAngleScale +
-                                     Light.SpotAngleOffset);
-            angular *= angular;
-            Light.IntensityR *= angular;
-            Light.IntensityG *= angular;
-            Light.IntensityB *= angular;
-            Light.Type = PBR_LIGHT_TYPE_POINT;
+            float3 ray = delta * rsqrt(distance_squared);
+            if (Light.Type == PBR_LIGHT_TYPE_SPOT)
+            {
+                float angular = saturate(dot(ray, light_direction) * Light.SpotAngleScale +
+                                         Light.SpotAngleOffset);
+                angular *= angular;
+                Light.IntensityR *= angular;
+                Light.IntensityG *= angular;
+                Light.IntensityB *= angular;
+                Light.Type = PBR_LIGHT_TYPE_POINT;
+            }
+            light_direction = ray;
         }
-        light_direction = ray;
     }
-    // Degenerate normals/views must not enter the native BRDF.
-    if (!(dot(Shading.View, Shading.View) >= 1.175494351e-38) ||
-        !(dot(Shading.BaseLayer.Normal, Shading.BaseLayer.Normal) >= 1.175494351e-38))
-        return false;
-    // Native punctual terms are multiplied by saturated NdotL. Behind every
-    // contributing layer the result is exactly zero; do not normalize L+V or
-    // report a valid back light as a numeric error when that half vector is zero.
+    valid = valid && dot(Shading.View, Shading.View) >= 1.175494351e-38 &&
+                    dot(Shading.BaseLayer.Normal, Shading.BaseLayer.Normal) >= 1.175494351e-38;
+    // Valid back lights contribute zero without normalizing a zero half-vector.
     bool behind = dot(Shading.BaseLayer.Normal, -light_direction) <= 0;
 #if ENABLE_CLEAR_COAT
     behind = behind && dot(Shading.Clearcoat.Normal, -light_direction) <= 0;
 #endif
-    if (behind)
-        return true;
-    float3 half_vector = Shading.View - light_direction;
-    if (!(dot(half_vector, half_vector) >= 1.175494351e-38))
-        return false;
-    SurfaceLightingInfo candidate = GetDefaultSurfaceLightingInfo();
-    ApplyPunctualLight(Shading, Light,
+    if (valid && !behind)
+    {
+        float3 half_vector = Shading.View - light_direction;
+        valid = dot(half_vector, half_vector) >= 1.175494351e-38;
+        if (valid)
+        {
+            SurfaceLightingInfo candidate = GetDefaultSurfaceLightingInfo();
+            ApplyPunctualLight(Shading, Light,
 #if ENABLE_SHEEN
-        PreintegratedSheen, PreintegratedSheen_sampler,
+                PreintegratedSheen, PreintegratedSheen_sampler,
 #endif
 #if ENABLE_SHADOWS
-        ShadowMap, ShadowMap_sampler, ShadowMapInfo,
+                ShadowMap, ShadowMap_sampler, ShadowMapInfo,
 #endif
-        candidate);
-    float3 base = Lighting.Base.Punctual + candidate.Base.Punctual;
-    if (!all(isfinite(base)))
-        return false;
+                candidate);
+            float3 base = Lighting.Base.Punctual + candidate.Base.Punctual;
+            valid = all(isfinite(base));
 #if ENABLE_SHEEN
-    float3 sheen = Lighting.Sheen.Punctual + candidate.Sheen.Punctual;
-    if (!all(isfinite(sheen)))
-        return false;
+            float3 sheen = Lighting.Sheen.Punctual + candidate.Sheen.Punctual;
+            valid = valid && all(isfinite(sheen));
 #endif
 #if ENABLE_CLEAR_COAT
-    float3 coat = Lighting.Clearcoat.Punctual + candidate.Clearcoat.Punctual;
-    if (!all(isfinite(coat)))
-        return false;
+            float3 coat = Lighting.Clearcoat.Punctual + candidate.Clearcoat.Punctual;
+            valid = valid && all(isfinite(coat));
 #endif
-    Lighting.Base.Punctual = base;
+            if (valid)
+            {
+                Lighting.Base.Punctual = base;
 #if ENABLE_SHEEN
-    Lighting.Sheen.Punctual = sheen;
+                Lighting.Sheen.Punctual = sheen;
 #endif
 #if ENABLE_CLEAR_COAT
-    Lighting.Clearcoat.Punctual = coat;
+                Lighting.Clearcoat.Punctual = coat;
 #endif
-    return true;
+            }
+        }
+    }
+    return valid;
 }
 #endif

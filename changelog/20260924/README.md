@@ -287,3 +287,10 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
 - Added isolated exact-pin lighting/shadow/upstream probes so further diagnostics
   can be attributed to FORGE versus Diligent rather than hidden or guessed.
   No dependency source changes, compiler switch, or new package in this checkpoint.
+- Focused Windows FXC run36038821611 passes all eight surface checks. Isolated
+  probes reproduce remaining warnings in FORGE lighting/shadows and unchanged
+  pinned Diligent iridescence/sheen functions.
+- Reworked FORGE rejection paths to retain initialized results through one return,
+  preserving invalid-light rejection and unchanged lighting on failure. Shadow
+  cascade traversal now tests bounds before reading the next range; material
+  sampling keeps a defined fallback while skipping invalid coordinates.

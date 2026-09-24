@@ -59,6 +59,7 @@ void check_surface_frames(forge::DiligentPresentation& presentation,
     desc.Name = "FORGE surface-frame output";
     desc.BindFlags = BIND_UNORDERED_ACCESS;
     desc.Usage = USAGE_DEFAULT;
+    desc.Size = inputs.size() * sizeof(Output);
     desc.ElementByteStride = sizeof(Output);
     device->CreateBuffer(desc, nullptr, &output);
     require(input && output, "Surface-frame buffers unavailable");

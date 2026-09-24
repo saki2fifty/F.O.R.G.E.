@@ -67,9 +67,9 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
                      role + "(float2 uv,out bool valid){float2 transformed=ForgeUV_" + role +
                      "(uv);float2 dx=ddx(transformed),dy=ddy(transformed);"
                      "valid=all(isfinite(transformed))&&all(isfinite(dx))&&all(isfinite(dy));"
-                     "if(!valid)return 0;float4 value=" +
+                     "float4 value=0;if(valid){value=" +
                      texture + ".SampleGrad(" + sampler +
-                     ",transformed,dx,dy);valid=all(isfinite(value));"
+                     ",transformed,dx,dy);valid=all(isfinite(value));}"
                      "return valid?value:0;}\n";
     }
     if (binding == MaterialSamplerBinding::NamedElements) {
