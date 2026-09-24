@@ -144,7 +144,8 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        check(contrast > 30, "Standalone cube is not distinguishable from the background");
+        if (!reference) // This contrast probe belongs to the original cube fixture.
+            check(contrast > 30, "Standalone cube is not distinguishable from the background");
         if (mixed && std::string_view(name) == "standalone-running.ppm")
             check(imported_pixels > 100,
                   "Imported textured mesh is not visible to the right of the built-in cube");

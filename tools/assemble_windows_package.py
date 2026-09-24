@@ -25,7 +25,7 @@ def verified(files, manifest, manifest_name):
             raise ValueError('File hash mismatch: ' + name)
 
 
-def assemble(editor, sdk, output, runtime_kit=None):
+def assemble(editor, sdk, output, runtime_kit=None, reference_game=None):
     files = {}
     with zipfile.ZipFile(editor) as archive:
         for entry in archive.infolist():
@@ -89,6 +89,34 @@ def assemble(editor, sdk, output, runtime_kit=None):
                 raise ValueError('Shared runtime kit namespace collision')
             files[target] = value
             manifest['files'][target] = hashlib.sha256(value).hexdigest()
+    if reference_game is not None:
+        root = Path(reference_game)
+        paths = list(root.rglob('*'))
+        if root.is_symlink() or any(p.is_symlink() or not (p.is_file() or p.is_dir()) for p in paths):
+            raise ValueError('Reference game contains a nonregular entry')
+        game = {safe_name(p.relative_to(root).as_posix()): p.read_bytes()
+                for p in paths if p.is_file()}
+        game_manifest = json.loads(game['forge.standalone.json'])
+        if game_manifest.get('format') != 'forge.standalone' or game_manifest.get('version') != 1:
+            raise ValueError('Invalid reference game manifest')
+        if runtime_kit is None or game_manifest['engine'] != kit['engine'] or game_manifest['target'] != kit['target']:
+            raise ValueError('Reference game/runtime build identity mismatch')
+        if game_manifest['executable'] != 'forge_game.exe' or 'forge_game_fixture.exe' in game:
+            raise ValueError('Reference delivery must use the production game executable')
+        if set(game) != set(game_manifest['files']) | {'forge.standalone.json'}:
+            raise ValueError('Reference game inventory mismatch')
+        for name, record in game_manifest['files'].items():
+            if len(game[name]) != record['bytes'] or hashlib.sha256(game[name]).hexdigest() != record['sha256']:
+                raise ValueError('Reference game hash mismatch: ' + name)
+        if game.get('flecs.dll') != native['bin/flecs.dll'] or game['forge_game.exe'] != (Path(runtime_kit)/'forge_game.exe').read_bytes():
+            raise ValueError('Reference game must use the matching runtime binaries')
+        for name, value in game.items():
+            target = 'ReferenceGame/' + name
+            if target in files:
+                raise ValueError('Reference game namespace collision')
+            files[target] = value
+            manifest['files'][target] = hashlib.sha256(value).hexdigest()
+        manifest['reference_game'] = {'path': 'ReferenceGame', 'executable': 'forge_game.exe'}
     for name, data in native.items():
         target = 'NativeSdk/' + name
         if target in files:
@@ -100,6 +128,8 @@ def assemble(editor, sdk, output, runtime_kit=None):
             'Use the matching Visual Studio C++ toolchain/runtime described in its SDK docs.\n'
             'Stop Play, rebuild project code externally, then Play again.\n'
             'runtime-kits/shared-native-sdk contains the matching graphical game host for native gameplay exports.\n')
+    if reference_game is not None:
+        note += '\nPlay the reference game: ReferenceGame/forge_game.exe. See manual/reference-game.html.\n'
     files['README.txt'] += note.encode()
     manifest['files']['README.txt'] = hashlib.sha256(files['README.txt']).hexdigest()
     manifest['native_sdk'] = {'path': 'NativeSdk', 'source_commit': build['source_commit'],
@@ -125,5 +155,6 @@ if __name__ == '__main__':
     parser.add_argument('--sdk', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--runtime-kit', type=Path, required=True)
+    parser.add_argument('--reference-game', type=Path, required=True)
     args = parser.parse_args()
-    assemble(args.editor, args.sdk, args.output, args.runtime_kit)
+    assemble(args.editor, args.sdk, args.output, args.runtime_kit, args.reference_game)

@@ -56,7 +56,10 @@ or multiplayer guarantees.
 
 The graphical standalone host installs these services. Provider/cursor/navigation
 availability must be queried or handled as a rejected request; schema inspection
-worlds do not supply a game host. Editor Play retains its separate capture controls.
+worlds do not supply a game host. Editor Play retains its separate capture controls;
+its worker does not currently supply GameSession/storage requests or the standalone
+control-frame callback loop. The reference game's complete menu/save lifecycle is
+a standalone consumer.
 
 ## Save schema lifetime
 

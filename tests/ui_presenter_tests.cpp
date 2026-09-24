@@ -289,6 +289,23 @@ int main(int argc, char** argv) {
             p.update(1, 1280, 720);
             p.render();
             check(p.diagnostic().empty(), p.diagnostic().c_str());
+            auto menu_geometry = [&](float width, float height) {
+                Rml::ElementList cards;
+                Rml::GetContext(0)->GetDocument(0)->GetElementsByClassName(cards, "card");
+                unsigned visible = 0;
+                for (auto* card : cards) {
+                    if (!card->IsVisible(true))
+                        continue;
+                    ++visible;
+                    const auto size = card->GetBox().GetSize(Rml::BoxArea::Border);
+                    const auto offset = card->GetAbsoluteOffset(Rml::BoxArea::Border);
+                    check(size.x >= width * .4f && size.y > 100 && offset.x >= 0 && offset.y >= 0 &&
+                              offset.x + size.x <= width + 1 && offset.y + size.y <= height + 1,
+                          "Reference menu collapsed or extends outside the viewport");
+                }
+                check(visible == 1, "Reference menu has missing or overlapping cards");
+            };
+            menu_geometry(1280, 720);
             p.navigate("next");
             p.navigate("accept");
             auto command = p.pending_command();
@@ -298,13 +315,44 @@ int main(int argc, char** argv) {
             auto ack = *command;
             ack["ok"] = true;
             p.acknowledge(ack);
+            double reference_time = 2;
             for (auto page : {"play", "pause", "options"}) {
                 sample["revision"] = sample.at("revision").get<unsigned>() + 1;
                 sample["documents"][0]["model"]["page"] = page;
                 check(p.accept(sample), p.diagnostic().c_str());
-                p.update(2, 1280, 720);
+                p.update(reference_time += .02, 1280, 720);
                 p.render();
                 check(p.diagnostic().empty(), p.diagnostic().c_str());
+                if (std::string_view(page) == "play")
+                    continue;
+                menu_geometry(1280, 720);
+                p.release_input();
+                std::set<std::string> reached;
+                for (unsigned index = 0; index < 48; ++index) {
+                    p.navigate("next");
+                    p.navigate("accept");
+                    if (const auto event = p.pending_command()) {
+                        reached.insert(event->at("value").get<std::string>());
+                        auto response = *event;
+                        response["ok"] = true;
+                        p.acknowledge(response);
+                    }
+                    p.update(reference_time += .02, 1280, 720);
+                }
+                const std::set<std::string> required =
+                    std::string_view(page) == "pause"
+                        ? std::set<std::string>{"resume", "options", "save", "load", "main", "quit"}
+                        : std::set<std::string>{"vsync",        "volume_down",  "volume_up",
+                                                "mouse_down",   "mouse_up",     "pad_down",
+                                                "pad_up",       "invert_mouse", "invert_pad",
+                                                "rebind_jump",  "rebind_apply", "rebind_cancel",
+                                                "rebind_clear", "rebind_reset", "back"};
+                for (const auto& value : required)
+                    check(reached.contains(value),
+                          ("Unreachable reference menu control: " + value).c_str());
+                p.update(reference_time += .02, 640, 480);
+                menu_geometry(640, 480);
+                p.update(reference_time += .02, 1280, 720);
             }
         }
         check(renderer.geometry.empty() && renderer.textures.empty(),

@@ -5,6 +5,16 @@ Its gameplay module uses the same exact SDK as project code. The source is in
 `samples/reference_game`; the acceptance content builder creates its level with
 normal imports, collision assets and a navigation bake.
 
+## Launch the included game
+
+Extract the entire numbered Windows ZIP, then open **ReferenceGame/forge_game.exe**.
+Keep its accompanying files together. This game runs independently of the editor;
+you do not need a compiler or SDK installed to play it.
+
+This example's menus, scene transitions and save services currently run in the
+standalone host. Editor Play has its own testing/capture controls and does not yet
+host this complete reference-game lifecycle.
+
 ## Start and explore
 
 Choose **New Game** from the main menu. The game loads the level and captures the

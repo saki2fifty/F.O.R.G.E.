@@ -200,3 +200,15 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   including rejected startup candidates.
 - Restored the editor benchmark target after the standalone-only build check;
   that check intentionally disables editor targets and clears benchmark injection.
+- The combined Windows package includes the independent production reference game
+  under ReferenceGame. Assembly verifies exact runtime/build provenance and every
+  file hash; final relocation also checks its graphical startup.
+- Relaunch acceptance waits for queued save-slot discovery before operating
+  Continue; the first rendered startup frame legitimately precedes that receipt.
+- Extended native RmlUi navigation checks across every pause-menu operation and
+  the Options controls, including scrolled rebinding actions.
+- Actual Windows menu capture exposed missing RmlUi block styles: native RmlUi
+  defaults elements to inline. Added explicit block layout and responsive bounded
+  menu cards, with geometry regressions at 1280×720 and 640×480.
+- Restricted the old cube-only capture contrast assertion to its original fixture;
+  the reference game uses its own menu/input/geometry and visual acceptance.

@@ -403,6 +403,12 @@ jobs:
           run-id: ${{ steps.compiled.outputs.run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-package/shared-game
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Reference-Game-Acceptance
+          run-id: ${{ steps.compiled.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-package/reference-game
       - name: Assemble and verify matching editor and exact SDK
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -412,7 +418,7 @@ jobs:
         run: |
           $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
           $root = Join-Path $env:RUNNER_TEMP 'forge-package'
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game"
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }

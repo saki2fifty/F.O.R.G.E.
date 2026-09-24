@@ -24,6 +24,12 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     env['PATH'] = str(Path(os.environ['SystemRoot'])/'System32')
     # Exercise the actual shipped Phase7 tools and source walkthrough from a
     # relocated folder with no repository/developer DLL directories on PATH.
+    reference = root / 'ReferenceGame'
+    assert not (reference / 'forge_game_fixture.exe').exists()
+    result = subprocess.run([str(reference / 'forge_game.exe'), '--verify-startup'],
+                            cwd=reference, env=env, text=True, capture_output=True, timeout=180)
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     tools = root/'forge_tools.exe'
     rendering = root/'Examples/Rendering'
     assert (rendering/'README.md').is_file()

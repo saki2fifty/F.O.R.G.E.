@@ -154,7 +154,10 @@ class ReferenceGameWorkflow {
                     if (action.at("id") == reference::jump)
                         rebound = action.at("bindings")[0].at("control") == "key.j";
                 require(rebound, "Relaunch lost the player's saved Jump binding");
-                require(data.value("have_save", false), "Relaunch did not discover the saved slot");
+                // Slot enumeration is queued after the first control callback. The
+                // startup frame renders before that asynchronous receipt is consumed.
+                if (!data.value("have_save", false))
+                    return; // The workflow deadline still rejects a missing receipt.
                 if (activate(window, "Continue"))
                     ++stage_;
             } else if (stage_ == 1 && page == "play") {
