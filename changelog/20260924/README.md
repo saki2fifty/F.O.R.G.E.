@@ -274,3 +274,16 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   readback and updated Windows captures remain pending; the other reported
   lighting/shadow/upstream warnings are not claimed resolved. No dependency patch
   or warning suppression was added. Build 74 remains the available package.
+
+### Shader diagnostic follow-up after Build 75
+
+- Build75 main Windows pipeline passed and its requested ZIP was delivered.
+  The inspected Windows reference-game capture shows the corrected lit floor.
+- The separate strict FXC probe exposed X3577 on constant `isfinite` calls.
+  Surface normalization now classifies IEEE binary32 exponent bits before
+  arithmetic, retaining rejection of NaN/infinity without warning suppression.
+- Added special-value compiler and GPU-readback regressions. Eight local DXC
+  DXIL/SPIR-V probes pass; fresh FXC/GPU execution is pending.
+- Added isolated exact-pin lighting/shadow/upstream probes so further diagnostics
+  can be attributed to FORGE versus Diligent rather than hidden or guessed.
+  No dependency source changes, compiler switch, or new package in this checkpoint.

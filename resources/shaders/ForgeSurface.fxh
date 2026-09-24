@@ -1,11 +1,16 @@
 #ifndef FORGE_SURFACE_FXH
 #define FORGE_SURFACE_FXH
+// Classify binary32 bits before floating-point arithmetic. FXC warns on
+// isfinite(constant) even for intentionally tested zero/identity transforms.
+// Bit classification also preserves NaN/Inf rejection under finite-math folding.
+bool ForgeFinite(float v) { return (asuint(v) & 0x7f800000u) != 0x7f800000u; }
+bool ForgeFinite3(float3 v) { return all((asuint(v) & 0x7f800000u) != 0x7f800000u); }
 // FORGE's column-vector affine convention. All directional arithmetic is scaled
 // before products so useful tiny/large visual scales do not require an inverse.
 float3 ForgeUnit(float3 v)
 {
     float largest = max(abs(v.x), max(abs(v.y), abs(v.z)));
-    bool valid = largest > 0 && all(isfinite(v));
+    bool valid = largest > 0 && ForgeFinite3(v);
     // Select safe operands before division, not a potentially invalid quotient
     // afterward. Both paths remain finite if a compiler flattens control flow.
     float3 scaled = (valid ? v : float3(0, 0, 0)) / (valid ? largest : 1.0);
@@ -25,8 +30,8 @@ ForgeSurfaceFrame ForgeMakeSurfaceFrame(float3x3 basis, float3 normal, float4 ta
     ForgeSurfaceFrame result = (ForgeSurfaceFrame)0;
     float3 row_max = max(abs(basis[0]), max(abs(basis[1]), abs(basis[2])));
     float largest = max(row_max.x, max(row_max.y, row_max.z));
-    bool valid = largest > 0 && all(isfinite(basis[0])) &&
-                 all(isfinite(basis[1])) && all(isfinite(basis[2]));
+    bool valid = largest > 0 && ForgeFinite3(basis[0]) &&
+                 ForgeFinite3(basis[1]) && ForgeFinite3(basis[2]);
     basis = (valid ? basis : (float3x3)0) / (valid ? largest : 1.0);
     float3 c0 = float3(basis[0][0], basis[1][0], basis[2][0]);
     float3 c1 = float3(basis[0][1], basis[1][1], basis[2][1]);
@@ -80,7 +85,7 @@ ForgeSurfaceFrame ForgePixelFrame(float3 normal, float3 tangent, float3 bitangen
     if (abs(handedness) <= 1e-6)
     {
         float det = dx.x * dy.y - dx.y * dy.x;
-        if (isfinite(det) && abs(det) > 0)
+        if (ForgeFinite(det) && abs(det) > 0)
         {
             t = ForgeUnit((dpdx * dy.y - dpdy * dx.y) * (det < 0 ? -1 : 1));
             t = ForgeUnit(t - n * dot(n, t));

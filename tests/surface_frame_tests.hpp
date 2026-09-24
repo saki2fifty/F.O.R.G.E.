@@ -9,9 +9,9 @@ void check_surface_frames(forge::DiligentPresentation& presentation,
         std::array<float, 4> row0, row1, row2, normal, tangent;
     };
     struct Output {
-        std::array<float, 4> normal, tangent, bitangent, mapped, flags;
+        std::array<float, 4> normal, tangent, bitangent, mapped, flags, special;
     };
-    static_assert(sizeof(Input) == 80 && sizeof(Output) == 80);
+    static_assert(sizeof(Input) == 80 && sizeof(Output) == 96);
     std::vector<Input> inputs;
     std::vector<forge::AffineTransform> worlds;
     for (const auto scale : {std::array<float, 3>{1, 1, 1},
@@ -81,7 +81,7 @@ void check_surface_frames(forge::DiligentPresentation& presentation,
     shader.Source = R"(
 #include "ForgeSurface.fxh"
 struct Input {float4 Row0, Row1, Row2, Normal, Tangent;};
-struct Output {float4 Normal, Tangent, Bitangent, Mapped, Flags;};
+struct Output {float4 Normal, Tangent, Bitangent, Mapped, Flags, Special;};
 StructuredBuffer<Input> Source;
 RWStructuredBuffer<Output> Destination;
 [numthreads(1,1,1)]
@@ -96,6 +96,14 @@ void main(uint id:SV_DispatchThreadID) {
     o.Flags=float4(f.NormalValid?1:0,f.TangentValid?1:0,
         dot(ForgeUnit(float3(0,0,0)),float3(1,1,1)),
         dot(abs(zero.Normal)+abs(zero.Tangent)+abs(zero.Bitangent),float3(1,1,1)));
+    float3 rejected = ForgeUnit(float3(asfloat(0x7f800000u),1,0)) +
+                      ForgeUnit(float3(0,asfloat(0xff800000u),1)) +
+                      ForgeUnit(float3(1,0,asfloat(0x7fc00001u)));
+    bool classified = ForgeFinite(0) && ForgeFinite(asfloat(0x80000000u)) &&
+        ForgeFinite(asfloat(0x7f7fffffu)) && ForgeFinite(asfloat(1u)) &&
+        !ForgeFinite(asfloat(0x7f800000u)) && !ForgeFinite(asfloat(0xff800000u)) &&
+        !ForgeFinite(asfloat(0x7fc00001u));
+    o.Special=float4(rejected,classified?1:0);
     Destination[id]=o;
 })";
     RefCntAutoPtr<IShader> compute;
@@ -131,13 +139,15 @@ void main(uint id:SV_DispatchThreadID) {
     context->FinishFrame();
     for (std::size_t i = 0; i < results.size(); ++i) {
         const auto& value = results[i];
-        for (const auto* v :
-             {&value.normal, &value.tangent, &value.bitangent, &value.mapped, &value.flags})
+        for (const auto* v : {&value.normal, &value.tangent, &value.bitangent, &value.mapped,
+                              &value.flags, &value.special})
             for (const auto scalar : *v)
                 require(std::isfinite(scalar),
                         "Signed/singular GPU surface frame generated NaN/Inf");
         require(value.flags[2] == 0 && value.flags[3] == 0,
                 "Constant zero normal/basis did not produce a finite zero frame");
+        require(value.special == std::array<float, 4>{0, 0, 0, 1},
+                "GPU finite classification or nonfinite normalization rejection failed");
         const auto& world = worlds[i / 2];
         const auto normals = forge::normal_transform(world);
         forge::Double3 expected{normals.m[2], normals.m[6], normals.m[10]};

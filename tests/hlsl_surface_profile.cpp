@@ -3,20 +3,30 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <wrl/client.h>
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 2)
+    if (argc < 2)
         return 2;
     bool passed = true;
-    for (const auto* entry : {"zero_normal", "zero_basis", "dynamic_frame"}) {
+    std::vector<std::string> entries{"zero_normal", "zero_basis", "dynamic_frame",
+                                     "special_values"};
+    if (argc > 2) {
+        entries.clear();
+        for (int i = 2; i < argc; ++i) {
+            const std::wstring value = argv[i];
+            entries.emplace_back(value.begin(), value.end());
+        }
+    }
+    for (const auto& entry : entries) {
         for (bool optimized : {false, true}) {
             Microsoft::WRL::ComPtr<ID3DBlob> code, messages;
             const UINT flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS |
                                (optimized ? D3DCOMPILE_OPTIMIZATION_LEVEL3
                                           : D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_DEBUG);
             const auto result =
-                D3DCompileFromFile(argv[1], nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entry,
-                                   "ps_5_1", flags, 0, &code, &messages);
+                D3DCompileFromFile(argv[1], nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+                                   entry.c_str(), "ps_5_1", flags, 0, &code, &messages);
             const auto name = std::string(entry) + (optimized ? "-optimized" : "-debug");
             std::cout << name << ": " << (SUCCEEDED(result) ? "PASS" : "FAIL") << '\n';
             if (messages) {

@@ -62,6 +62,38 @@ jobs:
             & ./surface.exe $shader | Tee-Object surface-results.txt
             if ($LASTEXITCODE) { throw 'FXC surface normalization warnings/errors' }
           } finally { Pop-Location }
+      - name: Diagnose pinned lighting shaders independently
+        if: always()
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'forge-sampler-profile'
+          $engine = Join-Path $env:RUNNER_TEMP 'forge-shader-dependency'
+          $pin = [regex]::Match((Get-Content cmake/diligent_source.cmake -Raw), 'GIT_TAG ([0-9a-f]{40})').Groups[1].Value
+          if (!$pin) { throw 'Missing immutable Diligent pin' }
+          git init $engine
+          git -C $engine remote add origin https://github.com/DiligentGraphics/DiligentEngine.git
+          git -C $engine fetch --depth=1 origin $pin
+          if ($LASTEXITCODE) { throw 'Pinned engine fetch failed' }
+          git -C $engine checkout --detach FETCH_HEAD
+          git -C $engine submodule update --init --depth=1 DiligentFX DiligentCore
+          if ($LASTEXITCODE) { throw 'Pinned FX fetch failed' }
+          git -C $engine submodule status DiligentFX DiligentCore | Out-File "$output/dependency.txt"
+          $shaders = Join-Path $output 'lighting'
+          New-Item -ItemType Directory -Path $shaders -Force | Out-Null
+          Get-ChildItem "$engine/DiligentFX/Shaders" -Recurse -Filter '*.fxh' | ForEach-Object {
+            $target = Join-Path $shaders $_.Name
+            if (Test-Path $target) { throw "Ambiguous shader include: $target" }
+            Copy-Item $_.FullName $target
+          }
+          Copy-Item "$engine/DiligentCore/Graphics/ShaderTools/include/HLSLDefinitions.fxh" $shaders
+          Copy-Item resources/shaders/*.fxh $shaders
+          Copy-Item tests/lighting_diagnostics.hlsl $shaders
+          Push-Location $output
+          try {
+            & ./surface.exe "$shaders/lighting_diagnostics.hlsl" upstream_iridescence upstream_sheen forge_lighting forge_shadow | Tee-Object lighting-results.txt
+            if ($LASTEXITCODE) { throw 'Lighting shader diagnostics failed; inspect individual logs' }
+          } finally { Pop-Location }
       - name: Preserve compiler evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

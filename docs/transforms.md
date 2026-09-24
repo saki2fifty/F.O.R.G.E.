@@ -125,3 +125,17 @@ restore the original earlier document. Unknown payloads are not traversed.
 Negative zero is canonicalized only in known scale values on output. The exact
 SDK fingerprint includes `visual-scale=signed-zero-v1`; old modules must rebuild
 and pass matching installed-consumer/Play tests before being called compatible.
+
+### Shader finite classification
+
+Surface normalization classifies binary32 exponent bits with HLSL `asuint` before
+floating-point arithmetic. An all-ones exponent rejects both infinities and NaNs;
+zero, subnormal and finite normal bit patterns remain finite. This avoids FXC
+X3577 on intentional constant-zero regression cases without removing invalid-input
+checks, suppressing warnings, or imposing a minimum visual scale. Arithmetic on
+subnormals remains subject to backend flush-to-zero rules; classification does not
+promise preservation of subnormal arithmetic. See Microsoft's
+[bit reinterpretation](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint)
+and [floating-point contract](https://learn.microsoft.com/en-us/windows/win32/direct3d11/floating-point-rules).
+The focused compiler probe covers zero, dynamic and nonfinite operands; the native
+GPU surface-frame test also checks rejection and classification via readback.
