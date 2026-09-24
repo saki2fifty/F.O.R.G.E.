@@ -127,3 +127,20 @@ correctness defect. The [backend record](render-backends.md#hosted-warp-frame-wa
 separates measured fence values, plausible causes, and the fixture's strict
 classification boundary. Raw messages remain visible; no pin, production timeout,
 or sanitizer exception changes.
+
+## Pinned DiligentFX FXC warnings — verified 2026-09-24
+
+Engine `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06`, FX
+`aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`. Isolated strict FXC compilation
+reproduces X4000 in `EvalIridescence` (debug/optimized) and X3571 in
+`LambdaSheenNumericHelper` (optimized). The former has an early TIR return,
+but its accumulator is assigned before later use; the diagnostic does not
+establish an actual uninitialized read. The latter uses `pow(x,c)` while the
+normal BRDF/LUT callers supply nonnegative cosines; the warning does not establish
+a negative input in FORGE. No upstream shader modification or warning suppression
+has been applied. A maintained patch requires an explicit dependency-boundary decision.
+
+FORGE surface, lighting and shadow isolated probes pass strict debug/optimized FXC
+on source `5eb3ab0`; full generated-material/GPU acceptance of this follow-up remains
+pending. The diagnostic workflow intentionally reports the unchanged upstream
+failures rather than treating them as a clean gate. This does not upgrade Build75.

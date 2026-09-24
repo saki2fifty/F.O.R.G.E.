@@ -294,3 +294,8 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   preserving invalid-light rejection and unchanged lighting on failure. Shadow
   cascade traversal now tests bounds before reading the next range; material
   sampling keeps a defined fallback while skipping invalid coordinates.
+- Second focused FXC run36039346468 passes all12 FORGE surface/lighting/shadow
+  compiler checks. Rebuilt local material tests pass. Remaining failures reproduce
+  in unchanged pinned Diligent iridescence/sheen source; a dependency-boundary
+  decision is required before patching those files. Fresh full GPU/generated
+  material acceptance and a replacement package remain pending.
