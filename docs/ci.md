@@ -172,3 +172,9 @@ and verifies full completion after the normal shutdown drain. Other graphics
 errors and unclassified waits fail the fixture. Raw diagnostics remain visible;
 see [backend limits](render-backends.md#hosted-warp-frame-wait-diagnostics) and
 [source-attributed performance evidence](editor-performance.md).
+
+The numbered editor job allows 90 minutes for a cold native build plus its complete
+regression suite. After a successful compilation, reusable compilation outputs may
+be cached even if a later test fails. Such a cache is not accepted delivery evidence:
+subsequent runs still configure, rebuild changed inputs, and run all required tests
+before packaging. Toolchain/profile/source-content checks remain unchanged.

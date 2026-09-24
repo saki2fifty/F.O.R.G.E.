@@ -88,6 +88,11 @@ class EditorInputWorkflow {
                         state.at("physics").contains("character_debug") &&
                         state.at("physics").at("character_debug").at("ground") == 0,
                     "Character Play ground observation is not ready");
+        } else if (what == "collision-external-refresh") {
+            require(state.at("collision_source").at("nodes")[0].at("translation")[0] == .125,
+                    "External collision source has not been refreshed");
+            require(ui_targets.contains("collision:kind:compound"),
+                    "Background collision refresh closed the active Shape popup");
         } else if (what == "collision-convex-parts" || what == "collision-compound") {
             const auto& source = state.at("collision_source");
             const auto& root = source.at("nodes").at(0);
@@ -683,6 +688,9 @@ class EditorInputWorkflow {
         check("collision-published");
         capture("collision-convex-published");
         click("collision:shape");
+        steps_.push_back({Kind::SourceEdit, "collision-external-refresh"});
+        check("collision-external-refresh");
+        capture("collision-refresh-keeps-shape-menu");
         click("collision:kind:compound");
         check("collision-compound");
         capture("collision-compound-document");
@@ -729,9 +737,20 @@ class EditorInputWorkflow {
                     throw std::runtime_error(SDL_GetError());
             }
         }
-        if (step.kind == Kind::SourceEdit && frame_ == 0)
-            write(project_ / "Assets/Imported/Source-1/workflow.gltf",
-                  step.value == "corrupt-external-model" ? "{" : model_source(true).dump());
+        if (step.kind == Kind::SourceEdit && frame_ == 0) {
+            if (step.value == "collision-external-refresh") {
+                const auto path = project_ / "Assets/workflow.collision.json";
+                Json source;
+                {
+                    std::ifstream file(path);
+                    file >> source;
+                }
+                source["nodes"][0]["translation"][0] = .125;
+                write(path, source.dump(2));
+            } else
+                write(project_ / "Assets/Imported/Source-1/workflow.gltf",
+                      step.value == "corrupt-external-model" ? "{" : model_source(true).dump());
+        }
         if (step.value == "game-native-escape" && frame_ < 2) {
             SDL_Event event{};
             event.type = frame_ == 0 ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;

@@ -37,7 +37,7 @@ class CollisionEditor {
     void asset_catalog_changed(std::shared_ptr<const AssetCatalog> c) { catalog_ = std::move(c); }
     void source_published(SceneDocument& project, AssetId id) {
         if (document_ && !dirty() && document_->source().asset() == id)
-            load(project, document_->locator());
+            load(project, document_->locator(), false);
     }
     void open(SceneDocument& project, const std::filesystem::path& source) {
         if (dirty()) {
@@ -267,7 +267,8 @@ class CollisionEditor {
         close_ = save_ = needs_publish_ = false;
         job_ = 0;
     }
-    void load(SceneDocument& project, const std::filesystem::path& source) {
+    void load(SceneDocument& project, const std::filesystem::path& source,
+              bool request_focus = true) {
         auto next = std::make_unique<CollisionDocument>(project.writer_guard(), source);
         auto catalog =
             std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project.project()));
@@ -284,7 +285,9 @@ class CollisionEditor {
         catalog_ = std::move(catalog);
         service_ = std::move(service);
         needs_publish_ = needs;
-        focus_ = true;
+        // Background publication must not focus the parent window and close an
+        // active combo popup. Explicit user opens still request focus.
+        focus_ = focus_ || request_focus;
         error_.clear();
         close_ = save_ = false;
     }

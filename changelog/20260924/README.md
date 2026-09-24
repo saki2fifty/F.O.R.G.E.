@@ -226,3 +226,10 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
   resolutions, in addition to checking the outer card and keyboard navigation.
 - Long runtime diagnostic paths now wrap within menu notices using native RmlUi
   word breaking; missing-content errors remain readable without horizontal clipping.
+- Corrected a native regression found during final acceptance: automatic Collision
+  source refresh must not force parent-window focus and close an active Shape menu.
+  The input workflow now changes the source with that menu open, waits for actual
+  reimport, then selects Compound and checks the resulting child and Undo.
+- The cold Windows editor build plus full validation now has a 90-minute budget.
+  Successfully compiled outputs remain reusable after a later test failure; this
+  does not bypass any build, test, provenance or package gate.

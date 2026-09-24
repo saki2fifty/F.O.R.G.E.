@@ -189,3 +189,7 @@ Mesh, choose an imported LOD, and select individual triangle parts. **All parts*
 follows later Mesh revisions. A specific selection records the reviewed revision;
 a changed Mesh must be deliberately reselected before collision can be recooked.
 **Use geometry** creates one document Undo step; Save validates and publishes it.
+
+Background refresh of a clean Collision source keeps the current editor focus and
+any open Shape menu. Explicitly opening a Collision document still brings its tab
+forward. Unsaved collision edits continue to block automatic source replacement.
