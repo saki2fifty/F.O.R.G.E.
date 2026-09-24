@@ -12,6 +12,13 @@ The caller keeps the project writer lease alive. Capture, publication and recove
 run on the thread that constructed the publisher. A worker returns candidate
 bytes and metadata; it cannot publish a catalog or mutate a world/device.
 
+The worker supervisor checks staged output while the worker runs and again after
+it exits. An atomic rename can remove a directory entry between enumeration and
+inspection; only that per-entry missing-file result is ignored during scanning.
+Other filesystem errors and invalid output types still reject the candidate.
+File-count, individual-size, aggregate-size and execution limits remain enforced,
+including the final scan before accepting the completed output.
+
 A ticket captures the exact catalog and adjacent `<source>.forge-import.json`
 sidecar bytes, distinguishing an absent file from an empty one. The sidecar is a
 source-controlled `forge.asset-import` version1 document containing typed importer

@@ -233,3 +233,9 @@ foundation delivery. Earlier checkpoint notes below preserve the validation hist
 - The cold Windows editor build plus full validation now has a 90-minute budget.
   Successfully compiled outputs remain reusable after a later test failure; this
   does not bypass any build, test, provenance or package gate.
+- Fixed a worker-output inspection race exposed by Linux UI packaging validation:
+  an atomic rename could remove an enumerated temporary file before its metadata
+  was read, incorrectly rejecting a valid import. Ignore only that missing entry;
+  preserve all output and execution limits and the completed-output scan.
+  A minimal repeated-rename regression failed before the correction. Both affected
+  worker and UI-package tests passed ten repetitions afterward.

@@ -67,6 +67,16 @@ int main(int argc, char** argv) {
         std::ofstream("output/valid.bin") << "validated resource policy";
         return 0;
     }
+    if (mode == "atomic-rename") {
+        std::ofstream("output/first.tmp") << "complete output";
+        const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+        while (std::chrono::steady_clock::now() < end) {
+            std::filesystem::rename("output/first.tmp", "output/second.tmp");
+            std::filesystem::rename("output/second.tmp", "output/first.tmp");
+        }
+        std::filesystem::rename("output/first.tmp", "output/valid.bin");
+        return 0;
+    }
     if (mode == "fail")
         return 7;
     if (mode == "file") {

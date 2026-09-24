@@ -38,11 +38,26 @@ bool output_exceeded(const std::filesystem::path& path, const WorkerLimits& limi
     for (const auto& item : std::filesystem::directory_iterator(path)) {
         if (++count > limits.files)
             return true;
-        const auto status = item.symlink_status();
+        std::error_code error;
+        const auto status = item.symlink_status(error);
+        // A worker publishes through atomic rename. A directory entry observed
+        // just before that rename may legitimately disappear before stat/size.
+        // The completed worker is scanned again, with the same resource limits.
+        if (error == std::errc::no_such_file_or_directory ||
+            status.type() == std::filesystem::file_type::not_found)
+            continue;
+        if (error)
+            throw std::filesystem::filesystem_error("Cannot inspect worker output", item.path(),
+                                                    error);
         if (std::filesystem::is_symlink(status))
             return true;
         if (std::filesystem::is_regular_file(status)) {
-            auto n = item.file_size();
+            const auto n = item.file_size(error);
+            if (error == std::errc::no_such_file_or_directory)
+                continue;
+            if (error)
+                throw std::filesystem::filesystem_error("Cannot size worker output", item.path(),
+                                                        error);
             if (n > limits.file_bytes || n > limits.total_bytes - total)
                 return true;
             total += n;

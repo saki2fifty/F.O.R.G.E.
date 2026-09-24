@@ -48,13 +48,20 @@ int main(int argc, char** argv) {
             bool rejected = false;
             try {
                 run_worker(WorkerKind::Import, executable, staging, cancel, limits);
-            } catch (const std::exception&) {
+            } catch (const std::exception& error) {
                 rejected = true;
+                if (!reject)
+                    std::cerr << "Unexpected worker rejection: " << error.what() << '\n';
             }
             require(rejected == reject, (std::string("Worker policy mismatch: ") + mode).c_str());
             return staging;
         };
         run("limits", false);
+        limits.seconds = 5; // Allow scheduling overhead around the 500ms publication exercise.
+        const auto renamed = run("atomic-rename", false);
+        require(std::filesystem::file_size(renamed / "output/valid.bin") == 15,
+                "Atomic publication lost its final output");
+        limits.seconds = 1;
         for (auto mode : {"fail", "file", "total", "count", "nested"})
             run(mode, true);
         std::stop_source cooperate;
