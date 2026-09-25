@@ -505,3 +505,95 @@ the same with the new test source, and
 `python3 /work/check-editor-main.py`). Windows Release rebuild of
 `forge_editor_fixture.exe` and the package SDK acceptance run
 remain the pending native gate.
+
+## Editor SDK package acceptance — nested project root (Windows80)
+
+The SDK package acceptance test exited with `complete=false` at stage 1
+deadline: `page:""`, `activation_generation:0`,
+`asset_id` was `empty_scene()`'s random UUID, and the captured screenshot
+showed `Hierarchy = 0 entities`, `Game = No active Camera`,
+`Content = Not imported`, `Playing`. The fixture had been launched
+against a project root that contained no `forge.project.json`, so
+`open_project()` fell through to the `empty_scene()` default.
+
+The actual artifact at `/work/logs/windows80-sdk-project/` is laid out
+as `<output>/editor-sdk-project/PhysicsAcceptance-<uuid>/forge.project.json`,
+not as a flat project root. The nested directory is intentional:
+`tests/physics_acceptance_fixture.py::make_project` (line 15) writes
+the authored project under `<output>/PhysicsAcceptance-<uuid>/` so
+parallel test runs cannot collide on a fixed path. The
+`standalone-audit.yml` job then uploads the OUTER
+`editor-sdk-project/` envelope (line 174 calls
+`reference_project_fixture.py --output $project` with
+`$project = Join-Path $b 'editor-sdk-project'`; line 194 uploads the
+same envelope), and `editor_sdk_package_test.py --project` was given
+that outer envelope as `--project`. The fixture's `open_project()`
+expects `forge.project.json` at the top of the path it receives; with
+the envelope path, no `forge.project.json` is found and the empty
+fallback scene is used.
+
+The fix lives at the actual owner (`tests/editor_sdk_package_test.py`)
+and only touches the package test helper, not the fixture, not
+`open_project()`, not the generator, not any compiled source. A new
+`resolve_project_root(envelope)` detects a direct layout
+(`forge.project.json` at the envelope root) and a nested layout (a
+single immediate subdirectory with `forge.project.json`) and returns
+the actual project root. It raises `AssertionError` loudly on the
+empty case (no `forge.project.json` anywhere under the envelope) and
+on the ambiguous case (multiple immediate subdirectories each carrying
+`forge.project.json`); both are diagnostic surfaces for future
+generator / upload regressions, not silent fallbacks. The project copy
+loop now iterates `actual_project_root.iterdir()` so the inner
+`PhysicsAcceptance-<uuid>/` contents (including hidden `.forge/`) are
+copied into the fixture's scratch in full.
+
+Changes:
+- `tests/editor_sdk_package_test.py`: added `resolve_project_root(envelope)`
+  helper that detects direct and nested layouts and refuses empty /
+  ambiguous inputs with `AssertionError`; the project copy block now
+  uses `actual_project_root.iterdir()` instead of `project_path.iterdir()`.
+
+Proof:
+- Implementation: `resolve_project_root` and the rewritten copy block
+  are in place at `tests/editor_sdk_package_test.py:133-167`.
+- Execution proof of the actual production helper:
+  `/work/resolve_validation.py` does NOT duplicate
+  `resolve_project_root`. It parses
+  `tests/editor_sdk_package_test.py` with the standard library `ast`
+  module, walks the tree to find the single `resolve_project_root`
+  FunctionDef (the helper is nested inside the script's
+  `with tempfile.TemporaryDirectory(...)` block, so `ast.walk` is
+  required), and `compile()`s only that FunctionDef as an isolated
+  `ast.Module`. The compiled module is executed in a fresh namespace
+  and the resulting function is what the harness exercises. The
+  harness additionally asserts that the literal `'forge.project.json'`
+  appears in the helper file so the extraction is provably picking up
+  the real production function. `python3 /work/resolve_validation.py`
+  ran against the actual Build80 artifact at
+  `/work/logs/windows80-sdk-project/` and all four cases pass:
+  - NESTED: resolves to
+    `PhysicsAcceptance-310b6035-44c1-4415-9ee3-e2557770184c/`,
+    `forge.project.json` and `menu.scene.json` present;
+    `startup_scene.asset == "663e9451-b573-4dc7-811b-c9852c5e1101"`
+    matches `reference::menu_scene`; `menu.scene.json` `asset_id`
+    matches; the authored menu scene carries the expected 2 entities.
+  - DIRECT: `resolve_project_root` returns the envelope itself when
+    `forge.project.json` is at the top level (the layout the
+    standalone-audit job would produce if the fixture were ever
+    pointed at a flat project root).
+  - EMPTY: raises `AssertionError` with the envelope path so a future
+    upload regression surfaces immediately instead of falling back to
+    `empty_scene()`.
+  - AMBIGUOUS: raises `AssertionError` listing every nested candidate
+    so the next build can diagnose parallel-run collisions instead
+    of silently picking one.
+- Syntax: `python3 -c "import ast; ast.parse(...)"` confirms both
+  `tests/editor_sdk_package_test.py` and `tests/physics_acceptance_fixture.py`
+  parse cleanly.
+- Native: the SDK acceptance run on a fresh Windows runner remains
+  the pending gate; the helper change is python-only, so
+  `package_source_run=36184384829` retains Build80's compiled artifacts
+  and Build80 identity. No product C++ changed. The speculative
+  `tests/editor_sdk_project_tests.cpp` was removed from the tree
+  (file no longer exists); it was a scratch-only addition that never
+  landed in a `CMakeLists.txt` target or workflow step.

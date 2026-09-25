@@ -116,10 +116,50 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         fixture_dst.unlink()
     shutil.copy2(fixture_path, fixture_dst)
 
+    # ---- resolve the actual project root ------------------------------
+    # tests/physics_acceptance_fixture.py::make_project writes the
+    # authored project under <output>/PhysicsAcceptance-<uuid>/ so
+    # parallel test runs cannot collide on a fixed path. The
+    # standalone-audit job therefore uploads the OUTER
+    # <output>/editor-sdk-project/ tree (an envelope containing one
+    # PhysicsAcceptance-<uuid>/ directory) rather than the inner
+    # project root. The editor fixture's open_project expects a
+    # direct project root with forge.project.json at its top level;
+    # pointing it at the outer envelope forces the empty_scene()
+    # fallback (Build80 acceptance observed: Hierarchy = 0 entities,
+    # Game = No active Camera, Content = Not imported, page == "").
+    # Resolve the actual root here so the fixture gets the same path
+    # the standalone-audit authored.
+    def resolve_project_root(envelope):
+        if (envelope / 'forge.project.json').is_file():
+            return envelope
+        nested = [child for child in envelope.iterdir()
+                  if child.is_dir() and (child / 'forge.project.json').is_file()]
+        if len(nested) == 1:
+            return nested[0]
+        if not nested:
+            raise AssertionError(
+                'Editor SDK project envelope has no forge.project.json at '
+                + str(envelope) + ' or in any immediate subdirectory. The '
+                'standalone-audit job is expected to upload a single '
+                'PhysicsAcceptance-<uuid>/ envelope, but the artifact at '
+                + str(envelope) + ' contains no forge.project.json — refuse '
+                'to launch the fixture so the next build can diagnose the '
+                'generator / upload step instead of silently regressing to '
+                'empty_scene().')
+        raise AssertionError(
+            'Editor SDK project envelope has multiple immediate subdirectories '
+            'with forge.project.json: ' + ', '.join(str(p) for p in nested)
+            + '. The acceptance gate expects exactly one PhysicsAcceptance-* '
+            'envelope per artifact; ambiguous inputs must fail loud, not be '
+            'picked arbitrarily.')
+
+    actual_project_root = resolve_project_root(project_path)
+
     # ---- copy project (hidden files preserved) to private scratch ------
     project_dir = scratch / 'project'
     project_dir.mkdir(parents=True)
-    for entry in project_path.iterdir():
+    for entry in actual_project_root.iterdir():
         target = project_dir / entry.name
         if entry.is_dir():
             shutil.copytree(entry, target)
