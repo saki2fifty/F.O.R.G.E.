@@ -250,6 +250,15 @@ class EditorSdkWorkflow {
     bool game_input_captured() const {
         return game_input_captured_observer_ ? game_input_captured_observer_() : false;
     }
+    // Bound by main.cpp (FORGE_UI_FIXTURE) to `runtime_ui.presenter_alive()`
+    // once both the workflow and the host are constructed. The host's
+    // presenter_ unique_ptr is the existing lifecycle owner of RmlUi Core;
+    // it transitions from nullptr to non-null exactly when
+    // UiPresenter::Impl::Impl has called Rml::Initialise() (via the host's
+    // lazy ensure_presenter()). Until then the observer returns false and
+    // live_visible_context() returns nullptr without touching RmlUi.
+    // Absent observer -> false (same behavior; safer than probing).
+    std::function<bool()> presenter_alive_observer_;
 
     // Per-scope split-click pattern, mirrored from the toolbar
     // arm/pump pair. arm_outside_click() queues DOWN for the next
@@ -318,10 +327,30 @@ class EditorSdkWorkflow {
         return play.effective_snapshot().value("asset_id", "");
     }
 
+  public:
     // Locate the live visible Rml context: the context that owns
     // exactly one visible document. Returns nullptr when staged /
     // hidden / not-yet-published trees are still in the system.
-    static Rml::Context* live_visible_context() {
+    //
+    // The `alive_probe` gate exists because Rml::GetNumContexts()
+    // and Rml::GetContext(int) dereference the RmlUi Core global
+    // `core_data` whose pointer is null until `Rml::Initialise()`
+    // has been called. `core_data` is owned by RmlUi itself; this
+    // fixture does NOT add a second RmlInit owner. Instead, the
+    // caller passes a probe owned by the existing `RuntimeUiHost`
+    // (`runtime_ui.presenter_alive()`): the host's `presenter_`
+    // unique_ptr is non-null only after its lazy `ensure_presenter()`
+    // call invokes `UiPresenter::Impl::Impl` -> `Rml::Initialise()`.
+    // When the probe is absent or returns false the helper returns
+    // nullptr without touching RmlUi, so the workflow cannot crash
+    // a frame before the presenter is ready.
+    //
+    // Static + takes the probe as a parameter so the regression
+    // test (tests/editor_sdk_workflow_probe_tests.cpp) can drive
+    // the same code path without constructing a full PlaySession.
+    static Rml::Context* find_live_visible_context(const std::function<bool()>& alive_probe) {
+        if (!alive_probe || !alive_probe())
+            return nullptr;
         Rml::Context* match = nullptr;
         const auto count = Rml::GetNumContexts();
         for (int i = 0; i < count; ++i) {
@@ -343,10 +372,22 @@ class EditorSdkWorkflow {
         return match;
     }
 
+  private:
+    // Instance wrapper that uses the bound observer. The non-static
+    // form is what `frame_impl()` actually calls; the static
+    // `find_live_visible_context(probe)` form is what the
+    // regression test exercises directly.
+    Rml::Context* live_visible_context() {
+        return find_live_visible_context(presenter_alive_observer_);
+    }
+
     // Native Rml activation: required visible live context/document,
     // real focus tree, return on label match else tab. Mirrors the
     // proven reference_game_workflow.hpp:59-77 activate() helper.
-    static bool activate(SDL_Window* window, const std::string& label) {
+    // Non-static so the bound presenter_alive_observer_ gates the
+    // probe; the previous static form crashed the fixture when
+    // Rml::Initialise() had not yet run.
+    bool activate(SDL_Window* window, const std::string& label) {
         auto* context = live_visible_context();
         if (!context)
             return false;
@@ -516,6 +557,15 @@ class EditorSdkWorkflow {
     // observer state remains private.
     void set_game_input_observer(std::function<bool()> fn) {
         game_input_captured_observer_ = std::move(fn);
+    }
+    // Mirrors set_game_input_observer: read-only probe installed by
+    // main.cpp once both the workflow and the RuntimeUiHost are in
+    // scope. The probe MUST be safe to call on the very first frame
+    // (RuntimeUiHost::presenter_alive() returns false until the
+    // presenter's lazy Rml::Initialise() runs). The workflow does
+    // not initialize RmlUi and does not own the presenter lifetime.
+    void set_presenter_alive_observer(std::function<bool()> fn) {
+        presenter_alive_observer_ = std::move(fn);
     }
 
     bool done() const { return done_; }

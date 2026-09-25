@@ -558,6 +558,23 @@ int main(int argc, char** argv) {
         forge::RuntimeUiHost runtime_ui(window.get(), device,
                                         std::filesystem::path(base) /
                                             "resources/ui/LatoLatin-Regular.ttf");
+#ifdef FORGE_UI_FIXTURE
+        // Probe install for the safe RmlUi-context enumeration helper
+        // (tests/editor_sdk_workflow.hpp::find_live_visible_context).
+        // The probe is owned by the existing RuntimeUiHost: its
+        // presenter_ unique_ptr is non-null only after the lazy
+        // ensure_presenter() call invokes UiPresenter::Impl::Impl
+        // which calls Rml::Initialise(). Until then the probe returns
+        // false and the workflow's first-frame probe returns nullptr
+        // without touching Rml::GetNumContexts() / Rml::GetContext().
+        // The bind is deferred until runtime_ui exists so the lambda
+        // capture cannot dangle. No second RmlInit owner, no new
+        // parallel state.
+        if (sdk_workflow) {
+            sdk_workflow->set_presenter_alive_observer(
+                [&] { return runtime_ui.presenter_alive(); });
+        }
+#endif
         // Staged renderer/UI pair for Editor Play. Declared before the
         // lambda so the lambda can keep its shared host in sync across
         // resource resets. Adopted active renderer uses main's raw

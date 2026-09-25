@@ -68,6 +68,14 @@ class RuntimeUiHost {
     const UiAssetSnapshot* asset_snapshot() const {
         return observed_assets_ ? &*observed_assets_ : nullptr;
     }
+    // Single source of truth for "has RmlUi Core been initialized by this
+    // host yet?". Mirrors `set_game_input_observer`/`set_presenter_alive_observer`
+    // in tests/editor_sdk_workflow.hpp: the workflow probes this before
+    // calling Rml::GetNumContexts()/GetContext() because those accessors
+    // dereference Rml::core_data which is null until the presenter's
+    // Rml::Initialise() runs. No new RmlInit owner; the existing
+    // RuntimeUiHost::presenter_ is the lifecycle owner.
+    bool presenter_alive() const { return presenter_ != nullptr; }
     std::string diagnostic() const {
         return !error_.empty() ? error_ : presenter_ ? presenter_->diagnostic() : std::string{};
     }

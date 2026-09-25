@@ -445,3 +445,63 @@ new source — there is **no** same-identity `package_source_run` path
 for the v6 binary; the manager follows the real release coordinator
 and numbers it accordingly. The fixture binary itself is unchanged
 in semantics; only the diagnostic instrumentation is added.
+
+## SDK fixture init-order regression (Windows79)
+
+The SDK acceptance fixture's `tests/editor_sdk_workflow.hpp`
+`live_visible_context()` evaluated `Rml::GetNumContexts()` (and
+`Rml::GetContext(int)`) on the first main-loop iteration, before
+`UiPresenter::Impl::Impl` reached `Rml::Initialise()`. Both functions
+dereference the RmlUi Core global `core_data`
+(`ControlledLifetimeResource<CoreData>`), whose `pointer` defaults
+to `nullptr` until `Rml::Initialise()` runs. The fixture therefore
+crashed at `main-loop-first-entry`, consistent with the
+build-79 Release `0xC0000005` at offset `0x541BD7` (source-level
+proof; no PDB was retained so the offset is not a register-level
+attribution).
+
+The fix gates the probe on an alive-probe lambda supplied by
+`main.cpp`. The probe is owned by the existing
+`forge::RuntimeUiHost` (the new `presenter_alive()` getter returns
+`presenter_ != nullptr`); the host's `presenter_` unique_ptr is
+non-null only after the lazy `ensure_presenter()` call invokes
+`UiPresenter::Impl::Impl` -> `Rml::Initialise()`. When the probe
+is absent or returns false the helper returns `nullptr` without
+touching RmlUi. The bind is deferred to AFTER
+`forge::RuntimeUiHost runtime_ui(...)` is declared in
+`src/editor/main.cpp` so the lambda capture cannot dangle. No
+second RmlInit owner is introduced; the existing
+`RuntimeUiHost::presenter_` is the single source of truth for the
+RmlUi Core lifecycle for the editor path.
+
+Changes:
+- `tests/editor_sdk_workflow.hpp`: added public static seam
+  `find_live_visible_context(probe)`, private instance wrapper,
+  observer member, `set_presenter_alive_observer` setter; `activate()`
+  now non-static so it uses the gated wrapper.
+- `src/editor/runtime_ui_host.hpp`: added one-line getter
+  `presenter_alive()`.
+- `src/editor/main.cpp`: bound `runtime_ui.presenter_alive()` to the
+  workflow's observer immediately after `runtime_ui` is declared,
+  under `FORGE_UI_FIXTURE`. Restored from the accepted baseline
+  first; only this insertion was added. The previously-accepted
+  build-79 first-frame breadcrumbs and SEH filter are preserved.
+- `tests/editor_sdk_workflow_probe_tests.cpp` (new): exercises the
+  public seam with `(a)` an absent probe and `(b)` a probe returning
+  false; both must return `nullptr` before `Rml::Initialise()`. Any
+  regression that removes the gate null-derefs and aborts the test.
+- `cmake/editor.cmake`: registered `forge_sdk_workflow_probe_tests`
+  alongside `forge_ui_input_tests` in the existing
+  `if(BUILD_TESTING)` block, sharing the same graphical dependency
+  set (`RmlUi::Core`, `SDL3::SDL3`, `imgui`, `forge_ui_presenter`,
+  `forge_authoring`, `forge_game_platform`) and the
+  `RmlUi_Platform_SDL.cpp` backend source.
+- `.github/workflows/build.yml`: added `forge_sdk_workflow_probe_tests`
+  to the explicit build target list (line 269) and
+  `native_sdk_workflow_probe` to the ctest regex (line 284).
+
+Sandbox syntax checks passed (`bash /work/check-editor-headers`,
+the same with the new test source, and
+`python3 /work/check-editor-main.py`). Windows Release rebuild of
+`forge_editor_fixture.exe` and the package SDK acceptance run
+remain the pending native gate.
