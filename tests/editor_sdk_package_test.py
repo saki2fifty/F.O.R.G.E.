@@ -167,8 +167,24 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
             raise AssertionError('Fixture executable exceeded 300s watchdog')
 
     if returncode != 0:
-        raise AssertionError('Fixture executable returned non-zero exit code: '
-                             + str(returncode))
+        # Surface test-only crash capture if the fixture installed one.
+        # The fixture registers a SetUnhandledExceptionFilter that writes
+        # a best-effort exception record + module + offset + last
+        # breadcrumb to <output>/fixture-crash.txt via plain Win32 file
+        # I/O before the CRT terminates the process. Reading it back
+        # here turns an opaque 0xC0000005 into a useful crash record
+        # without changing the underlying acceptance gate. Breadcrumbs
+        # are interleaved with normal stdout/stderr in the existing
+        # fixture_log.
+        crash_path = output_dir / 'fixture-crash.txt'
+        extras = []
+        if crash_path.is_file():
+            extras.append('Fixture crash record at ' + str(crash_path))
+        extras.append('Fixture stdout/stderr log at ' + str(fixture_log))
+        message = 'Fixture executable returned non-zero exit code: ' + str(returncode)
+        if extras:
+            message += '\n' + '\n'.join(extras)
+        raise AssertionError(message)
 
     # ---- assert evidence schema, identity, captures --------------------
     workflow_path = output_dir / 'workflow.json'

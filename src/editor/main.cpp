@@ -81,6 +81,74 @@
 #include <iostream>
 #include <memory>
 #include <tuple>
+#ifdef FORGE_UI_FIXTURE
+// Test-only crash capture. The fixture may exit 0xC0000005 (Windows
+// access violation) before any C++ exception handler runs; the
+// unhandled-exception filter is the only way to obtain any signal
+// for that path. Compiled into the fixture binary only; the shipped
+// editor is unaffected. Best-effort first evidence: exception record
+// + module base + relative fault offset + last breadcrumb. No
+// CaptureStackBackTrace (it would only see the filter's stack, not
+// ep->ContextRecord's fault stack), no symbol resolution, no heap
+// allocation inside the filter, no extra link dependencies.
+#ifdef _WIN32
+#include <cstdio>
+#include <cstring>
+#include <cwchar>
+#include <windows.h>
+#endif
+namespace forge::test {
+inline wchar_t fixture_crash_path_buffer[MAX_PATH] = {};
+inline HANDLE fixture_crash_file_handle = nullptr;
+inline char fixture_last_breadcrumb[64] = "(none)";
+inline void fixture_breadcrumb(const char* name) {
+    std::fprintf(stdout, "FORGE fixture breadcrumb %s t=%llu\n", name,
+                 static_cast<unsigned long long>(SDL_GetTicks()));
+    std::fflush(stdout);
+    const size_t len = std::strlen(name);
+    if (len + 1 < sizeof(fixture_last_breadcrumb)) {
+        std::memcpy(fixture_last_breadcrumb, name, len + 1);
+    }
+}
+#ifdef _WIN32
+inline LONG WINAPI fixture_crash_filter(EXCEPTION_POINTERS* ep) {
+    // Best-effort. Uses a pre-opened handle + pre-formatted path
+    // prepared at normal startup; performs no std::filesystem::path
+    // work, no create_directories, no wstring conversion, no heap
+    // allocation inside the filter. Returns
+    // EXCEPTION_EXECUTE_HANDLER so the CRT still terminates with
+    // the original exit code. Acceptance assertions unchanged.
+    if (fixture_crash_file_handle == nullptr || fixture_crash_file_handle == INVALID_HANDLE_VALUE)
+        return EXCEPTION_EXECUTE_HANDLER;
+    char buffer[768];
+    DWORD written = 0;
+    const DWORD_PTR fault = reinterpret_cast<DWORD_PTR>(ep->ExceptionRecord->ExceptionAddress);
+    HMODULE module = nullptr;
+    char module_path[MAX_PATH] = "(unknown)";
+    DWORD_PTR module_base = 0;
+    DWORD_PTR offset = fault;
+    if (GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCWSTR>(ep->ExceptionRecord->ExceptionAddress), &module) &&
+        module != nullptr) {
+        module_base = reinterpret_cast<DWORD_PTR>(module);
+        if (fault >= module_base)
+            offset = fault - module_base;
+        GetModuleFileNameA(module, module_path, MAX_PATH);
+    }
+    std::snprintf(buffer, sizeof(buffer),
+                  "ExceptionCode=0x%08lX FaultAddress=0x%p Module=%s "
+                  "Base=0x%p Offset=0x%llx LastBreadcrumb=%s\n",
+                  static_cast<unsigned long>(ep->ExceptionRecord->ExceptionCode),
+                  reinterpret_cast<void*>(fault), module_path, reinterpret_cast<void*>(module_base),
+                  static_cast<unsigned long long>(offset), fixture_last_breadcrumb);
+    WriteFile(fixture_crash_file_handle, buffer, static_cast<DWORD>(std::strlen(buffer)), &written,
+              nullptr);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+} // namespace forge::test
+#endif
 using namespace Diligent;
 int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--version") {
@@ -88,10 +156,53 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::clog << "FORGE editor | Build: " << forge::build_id << '\n';
+#ifdef FORGE_UI_FIXTURE
+    // Configure the test-only crash filter as early as possible. argv[1]
+    // is always the fixture output directory (validated by EditorFixture
+    // before main() returns 1 if missing). At startup we prepare the
+    // final path into a fixed wchar_t buffer and pre-open the output
+    // file, so the unhandled-exception filter performs no
+    // std::filesystem::path work, no create_directories, no wstring
+    // conversion, no heap allocation inside the filter. Best-effort
+    // first evidence: exception record + module + relative offset +
+    // last breadcrumb. CaptureStackBackTrace from inside the filter
+    // would only see the FILTER's stack, so we deliberately do not
+    // walk a stack here. The unhandled filter is one of several
+    // diagnostic mechanisms; the retained breadcrumbs, the package
+    // test's exit-code assertion, and the editor-regression + suite
+    // log remain the primary signals. The unhandled filter does not
+    // bypass acceptance assertions; EXCEPTION_EXECUTE_HANDLER only
+    // lets the CRT terminate the process with the original exit code.
+    if (argc >= 2) {
+#ifdef _WIN32
+        try {
+            const auto path_str = std::filesystem::absolute(argv[1]) / "fixture-crash.txt";
+            std::filesystem::create_directories(path_str.parent_path());
+            const auto wpath = path_str.wstring();
+            if (wpath.size() < MAX_PATH) {
+                std::wcsncpy(forge::test::fixture_crash_path_buffer, wpath.c_str(), MAX_PATH - 1);
+                forge::test::fixture_crash_path_buffer[MAX_PATH - 1] = L'\0';
+                forge::test::fixture_crash_file_handle = CreateFileW(
+                    forge::test::fixture_crash_path_buffer, FILE_APPEND_DATA, FILE_SHARE_READ,
+                    nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+                if (forge::test::fixture_crash_file_handle == INVALID_HANDLE_VALUE)
+                    forge::test::fixture_crash_file_handle = nullptr;
+            }
+        } catch (...) {
+            forge::test::fixture_crash_file_handle = nullptr;
+        }
+        SetUnhandledExceptionFilter(&forge::test::fixture_crash_filter);
+#endif
+        forge::test::fixture_breadcrumb("main-start");
+    }
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         std::cerr << SDL_GetError();
         return 1;
     }
+#ifdef FORGE_UI_FIXTURE
+    forge::test::fixture_breadcrumb("after-sdl-init");
+#endif
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window(
         SDL_CreateWindow("F.O.R.G.E. | Native ECS Editor", 1440, 900,
                          SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY),
@@ -101,10 +212,14 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return 1;
     }
+#ifdef FORGE_UI_FIXTURE
+    forge::test::fixture_breadcrumb("after-sdl-window");
+#endif
     int result = 0;
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
+        forge::test::fixture_breadcrumb("after-fixture-construct");
         // Legacy EditorInputWorkflow runs only for the historical
         // --workflow and --physics modes. SDK mode drives its own
         // EditorSdkWorkflow so it never runs physics mutations or the
@@ -112,6 +227,7 @@ int main(int argc, char** argv) {
         forge::test::EditorInputWorkflow input_workflow(
             fixture.workflow || fixture.physics, fixture.output,
             fixture.physics ? fixture.project : std::filesystem::path{});
+        forge::test::fixture_breadcrumb("after-input-workflow-construct");
         // SDK Play reference workflow: drives the editor + PlaySession
         // through the standalone reference acceptance flow.
         std::optional<forge::test::EditorSdkWorkflow> sdk_workflow;
@@ -172,10 +288,14 @@ int main(int argc, char** argv) {
             // (sdk_workflow->set_game_input_observer(...) is invoked
             // in the FORGE_UI_FIXTURE block at line ~342.)
         }
+        forge::test::fixture_breadcrumb("after-sdk-workflow-construct");
 #endif
         auto* factory = LoadAndGetEngineFactoryD3D12();
         if (!factory)
             throw std::runtime_error("D3D12 backend unavailable");
+#ifdef FORGE_UI_FIXTURE
+        forge::test::fixture_breadcrumb("after-engine-factory-load");
+#endif
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         RefCntAutoPtr<ISwapChain> swap;
@@ -198,6 +318,9 @@ int main(int argc, char** argv) {
         if (!swap)
             throw std::runtime_error("D3D12 swap chain initialization failed");
 #ifdef FORGE_UI_FIXTURE
+        forge::test::fixture_breadcrumb("after-swap-chain");
+#endif
+#ifdef FORGE_UI_FIXTURE
         // SDK Play mode drives the acceptance workflow. Captures
         // are queued by the workflow callbacks above; the actual
         // GPU readback + JSON write happens after gui->Render
@@ -208,6 +331,9 @@ int main(int argc, char** argv) {
         std::string ini;
         auto gui =
             ImGuiImplSDL3::Create(ImGuiDiligentCreateInfo{device, swap->GetDesc()}, window.get());
+#ifdef FORGE_UI_FIXTURE
+        forge::test::fixture_breadcrumb("after-imgui-create");
+#endif
         forge::ui::style();
         // Reuse the already packaged OFL-licensed runtime UI font; no new dependency.
         const auto editor_font =
@@ -234,6 +360,9 @@ int main(int argc, char** argv) {
         forge::ui::load_startup_layout(startup_layout, ini.c_str());
         if (!startup_layout.warning.empty())
             std::clog << startup_layout.warning << '\n';
+#ifdef FORGE_UI_FIXTURE
+        forge::test::fixture_breadcrumb("after-preferences-load");
+#endif
         const auto settings = config / "settings.json";
         char cmake_path[1024] = "cmake";
         char ninja_path[1024] = "ninja";
@@ -344,14 +473,17 @@ int main(int argc, char** argv) {
         forge::PlaySession play;
         forge::GameInput game_input(window.get());
 #ifdef FORGE_UI_FIXTURE
+        forge::test::fixture_breadcrumb("after-scene-engine-input");
         // Deferred existing-owner observer bind. The fixture
         // cannot install the game_input.captured() callback until
         // game_input is in scope, so the bind is installed here
         // rather than at sdk_workflow construction. The observer
         // is read-only and never invents authority over the
         // input owner.
-        if (sdk_workflow)
+        if (sdk_workflow) {
             sdk_workflow->set_game_input_observer([&] { return game_input.captured(); });
+            forge::test::fixture_breadcrumb("after-game-input-observer-bind");
+        }
 #endif
         forge::ProjectSettingsEditor project_settings;
         bool scene_lighting_open = false;
@@ -385,7 +517,9 @@ int main(int argc, char** argv) {
         };
         try {
 #ifdef FORGE_UI_FIXTURE
+            forge::test::fixture_breadcrumb("before-files-start");
             files.start(fixture.project);
+            forge::test::fixture_breadcrumb("after-files-start");
 #else
             if (argc > 1)
                 files.start(std::filesystem::u8path(argv[1]));
@@ -1212,8 +1346,18 @@ int main(int argc, char** argv) {
             }
             return result;
         };
+#ifdef FORGE_UI_FIXTURE
+        forge::test::fixture_breadcrumb("before-main-loop");
+#endif
         while (running) {
 #ifdef FORGE_UI_FIXTURE
+            // Main-loop breadcrumb is logged once on first entry only
+            // (avoids per-frame synchronous stdout + log bloat).
+            static bool first_main_loop_iter_logged = false;
+            if (!first_main_loop_iter_logged) {
+                first_main_loop_iter_logged = true;
+                forge::test::fixture_breadcrumb("main-loop-first-entry");
+            }
             fixture.graphics_context(window.get(), 0);
 #endif
             performance.begin();

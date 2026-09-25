@@ -370,3 +370,78 @@ input authority or protocol field is introduced — `main.cpp` continues
 to wire `[&] { return game_input.captured(); }` only under
 `FORGE_UI_FIXTURE` and only after the captured `game_input` is in
 scope.
+
+## Editor fixture startup breadcrumbs + crash capture
+
+`tests/editor_sdk_package_test.py` observed the SDK acceptance fixture
+exit `3221225477` (`0xC0000005`, Windows access violation) at startup
+with only the Diligent graphics init messages and no stack trace
+(`/work/logs/windows-package-36164350868.log:312`,
+`/work/logs/windows78-sdk-evidence/fixture.log`). Two test-only
+diagnostics are added to `src/editor/main.cpp` under
+`FORGE_UI_FIXTURE` so the shipped editor is unaffected. The unhandled-
+exception filter is one of several diagnostic mechanisms; the retained
+breadcrumbs, the package test's exit-code assertion, the editor
+regressions, and the suite log remain the primary signals, and the
+unhandled filter does not bypass any acceptance assertion.
+
+- `forge::test::fixture_breadcrumb(name)` prints
+  `FORGE fixture breadcrumb <name> t=<SDL_GetTicks()>` to stdout,
+  flushes, and records the name in a fixed-size `char[64]` so the
+  most recent breadcrumb survives a hard crash. Breadcrumbs are
+  emitted at the major boundaries only: `main-start`,
+  `after-sdl-init`, `after-sdl-window`, `after-fixture-construct`,
+  `after-input-workflow-construct`, `after-sdk-workflow-construct`,
+  `after-engine-factory-load`, `after-swap-chain`,
+  `after-imgui-create`, `after-preferences-load`,
+  `after-scene-engine-input`, `after-game-input-observer-bind`,
+  `before-files-start`, `after-files-start`, `before-main-loop`,
+  `main-loop-first-entry` (logged once on first entry only — avoids
+  per-frame synchronous stdout and log bloat).
+- `forge::test::fixture_crash_filter(EXCEPTION_POINTERS*)` is
+  registered via `SetUnhandledExceptionFilter` before `SDL_Init` and
+  writes a single line to `<argv[1]>/fixture-crash.txt` via plain
+  Win32 file I/O (`WriteFile` on a pre-opened handle): `ExceptionCode`,
+  `FaultAddress`, owning `Module` + `Base`, relative `Offset`, and
+  `LastBreadcrumb`. Module lookup uses
+  `GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, ...)` +
+  `GetModuleFileNameA` from kernel32. No `dbghelp.lib` dependency,
+  no `SymInitialize` / `SymFromAddr` / `SymGetLineFromAddr64`, no
+  `MiniDumpWriteDump`, no `CaptureStackBackTrace` (it would only see
+  the FILTER's stack, not `ep->ContextRecord`'s fault stack), and no
+  `std::filesystem` / `create_directories` / wstring conversion /
+  heap allocation inside the filter — the path is pre-resolved into a
+  fixed `wchar_t[MAX_PATH]` buffer and the file handle is pre-opened
+  at normal startup so the filter does only `GetModuleHandleExW` +
+  `GetModuleFileNameA` + `snprintf` + `WriteFile` + return. The
+  filter returns `EXCEPTION_EXECUTE_HANDLER` so the CRT still
+  terminates the process with the original status; existing
+  acceptance assertions, required native flow, and the
+  `focus_gated_routing=true` schema check are unchanged. Capture is
+  best-effort first evidence, not guaranteed recovery; if the
+  process is too corrupted to write the file the CRT still aborts.
+
+`tests/editor_sdk_package_test.py` now surfaces
+`<output>/fixture-crash.txt` (when present) and the existing
+fixture stdout/stderr log path in the `non-zero exit code`
+assertion message so the crash record is visible without a re-run.
+The diagnostics are intentionally minimal, never read or send
+credentials, and never swallow an exception or bypass an assertion;
+they are only the narrow breadcrumbs + unhandled-exception filter
+above.
+
+### Build / delivery status correction
+
+The acceptance failure here was on fullrun `36164350868` for
+**reserved** build `260925-000078` at source `aedf372`. All 4 core
+jobs, format, editor regressions, shared game build, and the fresh
+relocation step PASS, but the **final PACKAGE** failed. The latest
+**delivered/accepted** build is `260924-000076`. Build `260925-000077`
+also failed Windows editor compile (`main.cpp:354` `C2248` private
+member), addressed by the v5 access-fix patch that landed as `aedf372`.
+The v6 diagnostics above change compiled source again, so the next
+**new build number** must be `260925-000079` or higher against the
+new source — there is **no** same-identity `package_source_run` path
+for the v6 binary; the manager follows the real release coordinator
+and numbers it accordingly. The fixture binary itself is unchanged
+in semantics; only the diagnostic instrumentation is added.
