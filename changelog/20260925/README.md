@@ -352,3 +352,21 @@ and the final `workflow.json` under the evidence directory on every
 outcome, and clears extracted package, copied project, and private
 user data on success or failure. Native visuals are reviewed
 separately; `visual_review` stays pending in machine output.
+
+## EditorSdkWorkflow fixture observer access
+
+`EditorSdkWorkflow::set_game_input_observer` was previously declared in
+the class's default-private scope, so the
+`FORGE_UI_FIXTURE`-guarded bind at `src/editor/main.cpp` failed MSVC
+compilation with `C2248: cannot access private member` for the Windows
+fixture build. The setter is now installed in the public section next to
+the analogous `set_capture` / `set_failure_capture` fixture
+configuration setters, with the same single-line `std::move(fn)` body.
+The underlying `game_input_captured_observer_` member and the
+internal `game_input_captured()` read accessor remain private; the
+public setter writes the private observer and the read accessor is
+still only invoked from within the class's own phase blocks. No new
+input authority or protocol field is introduced — `main.cpp` continues
+to wire `[&] { return game_input.captured(); }` only under
+`FORGE_UI_FIXTURE` and only after the captured `game_input` is in
+scope.

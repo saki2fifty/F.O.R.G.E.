@@ -247,9 +247,6 @@ class EditorSdkWorkflow {
     // has not been wired so a fresh workflow cannot satisfy the
     // regression by accident.
     std::function<bool()> game_input_captured_observer_;
-    void set_game_input_observer(std::function<bool()> fn) {
-        game_input_captured_observer_ = std::move(fn);
-    }
     bool game_input_captured() const {
         return game_input_captured_observer_ ? game_input_captured_observer_() : false;
     }
@@ -510,6 +507,16 @@ class EditorSdkWorkflow {
 
     void set_capture(CaptureFn fn) { capture_ = std::move(fn); }
     void set_failure_capture(CaptureFn fn) { failure_capture_ = std::move(fn); }
+    // Fixture-only read-only observer setter; installs a callable the
+    // workflow polls to learn the existing input owner's logical
+    // routing state. main.cpp wires this to `game_input.captured()`
+    // under FORGE_UI_FIXTURE after game_input is in scope, so the
+    // workflow never reaches across the ownership boundary. No new
+    // input authority or protocol field is added; the underlying
+    // observer state remains private.
+    void set_game_input_observer(std::function<bool()> fn) {
+        game_input_captured_observer_ = std::move(fn);
+    }
 
     bool done() const { return done_; }
     bool failed() const { return failed_; }
