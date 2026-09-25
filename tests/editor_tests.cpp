@@ -342,6 +342,7 @@ int main(int argc, char** argv) {
         test_project_settings_ui();
         test_ecs_workspaces();
         test_game_input(argv[1]);
+        test_game_input_checked_release(argv[1]);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_automation_workspace(scale);
         test_authoring();

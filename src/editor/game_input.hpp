@@ -7,6 +7,11 @@
 #include <array>
 namespace forge {
 // One active gamepad, keyboard and mouse. SDL is confined to this platform adapter.
+//
+// SdlGameCursor owns the observed SDL_GetWindowRelativeMouseMode
+// flag. captured() / relative() reflect that observed flag (or
+// false when no cursor is owned; that is the headless menu-input
+// path used by tests).
 class GameInput {
   public:
     explicit GameInput(SDL_Window* window = nullptr) {
@@ -16,7 +21,8 @@ class GameInput {
     GameInput(const GameInput&) = delete;
     GameInput& operator=(const GameInput&) = delete;
     bool captured() const { return captured_; }
-    bool relative() const { return captured_ && relative_capture_; }
+    bool relative() const { return cursor_ ? cursor_->relative() : false; }
+    const std::string& capture_error() const { return capture_error_; }
     void viewport(ImVec2 origin, ImVec2 size) {
         origin_ = origin;
         size_ = size;
@@ -26,36 +32,165 @@ class GameInput {
         return bounded_ && (x < origin_.x || y < origin_.y || x >= origin_.x + size_.x ||
                             y >= origin_.y + size_.y);
     }
-    void capture(PlaySession& play, bool relative = false) {
-        if (play.ready()) {
+    // Legacy UI-button capture. Delegates to capture_checked so the
+    // checked vs. unchecked paths share one implementation.
+    void capture(PlaySession& play, bool relative_mode = false) {
+        capture_checked(play, relative_mode);
+    }
+    // Narrow truthful capture used by SDK platform-effect paths. Returns
+    // true iff the observed SDL_GetWindowRelativeMouseMode flag agrees
+    // with the request after the setter ran. The headless (no-cursor)
+    // case cannot satisfy a
+    // relative capture request, but a non-relative request is allowed
+    // for menu routing: there is no physical mode to release, so the
+    // logical routing can settle to its non-relative form.
+    bool capture_checked(PlaySession& play, bool relative_mode) {
+        if (!play.ready())
+            return false;
+        if (!cursor_) {
+            if (relative_mode) {
+                capture_error_ = "play.input.capture_failed: no window to capture";
+                return false;
+            }
+            // No physical target; treat as a successful non-relative
+            // capture so menu routing can settle. The local routing
+            // flag flips to match the request.
+            if (!captured_ || relative_capture_)
+                play.input_event({{}, 0, true});
+            captured_ = true;
+            relative_capture_ = false;
+            capture_error_.clear();
+            return true;
+        }
+        try {
+            if (relative_mode)
+                cursor_->capture();
+            else if (!cursor_->checked_release()) {
+                capture_error_ = "play.input.release_failed: physical "
+                                 "relative mode still on";
+                return false;
+            }
+        } catch (const std::exception& e) {
+            capture_error_ = e.what();
+            return false;
+        }
+        const bool physically_relative = cursor_->relative();
+        const bool ok = (physically_relative == relative_mode);
+        if (!ok) {
+            capture_error_ = relative_mode ? std::string("play.input.capture_failed: "
+                                                         "physical relative mode is off")
+                                           : std::string("play.input.release_failed: "
+                                                         "physical relative mode is on");
+            return false;
+        }
+        if (!captured_ || relative_capture_ != relative_mode)
+            play.input_event({{}, 0, true});
+        captured_ = true;
+        relative_capture_ = relative_mode;
+        capture_error_.clear();
+        return true;
+    }
+    // Legacy void release. Always tears routing down (focus / Stop).
+    void release(PlaySession& play) { release(play, false); }
+    // Logical menu routing stays alive when keep_routing=true and only
+    // the physical cursor is freed. Headless (no cursor) clears routing
+    // when keep_routing=false; retains it otherwise.
+    void release(PlaySession& play, bool keep_routing) {
+        if (cursor_) {
             try {
-                if (cursor_) {
-                    if (relative)
-                        cursor_->capture();
-                    else
-                        cursor_->release();
-                }
-                capture_error_.clear();
+                cursor_->checked_release();
             } catch (const std::exception& e) {
                 capture_error_ = e.what();
-                return;
             }
+        }
+        if (captured_ && !keep_routing)
             play.input_event({{}, 0, true});
-            captured_ = true;
-            relative_capture_ = relative;
+        if (!keep_routing) {
+            captured_ = false;
+            relative_capture_ = false;
+        } else {
+            relative_capture_ = false;
         }
     }
-    void release(PlaySession& play) {
-        if (cursor_)
-            cursor_->release();
+    // Narrow truthful release used by SDK platform-effect paths. keep_routing
+    // retains logical routing after a successful physical release (Escape).
+    // Returns true iff the physical mode is off. The neutral event is
+    // sent on every successful physical release whenever routing was
+    // captured, BEFORE any subsequent gameplay edge (the Escape
+    // down/up pair). The keep_routing flag controls only whether the
+    // logical captured flag is retained for menu routing.
+    bool release_checked(PlaySession& play, bool keep_routing = false) {
+        if (!cursor_) {
+            // No physical target: the release "succeeds" because
+            // there is no window mode to clear, so logical routing
+            // follows the keep_routing flag. A neutral edge is still
+            // shipped whenever routing was previously captured so
+            // headless tests / tests with no cursor still neutralize
+            // held keys before later gameplay edges.
+            if (captured_)
+                play.input_event({{}, 0, true});
+            if (!keep_routing) {
+                captured_ = false;
+                relative_capture_ = false;
+            } else {
+                relative_capture_ = false;
+            }
+            capture_error_.clear();
+            return true;
+        }
+        const bool ok = cursor_->checked_release();
+        // Always ship the neutral edge BEFORE returning, even on
+        // setter failure, so the runtime neutralizes the previously-
+        // held action regardless of the SDL setter outcome. A failed
+        // setter must still revoke logical routing when the caller
+        // asks for it (keep_routing=false) — the OS already owns the
+        // physical capture, so leaving captured_=true would lie to the
+        // runtime guard and stall its release-required epoch.
         if (captured_)
             play.input_event({{}, 0, true});
-        captured_ = false;
-        relative_capture_ = false;
+        if (!ok) {
+            capture_error_ = std::string("play.input.release_failed: physical relative "
+                                         "mode still on");
+            if (!keep_routing) {
+                captured_ = false;
+                relative_capture_ = false;
+            } else {
+                relative_capture_ = false;
+            }
+            return false;
+        }
+        if (!keep_routing) {
+            captured_ = false;
+            relative_capture_ = false;
+        } else {
+            relative_capture_ = false;
+        }
+        capture_error_.clear();
+        return true;
     }
     void pump(PlaySession& play, bool allowed) {
-        if (!allowed || !play.ready() || session_ != play.session())
-            release(play);
+        const bool was_captured = captured_;
+        const auto prior_session = session_;
+        if (!allowed || !play.ready() || session_ != play.session()) {
+            // Transition into "not owned" — clear logical routing
+            // and, when this is the SDK profile, publish one fresh
+            // observed epoch so the runtime guard advances. Not on
+            // every disallowed frame: the previous frame already
+            // settled into captured_=false on the prior transition.
+            //
+            // ONE setter call per transition. SDK profile routes
+            // through the centralized checked helper (which already
+            // performs the physical release, ships the neutral edge,
+            // and queues the observation). Legacy profile falls back
+            // to the existing release(play) void path. Calling both
+            // here would double the SDL setter and could let the
+            // first failure mask a successful second attempt.
+            const bool sdk = play.sdk_play();
+            if (sdk && (was_captured || prior_session != play.session()))
+                submit_external_release_observation(play);
+            else if (!sdk && was_captured)
+                release(play);
+        }
         session_ = play.session();
         if (devices_dirty_) {
             devices_dirty_ = false;
@@ -68,14 +203,44 @@ class GameInput {
         for (const auto& value : pad_events)
             play.input_event(value);
         if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-            release(play);
+            // Focus loss is an external revocation — clear logical
+            // routing (it is no longer ours to own) AND publish a
+            // fresh observed epoch so the runtime's release-guard
+            // advances. The observed epoch uses the LIVE SDL
+            // relative-mode probe; the setter result is reflected
+            // separately via capture_error_. Not sent on every
+            // disallowed frame — only on actual transition events
+            // (focus loss, hide / minimize), which is what the
+            // runtime needs to honor the release.
+            //
+            // ONE setter call per transition. SDK profile uses the
+            // centralized checked helper; legacy profile uses the
+            // existing release(play) void path. The helper itself
+            // ships the neutral edge and queues the observation, so
+            // the second setter call would only repeat work and
+            // could conceal the first failure.
+            const bool sdk = play.sdk_play();
+            if (sdk)
+                submit_external_release_observation(play);
+            else
+                release(play);
             return false;
         }
         if (!pad_events.empty() && e.type != SDL_EVENT_GAMEPAD_REMOVED)
             return true;
         if (captured_ && !relative() && e.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
             outside(e.button.x, e.button.y)) {
-            release(play);
+            // Outside-game click is an external SDK revocation:
+            // route through the same one-setter path the focus /
+            // hide transitions use so the runtime sees exactly one
+            // observation per physical change. Legacy profile keeps
+            // the simple release() path. Calling both would double
+            // the SDL setter and could mask the first failure.
+            const bool sdk = play.sdk_play();
+            if (sdk)
+                submit_external_release_observation(play);
+            else
+                release(play);
             return false;
         }
         if (!captured_ || !play.ready())
@@ -85,12 +250,42 @@ class GameInput {
         };
         if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) {
             if (e.key.scancode == SDL_SCANCODE_ESCAPE) {
-                if (e.key.down)
-                    release(play);
+                // SDK and legacy Escape are explicitly branched. SDK
+                // Escape ships a neutral edge + observed epoch BEFORE
+                // the gameplay down/up pair so the runtime's
+                // release-guard sees the actual physical state, not a
+                // guessed one. Menu routing is retained
+                // (keep_routing=true) per the documented bound.
+                if (e.key.down && !e.key.repeat) {
+                    if (play.sdk_play()) {
+                        if (!submit_external_release_observation(play, true))
+                            return true;
+                        send(key_control(SDL_SCANCODE_ESCAPE), 1.0);
+                        send(key_control(SDL_SCANCODE_ESCAPE), 0.0);
+                    } else {
+                        release(play);
+                    }
+                }
                 return true;
             }
             if (e.key.scancode == SDL_SCANCODE_F6 || e.key.scancode == SDL_SCANCODE_F7) {
+                // Physical release + observed epoch precede the
+                // runtime control command even when logical routing is
+                // already cleared — a failed physical release is
+                // surfaced through capture_error_ and the command is
+                // refused. No duplicate release attempt: routing may
+                // be cleared despite a failed setter, but the
+                // observed epoch always reflects the LIVE SDL probe.
                 if (e.key.down && !e.key.repeat) {
+                    if (play.sdk_play()) {
+                        if (!submit_external_release_observation(play)) {
+                            capture_error_ = "Could not physically release cursor; "
+                                             "Pause / Step refused";
+                            return true;
+                        }
+                    } else if (captured_) {
+                        release(play);
+                    }
                     if (e.key.scancode == SDL_SCANCODE_F7)
                         play.step();
                     else if (play.paused())
@@ -132,6 +327,55 @@ class GameInput {
         return e.type == SDL_EVENT_TEXT_INPUT || e.type == SDL_EVENT_TEXT_EDITING;
     }
     static std::string key_control(SDL_Scancode key) { return sdl_key_control(key); }
+    // Centralized release + neutral + observation path. Used by every
+    // externally-requested release (SDK Escape, F6/F7, focus loss,
+    // external revocation / hide, toolbar Pause/Step) so the runtime
+    // sees exactly ONE observation per physical change. The captured
+    // / input_device fields reflect the OBSERVED
+    // SDL_GetWindowRelativeMouseMode flag (see SdlGameCursor). A
+    // failed setter can still leave the observed flag off, in which
+    // case we publish
+    // "captured=false" and surface the operation result through
+    // capture_error_. Returns true when the physical release
+    // succeeded; callers that REQUIRE a successful release before
+    // issuing a runtime command (Pause / Step) gate on this. Cursor
+    // platform-effect success acks use checked_release only and do
+    // NOT bump the epoch — the adapter owns its own ack channel and
+    // a successful cursor effect does not change the editor_epoch
+    // the runtime is using.
+    bool submit_external_release_observation(PlaySession& play, bool keep_routing = false) {
+        const bool released = release_checked(play, keep_routing);
+        // Always publish the ACTUAL SDL relative-mode state, even when
+        // the setter failed. The runtime needs to know whether the OS
+        // probe says relative-mode is on or off; lying about it would
+        // silently keep the runtime guard waiting on an epoch that
+        // never matches reality.
+        const bool physical_relative = relative();
+        // Input device: real gamepad activity takes precedence over
+        // the keyboard/mouse probe (an idle gamepad stays on
+        // KeyboardMouse). Falls back to EditorHost when no device is
+        // active so the runtime validator never receives an unknown
+        // string.
+        const std::string device = observed_input_device();
+        // Failure path still ships the observation so the runtime's
+        // guard can advance; success path ships it for the same
+        // reason. Either way the queue is bounded to one per call.
+        const bool queued = play.submit_editor_observation(physical_relative, device);
+        (void)queued;
+        return released;
+    }
+    // The runtime's documented enum (KeyboardMouse / Gamepad /
+    // EditorHost). Source of truth is existing
+    // SdlGamepads::activity() — no new input manager, no relative-
+    // mode guess. Returns the pad's literal string when a gamepad is
+    // active ("Gamepad"), "KeyboardMouse" otherwise. EditorHost is
+    // never fabricated from the cursor state; callers that need the
+    // EditorHost signal must set it explicitly.
+    std::string observed_input_device() const {
+        if (const auto* pad = pads_.activity())
+            return std::string{pad};
+        return "KeyboardMouse";
+    }
     void controls(PlaySession& play) {
         ImGui::BeginDisabled(captured_);
         ImGui::Checkbox("Relative mouse", &relative_mode_);
@@ -154,6 +398,7 @@ class GameInput {
                 capture(play, relative_mode_);
             }
         }
+        FORGE_UI_PROBE("button:Capture gameplay input");
         ImGui::EndDisabled();
         if (!capture_error_.empty())
             ImGui::TextWrapped("%s", capture_error_.c_str());

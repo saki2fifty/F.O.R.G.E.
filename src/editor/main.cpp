@@ -3,6 +3,7 @@
 #include "editor_capture_layout.hpp"
 #include "editor_fixture.hpp"
 #include "editor_input_workflow.hpp"
+#include "editor_sdk_workflow.hpp"
 #include "gltf_variant_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
 #include <backends/imgui_impl_sdl3.h>
@@ -47,6 +48,7 @@
 #include "performance.hpp"
 #include "physics_overlay.hpp"
 #include "play.hpp"
+#include "play_presentation.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
 #include "resource_inspector.hpp"
@@ -57,6 +59,7 @@
 #include "scene_cache.hpp"
 #include "scene_lighting.hpp"
 #include "scene_tools.hpp"
+#include "sdk_platform_effects.hpp"
 #include "shader_diligent.hpp"
 #include "shader_imports.hpp"
 #include "source_import.hpp"
@@ -102,9 +105,73 @@ int main(int argc, char** argv) {
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
-        forge::test::EditorInputWorkflow input_workflow(fixture.workflow, fixture.output,
-                                                        fixture.physics ? fixture.project
-                                                                        : std::filesystem::path{});
+        // Legacy EditorInputWorkflow runs only for the historical
+        // --workflow and --physics modes. SDK mode drives its own
+        // EditorSdkWorkflow so it never runs physics mutations or the
+        // old staged-capture fixture path.
+        forge::test::EditorInputWorkflow input_workflow(
+            fixture.workflow || fixture.physics, fixture.output,
+            fixture.physics ? fixture.project : std::filesystem::path{});
+        // SDK Play reference workflow: drives the editor + PlaySession
+        // through the standalone reference acceptance flow.
+        std::optional<forge::test::EditorSdkWorkflow> sdk_workflow;
+        // Bounded queue of capture requests emitted by the SDK
+        // workflow. The set_capture / set_failure_capture callbacks
+        // MUST NOT touch the GPU or write trace JSON themselves:
+        // they only enqueue. The actual fixture.capture(device,
+        // context, current_rtv, true, name) + atomic_write of the
+        // trace JSON runs once, after gui->Render, using the *current*
+        // swap-chain RTV for the frame. Never retain a swap buffer
+        // pointer across frames — the backbuffer index rotates.
+        struct SdkCaptureRequest {
+            std::string name;
+            forge::Json trace;
+            bool failure;
+        };
+        std::vector<SdkCaptureRequest> sdk_pending_captures;
+        // Tracks frame() exceptions raised from inside the SDK
+        // workflow. Set true on caught std::exception; consult at
+        // the end of the frame to (a) queue a synthetic failure
+        // capture that the next drain will execute, (b) exit the
+        // loop, and (c) mark result = 1. The workflow header is
+        // authoritative (done()/failed()/trace()/failure()); a
+        // local main-side flag here just lets us react when the
+        // SDK workflow threw instead of settling into a clean
+        // done()/failed() state through its public methods.
+        bool sdk_frame_exception = false;
+        std::string sdk_frame_exception_message;
+        if (fixture.sdk_play) {
+            sdk_workflow.emplace(fixture.output);
+            // Both callbacks only enqueue. They do NOT call
+            // fixture.capture or atomic_write. They do NOT retain
+            // a swap-chain pointer. Drain runs after gui->Render.
+            sdk_workflow->set_capture([&](std::string_view name, const forge::Json& trace) {
+                if (sdk_pending_captures.size() >= 32)
+                    sdk_pending_captures.erase(sdk_pending_captures.begin());
+                sdk_pending_captures.push_back({std::string(name), trace, /*failure=*/false});
+            });
+            sdk_workflow->set_failure_capture(
+                [&](std::string_view label, const forge::Json& trace) {
+                    if (sdk_pending_captures.size() >= 32)
+                        sdk_pending_captures.erase(sdk_pending_captures.begin());
+                    sdk_pending_captures.push_back({std::string(label), trace, /*failure=*/true});
+                });
+            // Existing-owner observation: the fixture reads the
+            // current logical routing state through GameInput::captured()
+            // rather than poking the input owner directly. The SDK
+            // workflow keeps a read-only `std::function<bool()>`; main
+            // owns the captured() query so the workflow never reaches
+            // across the ownership boundary to ask the input owner.
+            // No new input authority is introduced and no extra
+            // protocol field is shipped. The actual binding is
+            // installed below (immediately after `game_input` is
+            // declared) so the lambda does not reference a local
+            // before its declaration under the FORGE_UI_FIXTURE
+            // build — non-fixture syntax checks pass either way,
+            // but the fixture build needs the deferred bind.
+            // (sdk_workflow->set_game_input_observer(...) is invoked
+            // in the FORGE_UI_FIXTURE block at line ~342.)
+        }
 #endif
         auto* factory = LoadAndGetEngineFactoryD3D12();
         if (!factory)
@@ -130,6 +197,14 @@ int main(int argc, char** argv) {
                                       Win32NativeWindow{hwnd}, &swap);
         if (!swap)
             throw std::runtime_error("D3D12 swap chain initialization failed");
+#ifdef FORGE_UI_FIXTURE
+        // SDK Play mode drives the acceptance workflow. Captures
+        // are queued by the workflow callbacks above; the actual
+        // GPU readback + JSON write happens after gui->Render
+        // using the swap chain's CURRENT backbuffer index for
+        // this frame. We never bind a captured pointer from
+        // swap creation — the backbuffer rotates.
+#endif
         std::string ini;
         auto gui =
             ImGuiImplSDL3::Create(ImGuiDiligentCreateInfo{device, swap->GetDesc()}, window.get());
@@ -163,6 +238,18 @@ int main(int argc, char** argv) {
         char cmake_path[1024] = "cmake";
         char ninja_path[1024] = "ninja";
         char exact_sdk_root[1024]{};
+#ifdef FORGE_UI_FIXTURE
+        // SDK reference mode pins the SDK root from the CLI so the
+        // Play action uses the installed shared SDK forge_runtime.exe
+        // instead of the legacy fallback search path. Done here
+        // (after exact_sdk_root exists) rather than at fixture
+        // construction.
+        if (fixture.sdk_play) {
+            const auto sdk_root_u8 = fixture.sdk_root.u8string();
+            const std::string sdk_root_str(sdk_root_u8.begin(), sdk_root_u8.end());
+            SDL_strlcpy(exact_sdk_root, sdk_root_str.c_str(), sizeof(exact_sdk_root));
+        }
+#endif
         bool auto_build = false;
         forge::ui::SceneTools scene_tools;
         forge::ui::SpatialHelpers spatial_helpers;
@@ -256,6 +343,16 @@ int main(int argc, char** argv) {
         forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
         forge::GameInput game_input(window.get());
+#ifdef FORGE_UI_FIXTURE
+        // Deferred existing-owner observer bind. The fixture
+        // cannot install the game_input.captured() callback until
+        // game_input is in scope, so the bind is installed here
+        // rather than at sdk_workflow construction. The observer
+        // is read-only and never invents authority over the
+        // input owner.
+        if (sdk_workflow)
+            sdk_workflow->set_game_input_observer([&] { return game_input.captured(); });
+#endif
         forge::ProjectSettingsEditor project_settings;
         bool scene_lighting_open = false;
         const char* base = SDL_GetBasePath();
@@ -317,11 +414,111 @@ int main(int argc, char** argv) {
         bool initialize_layout = startup_layout.text.empty();
         forge::DiligentPresentation presentation(device);
         forge::Viewport viewport(presentation, true);
-        forge::FrameRenderer game_viewport(presentation);
+        auto game_viewport_owner = std::make_unique<forge::FrameRenderer>(presentation);
+        forge::FrameRenderer* game_viewport = game_viewport_owner.get();
         std::shared_ptr<forge::MeshResourceHost> mesh_resources;
+        // Runtime UI host is constructed BEFORE the staged presentation
+        // adapter so destruction order is correct: the adapter borrows
+        // the UI host pointer and must not outlive it. Both `play` and
+        // the rest of the editor lifetime are still above this scope.
+        forge::RuntimeUiHost runtime_ui(window.get(), device,
+                                        std::filesystem::path(base) /
+                                            "resources/ui/LatoLatin-Regular.ttf");
+        // Staged renderer/UI pair for Editor Play. Declared before the
+        // lambda so the lambda can keep its shared host in sync across
+        // resource resets. Adopted active renderer uses main's raw
+        // alias (`game_viewport`) which remains valid because
+        // `game_viewport_owner` lives in this scope too; the adapter
+        // takes the unique_ptr but main's pointer stays alive through
+        // the slot adopted below.
+        forge::PlayPresentation play_presentation;
+        play_presentation.set_presentation(&presentation);
+        play_presentation.set_context(context);
+        play_presentation.set_active_ui(&runtime_ui);
+        play_presentation.adopt_active_renderer(&game_viewport, std::move(game_viewport_owner));
+        // Narrow adapter that consumes SDK platform_effects offers
+        // and turns each into exactly one physical action via the
+        // existing owners (GameInput, RuntimeUiHost). Borrows
+        // references; no new owner, no new queue.
+        forge::SdkPlatformEffects sdk_effects(play, game_input, runtime_ui);
+        // Single-shot initial editor_epoch observation per session. Keyed by
+        // the actual current play.session() string so a new session
+        // (process restart, gameplay Quit, transport failure recovery)
+        // automatically re-arms; no manual reset at every stop site.
+        // Uses PlaySession::submit_editor_observation so the
+        // allocation rule (next positive beyond highest shipped AND
+        // any pending queued observation) is shared with every other
+        // consumer. Submission may be rejected by the transport (rare
+        // race with another queued observation, or overflow at the
+        // uint64 ceiling); either case leaves initial_epoch_session_
+        // unset so the next pump retries with a fresh observation.
+        std::string initial_epoch_session_;
+        auto submit_initial_epoch = [&](forge::PlaySession& play, forge::GameInput& game) {
+            if (!play.sdk_play() || !play.active() || play.session().empty())
+                return;
+            const auto wire_session = play.session();
+            if (initial_epoch_session_ == wire_session)
+                return;
+            // Physical relative mode is the LIVE SDL probe; never
+            // fabricate false without confirmation. Input device
+            // inspection uses GameInput::observed_input_device() so
+            // real gamepad activity takes precedence over an idle
+            // keyboard/mouse probe.
+            const bool queued =
+                play.submit_editor_observation(game.relative(), game.observed_input_device());
+            if (queued)
+                initial_epoch_session_ = wire_session;
+        };
+        // Root release_required: runtime asked us to release an outstanding
+        // capture. We attempt a physical release + ship a fresh
+        // monotonic epoch observation. One pending observation per
+        // root request; awaits the next snapshot response before
+        // retrying. Keyed by (session, snapshot_version) so a session
+        // change (gameplay Quit, transport recovery) auto-clears the
+        // flag even when sdk_release_required() stays true.
+        bool root_release_pending_ = false;
+        std::string root_release_session_;
+        std::uint64_t root_release_snapshot_version_ = 0;
+        auto submit_root_release_observation = [&](forge::PlaySession& play,
+                                                   forge::GameInput& game) {
+            if (root_release_pending_)
+                return; // await the next snapshot response
+            // Route through GameInput's centralized
+            // release + neutral + observation path. The helper
+            // ships one observation per call when the transport
+            // accepts; the latched pending flag is keyed by
+            // session + snapshot_version so a fresh response
+            // re-arms a retry. A failed release still advances
+            // the epoch — the runtime's release-guard cares
+            // about the observed state, not the setter result;
+            // the setter result is surfaced separately through
+            // capture_error_.
+            const auto prior_effective = play.current_effective_epoch();
+            const bool released = game.submit_external_release_observation(play, true);
+            const bool advanced = play.current_effective_epoch() > prior_effective;
+            if (advanced) {
+                root_release_pending_ = true;
+                root_release_session_ = play.session();
+                root_release_snapshot_version_ = play.snapshot_version();
+            }
+            (void)released;
+        };
         auto reset_mesh_resources = [&] {
+            // Project switch: drop the bounded effects cache BEFORE
+            // resource recreation so a stale (session, token,
+            // sequence, epoch) cannot be acked against the new
+            // project.
+            sdk_effects.clear();
+            // Always clear staged hosts FIRST so any recreation failure
+            // does not leave the staged renderer referencing a
+            // shared host that has been freed. The adapter holds its
+            // own strong reference via set_mesh_resource_host, so this
+            // drop only affects the staged slot; live renderer/UI
+            // are unaffected.
+            play_presentation.clear(play);
             viewport.resources({});
-            game_viewport.resources({});
+            game_viewport->resources({});
+            play_presentation.set_mesh_resource_host({});
             mesh_resources.reset();
             try {
                 auto host = std::make_shared<forge::MeshResourceHost>(presentation, context,
@@ -329,14 +526,17 @@ int main(int argc, char** argv) {
                 host->catalog(std::make_shared<const forge::AssetCatalog>(
                     forge::AssetCatalog::open_project(files.document.project())));
                 viewport.resources(host);
-                game_viewport.resources(host);
+                game_viewport->resources(host);
                 mesh_resources = std::move(host);
+                play_presentation.set_mesh_resource_host(mesh_resources);
             } catch (const std::exception& e) {
                 message = std::string("Mesh resources unavailable: ") + e.what();
                 forge::ui::report_error("render.mesh.resource", message);
             }
         };
         reset_mesh_resources();
+        // `game_viewport` is now tracking the live renderer through
+        // the slot adopted by play_presentation.
         forge::MeshMaterialInspector mesh_material_inspector;
         component_inspector.material_slots = [&](const forge::Json& renderer,
                                                  forge::Json& materials) {
@@ -348,9 +548,6 @@ int main(int argc, char** argv) {
                                            mesh);
             return mesh_material_inspector.draw(materials);
         };
-        forge::RuntimeUiHost runtime_ui(window.get(), device,
-                                        std::filesystem::path(base) /
-                                            "resources/ui/LatoLatin-Regular.ttf");
         forge::RuntimeUiTools runtime_ui_tools;
         forge::AuthoringSnapshot authoring_snapshot;
         forge::PrefabEditor prefab_editor;
@@ -358,7 +555,30 @@ int main(int argc, char** argv) {
         forge::SceneAssetDrop scene_asset_drop;
         authored_components.project_changed(scene, files.document);
         forge::PreviewSnapshot preview_snapshot, game_preview_snapshot;
-        bool game_visible = false, focus_game = false;
+        bool game_visible = false, focus_game = false, game_visible_was_ = false;
+        // ImGui-side keyboard/window focus on the Game panel. The
+        // SDK adapter only re-acquires logical menu routing when the
+        // Game panel is actually focused, not merely visible — a
+        // visible Game alongside a focused Scene/Console panel must
+        // not silently reclaim routing after the user surrendered
+        // it by clicking elsewhere.
+        bool game_focused = false;
+        // Mirrors the existing game_input.pump input-allow condition
+        // at line 1110 (workspace.game + game_visible + !files.busy()
+        // + no WantTextInput + no open popup + SDL_WINDOW_INPUT_FOCUS).
+        // The platform_effects adapter consults this instead of
+        // workspace.game alone so a configured-open Game tab whose
+        // actual content is not currently visible / focused cannot
+        // execute capture offers. Declared right after game_visible
+        // so the lambda captures the live visibility flag rather than
+        // workspace.game alone.
+        auto input_allowed = [&] {
+            return workspace.game && game_visible && !files.busy() &&
+                   !ImGui::GetIO().WantTextInput &&
+                   !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                    ImGuiPopupFlags_AnyPopupLevel) &&
+                   (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS);
+        };
         forge::EditorCamera camera;
         try {
             forge::restore_view(files.document, camera);
@@ -901,7 +1121,11 @@ int main(int argc, char** argv) {
         bool running = true;
         std::string current_title;
 #ifdef FORGE_UI_FIXTURE
-        if (!fixture.workflow) {
+        // SDK mode drives the supplied reference project unchanged.
+        // The legacy cube/prefab/UI-document mutations belong to the
+        // staged-capture fixture path (workflow == false) and must
+        // not run for SDK.
+        if (!fixture.workflow && !fixture.sdk_play) {
             editor.selection.select_entity(
                 forge::authoring_command(scene, "entity.create", {{"name", "Fixture cube"}})
                     .at("selected"));
@@ -1049,8 +1273,19 @@ int main(int argc, char** argv) {
                      event.key.key == SDLK_KP_0);
                 if (zoom_key || (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                                  (!game_input.relative() &&
-                                  game_input.outside(event.button.x, event.button.y))))
-                    game_input.release(play);
+                                  game_input.outside(event.button.x, event.button.y)))) {
+                    // Single setter per transition. SDK profile
+                    // routes through the centralized checked helper
+                    // so the runtime sees exactly one observation
+                    // and the neutral edge; legacy profile keeps the
+                    // simple release() path. Calling both would
+                    // double the SDL setter and could mask the first
+                    // failure.
+                    if (play.sdk_play())
+                        game_input.submit_external_release_observation(play);
+                    else
+                        game_input.release(play);
+                }
                 if (runtime_ui.event(event, game_input, play))
                     continue;
                 if (game_input.event(event, play))
@@ -1124,6 +1359,90 @@ int main(int argc, char** argv) {
             }
             play.pump();
             authored_components.poll(scene, files.document);
+            // Auto-clear pending root-release observation when sdk_release_required
+            // flips off (success), or the session changed, or a fresh snapshot
+            // response arrived past the version this request was bound to.
+            if (!initial_epoch_session_.empty() && initial_epoch_session_ != play.session())
+                initial_epoch_session_.clear();
+            if (root_release_pending_ &&
+                (!play.sdk_release_required() || root_release_session_ != play.session() ||
+                 play.snapshot_version() > root_release_snapshot_version_)) {
+                root_release_pending_ = false;
+                root_release_session_.clear();
+                root_release_snapshot_version_ = 0;
+            }
+            // Commit before sync: the staging adapter must swap in the
+            // staged UI before runtime_ui.sync sees the next
+            // generation, otherwise sync would destroy the prepared
+            // presenter before activate.
+            play_presentation.poll(play, files.document.project());
+            if (auto failure = play_presentation.take_commit_failure(); !failure.empty()) {
+                // Adapter stopped Play to avoid a mixed swap; surface
+                // the cause on the existing Problems / status path so
+                // the editor keeps running.
+                editor.problems.ingest({"play-stage/" + failure, "error", failure});
+                message = std::move(failure);
+            }
+#ifdef FORGE_UI_FIXTURE
+            // SDK Play acceptance: drive the EditorSdkWorkflow each
+            // frame so the standalone reference flow runs against the
+            // live editor + PlaySession. Gate on the PlayPresentation
+            // staged-UI state so we never drive input against a tree
+            // that is not the published live owner.
+            if (sdk_workflow && !sdk_workflow->done() && !sdk_workflow->failed()) {
+                try {
+                    sdk_workflow->frame(play, window.get(), play_presentation.has_staged());
+                } catch (const std::exception& e) {
+                    // Real evidence, not a swallowed message. Mark
+                    // the local flag so the post-render drain
+                    // queues an actual capture, then end the loop
+                    // and report result=1 via the done/failed
+                    // branch below. The workflow's public
+                    // trace()/failure() methods continue to expose
+                    // whatever the workflow itself recorded before
+                    // the throw — we augment with the exception
+                    // payload here so the final workflow.json
+                    // contains it.
+                    sdk_frame_exception = true;
+                    sdk_frame_exception_message = e.what();
+                }
+            }
+#endif
+            // SDK editor_epoch + release_required housekeeping. The
+            // runtime needs an initial observation per session before
+            // any candidate ack or activation can pass its release
+            // guard; submit_sdk_editor_epoch enforces strict monotonic
+            // positive epochs so we never roll back.
+            submit_initial_epoch(play, game_input);
+            // Root release_required does not require play.ready():
+            // a still-loading or unloaded SDK session can still
+            // publish a release_required flag (focus loss, OS
+            // revocation, external surrender). Hidden / paused is
+            // also allowed — root release works while hidden.
+            if (play.sdk_release_required() && play.sdk_play() && play.active())
+                submit_root_release_observation(play, game_input);
+            // SDK platform effects pump + ack drain + transport-stop guard
+            // have been moved below the ImGui render block (after
+            // line ~3497) so the adapter sees the CURRENT frame's
+            // game_focused + game_visible, not the previous frame's
+            // stale values. The previous-frame bool issue is fixed:
+            // before this move the pump ran in the early-frame
+            // section, before Begin() re-sampled IsWindowFocused(),
+            // so surrender/return transitions could lag by a frame.
+            // The behaviour contract is unchanged: hidden / unfocused
+            // capture is rejected, focus return alone does not
+            // re-arm routing, and OS-focus loss clears the flag.
+            // See the moved block for the full commentary.
+            // Loading cancel: drain the presenter's pending cancel and
+            // forward the EXACT ticket through the bounded protocol
+            // command. Foreign / stale tickets are rejected by
+            // submit_sdk_cancel_loading (validated against the live
+            // sdk_loading observation).
+            if (auto cancel = runtime_ui.take_loading_cancel_exact(
+                    play.sdk_loading().value("ticket", std::uint64_t{}),
+                    play.sdk_loading().value("can_cancel", false));
+                cancel)
+                play.submit_sdk_cancel_loading(*cancel);
             runtime_ui.sync(play, files.document.project(), workspace.game);
             native->simulation_hz = files.document.settings().simulation_hz();
             native->gravity = files.document.settings().physics().gravity;
@@ -1153,7 +1472,12 @@ int main(int argc, char** argv) {
                     : "";
             automation.pump(files.document, automation_busy);
 #ifdef FORGE_UI_FIXTURE
-            if (fixture.workflow) {
+            // SDK Play: skip the legacy EditorInputWorkflow and the
+            // staged-capture ImGui path entirely. The editor renders
+            // the same frame the SDK acceptance is reading.
+            if (fixture.sdk_play) {
+                gui->NewFrame(width, height, swap->GetDesc().PreTransform);
+            } else if (fixture.workflow) {
                 ImGui_ImplSDL3_NewFrame();
                 input_workflow.input();
                 gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
@@ -1329,6 +1653,16 @@ int main(int argc, char** argv) {
                            !blockout.active() && !scene_tools.move.active(),
                        [&] {
                            const bool sdk = files.document.settings().requires_native_sdk();
+                           // The opt-in SDK Play profile is gated by an
+                           // exact-SDK configuration AND an authored
+                           // "game" section. Both must be true; legacy
+                           // exact-SDK callers and SDK-less callers
+                           // remain unaffected. We do not synchronously
+                           // read the project file inside configure —
+                           // settings already mirrors the authored
+                           // document.
+                           const bool sdk_game =
+                               sdk && files.document.settings().document().contains("game");
                            auto executable = std::filesystem::path(runtime_path);
                            if (sdk) {
                                const auto root = exact_sdk_root[0]
@@ -1343,25 +1677,67 @@ int main(int argc, char** argv) {
                            play.configure(files.document.settings().simulation_hz(),
                                           files.document.settings().input(),
                                           files.document.settings().physics().gravity,
-                                          files.document.project(), sdk);
+                                          files.document.project(), sdk, sdk_game);
+#ifdef FORGE_UI_FIXTURE
+                           // SDK reference mode: route the runtime's
+                           // --user-data to a private writable base
+                           // supplied on the CLI so this run never
+                           // touches the real user's saves. Normal
+                           // production callers leave the default
+                           // (game_user_data_base()).
+                           if (fixture.sdk_play)
+                               play.set_user_data_override(fixture.user_data);
+#endif
                            play.start(forge::path_utf8(executable), scene.snapshot(),
                                       sdk ? std::string{} : native->artifact());
                            workspace.game = true;
                            focus_game = true;
                        });
             add_action("pause", play.active() && play.paused() ? "Resume" : "Pause", "F6",
-                       "Pause or resume the runtime clock.", play.control_ready(), [&] {
+                       "Pause or resume the runtime clock. SDK profile requires an observed "
+                       "physical release before Pause.",
+                       play.control_ready(), [&] {
+                           if (play.sdk_play()) {
+                               // Single centralized
+                               // release + neutral + observation
+                               // path; success gates the runtime
+                               // command, failure surfaces via
+                               // message and capture_error_ instead
+                               // of silently stopping. No duplicate
+                               // release attempt.
+                               if (!game_input.submit_external_release_observation(play, true)) {
+                                   message = "Pause refused: physical release failed";
+                                   return;
+                               }
+                           }
                            if (play.paused())
                                play.resume();
                            else
                                play.pause();
                        });
-            add_action("step", "Step", "F7", "Run exactly one fixed tick and remain paused.",
-                       play.control_ready() && play.paused(), [&] { play.step(); });
+            add_action("step", "Step", "F7",
+                       "Run exactly one fixed tick and remain paused. SDK profile requires an "
+                       "observed physical release before Step.",
+                       play.control_ready() && play.paused(), [&] {
+                           if (play.sdk_play()) {
+                               if (!game_input.submit_external_release_observation(play, true)) {
+                                   message = "Step refused: physical release failed";
+                                   return;
+                               }
+                           }
+                           play.step();
+                       });
             add_action("stop", "Stop", "",
                        "Stop the isolated runtime. The authored scene is preserved.", play.active(),
                        [&] {
                            game_input.release(play);
+                           sdk_effects.clear();
+                           // initial_epoch_session_ is keyed by
+                           // play.session() and auto-clears on the
+                           // next pump when the wire session
+                           // differs. root_release_pending_ is keyed
+                           // by session + snapshot_version and also
+                           // auto-clears on session change.
                            play.stop();
                        });
             add_action("recover", "Recover runtime", "",
@@ -1413,8 +1789,11 @@ int main(int argc, char** argv) {
             };
             commands.actions = &actions;
 #ifdef FORGE_UI_FIXTURE
-            if (!fixture.workflow && (SDL_GetTicks() - fixture.started > 240000 ||
-                                      SDL_GetTicks() - fixture.stage_started > 45000)) {
+            // Legacy staged-capture timeout; bypass for SDK mode (the
+            // dedicated EditorSdkWorkflow tracks its own deadline).
+            if (!fixture.workflow && !fixture.sdk_play &&
+                (SDL_GetTicks() - fixture.started > 240000 ||
+                 SDL_GetTicks() - fixture.stage_started > 45000)) {
                 forge::Json stalled{
                     {"stage", fixture.stage},
                     {"frames", fixture.frames},
@@ -1440,7 +1819,7 @@ int main(int argc, char** argv) {
                     "; model state=" + (model_viewer ? model_viewer->loading_state() : "absent") +
                     "; import=" + model_imports.diagnostic());
             }
-            if (!fixture.workflow && !fixture.prepared) {
+            if (!fixture.workflow && !fixture.sdk_play && !fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
                 case 0:
@@ -2298,8 +2677,11 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             // Fixture windows must respect the scaled toolbar/status work area.
             // Fixed pixel positions from the 100% stage hide their title at 200%.
-            if (const auto* target = fixture.focused_document())
-                forge::test::fit_capture_window(target, forge::ui::interface_scale);
+            // Skipped for --sdk-play; the SDK workflow owns window focus.
+            if (!fixture.sdk_play) {
+                if (const auto* target = fixture.focused_document())
+                    forge::test::fit_capture_window(target, forge::ui::interface_scale);
+            }
 #endif
             if (!edit_locked)
                 files.shortcuts(scene_task);
@@ -2459,13 +2841,19 @@ int main(int argc, char** argv) {
                         "Filter entity names and IDs; matching descendants retain their "
                         "ancestors. ASCII case-insensitive.");
                     int expand = 0;
-                    if (forge::ui::button("Expand all", "Expand all hierarchy branches."))
+                    if (forge::ui::button("Expand all", "Expand all hierarchy branches.")) {
+                        FORGE_UI_PROBE("hierarchy:expand-all");
                         expand = 1;
+                    } else
+                        FORGE_UI_PROBE("hierarchy:expand-all");
                     forge::ui::next_text_button("Collapse all");
                     if (forge::ui::button(
                             "Collapse all",
-                            "Collapse all hierarchy branches. Search keeps matching paths open."))
+                            "Collapse all hierarchy branches. Search keeps matching paths open.")) {
+                        FORGE_UI_PROBE("hierarchy:collapse-all");
                         expand = -1;
+                    } else
+                        FORGE_UI_PROBE("hierarchy:collapse-all");
                     editor.task.focus(forge::ui::DocumentTask::Scene);
                     forge::ui::hierarchy(doc, selected, hierarchy_filter, expand, &scene,
                                          edit_locked);
@@ -2646,6 +3034,14 @@ int main(int argc, char** argv) {
                 blockout.cancel();
             }
             game_visible = false;
+            // The Game panel's focus flag is sampled below ONLY inside
+            // the (game_view && view_visible) branch. If the Game tab
+            // is hidden this frame (closed dock, swapped to Scene),
+            // the previous frame's value would otherwise leak into
+            // the SDK platform-effects adapter. Reset here so a
+            // hidden Game panel always reports game_focused=false to
+            // the adapter until Begin() re-samples it.
+            game_focused = false;
             for (const bool game_view : {false, true}) {
                 auto& view_open = game_view ? workspace.game : workspace.scene;
                 auto& view_camera = camera;
@@ -2671,8 +3067,15 @@ int main(int argc, char** argv) {
                                  ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
                 FORGE_UI_TAB_PROBE(game_view ? "tab:Game" : "tab:Scene");
                 if (view_visible) {
-                    if (game_view)
+                    if (game_view) {
                         game_visible = true;
+                        // ImGui focus reflects which panel the user
+                        // last clicked. Sampling it here (immediately
+                        // after Begin() returned visible) gives the
+                        // SDK adapter a truthful per-frame focus flag
+                        // for routing-acquisition decisions.
+                        game_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+                    }
                     editor.task.focus(forge::ui::DocumentTask::Scene);
                     if (game_view) {
                         ImGui::TextUnformatted(play.can_recover() ? "CRASHED / Recovery available"
@@ -2838,10 +3241,38 @@ int main(int argc, char** argv) {
                     viewport.exposure(scene_tools.exposure);
                     if (game_view && !play.ready()) {
                         ImGui::TextWrapped("%s", play.status().c_str());
-                        ImGui::TextWrapped("Use Play to start the isolated runtime. Scene remains "
-                                           "your authored workspace.");
-                        if (play.can_recover())
-                            actions.button("recover");
+                        const bool sdk_active_no_world =
+                            play.active() && play.sdk_play() && !play.sdk_activation_active();
+                        if (sdk_active_no_world) {
+                            // SDK session is alive but the runtime
+                            // has not promoted a candidate world (or
+                            // has just unloaded). Show useful
+                            // loading / error status and offer
+                            // Stop — do not instruct the user to
+                            // press a now-disabled Play button or to
+                            // treat this as their authored scene.
+                            const auto& loading = play.sdk_loading();
+                            if (loading.is_object() &&
+                                loading.value("state", std::string{}) != "idle") {
+                                const auto stage = loading.value("stage", std::string{});
+                                const auto error = loading.value("error", std::string{});
+                                if (!error.empty())
+                                    ImGui::TextWrapped("Runtime: %s", error.c_str());
+                                else if (!stage.empty())
+                                    ImGui::TextWrapped("Runtime loading: %s", stage.c_str());
+                            }
+                            if (const auto rdiag = runtime_ui.diagnostic(); !rdiag.empty())
+                                ImGui::TextWrapped("Runtime UI: %s", rdiag.c_str());
+                            actions.button("stop");
+                        } else if (!play.active()) {
+                            ImGui::TextWrapped(
+                                "Use Play to start the isolated runtime. Scene remains "
+                                "your authored workspace.");
+                            if (play.can_recover())
+                                actions.button("recover");
+                        } else {
+                            ImGui::TextWrapped("Play is starting...");
+                        }
                         ImGui::End();
                         continue;
                     }
@@ -2925,7 +3356,7 @@ int main(int argc, char** argv) {
                                         can_edit && !scene_tools.move.active(), message);
                         unsigned guide_width = unsigned(std::max(1.f, size.x)),
                                  guide_height = unsigned(std::max(1.f, size.y));
-                        if (auto* output = game_viewport.output()) {
+                        if (auto* output = game_viewport->output()) {
                             const auto& target = output->GetTexture()->GetDesc();
                             guide_width = target.Width;
                             guide_height = target.Height;
@@ -2967,7 +3398,8 @@ int main(int argc, char** argv) {
                         const auto render_height = unsigned(std::max(1.0f, size.y * render_scale));
                         auto* texture =
                             game_view
-                                ? game_viewport.game(context, rendered, render_width, render_height)
+                                ? game_viewport->game(context, rendered, render_width,
+                                                      render_height)
                                 : viewport.render(context, rendered, render_width, render_height,
                                                   view_camera, view_cache.generation(),
                                                   performance.continuous,
@@ -2998,9 +3430,9 @@ int main(int argc, char** argv) {
                                              can_edit && !modal.active());
                         const auto animation_debug = forge::prepare_animation_debug(
                             rendered,
-                            game_view ? game_viewport.game_scene() : viewport.render_scene());
+                            game_view ? game_viewport->game_scene() : viewport.render_scene());
                         if (game_view) {
-                            for (const auto& active : game_viewport.cameras()) {
+                            for (const auto& active : game_viewport->cameras()) {
                                 const auto& area = active.view.viewport;
                                 const ImVec2 low{image_origin.x + size.x * area.x / render_width,
                                                  image_origin.y + size.y * area.y / render_height};
@@ -3029,11 +3461,11 @@ int main(int argc, char** argv) {
                                  (modal.active() ? ImGui::GetTextLineHeight() + 20 : 0)},
                             IM_COL32(185, 200, 215, 255),
                             (game_view
-                                 ? (game_viewport.cameras().empty()
+                                 ? (game_viewport->cameras().empty()
                                         ? std::string("No active Camera. Use Entity > Create > "
                                                       "Rendering > Camera.")
                                         : "Game cameras: " +
-                                              std::to_string(game_viewport.cameras().size()))
+                                              std::to_string(game_viewport->cameras().size()))
                                  : std::string(view_camera.view_name()) + " | Perspective")
                                 .c_str());
 
@@ -3047,12 +3479,98 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
+            // SDK platform effects pump — moved from the early-frame
+            // section so the adapter sees the CURRENT frame's focus
+            // and visibility flags, not the previous frame's stale
+            // values. Begin() above re-sampled ImGui::IsWindowFocused
+            // and assigned game_focused for this frame; the os_focus
+            // SDL probe and game_visible AND input_allowed() are also
+            // fresh here.
+            //
+            // The contract is unchanged:
+            //   * Hidden / unfocused capture offers are rejected with
+            //     a bounded diagnostic (cursor.hidden, cursor.unfocused)
+            //     and a negative ack so the runtime knows the OS
+            //     refused.
+            //   * The cache keeps pruning on every pump so a fresh
+            //     offer does not see stale results.
+            //   * The capture permission signal is the ACTUAL Game
+            //     content visibility ANDED with the existing input
+            //     ownership allow condition — workspace.game alone is
+            //     a configured-open flag and can be true while another
+            //     dock tab has stolen focus.
+            //   * Hidden / paused still pump release + control;
+            //     navigation against an unavailable UI returns a
+            //     negative ack.
+            //   * No automatic capture on focus return — the existing
+            //     transition gates already require a fresh capture
+            //     request through the platform effects offer channel.
+            //   * The adapter only re-acquires menu routing when the
+            //     Game panel is both visible AND holds ImGui focus,
+            //     preventing a visible Game alongside a focused
+            //     Scene/Console panel from silently reclaiming
+            //     routing after the user surrendered it by clicking
+            //     elsewhere.
+            //   * OS-focus loss (Alt-Tab away, snapped / minimized,
+            //     OS dialog) clears the focus flag here too. Returning
+            //     OS focus alone does NOT re-arm routing; the user
+            //     must also click back into the Game panel.
+            const bool os_focus = (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) != 0;
+            sdk_effects.set_game_focused(game_focused && os_focus);
+            sdk_effects.pump(game_visible && input_allowed());
+            {
+                forge::Json pending_acks;
+                if (sdk_effects.take_pending_ack(pending_acks)) {
+                    // Ack submission rides the next snapshot request
+                    // through PlaySession; main has nothing else to
+                    // do here.
+                    (void)pending_acks;
+                }
+            }
+            // Adapter asked us to stop Play (e.g. transport refused
+            // the platform_acks batch and we cannot hang). Honour it
+            // via the existing stop path; the authored scene stays.
+            // Surface a concise diagnostic to the existing Problems
+            // channel AND the editor status message so the user
+            // learns WHY the editor halted (the adapter requested a
+            // hard stop after the transport refused a batch) instead
+            // of seeing an unexplained Play termination.
+            if (sdk_effects.stop_requested()) {
+                const auto why = std::string("play.sdk_effects.transport_refused: "
+                                             "platform_acks batch was rejected; stopping Play "
+                                             "to avoid hanging on an unresponsive transport.");
+                editor.problems.ingest({"play-sdk-effects/" + why, "error", why});
+                message = why;
+                sdk_effects.clear_stop_request();
+                game_input.release(play);
+                sdk_effects.clear();
+                play.stop();
+            }
             if (!workspace.scene) {
                 scene_tools.move.cancel();
                 modal.cancel();
             }
-            if (!game_visible)
-                game_input.release(play);
+            // Hidden-tab revocation: a visible→hidden transition must revoke
+            // logical menu routing AND ship the SDK observation epoch
+            // so the runtime's release-guard advances. The SDK path
+            // uses the centralized checked helper
+            // (`submit_external_release_observation`) which performs
+            // the physical release, ships the neutral edge, and
+            // queues one editor_epoch observation through the same
+            // pipeline GameInput::pump / SDL focus events use. The
+            // legacy profile falls back to the existing release(play)
+            // void path because it has no observation to ship.
+            // Guarded by the was-visible → hidden transition so a
+            // hidden frame does not repeat the release; the per-frame
+            // pump() is the single owner of the SDK release-guard
+            // epoch and we must not double-setter it.
+            if (!game_visible && game_visible_was_) {
+                if (play.sdk_play())
+                    game_input.submit_external_release_observation(play, /*keep_routing=*/false);
+                else
+                    game_input.release(play);
+            }
+            game_visible_was_ = game_visible;
             if (content_thumbnails) {
                 if (content_thumbnails->project() != files.document.project())
                     content_thumbnails.reset(); // Previous frame was already submitted.
@@ -3351,7 +3869,7 @@ int main(int argc, char** argv) {
             }
             if (play.ready()) {
                 forge::Json records = forge::Json::array();
-                for (const auto& diagnostic : game_viewport.diagnostics())
+                for (const auto& diagnostic : game_viewport->diagnostics())
                     records.push_back(forge::diagnostic_json(diagnostic));
                 collect_diagnostics(records);
             }
@@ -3368,11 +3886,13 @@ int main(int argc, char** argv) {
             if (rebuilt_workspace)
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
-            if (const auto* target = fixture.focused_document())
-                if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
-                    (fixture.stage >= 73 && fixture.stage < 82) ||
-                    (fixture.stage >= 85 && fixture.stage <= 96))
-                    ImGui::SetWindowFocus(target);
+            if (!fixture.sdk_play) {
+                if (const auto* target = fixture.focused_document())
+                    if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
+                        (fixture.stage >= 73 && fixture.stage < 82) ||
+                        (fixture.stage >= 85 && fixture.stage <= 96))
+                        ImGui::SetWindowFocus(target);
+            }
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
             const auto drawn_thumbnail_count =
@@ -3388,7 +3908,68 @@ int main(int argc, char** argv) {
             ImGui::PopItemFlag();
             gui->Render(context);
 #ifdef FORGE_UI_FIXTURE
-            if (fixture.workflow) {
+            // SDK Play: drain the bounded queue of capture requests
+            // queued by sdk_workflow's set_capture / set_failure_capture
+            // callbacks. We use the CURRENT backbuffer for this frame
+            // (swap rotates the RTV across frames; never retain a
+            // pointer from outside the drain). A caught frame exception
+            // queues a synthetic failure capture here but does NOT
+            // clear the flag — the termination branch below needs the
+            // flag to write the final workflow.json, set result=1,
+            // and end the loop. Clearing here would let the throw
+            // loop forever.
+            if (sdk_frame_exception && sdk_workflow) {
+                forge::Json failure_trace = sdk_workflow->failure();
+                if (failure_trace.is_null())
+                    failure_trace = forge::Json::object();
+                failure_trace["frame_exception"] = sdk_frame_exception_message;
+                failure_trace["frame_exception_caught"] = true;
+                if (sdk_pending_captures.size() >= 32)
+                    sdk_pending_captures.erase(sdk_pending_captures.begin());
+                sdk_pending_captures.push_back(
+                    {"sdk-workflow-frame-exception", failure_trace, /*failure=*/true});
+            }
+            if (sdk_workflow && !sdk_pending_captures.empty()) {
+                auto* current_rtv = swap->GetCurrentBackBufferRTV();
+                for (const auto& pending : sdk_pending_captures) {
+                    fixture.capture(device, context, current_rtv, true, pending.name);
+                    const auto file = pending.failure
+                                          ? std::filesystem::path("sdk-workflow-failure.json")
+                                          : std::filesystem::path("sdk-" + pending.name + ".json");
+                    forge::atomic_write(fixture.output / file, pending.trace.dump(2));
+                }
+                sdk_pending_captures.clear();
+            }
+            // SDK Play: write FINAL workflow.json when the workflow
+            // settles (done, failed, or uncaught frame exception) and
+            // end the loop. failed()/sdk_frame_exception set result=1.
+            // The full trace is preserved; failure is added as a field
+            // rather than replacing the trace object.
+            const bool sdk_failed = sdk_workflow && (sdk_workflow->failed() || sdk_frame_exception);
+            const bool sdk_done = sdk_workflow && sdk_workflow->done() && !sdk_frame_exception;
+            if (sdk_workflow && (sdk_failed || sdk_done)) {
+                forge::Json record = sdk_workflow->trace();
+                if (record.is_null())
+                    record = forge::Json::object();
+                if (sdk_workflow->failed())
+                    record["failure"] = sdk_workflow->failure();
+                if (sdk_frame_exception) {
+                    record["frame_exception"] = sdk_frame_exception_message;
+                    record["frame_exception_caught"] = true;
+                }
+                record["complete"] = sdk_done;
+                record["build"] = forge::build_id;
+                record["source_commit"] = forge::source_commit;
+                record["platform"] = "Windows / D3D12 WARP";
+                record["window_pixels"] = {width, height};
+                record["visual_review"] = "Pending human/agent image inspection";
+                record["sdk_play"] = true;
+                forge::atomic_write(fixture.output / "workflow.json", record.dump(2));
+                if (sdk_failed)
+                    result = 1;
+                sdk_frame_exception = false;
+                running = false;
+            } else if (fixture.workflow) {
                 forge::Json selected_preview = forge::Json::object();
                 if (!selected.empty()) {
                     auto effective = scene.effective_document();
@@ -3420,7 +4001,7 @@ int main(int argc, char** argv) {
                     {"control_ready", play.control_ready()},
                     {"paused", play.paused()},
                     {"tick", play.timing().value("tick", std::uint64_t{0})},
-                    {"cameras", game_viewport.cameras().size()},
+                    {"cameras", game_viewport->cameras().size()},
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
                 auto observed = state;
@@ -3475,7 +4056,7 @@ int main(int argc, char** argv) {
                     });
                 if (input_workflow.done())
                     running = false;
-            } else {
+            } else if (!fixture.sdk_play) {
                 ++fixture.frames;
                 bool captured_document_visible = true;
                 if (const auto* target = fixture.focused_document()) {

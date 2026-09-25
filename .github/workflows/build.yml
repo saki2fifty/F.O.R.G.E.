@@ -266,7 +266,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "editor_process_and_scale|editor_native_iteration" --output-on-failure
       - id: editor-build
-        run: cmake --build ../AgentFiles/b --target forge_game forge_game_fixture forge_game_content_tests forge_game_foundation_tests forge_game_platform_tests forge_draw_fallback_tests forge_cache_maintenance_tests forge_asset_scale_tests forge_runtime_package_tests forge_standalone_manifest_tests forge_authored_schema_tests forge_authored_component_tests forge_authored_migration_tests forge_authored_components_editor_tests forge_render_bounds_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_mesh_asset_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_content_files_tests forge_source_copy_tests forge_asset_file_transaction_tests forge_asset_file_operations_tests forge_texture_asset_tests forge_texture_import_tests forge_texture_ktx_tests forge_texture_dds_tests forge_texture_bmp_tests forge_texture_webp_tests forge_texture_pipeline_tests forge_texture_bundle_tests forge_texture_editor_tests forge_model_editor_tests forge_asset_import_service_tests forge_asset_build_worker forge_resource_tests forge_asset_publication_tests forge_asset_robustness_tests forge_gltf_official_corpus_tests forge_gltf_official_tests forge_asset_worker_tests forge_asset_worker_fixture forge_asset_importer_tests forge_import_settings_tests forge_gltf_animation_tests forge_gltf_hierarchy_tests forge_gltf_mesh_tests forge_mesh_processing_tests forge_gltf_meshopt_tests forge_gltf_draco_tests forge_gltf_surfaces_tests forge_gltf_snapshot_tests forge_model_bundle_tests forge_model_pipeline_tests forge_model_scene_tests forge_gltf_ozz_tests forge_morph_animation_tests forge_gltf_native_tests forge_gltf_accessor_tests forge_gltf_source_tests forge_subasset_identity_tests forge_asset_subasset_tests forge_asset_discovery_tests forge_asset_build_tests forge_asset_job_tests forge_runtime_ui_tests forge_ui_presenter_tests forge_runtime_ui_package_tests forge_ui_catalog_presenter_tests forge_ui_asset_catalog_tests forge_ui_render_tests forge_ui_input_tests forge_editor_fixture forge_editor forge_runtime forge_nav_build forge_navigation_tests forge_navigation_mesh_tests gltf2ozz forge_animation_worker_tests forge_animation_worker_fixture forge_animation_tests forge_animation_archive_tests forge_audio_asset_tests forge_audio_tests forge_physics_tests forge_collision_asset_tests forge_collision_pipeline_tests forge_module_tests forge_services_tests forge_runtime_clock_tests forge_sample forge_tools forge_prefab_tests forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_game forge_game_fixture forge_game_content_tests forge_game_foundation_tests forge_game_platform_tests forge_draw_fallback_tests forge_cache_maintenance_tests forge_asset_scale_tests forge_runtime_package_tests forge_standalone_manifest_tests forge_authored_schema_tests forge_authored_component_tests forge_authored_migration_tests forge_authored_components_editor_tests forge_render_bounds_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_mesh_asset_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_content_files_tests forge_source_copy_tests forge_asset_file_transaction_tests forge_asset_file_operations_tests forge_texture_asset_tests forge_texture_import_tests forge_texture_ktx_tests forge_texture_dds_tests forge_texture_bmp_tests forge_texture_webp_tests forge_texture_pipeline_tests forge_texture_bundle_tests forge_texture_editor_tests forge_model_editor_tests forge_asset_import_service_tests forge_asset_build_worker forge_resource_tests forge_asset_publication_tests forge_asset_robustness_tests forge_gltf_official_corpus_tests forge_gltf_official_tests forge_asset_worker_tests forge_asset_worker_fixture forge_asset_importer_tests forge_import_settings_tests forge_gltf_animation_tests forge_gltf_hierarchy_tests forge_gltf_mesh_tests forge_mesh_processing_tests forge_gltf_meshopt_tests forge_gltf_draco_tests forge_gltf_surfaces_tests forge_gltf_snapshot_tests forge_model_bundle_tests forge_model_pipeline_tests forge_model_scene_tests forge_gltf_ozz_tests forge_morph_animation_tests forge_gltf_native_tests forge_gltf_accessor_tests forge_gltf_source_tests forge_subasset_identity_tests forge_asset_subasset_tests forge_asset_discovery_tests forge_asset_build_tests forge_asset_job_tests forge_runtime_ui_tests forge_ui_presenter_tests forge_runtime_ui_package_tests forge_ui_catalog_presenter_tests forge_ui_asset_catalog_tests forge_ui_render_tests forge_ui_input_tests forge_editor_fixture forge_cursor_truthful_tests forge_editor forge_runtime forge_nav_build forge_navigation_tests forge_navigation_mesh_tests gltf2ozz forge_animation_worker_tests forge_animation_worker_fixture forge_animation_tests forge_animation_archive_tests forge_audio_asset_tests forge_audio_tests forge_physics_tests forge_collision_asset_tests forge_collision_pipeline_tests forge_module_tests forge_services_tests forge_runtime_clock_tests forge_sample forge_tools forge_prefab_tests forge_transform_tests forge_identity_tests forge_world_tests forge_authoring_tests forge_live_tests forge_editor_tests forge_fault_runtime forge_editor_native_tests forge_viewport_tests --parallel 2
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Install exact standalone runtime kit
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -281,7 +281,7 @@ jobs:
         run: python tests/preview_shader_test.py
       - name: Test editor process isolation and scaling
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "draw_fallbacks|cache_maintenance|asset_scale_workloads|game_content|game_foundation|game_storage_process|game_platform|runtime_content_package|standalone_manifest|authored_schema|authored_component|authored_migration|authored_components_editor|shader_assets|shader_pipeline|shader_worker|shader_editor|mesh_asset|material_asset|material_pipeline|material_editor|content_files|source_copy|asset_file_transaction|asset_file_operations|texture_asset|texture_import|texture_ktx|texture_dds|texture_bmp|texture_webp|texture_recipe|texture_pipeline|texture_bundle|texture_tools|texture_editor|model_editor|asset_import_service|resource_lifetime|asset_publication|asset_robustness_corpus|gltf_official_corpus|gltf_official_negative_scale|asset_worker_policy|asset_importer_registry|import_settings|gltf_animation_admission|gltf_hierarchy|gltf_mesh_processing|mesh_processing|gltf_meshopt|gltf_draco|gltf_surfaces|gltf_snapshot|model_bundle|model_scene|gltf_ozz|morph_animation|model_recipe|model_pipeline|model_tools|gltf_native_capture|gltf_accessors|gltf_source|subasset_identity|asset_subassets|asset_catalog_scale|asset_discovery|asset_tools|asset_jobs|asset_build|flecs_script|ecs_tools|target_boundaries|phase6_integration|runtime_ui|ui_presenter|runtime_ui_package|ui_catalog_presenter|ui_asset_catalog|ui_process|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_redesign_render|editor_input_workflow|editor_physics_workflow|navigation|animation|audio|collision_asset|collision_pipeline|physics|module_lifecycle|core_services|input_protocol|authoring_|world_lifetime|structured_prefabs|persistent_identity|hierarchical_transforms|runtime_clock_and_interpolation|runtime_protocol" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "draw_fallbacks|cache_maintenance|asset_scale_workloads|game_content|game_foundation|game_storage_process|game_platform|runtime_content_package|standalone_manifest|authored_schema|authored_component|authored_migration|authored_components_editor|shader_assets|shader_pipeline|shader_worker|shader_editor|mesh_asset|material_asset|material_pipeline|material_editor|content_files|source_copy|asset_file_transaction|asset_file_operations|texture_asset|texture_import|texture_ktx|texture_dds|texture_bmp|texture_webp|texture_recipe|texture_pipeline|texture_bundle|texture_tools|texture_editor|model_editor|asset_import_service|resource_lifetime|asset_publication|asset_robustness_corpus|gltf_official_corpus|gltf_official_negative_scale|asset_worker_policy|asset_importer_registry|import_settings|gltf_animation_admission|gltf_hierarchy|gltf_mesh_processing|mesh_processing|gltf_meshopt|gltf_draco|gltf_surfaces|gltf_snapshot|model_bundle|model_scene|gltf_ozz|morph_animation|model_recipe|model_pipeline|model_tools|gltf_native_capture|gltf_accessors|gltf_source|subasset_identity|asset_subassets|asset_catalog_scale|asset_discovery|asset_tools|asset_jobs|asset_build|flecs_script|ecs_tools|target_boundaries|phase6_integration|runtime_ui|ui_presenter|runtime_ui_package|ui_catalog_presenter|ui_asset_catalog|ui_process|cursor_truthful|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_redesign_render|editor_input_workflow|editor_physics_workflow|navigation|animation|audio|collision_asset|collision_pipeline|physics|module_lifecycle|core_services|input_protocol|authoring_|world_lifetime|structured_prefabs|persistent_identity|hierarchical_transforms|runtime_clock_and_interpolation|runtime_protocol" --output-on-failure
       - name: Save viewport render checks
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -307,6 +307,21 @@ jobs:
             if ($LASTEXITCODE -ne 0 -or -not $reported.EndsWith("Build: $env:FORGE_BUILD_ID")) { throw "Build identifier mismatch: $binary" }
             Write-Output $reported
           }
+      - name: Upload editor SDK fixture executable
+        # Ship only the editor fixture EXE. The shipped FORGE-Windows-x64
+        # ZIP already supplies the matching editor DLLs/resources the
+        # fixture was linked against; the acceptance helper copies the
+        # fixture EXE beside the extracted forge_editor.exe and runs it
+        # there with the extracted NativeSdk, so any missing packaged
+        # dependency fails the verification rather than being masked by
+        # a separate DLL bundle.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-SDK-Fixture
+          path: ${{ runner.temp }}/forge-work/AgentFiles/b/forge_editor_fixture.exe
+          if-no-files-found: error
+          retention-days: 7
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip"
@@ -415,6 +430,18 @@ jobs:
           run-id: ${{ steps.compiled.outputs.run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-package/reference-game
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Editor-SDK-Fixture
+          run-id: ${{ steps.compiled.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-package/editor-sdk-fixture
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Editor-SDK-Project
+          run-id: ${{ steps.compiled.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-package/editor-sdk-project
       - name: Assemble and verify matching editor and exact SDK
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -428,6 +455,37 @@ jobs:
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }
+      - name: Verify final package with editor SDK fixture and editable project
+        # Run the editor fixture EXE (downloaded separately) against the
+        # matching SDK extracted from the final ZIP and the dedicated
+        # editable project (downloaded separately). Failure here gates
+        # the FORGE-Windows-x64 upload on the next step.
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        env:
+          FORGE_PACKAGE_ID: ${{ inputs.build_id }}
+          FORGE_COMPILED_SOURCE: ${{ steps.compiled.outputs.sha }}
+        run: |
+          $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
+          $root = Join-Path $env:RUNNER_TEMP 'forge-package'
+          $zip = Join-Path $root 'final' $name
+          $fixture = Join-Path $root 'editor-sdk-fixture/forge_editor_fixture.exe'
+          $project = Join-Path $root 'editor-sdk-project'
+          $evidence = Join-Path $root 'editor-sdk-evidence'
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          foreach ($required in @($zip, $fixture, $project)) {
+            if (-not (Test-Path $required)) { throw "Missing editor SDK acceptance input: $required" }
+          }
+          python tests/editor_sdk_package_test.py --zip $zip --fixture $fixture --project $project --evidence $evidence
+          if ($LASTEXITCODE) { throw 'Editor SDK acceptance against final package failed' }
+      - name: Upload editor SDK acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-SDK-Acceptance
+          path: ${{ runner.temp }}/forge-package/editor-sdk-evidence
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload complete Windows package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

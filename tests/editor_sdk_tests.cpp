@@ -4,12 +4,21 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <iostream>
+#include <type_traits>
 
 namespace {
 void require(bool value, const std::string& message) {
     if (!value)
         throw std::runtime_error(message);
 }
+// Static assertions on the centralized helpers so the contract is
+// pinned in the test build, not just implied by source review.
+static_assert(std::is_same<decltype(std::declval<forge::PlaySession&>().current_effective_epoch()),
+                           std::uint64_t>::value,
+              "current_effective_epoch must return uint64");
+static_assert(std::is_same<decltype(std::declval<forge::PlaySession&>().next_editor_epoch()),
+                           std::uint64_t>::value,
+              "next_editor_epoch must return uint64");
 } // namespace
 int main(int argc, char** argv) {
     if (argc != 6)

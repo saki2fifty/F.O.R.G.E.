@@ -166,6 +166,79 @@ inline void test_game_input(const char* runtime) {
     }
     SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
 }
+// Regression for the checked release path: hold a key, observe the
+// runtime reports held=true, then release_checked(play, true) MUST
+// (a) keep the routing flag alive (keep_routing=true) AND (b)
+// neutralize the previously-held action in the next runtime tick,
+// because the helper ships a neutral edge before any subsequent
+// gameplay edge. The original release(play) void path cleared
+// routing silently; this test pins the documented contract.
+//
+// Runs through the same PlaySession/runtime/input action setup the
+// existing gamepad suite uses (no manufactured pass): a real
+// runtime is started with a single Space-bound digital action, a
+// real fixed-tick step drains the input edge, and the action's
+// `held` field is the source of truth.
+//
+// Keyboard only — Linux's cached SDL ships with the joystick
+// subsystem disabled; the Windows full SDL run will exercise the
+// gamepad suite above. The platform split lives in the driver
+// that compiles this header, not here.
+inline void test_game_input_checked_release(const char* runtime) {
+    using namespace forge;
+    PlaySession play;
+    const auto action = ActionId::generate();
+    play.configure(
+        90, InputMap({{"version", 1},
+                      {"actions",
+                       Json::array({{{"id", action},
+                                     {"name", "Test"},
+                                     {"kind", "digital"},
+                                     {"bindings", Json::array({{{"control", "key.space"}}})}}})}}));
+    play.start(runtime, empty_scene(), {}, true);
+    auto wait = [&](auto done) {
+        const auto deadline = SDL_GetTicks() + 5000;
+        while (!done() && play.active() && SDL_GetTicks() < deadline) {
+            play.pump();
+            SDL_Delay(1);
+        }
+        require(play.active() && done(),
+                ("Checked release regression: " + play.status() + " " + play.log()).c_str());
+    };
+    auto tick = [&] {
+        wait([&] { return play.control_ready(); });
+        const auto before = play.timing().at("tick").get<std::uint64_t>();
+        play.step();
+        wait([&] { return play.timing().at("tick").get<std::uint64_t>() > before; });
+        return play.input_status().at("actions")[0];
+    };
+    wait([&] { return play.control_ready(); });
+    GameInput input;
+    input.pump(play, true);
+    // Non-relative capture is legal on the headless menu path; the
+    // runtime still sees the captured flag through the input_event
+    // edge submitted on capture.
+    input.capture(play);
+    require(input.captured(), "Capture did not set the routing flag");
+    // Press space — held=true on the next fixed tick.
+    SDL_Event e{};
+    e.type = SDL_EVENT_KEY_DOWN;
+    e.key.scancode = SDL_SCANCODE_SPACE;
+    e.key.down = true;
+    require(input.event(e, play), "Captured key leaked to editor");
+    require(tick().at("held").get<bool>() == true, "Space key down did not produce a held action");
+    // Keep-routing checked release: routing stays alive, the
+    // helper ships a neutral edge so the NEXT runtime tick reports
+    // held=false for the previously-held action.
+    require(input.release_checked(play, true), "Checked release with keep_routing=true failed");
+    require(input.captured(), "release_checked(keep_routing=true) dropped logical routing");
+    require(tick().at("held").get<bool>() == false,
+            "Checked release did not neutralize the previously-held action");
+    // Final release tears routing down as expected.
+    input.release(play);
+    require(!input.captured(), "Final release did not clear routing");
+    play.stop();
+}
 inline void test_project_settings_ui() {
     using namespace forge;
     const auto root =

@@ -1,4 +1,4 @@
-# Standalone graphical host — Phase8 checkpoint
+# Standalone graphical host
 
 `FORGE_BUILD_GAME=ON` builds `forge_game` on Windows. It links the shared SDL,
 Diligent renderer and RmlUi presenter, simulation and OS persistence adapters.
@@ -8,9 +8,12 @@ configuration. Shared rendering composition is in `cmake/presentation.cmake`.
 
 This is the Development standalone host. The shared
 [export operation](runtime-content-packaging.md) assembles supported runtime
-content, the executable and admitted native-module deployments. Windows complete
-distribution acceptance is still in progress. No new numbered editor package
-accompanies this source checkpoint.
+content, the executable and admitted native-module deployments. The shipped
+editor package (`FORGE-Windows-x64`) contains the standalone reference game
+under `ReferenceGame/` and the matching shared graphical runtime kit; the
+shared graphical-host acceptance gate validates the reference distribution.
+The static root editor host and the shared reference host are separate
+deliverables and are not claimed to be the same binary.
 
 ## Startup and ownership
 
@@ -51,6 +54,15 @@ The graphical adapter performs these steps before activation:
    geometry. It neither draws into the current framebuffer nor receives input.
 5. Recheck readiness and publish prepared frame/UI owners with the new world.
    Retire old consumers/world before the next gameplay tick.
+
+Steps 1 and 2 (animation initial pose, evaluate transforms, physics sync0,
+presentation reset, audio sync, audio failed/unavailable checks, and
+enabled non-prefab `NavigationAgent` validation) are now exposed as
+`RuntimeWorld::prepare_scene_resources()` for reuse by other host
+adapters that need the same runtime-only readiness. The helper does not
+tick, run control callbacks, publish worlds, or touch GPU. Standalone
+GPU/UI checks (steps 3..5) remain in this host and are not part of the
+helper.
 
 Old gameplay/presentation can continue while a replacement prepares. Failure or
 cancellation releases only the candidate. UI tickets reject stale activation;
@@ -134,7 +146,7 @@ and that shared DLL. It never merges different Flecs libraries into one process.
 The shared Windows workflow tests the installed SDK, creates module deployment
 kits, exports a game, and sends only the resulting folder to a fresh runner.
 Source inspection and local mixed-content admission are not Windows visual
-acceptance; pending native checks remain explicit in release evidence.
+acceptance.
 
 ## Loading and standalone diagnostics
 

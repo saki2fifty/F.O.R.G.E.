@@ -40,32 +40,8 @@ struct GamePresentation::Candidate final : GameScenePreparation {
     }
     GamePreparationProgress poll(RuntimeWorld& world) override {
         if (!runtime_ready) {
-            if (!animation_runtime(world.engine.world())->prepare_initial_pose())
+            if (!world.prepare_scene_resources())
                 return {false, "animation", 0, 4};
-            world.engine.world().evaluate_world_transforms();
-            world.physics()->synchronize(0);
-            world.simulation.reset_presentation();
-            world.simulation.sync_audio();
-            auto services = world.engine.services();
-            if (services.available(Capability::Audio)) {
-                auto audio = std::static_pointer_cast<AudioRuntime>(services.audio());
-                if (!audio || audio->status().at("failed_sources").get<std::size_t>())
-                    throw std::runtime_error("Scene preparation: required audio sources failed");
-            } else
-                world.engine.world().world().each([&](flecs::entity e, const AudioSource&) {
-                    if (!e.has(flecs::Prefab))
-                        throw std::runtime_error("Scene preparation: audio output is unavailable");
-                });
-            // Probe each enabled navigation dependency using the existing loader
-            // and geometry-revision validation. Being off the mesh is not a load failure.
-            world.engine.world().world().each([&](flecs::entity e, const NavigationAgent& agent) {
-                if (e.has(flecs::Prefab) || !agent.enabled)
-                    return;
-                const auto result = services.navigation()->project_point(agent.navmesh, {});
-                if (result.status == NavStatus::Missing || result.status == NavStatus::Stale ||
-                    result.status == NavStatus::Invalid || result.status == NavStatus::Unavailable)
-                    throw std::runtime_error("Scene preparation: " + result.diagnostic);
-            });
             runtime_ready = true;
         }
         host.resources_->pump();

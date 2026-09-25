@@ -17,10 +17,14 @@ struct GameControlQueue::State {
         std::uint64_t token;
     };
     std::deque<Pending> pending;
+    // True while a pending entry is being polled. Reserves the in-flight
+    // slot against the 256-entry bound so callbacks may enqueue new work.
+    bool inflight = false;
     void check() const {
         if (!alive || owner != std::this_thread::get_id())
             throw std::runtime_error("Game service requires its live owner thread");
     }
+    std::size_t outstanding() const { return pending.size() + (inflight ? 1 : 0); }
 };
 struct GameControlQueue::Endpoint final : GameControlService,
                                           std::enable_shared_from_this<Endpoint> {
@@ -63,7 +67,7 @@ struct GameControlQueue::Endpoint final : GameControlService,
             "rebind_begin", "rebind_cancel", "rebind_commit", "rebind_reset",   "ui_navigation"};
         if (!operations.contains(command.at("operation").get<std::string>()))
             throw std::runtime_error("Unknown game operation");
-        if (requests.size() >= 128 || owner->pending.size() >= 256)
+        if (requests.size() >= 128 || owner->outstanding() >= 256)
             throw std::runtime_error("Game request queue is full; release completed requests");
         if (owner->next == std::numeric_limits<std::uint64_t>::max())
             throw std::overflow_error("Game request token space exhausted");
@@ -173,23 +177,56 @@ void GameControlQueue::status(Json copied) {
         throw std::runtime_error("Game service status must be a bounded object");
     state_->status = std::move(copied);
 }
-void GameControlQueue::drain(const Execute& execute) {
+bool GameControlQueue::pending(std::uint64_t token) const {
     state_->check();
-    if (state_->draining || !execute)
-        throw std::logic_error("Game service drain cannot nest");
-    struct Guard {
-        bool& busy;
-        ~Guard() { busy = false; }
-    } guard{state_->draining};
+    auto active = state_->active.lock();
+    if (!active || active->retired)
+        return false;
+    auto found = active->requests.find(token);
+    if (found == active->requests.end())
+        return false;
+    // The contract: a queued command is pending while its request status is
+    // "queued" and the module has not been revoked. Completed/released/
+    // revoked/foreign-world tokens are not pending.
+    if (active->revoked.contains(found->second.module))
+        return false;
+    return found->second.status.state == "queued";
+}
+namespace {
+// RAII guard that flips the draining flag back off when the dispatch scope
+// ends, even if an exception escapes (the queue re-publishes failures as
+// receipts rather than letting them propagate).
+struct DrainGuard {
+    bool& busy;
+    ~DrainGuard() { busy = false; }
+};
+} // namespace
+void GameControlQueue::poll(const Poll& poll_fn) {
+    state_->check();
+    if (state_->draining || !poll_fn)
+        throw std::logic_error("Game service poll cannot nest or use empty callback");
+    DrainGuard guard{state_->draining};
     state_->draining = true;
-    auto count = state_->pending.size();
-    while (count--) {
-        auto pending = state_->pending.front();
+    // Reserve the in-flight slot for the current pending entry so callbacks
+    // may enqueue new work without exceeding the 256-entry bound. The slot
+    // is released before any requeue so the bound is never violated
+    // transiently. At most one entry is in-flight because each pending
+    // entry runs at most once per host call.
+    auto snapshot = state_->pending.size();
+    while (snapshot--) {
+        if (state_->inflight)
+            break;
+        auto entry = state_->pending.front();
         state_->pending.pop_front();
-        auto endpoint = pending.endpoint.lock();
-        if (!endpoint || endpoint->retired || state_->active.lock() != endpoint)
+        state_->inflight = true;
+        struct InflightReset {
+            bool& slot;
+            ~InflightReset() { slot = false; }
+        } reset{state_->inflight};
+        auto endpoint = entry.endpoint.lock();
+        if (!endpoint || endpoint->retired || state_->active.lock().get() != endpoint.get())
             continue;
-        auto request = endpoint->requests.find(pending.token);
+        auto request = endpoint->requests.find(entry.token);
         if (request == endpoint->requests.end())
             continue;
         const auto command = request->second.command;
@@ -197,26 +234,68 @@ void GameControlQueue::drain(const Execute& execute) {
         const auto schema = endpoint->schemas.find(module);
         // Keep callbacks AND their code alive across executor-driven retirement.
         const auto registration = schema == endpoint->schemas.end() ? nullptr : schema->second;
-        GameRequestStatus result;
+        std::optional<Json> result;
+        // Validate result payload inside the same try that invokes the
+        // callback. A callback returning an invalid JSON value (e.g. one
+        // containing malformed UTF-8) must not throw out of the host pump
+        // and lose the receipt; serialization is caught and converted to
+        // a failed receipt alongside any other callback exception.
         try {
-            result.value = execute(command, registration ? &registration->schema : nullptr, module);
-            if (result.value.dump().size() > 1024 * 1024)
+            result = poll_fn(entry.token, command, registration ? &registration->schema : nullptr,
+                             module);
+            if (result && result->dump().size() > 1024 * 1024)
                 throw std::runtime_error("Game operation result exceeds 1 MiB");
-            result.state = "succeeded";
         } catch (const std::exception& e) {
-            result.state = "failed";
-            result.error = std::string(e.what()).substr(0, 8192);
+            if (!endpoint->retired) {
+                auto it = endpoint->requests.find(entry.token);
+                if (it != endpoint->requests.end()) {
+                    GameRequestStatus status;
+                    status.state = "failed";
+                    status.error = std::string(e.what()).substr(0, 8192);
+                    it->second.status = std::move(status);
+                }
+            }
+            continue;
         } catch (...) {
-            result.state = "failed";
-            result.error = "Game operation callback failed";
+            if (!endpoint->retired) {
+                auto it = endpoint->requests.find(entry.token);
+                if (it != endpoint->requests.end()) {
+                    GameRequestStatus status;
+                    status.state = "failed";
+                    status.error = "Game operation callback failed";
+                    it->second.status = std::move(status);
+                }
+            }
+            continue;
         }
-        // The executor can publish another world. Never use an iterator retained
-        // across that boundary or publish a receipt into a retired scope.
+        // The executor can publish another world. Never use an iterator
+        // retained across that boundary or publish a receipt into a
+        // retired scope. Release the in-flight slot before any requeue so
+        // the 256 bound is never violated transiently.
+        if (!result) {
+            state_->inflight = false;
+            if (!endpoint->retired && state_->active.lock().get() == endpoint.get() &&
+                endpoint->requests.contains(entry.token) && !endpoint->revoked.contains(module))
+                state_->pending.push_back(entry);
+            continue;
+        }
         if (!endpoint->retired) {
-            request = endpoint->requests.find(pending.token);
-            if (request != endpoint->requests.end())
-                request->second.status = std::move(result);
+            auto it = endpoint->requests.find(entry.token);
+            if (it != endpoint->requests.end()) {
+                GameRequestStatus status;
+                status.state = "succeeded";
+                status.value = std::move(*result);
+                it->second.status = std::move(status);
+            }
         }
     }
+}
+void GameControlQueue::drain(const Execute& execute) {
+    if (!execute)
+        throw std::logic_error("Game service drain requires a non-empty callback");
+    poll([&execute](std::uint64_t, const Json& command, const GameSaveSchema* schema,
+                    const std::string& module) -> std::optional<Json> {
+        return std::optional<Json>(execute(command, schema, module));
+    });
 }
 } // namespace forge

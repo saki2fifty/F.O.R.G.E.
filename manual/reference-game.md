@@ -11,9 +11,10 @@ Extract the entire numbered Windows ZIP, then open **ReferenceGame/forge_game.ex
 Keep its accompanying files together. This game runs independently of the editor;
 you do not need a compiler or SDK installed to play it.
 
-This example's menus, scene transitions and save services currently run in the
-standalone host. Editor Play has its own testing/capture controls and does not yet
-host this complete reference-game lifecycle.
+The reference game lives in the shipped `ReferenceGame/` folder; it is not
+included as an editable project. The editor's **File → Open project** opens an
+editable project of your own. **Gameplay Code → Native SDK folder** points at
+the matching installed NativeSdk that hosts your gameplay module.
 
 ## Start and explore
 
@@ -74,7 +75,8 @@ engine storage service also supports separate named slots.
 Saves and preferences live in the operating system's user-data directory, outside
 the game folder. Moving the installation keeps them available for the same
 application identity. A rejected or corrupt save shows a message and is preserved;
-it is not silently deleted.
+it is not silently deleted. If a scene load fails while releasing the mouse, the
+current scene stays open and the saved game is preserved.
 
 See [Gameplay input](editor/input.md), [Runtime UI](editor/runtime-ui.md), and
 [Play mode](editor/play-mode.md) for the editor's separate testing controls.

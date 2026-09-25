@@ -53,6 +53,22 @@ artifacts. Modified files, path escapes and mismatched builds fail assembly befo
 replacing a usable output. Installed SDK consumer tests still verify shared linkage,
 compiler compatibility and real gameplay modules before assembly.
 
+After relocation, the package job also runs the editor SDK acceptance gate. The
+`forge_editor_fixture` executable is shipped separately via the
+`FORGE-Editor-SDK-Fixture` artifact (the executable only — its matching DLLs
+and resources are reused from the shipped package so a missing packaged
+dependency fails verification rather than being masked by a parallel bundle).
+The fixture is copied beside the extracted `forge_editor.exe` in a private
+scratch, launched against the matching extracted `NativeSdk/` and a dedicated
+ordinary editable project (shipped as `FORGE-Editor-SDK-Project`), and the
+resulting `workflow.json`, per-stage trace JSONs, and rendered PPMs are
+asserted. Failure here gates the `FORGE-Windows-x64` upload.
+
+The acceptance fixture, the dedicated editable project, and the isolated
+private user-data directory never enter the shipped ZIP. Physical-GPU
+acceptance on real hardware is a separate concern; the gate runs against the
+Windows runner's WARP rasterizer and reports the hardware scope explicitly.
+
 A test-only packaging failure can use `package_source_run` to reuse that run's
 unchanged compiled artifacts. All four static/shared core jobs, editor and format
 must already have succeeded. The package job checks that run's source SHA against
@@ -120,6 +136,70 @@ pending in machine output until an actual reviewer examines the images. Extend
 input/capture coverage for changed workflows; this scenario is not exhaustive
 coverage of every editor control, OS dialog, drag/drop gesture, GPU, or display.
 The existing staged fixture continues to cover broader visual states and scales.
+
+
+## Editor SDK final-package acceptance
+
+The `FORGE-Windows-x64` package job runs the editor SDK acceptance gate
+after extraction. The acceptance helper:
+
+- extracts the final ZIP into a private scratch and verifies the manifest
+  (`build_id`, `source_commit`, `files`, `native_sdk`);
+- locates the shipped `NativeSdk/` via `manifest["native_sdk"]["path"]` and
+  asserts the extracted `bin/forge_runtime.exe` is present;
+- copies the `FORGE-Editor-SDK-Fixture` fixture executable beside the
+  extracted `forge_editor.exe` (the executable only; matching DLLs and
+  resources are reused from the shipped package so a missing packaged
+  dependency fails verification rather than being masked by a parallel
+  bundle);
+- copies the dedicated ordinary editable project (the
+  `FORGE-Editor-SDK-Project` artifact, with hidden files such as `.forge/`
+  preserved) into a separate private scratch;
+- launches the fixture against the extracted editor + `NativeSdk` + project
+  with an isolated private user-data directory and a bounded watchdog,
+  tearing the process tree down on a stall;
+- asserts `complete=true`, that `source_commit`/`build_id` match the
+  package manifest, and that `scene_round_trip`, `save_load`,
+  `binding_persisted_same_process`, `binding_persisted_restart`,
+  `focus_gated_routing` and `sdk_play` are all `true` (boolean, not
+  integer `1`); the focus-gated routing boolean requires the editor
+  fixture's stage-2 surrender sequence (Escape → pause → two-frame
+  split-click on `ui_targets["hierarchy:expand-all"]` → record Rml
+  focus → send Tab → wait fresh snapshot → assert focus UNCHANGED +
+  `game_input_captured()==false` → two-frame split-click on
+  `ui_targets["button:Capture gameplay input"]` → wait fresh snapshot
+  → assert `game_input_captured()==true` → send Tab → wait fresh
+  snapshot → assert focus CHANGED → activate "Resume" → Enter) to
+  have run end-to-end with the existing-owner
+  `game_input.captured()` observer flips between the captures, and to
+  have retained its `sdk-outside-surrender` / `sdk-outside-regain`
+  PPM captures only after the Tab assertions;
+- asserts every expected `editor-<label>.ppm` capture is present and
+  non-empty, and that each matching `sdk-<label>.json` sidecar (including
+  the `sdk-restarted-persisted-binding` sidecar) exists;
+- retains the fixture stdout/stderr log, all PPM captures, all sidecar
+  JSONs, the final `workflow.json`, and a summary into the
+  `FORGE-Editor-SDK-Acceptance` artifact under `fixture-output/`, so
+  screenshots and failure traces survive on every outcome (success,
+  failure, exception).
+
+The acceptance fixture covers the actual menu / play / rebind / save /
+scene transition / Quit / restart / load flow through the fixture's own
+captures. The acceptance helper, the dedicated editable project, and the
+isolated private user-data directory never enter the shipped ZIP.
+
+The acceptance gate is the only Windows CI step that runs the shipped
+`forge_editor.exe` against a matching extracted `NativeSdk/` with a
+real project, real input, real save files and a real Quit / restart /
+load round-trip. It asserts the resulting `workflow.json` plus
+`editor-<label>.ppm` captures; it is not a Windows visual review and
+it does not claim physical-device verification. The fixture is built
+by the editor job and copied beside the extracted editor so a missing
+packaged DLL fails verification rather than being masked.
+
+A failed gate blocks the `FORGE-Windows-x64` upload. The gate runs against
+the Windows runner's WARP rasterizer; physical-device verification on real
+hardware is a separate concern and is not asserted by this CI step.
 
 
 ## Matched editor and shader timing evidence

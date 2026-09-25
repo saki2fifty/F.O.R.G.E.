@@ -214,10 +214,26 @@ int main(int argc, char** argv) {
         platform.settings = [&](const Json& value) { display(window.get(), value.at("display")); };
         platform.cursor = [&](bool capture) {
             presentation.ui().release_input();
-            if (capture)
+            if (capture) {
+                // Capture is the truthful path: let any SDL diagnostic
+                // propagate to the host so the host's diagnostic
+                // channel and downstream cursor_captured_ stay
+                // truthful. GameHostControls (game_host_controls.cpp
+                // 188-202) calls this void callback then sets
+                // cursor_=capture unconditionally; it does NOT inspect
+                // cursor.captured(). Swallowing here would silently
+                // report SUCCESS on a failed physical capture.
                 cursor.capture();
-            else
-                cursor.release();
+                return;
+            }
+            // Release path uses the narrow checked helper so the host
+            // gets a truthful acknowledgement. A failed physical release
+            // must surface as a runtime_error so GameHostControls
+            // cannot claim the cursor is released while the OS still
+            // owns relative mouse mode.
+            if (!cursor.checked_release())
+                throw std::runtime_error(
+                    "Platform cursor release failed: relative mouse mode still on");
         };
         GameHostControls game_controls(game, game_requests, storage, root, defaults,
                                        project.input(), user, std::move(platform));

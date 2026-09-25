@@ -1,5 +1,6 @@
 #include "authored_inspection.hpp"
 #include "runtime_io.hpp"
+#include "sdk_play_runtime.hpp"
 #include <forge/build.hpp>
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
@@ -52,7 +53,9 @@ int main(int argc, char** argv) {
         forge::EngineServices bootstrap_services;
         std::optional<forge::AudioConfig> audio_config;
         std::filesystem::path project_root;
+        std::filesystem::path user_data_base;
         bool explicit_hz = false, sdk_profile = false, ui_enabled = false;
+        bool sdk_play = false;
         std::string audio_mode;
         for (int i = 1; i < argc; ++i) {
             const std::string option = argv[i];
@@ -76,6 +79,12 @@ int main(int argc, char** argv) {
                 explicit_hz = true;
                 if (consumed != value.size())
                     throw std::runtime_error("Invalid simulation frequency");
+            } else if (option == "--sdk-play") {
+                if (value != "on" && value != "off")
+                    throw std::runtime_error("--sdk-play mode must be on or off");
+                sdk_play = value == "on";
+            } else if (option == "--user-data") {
+                user_data_base = std::filesystem::u8path(value);
             } else
                 throw std::runtime_error("Unknown runtime option: " + option);
         }
@@ -83,9 +92,47 @@ int main(int argc, char** argv) {
             sdk_project.emplace(project_root);
             if (!explicit_hz)
                 config.simulation_hz = sdk_project->simulation_hz();
-            if (sdk_profile)
-                sdk_modules = forge::project_native_modules(project_root, sdk_project->document(),
-                                                            bootstrap_services.access());
+            sdk_modules = forge::project_native_modules(project_root, sdk_project->document(),
+                                                        bootstrap_services.access());
+        }
+        if (sdk_play) {
+            // Opt-in Editor Play host path. Dispatches before any legacy
+            // RuntimeWorld construction so the ABI1 process loop is never
+            // entered. Requires both --sdk-project (already parsed) and an
+            // absolute --user-data directory supplied by the editor. The
+            // --sdk-project flag already gates legacy consumers; the
+            // editor must opt into the SDK profile to reach this branch.
+            if (!sdk_profile)
+                throw std::runtime_error("--sdk-play requires --sdk-project <root>");
+            if (project_root.empty() || !sdk_project)
+                throw std::runtime_error("--sdk-play requires --sdk-project <root>");
+            if (user_data_base.empty() || !user_data_base.is_absolute())
+                throw std::runtime_error("--sdk-play requires --user-data <absolute directory>");
+            if (!explicit_hz && sdk_project)
+                config.simulation_hz = sdk_project->simulation_hz();
+            if (!audio_mode.empty()) {
+                audio_config =
+                    forge::AudioConfig{project_root,
+                                       audio_mode == "offline" ? forge::AudioOutput::Offline
+                                                               : forge::AudioOutput::Device,
+                                       false};
+            }
+            forge::Json defaults =
+                sdk_project ? sdk_project->document().value("game", forge::Json::object())
+                            : forge::Json::object();
+            forge::SdkPlayRuntime::Config host_config;
+            host_config.project = project_root;
+            host_config.user_base = user_data_base;
+            host_config.runtime = config;
+            host_config.physics = sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
+            host_config.modules = sdk_modules;
+            host_config.defaults = std::move(defaults);
+            host_config.audio = audio_config;
+            host_config.ui = ui_enabled;
+            host_config.input = sdk_project ? sdk_project->input() : forge::InputMap{};
+            forge::SdkPlayRuntime host(std::move(host_config));
+            host.process();
+            return 0;
         }
         if (!audio_mode.empty()) {
             if (project_root.empty())

@@ -164,11 +164,34 @@ jobs:
           if($LASTEXITCODE) { throw 'Reference core regressions failed' }
           python tests/reference_package_test.py --build $b --source . --kit "$b/runtime-kit" --module-kit "$b/reference-kits/project.reference" --evidence "$b/grid-test-images/reference-game" --retain "$b/reference-delivery"
           if($LASTEXITCODE) { throw 'Reference relocated input workflow failed' }
+          # The reference_package_test removed its authored project; generate a
+          # dedicated, ordinary editable project for the editor SDK acceptance
+          # gate in the package job. Clean this dedicated path on a reused cache
+          # so a stale authored project from a previous run never leaks into
+          # the acceptance flow.
+          $project = Join-Path $b 'editor-sdk-project'
+          if (Test-Path $project) { Remove-Item -LiteralPath $project -Recurse -Force }
+          python tests/reference_project_fixture.py --build $b --source . --output $project --module-kit "$b/reference-kits/project.reference"
+          if($LASTEXITCODE) { throw 'Editor SDK project generation failed' }
       - name: Upload reference acceptance game
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: FORGE-Reference-Game-Acceptance
           path: ${{ runner.temp }}/forge-work/AgentFiles/b/reference-delivery
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload editor SDK ordinary editable project
+        # Dedicated ordinary editable project (generated AFTER the
+        # reference_package_test removed its authored project). Used
+        # only by the package job's editor SDK acceptance helper.
+        # The original reference_package_test authored project must
+        # never be reused — the acceptance gate always reads from a
+        # freshly generated tree in editor-sdk-project.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Editor-SDK-Project
+          path: ${{ runner.temp }}/forge-work/AgentFiles/b/editor-sdk-project
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 7

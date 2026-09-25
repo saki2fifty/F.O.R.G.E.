@@ -23,31 +23,55 @@ struct EditorFixture {
     std::filesystem::path output, project, config;
     unsigned stage = 0, frames = 0;
     Uint64 started = SDL_GetTicks(), stage_started = started;
-    bool prepared = false, workflow = false, physics = false;
+    bool prepared = false, workflow = false, physics = false, sdk_play = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     AssetId prefab;
+    // SDK reference fixture paths. The constructor populates these
+    // when --sdk-play is supplied. project points at an ordinary
+    // editable reference project (NEVER deleted by the fixture);
+    // sdk_root points at the installed shared SDK; user_data points
+    // at a private writable base passed via the PlaySession
+    // user-data override so this run does not touch the real
+    // user's saves.
+    std::filesystem::path sdk_root, user_data;
     explicit EditorFixture(int argc, char** argv) {
         physics = argc == 4 && std::string(argv[2]) == "--physics";
-        if (!physics && argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
+        // --sdk-play needs EXE OUTPUT --sdk-play PROJECT SDK USERDATA: 6 args.
+        sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
+        if (!physics && !sdk_play && argc != 2 &&
+            (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
-                "Expected fixture output directory [--workflow | --physics PROJECT]");
+                "Expected fixture output directory [--workflow | --physics PROJECT | "
+                "--sdk-play PROJECT SDK USERDATA]");
         workflow = argc == 3 || physics;
         output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
-        project = physics ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
-                          : output / ("project-" + AssetId::generate().str());
-        config = physics ? output / ".fixture-preferences" : project / ".fixture-preferences";
-        if (!physics)
-            SceneDocument::create_project(project, "UX fixture");
+        if (sdk_play) {
+            project = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
+            sdk_root = std::filesystem::absolute(std::filesystem::u8path(argv[4]));
+            // argv[5] is the private user-data base; main hands it
+            // to PlaySession via set_user_data_override.
+            user_data = std::filesystem::absolute(std::filesystem::u8path(argv[5]));
+            std::filesystem::create_directories(user_data);
+            config = output / ".fixture-preferences";
+        } else {
+            project = physics ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
+                              : output / ("project-" + AssetId::generate().str());
+            config = physics ? output / ".fixture-preferences" : project / ".fixture-preferences";
+            if (!physics)
+                SceneDocument::create_project(project, "UX fixture");
+        }
         std::filesystem::create_directories(config);
     }
     ~EditorFixture() {
         active_wait_probe = nullptr;
         std::error_code ec;
-        if (!physics)
+        if (!physics && !sdk_play)
             std::filesystem::remove_all(project, ec);
+        if (sdk_play)
+            std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
         if (workflow)

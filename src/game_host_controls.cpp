@@ -15,9 +15,25 @@ GameHostControls::GameHostControls(GameSession& game, std::shared_ptr<GameContro
       project_input_(std::move(project_input)), platform_(std::move(platform)) {
     if (!queue_)
         throw std::invalid_argument("Game controls require the session's request queue");
+    // Polled cursor capture owns a delayed physical capture. The host's
+    // synchronous release_cursor() path must still be able to force a
+    // physical release on pause/unload, so configuring a polled cursor
+    // requires a synchronous cursor callback as well. Navigation-only
+    // polled adapters do not own capture/release and need no synchronous
+    // cursor. This is not an IPC contract — adapters only own idempotency
+    // and cancellation within a single host session.
+    if (platform_.cursor_poll && !platform_.cursor)
+        throw std::invalid_argument(
+            "Game controls with a polled cursor must also configure a synchronous cursor");
     publish();
 }
 void GameHostControls::release_cursor() {
+    // Synchronous release. Polled adapters are NOT consulted here; they own
+    // their own idempotency and cancellation. The host cannot assume that a
+    // delayed backend ack for a queued polled request has actually taken
+    // effect at the native side — callers must wait for the adapter to
+    // return true on the next pump before trusting the captured state. We
+    // only flip the local cursor_ flag so the host state stays consistent.
     if (platform_.cursor)
         platform_.cursor(false);
     cursor_ = false;
@@ -27,9 +43,25 @@ void GameHostControls::release_cursor() {
 }
 std::uint64_t GameHostControls::prepare(AssetId asset, const Json& state, bool activate, bool run) {
     const auto ticket = game_.prepare(load_game_scene(content_, {asset}), {}, state);
+    try {
+        release_cursor();
+    } catch (...) {
+        const auto original = std::current_exception();
+        // Cancel the new candidate only if it is still the pending one; reentrant
+        // mutations may have replaced it with a different ticket.
+        if (game_.status().at("prepared_ticket").get<std::uint64_t>() == ticket) {
+            try {
+                game_.cancel(ticket);
+            } catch (...) {
+                // Candidate already retired or unmatched; nothing else to do.
+            }
+        }
+        if (auto_ticket_ == ticket)
+            auto_ticket_ = 0;
+        std::rethrow_exception(original);
+    }
     auto_ticket_ = activate ? ticket : 0;
     auto_run_ = run;
-    release_cursor();
     return ticket;
 }
 void GameHostControls::apply_settings(Json user) {
@@ -69,34 +101,65 @@ void GameHostControls::apply_settings(Json user) {
     user_ = std::move(user);
     settings_ = candidate;
 }
-Json GameHostControls::execute(const Json& command, const GameSaveSchema* schema,
-                               const std::string& module, RuntimeClock::Time now) {
+// Lifecycle-mutating requests fence pending backend state with a polled
+// (token,false) dispatch when cursor_poll is configured, regardless of the
+// host cursor_ flag. Returns false to requeue, throws to fail, true (or no
+// adapter) to let the caller perform the synchronous release_cursor().
+bool GameHostControls::poll_cursor_release(std::uint64_t token) {
+    if (!platform_.cursor_poll)
+        return true;
+    return platform_.cursor_poll(token, false);
+}
+std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& command,
+                                              const GameSaveSchema* schema,
+                                              const std::string& module, RuntimeClock::Time now) {
     const auto operation = command.at("operation").get<std::string>();
     if (operation == "pause") {
-        game_.pause(now);
+        if (!poll_cursor_release(token))
+            return std::nullopt;
         release_cursor();
+        game_.pause(now);
     } else if (operation == "resume") {
         game_.resume(now);
     } else if (operation == "quit") {
+        if (!poll_cursor_release(token))
+            return std::nullopt;
         release_cursor();
         quit_ = true;
     } else if (operation == "unload") {
+        if (!poll_cursor_release(token))
+            return std::nullopt;
         release_cursor();
         game_.unload(now);
         auto_ticket_ = 0;
         rebind_action_.reset();
         rebind_candidate_.reset();
     } else if (operation == "prepare") {
+        // Parse command fields and resolve schema prerequisites first so a
+        // malformed request fails fast before any physical release dispatch.
+        // The schema->validate callback runs only AFTER the polled release
+        // ack — otherwise a queue re-entry would repeat user validation work
+        // and any schema side-effects.
         const auto asset = command.at("asset").get<AssetId>();
+        const auto activate = command.value("activate", true);
+        const auto run = command.value("run", true);
         Json restore = Json::object();
-        if (command.contains("state")) {
+        const bool restoring = command.contains("state");
+        if (restoring) {
             if (!schema)
                 throw std::runtime_error("Restoring game state requires a registered save schema");
+        }
+        // prepare() unconditionally calls release_cursor(), so every prepare
+        // must fence pending backend state with a release poll, including
+        // activate=false. load activate=false does NOT prepare and remains
+        // immediate below.
+        if (!poll_cursor_release(token))
+            return std::nullopt;
+        if (restoring) {
             schema->validate({asset, command.at("state")});
             restore[module] = command.at("state");
         }
-        return {{"ticket", prepare(asset, restore, command.value("activate", true),
-                                   command.value("run", true))}};
+        return Json{{"ticket", prepare(asset, restore, activate, run)}};
     } else if (operation == "activate") {
         game_.activate(command.at("ticket").get<std::uint64_t>(), now, command.value("run", true));
         auto_ticket_ = 0;
@@ -122,6 +185,14 @@ Json GameHostControls::execute(const Json& command, const GameSaveSchema* schema
         return settings_;
     } else if (operation == "cursor") {
         const bool capture = command.at("capture").get<bool>();
+        if (platform_.cursor_poll) {
+            if (platform_.cursor_poll(token, capture)) {
+                cursor_ = capture;
+                game_.input({{{}, 0, true}});
+                return Json::object();
+            }
+            return std::nullopt;
+        }
         if (!platform_.cursor && capture)
             throw std::runtime_error("This runtime host has no cursor capture adapter");
         if (platform_.cursor)
@@ -132,6 +203,11 @@ Json GameHostControls::execute(const Json& command, const GameSaveSchema* schema
         const auto direction = command.at("direction").get<std::string>();
         if (direction != "next" && direction != "previous" && direction != "accept")
             throw std::runtime_error("Unknown UI navigation action");
+        if (platform_.navigation_poll) {
+            if (platform_.navigation_poll(token, direction))
+                return Json::object();
+            return std::nullopt;
+        }
         if (!platform_.navigation)
             throw std::runtime_error("This host has no UI navigation adapter");
         platform_.navigation(direction);
@@ -234,18 +310,28 @@ Json GameHostControls::execute(const Json& command, const GameSaveSchema* schema
     } else if (operation == "erase") {
         storage_.erase(command.at("slot").get<std::string>());
     } else if (operation == "save" || operation == "load") {
+        // Schema prerequisite and slot field are required for both save and
+        // load. Reject before any release dispatch so a malformed request
+        // never causes an extra physical effect.
         if (!schema)
             throw std::runtime_error("Game module has not registered its save schema");
         const auto slot = command.at("slot").get<std::string>();
         if (operation == "save") {
             storage_.save(slot, {command.at("scene").get<AssetId>(), command.at("data")}, *schema);
-            return {{"saved", slot}};
+            return Json{{"saved", slot}};
         }
+        // Load: parse activate + run first so malformed run fails before
+        // any physical release. Single storage_.load + migration; result
+        // branches on activate. activate=true fences pending backend with
+        // a release poll before reading storage.
+        const bool activate = command.value("activate", true);
+        const auto run = command.value("run", true);
+        if (activate && !poll_cursor_release(token))
+            return std::nullopt;
         const auto save = storage_.load(slot, *schema);
-        if (command.value("activate", true))
-            return {{"ticket",
-                     prepare(save.scene, {{module, save.data}}, true, command.value("run", true))}};
-        return {{"scene", save.scene}, {"data", save.data}};
+        if (activate)
+            return Json{{"ticket", prepare(save.scene, {{module, save.data}}, true, run)}};
+        return Json{{"scene", save.scene}, {"data", save.data}};
     } else {
         throw std::runtime_error("Unsupported game operation");
     }
@@ -282,19 +368,19 @@ void GameHostControls::publish() {
     queue_->status(std::move(state));
 }
 void GameHostControls::pump(RuntimeClock::Time now) {
-    queue_->drain(
-        [&](const Json& command, const GameSaveSchema* schema, const std::string& module) {
-            try {
-                auto result = execute(command, schema, module, now);
-                error_.clear();
-                return result;
-            } catch (const std::exception& e) {
-                error_ = std::string(e.what()).substr(0, 1024);
-                std::clog << "Game operation " << command.value("operation", "unknown")
-                          << " failed: " << error_ << '\n';
-                throw;
-            }
-        });
+    queue_->poll([&](std::uint64_t token, const Json& command, const GameSaveSchema* schema,
+                     const std::string& module) -> std::optional<Json> {
+        try {
+            auto result = execute(token, command, schema, module, now);
+            error_.clear();
+            return result;
+        } catch (const std::exception& e) {
+            error_ = std::string(e.what()).substr(0, 1024);
+            std::clog << "Game operation " << command.value("operation", "unknown")
+                      << " failed: " << error_ << '\n';
+            throw;
+        }
+    });
     const auto pending = game_.status().at("prepared_ticket").get<std::uint64_t>();
     if (pending && !quit_) {
         try {
