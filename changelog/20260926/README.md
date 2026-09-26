@@ -58,3 +58,89 @@ as a narrow public seam so the probe binary can call it. The
 surrounding helpers (`ui_model`, `model_page`, `model_interactions`,
 `model_message`, `model_binding`, `player_position`, `scene_asset`)
 remain private.
+
+## Phase 8 Windows81 probe fixture construction
+
+### Bug
+
+`native_sdk_workflow_probe` compiled and ran 124/125 editor tests
+green on Windows81 (run36204593880). The only failing assertion
+was the synthetic ambiguity case (`tests/editor_sdk_workflow_probe_tests.cpp`
+case (8), message: "ambiguous documents: ui_model_from_snapshot
+must return empty object, not first-match an unrelated model").
+
+The implementation of `ui_model_from_snapshot` was correct: with
+two visible documents it returns an empty object via the
+`ambiguous` flag. The fixture itself was broken. Case (8) (and the
+case (9) hidden-unrelated variant) inserted the unrelated document
+with:
+
+```cpp
+snap["documents"].insert(snap["documents"].begin(),
+                         {{"entity", "..."},
+                          {"visible", true},
+                          ...});
+```
+
+The double-brace initializer `{{"k","v"},{"k","v"},...}` resolves
+to `nlohmann::json::array::insert(iterator, std::initializer_list<json>)`,
+not `insert(iterator, json_object)`. The compiler treats each
+`{"k","v"}` as a single json value; `{"k","v"}` is itself a
+brace-init for a 2-element json *array*, so seven 2-element JSON
+arrays were appended to `documents` rather than one JSON object.
+`ui_model_from_snapshot`'s `if (!doc.is_object()) continue;` filter
+silently skipped those arrays, the documents array still held only
+the reference document, no ambiguity was exercised, and the
+implementation correctly returned the reference document's
+non-empty model. The assertion
+`model.is_object() && model.empty()` therefore failed on
+`model.empty()`. The case was not a real regression test; it was
+a fixture-construction mistake that masked itself as an
+implementation failure.
+
+Case (9) was symmetric: its hidden-unrelated document was also
+inserted as JSON arrays, the test "accidentally" still passed
+because the function still saw exactly one visible document.
+
+### Fix
+
+Cases (8) and (9) now build the unrelated document as an explicit
+`nlohmann::json` object first, then insert that single value:
+
+```cpp
+const nlohmann::json unrelated_visible = {
+    {"entity", "00000000-0000-0000-0000-000000000000"},
+    {"visible", true},
+    {"model", {{"page", "editor-toolbar"}}},
+    ...};
+snap["documents"].insert(snap["documents"].begin(), unrelated_visible);
+```
+
+This routes through `insert(iterator, const json&)` and lands one
+JSON object in `documents`.
+
+Case (8) additionally asserts the fixture shape before exercising
+`ui_model_from_snapshot`:
+
+* the unrelated document is an object with `visible=true`;
+* the documents array holds exactly two entries after insert;
+* a visible object carrying the unrelated entity id is present
+  in the array.
+
+A future change that re-introduces the brace-init-as-initializer-
+list trap fails one of these `require()` calls first, with a
+message that points at the fixture, not at the implementation.
+
+### What was not changed
+
+* `tests/editor_sdk_workflow.hpp::ui_model_from_snapshot` — already
+  correct.
+* `tests/editor_sdk_workflow.hpp::find_live_visible_context` and the
+  `presenter_alive_observer_` gate — pre-init safety preserved.
+* `tests/editor_sdk_workflow.hpp::ui_model`, `model_page`,
+  `model_interactions`, `model_message`, `model_binding`,
+  `player_position`, `scene_asset` — remain private; only
+  `ui_model_from_snapshot` is exposed as a test seam.
+* Authored scene ids, the runtime, the SDK, the renderer, the
+  RmlUi host, and the menu/level/editor authored fixtures are
+  unchanged. No authored id was rewritten.

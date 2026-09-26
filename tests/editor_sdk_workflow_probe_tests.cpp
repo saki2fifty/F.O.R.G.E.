@@ -222,14 +222,47 @@ int main() {
         // Pretend the editor is presenting its own UI document
         // alongside the reference one. The fixture must NOT
         // first-match the unrelated document.
-        snap["documents"].insert(snap["documents"].begin(),
-                                 {{"entity", "00000000-0000-0000-0000-000000000000"},
-                                  {"asset", "99999999-9999-9999-9999-999999999999"},
-                                  {"instance", "0:0"},
-                                  {"visible", true},
-                                  {"layer", 1},
-                                  {"model", {{"page", "editor-toolbar"}}},
-                                  {"commands", nlohmann::json::array()}});
+        //
+        // NOTE: build the unrelated document as an explicit
+        // nlohmann::json OBJECT first. The previous inline
+        // {{"k","v"},{"k","v"},...} brace-init resolved to
+        // nlohmann::json::array::insert(begin, initializer_list<json>)
+        // and inserted each {"k","v"} as a JSON *array* (a 2-element
+        // array of [key,value]) rather than the intended object.
+        // The implementation's !doc.is_object() filter then silently
+        // skipped those arrays, the documents array still held a
+        // single visible object, the ambiguity path was never
+        // exercised, and the regression was meaningless.
+        const nlohmann::json unrelated_visible = {
+            {"entity", "00000000-0000-0000-0000-000000000000"},
+            {"asset", "99999999-9999-9999-9999-999999999999"},
+            {"instance", "0:0"},
+            {"visible", true},
+            {"layer", 1},
+            {"model", {{"page", "editor-toolbar"}}},
+            {"commands", nlohmann::json::array()}};
+        // Fixture-shape assertion: the unrelated document must
+        // actually be present as a visible object in the snapshot
+        // we hand to ui_model_from_snapshot. If a future change
+        // re-introduces the brace-init-as-initializer-list trap,
+        // this require() fails first and the regression test below
+        // is still meaningful.
+        require(
+            unrelated_visible.is_object() && unrelated_visible.value("visible", false),
+            "fixture shape: unrelated visible document must be a JSON object with visible=true");
+        snap["documents"].insert(snap["documents"].begin(), unrelated_visible);
+        require(snap["documents"].size() == 2,
+                "fixture shape: documents array must hold two entries after insert");
+        bool saw_unrelated_visible = false;
+        for (const auto& d : snap["documents"]) {
+            if (d.is_object() && d.value("visible", false) &&
+                d.value("entity", "") == "00000000-0000-0000-0000-000000000000") {
+                saw_unrelated_visible = true;
+                break;
+            }
+        }
+        require(saw_unrelated_visible,
+                "fixture shape: unrelated visible document must survive the insert as an object");
         const auto model = forge::test::EditorSdkWorkflow::ui_model_from_snapshot(snap);
         require(model.is_object() && model.empty(),
                 "ambiguous documents: ui_model_from_snapshot must return empty object, "
@@ -238,17 +271,19 @@ int main() {
     // (9) Same scene, but the unrelated document is hidden: the
     //     reference document is the only visible one, so the
     //     fixture must read it correctly even with unrelated
-    //     hidden documents in the same snapshot.
+    //     hidden documents in the same snapshot. Same brace-init
+    //     fix as (8): build the hidden object explicitly so the
+    //     hidden extra entry is actually present in the snapshot.
     {
         nlohmann::json snap = menu_snapshot();
-        snap["documents"].insert(snap["documents"].begin(),
-                                 {{"entity", "00000000-0000-0000-0000-000000000000"},
-                                  {"asset", "99999999-9999-9999-9999-999999999999"},
-                                  {"instance", "0:0"},
-                                  {"visible", false},
-                                  {"layer", 1},
-                                  {"model", {{"page", "editor-toolbar"}}},
-                                  {"commands", nlohmann::json::array()}});
+        const nlohmann::json unrelated_hidden = {{"entity", "00000000-0000-0000-0000-000000000000"},
+                                                 {"asset", "99999999-9999-9999-9999-999999999999"},
+                                                 {"instance", "0:0"},
+                                                 {"visible", false},
+                                                 {"layer", 1},
+                                                 {"model", {{"page", "editor-toolbar"}}},
+                                                 {"commands", nlohmann::json::array()}};
+        snap["documents"].insert(snap["documents"].begin(), unrelated_hidden);
         const auto model = forge::test::EditorSdkWorkflow::ui_model_from_snapshot(snap);
         require(model.value("page", "") == "main",
                 "single visible + hidden unrelated: must read the visible reference document");
