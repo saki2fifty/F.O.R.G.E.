@@ -445,3 +445,6 @@ failures. Runtime reload behavior is unchanged.
 The UI-input test also links the transport worker: its runtime UI input header
 reaches PlaySession through game input. This corrects the remaining Windows
 Build 88 link failure; no runtime behavior changes.
+
+Editor workflow failure reports now retain the Play status and bounded runtime
+log, so a stopped runtime can be diagnosed from the captured evidence.

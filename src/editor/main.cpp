@@ -4207,6 +4207,8 @@ int main(int argc, char** argv) {
                     {"dirty", files.document.dirty()},
                     {"disk", disk},
                     {"playing", play.active()},
+                    {"play_status", play.status()},
+                    {"play_log", play.log()},
                     {"game_input_captured", game_input.captured()},
                     {"game_mouse_relative", SDL_GetWindowRelativeMouseMode(window.get())},
                     {"control_ready", play.control_ready()},
