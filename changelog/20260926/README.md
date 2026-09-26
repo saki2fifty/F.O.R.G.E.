@@ -416,4 +416,19 @@ awaiting + receipt-ready).
 Wire format, scene identity, SDK ABI, snapshot / candidate /
 ack contract, correlation id, stale-session checks, and the
 5 s timeout ceiling are unchanged. No dependency added or
-upgraded. Windows validation pending.
+upgraded.
+
+## Phase 8 editor target linkage fix
+
+Windows Build86 LNK2019 on `forge_editor_native_tests.exe`
+surfaced a missing transitive `forge_play_transport_worker`
+link. `cmake/editor.cmake` now adds
+`forge_play_transport_worker` to the three editor test
+targets that include `play.hpp` (directly or via
+`editor_sdk_workflow.hpp` / `editor_tests.cpp` /
+`editor_native_tests.cpp`): `forge_editor_native_tests`,
+`forge_editor_tests`, `forge_sdk_workflow_probe_tests`.
+Existing `forge_sdk_editor_tests` /
+`forge_sdk_editor_transport_tests` already linked the worker.
+No source or API change; smallest `target_link_libraries`
+correction. Windows validation pending.
