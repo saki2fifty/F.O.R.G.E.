@@ -1846,8 +1846,20 @@ int main(int argc, char** argv) {
                            // touches the real user's saves. Normal
                            // production callers leave the default
                            // (game_user_data_base()).
-                           if (fixture.sdk_play)
+                           if (fixture.sdk_play) {
                                play.set_user_data_override(fixture.user_data);
+                               // The CI runner has no WASAPI device;
+                               // route the runtime through offline audio
+                               // (AudioOutput::Offline → no
+                               // ma_context_init → no failure) so the
+                               // reference-level scene's AudioSource is
+                               // not dangling at scene preparation.
+                               // Production / physical-audio callers
+                               // leave headless_audio false and the
+                               // runtime receives --audio device. UI is
+                               // preserved (probe mode is not used).
+                               play.set_headless_audio(true);
+                           }
 #endif
                            play.start(forge::path_utf8(executable), scene.snapshot(),
                                       sdk ? std::string{} : native->artifact());

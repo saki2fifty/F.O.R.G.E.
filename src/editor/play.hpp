@@ -108,6 +108,21 @@ class PlaySession {
             throw std::runtime_error("Stop Play before changing user-data override");
         user_data_override_ = path_utf8(path);
     }
+    // Explicit offline audio selection for hardware-free acceptance.
+    // Distinct from `probe_`: probe_ disables UI for transport-only tests
+    // and ALSO selects offline audio; this flag selects offline audio
+    // alone while leaving the UI capability untouched. Used only by the
+    // CI SDK play fixture where the runtime is launched with `--audio
+    // offline` to avoid opening a physical WASAPI device; production
+    // callers leave it false and the runtime receives `--audio device`.
+    // Guarded while inactive so the next launch picks it up without
+    // racing a live SDL_CreateProcess. No persistence.
+    void set_headless_audio(bool value) {
+        if (active())
+            throw std::runtime_error("Stop Play before changing headless audio mode");
+        headless_audio_ = value;
+    }
+    bool headless_audio() const { return headless_audio_; }
     const std::string& user_data_override() const { return user_data_override_; }
     const std::string& session() const { return session_; }
     const std::string& module() const { return module_; } // Last known-good artifact only.
@@ -1154,7 +1169,7 @@ class PlaySession {
                 args.push_back(audio_project_.c_str());
             }
             args.push_back("--audio");
-            args.push_back(probe_ ? "offline" : "device");
+            args.push_back((probe_ || headless_audio_) ? "offline" : "device");
             if (!probe_) {
                 args.push_back("--ui");
                 args.push_back("on");
@@ -1169,7 +1184,7 @@ class PlaySession {
             args.push_back(exact_sdk_ ? "--sdk-project" : "--project");
             args.push_back(audio_project_.c_str());
             args.push_back("--audio");
-            args.push_back(probe_ ? "offline" : "device");
+            args.push_back((probe_ || headless_audio_) ? "offline" : "device");
             if (!probe_) {
                 args.push_back("--ui");
                 args.push_back("on");
@@ -1279,6 +1294,9 @@ class PlaySession {
     Json diagnostics_ = Json::array();
     std::string audio_project_;
     bool transaction_ = false, restoring_ = false, probe_ = false, recoverable_ = false;
+    // Explicit offline audio opt-in (set only by the CI SDK play fixture).
+    // Independent from probe_ so the UI capability stays untouched.
+    bool headless_audio_ = false;
     bool exact_sdk_ = false;
     bool prior_paused_ = false, desired_paused_ = false, waiting_ = false;
     std::uint64_t snapshot_version_ = 0, request_id_ = 0, activation_generation_ = 0;

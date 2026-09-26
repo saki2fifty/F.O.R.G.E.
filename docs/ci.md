@@ -68,6 +68,11 @@ The acceptance fixture, the dedicated editable project, and the isolated
 private user-data directory never enter the shipped ZIP. Physical-GPU
 acceptance on real hardware is a separate concern; the gate runs against the
 Windows runner's WARP rasterizer and reports the hardware scope explicitly.
+The fixture routes the runtime's audio through `AudioOutput::Offline`
+(skipping `ma_context_init`; no device, no physical-audio proof) so the
+workflow exercises authored clip decoding and scene preparation on runners
+without a WASAPI endpoint. The fixture's offline-audio routing is not a
+substitute for physical-audio acceptance, which remains a separate concern.
 
 A test-only packaging failure can use `package_source_run` to reuse that run's
 unchanged compiled artifacts. All four static/shared core jobs, editor and format

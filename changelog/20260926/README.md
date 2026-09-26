@@ -1,5 +1,71 @@
 # 2026-09-26
 
+## Phase 8 SDK acceptance fixture audio opt-in
+
+The editor SDK acceptance fixture on Windows runners previously launched the
+runtime with `--audio device`. The runner has no WASAPI endpoint, so
+`AudioOutput::Device` failed `ma_context_init`; the audio module's tolerated
+catch (`src/audio.cpp:419-441`) then aborted scene preparation at the
+non-prefab `AudioSource` carried by the reference level scene.
+
+The fixture now opts the runtime into the existing `AudioOutput::Offline`
+selection only under the build-83 fixture branch. Concretely:
+
+- `PlaySession::set_headless_audio(bool)` / `headless_audio()` is a new
+  opt-in distinct from the existing `probe_` flag (`probe_` ties
+  `--ui on/off` to its offline-audio choice and is reserved for
+  transport-only tests; `headless_audio_` selects offline audio alone and
+  leaves the UI capability intact).
+- `PlaySession::launch()` selects `--audio offline` when
+  `probe_ || headless_audio_`, otherwise `--audio device`. UI gating
+  remains `!probe_` so existing probe-mode tests are unchanged.
+- Under `#ifdef FORGE_UI_FIXTURE`, the SDK play launch path calls
+  `play.set_headless_audio(true)` inside the existing
+  `if (fixture.sdk_play)` branch alongside the existing user-data
+  override. Production callers never reach this branch.
+
+### Behaviour
+
+- UI capability is preserved — the SDK play fixture continues to drive
+  the full menu → new-game → play → save → quit → restart flow.
+- Production / physical-audio callers leave `headless_audio` false and
+  the runtime receives `--audio device` as before.
+- Required-source validation is unchanged: a non-prefab `AudioSource`
+  pointing at a clip the catalog cannot resolve still records
+  `failed_sources == 1` and `prepare_scene_resources` throws
+  `Scene preparation: required audio sources failed`
+  (`src/runtime_world.cpp:48`).
+- The "audio was never requested" path is unchanged: a non-prefab
+  `AudioSource` without an audio module still throws
+  `Scene preparation: audio output is unavailable`
+  (`src/runtime_world.cpp:61`).
+
+### Coverage
+
+- `tests/audio_tests.cpp` extends the existing `audio` ctest with three
+  focused paths on the `RuntimeWorld::prepare_scene_resources` contract:
+  (a) Offline + working source → success, (b) Offline + dangling clip
+  → required-source throw with `failed_sources == 1`, (c) no audio +
+  non-prefab `AudioSource` → unavailable throw. Path (c) pins the
+  contract the rejected `audio_attempted` bypass would have suppressed.
+- `tests/editor_sdk_tests.cpp` adds a four-line accessor round-trip
+  (`verify_headless_audio_opt_in()`) at the start of `main()`. It pins
+  only the public surface; it does not invoke `SDL_CreateProcess` and
+  does not exercise the active-session guard.
+
+The Windows CI build-83 SDK workflow fixture rerun is the end-to-end
+acceptance; no execution or claim is made in this changelog entry
+itself.
+
+### Hardware scope
+
+The fixture's offline-audio routing is a runner-side accommodation for
+the missing WASAPI endpoint; it is **not** a physical-audio acceptance
+signal. The acceptance gate reports `hardware = "WARP rasterizer on
+Windows CI; physical GPU acceptance requires manual local execution"`
+and the audio-path equivalent: the fixture's audio is offline, not
+physical-audio proof.
+
 ## Phase 8 UI acceptance fixture selection
 
 ### Bug

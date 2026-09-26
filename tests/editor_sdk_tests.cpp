@@ -19,10 +19,32 @@ static_assert(std::is_same<decltype(std::declval<forge::PlaySession&>().current_
 static_assert(std::is_same<decltype(std::declval<forge::PlaySession&>().next_editor_epoch()),
                            std::uint64_t>::value,
               "next_editor_epoch must return uint64");
+// Headless audio opt-in accessor check. Verifies only the round-trip:
+// default is false, set(true) persists, set(false) clears. Does NOT
+// exercise launch-arg selection (no SDL_CreateProcess here) and does
+// NOT cover the active-session guard (no live session is started).
+// Launch-side routing is exercised end-to-end by the Windows SDK
+// acceptance fixture (Fixture FORGE_UI_FIXTURE → build 83+); the
+// matching runtime-side contract (Offline prepares scene resources;
+// missing/required source throws) lives in tests/audio_tests.cpp.
+inline void verify_headless_audio_opt_in() {
+    forge::PlaySession sel;
+    require(!sel.headless_audio(), "headless_audio defaults to false");
+    sel.set_headless_audio(true);
+    require(sel.headless_audio(), "headless_audio setter did not persist");
+    sel.set_headless_audio(false);
+    require(!sel.headless_audio(), "headless_audio reset to false");
+}
 } // namespace
 int main(int argc, char** argv) {
     if (argc != 6)
         return 2;
+    try {
+        verify_headless_audio_opt_in();
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return 1;
+    }
     const auto root =
         std::filesystem::current_path() / ("sdk-editor-" + forge::AssetId::generate().str());
     int result = 0;

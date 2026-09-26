@@ -4,6 +4,7 @@
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/runtime.hpp>
+#include <forge/runtime_world.hpp>
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -443,6 +444,89 @@ int main(int argc, char** argv) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
             check(audio->status().at("mixed_frames").get<unsigned>() > 0,
                   "Null device never executed callback");
+        }
+        // -----------------------------------------------------------------
+        // Scene preparation contract for runtime_world::prepare_scene_resources.
+        // Three paths matter:
+        //   (a) Offline audio + working source     → scene prep succeeds
+        //   (b) Offline audio + unresolvable clip  → throws "required audio sources failed"
+        //   (c) No audio + non-prefab AudioSource  → throws "audio output is unavailable"
+        // Path (a) is the build-82 SDK play fixture scenario: the CI runner
+        // has no WASAPI device, so runtime_main.cpp selects
+        // AudioOutput::Offline for the launched runtime, and the
+        // Reference Level scene's authored speaker must not be treated as
+        // dangling. Path (b) keeps the genuine required-source contract.
+        // Path (c) keeps the genuine "audio never requested" contract that
+        // the rejected audio_attempted bypass incorrectly suppressed.
+        // -----------------------------------------------------------------
+        {
+            // Build a separate project so the Offline path uses a clean
+            // catalog independent of the broken-asset checks above.
+            const auto scene_root =
+                std::filesystem::path(argv[1]) / ("scene-prep-" + AssetId::generate().str());
+            std::filesystem::create_directories(scene_root / "Assets");
+            wav(scene_root / "Assets/tone.wav");
+            const auto clip = AssetCatalog::register_audio_clip(scene_root, "Assets/tone.wav");
+            const auto working_doc = source(clip.id);
+
+            // (a) Offline audio + working source → prepare_scene_resources succeeds.
+            {
+                Module module;
+                RuntimeWorld world(module, {}, PhysicsConfig{},
+                                   std::optional<AudioConfig>{
+                                       AudioConfig{scene_root, AudioOutput::Offline, false}},
+                                   scene_root, false);
+                world.scene.restore_snapshot(working_doc);
+                check(world.engine.services().available(Capability::Audio),
+                      "Offline AudioOutput did not publish Audio capability");
+                check(world.prepare_scene_resources(),
+                      "Offline audio + working source did not satisfy scene prep");
+            }
+
+            // (b) Offline audio + unresolvable clip → throws required-source failure.
+            {
+                Module module;
+                RuntimeWorld world(module, {}, PhysicsConfig{},
+                                   std::optional<AudioConfig>{
+                                       AudioConfig{scene_root, AudioOutput::Offline, false}},
+                                   scene_root, false);
+                // The catalog has no entry for this AssetId, so
+                // audio_module::sync records exactly one failed_source.
+                auto broken_doc = working_doc;
+                broken_doc["entities"][0]["components"]["forge.audio_source"]["clip"] =
+                    forge::AssetId::generate();
+                world.scene.restore_snapshot(broken_doc);
+                try {
+                    world.prepare_scene_resources();
+                    check(false,
+                          "prepare_scene_resources did not throw for required-source failure");
+                } catch (const std::exception& e) {
+                    check(std::string(e.what()).find("required audio sources failed") !=
+                              std::string::npos,
+                          "Wrong exception text for required-source failure");
+                }
+                const auto audio =
+                    std::static_pointer_cast<AudioRuntime>(world.engine.services().audio());
+                check(audio && audio->status().at("failed_sources").get<std::size_t>() == 1,
+                      "Offline audio + dangling clip did not record a failed_source");
+            }
+
+            // (c) No audio module + non-prefab AudioSource → throws unavailable.
+            {
+                Module module;
+                RuntimeWorld world(module, {}, PhysicsConfig{}, std::nullopt, scene_root, false);
+                world.scene.restore_snapshot(working_doc);
+                check(!world.engine.services().available(Capability::Audio),
+                      "Audio capability published without an audio module");
+                try {
+                    world.prepare_scene_resources();
+                    check(false, "prepare_scene_resources did not throw for missing audio");
+                } catch (const std::exception& e) {
+                    check(std::string(e.what()).find("audio output is unavailable") !=
+                              std::string::npos,
+                          "Wrong exception text for missing audio");
+                }
+            }
         }
         std::filesystem::remove_all(root);
         std::cout << "Audio core/assets/pause/spatial/prefab/teardown tests passed (offline, no "
