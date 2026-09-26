@@ -448,3 +448,8 @@ Build 88 link failure; no runtime behavior changes.
 
 Editor workflow failure reports now retain the Play status and bounded runtime
 log, so a stopped runtime can be diagnosed from the captured evidence.
+
+Headless native UI fixtures now use offline audio for legacy Play as well as SDK
+Play. This avoids requesting physical audio output on device-less WARP runners;
+normal editor audio is unchanged. Transport failures also identify the command
+and request number. The five-second request deadline remains unchanged.

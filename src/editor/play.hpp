@@ -1031,7 +1031,8 @@ class PlaySession {
             // session fault.
             if (auto post_dispatch_failure = worker_.take_failure();
                 !post_dispatch_failure.empty()) {
-                throw std::runtime_error(post_dispatch_failure);
+                throw std::runtime_error(post_dispatch_failure + " during " + sent_command_ +
+                                         " (request " + std::to_string(request_id_) + ")");
             }
             if (!waiting_) {
                 if (sdk_game_ && (stage_ == Stage::Preparing || stage_ == Stage::Running)) {
