@@ -5,10 +5,20 @@ on:
       - .github/workflows/cache-check.yml
       - tools/cache_workspace.cjs
   workflow_dispatch:
+    inputs:
+      pipe_probe:
+        description: "Run the Windows pipe-contract probe (windows-pipe-probe.yml) via workflow_call. Skips the cache job."
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 jobs:
   cache:
+    # Skip the cache transport check when the operator used the
+    # pipe_probe dispatch input; that path runs the Windows
+    # pipe-contract probe in the `pipe-probe` job below.
+    if: github.event_name != 'workflow_dispatch' || !inputs.pipe_probe
     runs-on: windows-2022
     timeout-minutes: 10
     steps:
@@ -69,3 +79,12 @@ jobs:
         run: |
           $value = Get-Content -LiteralPath "${{ runner.temp }}/forge-work/AgentFiles/cache-probe/payload.txt"
           if ($value -ne 'FORGE cache transport') { throw 'Cache restore did not preserve the payload' }
+  # Dispatch hook for the Windows pipe-contract probe. Runs ONLY when
+  # the operator dispatched this workflow with `pipe_probe=true`;
+  # otherwise the workflow behaves exactly as before. The probe lives
+  # at .github/workflows/windows-pipe-probe.yml on the same branch
+  # and is invoked via workflow_call so it does not need to be on the
+  # default branch for `gh workflow run` to discover it.
+  pipe-probe:
+    if: github.event_name == 'workflow_dispatch' && inputs.pipe_probe
+    uses: ./.github/workflows/windows-pipe-probe.yml

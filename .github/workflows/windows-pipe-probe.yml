@@ -16,6 +16,7 @@ name: Windows pipe contract probe
 # decide whether `runtime_io.hpp`'s
 # `ERROR_NO_DATA || ERROR_BROKEN_PIPE` branch is correct.
 on:
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read
