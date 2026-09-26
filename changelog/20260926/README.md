@@ -441,3 +441,7 @@ catch-up simulation before that confirmation, which correctly triggers candidate
 rollback rather than post-commit checkpoint recovery. The test still verifies
 checkpoint recovery and retains separate coverage for probe and activation
 failures. Runtime reload behavior is unchanged.
+
+The UI-input test also links the transport worker: its runtime UI input header
+reaches PlaySession through game input. This corrects the remaining Windows
+Build 88 link failure; no runtime behavior changes.

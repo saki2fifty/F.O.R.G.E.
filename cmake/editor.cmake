@@ -126,7 +126,7 @@ if(BUILD_TESTING)
  add_executable(forge_ui_input_tests tests/ui_input_tests.cpp "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp")
  target_include_directories(forge_ui_input_tests PRIVATE src/editor "${rmlui_SOURCE_DIR}/Backends")
  target_compile_definitions(forge_ui_input_tests PRIVATE RMLUI_SDL_VERSION_MAJOR=3)
- target_link_libraries(forge_ui_input_tests PRIVATE forge_ui_presenter forge_authoring RmlUi::Core SDL3::SDL3 imgui forge_game_platform)
+ target_link_libraries(forge_ui_input_tests PRIVATE forge_ui_presenter forge_authoring RmlUi::Core SDL3::SDL3 imgui forge_game_platform forge_play_transport_worker)
  add_test(NAME runtime_ui_input COMMAND forge_ui_input_tests $<TARGET_FILE:forge_runtime> "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${CMAKE_BINARY_DIR}/ui-input-data")
  # Regression for the Windows79 SDK fixture init-order crash: the
  # workflow's safe-probe gate must return nullptr without touching
