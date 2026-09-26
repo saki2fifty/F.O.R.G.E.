@@ -4,7 +4,10 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <deque>
 #include <forge/animation.hpp>
 #include <forge/build.hpp>
@@ -1271,13 +1274,86 @@ void SdkPlayRuntime::process() {
     auto& s = *state_;
     s.check_owner();
     RuntimeIo io;
+    // ---- Diagnostic-only opt-in -----------------------------------------
+    // FORGE_SDK_DIAGNOSTIC_DIR is a directory path inherited via SDL3's
+    // default env inheritance (pinned SDL
+    // src/process/windows/SDL_windowsprocess.c:249). When set, this
+    // process opens a per-process-unique file under that directory.
+    // The runtime's own stderr is a 4 KiB pipe the editor drains into
+    // `log_`; the diagnostic does not write there. Each file is capped
+    // at 256 KiB and silently stops once reached. Records are sampled
+    // (handle end per request, slow_pump when pump_ms > 50, every
+    // 256th pump iteration). Default off: every diag_log call is a
+    // no-op when the env var is unset or fopen fails. No public SDK
+    // surface, no wire protocol change. Capped file I/O can still
+    // block on disk — it is bounded by byte count, not by latency.
+    static const char* kDiagDir = []() -> const char* {
+        const char* v = std::getenv("FORGE_SDK_DIAGNOSTIC_DIR");
+        return (v && v[0]) ? v : nullptr;
+    }();
+    static std::FILE* kDiagFile = nullptr;
+    static std::size_t kDiagBytes = 0;
+    constexpr std::size_t kDiagCap = 256 * 1024;
+    const auto proc_start = std::chrono::steady_clock::now();
+    if (kDiagDir && !kDiagFile) {
+        char path[4096];
+        // Per-process unique filename so a runtime restart inside the
+        // same CI run does not overwrite the previous process's records.
+        std::snprintf(path, sizeof(path), "%s/sdk_diag_runtime_%lld.log", kDiagDir,
+                      static_cast<long long>(proc_start.time_since_epoch().count()));
+        kDiagFile = std::fopen(path, "wb");
+        if (kDiagFile)
+            std::setvbuf(kDiagFile, nullptr, _IONBF, 0);
+    }
+    auto diag_log = [&](const char* fmt, ...) {
+        if (!kDiagFile || kDiagBytes >= kDiagCap)
+            return;
+        char buf[1024];
+        va_list ap;
+        va_start(ap, fmt);
+        int n = std::vsnprintf(buf, sizeof(buf), fmt, ap);
+        va_end(ap);
+        if (n <= 0)
+            return;
+        std::size_t to_write = static_cast<std::size_t>(n);
+        if (to_write >= sizeof(buf))
+            to_write = sizeof(buf) - 1;
+        if (kDiagBytes + to_write + 1 > kDiagCap)
+            return;
+        std::fwrite(buf, 1, to_write, kDiagFile);
+        std::fputc('\n', kDiagFile);
+        kDiagBytes += to_write + 1;
+    };
+    auto diag_ms = [&]() -> long long {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::steady_clock::now() - proc_start)
+            .count();
+    };
+    diag_log("[sdk_diag runtime t=%lld stage=process_begin]", diag_ms());
+    std::uint64_t diag_iter = 0;
+    constexpr long long kSlowPumpMs = 50;
     while (!io.closed()) {
         const auto now = RuntimeClock::Clock::now();
         // Advance the simulation/host callbacks. If gameplay Quit was
         // observed, pump() now early-returns after setting quit_latched;
         // we still need one more correlated response sent to the editor
         // so the editor doesn't interpret EOF as a process crash.
+        const auto pump_begin = std::chrono::steady_clock::now();
         pump(now);
+        const auto pump_end = std::chrono::steady_clock::now();
+        const long long pump_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(pump_end - pump_begin).count();
+        // Sampled + slow-only pump telemetry. Every 256th iteration
+        // emits an entry/exit pair so a healthy cadence stays quiet;
+        // any pump that exceeds kSlowPumpMs emits a slow_pump record
+        // immediately.
+        if (pump_ms > kSlowPumpMs)
+            diag_log("[sdk_diag runtime t=%lld stage=slow_pump iter=%llu pump_ms=%lld]", diag_ms(),
+                     static_cast<unsigned long long>(diag_iter), pump_ms);
+        else if ((diag_iter & 0xff) == 0)
+            diag_log("[sdk_diag runtime t=%lld stage=pump_sample iter=%llu pump_ms=%lld]",
+                     diag_ms(), static_cast<unsigned long long>(diag_iter), pump_ms);
+        ++diag_iter;
         // The wire carries at most one in-flight response. Flush before
         // pulling a new request and bound serialized size including the
         // trailing newline against RuntimeIo::limit, not a local magic.
@@ -1296,10 +1372,19 @@ void SdkPlayRuntime::process() {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
+        // Original parse/handle shape preserved exactly: the request is
+        // parsed inside the same try block the runtime has always had,
+        // and the diagnostic extraction is non-throwing / type-checked
+        // and only runs when the diagnostic FILE is open. A
+        // malformed-typed object still routes through the original
+        // handle() error path; the diagnostic never short-circuits
+        // that.
         Json request;
         try {
             request = Json::parse(line);
         } catch (const std::exception& e) {
+            diag_log("[sdk_diag runtime t=%lld stage=parse_error bytes=%zu]", diag_ms(),
+                     line.size());
             // Only an unparseable line carries id=0. The handler will
             // produce a correlated error response for any other parse
             // failure inside an object payload.
@@ -1316,10 +1401,34 @@ void SdkPlayRuntime::process() {
             }
             continue;
         }
+        std::uint64_t req_id = 0;
+        std::string req_cmd;
+        // Non-throwing, type-checked diagnostic extraction. Only
+        // runs when the diagnostic FILE is open. Skips any
+        // non-object, missing-key, or wrong-typed field silently
+        // — the runtime's handle() never sees the diagnostic.
+        if (kDiagFile && request.is_object()) {
+            const auto id_it = request.find("id");
+            if (id_it != request.end() && id_it->is_number_unsigned())
+                req_id = id_it->get<std::uint64_t>();
+            const auto cmd_it = request.find("command");
+            if (cmd_it != request.end() && cmd_it->is_string())
+                req_cmd = cmd_it->get<std::string>();
+        }
+        diag_log("[sdk_diag runtime t=%lld stage=handle_begin cmd=%s id=%llu]", diag_ms(),
+                 req_cmd.c_str(), static_cast<unsigned long long>(req_id));
+        const auto handle_begin = std::chrono::steady_clock::now();
         try {
             const auto response = handle(request, now);
+            const auto handle_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                               std::chrono::steady_clock::now() - handle_begin)
+                                               .count();
             const auto serialized = response.dump() + "\n";
             if (serialized.size() > RuntimeIo::limit) {
+                diag_log("[sdk_diag runtime t=%lld stage=handle_end cmd=%s id=%llu handle_ms=%lld "
+                         "oversize=%zu]",
+                         diag_ms(), req_cmd.c_str(), static_cast<unsigned long long>(req_id),
+                         static_cast<long long>(handle_elapsed_ms), serialized.size());
                 Json bounded{{"protocol", 2},
                              {"session", s.session},
                              {"id", response.value("id", std::uint64_t{})},
@@ -1329,9 +1438,21 @@ void SdkPlayRuntime::process() {
                 const auto cut = bounded.dump() + "\n";
                 if (cut.size() <= RuntimeIo::limit)
                     io.send(cut);
-            } else
+            } else {
+                diag_log("[sdk_diag runtime t=%lld stage=handle_end cmd=%s id=%llu handle_ms=%lld "
+                         "response_bytes=%zu]",
+                         diag_ms(), req_cmd.c_str(), static_cast<unsigned long long>(req_id),
+                         static_cast<long long>(handle_elapsed_ms), serialized.size());
                 io.send(serialized);
+            }
         } catch (const std::exception& e) {
+            const auto handle_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                               std::chrono::steady_clock::now() - handle_begin)
+                                               .count();
+            diag_log("[sdk_diag runtime t=%lld stage=handle_threw cmd=%s id=%llu handle_ms=%lld "
+                     "what=%s]",
+                     diag_ms(), req_cmd.c_str(), static_cast<unsigned long long>(req_id),
+                     static_cast<long long>(handle_elapsed_ms), e.what());
             // A serious native fault inside handle() reached this scope.
             // The candidate is rejected (initial failure does not abort
             // the world); record the diagnostic and request a controlled
@@ -1350,6 +1471,16 @@ void SdkPlayRuntime::process() {
         }
         if (s.quit && !io.pending())
             break;
+    }
+    diag_log("[sdk_diag runtime t=%lld stage=process_end closed=%d]", diag_ms(),
+             io.closed() ? 1 : 0);
+    if (kDiagFile) {
+        std::fclose(kDiagFile);
+        // Reset so a subsequent process() call (in the same process
+        // lifetime — e.g. after a stop/start in fixture restart tests)
+        // does not write to a dangling handle.
+        kDiagFile = nullptr;
+        kDiagBytes = 0;
     }
 }
 } // namespace forge

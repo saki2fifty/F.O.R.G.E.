@@ -476,6 +476,15 @@ jobs:
           foreach ($required in @($zip, $fixture, $project)) {
             if (-not (Test-Path $required)) { throw "Missing editor SDK acceptance input: $required" }
           }
+          # Diagnostic opt-in for the SDK acceptance run. The editor
+          # and runtime open per-process bounded 256 KiB log files under
+          # $evidence/sdk-diagnostic; the existing FORGE-Editor-SDK-Acceptance
+          # artifact upload below picks this directory up automatically
+          # because it lives under $evidence. Enabled for this acceptance
+          # step only — production callers and the editor runtime never
+          # inherit the env var.
+          $env:FORGE_SDK_DIAGNOSTIC_DIR = Join-Path $evidence 'sdk-diagnostic'
+          New-Item -ItemType Directory -Path $env:FORGE_SDK_DIAGNOSTIC_DIR -Force | Out-Null
           python tests/editor_sdk_package_test.py --zip $zip --fixture $fixture --project $project --evidence $evidence
           if ($LASTEXITCODE) { throw 'Editor SDK acceptance against final package failed' }
       - name: Upload editor SDK acceptance evidence

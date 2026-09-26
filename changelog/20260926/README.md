@@ -317,3 +317,13 @@ but the artifact still ships, preserving the JSON evidence.
   / cache-check workflows are all unchanged. No authored id was
   rewritten. No dependency was added. No CMake configure / build
   / install step runs in this workflow.
+
+## Phase 8 SDK acceptance diagnostic logs
+
+Opt-in, capped (256 KiB per process, binary mode) editor and
+runtime request/pump timing logs are emitted to per-process
+files under `$RUNNER_TEMP/forge-package/editor-sdk-evidence/sdk-diagnostic`
+during the final package SDK acceptance step; the existing
+`FORGE-Editor-SDK-Acceptance` artifact upload collects that
+directory. The windows83 5 s `request 19` timeout remains
+unresolved; these logs are an instrumentation aid, not a fix.

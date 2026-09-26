@@ -1,7 +1,10 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdarg>
+#include <cstdio>
 #include <forge/build.hpp>
 #include <forge/game_platform.hpp>
 #include <forge/input.hpp>
@@ -591,12 +594,18 @@ class PlaySession {
     void pump() {
         if (!process_)
             return;
+        const auto diag_now = SDL_GetTicks();
+        const auto diag_gap = last_diag_ticks_ ? (diag_now - last_diag_ticks_) : Uint64{0};
+        last_diag_ticks_ = diag_now;
+        const bool diag = sdk_diag_open();
         try {
+            std::size_t diag_bytes_written = 0;
             for (unsigned chunk = 0; !outgoing_.empty() && chunk < 32; ++chunk) {
                 auto* input = SDL_GetProcessInput(process_);
                 const auto count = SDL_WriteIO(input, outgoing_.data(),
                                                std::min<std::size_t>(1024, outgoing_.size()));
                 outgoing_.erase(0, count);
+                diag_bytes_written += count;
                 if (!count && SDL_GetIOStatus(input) != SDL_IO_STATUS_NOT_READY)
                     throw std::runtime_error("Runtime input closed");
                 if (!count)
@@ -604,11 +613,13 @@ class PlaySession {
             }
             char buffer[8192];
             auto* output = SDL_GetProcessOutput(process_);
+            std::size_t diag_bytes_read = 0;
             for (int i = 0; i < 32; ++i) {
                 const auto count = SDL_ReadIO(output, buffer, sizeof(buffer));
                 if (!count)
                     break;
                 incoming_.append(buffer, count);
+                diag_bytes_read += count;
                 if (incoming_.size() > 16 * 1024 * 1024)
                     throw std::runtime_error("Runtime response exceeds 16 MiB");
             }
@@ -623,6 +634,22 @@ class PlaySession {
                     if (log_.size() > 65536)
                         log_.erase(0, log_.size() - 65536);
                 }
+            if (diag) {
+                auto* input_pipe = SDL_GetProcessInput(process_);
+                if ((diag_iter_ & 0xff) == 0 || diag_gap > 100 || diag_bytes_read > 0)
+                    sdk_diag_log("[sdk_diag editor t=%llu gap_ms=%llu stage=pump_io "
+                                 "waiting=%d cmd=%s id=%llu written=%zu read=%zu "
+                                 "outgoing_pending=%zu incoming_buffer=%zu "
+                                 "input_status=%s output_status=%s]",
+                                 static_cast<unsigned long long>(diag_now),
+                                 static_cast<unsigned long long>(diag_gap), waiting_ ? 1 : 0,
+                                 sent_command_.c_str(),
+                                 static_cast<unsigned long long>(request_id_), diag_bytes_written,
+                                 diag_bytes_read, outgoing_.size(), incoming_.size(),
+                                 input_pipe ? sdk_diag_io_name(SDL_GetIOStatus(input_pipe)) : "NA",
+                                 output ? sdk_diag_io_name(SDL_GetIOStatus(output)) : "NA");
+                ++diag_iter_;
+            }
             const auto newline = incoming_.find('\n');
             if (newline != std::string::npos) {
                 const auto response = Json::parse(incoming_.substr(0, newline));
@@ -635,6 +662,12 @@ class PlaySession {
                 if (session_.empty() || response.value("session", "") != session_)
                     throw std::runtime_error("Stale runtime session");
                 waiting_ = false;
+                if (diag)
+                    sdk_diag_log("[sdk_diag editor t=%llu stage=response_received "
+                                 "cmd=%s id=%llu response_bytes=%zu]",
+                                 static_cast<unsigned long long>(SDL_GetTicks()),
+                                 sent_command_.c_str(),
+                                 static_cast<unsigned long long>(request_id_), newline);
                 // Branch BEFORE normal-snapshot parsing: a `candidate`
                 // response carries ONLY {protocol, session, id, ok,
                 // runtime_contract, candidate} — no scene, no timing, no
@@ -996,11 +1029,29 @@ class PlaySession {
             int exit_code = 0;
             if (SDL_WaitProcess(process_, false, &exit_code))
                 throw std::runtime_error("Runtime exited (code " + std::to_string(exit_code) + ")");
-            if (waiting_ && SDL_GetTicks() - sent_at_ > 5000)
+            if (waiting_ && SDL_GetTicks() - sent_at_ > 5000) {
+                if (diag) {
+                    auto* input_pipe = SDL_GetProcessInput(process_);
+                    auto* output_pipe = SDL_GetProcessOutput(process_);
+                    int exit_code_probe = 0;
+                    const bool proc_exited = SDL_WaitProcess(process_, false, &exit_code_probe);
+                    sdk_diag_log(
+                        "[sdk_diag editor t=%llu stage=timeout "
+                        "cmd=%s id=%llu wait_ms=%llu outgoing=%zu incoming=%zu "
+                        "input_status=%s output_status=%s proc_exited=%d]",
+                        static_cast<unsigned long long>(SDL_GetTicks()), sent_command_.c_str(),
+                        static_cast<unsigned long long>(request_id_),
+                        static_cast<unsigned long long>(SDL_GetTicks() - sent_at_),
+                        outgoing_.size(), incoming_.size(),
+                        input_pipe ? sdk_diag_io_name(SDL_GetIOStatus(input_pipe)) : "NA",
+                        output_pipe ? sdk_diag_io_name(SDL_GetIOStatus(output_pipe)) : "NA",
+                        proc_exited ? 1 : 0);
+                }
                 throw std::runtime_error(
                     "Runtime timed out during " + sent_command_ + " (request " +
                     std::to_string(request_id_) + ", outgoing " + std::to_string(outgoing_.size()) +
                     ", incoming " + std::to_string(incoming_.size()) + " bytes)");
+            }
             if (!waiting_) {
                 if (sdk_game_ && (stage_ == Stage::Preparing || stage_ == Stage::Running)) {
                     // Single SDK Play scheduler. Priority order:
@@ -1097,6 +1148,11 @@ class PlaySession {
             SDL_WaitProcess(process_, true, nullptr);
             SDL_DestroyProcess(process_);
             process_ = nullptr;
+        }
+        if (sdk_diag_file_ref()) {
+            std::fclose(sdk_diag_file_ref());
+            sdk_diag_file_ref() = nullptr;
+            sdk_diag_bytes_ref() = 0;
         }
         outgoing_.clear();
         incoming_.clear();
@@ -1303,6 +1359,94 @@ class PlaySession {
     std::string sent_command_, outgoing_, incoming_, log_,
         status_ = "Stopped. Play uses a copy of your authored scene.";
     Uint64 sent_at_ = 0;
+    // Diagnostic-only opt-in. The editor inherits FORGE_SDK_DIAGNOSTIC_DIR
+    // (a directory path) via SDL3's default env inheritance (pinned SDL
+    // src/process/windows/SDL_windowsprocess.c:249). When set, the editor
+    // opens a per-process-unique file under that directory. The runtime
+    // opens a SEPARATE file in the same directory; no shared FILE
+    // ownership. Each file is capped at 256 KiB. The diagnostic does NOT
+    // write to stderr — the runtime's stderr is a 4 KiB pipe the editor
+    // drains into the existing log_ field. Records are sampled (every
+    // 256th pump, slow gap > 100 ms, or any pump that read bytes from
+    // the runtime). Default off: every diagnostic call is a no-op when
+    // the env var is unset or fopen fails. Capped file I/O can still
+    // block on disk — it is bounded by byte count, not by latency.
+    // No public SDK surface, no wire protocol change.
+    static FILE*& sdk_diag_file_ref() {
+        static FILE* f = nullptr;
+        return f;
+    }
+    static std::size_t& sdk_diag_bytes_ref() {
+        static std::size_t n = 0;
+        return n;
+    }
+    constexpr static std::size_t kSdkDiagCap = 256 * 1024;
+    // Returns true and opens the file on first invocation; subsequent
+    // invocations return the cached result without re-checking the env
+    // var. The cap is enforced via sdk_diag_bytes_ref().
+    static bool sdk_diag_open() {
+        FILE*& f = sdk_diag_file_ref();
+        if (f || sdk_diag_dir_ref() == nullptr)
+            return f != nullptr;
+        char path[4096];
+        // Per-process unique filename so an editor restart inside the
+        // same CI run does not overwrite the previous process's records.
+        const long long start_counter =
+            static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count());
+        std::snprintf(path, sizeof(path), "%s/sdk_diag_editor_%lld.log", sdk_diag_dir_ref(),
+                      start_counter);
+        f = std::fopen(path, "wb");
+        if (f)
+            std::setvbuf(f, nullptr, _IONBF, 0);
+        return f != nullptr;
+    }
+    static const char* sdk_diag_dir_ref() {
+        static const char* dir = []() -> const char* {
+            const char* v = SDL_getenv("FORGE_SDK_DIAGNOSTIC_DIR");
+            return (v && v[0]) ? v : nullptr;
+        }();
+        return dir;
+    }
+    static void sdk_diag_log(const char* fmt, ...) {
+        FILE* f = sdk_diag_file_ref();
+        if (!f || sdk_diag_bytes_ref() >= kSdkDiagCap)
+            return;
+        char buf[1024];
+        va_list ap;
+        va_start(ap, fmt);
+        int n = std::vsnprintf(buf, sizeof(buf), fmt, ap);
+        va_end(ap);
+        if (n <= 0)
+            return;
+        std::size_t to_write = static_cast<std::size_t>(n);
+        if (to_write >= sizeof(buf))
+            to_write = sizeof(buf) - 1;
+        if (sdk_diag_bytes_ref() + to_write + 1 > kSdkDiagCap)
+            return;
+        std::fwrite(buf, 1, to_write, f);
+        std::fputc('\n', f);
+        sdk_diag_bytes_ref() += to_write + 1;
+    }
+    static const char* sdk_diag_io_name(SDL_IOStatus s) {
+        switch (s) {
+        case SDL_IO_STATUS_READY:
+            return "READY";
+        case SDL_IO_STATUS_ERROR:
+            return "ERROR";
+        case SDL_IO_STATUS_EOF:
+            return "EOF";
+        case SDL_IO_STATUS_NOT_READY:
+            return "NOT_READY";
+        case SDL_IO_STATUS_READONLY:
+            return "READONLY";
+        case SDL_IO_STATUS_WRITEONLY:
+            return "WRITEONLY";
+        default:
+            return "?";
+        }
+    }
+    Uint64 last_diag_ticks_ = 0;
+    std::uint64_t diag_iter_ = 0;
     // ---- SDK Play opt-in profile transport state -----------------------
     // Set once in configure(); opt-in is exact_sdk && sdk_game. The
     // launch path hands --sdk-play on + --user-data <absolute base> to
