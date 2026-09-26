@@ -136,19 +136,29 @@ int main(int argc, char** argv) {
             pump();
         require(native.artifact() != schema_artifact, "Build on save failed: " + native.log());
         native.auto_build = false;
-        // A later gameplay crash exposes manual checkpoint recovery without a crash loop.
+        // Arm a later gameplay crash only after the editor observes reload commit.
+        // Counting callbacks is insufficient: catch-up ticks can run before the
+        // activation response reaches the editor, making that a pre-commit crash.
+        const auto crash_arm_path = root / "crash-armed";
+        const auto crash_arm = forge::Json(crash_arm_path.string()).dump();
         const auto tick_marker = forge::Json((root / "tick-marker").string()).dump();
         auto crash_once = "#include <fstream>\n#include <cstdlib>\n" + original;
-        crash_once =
-            replace(crash_once, "static void tick(const ForgeHostV1* host, float seconds) {",
-                    "static void tick(const ForgeHostV1* host, float seconds) { static int "
-                    "calls=0; if (++calls == 4 && "
-                    "!std::ifstream(" +
-                        tick_marker + ").good()) { { std::ofstream marker(" + tick_marker +
-                        "); marker << 1; } std::abort(); }");
+        crash_once = replace(
+            crash_once, "static void tick(const ForgeHostV1* host, float seconds) {",
+            "static void tick(const ForgeHostV1* host, float seconds) { if (std::ifstream(" +
+                crash_arm + ").good() && !std::ifstream(" + tick_marker +
+                ").good()) { { std::ofstream marker(" + tick_marker +
+                "); marker << 1; } std::abort(); }");
         forge::atomic_write(source, crash_once);
+        const auto before_crash_module = native.artifact();
         native.build();
         settle();
+        require(play.ready() && !play.pending_activation() &&
+                    play.reload_result() == forge::PlaySession::Reload::Succeeded &&
+                    native.artifact() != before_crash_module && play.module() == native.artifact(),
+                "Crash fixture was not committed before arming: " + play.status() + " | " +
+                    native.status());
+        forge::atomic_write(crash_arm_path, "armed");
         const auto crash_limit = SDL_GetTicks() + 6500;
         while (play.active() && SDL_GetTicks() < crash_limit)
             pump();

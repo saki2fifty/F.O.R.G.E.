@@ -432,3 +432,12 @@ Existing `forge_sdk_editor_tests` /
 `forge_sdk_editor_transport_tests` already linked the worker.
 No source or API change; smallest `target_link_libraries`
 correction. Windows validation pending.
+
+## Native reload crash-recovery regression
+
+The native iteration test now arms its gameplay crash only after the editor
+confirms the new module has committed. A fixed callback count could fire during
+catch-up simulation before that confirmation, which correctly triggers candidate
+rollback rather than post-commit checkpoint recovery. The test still verifies
+checkpoint recovery and retains separate coverage for probe and activation
+failures. Runtime reload behavior is unchanged.
