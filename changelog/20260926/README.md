@@ -453,3 +453,11 @@ Headless native UI fixtures now use offline audio for legacy Play as well as SDK
 Play. This avoids requesting physical audio output on device-less WARP runners;
 normal editor audio is unchanged. Transport failures also identify the command
 and request number. The five-second request deadline remains unchanged.
+
+## Large Play requests on Windows
+
+Restored bounded 1 KiB editor-to-runtime writes after the transport-thread move
+had replaced them with a whole-request write. Both peers use nonblocking pipes;
+a request larger than the Windows pipe quota could stall before scene replacement.
+A real-process regression now echoes a 70 KiB patterned request through the actual
+runtime polling reader and checks every byte. Request deadlines remain unchanged.

@@ -1,4 +1,5 @@
 #include "play_transport_worker.hpp"
+#include <algorithm>
 #include <exception>
 #include <utility>
 
@@ -378,7 +379,11 @@ void PlayTransportWorker::run_loop() {
             //    deadline on write completion — the request is
             //    in flight until receipt arrives.
             if (in_flight_ && stdin_ && pending_offset_ < pending_line_.size()) {
-                const auto want = pending_line_.size() - pending_offset_;
+                // Match RuntimeIo::flush: both peers poll nonblocking pipes. A
+                // write larger than the Windows pipe quota may make no progress
+                // without a pending reader, even when the pipe is empty.
+                const auto want =
+                    std::min<std::size_t>(1024, pending_line_.size() - pending_offset_);
                 const auto n = SDL_WriteIO(stdin_, pending_line_.data() + pending_offset_, want);
                 if (n > 0) {
                     pending_offset_ += n;

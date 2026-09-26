@@ -5,7 +5,9 @@
 // SDL_CreateProcessWithProperties pointing at the test executable
 // path (argv[0] / the OS self-path). The child detects its scenario
 // name in argv[1] + "--child" sentinel and runs that scenario's
-// protocol using plain C stdio (printf / fgets / fwrite / fflush)
+// protocol using C stdio, except the polling-peer regression which uses
+// production RuntimeIo to exercise nonblocking reads and writes. Most children use
+// plain C stdio (printf / fgets / fwrite / fflush)
 // so the same source compiles on every platform without per-
 // platform branching. NO /dev/stdin, /dev/stdout, /proc/self/exe,
 // fork, or unrelated sleep sentinel.
@@ -48,6 +50,7 @@
 //      trip the cap failure and drop the data without copying it
 //      into a receipt.
 
+#include "../src/runtime_io.hpp"
 #include "play.hpp"
 #include "play_transport_worker.hpp"
 #include <SDL3/SDL.h>
@@ -212,6 +215,21 @@ int run(int argc, char** argv) {
     setvbuf(stdin, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
     const std::string scenario = argv[1];
+    if (scenario == "polling_request") {
+        forge::RuntimeIo io;
+        std::string line;
+        while (!io.closed() && !io.receive(line))
+            SDL_Delay(1);
+        if (io.closed())
+            return 3;
+        io.send(line + "\n");
+        while (io.pending() && !io.closed()) {
+            io.flush();
+            SDL_Delay(1);
+        }
+        SDL_Delay(10000);
+        return 0;
+    }
 
     if (scenario == "delayed_main") {
         for (int i = 1; i <= 3; ++i) {
@@ -1051,6 +1069,28 @@ int main(int argc, char** argv) {
         }
 
         SDL_Quit();
+        // Both ends poll: a blocking fgets child hides oversized Windows
+        // writes that cannot fit the pipe quota without a pending reader.
+        {
+            log("large request and response through production RuntimeIo");
+            ChildGuard guard;
+            auto c = spawn_child(argv[0], "polling_request");
+            guard.child = c.process;
+            forge::PlayTransportWorker w;
+            require(w.start(c.process, c.stdin_pipe, c.stdout_pipe, c.stderr_pipe),
+                    "polling peer: start failed");
+            guard.child = nullptr;
+            std::string payload(70 * 1024, 'x');
+            for (std::size_t i = 0; i < payload.size(); ++i)
+                payload[i] = char('a' + i % 26);
+            require(w.submit(payload + "\n", forge::PlayTransportWorker::monotonic_ms()),
+                    "polling peer: submit failed");
+            forge::PlayTransportWorker::Receipt receipt;
+            const bool received = wait_for([&] { return w.drain_one_line(receipt); }, 5500);
+            const auto failure = w.take_failure();
+            require(received && failure.empty(), "polling peer: no reply: " + failure);
+            require(receipt.payload == payload, "polling peer: bytes lost or duplicated");
+        }
         log("all scenarios completed");
         return 0;
     } catch (const TestFailure& e) {
