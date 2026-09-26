@@ -1,0 +1,113 @@
+name: Windows pipe contract probe
+# Manual-only probe for the windows83 SDK workflow stage2 snapshot-timeout
+# review. Builds a single-source probe under
+# `tests/windows_pipe_probe.cpp` with the pinned MSVC setup used by the
+# editor-audit and standalone-audit workflows, runs it on Windows-2022,
+# and uploads the JSON evidence as an artifact regardless of pass/fail.
+#
+# Scope: the probe is an API-contract observation of anonymous-pipe
+# WriteFile / ReadFile and a real production-path exercise of
+# `forge::RuntimeIo::send` / `flush` against a payload larger than the
+# default anonymous-pipe quota. It does NOT rebuild FORGE, the engine,
+# or any dependency. It does NOT reproduce the windows83 fixture
+# failure (that depends on the editor's GPU swap chain and
+# `GameSession::poll_candidate`, neither of which this probe
+# exercises). The JSON output is the evidence the manager requested to
+# decide whether `runtime_io.hpp`'s
+# `ERROR_NO_DATA || ERROR_BROKEN_PIPE` branch is correct.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: windows-2022
+    timeout-minutes: 5
+    env:
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: core.longpaths
+      GIT_CONFIG_VALUE_0: "true"
+    steps:
+      # Safe short-path Windows checkout. Mirrors the pattern used by
+      # .github/workflows/cache-check.yml and editor-audit.yml so that
+      # `RUNNER_TEMP/forge-work/FORGE` is the path every later step sees,
+      # and so the basic-auth token never reaches the workflow log.
+      - name: Checkout Windows source without trailing-dot paths
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        env:
+          FORGE_COMMIT: ${{ github.sha }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+      # Pinned MSVC dev-cmd action. Matches the editor-audit and
+      # standalone-audit workflows exactly so the produced object files
+      # share conventions with the rest of FORGE's CI.
+      - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c
+        with:
+          vsversion: '2022'
+          toolset: '14.44.35207'
+          sdk: '10.0.26100.0'
+      - name: Compile probe with cl /std:c++20 /EHsc
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++20 /EHsc /W4 /O2 /Fe:probe.exe tests\windows_pipe_probe.cpp
+          if ($LASTEXITCODE) { throw 'Probe compile failed' }
+      - name: Run probe and capture JSON evidence
+        id: run
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          $probe = './probe.exe'
+          if (-not (Test-Path $probe)) { throw 'Probe binary not produced' }
+          # Capture stdout via redirection so `$LASTEXITCODE` is the
+          # probe's own exit code (PowerShell pipelines otherwise
+          # surface the last cmdlet's exit code).
+          & $probe > probe-output.json
+          if ($LASTEXITCODE) { throw "Probe run failed with exit code $LASTEXITCODE" }
+          # Sanity-check the JSON shape so a partial run still surfaces
+          # something readable in the artifact.
+          $probeJson = Get-Content -Raw probe-output.json | ConvertFrom-Json
+          if (-not $probeJson.probe) { throw 'Probe output missing top-level "probe" field' }
+      # Same pre-existing tools/cache_workspace.cjs preload that the
+      # cache-* workflows inject into their cache actions. The
+      # repository's default workspace ends in a trailing dot and
+      # cannot be opened by Windows GNU tar, which upload-artifact
+      # delegates to under the hood. The preload overrides
+      # GITHUB_WORKSPACE and chdir() to the short
+      # `${{ runner.temp }}/forge-work/FORGE` path so the artifact
+      # upload sees a name Windows tar can handle. No new shim is
+      # introduced; the file already exists at
+      # tools/cache_workspace.cjs.
+      - name: Prepare cache workspace path
+        id: cache-workspace
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          $preload = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE/tools/cache_workspace.cjs'
+          "preload=$($preload.Replace('\', '/'))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Upload probe evidence artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        env:
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
+        with:
+          name: FORGE-Windows-Pipe-Probe
+          path: |
+            ${{ runner.temp }}/forge-work/FORGE/probe.exe
+            ${{ runner.temp }}/forge-work/FORGE/probe-output.json
+          if-no-files-found: warn
+          retention-days: 14

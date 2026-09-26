@@ -210,3 +210,110 @@ message that points at the fixture, not at the implementation.
 * Authored scene ids, the runtime, the SDK, the renderer, the
   RmlUi host, and the menu/level/editor authored fixtures are
   unchanged. No authored id was rewritten.
+
+## Phase 8 Windows pipe-contract probe (manual)
+
+### Scope
+
+The Windows SDK acceptance fixture for build83 fails stage2 with a
+runtime snapshot timeout (`request 19, outgoing 0, incoming 8192
+bytes`). Manager review challenged the earlier claim that
+`WriteFile` on a full nonblocking anonymous pipe returns
+`ERROR_NO_DATA`, citing the named-pipe contract at
+https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-type-read-and-wait-modes
+where the empty-read error does not transfer to full-write. Without
+an executable Windows reproduction the branch in
+`src/runtime_io.hpp` that conflates `ERROR_NO_DATA` with
+`ERROR_BROKEN_PIPE` could not be accepted or rejected.
+
+This entry adds an API-contract probe only. It does NOT rebuild
+FORGE, the engine, or any dependency; it does NOT reproduce the
+fixture failure. It pins what `WriteFile` / `ReadFile` and
+`forge::RuntimeIo::send` / `flush` actually return on a nonblocking
+anonymous pipe so the manager can decide whether the existing
+runtime_io.hpp branch is correct.
+
+### Probe
+
+`tests/windows_pipe_probe.cpp` is a single-source MSVC probe
+(`/std:c++20 /EHsc`) that includes `../src/runtime_io.hpp`
+unconditionally — a missing header fails the compile, never a
+silent skip. Three scenarios run in one process:
+
+1. `scenario_a_fill_then_drain` — write 1024-byte chunks until
+   WriteFile cannot make progress, then drain with 8192-byte reads.
+   Pure API-contract observation. Reports every WriteFile and every
+   ReadFile (full / partial / zero / false-return with last_error),
+   not only the last call.
+2. `scenario_b_disconnected_reader` — write into a pipe whose read
+   end is already closed. Pure API-contract observation. Reports
+   the WriteFile return value and last_error so we know whether
+   disconnect surfaces as `ERROR_BROKEN_PIPE` (current
+   `closed_=true` contract) or some other code.
+3. `scenario_c_runtimeio_send_flush` — real production-path
+   exercise of `forge::RuntimeIo::send` / `flush`. Redirects the
+   process's `STD_INPUT_HANDLE` / `STD_OUTPUT_HANDLE` to private
+   pipe ends via `DuplicateHandle` + `SetStdHandle`, instantiates
+   `forge::RuntimeIo`, builds `payload + "\n"` (mirrors
+   `src/sdk_play_runtime.cpp:1321`), calls `send(expected)`, then
+   alternates `flush()` with a `ReadFile` drain (in place of the
+   editor's pump) in a bounded 64-round loop. Records
+   `io.pending()` / `io.closed()` before and after each `flush()`
+   call (`flush_steps[]`) and every `ReadFile` return value
+   (`read_calls[]`). Compares the collected bytes byte-for-byte
+   against the sent payload for data integrity. The process exits
+   with status 2 (and still emits the JSON evidence) if any of:
+     * `RuntimeIo` throws
+     * `io.closed()` flips before the payload is fully drained
+     * the collected bytes do not match the sent payload
+
+   The originals are restored and the duplicates are closed whether
+   or not the try block threw. The "real production path" label is
+   restricted to scenario C; A and B stay as API observations so the
+   manager still gets raw `WriteFile` / `ReadFile` evidence.
+
+The probe is bounded (`kMaxCalls = 4096`, total at most ~4 MiB if
+every WriteFile returns the full 1024 bytes; `kRounds = 64` for
+scenario C) and uses the exact chunk sizes runtime_io.hpp and the
+editor's `SDL_ReadIO` use, so the contract observed is the
+contract runtime_io.hpp depends on.
+
+### Workflow
+
+`.github/workflows/windows-pipe-probe.yml` is a manual-only
+`workflow_dispatch` job on `windows-2022`, `timeout-minutes: 5`.
+Pinned actions match the existing editor-audit and standalone-audit
+conventions:
+
+- `ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c`
+  (`vsversion: '2022'`, `toolset: '14.44.35207'`,
+  `sdk: '10.0.26100.0'`)
+- `actions/checkout@11d5960a326750d5838078e36cf38b85af677262` (via
+  the safe short-path pwsh pattern from `cache-check.yml`)
+- `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02`
+  (the existing pinned upload action)
+
+The upload step uses the existing `tools/cache_workspace.cjs` preload
+via `NODE_OPTIONS` — the same pattern cache-check / editor-audit use
+for their cache actions — because the repository's default
+`GITHUB_WORKSPACE` ends in a trailing dot and the upload path goes
+through Windows GNU tar under the hood. No new shim is introduced.
+
+Permissions are `contents: read`. The basic-auth header is masked
+with `::add-mask::` before any git call so no secret reaches the
+workflow log. The probe binary (`probe.exe`) and its JSON output
+(`probe-output.json`) are uploaded as the
+`FORGE-Windows-Pipe-Probe` artifact regardless of pass / fail.
+Non-zero exit from the probe is reported as a failed workflow step
+but the artifact still ships, preserving the JSON evidence.
+
+### What was not changed
+
+* `src/runtime_io.hpp` — restored to its shipped state; no
+  speculative patch is applied.
+* The FORGE engine, runtime, SDK, renderer, RmlUi host,
+  authored assets, the editor SDK acceptance fixture, the
+  Windows runner pipeline, and the editor-audit / standalone-audit
+  / cache-check workflows are all unchanged. No authored id was
+  rewritten. No dependency was added. No CMake configure / build
+  / install step runs in this workflow.
