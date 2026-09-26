@@ -6,6 +6,8 @@
 #include "play.hpp"
 #include <SDL3/SDL.h>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk_identity.h>
@@ -13,6 +15,13 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+
+#if defined(_WIN32)
+extern "C" int _setmode(int, int);
+#define BINARY_MODE(fd) _setmode(fd, 0x8000)
+#else
+#define BINARY_MODE(fd) ((void)0)
+#endif
 
 namespace {
 void require(bool value, const std::string& message) {
@@ -98,6 +107,43 @@ void run_lifecycle(const std::string& runtime, const std::filesystem::path& proj
 }
 } // namespace
 int main(int argc, char** argv) {
+    // CHILD path: PlaySession launched us as its runtime when
+    // Phase 3 below passes argv[0] as the executable. The
+    // documented launch layout for sdk_game_=true with a
+    // non-empty project root is `argv[0] --sdk-project <path>
+    // [--audio device|offline] [--ui on] --sdk-play on
+    // --user-data <path>`. We detect this branch by argv[1]
+    // being exactly "--sdk-project" and argc > 2 — that gate is
+    // unique to the PlaySession invocation layout and is never
+    // matched by the test harness (which uses argc == 3).
+    // No /bin/sh, no fork, no /proc — portable C stdio only.
+    if (argc > 2 && std::strcmp(argv[1], "--sdk-project") == 0) {
+        BINARY_MODE(0);
+        BINARY_MODE(1);
+        BINARY_MODE(2);
+        setvbuf(stdout, nullptr, _IONBF, 0);
+        setvbuf(stdin, nullptr, _IONBF, 0);
+        setvbuf(stderr, nullptr, _IONBF, 0);
+        // Read the parent's request first (production contract:
+        // response follows request). If the parent closed stdin
+        // before we read, return without writing a response; the
+        // parent's take_failure path fires.
+        char buf[4096];
+        if (std::fgets(buf, sizeof(buf), stdin) == nullptr)
+            return 0;
+        // Write the malformed response. The transport worker
+        // delivers these bytes verbatim; PlaySession::pump calls
+        // Json::parse which throws; the catch block calls
+        // close_process and surfaces the diagnostic in status_.
+        std::fputs("this is not json\n", stdout);
+        std::fflush(stdout);
+        // Block on stdin until the worker closes our pipe (worker
+        // calls SDL_KillProcess in its shutdown path).
+        char drain[256];
+        while (std::fgets(drain, sizeof(drain), stdin) != nullptr) {
+        }
+        return 0;
+    }
     if (argc != 3)
         return 2;
     const auto base = std::filesystem::current_path() /
@@ -105,11 +151,14 @@ int main(int argc, char** argv) {
     const auto root = base / "project";
     const auto cancel_root = base / "cancel-project";
     const auto user_data = base / "user-data";
+    const auto malformed_root = base / "malformed-project";
     std::filesystem::create_directories(root);
     std::filesystem::create_directories(cancel_root);
+    std::filesystem::create_directories(malformed_root);
     std::filesystem::create_directories(user_data);
     install_probe_sdk(root, argv[2]);
     install_empty_project(cancel_root);
+    install_empty_project(malformed_root);
     int result = 0;
     try {
         // Phase 1: candidate gate, strict monotonic epoch with
@@ -242,9 +291,59 @@ int main(int argc, char** argv) {
             // activation must be retained after the rejected cancel.
             require(published_after, "Sent cancel cleared published world: " + status);
         }
+        // Phase 3: malformed-protocol rejection. Drive the test
+        // binary itself as the PlaySession runtime. The CHILD
+        // path at the top of main() detects argv[1] ==
+        // "--sdk-project", reads the parent's request, writes a
+        // non-JSON line, and stays alive until EOF. The worker
+        // delivers the opaque bytes; PlaySession::pump calls
+        // Json::parse which throws; the catch block calls
+        // close_process() and surfaces the diagnostic in
+        // status_. Asserts:
+        //   * the session is no longer active;
+        //   * status contains the parse-error diagnostic;
+        //   * ready() is false (no scene data was applied);
+        //   * the input scene Json is untouched;
+        //   * stop() is idempotent.
+        // Reuses `make_scene` and the public forge::PlaySession
+        // API; does NOT recurse into the production runtime or
+        // the SDK probe.
+        {
+            forge::PlaySession play;
+            play.configure(60, forge::InputMap{}, {0, -9.81, 0}, malformed_root, true, true);
+            play.set_user_data_override(user_data);
+            const auto scene_input = make_scene();
+            play.start(std::filesystem::absolute(argv[0]).string(), scene_input, {}, true);
+            const auto deadline = SDL_GetTicks() + 5000;
+            while (play.active() && SDL_GetTicks() < deadline) {
+                play.pump();
+                SDL_Delay(1);
+            }
+            require(!play.active(), "Malformed runtime session did not terminate: " +
+                                        play.status() + " | log=" + play.log());
+            require(!play.ready(), "Malformed runtime was promoted to ready: " + play.status());
+            // The catch block in PlaySession::pump forwards the
+            // parse error to status_; the actual offending bytes
+            // are NOT necessarily in the message, so assert either
+            // the literal payload or a parse-error substring. Both
+            // are produced by nlohmann/json's parse_error.
+            const auto& s = play.status();
+            require(s.find("parse error") != std::string::npos ||
+                        s.find("this is not json") != std::string::npos,
+                    "Malformed runtime status lacks parse-error diagnostic: " + s);
+            // Authored input is the test-side Json; PlaySession
+            // does not mutate it. Compare to the original to pin
+            // the contract that malformed-protocol rejection does
+            // not touch the editor-side scene data.
+            require(scene_input == make_scene(), "Malformed runtime mutated the input scene Json");
+            // stop() is idempotent on a session that is already
+            // inactive. This must not throw or hang.
+            play.stop();
+            require(!play.active(), "stop() did not finalize a malformed session");
+        }
         std::cout << "SDK Editor Play transport: candidate gate, monotonic "
                      "epochs, restart reset, overflow rejection, exact ack, "
-                     "cancel lifecycle passed\n";
+                     "cancel lifecycle, malformed-protocol rejection passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         result = 1;

@@ -1,4 +1,5 @@
 #pragma once
+#include "play_transport_worker.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <chrono>
@@ -13,6 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 namespace forge {
 // One correlated request in flight. Transport pumps never determine simulation dt.
 // Pending activation retains only artifact/checkpoint, never a second loaded DLL.
@@ -599,61 +601,26 @@ class PlaySession {
         last_diag_ticks_ = diag_now;
         const bool diag = sdk_diag_open();
         try {
-            std::size_t diag_bytes_written = 0;
-            for (unsigned chunk = 0; !outgoing_.empty() && chunk < 32; ++chunk) {
-                auto* input = SDL_GetProcessInput(process_);
-                const auto count = SDL_WriteIO(input, outgoing_.data(),
-                                               std::min<std::size_t>(1024, outgoing_.size()));
-                outgoing_.erase(0, count);
-                diag_bytes_written += count;
-                if (!count && SDL_GetIOStatus(input) != SDL_IO_STATUS_NOT_READY)
-                    throw std::runtime_error("Runtime input closed");
-                if (!count)
-                    break;
+            // Drain stderr first (cheap, bounded). Worker owns the
+            // SDL_IOStream*; main thread only ever sees the bytes.
+            std::string stderr_chunk;
+            const auto stderr_bytes = worker_.drain_stderr(stderr_chunk);
+            if (stderr_bytes > 0) {
+                log_.append(stderr_chunk);
+                if (log_.size() > 65536)
+                    log_.erase(0, log_.size() - 65536);
             }
-            char buffer[8192];
-            auto* output = SDL_GetProcessOutput(process_);
-            std::size_t diag_bytes_read = 0;
-            for (int i = 0; i < 32; ++i) {
-                const auto count = SDL_ReadIO(output, buffer, sizeof(buffer));
-                if (!count)
-                    break;
-                incoming_.append(buffer, count);
-                diag_bytes_read += count;
-                if (incoming_.size() > 16 * 1024 * 1024)
-                    throw std::runtime_error("Runtime response exceeds 16 MiB");
-            }
-            auto* errors = static_cast<SDL_IOStream*>(SDL_GetPointerProperty(
-                SDL_GetProcessProperties(process_), SDL_PROP_PROCESS_STDERR_POINTER, nullptr));
-            if (errors)
-                for (int i = 0; i < 8; ++i) {
-                    const auto count = SDL_ReadIO(errors, buffer, sizeof(buffer));
-                    if (!count)
-                        break;
-                    log_.append(buffer, count);
-                    if (log_.size() > 65536)
-                        log_.erase(0, log_.size() - 65536);
-                }
-            if (diag) {
-                auto* input_pipe = SDL_GetProcessInput(process_);
-                if ((diag_iter_ & 0xff) == 0 || diag_gap > 100 || diag_bytes_read > 0)
-                    sdk_diag_log("[sdk_diag editor t=%llu gap_ms=%llu stage=pump_io "
-                                 "waiting=%d cmd=%s id=%llu written=%zu read=%zu "
-                                 "outgoing_pending=%zu incoming_buffer=%zu "
-                                 "input_status=%s output_status=%s]",
-                                 static_cast<unsigned long long>(diag_now),
-                                 static_cast<unsigned long long>(diag_gap), waiting_ ? 1 : 0,
-                                 sent_command_.c_str(),
-                                 static_cast<unsigned long long>(request_id_), diag_bytes_written,
-                                 diag_bytes_read, outgoing_.size(), incoming_.size(),
-                                 input_pipe ? sdk_diag_io_name(SDL_GetIOStatus(input_pipe)) : "NA",
-                                 output ? sdk_diag_io_name(SDL_GetIOStatus(output)) : "NA");
-                ++diag_iter_;
-            }
-            const auto newline = incoming_.find('\n');
-            if (newline != std::string::npos) {
-                const auto response = Json::parse(incoming_.substr(0, newline));
-                incoming_.erase(0, newline + 1);
+            // Drain at most one complete receipt (matching the
+            // original at-most-one-response-per-pump semantics).
+            // Each receipt carries the worker's monotonic
+            // `received_at_ms` (the moment the NEWLINE was read).
+            // We drain BEFORE checking the worker failure so a clean
+            // final Quit response is not discarded by a process-exit
+            // failure that arrived in the same loop pass.
+            PlayTransportWorker::Receipt receipt;
+            const bool have_receipt = worker_.drain_one_line(receipt);
+            if (have_receipt) {
+                const Json response = Json::parse(receipt.payload);
                 if (!waiting_ || response.value("protocol", 0) != 2 ||
                     response.value("id", std::uint64_t{}) != request_id_)
                     throw std::runtime_error("Invalid/stale runtime response");
@@ -661,13 +628,30 @@ class PlaySession {
                     session_ = response.at("session").get<std::string>();
                 if (session_.empty() || response.value("session", "") != session_)
                     throw std::runtime_error("Stale runtime session");
+                // Enforce the 5 s deadline BEFORE clearing waiting_.
+                // The deadline is measured from the worker's
+                // monotonic clock at send to the worker's monotonic
+                // clock at RECEIPT (not at APPLICATION). A response
+                // received on time but applied late is NOT a late
+                // receipt (UI stall does not extend the deadline).
+                // A late receipt IS rejected even if we are about
+                // to apply it.
+                if (receipt.received_at_ms != 0 &&
+                    receipt.received_at_ms - sent_at_monotonic_ms_ > 5000) {
+                    throw std::runtime_error(
+                        "Runtime late receipt during " + sent_command_ + " (request " +
+                        std::to_string(request_id_) + ", monotonic wait_ms=" +
+                        std::to_string(receipt.received_at_ms - sent_at_monotonic_ms_) + ")");
+                }
                 waiting_ = false;
                 if (diag)
-                    sdk_diag_log("[sdk_diag editor t=%llu stage=response_received "
-                                 "cmd=%s id=%llu response_bytes=%zu]",
-                                 static_cast<unsigned long long>(SDL_GetTicks()),
-                                 sent_command_.c_str(),
-                                 static_cast<unsigned long long>(request_id_), newline);
+                    sdk_diag_log(
+                        "[sdk_diag editor t=%llu stage=response_received "
+                        "cmd=%s id=%llu response_bytes=%zu "
+                        "received_at_ms=%llu]",
+                        static_cast<unsigned long long>(SDL_GetTicks()), sent_command_.c_str(),
+                        static_cast<unsigned long long>(request_id_), receipt.payload.size(),
+                        static_cast<unsigned long long>(receipt.received_at_ms));
                 // Branch BEFORE normal-snapshot parsing: a `candidate`
                 // response carries ONLY {protocol, session, id, ok,
                 // runtime_contract, candidate} — no scene, no timing, no
@@ -1026,31 +1010,28 @@ class PlaySession {
                 if (stage_ == Stage::Running && !probe_)
                     update_status();
             }
-            int exit_code = 0;
-            if (SDL_WaitProcess(process_, false, &exit_code))
-                throw std::runtime_error("Runtime exited (code " + std::to_string(exit_code) + ")");
-            if (waiting_ && SDL_GetTicks() - sent_at_ > 5000) {
-                if (diag) {
-                    auto* input_pipe = SDL_GetProcessInput(process_);
-                    auto* output_pipe = SDL_GetProcessOutput(process_);
-                    int exit_code_probe = 0;
-                    const bool proc_exited = SDL_WaitProcess(process_, false, &exit_code_probe);
-                    sdk_diag_log(
-                        "[sdk_diag editor t=%llu stage=timeout "
-                        "cmd=%s id=%llu wait_ms=%llu outgoing=%zu incoming=%zu "
-                        "input_status=%s output_status=%s proc_exited=%d]",
-                        static_cast<unsigned long long>(SDL_GetTicks()), sent_command_.c_str(),
-                        static_cast<unsigned long long>(request_id_),
-                        static_cast<unsigned long long>(SDL_GetTicks() - sent_at_),
-                        outgoing_.size(), incoming_.size(),
-                        input_pipe ? sdk_diag_io_name(SDL_GetIOStatus(input_pipe)) : "NA",
-                        output_pipe ? sdk_diag_io_name(SDL_GetIOStatus(output_pipe)) : "NA",
-                        proc_exited ? 1 : 0);
-                }
-                throw std::runtime_error(
-                    "Runtime timed out during " + sent_command_ + " (request " +
-                    std::to_string(request_id_) + ", outgoing " + std::to_string(outgoing_.size()) +
-                    ", incoming " + std::to_string(incoming_.size()) + " bytes)");
+            // Post-dispatch failure take. The worker is the
+            // AUTHORITATIVE deadline owner: a receipt is only
+            // published when its `received_at_ms <= sent_at_ms +
+            // kDeadlineMs`, and any worker-set failure already
+            // represents the worker's own conclusion (timeout /
+            // EOF / process exit / protocol violation). We do
+            // NOT re-check the deadline here — doing so against
+            // a freshly-sampled `monotonic_ms()` can false-
+            // positive when the main thread is slow between
+            // drain_one_line and this check, even though the
+            // receipt the worker published was on time.
+            //
+            // Throw on any worker failure surfaced AFTER dispatch
+            // UNLESS the dispatch returned via the Quit handling
+            // path (close_process + return — see response.value
+            // ("quit_requested") branch above). That branch is
+            // the only "graceful exit" special case; an
+            // unexpected exit after an ordinary reply is a real
+            // session fault.
+            if (auto post_dispatch_failure = worker_.take_failure();
+                !post_dispatch_failure.empty()) {
+                throw std::runtime_error(post_dispatch_failure);
             }
             if (!waiting_) {
                 if (sdk_game_ && (stage_ == Stage::Preparing || stage_ == Stage::Running)) {
@@ -1157,19 +1138,32 @@ class PlaySession {
   private:
     enum class Stage { Hello, Replace, Load, Boundary, ProbeTick, Running, Preparing };
     void close_process() {
-        if (process_) {
-            SDL_KillProcess(process_, true);
-            SDL_WaitProcess(process_, true, nullptr);
-            SDL_DestroyProcess(process_);
-            process_ = nullptr;
-        }
+        // Stop the background transport worker first. join() waits
+        // for the worker thread to finish its current iteration AND
+        // perform its SDL_KillProcess / SDL_WaitProcess /
+        // SDL_DestroyProcess teardown path (those three calls are
+        // NOT thread safe per pinned SDL3.4.16 src/process/SDL_process.c
+        // and the worker is the single owner). After join() returns,
+        // the SDL_Process* is destroyed and our process_ pointer is
+        // null. We can then clear local state.
+        worker_.stop();
+        worker_.join();
+        // Drain any leftover failure string so a later pump() (or
+        // the next start() of a new worker on this same PlaySession)
+        // doesn't re-read a stale one. The worker also clears
+        // failure_ on its next start(), so this is defense in
+        // depth.
+        (void)worker_.take_failure();
+        // The worker has now performed SDL_DestroyProcess on the
+        // SDL_Process* and cleared its own internal handle. Mirror
+        // that on our local pointer so active() returns false and
+        // pump() short-circuits.
+        process_ = nullptr;
         if (sdk_diag_file_ref()) {
             std::fclose(sdk_diag_file_ref());
             sdk_diag_file_ref() = nullptr;
             sdk_diag_bytes_ref() = 0;
         }
-        outgoing_.clear();
-        incoming_.clear();
         control_.clear();
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
@@ -1281,6 +1275,24 @@ class PlaySession {
             status_ = std::string("Cannot start play: ") + SDL_GetError();
             return;
         }
+        // Hand the SDL_Process* + its IO streams to the worker thread.
+        // After this returns, the worker exclusively owns the process
+        // handles (SDL docs forbid two-thread concurrent use of an
+        // SDL_IOStream and SDL_DestroyProcess is not thread-safe). The
+        // hello request below is queued onto the worker's outbound
+        // queue; the worker thread does the actual write.
+        auto* stdin_pipe = SDL_GetProcessInput(process_);
+        auto* stdout_pipe = SDL_GetProcessOutput(process_);
+        auto* stderr_pipe = static_cast<SDL_IOStream*>(SDL_GetPointerProperty(
+            SDL_GetProcessProperties(process_), SDL_PROP_PROCESS_STDERR_POINTER, nullptr));
+        if (!worker_.start(process_, stdin_pipe, stdout_pipe, stderr_pipe)) {
+            status_ = std::string("Cannot start play: transport worker failed to start");
+            // Worker start failed without owning the process — clean
+            // up directly so we do not leak the SDL_Process*.
+            SDL_DestroyProcess(process_);
+            process_ = nullptr;
+            return;
+        }
         status_ = "Starting play...";
         send({{"command", "hello"},
               {"simulation_hz", simulation_hz_},
@@ -1342,11 +1354,20 @@ class PlaySession {
         request["id"] = ++request_id_;
         if (!session_.empty())
             request["session"] = session_;
-        outgoing_ = request.dump() + "\n";
-        if (outgoing_.size() > 16 * 1024 * 1024)
+        const auto line = request.dump() + "\n";
+        if (line.size() > 16 * 1024 * 1024)
             throw std::runtime_error("Play scene exceeds 16 MiB transport limit");
+        // Worker monotonic clock — the deadline is measured from
+        // THIS value to the receipt's received_at_ms. UI stalls
+        // between worker RECEIPT and main-thread APPLICATION cannot
+        // extend the deadline.
+        const auto send_monotonic = PlayTransportWorker::monotonic_ms();
+        if (!worker_.submit(line, send_monotonic))
+            throw std::runtime_error("Worker rejected submit (not started, stopped, or pending "
+                                     "request still in flight)");
         waiting_ = true;
         sent_at_ = SDL_GetTicks();
+        sent_at_monotonic_ms_ = send_monotonic;
     }
     Double3 gravity_{0, -9.81, 0};
     Json recovery_, initial_recovery_, checkpoint_recovery_;
@@ -1370,9 +1391,18 @@ class PlaySession {
     bool exact_sdk_ = false;
     bool prior_paused_ = false, desired_paused_ = false, waiting_ = false;
     std::uint64_t snapshot_version_ = 0, request_id_ = 0, activation_generation_ = 0;
-    std::string sent_command_, outgoing_, incoming_, log_,
-        status_ = "Stopped. Play uses a copy of your authored scene.";
+    std::string sent_command_, log_, status_ = "Stopped. Play uses a copy of your authored scene.";
     Uint64 sent_at_ = 0;
+    // Worker-clock sent timestamp used for the receive-deadline. The
+    // 5 s timeout is measured from THIS value to the first receipt's
+    // received_at_ms (worker monotonic clock); the diagnostic
+    // sent_at_ above is kept for correlation with the rest of the
+    // editor's SDL_GetTicks clock.
+    std::uint64_t sent_at_monotonic_ms_ = 0;
+    // Background byte-transport owner (see play_transport_worker.hpp).
+    // Owns SDL_Process* + SDL_IOStream* exclusively. Main thread
+    // communicates via submit/drain_lines/drain_stderr/take_failure.
+    PlayTransportWorker worker_;
     // Diagnostic-only opt-in. The editor inherits FORGE_SDK_DIAGNOSTIC_DIR
     // (a directory path) via SDL3's default env inheritance (pinned SDL
     // src/process/windows/SDL_windowsprocess.c:249). When set, the editor

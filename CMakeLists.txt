@@ -134,6 +134,21 @@ if(FORGE_BUILD_GAME_PLATFORM)
  add_library(forge_game_platform src/game_platform.cpp)
  target_include_directories(forge_game_platform PUBLIC include)
  target_link_libraries(forge_game_platform PRIVATE SDL3::SDL3)
+ find_package(Threads REQUIRED)
+ # Play transport worker: byte-only background thread owned by the
+ # editor's PlaySession. Built only when SDL3 is available (the
+ # editor requires SDL3 in every supported configuration). Linked
+ # into the editor + fixture + SDK tests that use play.hpp so
+ # play.hpp's play_transport_worker.hpp reference resolves at
+ # link time without each consumer needing to compile the .cpp.
+ add_library(forge_play_transport_worker STATIC src/editor/play_transport_worker.cpp)
+ target_include_directories(forge_play_transport_worker PUBLIC src/editor)
+ target_link_libraries(forge_play_transport_worker PUBLIC SDL3::SDL3 Threads::Threads)
+ # Test target + CTest registration live in the existing post-
+ # CTest block below so they are NOT registered before
+ # `include(CTest)` runs. A fresh configure with the default
+ # BUILD_TESTING setting must NOT call `add_test` before CTest
+ # is initialized.
 endif()
 # Authoring services are shared by editor and headless tools, never linked into runtime.
 add_library(forge_authoring src/flecs_script.cpp src/authoring.cpp src/authored_migration_document.cpp src/authored_history.cpp src/prefab_authoring.cpp src/live_authoring.cpp src/asset_file_transaction.cpp src/asset_publication.cpp src/asset_import_service.cpp src/asset_reimport.cpp src/source_copy.cpp)
@@ -616,11 +631,23 @@ if(BUILD_TESTING)
   include(cmake/sdl.cmake)
   add_executable(forge_sdk_editor_tests tests/editor_sdk_tests.cpp)
   target_include_directories(forge_sdk_editor_tests PRIVATE src/editor)
-  target_link_libraries(forge_sdk_editor_tests PRIVATE forge_authoring forge_authored_inspection SDL3::SDL3 forge_game_platform)
+  target_link_libraries(forge_sdk_editor_tests PRIVATE forge_authoring forge_authored_inspection SDL3::SDL3 forge_game_platform forge_play_transport_worker)
   add_executable(forge_sdk_editor_transport_tests tests/sdk_play_editor_transport_tests.cpp)
   target_include_directories(forge_sdk_editor_transport_tests PRIVATE src/editor)
-  target_link_libraries(forge_sdk_editor_transport_tests PRIVATE forge_authoring forge_authored_inspection SDL3::SDL3 forge_game_platform)
+  target_link_libraries(forge_sdk_editor_transport_tests PRIVATE forge_authoring forge_authored_inspection SDL3::SDL3 forge_game_platform forge_play_transport_worker)
   add_dependencies(forge_sdk_editor_transport_tests forge_runtime forge_sdk_probe)
+  # Portable byte-transport regression; PlaySession protocol checks
+  # remain in the SDK editor transport test.
+  add_executable(forge_play_transport_worker_tests tests/play_transport_worker_tests.cpp)
+  target_include_directories(forge_play_transport_worker_tests PRIVATE src/editor)
+  target_link_libraries(forge_play_transport_worker_tests PRIVATE
+    forge_play_transport_worker forge_authoring forge_authored_inspection
+    SDL3::SDL3 forge_game_platform Threads::Threads)
+  add_test(NAME play_transport_worker COMMAND forge_play_transport_worker_tests)
+  # ponytail: 180 s ctest timeout covers E2/K 17 MiB bulk cap
+  # tests under TSan instrumentation headroom. Production
+  # 5000 ms receive deadline in the worker is unchanged.
+  set_tests_properties(play_transport_worker PROPERTIES TIMEOUT 180)
   add_executable(forge_sdk_incompatible_runtime tests/fault_runtime.cpp)
   target_link_libraries(forge_sdk_incompatible_runtime PRIVATE nlohmann_json::nlohmann_json)
   add_test(NAME native_sdk_editor_play COMMAND forge_sdk_editor_tests $<TARGET_FILE:forge_runtime> $<TARGET_FILE:forge_sdk_probe> $<TARGET_FILE:forge_sdk_bad> $<TARGET_FILE:forge_sdk_crash> $<TARGET_FILE:forge_sdk_incompatible_runtime>)

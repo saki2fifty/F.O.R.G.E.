@@ -350,3 +350,70 @@ Each line carries `t`, `label`, `elapsed_ms`, `req`, `snap`,
 per-frame flood, no protocol or timeout change. This is an
 instrumentation aid, not a fix; the windows84 2310/2621 ms gaps
 remain unresolved.
+
+## Phase 8 PlaySession byte transport worker
+
+The editor's runtime IO is moved to a narrow transport-only
+background thread (`PlayTransportWorker`,
+`src/editor/play_transport_worker.{hpp,cpp}`) wired into
+`src/editor/play.hpp`. The worker thread exclusively owns the
+`SDL_Process*` and the three `SDL_IOStream*`; the main thread
+keeps the protocol state machine, JSON validation, snapshot /
+candidate / ack application, Flecs / editor / UI / GPU, and the
+scheduler. One outstanding request lives in the mailbox under
+one mutex + cv (`mailbox_busy_` covers queued + writing +
+awaiting + receipt-ready).
+
+- **Background process IO** satisfies the SDL3.4.16 thread-
+  safety requirements (`SDL_ReadIO` / `SDL_WriteIO` exclusive
+  to one thread; `SDL_WaitProcess` / `SDL_KillProcess` /
+  `SDL_DestroyProcess` "not thread safe"). RAII
+  `ProcessHandleGuard` runs the kill + wait + destroy
+  sequence unconditionally.
+- **Receipt-based deadline.** 5 s ceiling computed at submit
+  (`pending_deadline_ms_ = sent_at_ms + 5000`), strictly `>`
+  boundary, checked against the receipt's `received_at_ms`
+  recorded by the worker. Late receipts are rejected
+  without publishing or applying stale data.
+- **Bounded framing.** One shared worker-local
+  `consume(chunk, n, read_ts)` helper used by both the
+  regular read phase and `drain_and_publish_final()`. The
+  helper enforces the 16 MiB inbound cap BEFORE any framing
+  or receipt move, walks complete newlines through the same
+  `!in_flight_` / `read_ts > pending_deadline_ms_` /
+  `has_receipt_` guard, and returns a status code so the caller
+  knows whether to break the loop. EOF and process-exit
+  reporting order is OS-dependent; each surfaces its own
+  failure string.
+- **Linear newline scanning.** The framing helper records
+  `old_size` before `append` and only scans
+  `incoming_buffer_.find('\n', old_size)` across the newly
+  appended bytes. After a successful find + erase the scan
+  cursor resets to 0. Total receive cost is O(buffer_size),
+  not O(chunks × buffer_size).
+- **Bounded error and cleanup paths.** Stderr tail is
+  bounded at 64 KiB head-drop. Outbound per-request cap is
+  16 MiB. The worker is joined in `close_process()`; the
+  destructor calls `stop()` which calls `close_process()`.
+  The cv predicate is stop-only; request notifications do
+  not satisfy it.
+- **Portable regressions.** Scenario I accepts either
+  "runtime-exited" or "stdout closed: EOF" as the terminal
+  signal (OS event ordering is not pinned); receipt retention
+  is the invariant. Scenario K covers the 16 MiB cap path
+  with the child exiting immediately and requires the
+  documented "exceeded cap" failure with zero published
+  receipts. The SDK transport test re-launches the test
+  binary itself via the PlaySession launch layout to drive
+  a malformed-protocol rejection (`argc > 2 && argv[1] ==
+  "--sdk-project"`); portable C stdio only.
+- **Documentation updated.** `docs/transport.md`,
+  `docs/decisions/012-threading.md`, and
+  `manual/editor/play-mode.md` reflect the final
+  semantics. The previous `manual/editor/transport.md` is
+  removed (was internal-plumbing-only, never shipped).
+
+Wire format, scene identity, SDK ABI, snapshot / candidate /
+ack contract, correlation id, stale-session checks, and the
+5 s timeout ceiling are unchanged. No dependency added or
+upgraded. Windows validation pending.

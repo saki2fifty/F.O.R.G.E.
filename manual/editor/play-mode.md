@@ -66,6 +66,10 @@ Physics checkpoint recovery is part of the legacy ABI1 host. The exact-SDK Play 
 - **Cancel loading** discards the in-flight candidate and keeps the current world. The first Play run has no previous world to retain — a failure there surfaces in Console and leaves Play inactive.
 - Runtime exceptions during play are surfaced through Console and the status bar. Quit from the in-game menu returns a usable editor.
 
+## Response timing and runtime failures
+
+Responses received within the five-second limit remain valid if the editor takes longer to apply them. A runtime timeout, disconnect, or invalid response is reported in Console. Receiving responses in the background does not prevent UI stalls during expensive editor work.
+
 ## Save and Load (gameplay, not the authored scene)
 
 Use the in-game **Save Game** / **Continue** menu to save and restore the gameplay session. These writes go to the runtime's user-specific storage area and never touch the editor's authored scene.
