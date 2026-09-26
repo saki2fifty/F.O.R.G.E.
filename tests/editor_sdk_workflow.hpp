@@ -9,9 +9,15 @@
 //   play.ui_snapshot()            root keys: version/session/generation/
 //                                 revision/documents/errors. Each document:
 //                                 entity/asset/instance/visible/layer/model/
-//                                 commands. The reference ui_id document
+//                                 commands. The single visible document's
 //                                 model carries page/interactions/message/
 //                                 binding (samples/reference_game/gameplay.cpp67-76).
+//                                 The active reference scene (menu or level)
+//                                 authors exactly one UiDocument, so the
+//                                 fixture selects it by visibility + single
+//                                 match, NOT by a hard-coded entity id; the
+//                                 authored project is authoritative for the
+//                                 entity ids it actually uses.
 //   play.effective_snapshot()     root asset_id, entities[] with
 //                                 components["forge.local_translation"]{x,y,z}.
 //   play.status()                 std::string, NOT a JSON model with `message`.
@@ -290,21 +296,35 @@ class EditorSdkWorkflow {
     }
 
     // Live observations from the running editor + PlaySession.
-    static Json ui_model(PlaySession& play) {
-        const auto snapshot = play.ui_snapshot();
+
+  public:
+    // Select the active reference UI document from the snapshot by
+    // "single visible document": 0 visible -> empty (unready),
+    // 1 visible -> that document's model, 2+ visible -> empty
+    // (ambiguous). The snapshot's own descriptor fields are the
+    // authoritative selector; no hard-coded entity id. Static seam
+    // driven by tests/editor_sdk_workflow_probe_tests.cpp.
+    static Json ui_model_from_snapshot(const Json& snapshot) {
         if (!snapshot.is_object() || !snapshot.contains("documents"))
             return Json::object();
+        Json match;
+        bool ambiguous = false;
         for (const auto& doc : snapshot.at("documents")) {
             if (!doc.is_object())
                 continue;
-            if (doc.value("entity", "") != reference::ui_id)
-                continue;
             if (!doc.value("visible", false))
                 continue;
-            return doc.value("model", Json::object());
+            if (!match.is_null())
+                ambiguous = true;
+            match = doc;
         }
-        return Json::object();
+        if (ambiguous || match.is_null())
+            return Json::object();
+        return match.value("model", Json::object());
     }
+
+  private:
+    static Json ui_model(PlaySession& play) { return ui_model_from_snapshot(play.ui_snapshot()); }
     static std::string model_page(const Json& model) { return model.value("page", ""); }
     static int model_interactions(const Json& model) { return model.value("interactions", 0); }
     static std::string model_message(const Json& model) { return model.value("message", ""); }
