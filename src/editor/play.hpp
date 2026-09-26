@@ -1139,6 +1139,20 @@ class PlaySession {
             }
         }
     }
+    // Bounded timing wrapper for unaccounted main-loop sections. Emits
+    // SLOW sections only (>50 ms) to the existing sdk_diag_log. Reuses
+    // the FORGE_SDK_DIAGNOSTIC_DIR env gate and 256 KiB cap; no new
+    // logger. Accepts double elapsed_ms so existing frame-section
+    // timings (SDL_GetTicks diff, integer ms) and Performance bucket
+    // values (steady_clock, fractional ms) share one threshold.
+    void sdk_diag_slow(const char* label, double elapsed_ms) const {
+        if (elapsed_ms <= 50.0)
+            return;
+        sdk_diag_log("SLOW t=%llu label=%s elapsed_ms=%.3f req=%llu snap=%llu cmd=%s",
+                     static_cast<unsigned long long>(SDL_GetTicks()), label, elapsed_ms,
+                     static_cast<unsigned long long>(request_id_),
+                     static_cast<unsigned long long>(snapshot_version_), sent_command_.c_str());
+    }
 
   private:
     enum class Stage { Hello, Replace, Load, Boundary, ProbeTick, Running, Preparing };

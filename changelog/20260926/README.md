@@ -327,3 +327,26 @@ during the final package SDK acceptance step; the existing
 `FORGE-Editor-SDK-Acceptance` artifact upload collects that
 directory. The windows83 5 s `request 19` timeout remains
 unresolved; these logs are an instrumentation aid, not a fix.
+
+## Phase 8 SDK acceptance main-loop section timing
+
+Extends the same opt-in editor diagnostic log (256 KiB cap, same
+`FORGE_SDK_DIAGNOSTIC_DIR` gate, same `SDL_GetTicks()` origin as
+the existing `gap_ms`) to record SLOW (>50 ms) wall-clock elapsed
+times for otherwise-unaccounted main-loop sections on every pump:
+
+`play_presentation.poll`, `sdk_workflow.frame`,
+`submit_initial_epoch`, `submit_root_release_observation`,
+`runtime_ui.take_loading_cancel_exact`, `runtime_ui.sync`,
+`native.pump`, `swap.Resize`, `automation.pump`, `gui.NewFrame`,
+`fixture.capture`, `swap.Present`, plus a `frame.total` whole-frame
+elapsed reading taken from `play.pump()` onward (excludes pre-pump
+SDL event drain). After `performance.finish`, the existing
+`Performance` bucket values are reused (no owner change) to emit
+`perf.update_excl_scene`, `perf.scene`, `perf.ui_submit`,
+`perf.present`, and `perf.frame_all` via the same SLOW gate.
+Each line carries `t`, `label`, `elapsed_ms`, `req`, `snap`,
+`cmd` for frame/command/request correlation. No new logger, no
+per-frame flood, no protocol or timeout change. This is an
+instrumentation aid, not a fix; the windows84 2310/2621 ms gaps
+remain unresolved.

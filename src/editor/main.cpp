@@ -1518,6 +1518,7 @@ int main(int argc, char** argv) {
                 running = false;
                 continue;
             }
+            const auto _t0_frame = SDL_GetTicks();
             play.pump();
             authored_components.poll(scene, files.document);
             // Auto-clear pending root-release observation when sdk_release_required
@@ -1536,7 +1537,11 @@ int main(int argc, char** argv) {
             // staged UI before runtime_ui.sync sees the next
             // generation, otherwise sync would destroy the prepared
             // presenter before activate.
-            play_presentation.poll(play, files.document.project());
+            {
+                const auto _t0 = SDL_GetTicks();
+                play_presentation.poll(play, files.document.project());
+                play.sdk_diag_slow("play_presentation.poll", SDL_GetTicks() - _t0);
+            }
             if (auto failure = play_presentation.take_commit_failure(); !failure.empty()) {
                 // Adapter stopped Play to avoid a mixed swap; surface
                 // the cause on the existing Problems / status path so
@@ -1552,7 +1557,9 @@ int main(int argc, char** argv) {
             // that is not the published live owner.
             if (sdk_workflow && !sdk_workflow->done() && !sdk_workflow->failed()) {
                 try {
+                    const auto _t0 = SDL_GetTicks();
                     sdk_workflow->frame(play, window.get(), play_presentation.has_staged());
+                    play.sdk_diag_slow("sdk_workflow.frame", SDL_GetTicks() - _t0);
                 } catch (const std::exception& e) {
                     // Real evidence, not a swallowed message. Mark
                     // the local flag so the post-render drain
@@ -1574,14 +1581,21 @@ int main(int argc, char** argv) {
             // any candidate ack or activation can pass its release
             // guard; submit_sdk_editor_epoch enforces strict monotonic
             // positive epochs so we never roll back.
-            submit_initial_epoch(play, game_input);
+            {
+                const auto _t0 = SDL_GetTicks();
+                submit_initial_epoch(play, game_input);
+                play.sdk_diag_slow("submit_initial_epoch", SDL_GetTicks() - _t0);
+            }
             // Root release_required does not require play.ready():
             // a still-loading or unloaded SDK session can still
             // publish a release_required flag (focus loss, OS
             // revocation, external surrender). Hidden / paused is
             // also allowed — root release works while hidden.
-            if (play.sdk_release_required() && play.sdk_play() && play.active())
+            if (play.sdk_release_required() && play.sdk_play() && play.active()) {
+                const auto _t0 = SDL_GetTicks();
                 submit_root_release_observation(play, game_input);
+                play.sdk_diag_slow("submit_root_release_observation", SDL_GetTicks() - _t0);
+            }
             // SDK platform effects pump + ack drain + transport-stop guard
             // have been moved below the ImGui render block (after
             // line ~3497) so the adapter sees the CURRENT frame's
@@ -1599,16 +1613,27 @@ int main(int argc, char** argv) {
             // command. Foreign / stale tickets are rejected by
             // submit_sdk_cancel_loading (validated against the live
             // sdk_loading observation).
-            if (auto cancel = runtime_ui.take_loading_cancel_exact(
-                    play.sdk_loading().value("ticket", std::uint64_t{}),
-                    play.sdk_loading().value("can_cancel", false));
-                cancel)
-                play.submit_sdk_cancel_loading(*cancel);
-            runtime_ui.sync(play, files.document.project(), workspace.game);
+            {
+                const auto _t0 = SDL_GetTicks();
+                if (auto cancel = runtime_ui.take_loading_cancel_exact(
+                        play.sdk_loading().value("ticket", std::uint64_t{}),
+                        play.sdk_loading().value("can_cancel", false));
+                    cancel)
+                    play.submit_sdk_cancel_loading(*cancel);
+                play.sdk_diag_slow("runtime_ui.take_loading_cancel_exact", SDL_GetTicks() - _t0);
+            }
+            {
+                const auto _t0 = SDL_GetTicks();
+                runtime_ui.sync(play, files.document.project(), workspace.game);
+                play.sdk_diag_slow("runtime_ui.sync", SDL_GetTicks() - _t0);
+            }
             native->simulation_hz = files.document.settings().simulation_hz();
             native->gravity = files.document.settings().physics().gravity;
-            if (!files.document.settings().requires_native_sdk())
+            if (!files.document.settings().requires_native_sdk()) {
+                const auto _t0 = SDL_GetTicks();
                 native->pump(play, authoring_snapshot.snapshot(scene));
+                play.sdk_diag_slow("native.pump", SDL_GetTicks() - _t0);
+            }
             files.set_switch_available(!game_export.busy() && !native->busy());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
@@ -1619,8 +1644,11 @@ int main(int argc, char** argv) {
                 continue;
             }
             if (swap->GetDesc().Width != unsigned(width) ||
-                swap->GetDesc().Height != unsigned(height))
+                swap->GetDesc().Height != unsigned(height)) {
+                const auto _t0 = SDL_GetTicks();
                 swap->Resize(width, height);
+                play.sdk_diag_slow("swap.Resize", SDL_GetTicks() - _t0);
+            }
             const std::string automation_busy =
                 play.active()                     ? "Stop play before editing"
                 : native->busy()                  ? "Wait for the native build"
@@ -1631,13 +1659,19 @@ int main(int argc, char** argv) {
                                       ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
                     ? "Finish the active UI interaction"
                     : "";
-            automation.pump(files.document, automation_busy);
+            {
+                const auto _t0 = SDL_GetTicks();
+                automation.pump(files.document, automation_busy);
+                play.sdk_diag_slow("automation.pump", SDL_GetTicks() - _t0);
+            }
 #ifdef FORGE_UI_FIXTURE
             // SDK Play: skip the legacy EditorInputWorkflow and the
             // staged-capture ImGui path entirely. The editor renders
             // the same frame the SDK acceptance is reading.
             if (fixture.sdk_play) {
+                const auto _t0 = SDL_GetTicks();
                 gui->NewFrame(width, height, swap->GetDesc().PreTransform);
+                play.sdk_diag_slow("gui.NewFrame", SDL_GetTicks() - _t0);
             } else if (fixture.workflow) {
                 ImGui_ImplSDL3_NewFrame();
                 input_workflow.input();
@@ -1982,7 +2016,11 @@ int main(int argc, char** argv) {
                                                {"hidden", bool(w->Hidden)},
                                                {"tab_visible", bool(w->DockTabIsVisible)}};
                 forge::atomic_write(fixture.output / "stalled-state.json", stalled.dump(2));
-                fixture.capture(device, context, swap->GetCurrentBackBufferRTV(), false);
+                {
+                    const auto _t0 = SDL_GetTicks();
+                    fixture.capture(device, context, swap->GetCurrentBackBufferRTV(), false);
+                    play.sdk_diag_slow("fixture.capture", SDL_GetTicks() - _t0);
+                }
                 throw std::runtime_error(
                     "Editor fixture timed out at stage " + std::to_string(fixture.stage) +
                     " after " + std::to_string(fixture.frames) + " frames; model ready=" +
@@ -4366,11 +4404,37 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             fixture.graphics_context(window.get(), 1, device, context);
 #endif
-            swap->Present(0);
+            {
+                const auto _t0 = SDL_GetTicks();
+                swap->Present(0);
+                play.sdk_diag_slow("swap.Present", SDL_GetTicks() - _t0);
+            }
+            // Whole-frame elapsed measured from play.pump() onward; excludes
+            // pre-pump SDL event drain and any prior frame tail. Uses
+            // SDL_GetTicks() to share the clock origin with pump() gap_ms.
+            play.sdk_diag_slow("frame.total", SDL_GetTicks() - _t0_frame);
 #ifdef FORGE_UI_FIXTURE
             fixture.graphics_context(window.get(), 2);
 #endif
             performance.finish(ui_submit, present);
+            // Reuse existing Performance bucket values (no owner change) to
+            // emit SLOW for update_excl_scene, scene_ms, UI submission,
+            // Present call, and frame_all (steady_clock start..now). Each is
+            // computed exactly as Performance::finish does internally.
+            {
+                const auto perf_end = forge::ui::Performance::Clock::now();
+                play.sdk_diag_slow("perf.update_excl_scene",
+                                   std::max(0.0, forge::ui::Performance::milliseconds(
+                                                     performance.start, ui_submit) -
+                                                     performance.scene_ms));
+                play.sdk_diag_slow("perf.scene", performance.scene_ms);
+                play.sdk_diag_slow("perf.ui_submit",
+                                   forge::ui::Performance::milliseconds(ui_submit, present));
+                play.sdk_diag_slow("perf.present",
+                                   forge::ui::Performance::milliseconds(present, perf_end));
+                play.sdk_diag_slow("perf.frame_all", forge::ui::Performance::milliseconds(
+                                                         performance.start, perf_end));
+            }
         }
         if (startup_layout.save_enabled)
             ImGui::SaveIniSettingsToDisk(ini.c_str());
