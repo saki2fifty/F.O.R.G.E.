@@ -93,7 +93,8 @@ class SdkPlayRuntime {
     // requests through GameHostControls. Initial and gameplay-replacement
     // candidates are advanced exactly once per pump; tick faults stop
     // further tick work and surface a diagnostic.
-    void pump(RuntimeClock::Time now);
+    // Same transport-only, nonthrowing between-tick contract as GameSession::advance.
+    void pump(RuntimeClock::Time now, const std::function<void()>& between_ticks = {});
 
     // One request handler used by both the in-process tests and the wire
     // loop. Returns a full protocol2 response with the supplied request id,

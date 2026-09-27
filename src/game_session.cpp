@@ -242,10 +242,14 @@ void GameSession::step() {
     Mutation guard(changing_);
     clock_.step([&](float dt) { tick(dt); });
 }
-void GameSession::advance(RuntimeClock::Time now) {
+void GameSession::advance(RuntimeClock::Time now, const std::function<void()>& between_ticks) {
     require_active();
     Mutation guard(changing_);
-    clock_.advance(now, [&](float dt) { tick(dt); });
+    clock_.advance(now, [&](float dt) {
+        tick(dt);
+        if (between_ticks)
+            between_ticks();
+    });
 }
 void GameSession::control_frame() {
     require_active();

@@ -2004,6 +2004,21 @@ void latch_quit_then_exercise_mutations() {
 
 int run() {
     try {
+        {
+            Fixture f;
+            std::string session;
+            auto host = build_activated(f, session);
+            const auto now = RuntimeClock::Clock::now();
+            auto response = host->handle(
+                {{"protocol", 2}, {"session", session}, {"id", 4u}, {"command", "resume"}}, now);
+            check(response.at("ok").get<bool>(), "Transport-service fixture could not resume");
+            unsigned serviced = 0;
+            host->pump(now + std::chrono::milliseconds(50), [&] { ++serviced; });
+            check(serviced == 3, "SDK pump failed to service transport between fixed ticks");
+            check(host->status().at("clock").at("tick") == 3,
+                  "Transport servicing changed SDK fixed-tick count");
+        }
+
         constructor_rejects_relative_user_data();
         constructor_rejects_missing_application_id();
         hello_returns_session_and_runtime_contract();

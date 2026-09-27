@@ -328,8 +328,10 @@ void session() {
     auto first = game.prepare(snapshot("first"));
     check(game.status().at("state") == "empty", "Preparation activated scene");
     game.activate(first, at(0), true);
-    game.advance(at(20));
-    check(game.status().at("clock").at("tick") == 1, "Game fixed tick not advanced");
+    unsigned serviced = 0;
+    game.advance(at(50), [&] { ++serviced; });
+    check(game.status().at("clock").at("tick") == 3 && serviced == 3,
+          "Transport must be serviced between each fixed tick without changing the clock");
     const auto active = game.active().scene.snapshot();
     rejects([&] { game.prepare({{"version", 999}}); });
     check(game.active().scene.snapshot() == active, "Failed load changed active scene");
@@ -357,9 +359,12 @@ void session() {
               game.active().physics()->checkpoint().at("tick") == 1,
           "Paused clock/physics step disagrees");
     game.resume(at(11000));
-    game.advance(at(11001));
+    game.advance(at(11001), [&] { ++serviced; });
+    check(serviced == 3, "Sub-tick advance ran between-tick transport callback");
     check(game.status().at("clock").at("tick") == 1, "Transition created catch-up debt");
     game.pause(at(11002));
+    game.advance(at(12000), [&] { ++serviced; });
+    check(serviced == 3, "Paused session ran between-tick transport callback");
     auto invalid_body = game.active().scene.entity("third");
     invalid_body.set<PhysicsBody>({});
     invalid_body.set<BoxCollider>({0, 1, 1});

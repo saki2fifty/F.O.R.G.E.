@@ -53,7 +53,10 @@ class GameSession {
     void pause(RuntimeClock::Time now);
     void resume(RuntimeClock::Time now);
     void step();
-    void advance(RuntimeClock::Time now);
+    // Optional owner-thread transport service between fixed ticks. It must not
+    // throw or access/mutate the session; use only already captured transport bytes.
+    // The clock, catch-up budget and simulation ownership remain unchanged.
+    void advance(RuntimeClock::Time now, const std::function<void()>& between_ticks = {});
     // Runs menu/control callbacks in the active world, including while paused.
     // Does not advance the clock or run the Flecs simulation pipeline.
     void control_frame();

@@ -230,3 +230,17 @@ path take over.
 | `docs/decisions/012-threading.md` | Thread and task ownership decision |
 | `manual/editor/play-mode.md` | Play manual owner (UI-facing) |
 | `changelog/20260926/README.md` | Release note |
+
+## Runtime response progress during catch-up
+
+Both legacy and SDK runtime loops flush an already serialized response between
+fixed ticks. Otherwise a small Windows pipe quota can admit only part of a large
+response per slow catch-up batch, exceeding the request deadline even after the
+response was prepared. Editor writes likewise retain the 1 KiB chunk cap.
+
+The SDK supplies an owner-thread transport-only callback to GameSession advance.
+It drains frozen bytes only: no command dispatch, ECS access, snapshot creation,
+or scene publication occurs inside the callback. The callback must not throw or
+reenter the session. The process adapter captures pipe exceptions and propagates
+them after the simulation pump, preserving completed tick bookkeeping. Fixed dt,
+catch-up limits, pause behavior and the five-second transport deadline are unchanged.

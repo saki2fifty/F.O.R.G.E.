@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include <exception>
 #include <forge/animation.hpp>
 #include <forge/build.hpp>
 #include <forge/game_control_queue.hpp>
@@ -819,7 +820,7 @@ std::uint64_t SdkPlayRuntime::editor_epoch() const {
     state_->check_owner();
     return state_->editor_epoch_;
 }
-void SdkPlayRuntime::pump(RuntimeClock::Time now) {
+void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& between_ticks) {
     auto& s = *state_;
     s.check_owner();
     // Once gameplay Quit is latched, do NOT advance simulation or host
@@ -935,7 +936,7 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now) {
         return;
     try {
         if (state == "running")
-            s.game->advance(now);
+            s.game->advance(now, between_ticks);
         s.game->control_frame();
     } catch (const std::exception& e) {
         s.tick_failed = true;
@@ -1339,7 +1340,20 @@ void SdkPlayRuntime::process() {
         // we still need one more correlated response sent to the editor
         // so the editor doesn't interpret EOF as a process crash.
         const auto pump_begin = std::chrono::steady_clock::now();
-        pump(now);
+        std::exception_ptr transport_error;
+        pump(now, [&] {
+            // Drain the frozen response between catch-up ticks, as the legacy
+            // runtime does. No new commands or world access occur here.
+            if (!transport_error) {
+                try {
+                    io.flush();
+                } catch (...) {
+                    transport_error = std::current_exception();
+                }
+            }
+        });
+        if (transport_error)
+            std::rethrow_exception(transport_error);
         const auto pump_end = std::chrono::steady_clock::now();
         const long long pump_ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(pump_end - pump_begin).count();
