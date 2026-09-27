@@ -516,6 +516,7 @@ class EditorSdkWorkflow {
         failed_ = true;
         const auto model = ui_model(play);
         failure_ = {{"stage", stage_},
+                    {"outside_phase", outside_phase_},
                     {"reason", why},
                     {"status", play.status()},
                     {"page", model_page(model)},

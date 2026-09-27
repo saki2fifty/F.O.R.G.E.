@@ -5,6 +5,7 @@
 #include "play.hpp"
 #include "widgets.hpp"
 #include <array>
+#include <source_location>
 namespace forge {
 // One active gamepad, keyboard and mouse. SDL is confined to this platform adapter.
 //
@@ -343,7 +344,23 @@ class GameInput {
     // NOT bump the epoch — the adapter owns its own ack channel and
     // a successful cursor effect does not change the editor_epoch
     // the runtime is using.
-    bool submit_external_release_observation(PlaySession& play, bool keep_routing = false) {
+    bool submit_external_release_observation(
+        PlaySession& play, bool keep_routing = false,
+        const std::source_location location = std::source_location::current()) {
+#ifdef FORGE_UI_FIXTURE
+        static unsigned logged = 0;
+        if (logged++ < 64) {
+            std::fprintf(stderr,
+                         "FORGE input release caller=%s:%u ready=%d routing=%d relative=%d "
+                         "epoch=%llu keep=%d\n",
+                         location.function_name(), location.line(), int(play.ready()),
+                         int(captured_), int(relative()),
+                         static_cast<unsigned long long>(play.current_effective_epoch()),
+                         int(keep_routing));
+        }
+#else
+        (void)location;
+#endif
         const bool released = release_checked(play, keep_routing);
         // Always publish the ACTUAL SDL relative-mode state, even when
         // the setter failed. The runtime needs to know whether the OS
