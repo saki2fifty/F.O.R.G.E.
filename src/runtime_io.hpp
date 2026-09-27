@@ -1,7 +1,9 @@
 #pragma once
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -129,6 +131,19 @@ class RuntimeIo {
                 offset_ = 0;
             }
         }
+    }
+
+    // Give a polling peer time to consume the small pipe quota before expensive
+    // simulation resumes. The caller bounds this transport-only service slice;
+    // no input dispatch, domain mutation or extra IO owner occurs here.
+    void flush_for(std::chrono::milliseconds budget) {
+        const auto until = std::chrono::steady_clock::now() + budget;
+        do {
+            flush();
+            if (!pending() || closed() || std::chrono::steady_clock::now() >= until)
+                return;
+            std::this_thread::yield();
+        } while (true);
     }
 
   private:

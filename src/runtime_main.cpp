@@ -207,11 +207,11 @@ int main(int argc, char** argv) {
             // simulation batch must not restrict transport to one small pipe
             // quota per eight ticks. Commands still execute only after the batch;
             // no world mutation or new snapshot is interleaved with a fixed tick.
-            io.flush();
+            io.flush_for(std::chrono::milliseconds(10));
         };
         while (!io.closed()) {
             clock.advance(forge::RuntimeClock::Clock::now(), tick);
-            io.flush();
+            io.flush_for(std::chrono::milliseconds(10));
             if (quit && (!io.pending() || forge::RuntimeClock::Clock::now() >= quit_deadline))
                 break;
             std::string line;

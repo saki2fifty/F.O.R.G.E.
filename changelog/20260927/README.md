@@ -61,3 +61,6 @@ and functional assertions remain unchanged.
 - Corrected the SDK acceptance fixture’s duplicate Resume activation and wait for runtime acknowledgement before testing interaction; failure evidence includes simulation/input counters.
 
 - Closed the initial-scan debounce gap: Play also waits for already-observed source changes to reach the import queue. A regression reproduces premature readiness before this fix.
+
+- Runtime reply draining now gives the polling reader a bounded opportunity to free pipe space before slow simulation resumes. Both runtime hosts use the same helper; request deadlines and domain ownership are unchanged.
+- Added a real-pipe regression with a 512 KiB reply, a 4 KiB pipe and 100 ms work gaps; the old implementation times out, the correction passes.

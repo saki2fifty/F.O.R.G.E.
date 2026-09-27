@@ -329,3 +329,14 @@ a frozen scene envelope. A later incompatible mesh/animation revision fails
 presentation admission and preserves the previous active scene. Renderer pending
 state reports asynchronous loading only: a loaded candidate rejected by pose or
 capacity validation reports diagnostics, even when retained for a later retry.
+
+### Runtime pipe service under slow simulation
+
+Both runtime hosts service frozen response bytes between fixed ticks and at their
+existing outer-loop boundaries. Each service slice retries the nonblocking pipe
+for up to 10 ms, yielding between attempts so the polling reader can free space.
+It returns immediately when drained or disconnected. This scheduling budget is
+five times the editor worker’s 2 ms idle poll interval; it is not a new response
+deadline. OS scheduling may overshoot it. A single slow tick remains indivisible.
+The 5 s request deadline, 16 MiB wire bound, single in-flight response and existing
+thread/domain ownership remain unchanged. No commands are dispatched between ticks.

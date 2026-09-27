@@ -1350,7 +1350,7 @@ void SdkPlayRuntime::process() {
             // runtime does. No new commands or world access occur here.
             if (!transport_error) {
                 try {
-                    io.flush();
+                    io.flush_for(std::chrono::milliseconds(10));
                 } catch (...) {
                     transport_error = std::current_exception();
                 }
@@ -1375,7 +1375,7 @@ void SdkPlayRuntime::process() {
         // The wire carries at most one in-flight response. Flush before
         // pulling a new request and bound serialized size including the
         // trailing newline against RuntimeIo::limit, not a local magic.
-        io.flush();
+        io.flush_for(std::chrono::milliseconds(10));
         if (s.quit && !io.pending())
             break;
         // The wire carries at most one in-flight response. If the previous
@@ -1479,7 +1479,7 @@ void SdkPlayRuntime::process() {
             s.settings_error = e.what();
             s.quit = true;
         }
-        io.flush();
+        io.flush_for(std::chrono::milliseconds(10));
         // If a gameplay Quit was observed during the pump above, the
         // response we just sent already carries quit_requested=true.
         // Now is the moment to set s.quit and exit orderly on the next

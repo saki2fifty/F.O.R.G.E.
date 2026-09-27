@@ -215,17 +215,21 @@ int run(int argc, char** argv) {
     setvbuf(stdin, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
     const std::string scenario = argv[1];
-    if (scenario == "polling_request") {
+    if (scenario == "polling_request" || scenario == "slow_polling_response") {
         forge::RuntimeIo io;
         std::string line;
         while (!io.closed() && !io.receive(line))
             SDL_Delay(1);
         if (io.closed())
             return 3;
+#ifndef _WIN32
+        if (scenario == "slow_polling_response" && fcntl(STDOUT_FILENO, F_SETPIPE_SZ, 4096) < 0)
+            return 4;
+#endif
         io.send(line + "\n");
         while (io.pending() && !io.closed()) {
-            io.flush();
-            SDL_Delay(1);
+            io.flush_for(std::chrono::milliseconds(10));
+            SDL_Delay(scenario == "slow_polling_response" ? 100 : 1);
         }
         SDL_Delay(10000);
         return 0;
@@ -1071,16 +1075,17 @@ int main(int argc, char** argv) {
         SDL_Quit();
         // Both ends poll: a blocking fgets child hides oversized Windows
         // writes that cannot fit the pipe quota without a pending reader.
-        {
-            log("large request and response through production RuntimeIo");
+        for (const auto* scenario : {"polling_request", "slow_polling_response"}) {
+            log(scenario);
             ChildGuard guard;
-            auto c = spawn_child(argv[0], "polling_request");
+            auto c = spawn_child(argv[0], scenario);
             guard.child = c.process;
             forge::PlayTransportWorker w;
             require(w.start(c.process, c.stdin_pipe, c.stdout_pipe, c.stderr_pipe),
                     "polling peer: start failed");
             guard.child = nullptr;
-            std::string payload(70 * 1024, 'x');
+            std::string payload(
+                std::strcmp(scenario, "slow_polling_response") == 0 ? 512 * 1024 : 70 * 1024, 'x');
             for (std::size_t i = 0; i < payload.size(); ++i)
                 payload[i] = char('a' + i % 26);
             require(w.submit(payload + "\n", forge::PlayTransportWorker::monotonic_ms()),
