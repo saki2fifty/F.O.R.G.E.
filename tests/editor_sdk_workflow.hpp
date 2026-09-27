@@ -124,7 +124,10 @@ class EditorSdkWorkflow {
                                  //  Capture, 5=paused+click finished,
                                  // 6=paused+Tab processed, 7=Resume nav,
                                  // 8=play restored
-    static constexpr Uint64 outside_phase_deadline_ms_ = 4000;
+    // Each focus action crosses several editor frames and may wait behind an
+    // in-flight request. Four seconds was shorter than the five-second wire
+    // deadline even before WARP capture/present cost. Reuse the action budget.
+    static constexpr Uint64 outside_phase_deadline_ms_ = 20000;
     // Persistent phase progress. snapshot baseline is recorded
     // AFTER the click / Tab has actually been processed by the
     // editor, never at ARM time. outside_ack_frames_ counts
@@ -624,8 +627,8 @@ class EditorSdkWorkflow {
         if (stage_started_ == 0)
             stage_started_ = now;
         // Stage 2 contains eight separate focus/input actions after loading.
-        // Each action has its own existing four-second bound; charging all
-        // of them to the initial load's timer can fail despite steady progress.
+        // Each action has its own bounded window; charging all of them to
+        // the initial load's timer can fail despite steady progress.
         const bool focus_substep = stage_ == 2 && outside_phase_ != 0;
         const auto deadline_start = focus_substep ? outside_phase_started_ : stage_started_;
         const auto deadline_budget = focus_substep ? outside_phase_deadline_ms_ : kStageBudgetMs;

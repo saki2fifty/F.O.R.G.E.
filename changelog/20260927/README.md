@@ -46,3 +46,8 @@ Escape now takes precedence when capture failure/loss occurs in the same control
 frame, preventing an automatic Pause followed immediately by an unintended Resume.
 The SDK focus fixture uses its existing per-action bounds independently of the
 initial scene-loading timer; overall and transport deadlines are unchanged.
+
+The SDK focus checks now use the existing 20-second action budget: the old
+four-second bound was shorter than the five-second wire deadline and included
+multi-second WARP screenshot work. The overall 240-second cap, transport deadline
+and functional assertions remain unchanged.
