@@ -1843,9 +1843,11 @@ int main(int argc, char** argv) {
                            workspace.inspector = true;
                        });
             add_action("play", "Play", "",
-                       "Start the isolated runtime and show Game. Authoring remains in Scene.",
-                       !play.active() && !native->busy() && !files.busy() && !modal.active() &&
-                           !blockout.active() && !scene_tools.move.active(),
+                       "Start the isolated runtime and show Game. Wait for the initial source "
+                       "scan and queued asset imports to finish. Authoring remains in Scene.",
+                       content_imports.ready_for_play() && !play.active() && !native->busy() &&
+                           !files.busy() && !modal.active() && !blockout.active() &&
+                           !scene_tools.move.active(),
                        [&] {
                            const bool sdk = files.document.settings().requires_native_sdk();
                            // The opt-in SDK Play profile is gated by an

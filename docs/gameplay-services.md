@@ -319,3 +319,12 @@ until a sufficient output buffer is supplied.
 The reference game is a consumer in `samples/reference_game`. FPS movement, camera
 angles, interaction selection, menus and its save schema are project policy, not
 engine-global behavior.
+
+### Editor import and presentation admission
+
+The shared Play action waits for the source importer’s initial complete scan and
+queued publications to settle. This does not freeze later source changes or mutate
+a frozen scene envelope. A later incompatible mesh/animation revision fails
+presentation admission and preserves the previous active scene. Renderer pending
+state reports asynchronous loading only: a loaded candidate rejected by pose or
+capacity validation reports diagnostics, even when retained for a later retry.

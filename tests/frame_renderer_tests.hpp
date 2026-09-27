@@ -296,6 +296,8 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
             limited.diagnostics().begin(), limited.diagnostics().end(), [](const auto& value) {
                 return value.text.find("payload budget") != std::string::npos;
             });
+        require(!limited.pending(),
+                "Completed pose rejection was mislabeled as asynchronous resource work");
         require(budget_error && limited.pose_payload_bytes() >= one &&
                     limited.pose_payload_bytes() <= 2 * one,
                 "Aggregate scene pose admission exceeded its budget or lost retained poses");

@@ -51,3 +51,9 @@ The SDK focus checks now use the existing 20-second action budget: the old
 four-second bound was shorter than the five-second wire deadline and included
 multi-second WARP screenshot work. The overall 240-second cap, transport deadline
 and functional assertions remain unchanged.
+
+## Play import and preparation boundaries
+
+- Play waits for the initial source scan and queued asset publications, preventing known startup import work from racing scene preparation.
+- Completed mesh-pose validation failures no longer masquerade as pending resource loads; preparation reports the failure and preserves the previous active scene.
+- Added initial-scan/queued-import readiness checks and a renderer regression for completed pose-budget rejection.

@@ -52,6 +52,7 @@ inline void test_material_watch(const std::filesystem::path& root) {
           registry,
           [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); }}},
         options, 10min, 0ms);
+    check(!automatic.settled(), "Unscanned import service was ready for Play");
     std::vector<AssetImportOutcome> receipts;
     const auto poll = [&] {
         for (auto& receipt : automatic.poll())
@@ -73,12 +74,14 @@ inline void test_material_watch(const std::filesystem::path& root) {
         return selected.data.values.parameters.at("roughnessFactor").value[0];
     };
     finish();
+    check(automatic.settled(), "Completed initial scan did not allow Play");
     check(receipts.empty(), "Unchanged committed assets were rebuilt at watch startup");
     receipts.clear();
     automatic.rescan();
     finish();
     check(receipts.empty(), "Publisher self-writes caused an automatic reimport loop");
     automatic.reimport({source.asset(), source.asset(), instance.asset()});
+    check(!automatic.settled(), "Queued reimports were ready for Play");
     check(automatic.queued() == 2, "Batch reimport did not deduplicate source owners");
     check(automatic.activity().at(source.asset()) == AssetJobState::Queued,
           "Batch queue did not expose its activity state");

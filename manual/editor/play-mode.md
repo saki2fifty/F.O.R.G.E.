@@ -2,6 +2,8 @@
 
 Play runs a copy of your scene in a separate runtime process. Your editor scene stays unchanged while you test gameplay. The editor and the runtime are always separate processes — there is no in-process gameplay world inside the editor.
 
+Play becomes available after the initial source scan and queued asset imports finish. If scene preparation rejects an incompatible mesh or animation revision, FORGE reports the error and keeps the previous active scene instead of waiting indefinitely.
+
 ## Play, Pause, Step, Resume, and Stop
 
 - **Play** starts a fresh play session from a copy of your current authored scene. Opening a project normally opens its startup scene; a subsequent user **Open Scene** that you make editable is also playable from its current authored state.

@@ -57,6 +57,8 @@ class MeshSceneRenderer {
               Diligent::ITexture* color = nullptr, Diligent::ITextureView* depth = nullptr);
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
+    // Asynchronous resource work only. A loaded candidate rejected by pose or
+    // capacity validation has diagnostics, not pending work; scene changes can retry it.
     bool pending() const;
     struct DrawStats {
         std::size_t calls{}, instances{}, batched_calls{};

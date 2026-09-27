@@ -15,6 +15,11 @@ class ContentImports {
             service_->suspend(value);
     }
     bool quiescent() const { return !service_ || service_->quiescent(); }
+    bool ready_for_play() const {
+        // Read-only projects have no writer service. Its attempted startup
+        // must still finish before Play evaluates this boundary.
+        return service_ ? service_->settled() : attempted_;
+    }
     void reimport(const std::vector<AssetId>& assets) {
         if (!service_)
             throw std::runtime_error("Source import service is not ready");

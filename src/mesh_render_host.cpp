@@ -479,8 +479,10 @@ bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
 bool MeshSceneRenderer::pending() const {
     host_->check_thread();
     return environment_candidate_.has_value() ||
-           std::any_of(entries_.begin(), entries_.end(),
-                       [](const auto& pair) { return bool(pair.second.candidate); });
+           std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
+               return pair.second.candidate &&
+                      pair.second.candidate->state() == ResourceState::Loading;
+           });
 }
 void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                              std::uint32_t layers, Diligent::ITexture* color,
