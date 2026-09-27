@@ -55,6 +55,7 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
                                                                                   : "");
             FORGE_UI_PROBE("entity:" + id);
             if (ImGui::IsItemClicked()) {
+                ImGui::SetWindowFocus();
                 if (selection) {
                     clicked = id;
                     toggle = ImGui::GetIO().KeyCtrl;

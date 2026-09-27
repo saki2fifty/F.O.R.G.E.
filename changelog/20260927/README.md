@@ -84,3 +84,8 @@ and functional assertions remain unchanged.
   entity multi-selection already existed. No schema, dependency or ABI change.
 - Build 105 remains the delivered build. Windows execution and visual acceptance
   of these source changes have not yet occurred.
+
+- Windows input validation found that Delete could miss the selected Hierarchy
+  entities. Entity-row clicks now explicitly acquire keyboard focus; shortcuts
+  include child-window focus and reject an open popup. The UI regression checks
+  focus before exercising multi-delete and one-step Undo. Validation pending.

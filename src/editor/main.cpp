@@ -3043,6 +3043,9 @@ int main(int argc, char** argv) {
             if (!(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || files.busy())
                 blockout.cancel();
             const auto& doc = authoring_snapshot.document(scene);
+#ifdef FORGE_UI_FIXTURE
+            bool hierarchy_keyboard_focused = false;
+#endif
             if (workspace.hierarchy) {
                 if (ImGui::Begin("Hierarchy###World", &workspace.hierarchy)) {
                     if (forge::ui::icon_button(
@@ -3102,11 +3105,18 @@ int main(int argc, char** argv) {
                         actions.item("Entity / Move to scene root", "Move to scene root");
                         ImGui::EndPopup();
                     }
-                    if (ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_F2, false))
+                    const bool hierarchy_focused =
+                        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+#ifdef FORGE_UI_FIXTURE
+                    hierarchy_keyboard_focused = hierarchy_focused;
+#endif
+                    if (hierarchy_focused && ImGui::IsKeyPressed(ImGuiKey_F2, false))
                         actions.invoke("rename");
-                    if (ImGui::IsWindowFocused() && !edit_locked && !ImGui::GetIO().WantTextInput &&
-                        !ImGui::IsAnyItemActive() && !selected.empty() &&
-                        ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+                    if (hierarchy_focused && !edit_locked && !ImGui::GetIO().WantTextInput &&
+                        !ImGui::IsAnyItemActive() &&
+                        !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                         ImGuiPopupFlags_AnyPopupLevel) &&
+                        !selected.empty() && ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
                         actions.invoke("Entity / Delete subtree");
                     }
                 }
@@ -4237,6 +4247,7 @@ int main(int argc, char** argv) {
                     {"scene", scene.document()},
                     {"selected", selected},
                     {"selected_entities", editor.selection.entities()},
+                    {"hierarchy_keyboard_focused", hierarchy_keyboard_focused},
                     {"selected_preview", selected_preview},
                     {"dirty", files.document.dirty()},
                     {"disk", disk},

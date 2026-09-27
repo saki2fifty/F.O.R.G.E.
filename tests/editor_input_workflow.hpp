@@ -84,6 +84,8 @@ class EditorInputWorkflow {
             require(ids.size() == 2 && std::find(ids.begin(), ids.end(), cube_) != ids.end() &&
                         std::find(ids.begin(), ids.end(), light_) != ids.end(),
                     "Additive UI selection failed");
+            require(state.at("hierarchy_keyboard_focused").get<bool>(),
+                    "Hierarchy entity click did not acquire keyboard focus");
             multi_before_ = doc;
         } else if (what == "multi-duplicated") {
             require(entities.size() == multi_before_.at("entities").size() + 2 &&
