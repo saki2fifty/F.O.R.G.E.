@@ -70,11 +70,19 @@ bool Viewport::frame_selection(const Json& source, const std::vector<std::string
     const auto eye = camera.eye();
     const auto bounds = meshes_->bounds(snapshot, selection, {eye[0], eye[1], eye[2]});
     if (bounds) {
+        std::set<EntityId> mesh_entities;
+        if (!selected.empty())
+            for (const auto& mesh : snapshot.meshes)
+                mesh_entities.insert(mesh.entity);
+        const auto combined =
+            selected.empty()
+                ? *bounds
+                : include_selected_helper_positions(source, selection, mesh_entities, *bounds);
         EditorCamera::Vec center;
         Double3 half;
         for (unsigned axis = 0; axis < 3; ++axis) {
-            center[axis] = float(bounds->minimum[axis] * .5 + bounds->maximum[axis] * .5);
-            half[axis] = bounds->maximum[axis] * .5 - bounds->minimum[axis] * .5;
+            center[axis] = float(combined.minimum[axis] * .5 + combined.maximum[axis] * .5);
+            half[axis] = combined.maximum[axis] * .5 - combined.minimum[axis] * .5;
         }
         return camera.frame_sphere(center, std::hypot(half[0], half[1], half[2]), aspect);
     }

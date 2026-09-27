@@ -1,4 +1,6 @@
 #pragma once
+#include "../render_bounds.hpp"
+#include <cmath>
 #include <forge/scene.hpp>
 #include <map>
 #include <set>
@@ -29,5 +31,27 @@ inline std::set<EntityId> framing_entities(const Json& source, const std::string
             pending.push_back(child->second);
     }
     return result;
+}
+// Mesh bounds come from retained render poses. Camera/light helpers have no mesh:
+// include their derived world positions only when framing a selected mesh alongside them.
+inline RenderBounds include_selected_helper_positions(const Json& source,
+                                                      const std::set<EntityId>& selected,
+                                                      const std::set<EntityId>& mesh_entities,
+                                                      RenderBounds bounds) {
+    for (const auto& row : source.at("entities")) {
+        const auto id = row.at("id").get<EntityId>();
+        if (!selected.contains(id) || mesh_entities.contains(id) || row.value("prefab", false) ||
+            !row.value("spatial_resolved", true) || !row.contains("world_affine"))
+            continue;
+        const auto world = row.at("world_affine").get<std::array<double, 12>>();
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            const double point = world[axis * 4 + 3];
+            if (!std::isfinite(point))
+                throw std::runtime_error("Selected helper position is nonfinite");
+            bounds.minimum[axis] = std::min(bounds.minimum[axis], point);
+            bounds.maximum[axis] = std::max(bounds.maximum[axis], point);
+        }
+    }
+    return bounds;
 }
 } // namespace forge
