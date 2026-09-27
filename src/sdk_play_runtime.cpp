@@ -362,6 +362,10 @@ struct SdkPlayRuntime::State {
         prune_dead_effects();
         auto found = effects.find(token);
         if (found == effects.end()) {
+            // Do not offer a fresh capture at an epoch that an outstanding
+            // physical-release obligation is about to invalidate.
+            if (kind == "cursor" && value.get<bool>() && release_required_root)
+                return false;
             if (!queue->pending(token))
                 return false;
             if (effects.size() >= kEffectMapLimit)

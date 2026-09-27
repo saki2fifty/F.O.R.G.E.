@@ -207,10 +207,10 @@ class PlaySession {
     // True when the runtime needs the editor to acknowledge release of a
     // previously captured resource (e.g. cursor / input device).
     bool sdk_release_required() const { return sdk_release_required_; }
-    // The current live editor epoch the runtime has acknowledged as
-    // the next-bound observation. 0 means no observation has been
-    // sent yet (or stop() reset the transport state).
+    // Highest shipped editor observation; this is not runtime confirmation.
     std::uint64_t editor_epoch_observed() const { return sdk_editor_epoch_seen_; }
+    // Highest observation carried by a successfully validated matching reply.
+    std::uint64_t editor_epoch_confirmed() const { return sdk_editor_epoch_confirmed_; }
     // The epoch that will be visible on the next snapshot response:
     // max(highest already shipped, any value still queued). The
     // adapter / main callers consult this to avoid executing offered
@@ -887,6 +887,8 @@ class PlaySession {
                 if (response.contains("ui_ack"))
                     ui_ack_ = response.at("ui_ack");
                 ++snapshot_version_;
+                sdk_editor_epoch_confirmed_ =
+                    std::max(sdk_editor_epoch_confirmed_, sent_editor_epoch_);
                 if (stage_ == Stage::Hello) {
                     stage_ = Stage::Replace;
                     Json replacement = {{"command", "replace"}, {"scene", initial_}};
@@ -1194,6 +1196,7 @@ class PlaySession {
         sdk_pending_editor_epoch_ = false;
         sdk_editor_epoch_ = nullptr;
         sdk_editor_epoch_seen_ = 0;
+        sdk_editor_epoch_confirmed_ = sent_editor_epoch_ = 0;
         sdk_ack_terminal_ticket_ = 0;
         sdk_ack_terminal_value_ = nullptr;
         sdk_offered_effects_.reset();
@@ -1370,6 +1373,9 @@ class PlaySession {
         if (!worker_.submit(line, send_monotonic))
             throw std::runtime_error("Worker rejected submit (not started, stopped, or pending "
                                      "request still in flight)");
+        sent_editor_epoch_ = request.contains("editor_epoch")
+                                 ? request.at("editor_epoch").value("epoch", std::uint64_t{})
+                                 : 0;
         waiting_ = true;
         sent_at_ = SDL_GetTicks();
         sent_at_monotonic_ms_ = send_monotonic;
@@ -1542,6 +1548,7 @@ class PlaySession {
     // to enforce strict positive monotonicity locally before the wire
     // round-trip; the runtime does the same on receipt.
     std::uint64_t sdk_editor_epoch_seen_ = 0;
+    std::uint64_t sdk_editor_epoch_confirmed_ = 0, sent_editor_epoch_ = 0;
     // Terminal verdict ledger. Once a candidate_ack has shipped, the
     // ticket is recorded here and subsequent submissions for that same
     // ticket are rejected unless byte-identical (idempotent). Cleared on

@@ -19,3 +19,11 @@ commands still execute outside fixed ticks and request deadlines remain unchange
 Native SDK acceptance evidence now identifies the caller of cursor-release
 observations and the active focus-test substep. Diagnostics are fixture-only and
 bounded; focus and stale-acknowledgement protections are unchanged.
+
+## SDK Play cursor handoff
+
+Cursor-release retries now wait for the reply confirming the submitted release
+observation. Replies already in flight no longer trigger a duplicate release that
+cancels a fresh capture. The runtime waits for outstanding physical release before
+offering a new capture. Regression tests cover both ordering boundaries and
+confirmation reset on restart. Windows acceptance remains required.

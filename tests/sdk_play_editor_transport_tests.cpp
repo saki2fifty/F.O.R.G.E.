@@ -213,8 +213,14 @@ int main(int argc, char** argv) {
                     "Matching candidate ack was rejected");
             require(!play.submit_sdk_candidate_ack(false, play.session(), ticket, "contradictory"),
                     "Pending verdict was overwritten by a contradictory ack");
+            require(play.editor_epoch_confirmed() == 0, "Queued epoch was falsely confirmed");
+            wait([&] { return !play.active() || play.editor_epoch_observed() == 3; });
+            require(play.active() && play.editor_epoch_confirmed() == 0,
+                    "Older in-flight reply falsely confirmed the newly sent observation");
             wait([&] { return !play.active() || play.ready(); });
             require(play.ready(), "Activation failed: " + play.status());
+            require(play.editor_epoch_confirmed() == 3,
+                    "Matching reply failed to confirm the submitted editor observation");
             require(play.sdk_activation_generation() == ticket,
                     "Generation differs from the prepared ticket");
             require(play.paused(), "Probe did not remain paused");
@@ -228,8 +234,8 @@ int main(int argc, char** argv) {
             // Restart: epoch counters MUST reset.
             play.start(argv[1], make_scene(), {}, true);
             wait([&] { return !play.active() || !play.sdk_candidate_envelope().is_null(); });
-            require(play.active() && play.current_effective_epoch() == 0 &&
-                        play.next_editor_epoch() == 1,
+            require(play.active() && play.editor_epoch_confirmed() == 0 &&
+                        play.current_effective_epoch() == 0 && play.next_editor_epoch() == 1,
                     "Restart inherited stale epoch counters");
             require(play.submit_editor_observation(false, "KeyboardMouse"),
                     "Restart observation was rejected");

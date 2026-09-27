@@ -846,6 +846,11 @@ void cancellation_releases_root_obligation() {
     Json snapshot =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 4u}, {"command", "snapshot"}});
     check(snapshot.value("release_required", false), "cancelled capture release obligation hidden");
+    const auto replacement =
+        f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
+    host->pump(RuntimeClock::Time{});
+    check(host->live_effects().empty(),
+          "Fresh capture was offered before outstanding physical release was confirmed");
     Json epoch_msg{
         {"protocol", 2},
         {"session", session},
@@ -856,6 +861,11 @@ void cancellation_releases_root_obligation() {
     Json confirmed =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 6u}, {"command", "snapshot"}});
     check(!confirmed.value("release_required", true), "confirmed release did not clear obligation");
+    host->pump(RuntimeClock::Time{});
+    const auto offers = host->live_effects();
+    check(offers.size() == 1 && offers.at(0).at("token") == replacement &&
+              offers.at(0).at("epoch") == 2,
+          "Deferred capture did not use the confirmed release epoch");
 }
 
 void resolved_user_settings_applied_before_first_scene() {

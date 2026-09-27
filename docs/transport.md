@@ -244,3 +244,16 @@ or scene publication occurs inside the callback. The callback must not throw or
 reenter the session. The process adapter captures pipe exceptions and propagates
 them after the simulation pump, preserving completed tick bookkeeping. Fixed dt,
 catch-up limits, pause behavior and the five-second transport deadline are unchanged.
+
+## Cursor release confirmation
+
+A shipped editor observation is distinct from a confirmed observation. PlaySession
+confirms its epoch only after validating the matching response to the request that
+carried it. An older in-flight snapshot cannot confirm a newly queued or shipped
+observation. Confirmation state resets with the transport session.
+
+Root cursor-release retries wait for that confirmation, rather than any new
+snapshot. A failed physical release remains retryable once its observation is
+confirmed. The SDK runtime defers fresh capture offers while a root release
+obligation remains outstanding, then offers them at the confirmed epoch. Existing
+focus, stale-effect and cancellation checks still apply.

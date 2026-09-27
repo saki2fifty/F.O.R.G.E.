@@ -623,22 +623,22 @@ int main(int argc, char** argv) {
         // Root release_required: runtime asked us to release an outstanding
         // capture. We attempt a physical release + ship a fresh
         // monotonic epoch observation. One pending observation per
-        // root request; awaits the next snapshot response before
-        // retrying. Keyed by (session, snapshot_version) so a session
+        // root request; awaits its confirmed observation reply before
+        // retrying. Keyed by (session, observation epoch) so a session
         // change (gameplay Quit, transport recovery) auto-clears the
         // flag even when sdk_release_required() stays true.
         bool root_release_pending_ = false;
         std::string root_release_session_;
-        std::uint64_t root_release_snapshot_version_ = 0;
+        std::uint64_t root_release_epoch_ = 0;
         auto submit_root_release_observation = [&](forge::PlaySession& play,
                                                    forge::GameInput& game) {
             if (root_release_pending_)
-                return; // await the next snapshot response
+                return; // await confirmation of this observation
             // Route through GameInput's centralized
             // release + neutral + observation path. The helper
             // ships one observation per call when the transport
             // accepts; the latched pending flag is keyed by
-            // session + snapshot_version so a fresh response
+            // session + observation epoch so its confirmed reply
             // re-arms a retry. A failed release still advances
             // the epoch — the runtime's release-guard cares
             // about the observed state, not the setter result;
@@ -650,7 +650,7 @@ int main(int argc, char** argv) {
             if (advanced) {
                 root_release_pending_ = true;
                 root_release_session_ = play.session();
-                root_release_snapshot_version_ = play.snapshot_version();
+                root_release_epoch_ = play.current_effective_epoch();
             }
             (void)released;
         };
@@ -1522,16 +1522,16 @@ int main(int argc, char** argv) {
             play.pump();
             authored_components.poll(scene, files.document);
             // Auto-clear pending root-release observation when sdk_release_required
-            // flips off (success), or the session changed, or a fresh snapshot
-            // response arrived past the version this request was bound to.
+            // flips off (success), the session changes, or the runtime confirms
+            // the exact observation. An older in-flight snapshot cannot re-arm it.
             if (!initial_epoch_session_.empty() && initial_epoch_session_ != play.session())
                 initial_epoch_session_.clear();
             if (root_release_pending_ &&
                 (!play.sdk_release_required() || root_release_session_ != play.session() ||
-                 play.snapshot_version() > root_release_snapshot_version_)) {
+                 play.editor_epoch_confirmed() >= root_release_epoch_)) {
                 root_release_pending_ = false;
                 root_release_session_.clear();
-                root_release_snapshot_version_ = 0;
+                root_release_epoch_ = 0;
             }
             // Commit before sync: the staging adapter must swap in the
             // staged UI before runtime_ui.sync sees the next
@@ -1936,7 +1936,7 @@ int main(int argc, char** argv) {
                            // play.session() and auto-clears on the
                            // next pump when the wire session
                            // differs. root_release_pending_ is keyed
-                           // by session + snapshot_version and also
+                           // by session + submitted observation epoch and also
                            // auto-clears on session change.
                            play.stop();
                        });
