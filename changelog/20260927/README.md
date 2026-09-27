@@ -27,3 +27,6 @@ observation. Replies already in flight no longer trigger a duplicate release tha
 cancels a fresh capture. The runtime waits for outstanding physical release before
 offering a new capture. Regression tests cover both ordering boundaries and
 confirmation reset on restart. Windows acceptance remains required.
+
+SDK acceptance reports now include the staged renderer/UI readiness, activation
+wait state, loading state and confirmed input epoch when a workflow ends.

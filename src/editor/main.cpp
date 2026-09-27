@@ -4168,6 +4168,10 @@ int main(int argc, char** argv) {
                 record["window_pixels"] = {width, height};
                 record["visual_review"] = "Pending human/agent image inspection";
                 record["sdk_play"] = true;
+                record["presentation"] = play_presentation.diagnostic_state();
+                record["loading"] = play.sdk_loading();
+                record["release_required"] = play.sdk_release_required();
+                record["editor_epoch_confirmed"] = play.editor_epoch_confirmed();
                 forge::atomic_write(fixture.output / "workflow.json", record.dump(2));
                 if (sdk_failed)
                     result = 1;

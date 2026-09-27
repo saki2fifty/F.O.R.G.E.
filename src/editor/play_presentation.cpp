@@ -172,6 +172,19 @@ bool PlayPresentation::prepare_ui(PlaySession& play) {
     return active_ui_->prepared_staged(staged_ui_ticket_);
 }
 
+nlohmann::json PlayPresentation::diagnostic_state() const {
+    return {{"state", state_ == StageState::Idle       ? "idle"
+                      : state_ == StageState::Prepared ? "prepared"
+                                                       : "awaiting_activation"},
+            {"ticket", staged_ticket_},
+            {"renderer_exists", bool(staged_renderer_)},
+            {"renderer_pending", staged_renderer_ && staged_renderer_->pending()},
+            {"resources_ready", candidate_resources_ready()},
+            {"ui_ticket", staged_ui_ticket_},
+            {"ui_prepared",
+             active_ui_ && staged_ui_ticket_ && active_ui_->prepared_staged(staged_ui_ticket_)}};
+}
+
 bool PlayPresentation::candidate_resources_ready() const {
     if (!staged_renderer_ || !host_)
         return false;

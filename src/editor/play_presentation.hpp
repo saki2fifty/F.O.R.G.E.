@@ -51,6 +51,9 @@ class PlayPresentation {
     // Discard staged owners (used on Stop / project change / restart).
     void clear(PlaySession& play);
 
+    // Read-only preparation evidence for acceptance failure reports.
+    nlohmann::json diagnostic_state() const;
+
     bool has_staged() const { return state_ != StageState::Idle; }
     std::uint64_t staged_ticket() const { return staged_ticket_; }
     const std::string& staged_session() const { return staged_session_; }
