@@ -4169,6 +4169,9 @@ int main(int argc, char** argv) {
                 record["visual_review"] = "Pending human/agent image inspection";
                 record["sdk_play"] = true;
                 record["presentation"] = play_presentation.diagnostic_state();
+                if (sdk_failed && play.sdk_candidate_envelope().is_object())
+                    forge::atomic_write(fixture.output / "candidate.json",
+                                        play.sdk_candidate_envelope().dump(2));
                 record["loading"] = play.sdk_loading();
                 record["release_required"] = play.sdk_release_required();
                 record["editor_epoch_confirmed"] = play.editor_epoch_confirmed();

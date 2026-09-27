@@ -173,16 +173,33 @@ bool PlayPresentation::prepare_ui(PlaySession& play) {
 }
 
 nlohmann::json PlayPresentation::diagnostic_state() const {
-    return {{"state", state_ == StageState::Idle       ? "idle"
-                      : state_ == StageState::Prepared ? "prepared"
-                                                       : "awaiting_activation"},
-            {"ticket", staged_ticket_},
-            {"renderer_exists", bool(staged_renderer_)},
-            {"renderer_pending", staged_renderer_ && staged_renderer_->pending()},
-            {"resources_ready", candidate_resources_ready()},
-            {"ui_ticket", staged_ui_ticket_},
-            {"ui_prepared",
-             active_ui_ && staged_ui_ticket_ && active_ui_->prepared_staged(staged_ui_ticket_)}};
+    nlohmann::json result = {{"state", state_ == StageState::Idle       ? "idle"
+                                       : state_ == StageState::Prepared ? "prepared"
+                                                                        : "awaiting_activation"},
+                             {"ticket", staged_ticket_},
+                             {"renderer_exists", bool(staged_renderer_)},
+                             {"renderer_pending", staged_renderer_ && staged_renderer_->pending()},
+                             {"resources_ready", candidate_resources_ready()},
+                             {"ui_ticket", staged_ui_ticket_},
+                             {"ui_prepared", active_ui_ && staged_ui_ticket_ &&
+                                                 active_ui_->prepared_staged(staged_ui_ticket_)}};
+    result["diagnostics"] = nlohmann::json::array();
+    if (staged_renderer_)
+        for (const auto& d : staged_renderer_->diagnostics())
+            result["diagnostics"].push_back({{"category", d.category}, {"text", d.text}});
+    result["requests"] = nlohmann::json::array();
+    if (host_) {
+        const auto inspection = host_->inspect();
+        for (const auto& request : inspection.requests) {
+            if (result["requests"].size() == 256)
+                break;
+            result["requests"].push_back({{"asset", request.identity.asset.str()},
+                                          {"revision", request.identity.revision},
+                                          {"state", resource_state_name(request.state)},
+                                          {"diagnostic", request.diagnostic.substr(0, 4096)}});
+        }
+    }
+    return result;
 }
 
 bool PlayPresentation::candidate_resources_ready() const {

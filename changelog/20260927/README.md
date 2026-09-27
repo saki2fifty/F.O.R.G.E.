@@ -30,3 +30,6 @@ confirmation reset on restart. Windows acceptance remains required.
 
 SDK acceptance reports now include the staged renderer/UI readiness, activation
 wait state, loading state and confirmed input epoch when a workflow ends.
+
+Failed SDK scene admission also preserves the frozen candidate and bounded
+renderer/resource diagnostics for reproducing a preparation stall.
