@@ -83,24 +83,40 @@ int main(int argc, char** argv) {
         GameSession game(config);
         game.activate(game.prepare(scene.snapshot()), RuntimeClock::Time{}, false);
         GameStorage storage(root / "users", "org.forge.reference-test");
-        bool cursor = false;
+        bool cursor = false, allow_capture = false, reject_capture = false;
         GamePlatformControls platform_controls;
         platform_controls.cursor = [&](bool capture) { cursor = capture; };
+        platform_controls.cursor_poll = [&](std::uint64_t, bool capture) {
+            if (capture && reject_capture)
+                throw std::runtime_error("Test capture rejected");
+            if (capture && !allow_capture)
+                return false;
+            cursor = capture;
+            return true;
+        };
         GameHostControls host(game, queue, storage, root,
                               default_game_settings("org.forge.reference-test", "Reference"),
                               InputMap(input), Json::object(), platform_controls);
-        game.control_frame();
-        host.pump(RuntimeClock::Time{});
-        check(cursor && game.status().at("state") == "running",
-              "Reference did not enter gameplay through queued controls");
-        game.pause(RuntimeClock::Time{});
-        for (unsigned i = 0; i < 30; ++i)
-            game.step();
         auto ui_model = [&] {
             const auto service =
                 std::static_pointer_cast<UiRuntime>(game.active().engine.services().ui());
             return service->snapshot(game.active().scene, "reference-test", 1, 0, true);
         };
+        game.control_frame();
+        for (unsigned i = 0; i < 5; ++i) {
+            host.pump(RuntimeClock::Time{});
+            game.control_frame();
+            check(!cursor && ui_model().at("documents")[0].at("model").at("page") == "play",
+                  "Pending asynchronous capture was mistaken for lost focus");
+        }
+        allow_capture = true;
+        host.pump(RuntimeClock::Time{});
+        game.control_frame();
+        check(cursor && game.status().at("state") == "running",
+              "Reference did not enter gameplay through queued controls");
+        game.pause(RuntimeClock::Time{});
+        for (unsigned i = 0; i < 30; ++i)
+            game.step();
         auto ui_command = [&](const char* value) {
             const auto snapshot = ui_model();
             std::static_pointer_cast<UiRuntime>(game.active().engine.services().ui())
@@ -177,6 +193,14 @@ int main(int argc, char** argv) {
         check(rejected &&
                   game.active().scene.entity(reference::player_id).get<LocalTranslation>().z == -2,
               "Rejected save damaged active reference world");
+        reject_capture = true;
+        game.control_frame();
+        host.pump(RuntimeClock::Time{});
+        game.control_frame();
+        host.pump(RuntimeClock::Time{});
+        check(!cursor && game.status().at("state") == "paused" &&
+                  ui_model().at("documents")[0].at("model").at("page") == "pause",
+              "Rejected capture did not return reference gameplay to pause");
         game.unload(RuntimeClock::Time{});
         std::cout << "Reference exact module: fixed movement, jump, crouch, pause, restore and "
                      "rejection passed\n";

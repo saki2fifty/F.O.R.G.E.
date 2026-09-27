@@ -18,6 +18,7 @@ using Json = nlohmann::json;
 struct Pending {
     uint64_t token;
     std::string operation;
+    bool capture = false;
 };
 struct State {
     std::string page = "main", message, prompt, scene, last_host_error;
@@ -57,7 +58,7 @@ void request(const ForgeSdkWorldV1* h, Json value) {
     if (!token)
         throw std::runtime_error("Game request was rejected: " +
                                  value.at("operation").get<std::string>());
-    s.pending.push_back({token, value.at("operation")});
+    s.pending.push_back({token, value.at("operation"), value.value("capture", false)});
 }
 void publish(const ForgeSdkWorldV1* h, const char* name, const Json& value) {
     if (!forge::sdk::Client(h).available(forge::sdk::Capability::Ui))
@@ -368,7 +369,12 @@ int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* h, char* error, uint32_t 
             s.initialized = true;
             mode(h, s.page == "play");
             request(h, {{"operation", "slots"}});
-        } else if (s.page == "play" && !q.at("cursor_captured").get<bool>()) {
+        } else if (s.page == "play" && !q.at("cursor_captured").get<bool>() &&
+                   std::none_of(s.pending.begin(), s.pending.end(), [](const Pending& pending) {
+                       return pending.operation == "cursor" && pending.capture;
+                   })) {
+            // A polled host may need several control frames to acknowledge
+            // capture. Only a terminal failure or actual capture loss pauses.
             s.page = "pause";
             mode(h, false);
         }

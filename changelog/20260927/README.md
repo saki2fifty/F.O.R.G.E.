@@ -33,3 +33,11 @@ wait state, loading state and confirmed input epoch when a workflow ends.
 
 Failed SDK scene admission also preserves the frozen candidate and bounded
 renderer/resource diagnostics for reproducing a preparation stall.
+
+## Reference game asynchronous capture
+
+Starting or resuming Editor Play no longer immediately queues Pause while the
+editor is still acknowledging cursor capture. The sample retains the requested
+capture intent until its receipt completes. Rejection and actual capture loss
+still pause the game. A delayed-ack regression reproduces the old failure and
+passes with the fix; rejection handling is also covered.

@@ -37,3 +37,7 @@ The fixture executable records input assertions and captures; the production
 See the [player manual](../../manual/reference-game.md) and
 [SDK service contract](../../docs/gameplay-services.md). Physical mouse/controller
 feel, speakers, GPU and DPI acceptance are separate from hosted input tests.
+
+The reference module tracks pending cursor-capture requests explicitly. Polled
+hosts can acknowledge them several control frames later; a pending request is
+not treated as lost focus. Failed requests still return to Pause.
