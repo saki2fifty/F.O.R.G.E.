@@ -49,3 +49,10 @@ While playing, Console shows **Tick** and **Fixed** (the simulation rate, normal
 4. Mention whether you were editing or playing and whether restarting changes the result.
 
 The build format is `yymmdd-counter`, using UTC. The counter keeps increasing across dates. Failed packaging attempts may leave gaps. Re-downloading a build does not change its identity.
+
+## When the GPU falls behind
+
+FORGE limits queued rendering to two frames, even with VSync off. A slow GPU makes
+the editor wait for completed work instead of continually allocating more graphics
+resources. If frame completion stalls for five seconds, FORGE reports a rendering
+error. This does not limit FPS to your display’s refresh rate.

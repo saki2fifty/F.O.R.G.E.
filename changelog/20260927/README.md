@@ -66,3 +66,6 @@ and functional assertions remain unchanged.
 - Added a real-pipe regression with a 512 KiB reply, a 4 KiB pipe and 100 ms work gaps; the old implementation times out, the correction passes.
 
 - The SDK acceptance fixture now waits for acknowledged gameplay capture after both same-process and restarted Continue before testing persisted Jump bindings.
+
+- Added backend-neutral frame pacing to the shared presentation owner: editor and standalone keep at most two submitted frames outstanding, preventing runaway GPU backlog after swapchain wait timeouts.
+- A stalled completion wait produces a bounded rendering error; VSync remains independently controlled. Native fence admission/retirement checks cover the shared implementation.

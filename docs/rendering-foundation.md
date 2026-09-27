@@ -1015,3 +1015,24 @@ run is70/71 because its separate editor screenshot driver failed during a UI-sca
 transition. Rendering acceptance is not inferred from that failed capture test.
 Final combined editor/package release validation is recorded separately. Physical
 GPU acceptance and unexecuted backend features are not claimed from WARP.
+
+## Bounded frame submission
+
+The existing `DiligentPresentation` owner limits graphical hosts to two outstanding
+frame submissions, independently of VSync. Before allocating the next frame, it
+polls a default CPU-wait Diligent fence until fewer than two submissions remain.
+Each frame appends a signal after rendering; normal Present submits the marker.
+Offscreen consumers explicitly Flush. A five-second completion wait fails with a
+clear rendering error instead of allocating an unbounded backlog. Scheduler delay
+can exceed the polling interval. A single frame can still exceed resource budgets;
+this bound controls queued frames, not the complexity of one frame.
+
+Source verification, 2026-09-27: pinned DiligentCore
+`744f079f61cdbda15d371383682418fc927e4a61`,
+`GraphicsEngine/interface/Fence.h` (`GetCompletedValue`, CPU-wait default),
+`GraphicsEngineD3D12/src/SwapChainD3D12Impl.cpp` (Flush before Present), and
+`GraphicsEngineD3DBase/include/SwapChainD3DBase.hpp` (`WaitForFrame`). The upstream
+500 ms DXGI wait logs a timeout and continues; it is not a queue-depth guarantee.
+Build104 showed30+ outstanding frames followed by descriptor exhaustion. FORGE
+uses only Diligent fence/context abstractions, with no raw D3D12 synchronization.
+Both editor and standalone hosts use the same pacing owner.

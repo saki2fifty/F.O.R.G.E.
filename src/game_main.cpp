@@ -325,6 +325,7 @@ int main(int argc, char** argv) {
                 SDL_Delay(10);
                 continue;
             }
+            device.begin_frame();
             if (graphics.swap->GetDesc().Width != unsigned(width) ||
                 graphics.swap->GetDesc().Height != unsigned(height))
                 graphics.swap->Resize(unsigned(width), unsigned(height));
@@ -455,6 +456,7 @@ int main(int argc, char** argv) {
             // physical-device gameplay retains asynchronous presentation.
             if (software)
                 graphics.context->WaitForIdle();
+            device.end_frame(graphics.context);
             graphics.swap->Present(
                 game_controls.settings().at("display").at("vsync").get<bool>() ? 1 : 0);
 #ifdef FORGE_GAME_FIXTURE

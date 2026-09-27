@@ -1,7 +1,10 @@
 #include "presentation_diligent.hpp"
 #include "Graphics/Archiver/interface/ArchiverFactoryLoader.h"
 #include "render_backend.hpp"
+#include <chrono>
+#include <limits>
 #include <stdexcept>
+#include <thread>
 namespace forge {
 using namespace Diligent;
 DiligentPresentation::DiligentPresentation(IRenderDevice* device) : device_(device) {
@@ -17,6 +20,31 @@ DiligentPresentation::DiligentPresentation(IRenderDevice* device) : device_(devi
     CreateRenderStateCache(info, &cache_);
     if (!cache_)
         throw std::runtime_error("Diligent render-state cache creation failed");
+    FenceDesc fence;
+    fence.Name = "FORGE frame completion";
+    device_->CreateFence(fence, &frame_fence_);
+    if (!frame_fence_)
+        throw std::runtime_error("Presentation frame completion fence unavailable");
+}
+std::uint64_t DiligentPresentation::pending_frames() const {
+    const auto completed = frame_fence_->GetCompletedValue();
+    return submitted_frames_ > completed ? submitted_frames_ - completed : 0;
+}
+void DiligentPresentation::begin_frame() {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (pending_frames() >= 2) {
+        if (std::chrono::steady_clock::now() >= deadline)
+            throw std::runtime_error("GPU frame completion timed out; rendering stopped before "
+                                     "allocating more in-flight resources");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+void DiligentPresentation::end_frame(IDeviceContext* context) {
+    if (!context || submitted_frames_ == std::numeric_limits<std::uint64_t>::max())
+        throw std::runtime_error("Invalid presentation frame submission");
+    context->EnqueueSignal(frame_fence_, ++submitted_frames_);
+    // The host's Present (or offscreen Flush) submits this marker after all
+    // frame commands. No raw backend handles or device-wide idle wait.
 }
 void DiligentPresentation::clear_cache() {
     cache_->Reset();

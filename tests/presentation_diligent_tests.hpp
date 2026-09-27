@@ -9,6 +9,15 @@ void check_native_pbr(forge::DiligentPresentation& presentation,
     using namespace Diligent;
     check_renderer_backend_policy();
     auto* device = presentation.device();
+    for (unsigned frame = 0; frame < 16; ++frame) {
+        presentation.begin_frame();
+        require(presentation.pending_frames() < 2,
+                "Frame admission exceeded the outstanding submission bound");
+        presentation.end_frame(context);
+        context->Flush();
+    }
+    context->WaitForIdle();
+    require(presentation.pending_frames() == 0, "Completed frames were not retired");
     auto& pbr = presentation.pbr(context);
     require(&pbr == &presentation.pbr(context), "PBR resources recreated on repeated access");
     auto white = readback(device, context, pbr.GetWhiteTexSRV());

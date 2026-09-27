@@ -1377,6 +1377,7 @@ int main(int argc, char** argv) {
             }
             fixture.graphics_context(window.get(), 0);
 #endif
+            presentation.begin_frame();
             performance.begin();
 #ifdef FORGE_UI_FIXTURE
             if (fixture.workflow)
@@ -4413,6 +4414,7 @@ int main(int argc, char** argv) {
 #endif
             {
                 const auto _t0 = SDL_GetTicks();
+                presentation.end_frame(context);
                 swap->Present(0);
                 play.sdk_diag_slow("swap.Present", SDL_GetTicks() - _t0);
             }

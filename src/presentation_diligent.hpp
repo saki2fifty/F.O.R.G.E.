@@ -1,5 +1,6 @@
 #pragma once
 #include "Common/interface/RefCntAutoPtr.hpp"
+#include "Graphics/GraphicsEngine/interface/Fence.h"
 #include "Graphics/GraphicsTools/interface/RenderStateCache.h"
 #include "PBR_Renderer.hpp"
 #include <cstdint>
@@ -15,6 +16,10 @@ class DiligentPresentation {
     void shader(const Diligent::ShaderCreateInfo&, Diligent::IShader**);
     void graphics(const Diligent::GraphicsPipelineStateCreateInfo&, Diligent::IPipelineState**);
     void compute(const Diligent::ComputePipelineStateCreateInfo&, Diligent::IPipelineState**);
+    // Keep at most two submitted frames outstanding, independent of VSync.
+    void begin_frame();
+    void end_frame(Diligent::IDeviceContext*);
+    std::uint64_t pending_frames() const;
     void clear_cache(); // Active native objects remain valid through their strong references.
     Diligent::PBR_Renderer& pbr(Diligent::IDeviceContext*);
     Diligent::ITextureView* black_environment(Diligent::IDeviceContext*);
@@ -24,6 +29,8 @@ class DiligentPresentation {
 
   private:
     void trim();
+    Diligent::RefCntAutoPtr<Diligent::IFence> frame_fence_;
+    std::uint64_t submitted_frames_{};
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
     Diligent::RefCntAutoPtr<Diligent::IRenderStateCache> cache_;
     std::unique_ptr<Diligent::PBR_Renderer> pbr_;
