@@ -69,3 +69,18 @@ and functional assertions remain unchanged.
 
 - Added backend-neutral frame pacing to the shared presentation owner: editor and standalone keep at most two submitted frames outstanding, preventing runaway GPU backlog after swapchain wait timeouts.
 - A stalled completion wait produces a bounded rendering error; VSync remains independently controlled. Native fence admission/retirement checks cover the shared implementation.
+
+## Phase 9 selection and batch authoring — source work, delivery pending
+
+- Extend the existing selection owner with ordered entity selection, a primary
+  entity, additive clicks and visible Hierarchy ranges. Asset selection clears it.
+- Common-component Inspector shows mixed properties and uses atomic batch writes.
+- Move/rotate/scale gestures operate on effective spatial roots, preserving
+  independent transform channel ownership and one-step Undo. Selection changes cancel.
+- Duplicate/delete normalize structural subtrees; selection framing uses the union
+  of retained geometry bounds. Mark all selected origins; keep one primary gizmo.
+- Add focused rejection/history/prefab regressions and UI-driven capture steps.
+- Correct outdated project startup instructions and the earlier ADR claim that
+  entity multi-selection already existed. No schema, dependency or ABI change.
+- Build 105 remains the delivered build. Windows execution and visual acceptance
+  of these source changes have not yet occurred.

@@ -1,5 +1,6 @@
 #pragma once
 #include "../render_projection.hpp"
+#include "batch_authoring.hpp"
 #include "camera.hpp"
 #include <forge/authoring.hpp>
 #include <forge/geometry.hpp>
@@ -109,13 +110,32 @@ class MoveGesture {
   public:
     bool active() const { return !id_.empty(); }
     bool valid_for(const Scene& scene) const { return !active() || revision_ == scene.revision(); }
+    bool selection_matches(const std::vector<std::string>& ids) const {
+        return !active() || ids == selection_;
+    }
     const Vec3& position() const { return preview_; }
     const Vec3& origin() const { return start_; }
     int axis() const { return axis_; }
-    bool begin(const Scene& scene, const std::string& id, int axis) {
+    bool begin(const Scene& scene, const std::string& id, int axis,
+               std::vector<std::string> selection = {}) {
+        cancel();
         const auto p = entity_position(scene.effective_document(), id);
         if (!p || axis < -1 || axis > 2)
             return false;
+        if (selection.empty())
+            selection.push_back(id);
+        selection_ = selection;
+        targets_.clear();
+        const auto view = scene.effective_document();
+        for (const auto& target : selection)
+            if (!entity_position(view, target))
+                return false;
+        for (const auto& target : selection_roots(view, selection, true)) {
+            const auto position = entity_position(view, target);
+            if (!position)
+                return false;
+            targets_.push_back({target, *position});
+        }
         owner_ = &scene;
         id_ = id;
         start_ = preview_ = *p;
@@ -140,29 +160,40 @@ class MoveGesture {
     Json preview(const Json& source) const {
         if (!active())
             return source;
-        const Json value = {{"x", preview_[0]}, {"y", preview_[1]}, {"z", preview_[2]}};
-        const Json args = {{"entity", id_}, {"value", value}};
-        const Json command = {{"operation", "transform.world_translation"}, {"arguments", args}};
-        return preview_authoring(*owner_, Json::array({command}));
+        return preview_authoring(*owner_, commands());
     }
+
     bool commit(Scene& scene) {
         if (!active())
             return false;
-        const auto id = id_;
+        const auto edits = commands();
         cancel();
         if (scene.revision() != revision_)
             throw std::runtime_error("Move cancelled because the scene changed during the drag");
         if (preview_ == start_)
             return false;
-        authoring_command(
-            scene, "transform.world_translation",
-            {{"entity", id},
-             {"value", {{"x", preview_[0]}, {"y", preview_[1]}, {"z", preview_[2]}}}});
+        apply_authoring(scene, edits, revision_);
         return true;
     }
     void cancel() { id_.clear(); }
 
   private:
+    Json commands() const {
+        Json result = Json::array();
+        for (const auto& [id, position] : targets_) {
+            const auto delta = subtract(preview_, start_);
+            result.push_back({{"operation", "transform.world_translation"},
+                              {"arguments",
+                               {{"entity", id},
+                                {"value",
+                                 {{"x", position[0] + delta[0]},
+                                  {"y", position[1] + delta[1]},
+                                  {"z", position[2] + delta[2]}}}}}});
+        }
+        return result;
+    }
+    std::vector<std::pair<std::string, Vec3>> targets_;
+    std::vector<std::string> selection_;
     const Scene* owner_ = nullptr;
     std::string id_;
     Vec3 start_{}, preview_{};

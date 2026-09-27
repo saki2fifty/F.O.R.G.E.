@@ -1,6 +1,7 @@
 #pragma once
 #include "authoring.hpp"
 #include "camera_controls.hpp"
+#include "editor_state.hpp"
 #include <functional>
 namespace forge::ui {
 struct SceneTools {
@@ -52,12 +53,14 @@ struct SceneTools {
     }
     void input(Scene& scene, const EditorCamera& camera, std::string& selected, ImVec2 origin,
                ImVec2 size, const ViewportInput& input, bool can_edit, std::string& status,
-               const std::function<std::string(const Json&, float, float)>& pick = {}) {
+               const std::function<std::string(const Json&, float, float)>& pick = {},
+               EditorSelection* selection = nullptr) {
         const auto& io = ImGui::GetIO();
         const ImVec2 mouse{io.MousePos.x - origin.x, io.MousePos.y - origin.y};
         if (move.active() &&
-            (!can_edit || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
-             std::abs(size.x - drag_size.x) > 0.5f || std::abs(size.y - drag_size.y) > 0.5f)) {
+            (!can_edit || (selection && !move.selection_matches(selection->entities())) ||
+             ImGui::IsKeyPressed(ImGuiKey_Escape, false) || std::abs(size.x - drag_size.x) > 0.5f ||
+             std::abs(size.y - drag_size.y) > 0.5f)) {
             move.cancel();
             status = "Move cancelled";
             return;
@@ -77,7 +80,8 @@ struct SceneTools {
             !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
             const auto doc = scene.effective_document();
             int hit = -2;
-            if (const auto p = entity_position(doc, selected); move_tool && p) {
+            if (const auto p = entity_position(doc, selected);
+                move_tool && p && !io.KeyCtrl && !io.KeyShift) {
                 const auto points = handles(camera, *p, size);
                 if (points[3]) {
                     const auto center = *points[3];
@@ -100,7 +104,9 @@ struct SceneTools {
                                 break;
                             }
                         }
-                    if (hit != -2 && move.begin(scene, selected, hit)) {
+                    if (hit != -2 && move.begin(scene, selected, hit,
+                                                selection ? selection->entities()
+                                                          : std::vector<std::string>{})) {
                         press = mouse;
                         drag_size = size;
                         drag_camera = camera;
@@ -114,8 +120,13 @@ struct SceneTools {
             }
             if (hit == -2) {
                 try {
-                    selected = pick ? pick(doc, mouse.x, mouse.y)
-                                    : pick_block(doc, camera, mouse.x, mouse.y, size.x, size.y);
+                    const auto hit_entity =
+                        pick ? pick(doc, mouse.x, mouse.y)
+                             : pick_block(doc, camera, mouse.x, mouse.y, size.x, size.y);
+                    if (selection)
+                        selection->click_entity(hit_entity, io.KeyCtrl || io.KeyShift);
+                    else
+                        selected = hit_entity;
                 } catch (const std::exception& e) {
                     status = std::string("Selection unchanged: ") + e.what();
                 }
@@ -157,7 +168,8 @@ struct SceneTools {
         }
     }
     void draw(const Json& doc, const EditorCamera& camera, const std::string& selected,
-              ImVec2 origin, ImVec2 size, bool can_edit) const {
+              ImVec2 origin, ImVec2 size, bool can_edit,
+              std::vector<std::string> selection = {}) const {
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
         auto line = [&](Vec3 a, Vec3 b, ImU32 color, float thickness = 1) {
@@ -182,47 +194,56 @@ struct SceneTools {
                 draw->AddLine({origin.x + (*p)[0], origin.y + (*p)[1]},
                               {origin.x + (*q)[0], origin.y + (*q)[1]}, color, thickness);
         };
-        if (const auto center = entity_position(doc, selected)) {
-            const Json* entity = nullptr;
-            for (const auto& candidate : doc.at("entities"))
-                if (candidate.at("id") == selected)
-                    entity = &candidate;
-            if (entity && primitive_kind(*entity) != no_primitive) {
-                const ObjectTransform transform(*entity);
-                for (unsigned corner = 0; corner < 8; ++corner)
-                    for (unsigned axis = 0; axis < 3; ++axis)
-                        if (!(corner & (1u << axis))) {
-                            Vec3 a{}, b;
-                            for (unsigned i = 0; i < 3; ++i)
-                                a[i] = primitive_kind(*entity) == 3 && i == 1 ? 0
-                                       : (corner & (1u << i))                 ? 0.5f
-                                                                              : -0.5f;
-                            b = a;
-                            if (!(primitive_kind(*entity) == 3 && axis == 1))
-                                b[axis] += 1;
-                            line(transform.point(a), transform.point(b),
-                                 IM_COL32(255, 200, 75, 255), 2 * interface_scale);
-                        }
-            }
-            if (move_tool && can_edit) {
-                const auto points = handles(camera, *center, size);
-                if (points[3]) {
-                    const ImVec2 start{origin.x + points[3]->x, origin.y + points[3]->y};
-                    const ImU32 colors[] = {IM_COL32(255, 95, 95, 255),
-                                            IM_COL32(105, 235, 125, 255),
-                                            IM_COL32(95, 160, 255, 255)};
-                    const char* labels[] = {"X", "Y", "Z"};
-                    for (unsigned i = 0; i < 3; ++i)
-                        if (points[i]) {
-                            const ImVec2 end{origin.x + points[i]->x, origin.y + points[i]->y};
-                            draw->AddLine(start, end, colors[i], 3 * interface_scale);
-                            draw->AddCircleFilled(end, 5 * interface_scale, colors[i]);
-                            draw->AddText({end.x + 7, end.y - 8}, colors[i], labels[i]);
-                        }
-                    const float radius = 6 * interface_scale;
-                    draw->AddRectFilled({start.x - radius, start.y - radius},
-                                        {start.x + radius, start.y + radius},
-                                        IM_COL32(245, 225, 130, 255));
+        if (selection.empty() && !selected.empty())
+            selection.push_back(selected);
+        for (const auto& selected_id : selection) {
+            if (const auto center = entity_position(doc, selected_id)) {
+                const Json* entity = nullptr;
+                for (const auto& candidate : doc.at("entities"))
+                    if (candidate.at("id") == selected_id)
+                        entity = &candidate;
+                if (entity && primitive_kind(*entity) != no_primitive) {
+                    const ObjectTransform transform(*entity);
+                    for (unsigned corner = 0; corner < 8; ++corner)
+                        for (unsigned axis = 0; axis < 3; ++axis)
+                            if (!(corner & (1u << axis))) {
+                                Vec3 a{}, b;
+                                for (unsigned i = 0; i < 3; ++i)
+                                    a[i] = primitive_kind(*entity) == 3 && i == 1 ? 0
+                                           : (corner & (1u << i))                 ? 0.5f
+                                                                                  : -0.5f;
+                                b = a;
+                                if (!(primitive_kind(*entity) == 3 && axis == 1))
+                                    b[axis] += 1;
+                                line(transform.point(a), transform.point(b),
+                                     IM_COL32(255, 200, 75, 255), 2 * interface_scale);
+                            }
+                }
+                if (const auto point = project_point(camera, *center, size.x, size.y)) {
+                    draw->AddCircle({origin.x + (*point)[0], origin.y + (*point)[1]},
+                                    5 * interface_scale, IM_COL32(255, 200, 75, 255), 12,
+                                    interface_scale);
+                }
+                if (move_tool && can_edit && selected_id == selected) {
+                    const auto points = handles(camera, *center, size);
+                    if (points[3]) {
+                        const ImVec2 start{origin.x + points[3]->x, origin.y + points[3]->y};
+                        const ImU32 colors[] = {IM_COL32(255, 95, 95, 255),
+                                                IM_COL32(105, 235, 125, 255),
+                                                IM_COL32(95, 160, 255, 255)};
+                        const char* labels[] = {"X", "Y", "Z"};
+                        for (unsigned i = 0; i < 3; ++i)
+                            if (points[i]) {
+                                const ImVec2 end{origin.x + points[i]->x, origin.y + points[i]->y};
+                                draw->AddLine(start, end, colors[i], 3 * interface_scale);
+                                draw->AddCircleFilled(end, 5 * interface_scale, colors[i]);
+                                draw->AddText({end.x + 7, end.y - 8}, colors[i], labels[i]);
+                            }
+                        const float radius = 6 * interface_scale;
+                        draw->AddRectFilled({start.x - radius, start.y - radius},
+                                            {start.x + radius, start.y + radius},
+                                            IM_COL32(245, 225, 130, 255));
+                    }
                 }
             }
         }

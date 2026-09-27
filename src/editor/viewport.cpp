@@ -40,9 +40,30 @@ std::string Viewport::pick(const Json& source, const EditorCamera& camera, unsig
 }
 bool Viewport::frame(const Json& source, const std::string& selected, EditorCamera& camera,
                      float aspect) {
+    return frame_selection(
+        source, selected.empty() ? std::vector<std::string>{} : std::vector<std::string>{selected},
+        camera, aspect);
+}
+bool Viewport::frame_selection(const Json& source, const std::vector<std::string>& selected,
+                               EditorCamera& camera, float aspect) {
+    std::set<EntityId> selection;
+    for (const auto& id : selected) {
+        const auto branch = framing_entities(source, id);
+        selection.insert(branch.begin(), branch.end());
+    }
+    auto fallback = [&] {
+        if (selected.size() == 1)
+            return camera.frame(source, selected.front(), aspect);
+        auto subset = source;
+        if (!selected.empty())
+            std::erase_if(subset["entities"].get_ref<Json::array_t&>(), [&](const auto& row) {
+                return !selection.contains(
+                    EntityId::parse(row.at("id").template get<std::string>()));
+            });
+        return camera.frame(subset, "", aspect);
+    };
     if (!meshes_)
-        return camera.frame(source, selected, aspect);
-    const auto selection = framing_entities(source, selected);
+        return fallback();
     const auto snapshot = extract_render_scene(source);
     if (meshes_->update(snapshot))
         frame_.reset();
@@ -61,7 +82,7 @@ bool Viewport::frame(const Json& source, const std::string& selected, EditorCame
     for (const auto& mesh : snapshot.meshes)
         if (selection.empty() ? mesh.renderer.visible : selection.contains(mesh.entity))
             return false;
-    return !selected.empty() && camera.frame(source, selected, aspect);
+    return !selected.empty() && fallback();
 }
 Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
     : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),

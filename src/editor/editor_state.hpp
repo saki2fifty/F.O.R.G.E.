@@ -1,11 +1,13 @@
 #pragma once
 #include "ui_probe.hpp"
 #include "widgets.hpp"
+#include <algorithm>
 #include <deque>
 #include <forge/assets.hpp>
 #include <forge/scene.hpp>
 #include <functional>
 #include <set>
+#include <vector>
 namespace forge::ui {
 // Editor-only identity/scope. World/component/asset contents remain in their existing owners.
 enum class SelectionKind { None, Entity, Asset, PrefabMember, DocumentItem };
@@ -14,11 +16,63 @@ class EditorSelection {
     SelectionKind kind() const { return entity_.empty() ? kind_ : SelectionKind::Entity; }
     const std::string& entity() const { return entity_; }
     std::string& entity_slot() { return entity_; }
+    // Legacy single-target writers invalidate the multi-selection on their next read.
+    std::vector<std::string> entities() const {
+        if (entity_.empty())
+            return {};
+        return entity_ == primary_ ? entities_ : std::vector<std::string>{entity_};
+    }
+    bool contains(const std::string& id) const {
+        const auto ids = entities();
+        return std::find(ids.begin(), ids.end(), id) != ids.end();
+    }
+    void select_entities(std::vector<std::string> ids) {
+        clear();
+        for (const auto& id : ids)
+            if (!id.empty() && std::find(entities_.begin(), entities_.end(), id) == entities_.end())
+                entities_.push_back(id);
+        if (!entities_.empty())
+            primary_ = entity_ = entities_.back();
+    }
+    void click_entity(const std::string& id, bool toggle, bool range = false,
+                      const std::vector<std::string>& visible = {}) {
+        auto ids = entities();
+        if (range && !anchor_.empty()) {
+            auto first = std::find(visible.begin(), visible.end(), anchor_);
+            auto last = std::find(visible.begin(), visible.end(), id);
+            if (first != visible.end() && last != visible.end()) {
+                const auto anchor = anchor_;
+                if (!toggle)
+                    ids.clear();
+                if (first > last)
+                    std::swap(first, last);
+                ids.insert(ids.end(), first, last + 1);
+                std::erase(ids, id);
+                ids.push_back(id);
+                select_entities(std::move(ids));
+                anchor_ = anchor;
+                return;
+            }
+        }
+        if (!toggle)
+            select_entity(id);
+        else {
+            if (contains(id))
+                std::erase(ids, id);
+            else if (!id.empty())
+                ids.push_back(id);
+            select_entities(std::move(ids));
+        }
+        anchor_ = id;
+    }
     AssetId asset() const { return asset_; }
     const std::string& member() const { return member_; }
     void clear() {
         kind_ = SelectionKind::None;
         entity_.clear();
+        entities_.clear();
+        primary_.clear();
+        anchor_.clear();
         asset_ = {};
         member_.clear();
         document_.clear();
@@ -26,6 +80,9 @@ class EditorSelection {
     void select_entity(std::string id) {
         clear();
         entity_ = std::move(id);
+        primary_ = anchor_ = entity_;
+        if (!entity_.empty())
+            entities_.push_back(entity_);
     }
     void select_asset(AssetId id) {
         clear();
@@ -45,22 +102,27 @@ class EditorSelection {
         member_ = std::move(local_key);
     }
     void reconcile(const Json& document) {
-        if (!entity_.empty()) {
-            kind_ = SelectionKind::None;
-            asset_ = {};
-            member_.clear();
-            bool found = false;
-            for (const auto& row : document.at("entities"))
-                found |= row.at("id") == entity_;
-            if (!found)
-                clear();
+        if (entity_.empty()) {
+            entities_.clear();
+            primary_.clear();
+            return;
         }
+        auto ids = entities();
+        std::erase_if(ids, [&](const auto& id) {
+            return std::none_of(document.at("entities").begin(), document.at("entities").end(),
+                                [&](const auto& row) { return row.at("id") == id; });
+        });
+        const auto anchor = anchor_;
+        select_entities(std::move(ids));
+        anchor_ = anchor;
     }
 
   private:
     SelectionKind kind_ = SelectionKind::None;
     std::string entity_, member_, document_;
     AssetId asset_;
+    std::vector<std::string> entities_;
+    std::string primary_, anchor_;
 };
 enum class DocumentTask { Scene, Prefab, Settings, Extension };
 enum class DraftResolution { Save, Discard, Cancel };

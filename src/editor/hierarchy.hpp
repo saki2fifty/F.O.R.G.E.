@@ -26,17 +26,22 @@ inline std::set<std::string> hierarchy_matches(const Json& doc, const std::strin
     return visible;
 }
 inline void hierarchy(const Json& doc, std::string& selected, const std::string& filter = "",
-                      int expand = 0, Scene* scene = nullptr, bool locked = false) {
+                      int expand = 0, Scene* scene = nullptr, bool locked = false,
+                      EditorSelection* selection = nullptr) {
     const auto visible = hierarchy_matches(doc, filter);
     std::map<std::string, std::vector<const Json*>> children;
     for (const auto& e : doc.at("entities"))
         if (visible.contains(e.at("id").get<std::string>()))
             children[e.value("parent", std::string{})].push_back(&e);
+    std::vector<std::string> order;
+    std::string clicked;
+    bool toggle = false, range = false;
     std::function<void(const std::string&)> draw = [&](const std::string& parent) {
         for (const auto* e : children[parent]) {
             const auto id = e->at("id").get<std::string>();
+            order.push_back(id);
             auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
-            if (id == selected)
+            if (selection ? selection->contains(id) : id == selected)
                 flags |= ImGuiTreeNodeFlags_Selected;
             if (children[id].empty())
                 flags |= ImGuiTreeNodeFlags_Leaf;
@@ -49,10 +54,25 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
                                                 : e->contains("prefab_member")    ? " [member]"
                                                                                   : "");
             FORGE_UI_PROBE("entity:" + id);
-            if (ImGui::IsItemClicked() || ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                selected = id;
-            help("Select this authored entity. Expand the arrow to see its children.");
-            if (scene && !locked && !e->contains("prefab_member") && ImGui::BeginDragDropSource()) {
+            if (ImGui::IsItemClicked()) {
+                if (selection) {
+                    clicked = id;
+                    toggle = ImGui::GetIO().KeyCtrl;
+                    range = ImGui::GetIO().KeyShift;
+                } else
+                    selected = id;
+            }
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right) &&
+                (!selection || !selection->contains(id))) {
+                if (selection)
+                    selection->select_entity(id);
+                else
+                    selected = id;
+            }
+            help("Select this entity. Ctrl-click toggles; Shift-click selects a filtered hierarchy "
+                 "range, using visible rows.");
+            if (scene && !locked && !e->contains("prefab_member") &&
+                (!selection || selection->entities().size() <= 1) && ImGui::BeginDragDropSource()) {
                 ImGui::SetDragDropPayload("FORGE_ENTITY", id.c_str(), id.size() + 1);
                 ImGui::Text("Move: %s", e->at("name").get_ref<const std::string&>().c_str());
                 ImGui::EndDragDropSource();
@@ -104,5 +124,7 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
                                ? "No entities. Use Entity > Create or the Scene Create menu."
                                : "No matching entities. Clear the search to show the scene.");
     draw("");
+    if (selection && !clicked.empty())
+        selection->click_entity(clicked, toggle, range, order);
 }
 } // namespace forge::ui

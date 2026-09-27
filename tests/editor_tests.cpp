@@ -2,6 +2,7 @@
 #include "animation_editor_tests.hpp"
 #include "authoring_tests.hpp"
 #include "automation_tests.hpp"
+#include "batch_authoring_tests.hpp"
 #include "blockout_tests.hpp"
 #include "camera.hpp"
 #include "camera_controls.hpp"
@@ -325,6 +326,7 @@ int main(int argc, char** argv) {
         test_diagnostic_source();
         test_reflected_value_inputs();
         test_editor_selection_and_actions();
+        test_batch_authoring();
         test_spatial_helpers();
         test_asset_action_routes();
         test_redesign_drawers();

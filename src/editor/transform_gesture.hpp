@@ -12,13 +12,39 @@ class TransformGesture {
     bool valid(const Scene& scene, const std::string& selection) const {
         return active() && revision_ == scene.revision() && entity_ == selection;
     }
+    bool selection_matches(const std::vector<std::string>& ids) const {
+        return !active() || ids == selection_;
+    }
     void cancel() { entity_.clear(); }
     Mode mode() const { return mode_; }
     int axis() const { return axis_; }
     Float3 value() const { return value_; }
-    bool begin(const Scene& scene, const std::string& id, Mode mode, Float3 view_axis) {
+    bool begin(const Scene& scene, const std::string& id, Mode mode, Float3 view_axis,
+               std::vector<std::string> selection = {}) {
         cancel();
+        if (id.empty())
+            return false;
         auto doc = scene.effective_document();
+        if (selection.empty())
+            selection.push_back(id);
+        for (const auto& target : selection) {
+            const auto found =
+                std::find_if(doc.at("entities").begin(), doc.at("entities").end(),
+                             [&](const auto& row) { return row.at("id") == target; });
+            if (found == doc.at("entities").end() || found->value("prefab", false) ||
+                !found->value("spatial_resolved", true) ||
+                !found->at("components").contains("forge.position"))
+                return false;
+        }
+        selection_ = selection;
+        originals_.clear();
+        for (const auto& target : selection_roots(doc, selection, true)) {
+            const auto& row = blockout_entity(doc, target);
+            if (!row.value("spatial_resolved", true) || row.value("prefab", false) ||
+                !row.at("components").contains("forge.position"))
+                return false;
+            originals_.push_back(row);
+        }
         for (const auto& e : doc.at("entities")) {
             if (e.at("id") != id || e.value("prefab", false) ||
                 !e.at("components").contains("forge.position") ||
@@ -32,7 +58,6 @@ class TransformGesture {
             revision_ = scene.revision();
             mode_ = mode;
             axis_ = -1;
-            original_ = e;
             view_axis_ = view_axis;
             value_ = read_xyz(e.at("components"), component(),
                               mode == Mode::Scale ? Float3{1, 1, 1} : Float3{});
@@ -50,7 +75,7 @@ class TransformGesture {
         const auto previous = amount_;
         amount_ = amount;
         try {
-            auto next = preview_authoring(*owner_, Json::array({command()}));
+            auto next = preview_authoring(*owner_, commands());
             const auto view = owner_->preview_document(next);
             const auto& e = blockout_entity(view, entity_);
             value_ = read_xyz(e.at("components"), component(),
@@ -75,21 +100,27 @@ class TransformGesture {
             cancel();
             throw std::runtime_error("Transform cancelled: scene changed");
         }
-        const auto cmd = command();
+        const auto edits = commands();
         const bool neutral =
             mode_ == Mode::Scale ? amount_ == 1 : std::remainder(amount_, 360.0f) == 0;
         cancel();
         if (neutral)
             return false;
-        const auto result = apply_authoring(scene, Json::array({cmd}), scene.revision());
+        const auto result = apply_authoring(scene, edits, scene.revision());
         return result.at("changed");
     }
 
   private:
-    Json command() const {
-        Json args = {{"entity", entity_}};
+    Json commands() const {
+        Json result = Json::array();
+        for (const auto& row : originals_)
+            result.push_back(command(row));
+        return result;
+    }
+    Json command(const Json& row) const {
+        Json args = {{"entity", row.at("id")}};
         if (mode_ == Mode::Scale) {
-            auto value = read_xyz(original_.at("components"), "forge.scale", {1, 1, 1});
+            auto value = read_xyz(row.at("components"), "forge.scale", {1, 1, 1});
             for (unsigned i = 0; i < 3; ++i)
                 if (axis_ < 0 || axis_ == int(i))
                     value[i] *= amount_;
@@ -116,7 +147,8 @@ class TransformGesture {
     std::uint64_t revision_ = 0;
     Mode mode_ = Mode::Rotate;
     int axis_ = -1;
-    Json original_;
+    std::vector<Json> originals_;
+    std::vector<std::string> selection_;
     Float3 value_{}, view_axis_{};
 };
 namespace ui {
@@ -133,11 +165,14 @@ struct ModalTransform {
     }
     Json preview(const Json& doc) const { return gesture.preview(doc); }
     void input(Scene& scene, const std::string& selected, const EditorCamera& camera, ImVec2 origin,
-               ImVec2 size, bool hovered, bool allowed, std::string& status) {
+               ImVec2 size, bool hovered, bool allowed, std::string& status,
+               const std::vector<std::string>& selection = {}) {
         auto& io = ImGui::GetIO();
         if (active() &&
-            (!allowed || !gesture.valid(scene, selected) || std::abs(size.x - size_.x) > .5f ||
-             std::abs(size.y - size_.y) > .5f || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+            (!allowed || !gesture.valid(scene, selected) ||
+             (!selection.empty() && !gesture.selection_matches(selection)) ||
+             std::abs(size.x - size_.x) > .5f || std::abs(size.y - size_.y) > .5f ||
+             ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
              ImGui::IsMouseClicked(ImGuiMouseButton_Right) ||
              ImGui::IsMouseClicked(ImGuiMouseButton_Middle) || !ImGui::IsWindowFocused())) {
             cancel();
@@ -154,7 +189,7 @@ struct ModalTransform {
             if ((scale || rotate) && gesture.begin(scene, selected,
                                                    scale ? TransformGesture::Mode::Scale
                                                          : TransformGesture::Mode::Rotate,
-                                                   camera.forward())) {
+                                                   camera.forward(), selection)) {
                 ImGui::SetWindowFocus();
                 start = io.MousePos;
                 size_ = size;

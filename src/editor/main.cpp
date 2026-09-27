@@ -1,3 +1,5 @@
+#include "batch_authoring.hpp"
+#include "batch_inspector.hpp"
 #ifdef FORGE_UI_FIXTURE
 #include "authored_capture_fixture.hpp"
 #include "editor_capture_layout.hpp"
@@ -1806,40 +1808,56 @@ int main(int argc, char** argv) {
                 std::string shortcut = entry.operation == "entity.duplicate" ? "Ctrl+D"
                                        : entry.operation == "entity.delete"  ? "Delete"
                                                                              : "";
-                add_action(entry.label, entry.label, shortcut, entry.help,
-                           entry.available &&
-                               (inspect || (!edit_locked &&
-                                            (scene_task || entry.operation == "entity.create"))),
-                           [&, entry] {
-                               if (entry.operation == "diagnostics")
-                                   commands.diagnostics_open = true;
-                               else if (entry.operation == "schema")
-                                   commands.schema_open = true;
-                               else {
-                                   if (entry.operation == "entity.create") {
-                                       editor.task.owner = forge::ui::DocumentTask::Scene;
-                                       workspace.scene = workspace.inspector = true;
-                                       ImGui::SetWindowFocus("###Scene");
-                                   }
-                                   auto arguments = entry.arguments;
-                                   if (arguments.contains("entity"))
-                                       arguments["entity"] = selected;
-                                   editor.selection.select_entity(
-                                       forge::authoring_command(scene, entry.operation, arguments)
-                                           .at("selected")
-                                           .get<std::string>());
-                               }
-                           });
+                add_action(
+                    entry.label, entry.label, shortcut, entry.help,
+                    entry.available &&
+                        (inspect ||
+                         (!edit_locked && (scene_task || entry.operation == "entity.create"))),
+                    [&, entry] {
+                        if (entry.operation == "diagnostics")
+                            commands.diagnostics_open = true;
+                        else if (entry.operation == "schema")
+                            commands.schema_open = true;
+                        else {
+                            if (entry.operation == "entity.create") {
+                                editor.task.owner = forge::ui::DocumentTask::Scene;
+                                workspace.scene = workspace.inspector = true;
+                                ImGui::SetWindowFocus("###Scene");
+                            }
+                            auto arguments = entry.arguments;
+                            if (arguments.contains("entity"))
+                                arguments["entity"] = selected;
+                            const auto targets = editor.selection.entities();
+                            if (targets.size() > 1 && arguments.contains("entity")) {
+                                const auto result = forge::apply_authoring(
+                                    scene,
+                                    forge::selection_commands(scene, targets, entry.operation,
+                                                              arguments),
+                                    scene.revision());
+                                if (entry.operation == "entity.duplicate") {
+                                    std::vector<std::string> copies;
+                                    for (const auto& row : result.at("results"))
+                                        copies.push_back(row.at("selected"));
+                                    editor.selection.select_entities(std::move(copies));
+                                } else
+                                    editor.selection.reconcile(scene.document());
+                            } else
+                                editor.selection.select_entity(
+                                    forge::authoring_command(scene, entry.operation, arguments)
+                                        .at("selected")
+                                        .get<std::string>());
+                        }
+                    });
             }
             add_action("rename", "Rename entity", "F2",
                        "Focus the selected entity name in Inspector.",
-                       !selected.empty() && !edit_locked && scene_task, [&] {
+                       editor.selection.entities().size() == 1 && !edit_locked && scene_task, [&] {
                            editor.rename_entity = true;
                            workspace.inspector = true;
                        });
             add_action("add_component", "Add Component", "",
                        "Search registered components for the selected entity.",
-                       !selected.empty() && !edit_locked && scene_task, [&] {
+                       editor.selection.entities().size() == 1 && !edit_locked && scene_task, [&] {
                            editor.add_component = true;
                            workspace.inspector = true;
                        });
@@ -3012,10 +3030,12 @@ int main(int argc, char** argv) {
             }
             if (scene_tools.move.active() &&
                 (!scene_tools.move.valid_for(scene) ||
+                 !scene_tools.move.selection_matches(editor.selection.entities()) ||
                  !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || play.active() ||
                  files.busy()))
                 scene_tools.move.cancel();
             if (modal.active() && (!modal.gesture.valid(scene, selected) ||
+                                   !modal.gesture.selection_matches(editor.selection.entities()) ||
                                    !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) ||
                                    play.active() || files.busy()))
                 modal.cancel();
@@ -3061,9 +3081,12 @@ int main(int argc, char** argv) {
                         expand = -1;
                     } else
                         FORGE_UI_PROBE("hierarchy:collapse-all");
+                    ImGui::TextDisabled("%zu selected", editor.selection.entities().size());
+                    forge::ui::help("Ctrl-click toggles; Shift-click selects a visible range. The "
+                                    "last selected entity is primary.");
                     editor.task.focus(forge::ui::DocumentTask::Scene);
                     forge::ui::hierarchy(doc, selected, hierarchy_filter, expand, &scene,
-                                         edit_locked);
+                                         edit_locked, &editor.selection);
                     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
                         ImGui::OpenPopup("Entity actions");
                     if (ImGui::BeginPopup("Entity actions")) {
@@ -3121,8 +3144,11 @@ int main(int argc, char** argv) {
                             "Select an object in the Scene or Hierarchy to edit its properties.");
                         forge::ui::help("Click a scene object or hierarchy row.");
                     }
+                    if (editor.selection.entities().size() > 1)
+                        forge::ui::batch_inspector(scene, files.document.project(),
+                                                   editor.selection.entities());
                     for (const auto& e : doc["entities"])
-                        if (e.at("id") == selected) {
+                        if (e.at("id") == selected && editor.selection.entities().size() == 1) {
                             ImGui::TextWrapped("%s",
                                                e.at("name").get_ref<const std::string&>().c_str());
                             forge::ui::help("This Inspector edits the authored entity; runtime "
@@ -3508,7 +3534,8 @@ int main(int argc, char** argv) {
                     if (size.x > 1 && size.y > 1) {
                         if (!game_view && frame_selected &&
                             (selected.empty() ||
-                             !viewport.frame(preview, selected, view_camera, size.x / size.y)))
+                             !viewport.frame_selection(preview, editor.selection.entities(),
+                                                       view_camera, size.x / size.y)))
                             message = "Cannot frame selection: geometry is not ready or exceeds "
                                       "camera range.";
                         if (!game_view && fit_scene &&
@@ -3539,7 +3566,8 @@ int main(int argc, char** argv) {
                                                        game_view || gizmo || was_modal || popup ||
                                                            game_input.captured())) {
                             if (selected.empty() ||
-                                !viewport.frame(preview, selected, view_camera, size.x / size.y))
+                                !viewport.frame_selection(preview, editor.selection.entities(),
+                                                          view_camera, size.x / size.y))
                                 message =
                                     "Cannot frame selection: geometry is not ready or exceeds "
                                     "camera range.";
@@ -3560,7 +3588,8 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             modal.input(scene, selected, view_camera, image_origin, size,
                                         over_image && !gizmo,
-                                        can_edit && !scene_tools.move.active(), message);
+                                        can_edit && !scene_tools.move.active(), message,
+                                        editor.selection.entities());
                         unsigned guide_width = unsigned(std::max(1.f, size.x)),
                                  guide_height = unsigned(std::max(1.f, size.y));
                         if (auto* output = game_viewport->output()) {
@@ -3586,11 +3615,8 @@ int main(int argc, char** argv) {
                                                          unsigned(std::max(1.f, size.x)),
                                                          unsigned(std::max(1.f, size.y)), x, y,
                                                          5 * forge::ui::interface_scale);
-                                });
-                        if (!game_view && input.activated &&
-                            ImGui::IsMouseDown(ImGuiMouseButton_Left) && can_edit && !gizmo &&
-                            !was_modal && !modal.active())
-                            editor.selection.select_entity(selected);
+                                },
+                                &editor.selection);
                         if (previous_move_tool != scene_tools.move_tool)
                             perform(save_preferences);
                         const auto& rendered = read_preview();
@@ -3634,7 +3660,8 @@ int main(int argc, char** argv) {
                                 : forge::Json();
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
-                                             can_edit && !modal.active());
+                                             can_edit && !modal.active(),
+                                             editor.selection.entities());
                         const auto animation_debug = forge::prepare_animation_debug(
                             rendered,
                             game_view ? game_viewport->game_scene() : viewport.render_scene());
@@ -4209,6 +4236,7 @@ int main(int argc, char** argv) {
                     {"problems", problems},
                     {"scene", scene.document()},
                     {"selected", selected},
+                    {"selected_entities", editor.selection.entities()},
                     {"selected_preview", selected_preview},
                     {"dirty", files.document.dirty()},
                     {"disk", disk},

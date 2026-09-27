@@ -26,7 +26,8 @@ class EditorInputWorkflow {
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
     std::uint64_t paused_tick_ = 0;
-    Json cache_scene_, saved_, before_model_, initial_material_, trace_ = Json::array();
+    Json multi_before_, cache_scene_, saved_, before_model_, initial_material_,
+        trace_ = Json::array();
     std::filesystem::path external_source_, project_;
     std::string drop_path_, model_asset_, model_root_, material_asset_, collision_asset_;
     std::uint64_t model_generation_ = 0;
@@ -78,7 +79,22 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "collision-preview") {
+        if (what == "multi-selected") {
+            const auto ids = state.at("selected_entities").get<std::vector<std::string>>();
+            require(ids.size() == 2 && std::find(ids.begin(), ids.end(), cube_) != ids.end() &&
+                        std::find(ids.begin(), ids.end(), light_) != ids.end(),
+                    "Additive UI selection failed");
+            multi_before_ = doc;
+        } else if (what == "multi-duplicated") {
+            require(entities.size() == multi_before_.at("entities").size() + 2 &&
+                        state.at("selected_entities").size() == 2,
+                    "Batch duplicate UI failed");
+        } else if (what == "multi-deleted") {
+            require(entities.size() + 2 == multi_before_.at("entities").size(),
+                    "Batch delete UI failed");
+        } else if (what == "multi-restored") {
+            require(doc == multi_before_, "Batch UI operation was not one Undo step");
+        } else if (what == "collision-preview") {
             if (!state.at("collision_preview_ready").get<bool>())
                 throw std::runtime_error("Collision preview is not ready: " +
                                          state.value("collision_preview_status", std::string{}));
@@ -451,6 +467,26 @@ class EditorInputWorkflow {
         click("light-marker");
         check("picked-light");
         capture("light-picked-in-scene");
+        click("saved-cube-row", true);
+        check("multi-selected");
+        capture("multi-selection-inspector");
+        click("scene:view-menu");
+        click("scene:frame");
+        capture("multi-selection-framed");
+        key(ImGuiKey_D, true);
+        check("multi-duplicated");
+        capture("multi-selection-duplicated");
+        key(ImGuiKey_Z, true);
+        check("multi-restored");
+        click("light-marker");
+        click("saved-cube-row", true);
+        check("multi-selected");
+        key(ImGuiKey_Delete);
+        check("multi-deleted");
+        key(ImGuiKey_Z, true);
+        check("multi-restored");
+        capture("multi-selection-restored");
+        click("light-marker");
         click("preview-light");
         capture("authored-scene-lighting");
         click("preview-light");

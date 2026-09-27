@@ -6,6 +6,38 @@ Entities are the things you author in a scene. Hierarchy lists them in a tree; I
 
 Select **Scene Add (+) → 3D Primitive → Cube** or **Entity → Create → 3D Primitive → Cube**. FORGE creates a cube with a unique authored ID, transform, and built-in Mesh reference. Use the Create menu for other shapes. Click its row in **Hierarchy**, or left-click its visible geometry in **Scene**, to select it. Viewport selection chooses the nearest supported surface under the pointer.
 
+## Select and edit several entities
+
+In **Hierarchy**, Ctrl-click to add or remove an entity. Shift-click selects a range
+of visible rows; Ctrl+Shift-click adds that range. Collapsed descendants are not
+silently selected. In **Scene**, Ctrl-click or Shift-click toggles an object.
+Click without a modifier to return to one object. The last selected object is the
+**primary** object and carries the move handles. Hierarchy shows the selection count.
+
+Inspector displays the components shared by every selected entity. **Mixed values**
+means a property differs between objects; the field shows the primary object's
+value. Committing a new value applies it to every target as one Undo step. If any
+object rejects the value, none changes. Merely viewing inherited values does not
+create prefab overrides. Batch property editing accepts up to 128 targets.
+
+Drag the primary move handle to move the selection by the same world-space offset.
+**R**, **S**, and optional **X/Y/Z** constraints act on the selected spatial roots:
+rotation uses each root's own origin and scale multiplies its local scale. This is
+not a shared-center pivot. A child already following a selected spatial ancestor
+moves with that ancestor and is not transformed a second time. **World** binding
+breaks that chain; **Explicit** binding follows its actual spatial target.
+
+**Frame selected** includes all selected objects and their structural descendants.
+Changing the selection during a transform cancels the gesture. Escape also cancels.
+
+Duplicate and Delete operate once on each selected structural subtree: selecting
+both a parent and its child does not duplicate/delete that child twice. Each
+accepted batch is one Undo step. Duplicated independent roots retain the existing
+per-subtree reference remapping; references to other independent roots are not
+retargeted across copies. Names, Inspector parenting, component add/remove and
+hierarchy drag/reorder require a single selection. Use a single selection for
+specialized asset controls as well.
+
 ## Rename an entity
 
 Select the entity, edit **Inspector → Name**, and press Enter to commit. Renaming keeps the entity's ID, so the name can change without changing its identity.

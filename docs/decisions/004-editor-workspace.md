@@ -1,8 +1,20 @@
 # ADR 004 — Editor shell and workspace
 
+## Phase 9 source checkpoint — 2026-09-27 (delivery pending)
+
+Entity multi-selection extends EditorSelection; it does not introduce another
+selection authority. Existing single-target writers replace the selection.
+Hierarchy ranges follow visible row order. Content/document selection clears entity
+selection. Common reflected property writes and transform gestures reuse the existing
+candidate-before-commit authoring batch and scene Undo owner (128-command bound).
+Spatial roots normalize gesture deltas; structural roots normalize duplicate/delete.
+The manual defines individual-root pivot behavior and remaining single-target controls.
+The earlier checkpoint incorrectly claimed entity multi-selection: the inspected
+Hierarchy and EditorSelection still held one entity. That claim is corrected below.
+
 ## Implementation checkpoint — 2026-09-23
 
-Content list/tiles/search, model/material/texture/shader documents, typed pickers, multiple entity selection and hide/lock controls are implemented. See [editor UI guidelines](../editor-ui-guidelines.md) and the [manual](../../manual/README.md). Public editor binary plugins and future specialized graph/modeling tools remain outside Phase7.
+Content list/tiles/search, model/material/texture/shader documents, typed pickers, Content multi-selection and hide/lock controls are implemented. See [editor UI guidelines](../editor-ui-guidelines.md) and the [manual](../../manual/README.md). Public editor binary plugins and future specialized graph/modeling tools remain outside Phase7.
 
 The original decision and its baseline/deferred descriptions below retain their
 2026-09-19 context. This checkpoint and linked current contracts describe what has
