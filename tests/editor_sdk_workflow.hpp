@@ -653,6 +653,11 @@ class EditorSdkWorkflow {
         const auto model = ui_model(play);
         const auto page = model_page(model);
         const auto rel_mouse = SDL_GetWindowRelativeMouseMode(window);
+        // A restored page/pose can arrive before the new world's cursor effect
+        // is acknowledged. Do not send gameplay edges into menu routing.
+        const bool gameplay_input_ready = rel_mouse && !play.paused() &&
+                                          play.sdk_platform_effects().empty() &&
+                                          !play.sdk_release_required();
 
         // Gate native Rml input: do not drive when the live context is
         // staged (not the published live document) or when no unique
@@ -996,8 +1001,7 @@ class EditorSdkWorkflow {
         // interaction. Recording the snapshot baseline AFTER the
         // Enter ensures the baseline reflects post-Resume state.
         if (stage_ == 2 && outside_phase_ == 8 && page == "play" && live_rml &&
-            scene_asset(play) == reference::level_scene && rel_mouse && !play.paused() &&
-            play.sdk_platform_effects().empty() && !play.sdk_release_required()) {
+            scene_asset(play) == reference::level_scene && gameplay_input_ready) {
             const auto now = SDL_GetTicks();
             outside_ack_frames_++;
             if (outside_ack_frames_ < 3) {
@@ -1087,7 +1091,7 @@ class EditorSdkWorkflow {
                 append_stage(11, play, "resume");
             return;
         }
-        if (stage_ == 11 && page == "play" && rel_mouse && live_rml) {
+        if (stage_ == 11 && page == "play" && gameplay_input_ready && live_rml) {
             if (!stable_y_settled(pre_resume_jump_, player_position(play)[1],
                                   play.snapshot_version(), play.timing()))
                 return;
@@ -1194,7 +1198,7 @@ class EditorSdkWorkflow {
                 append_stage(16, play, "continue");
             return;
         }
-        if (stage_ == 16 && page == "play" && live_rml &&
+        if (stage_ == 16 && page == "play" && live_rml && gameplay_input_ready &&
             scene_asset(play) == reference::level_scene) {
             // Same-process Continue must restore interactions and a
             // non-default z matching the Save baseline.
@@ -1275,7 +1279,7 @@ class EditorSdkWorkflow {
                 append_stage(21, play, "continue after restart");
             return;
         }
-        if (stage_ == 21 && page == "play" && live_rml &&
+        if (stage_ == 21 && page == "play" && live_rml && gameplay_input_ready &&
             scene_asset(play) == reference::level_scene) {
             // Restarted Continue must also restore interactions + z.
             if (model_interactions(model) != 1)

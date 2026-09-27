@@ -64,3 +64,5 @@ and functional assertions remain unchanged.
 
 - Runtime reply draining now gives the polling reader a bounded opportunity to free pipe space before slow simulation resumes. Both runtime hosts use the same helper; request deadlines and domain ownership are unchanged.
 - Added a real-pipe regression with a 512 KiB reply, a 4 KiB pipe and 100 ms work gaps; the old implementation times out, the correction passes.
+
+- The SDK acceptance fixture now waits for acknowledged gameplay capture after both same-process and restarted Continue before testing persisted Jump bindings.
