@@ -193,14 +193,19 @@ int main(int argc, char** argv) {
         check(rejected &&
                   game.active().scene.entity(reference::player_id).get<LocalTranslation>().z == -2,
               "Rejected save damaged active reference world");
-        reject_capture = true;
-        game.control_frame();
-        host.pump(RuntimeClock::Time{});
-        game.control_frame();
-        host.pump(RuntimeClock::Time{});
-        check(!cursor && game.status().at("state") == "paused" &&
-                  ui_model().at("documents")[0].at("model").at("page") == "pause",
-              "Rejected capture did not return reference gameplay to pause");
+        for (bool escape_on_rejection : {false, true}) {
+            game.activate(game.prepare(scene.snapshot()), RuntimeClock::Time{}, false);
+            reject_capture = true;
+            game.control_frame();
+            host.pump(RuntimeClock::Time{});
+            if (escape_on_rejection)
+                game.input({{"key.escape", 1}, {"key.escape", 0}});
+            game.control_frame();
+            host.pump(RuntimeClock::Time{});
+            check(!cursor && game.status().at("state") == "paused" &&
+                      ui_model().at("documents")[0].at("model").at("page") == "pause",
+                  "Rejected capture with optional Escape did not stay paused");
+        }
         game.unload(RuntimeClock::Time{});
         std::cout << "Reference exact module: fixed movement, jump, crouch, pause, restore and "
                      "rejection passed\n";

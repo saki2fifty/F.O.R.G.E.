@@ -86,3 +86,5 @@ See [Gameplay input](editor/input.md), [Runtime UI](editor/runtime-ui.md), and
 Starting or resuming the game waits for the editor to confirm mouse capture.
 A short delay should not reopen Pause. If capture is refused or later released,
 the game returns to Pause; focus the Game view and use Resume to try again.
+
+Pressing Escape while capture is being released or refused leaves the game paused.

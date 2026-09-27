@@ -365,11 +365,12 @@ int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* h, char* error, uint32_t 
             h->game_release(h->context, it->token);
             it = s.pending.erase(it);
         }
+        const bool pause_pressed = action(h, pause, true).pressed;
         if (!s.initialized) {
             s.initialized = true;
             mode(h, s.page == "play");
             request(h, {{"operation", "slots"}});
-        } else if (s.page == "play" && !q.at("cursor_captured").get<bool>() &&
+        } else if (!pause_pressed && s.page == "play" && !q.at("cursor_captured").get<bool>() &&
                    std::none_of(s.pending.begin(), s.pending.end(), [](const Pending& pending) {
                        return pending.operation == "cursor" && pending.capture;
                    })) {
@@ -378,7 +379,9 @@ int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* h, char* error, uint32_t 
             s.page = "pause";
             mode(h, false);
         }
-        if (action(h, pause, true).pressed) {
+        // Explicit input owns this frame's transition. A simultaneous loss
+        // must not auto-pause first and turn the same Escape into Resume.
+        if (pause_pressed) {
             if (s.page == "play") {
                 s.page = "pause";
                 mode(h, false);

@@ -41,3 +41,8 @@ editor is still acknowledging cursor capture. The sample retains the requested
 capture intent until its receipt completes. Rejection and actual capture loss
 still pause the game. A delayed-ack regression reproduces the old failure and
 passes with the fix; rejection handling is also covered.
+
+Escape now takes precedence when capture failure/loss occurs in the same control
+frame, preventing an automatic Pause followed immediately by an unintended Resume.
+The SDK focus fixture uses its existing per-action bounds independently of the
+initial scene-loading timer; overall and transport deadlines are unchanged.

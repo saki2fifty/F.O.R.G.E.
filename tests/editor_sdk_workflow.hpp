@@ -623,8 +623,16 @@ class EditorSdkWorkflow {
         }
         if (stage_started_ == 0)
             stage_started_ = now;
-        if (now - stage_started_ > kStageBudgetMs) {
-            record_failure("stage deadline exceeded", play);
+        // Stage 2 contains eight separate focus/input actions after loading.
+        // Each action has its own existing four-second bound; charging all
+        // of them to the initial load's timer can fail despite steady progress.
+        const bool focus_substep = stage_ == 2 && outside_phase_ != 0;
+        const auto deadline_start = focus_substep ? outside_phase_started_ : stage_started_;
+        const auto deadline_budget = focus_substep ? outside_phase_deadline_ms_ : kStageBudgetMs;
+        if (now - deadline_start > deadline_budget) {
+            record_failure(focus_substep ? "focus substep deadline exceeded"
+                                         : "stage deadline exceeded",
+                           play);
             release_held(window);
             return;
         }
