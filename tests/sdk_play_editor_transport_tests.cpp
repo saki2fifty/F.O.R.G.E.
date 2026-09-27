@@ -135,6 +135,8 @@ int main(int argc, char** argv) {
         // delivers these bytes verbatim; PlaySession::pump calls
         // Json::parse which throws; the catch block calls
         // close_process and surfaces the diagnostic in status_.
+        std::fputs("malformed worker diagnostic\n", stderr);
+        std::fflush(stderr);
         std::fputs("this is not json\n", stdout);
         std::fflush(stdout);
         // Block on stdin until the worker closes our pipe (worker
@@ -308,6 +310,18 @@ int main(int argc, char** argv) {
         // Reuses `make_scene` and the public forge::PlaySession
         // API; does NOT recurse into the production runtime or
         // the SDK probe.
+        // Stop without pumping: stderr collected by the worker must still reach
+        // the session log after join. This failed deterministically before the fix.
+        {
+            forge::PlaySession play;
+            play.configure(60, forge::InputMap{}, {0, -9.81, 0}, malformed_root, true, true);
+            play.set_user_data_override(user_data);
+            play.start(std::filesystem::absolute(argv[0]).string(), make_scene(), {}, true);
+            SDL_Delay(1000);
+            play.stop();
+            require(play.log().find("malformed worker diagnostic") != std::string::npos,
+                    "Stop without pump discarded worker stderr");
+        }
         {
             forge::PlaySession play;
             play.configure(60, forge::InputMap{}, {0, -9.81, 0}, malformed_root, true, true);
@@ -322,6 +336,8 @@ int main(int argc, char** argv) {
             require(!play.active(), "Malformed runtime session did not terminate: " +
                                         play.status() + " | log=" + play.log());
             require(!play.ready(), "Malformed runtime was promoted to ready: " + play.status());
+            require(play.log().find("malformed worker diagnostic") != std::string::npos,
+                    "Malformed response discarded runtime stderr");
             // The catch block in PlaySession::pump forwards the
             // parse error to status_; the actual offending bytes
             // are NOT necessarily in the message, so assert either

@@ -603,13 +603,7 @@ class PlaySession {
         try {
             // Drain stderr first (cheap, bounded). Worker owns the
             // SDL_IOStream*; main thread only ever sees the bytes.
-            std::string stderr_chunk;
-            const auto stderr_bytes = worker_.drain_stderr(stderr_chunk);
-            if (stderr_bytes > 0) {
-                log_.append(stderr_chunk);
-                if (log_.size() > 65536)
-                    log_.erase(0, log_.size() - 65536);
-            }
+            collect_stderr();
             // Drain at most one complete receipt (matching the
             // original at-most-one-response-per-pump semantics).
             // Each receipt carries the worker's monotonic
@@ -1138,6 +1132,14 @@ class PlaySession {
 
   private:
     enum class Stage { Hello, Replace, Load, Boundary, ProbeTick, Running, Preparing };
+    void collect_stderr() {
+        std::string chunk;
+        if (worker_.drain_stderr(chunk)) {
+            log_.append(chunk);
+            if (log_.size() > 65536)
+                log_.erase(0, log_.size() - 65536);
+        }
+    }
     void close_process() {
         // Stop the background transport worker first. join() waits
         // for the worker thread to finish its current iteration AND
@@ -1149,6 +1151,8 @@ class PlaySession {
         // null. We can then clear local state.
         worker_.stop();
         worker_.join();
+        // Shutdown performs a final pipe drain; retain it before start clears the worker.
+        collect_stderr();
         // Drain any leftover failure string so a later pump() (or
         // the next start() of a new worker on this same PlaySession)
         // doesn't re-read a stale one. The worker also clears

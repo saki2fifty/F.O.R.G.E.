@@ -4,6 +4,8 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
+| [2026-09-27](20260927/README.md) | Preserve final runtime diagnostics during shutdown; focused process and graphical workflow validation. |
+| [2026-09-26](20260926/README.md) | Dedicated Play transport worker, bounded Windows pipe writes, native reload recovery regression, and improved test diagnostics. |
 | [2026-09-25](20260925/README.md) | Cursor-release transition-failure cleanup for prepare/load: pending candidate canceled, active world and save preserved. Native Editor SDK acceptance: separate-process `SdkPlayRuntime`, queued post-render captures, terminal workflow.json on done/failed/exception, dedicated ordinary editable SDK project, and a fixture-only Windows package gate. |
 | [2026-09-24](20260924/README.md) | Phase8 collision and character foundation verification, resource cleanup and acceptance tooling. |
 | [2026-09-23](20260923/README.md) | Phase7 resource lifetime, workflow verification and documentation hardening. |
