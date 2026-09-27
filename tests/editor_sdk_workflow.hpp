@@ -531,6 +531,9 @@ class EditorSdkWorkflow {
                     {"snapshot_version", play.snapshot_version()},
                     {"activation_generation", play.sdk_activation_generation()},
                     {"position_z", player_position(play)[2]},
+                    {"timing", play.timing()},
+                    {"input", play.input_status()},
+                    {"prompt", model.value("prompt", std::string{})},
                     {"save_z", save_z_},
                     {"save_interactions", save_interactions_}};
         trace_["failure"] = failure_;
@@ -975,12 +978,12 @@ class EditorSdkWorkflow {
                 }
                 return;
             }
-            tap_key(window, SDL_SCANCODE_RETURN, SDLK_RETURN);
+            // activate() already sent Enter; do not activate Resume twice.
             // Advance to phase 8; phase 8 waits for page==play
             // and the runtime to actually process the Resume
             // command before the tap E fires.
             outside_phase_ = 8;
-            outside_phase_version_ = 0;
+            outside_phase_version_ = play.snapshot_version();
             outside_phase_started_ = SDL_GetTicks();
             outside_ack_frames_ = 0;
             return;
@@ -993,7 +996,8 @@ class EditorSdkWorkflow {
         // interaction. Recording the snapshot baseline AFTER the
         // Enter ensures the baseline reflects post-Resume state.
         if (stage_ == 2 && outside_phase_ == 8 && page == "play" && live_rml &&
-            scene_asset(play) == reference::level_scene && rel_mouse) {
+            scene_asset(play) == reference::level_scene && rel_mouse && !play.paused() &&
+            play.sdk_platform_effects().empty() && !play.sdk_release_required()) {
             const auto now = SDL_GetTicks();
             outside_ack_frames_++;
             if (outside_ack_frames_ < 3) {

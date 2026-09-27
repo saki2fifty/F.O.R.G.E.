@@ -4177,6 +4177,9 @@ int main(int argc, char** argv) {
                 record["loading"] = play.sdk_loading();
                 record["release_required"] = play.sdk_release_required();
                 record["editor_epoch_confirmed"] = play.editor_epoch_confirmed();
+                record["game_input_captured"] = game_input.captured();
+                record["game_input_relative"] = game_input.relative();
+                record["platform_effects"] = play.sdk_platform_effects();
                 forge::atomic_write(fixture.output / "workflow.json", record.dump(2));
                 if (sdk_failed)
                     result = 1;
