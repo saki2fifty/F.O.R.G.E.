@@ -25,6 +25,7 @@ class AssetSourceWatch {
     bool scanning() const;
     std::uint64_t generation() const;
     bool complete() const;
+    bool settled() const;
 
   private:
     void check() const;

@@ -59,3 +59,5 @@ and functional assertions remain unchanged.
 - Added initial-scan/queued-import readiness checks and a renderer regression for completed pose-budget rejection.
 
 - Corrected the SDK acceptance fixture’s duplicate Resume activation and wait for runtime acknowledgement before testing interaction; failure evidence includes simulation/input counters.
+
+- Closed the initial-scan debounce gap: Play also waits for already-observed source changes to reach the import queue. A regression reproduces premature readiness before this fix.

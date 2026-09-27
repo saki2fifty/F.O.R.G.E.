@@ -51,13 +51,21 @@ inline void test_material_watch(const std::filesystem::path& root) {
           {"linux", "none", "cpu"},
           registry,
           [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); }}},
-        options, 10min, 0ms);
+        options, 10min, 200ms);
     check(!automatic.settled(), "Unscanned import service was ready for Play");
     std::vector<AssetImportOutcome> receipts;
     const auto poll = [&] {
         for (auto& receipt : automatic.poll())
             receipts.push_back(std::move(receipt));
     };
+    const auto initial_deadline = std::chrono::steady_clock::now() + 10s;
+    while (!automatic.complete()) {
+        poll();
+        check(std::chrono::steady_clock::now() < initial_deadline, "Initial scan stalled");
+        if (!automatic.complete())
+            std::this_thread::sleep_for(1ms);
+    }
+    check(!automatic.settled(), "Undelivered debounced source changes were ready for Play");
     const auto finish = [&] {
         const auto deadline = std::chrono::steady_clock::now() + 10s;
         do {
@@ -65,7 +73,7 @@ inline void test_material_watch(const std::filesystem::path& root) {
             check(std::chrono::steady_clock::now() < deadline,
                   "Automatic material reimport stalled");
             std::this_thread::sleep_for(1ms);
-        } while (!automatic.complete() || automatic.scanning() || automatic.queued() ||
+        } while (!automatic.settled() || automatic.scanning() || automatic.queued() ||
                  !automatic.jobs().empty());
     };
     const auto factor = [&] {

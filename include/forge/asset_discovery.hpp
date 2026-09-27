@@ -65,6 +65,7 @@ class SourceChangeTracker {
     void acknowledge_write(const std::filesystem::path& source, std::string expected_digest);
     std::uint64_t generation() const { return generation_; }
     bool complete() const { return complete_; }
+    bool pending() const { return pending_; }
     const SourceSnapshot& latest() const { return latest_; }
 
   private:

@@ -35,6 +35,10 @@ bool AssetSourceWatch::complete() const {
     check();
     return latest_ && tracker_.complete();
 }
+bool AssetSourceWatch::settled() const {
+    check();
+    return latest_ && tracker_.complete() && !tracker_.pending() && !requested_;
+}
 std::optional<AssetWatchUpdate> AssetSourceWatch::poll(Clock::time_point now) {
     check();
     bool observed = false;

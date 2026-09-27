@@ -323,7 +323,8 @@ engine-global behavior.
 ### Editor import and presentation admission
 
 The shared Play action waits for the source importer’s initial complete scan and
-queued publications to settle. This does not freeze later source changes or mutate
+debounced change notifications and queued publications to settle. A complete
+file list alone is not readiness while its changes await delivery. This does not freeze later source changes or mutate
 a frozen scene envelope. A later incompatible mesh/animation revision fails
 presentation admission and preserves the previous active scene. Renderer pending
 state reports asynchronous loading only: a loaded candidate rejected by pose or

@@ -26,7 +26,7 @@ class AssetReimportService {
     bool quiescent() const { return suspended_ && !active_; }
     // A complete initial scan and drained publication queue provide a coherent
     // starting point for Play; ordinary background rescans need not block it.
-    bool settled() const { return sources_ && sources_->complete && !active_ && queue_.empty(); }
+    bool settled() const { return watch_.settled() && !active_ && queue_.empty(); }
     void catalog_changed(std::shared_ptr<const AssetCatalog>);
     std::vector<AssetImportOutcome> poll();
     std::shared_ptr<const AssetCatalog> catalog() const { return catalog_; }
