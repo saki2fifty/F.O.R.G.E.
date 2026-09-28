@@ -13,9 +13,11 @@ compiler discovery, readiness without module publication, automatic builds,
 failed-build retention, diagnostic navigation and exported-game relocation.
 The reference-game acceptance flow also passed. Changed D3D12 WARP captures were
 retrieved and visually reviewed; the ZIP and manifest hashes were verified.
-Package promotion is awaiting explicit approval; **Build 117 remains the current
-promoted download**. Physical hardware acceptance and the deferred reference-game
-FPS/smoothness feedback remain separate. No performance fix is claimed.
+**Build 125 is the current promoted download**. The release ledger, ZIP hashes and
+current extracted executable were verified; Build 117 was archived and redundant
+staging cleaned using the established scripts. Physical hardware acceptance and
+the deferred reference-game FPS/smoothness feedback remain separate. No performance
+fix is claimed.
 
 Gameplay remains C++ only, using the existing exact-SDK Stop/build/Play workflow.
 The editor widget and compiler tools are absent from exported games. See

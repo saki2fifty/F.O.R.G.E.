@@ -3,8 +3,8 @@
 Original decision: 2026-09-19. Revised by explicit user instruction: 2026-09-28.
 This revision supersedes the proposed future high-level gameplay language and
 visual-scripting layer. The integrated C++ editor is implemented and passed automated
-Windows acceptance in Build 260928-000125. Package promotion is awaiting approval;
-physical hardware acceptance remains separate.
+Windows acceptance in delivered Build 260928-000125.
+Physical hardware acceptance remains separate.
 
 ## Decision
 

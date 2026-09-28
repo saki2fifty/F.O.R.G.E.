@@ -101,6 +101,7 @@ The completed gate is recorded below.
 - Build on Save can be disabled during compilation; this controls future work.
   Cancel build remains the explicit action for the current task. File actions and
   inputs occupy two aligned rows to preserve editing space.
-- Package promotion awaits explicit approval after automatic review rejected the
-  current-download replacement. Build 117 remains promoted. Physical hardware
+- Following explicit user approval, promoted Build 125 as the current download,
+  verified the release ledger and unchanged ZIP hash, archived Build 117, and
+  cleaned redundant staging using the established scripts. Physical hardware
   acceptance and deferred reference-game FPS/smoothness review remain separate.
