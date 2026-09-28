@@ -1142,6 +1142,9 @@ class EditorInputWorkflow {
             for (const auto& [name, target] : ui_targets)
                 available[name] = {
                     {"enabled", target.enabled},
+                    {"clip",
+                     {target.clip_minimum.x, target.clip_minimum.y, target.clip_maximum.x,
+                      target.clip_maximum.y}},
                     {"rect",
                      {target.minimum.x, target.minimum.y, target.maximum.x, target.maximum.y}}};
             record({{"ok", false},
