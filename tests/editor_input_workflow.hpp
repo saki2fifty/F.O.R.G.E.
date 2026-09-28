@@ -472,6 +472,7 @@ class EditorInputWorkflow {
             click("icon:stop");
             check("stopped");
             click("tab:Content");
+            click("button:Actions");
             click("button:Create / Register");
             click("content:prefabs");
             click("button:Create from selection");
