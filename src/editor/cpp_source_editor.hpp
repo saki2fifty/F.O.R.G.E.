@@ -370,13 +370,14 @@ class CppSourceEditor {
     }
     void controls(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked);
-        ImGui::InputText("Source path", locator_, sizeof(locator_));
-        help("Project-relative C++ source/header inside Native. Deployment files are excluded.");
         if (button("Open file", "Open the source in FORGE with its own Save and Undo history."))
             attempt([&] { open(project, locator_); });
-        ImGui::InputText("New source filename", new_name_, sizeof(new_name_));
-        FORGE_UI_PROBE("cpp:new-filename");
-        help("A new .cpp or .hpp directly inside Native; existing files are never overwritten.");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x -
+                                                    ImGui::CalcTextSize("Source path").x -
+                                                    ImGui::GetStyle().ItemInnerSpacing.x));
+        ImGui::InputText("Source path", locator_, sizeof(locator_));
+        help("Project-relative C++ source/header inside Native. Deployment files are excluded.");
         if (button("Create source file", "Create and open a managed source; .cpp is explicitly "
                                          "added to gameplay compilation."))
             attempt([&] {
@@ -384,6 +385,13 @@ class CppSourceEditor {
                 create_cpp_source(project.project(), new_name_);
                 open(project, "Native/" + std::string(new_name_));
             });
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x -
+                                                    ImGui::CalcTextSize("New source filename").x -
+                                                    ImGui::GetStyle().ItemInnerSpacing.x));
+        ImGui::InputText("New source filename", new_name_, sizeof(new_name_));
+        FORGE_UI_PROBE("cpp:new-filename");
+        help("A new .cpp or .hpp directly inside Native; existing files are never overwritten.");
         ImGui::EndDisabled();
         if (!error_.empty())
             ImGui::TextWrapped("%s", error_.c_str());
