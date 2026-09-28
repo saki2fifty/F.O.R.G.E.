@@ -1,4 +1,6 @@
 #pragma once
+#include "../asset_file_transaction.hpp"
+#include "../asset_storage.hpp"
 #include "../json_value_equal.hpp"
 #include <algorithm>
 #include <cctype>
@@ -97,6 +99,9 @@ class SceneDocument {
             candidate = std::make_shared<ProjectLease>(next_root);
         else
             check_ownership();
+        // Recover the existing transaction authority before reading either authored file.
+        AssetFileTransaction recovery(candidate ? *candidate : *lease_);
+        recovery.recover();
         auto name = path_text(next_root.filename());
         auto first = project_file(next_root, "main.scene.json");
         const auto manifest = next_root / "forge.project.json";
@@ -131,6 +136,39 @@ class SceneDocument {
         dirty_ = false;
         seen_ = scene_.revision();
         autosaved_revision_ = 0;
+    }
+    void apply_prefab(const PrefabApplyCandidate& reviewed, std::uint64_t revision) {
+        check_ownership();
+        if (!persisted_ || path_.empty())
+            throw std::runtime_error("Save this scene to a named project file before Apply.");
+        if (scene_.revision() != revision)
+            throw std::runtime_error("Scene changed after Apply review; review again.");
+        struct ReplayState {
+            Json before, after, expected;
+        };
+        auto state = std::make_shared<ReplayState>(
+            ReplayState{reviewed.expected, reviewed.source, reviewed.source});
+        const auto lifetime = std::weak_ptr<int>(history_lifetime_);
+        const auto generation = generation_;
+        auto replay = std::make_shared<Scene::PrefabReplay>(
+            [this, lifetime, generation, state](Scene& scene, const Json& target, bool redo) {
+                if (!lifetime.lock() || generation_ != generation)
+                    throw std::runtime_error("Apply history belongs to another document session");
+                auto source = redo ? state->after : state->before;
+                const auto previous = state->expected.at("revision").get<std::uint64_t>();
+                if (previous == UINT64_MAX)
+                    throw std::runtime_error("Prefab revision exhausted");
+                source["revision"] = previous + 1;
+                source = PrefabDocument(source).source;
+                auto sources = scene.prefab_sources();
+                sources[source.at("asset_id").get<AssetId>()] = source;
+                auto intended = reconcile_prefab_intent(target, sources, scene.schema());
+                PrefabApplyCandidate candidate{state->expected, source, intended, 0};
+                auto next_expected = source;
+                publish_prefab_pair(candidate, {});
+                state->expected.swap(next_expected);
+            });
+        publish_prefab_pair(reviewed, replay);
     }
     static void create_project(const std::filesystem::path& target, const std::string& name) {
         if (name.empty() || name.find_first_not_of(" \t\r\n") == std::string::npos)
@@ -307,6 +345,45 @@ class SceneDocument {
     }
 
   private:
+    std::shared_ptr<int> history_lifetime_ = std::make_shared<int>(0);
+    void publish_prefab_pair(const PrefabApplyCandidate& candidate,
+                             std::shared_ptr<Scene::PrefabReplay> replay) {
+        check_ownership();
+        if (!disk_ || path_.empty())
+            throw std::runtime_error("Apply requires a saved scene");
+        const auto scene_bytes = asset_storage::read(path_, 32 * 1024 * 1024);
+        if (!scene_bytes || !detail::json_value_equal(Json::parse(*scene_bytes), *disk_))
+            throw std::runtime_error("Scene changed on disk; Apply history did not overwrite it");
+        const auto prefab_relative =
+            prefabs().source_path(candidate.expected.at("asset_id").get<AssetId>());
+        const auto prefab_bytes =
+            asset_storage::read(ProjectPaths(root_).resolve(prefab_relative), 8 * 1024 * 1024);
+        if (!prefab_bytes ||
+            PrefabDocument(Json::parse(*prefab_bytes)).source != candidate.expected)
+            throw std::runtime_error("Prefab changed on disk; Apply history did not overwrite it");
+        auto saved = std::optional<Json>(candidate.scene), disk = saved;
+        const auto source_after = std::make_shared<const std::string>(candidate.source.dump(2));
+        const auto scene_after = std::make_shared<const std::string>(candidate.scene.dump(2));
+        AssetFileTransaction transaction(*lease_);
+        prefabs().publish_apply(
+            scene_, candidate,
+            [&] {
+                check_ownership();
+                transaction.commit_prefab_apply(
+                    {prefab_relative, std::make_shared<const std::string>(*prefab_bytes),
+                     source_after},
+                    {ProjectPaths(root_).relative(path_),
+                     std::make_shared<const std::string>(*scene_bytes), scene_after});
+            },
+            std::move(replay));
+        saved_.swap(saved);
+        disk_.swap(disk);
+        dirty_ = false;
+        seen_ = scene_.revision();
+        std::error_code ignored;
+        std::filesystem::remove(recovery_path(), ignored);
+    }
+
     Scene& scene_;
     std::unique_ptr<ProjectSettings> settings_;
     std::unique_ptr<PrefabLibrary> prefabs_;

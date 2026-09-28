@@ -32,7 +32,7 @@ Publication validates the complete candidate, compiles a new immutable template 
 
 The atomic single-file writer runs after preparation and before activating prepared handles. A validation, compilation, reconciliation or file-write failure destroys only candidates and preserves source, current instances, scene revision and history. The owning thread then hands off prepared content without fallible I/O or parsing, retires old instance/template state and invalidates read caches. Native allocation failures or crashing trusted callbacks are process failures, not recoverable transaction errors. After interruption, the complete old or new source file is loaded and the scene's retained override intent is reconciled; no claim is made that source and scene files were saved atomically together.
 
-Successful publication affecting a loaded instance establishes a scene-history boundary: scene Undo/Redo is cleared. Asset edits are not entries in scene history. New member mappings make the scene dirty and are persisted by scene save/recovery. If an interrupted unsaved scene had not persisted a newly allocated member mapping, reopening allocates that new member's first durable identity again; already saved member identities remain stable. Missing/removed members retain mappings and diagnostics rather than retargeting references. Dynamic attachments to missing structural members are unresolved through transient derived availability state.
+Direct source publication affecting a loaded instance establishes a scene-history boundary: scene Undo/Redo is cleared. Asset edits are not entries in scene history. New member mappings make the scene dirty and are persisted by scene save/recovery. If an interrupted unsaved scene had not persisted a newly allocated member mapping, reopening allocates that new member's first durable identity again; already saved member identities remain stable. Missing/removed members retain mappings and diagnostics rather than retargeting references. Dynamic attachments to missing structural members are unresolved through transient derived availability state.
 
 The current editor has one loaded authored scene. This service does not claim coordinated publication across several editor sessions or multiple authored documents. It is not a generic cross-document transaction framework.
 
@@ -40,9 +40,26 @@ The current editor has one loaded authored scene. This service does not claim co
 
 `Scene::snapshot` embeds validated `_prefab_sources` in transient protocol/checkpoint payloads. `restore_snapshot` realizes the same structured hierarchy in the runtime WorldContext. Disk scene serialization does not embed these sources. The runtime needs neither editor UI nor authoring/asset services to realize them. Native build probes, first-fixed-tick activation checkpoints and recovery carry the same definitions and mappings. Prefab authoring is disabled during Play.
 
-## Deliberately deferred Apply
+## Coordinated Apply
 
-There is no Apply button, command, advertised API capability or partial Apply workflow. Future Apply must define and test coordinated prefab-plus-scene ownership, publication order, interruption recovery, Undo/Redo, later source edits, dirty/untitled scenes and conflicts. The candidate/revision boundary is reusable; no future cross-document history format is frozen here. Nested overrides, structural per-instance edits and Unpack remain deferred. Typed runtime resource leases, import/cook services and the experimental exact-version gameplay SDK are implemented; see [assets](asset-foundation.md) and [SDK](extension-guide.md). A stable general editor-plugin ABI remains future work.
+Phase9 introduces a narrowly coordinated Apply for admitted instance overrides.
+See [ADR017](decisions/017-prefab-apply.md). PrefabLibrary prepares the source and
+reconciled scene; Scene owns the single history entry and candidate ECS handoff;
+SceneDocument supplies durable two-file publication through AssetFileTransaction.
+Unknown component/property payloads remain on the instance. No nested-prefab,
+structural Apply, Unpack or generic cross-document transaction framework is added.
+
+The private version2 journal requires an existing prefab followed by an existing
+scene as the final commit point. Version1 catalog operations retain their original
+contract. Before commit, recovery restores both before revisions; after commit it
+verifies both after revisions. All paths/blobs are preflighted before recovery IO.
+Project opening recovers this existing journal before source scan/scene load.
+
+Apply, Undo and Redo validate every affected instance before IO. Replay advances
+source revisions monotonically and rejects external source/scene changes without
+consuming history. Direct source publication still clears affected scene history.
+Untitled scenes require Save As; Apply explicitly saves dirty scene edits too.
+
 
 ## Expanded scale compatibility
 

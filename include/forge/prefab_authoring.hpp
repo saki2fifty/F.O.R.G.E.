@@ -6,6 +6,10 @@ namespace forge {
 // delete the original subtree; instantiate the new asset explicitly.
 PrefabDocument create_prefab_source(const Scene& scene, const std::string& root);
 std::string instantiate_prefab(Scene& scene, AssetId asset);
+struct PrefabApplyCandidate {
+    Json expected, source, scene;
+    std::size_t overrides = 0;
+};
 class PrefabLibrary {
   public:
     explicit PrefabLibrary(std::filesystem::path project);
@@ -16,6 +20,12 @@ class PrefabLibrary {
     AssetId create(Scene& scene, PrefabDocument document, const std::filesystem::path& relative);
     AssetId duplicate(Scene& scene, AssetId asset, const std::filesystem::path& relative);
     void publish(Scene& scene, const Json& expected, Json candidate);
+    PrefabApplyCandidate prepare_apply(const Scene&, const std::string& instance) const;
+    std::filesystem::path source_path(AssetId) const;
+    // Candidate publication reuses Scene's reconciliation and history authority.
+    // Document owner supplies the coordinated durable pair and replay callback.
+    void publish_apply(Scene&, const PrefabApplyCandidate&, const std::function<void()>&,
+                       std::shared_ptr<Scene::PrefabReplay> replay = {});
 
   private:
     std::filesystem::path project_;

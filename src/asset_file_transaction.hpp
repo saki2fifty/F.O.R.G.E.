@@ -21,6 +21,8 @@ class AssetFileTransaction {
     // Sources/sidecars precede exactly one final forge.assets.json commit point.
     // Caller prepares typed domain edits and runs IO on its asset-operation worker.
     AssetFileCommit commit(std::vector<AssetFileChange>, bool retain_backups, std::stop_token = {});
+    // Deliberately narrow pair: existing prefab first, existing scene commit last.
+    AssetFileCommit commit_prefab_apply(AssetFileChange prefab, AssetFileChange scene);
     // Rejects external conflicts without overwriting them. Idempotent.
     bool recover();
     static std::filesystem::path journal();
@@ -29,5 +31,7 @@ class AssetFileTransaction {
     const ProjectLease& lease_;
     std::thread::id owner_ = std::this_thread::get_id();
     void check() const;
+    AssetFileCommit commit_impl(std::vector<AssetFileChange>, bool, std::stop_token,
+                                bool prefab_apply);
 };
 } // namespace forge

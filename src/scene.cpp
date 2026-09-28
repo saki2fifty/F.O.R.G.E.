@@ -556,6 +556,24 @@ void Scene::publish_prefab_sources(const PrefabSources& sources,
     }
     replace_prefab_sources(sources, document(), durable_write, false);
 }
+void Scene::edit_prefab(const PrefabSources& sources, const Json& intended,
+                        const std::function<void()>& writer, std::shared_ptr<PrefabReplay> replay) {
+    if (!replay || !*replay)
+        throw std::runtime_error("Coordinated prefab edit needs its document replay owner");
+    auto next_undo = undo_;
+    next_undo.push_back({document(), std::move(replay)});
+    if (next_undo.size() > 100)
+        next_undo.erase(next_undo.begin());
+    replay_prefab(sources, intended, writer);
+    undo_.swap(next_undo);
+    redo_.clear();
+}
+void Scene::replay_prefab(const PrefabSources& sources, const Json& intended,
+                          const std::function<void()>& writer) {
+    // Every source revision advances, so the same candidate path validates and
+    // replaces all affected instances. Existing history is restored by its caller.
+    replace_prefab_sources(sources, intended, writer, false);
+}
 void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& source_document,
                                    const std::function<void()>& durable_write, bool all,
                                    bool refresh_native_types) {
@@ -1137,7 +1155,7 @@ void Scene::edit(const Json& doc) {
     if (detail::json_value_equal(before, doc.at("version") < 3 ? migrate_scene(doc, &before) : doc))
         return;
     replace(doc);
-    undo_.push_back(std::move(before));
+    undo_.push_back({std::move(before), {}});
     redo_.clear();
     if (undo_.size() > 100)
         undo_.erase(undo_.begin());
@@ -1266,19 +1284,31 @@ void Scene::delete_subtree(const std::string& id) {
 bool Scene::undo() {
     if (undo_.empty())
         return false;
-    auto current = document();
-    replace(undo_.back());
-    undo_.pop_back();
-    redo_.push_back(std::move(current));
+    auto next_undo = undo_, next_redo = redo_;
+    auto entry = next_undo.back();
+    next_undo.pop_back();
+    next_redo.push_back({document(), entry.prefab});
+    if (entry.prefab)
+        (*entry.prefab)(*this, entry.document, false);
+    else
+        replace(entry.document);
+    undo_.swap(next_undo);
+    redo_.swap(next_redo);
     return true;
 }
 bool Scene::redo() {
     if (redo_.empty())
         return false;
-    auto current = document();
-    replace(redo_.back());
-    redo_.pop_back();
-    undo_.push_back(std::move(current));
+    auto next_undo = undo_, next_redo = redo_;
+    auto entry = next_redo.back();
+    next_redo.pop_back();
+    next_undo.push_back({document(), entry.prefab});
+    if (entry.prefab)
+        (*entry.prefab)(*this, entry.document, true);
+    else
+        replace(entry.document);
+    undo_.swap(next_undo);
+    redo_.swap(next_redo);
     return true;
 }
 void Scene::translate(float x, float y, float z) {

@@ -38,4 +38,18 @@ with tempfile.TemporaryDirectory(dir=base) as temporary:
     assert (project / "forge.assets.json").read_bytes() == original_catalog
     assert not (project / "Assets/source.fixture").exists()
     assert (project / ".forge/asset-file-operation.json").is_file()
+    for stage in (1, 2, 3):
+        project = root / f"prefab-{stage}"
+        result = subprocess.run([exe, project, "--prefab-crash", str(stage)], timeout=30)
+        assert result.returncode == 90 + stage, result.returncode
+        subprocess.run([exe, project, "--prefab-recover", str(stage)], check=True, timeout=30)
+    project = root / "prefab-conflict"
+    result = subprocess.run([exe, project, "--prefab-crash", "2"], timeout=30)
+    assert result.returncode == 92
+    external = project / "scene.json"
+    external.write_bytes(b"external scene")
+    result = subprocess.run([exe, project, "--prefab-recover", "2"], capture_output=True, timeout=30)
+    assert result.returncode == 1 and b"conflicts with external edits" in result.stderr
+    assert external.read_bytes() == b"external scene"
+    assert (project / ".forge/asset-file-operation.json").is_file()
 print("Asset file process interruption/recovery/conflict tests passed")

@@ -19,3 +19,11 @@ See [Saving and recovery](saving-recovery.md) for restoring work across restarts
 ## Prefab history
 
 Prefab instance creation, duplication, deletion, overrides and Revert are scene edits. Publishing a shared prefab source affecting this scene clears scene Undo/Redo; scene Undo does not undo the source asset. See [Prefabs](prefabs.md).
+
+## Apply to Prefab
+
+**Apply instance overrides...** creates one coordinated Scene history entry. Undo
+and Redo save both the prefab and the scene using fresh source revisions. This is
+a file-writing history operation; ordinary scene Undo remains an in-memory edit.
+External changes reject replay without consuming the entry. Direct prefab source
+publication keeps its existing history boundary. See [Prefabs](prefabs.md).

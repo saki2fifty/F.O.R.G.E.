@@ -222,4 +222,144 @@ void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate) 
     catalog_ = std::move(catalog);
     records_.swap(records);
 }
+
+std::filesystem::path PrefabLibrary::source_path(AssetId id) const {
+    return records_.at(id).source;
+}
+PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
+                                                  const std::string& selected) const {
+    PrefabApplyCandidate result;
+    result.scene = scene.document();
+    const auto effective = scene.effective_document();
+    const Json* root = nullptr;
+    for (const auto& row : result.scene.at("entities"))
+        if (row.at("id") == selected)
+            root = &row;
+    if (!root || !root->contains("prefab_instance"))
+        throw std::runtime_error("Apply requires the prefab instance root");
+    const auto asset = root->at("prefab_instance").at("asset").get<AssetId>();
+    result.expected = source(asset);
+    if (!scene.prefab_sources().contains(asset) ||
+        scene.prefab_sources().at(asset) != result.expected)
+        throw std::runtime_error("Prefab changed; refresh sources before reviewing Apply");
+    result.source = result.expected;
+    std::map<std::string, Json> shown;
+    for (const auto& row : effective.at("entities"))
+        shown[row.at("id")] = row;
+    const auto schema = scene.schema();
+    std::map<std::string, Json> types;
+    for (const auto& type : schema.at("components"))
+        types[type.at("id")] = type;
+    const auto root_id = root->at("id").get<std::string>();
+    const auto mapping = root->at("prefab_instance").at("members");
+    for (auto& member : result.source["members"]) {
+        const auto key = member.at("id").get<std::string>();
+        if (!mapping.contains(key))
+            continue;
+        const auto entity = mapping.at(key).get<std::string>();
+        auto row = std::find_if(result.scene["entities"].begin(), result.scene["entities"].end(),
+                                [&](const Json& value) { return value.at("id") == entity; });
+        if (row == result.scene["entities"].end() || row->value("missing_member", false))
+            continue;
+        if (entity != root_id &&
+            row->value("prefab_member", Json::object()).value("root", "") != root_id)
+            throw std::runtime_error("Prefab member mapping changed during Apply review");
+        if (row->value("name_override", false)) {
+            member["name"] = row->at("name");
+            row->erase("name_override");
+            ++result.overrides;
+        }
+        auto& components = (*row)["components"];
+        for (auto it = components.begin(); it != components.end();) {
+            const auto type = types.find(it.key());
+            if (type == types.end() ||
+                (type->second.value("custom", false) &&
+                 (!it.value().is_object() ||
+                  it.value().value("$forge", Json()) != type->second.at("admission")))) {
+                ++it;
+                continue; // Unadmitted/opaque authored values remain exactly where they are.
+            }
+            member["components"][it.key()] = it.value();
+            it = components.erase(it);
+            ++result.overrides;
+        }
+        auto masks = row->value("property_overrides", Json::object());
+        for (auto it = masks.begin(); it != masks.end();) {
+            const auto type = types.find(it.key());
+            if (type == types.end() || !shown.at(entity).at("components").contains(it.key()) ||
+                (type->second.value("custom", false) &&
+                 it.value().value("$forge", Json()) != type->second.at("admission"))) {
+                ++it;
+                continue;
+            }
+            const auto& value = shown.at(entity).at("components").at(it.key());
+            if (!member["components"].contains(it.key()))
+                member["components"][it.key()] = value;
+            for (auto field = it.value().begin(); field != it.value().end();) {
+                const auto known =
+                    std::find_if(type->second.at("fields").begin(), type->second.at("fields").end(),
+                                 [&](const Json& f) { return f.at("id") == field.key(); });
+                if (known == type->second.at("fields").end()) {
+                    ++field;
+                    continue;
+                }
+                member["components"][it.key()][field.key()] = value.at(field.key());
+                field = it.value().erase(field);
+                ++result.overrides;
+            }
+            auto remaining = it.value();
+            remaining.erase("$forge");
+            if (remaining.empty())
+                it = masks.erase(it);
+            else
+                ++it;
+        }
+        if (masks.empty())
+            row->erase("property_overrides");
+        else
+            (*row)["property_overrides"] = std::move(masks);
+    }
+    if (!result.overrides)
+        throw std::runtime_error("This instance has no admitted overrides to Apply");
+    if (PrefabDocument(result.expected).revision() == UINT64_MAX)
+        throw std::runtime_error("Prefab revision exhausted");
+    result.source["revision"] = PrefabDocument(result.expected).revision() + 1;
+    result.source = PrefabDocument(result.source).source;
+    auto sources = scene.prefab_sources();
+    sources[asset] = result.source;
+    result.scene = reconcile_prefab_intent(result.scene, sources, schema);
+    return result;
+}
+void PrefabLibrary::publish_apply(Scene& scene, const PrefabApplyCandidate& change,
+                                  const std::function<void()>& writer,
+                                  std::shared_ptr<Scene::PrefabReplay> replay) {
+    const PrefabDocument old(change.expected), next(change.source);
+    if (old.asset() != next.asset() || old.root() != next.root() ||
+        next.revision() != old.revision() + 1)
+        throw std::runtime_error("Invalid Apply revision/identity");
+    if (source(old.asset()) != change.expected)
+        throw std::runtime_error("Prefab changed after Apply review; source was not overwritten");
+    auto sources = scene.prefab_sources();
+    sources[old.asset()] = next.source;
+    auto records = records_;
+    records.at(old.asset()).schema_version = next.source.at("version").get<unsigned>();
+    records.at(old.asset()).dependencies =
+        next.source.value("dependencies", std::vector<AssetId>{});
+    AssetCatalog catalog(project_);
+    for (const auto& [id, record] : records) {
+        (void)id;
+        catalog.add(record);
+    }
+    auto durable = [&] {
+        if (source(old.asset()) != change.expected)
+            throw std::runtime_error("Prefab changed during Apply preparation");
+        writer();
+    };
+    if (replay)
+        scene.edit_prefab(sources, change.scene, durable, std::move(replay));
+    else
+        scene.replay_prefab(sources, change.scene, durable);
+    catalog_ = std::move(catalog);
+    records_.swap(records);
+}
 } // namespace forge

@@ -20,3 +20,16 @@
 - The numbered package was hash-verified and locally promoted. Physical GPU
   acceptance and interactive batch-transform feel remain user acceptance items.
   This completes the first Phase 9 bundle, not all proposed Phase 9 work.
+
+## Phase 9 — gameplay onboarding and coordinated prefab Apply
+
+- Added an installed-header C++ gameplay starter with explicitly admitted Gameplay Counter and a Flecs fixed system.
+- Gameplay Code creates sources without overwriting files, builds through CMake/Ninja, prepares deployment kits, validates in an isolated worker and publishes only successful module declarations. Rich SDK changes remain restart-bound.
+- Fixed SDK export to use the matching shared inspection worker and automatically select managed module kits.
+- Added Apply instance overrides review, including dirty-scene save disclosure, cancellation, named-scene requirements and opaque-data preservation.
+- Added coordinated prefab+scene publication and durable Scene Undo/Redo with monotonic revisions and external conflict rejection.
+- Extended the existing private asset-file journal narrowly for the two authored files; recovery precedes scene activation. Existing catalog recovery remains supported.
+- Added actual process interruption, candidate rejection, inheritance/history/conflict and native author-to-export acceptance coverage.
+- Fixed prefab instantiation to select the new entity rather than leave asset selection active. Updated technical contracts, ADR017 and user how-to pages.
+
+Windows delivery/visual evidence is pending the coherent final gate.

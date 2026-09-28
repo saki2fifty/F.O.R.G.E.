@@ -1,3 +1,14 @@
+# Phase 9 authoring checkpoint — 2026-09-28
+
+Build260928-000109 delivered multi-selection and batch authoring. The remaining
+SDK onboarding and coordinated Apply source implementation is now in validation:
+installed gameplay template, stopped-only builds and isolated admission, managed
+module-kit export, typed prefab/scene journal and durable Scene history. Focused
+core/editor document and installed-header starter checks pass. The coherent Windows
+package/input/capture gate remains pending; this is not full Phase9 completion.
+See [native modules](native-modules.md), [prefabs](prefabs.md) and
+[ADR017](decisions/017-prefab-apply.md). Historical deliveries follow.
+
 # FORGE implementation and validation status
 
 ## Phase8 delivery — Build 260924-000074

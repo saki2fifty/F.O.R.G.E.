@@ -31,6 +31,8 @@ class EditorInputWorkflow {
     std::filesystem::path external_source_, project_;
     std::string drop_path_, model_asset_, model_root_, material_asset_, collision_asset_;
     std::uint64_t model_generation_ = 0;
+    Json starter_modules_, apply_before_, apply_after_;
+    std::string starter_source_;
     static Json model_source(bool changed = false) {
         auto source = Json::parse(R"({"asset":{"version":"2.0"},
             "extensionsUsed":["KHR_materials_unlit"],
@@ -79,7 +81,73 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "multi-selected") {
+        if (what == "starter-created") {
+            require(state.at("sdk_build_managed"), "Gameplay source was not created");
+        } else if (what == "starter-built" || what == "starter-rebuilt") {
+            require(!state.at("sdk_build_busy").get<bool>(), "SDK build still running");
+            require(state.at("sdk_build_error").get<std::string>().empty(),
+                    state.at("sdk_build_error").get<std::string>().c_str());
+            const auto modules = state.at("project_settings").at("modules");
+            require(!modules.empty() && modules.back().at("id") == "project.gameplay",
+                    "SDK module not registered");
+            if (what == "starter-rebuilt")
+                require(modules != starter_modules_, "Rebuild did not publish a fresh deployment");
+            starter_modules_ = modules;
+            project_ = std::filesystem::u8path(state.at("project").get<std::string>());
+        } else if (what == "starter-rejected") {
+            require(!state.at("sdk_build_busy").get<bool>() &&
+                        !state.at("sdk_build_error").get<std::string>().empty(),
+                    "Invalid C++ should fail compilation");
+            require(state.at("project_settings").at("modules") == starter_modules_,
+                    "Failed compilation replaced the good module");
+        } else if (what == "starter-admitted") {
+            bool admitted = false;
+            for (const auto& c : state.at("component_schema").at("components"))
+                admitted |= c.at("id") == "project.counter";
+            require(admitted, "Gameplay Counter was not admitted");
+        } else if (what == "starter-ticked") {
+            bool increased = false;
+            for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
+                if (row.at("components").contains("project.counter"))
+                    increased |= row.at("components").at("project.counter").value("value", 0.0) > 0;
+            require(increased, "Gameplay Counter fixed system did not run");
+        } else if (what == "apply-instance") {
+            require(!state.at("selected").get<std::string>().empty(),
+                    "Instantiate did not select entity");
+            bool instance = false;
+            for (const auto& row : entities)
+                if (row.at("id") == state.at("selected"))
+                    instance = row.contains("prefab_instance");
+            require(instance, "Prefab root not selected");
+        } else if (what == "apply-overridden") {
+            require(state.at("selected_preview")
+                            .at("components")
+                            .at("forge.local_translation")
+                            .at("x") == 4,
+                    "Translation input did not edit instance");
+            apply_before_ = doc;
+        } else if (what == "apply-cancelled")
+            require(doc == apply_before_, "Cancel changed instance");
+        else if (what == "apply-published" || what == "apply-redone") {
+            require(!state.at("dirty").get<bool>(), "Apply/Redo did not save scene");
+            for (const auto& row : entities)
+                if (row.at("id") == state.at("selected"))
+                    require(!row.at("components").contains("forge.local_translation"),
+                            "Apply retained channel override");
+            require(state.at("prefab_sources")[0]
+                            .at("members")[0]
+                            .at("components")
+                            .at("forge.local_translation")
+                            .at("x") == 4,
+                    "Source did not receive override");
+            apply_after_ = doc;
+        } else if (what == "apply-undone") {
+            for (const auto& row : entities)
+                if (row.at("id") == state.at("selected"))
+                    require(row.at("components").contains("forge.local_translation"),
+                            "Undo did not restore instance override");
+            require(!state.at("dirty").get<bool>(), "Apply Undo did not save pair");
+        } else if (what == "multi-selected") {
             const auto ids = state.at("selected_entities").get<std::vector<std::string>>();
             require(ids.size() == 2 && std::find(ids.begin(), ids.end(), cube_) != ids.end() &&
                         std::find(ids.begin(), ids.end(), light_) != ids.end(),
@@ -362,10 +430,86 @@ class EditorInputWorkflow {
 
   public:
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
-                                 const std::filesystem::path& physics_project = {}) {
+                                 const std::filesystem::path& physics_project = {},
+                                 bool sdk_onboarding = false) {
         observe_ui = enabled;
         if (!enabled)
             return;
+        if (sdk_onboarding) {
+            key(ImGuiKey_0, true);
+            check("empty");
+            create("3D Primitive", "Cube");
+            check("cube");
+            key(ImGuiKey_S, true);
+            check("saved");
+            click("tab:Native");
+            capture("gameplay-create");
+            click("button:Create C++ gameplay project");
+            check("starter-created");
+            click("button:Build gameplay");
+            check("starter-built");
+            capture("gameplay-built");
+            steps_.push_back({Kind::SourceEdit, "starter-break"});
+            click("button:Build gameplay");
+            check("starter-rejected");
+            capture("gameplay-build-rejected");
+            steps_.push_back({Kind::SourceEdit, "starter-restore"});
+            click("button:Build gameplay");
+            check("starter-rebuilt");
+            click("button:Inspect components");
+            check("starter-admitted");
+            click("tab:Scene");
+            click("saved-cube-row");
+            click("button:+ Add Component");
+            text("component-search", "Gameplay Counter");
+            click("component-choice:project.counter");
+            key(ImGuiKey_Escape);
+            key(ImGuiKey_S, true);
+            check("saved");
+            capture("gameplay-counter-inspector");
+            click("icon:play");
+            check("starter-ticked");
+            click("icon:stop");
+            check("stopped");
+            click("tab:Content");
+            click("button:Create / Register");
+            click("content:prefabs");
+            click("button:Create from selection");
+            key(ImGuiKey_Escape);
+            // New prefab is selected as an asset; controls also appear in Inspector.
+            click("button:Instantiate");
+            key(ImGuiKey_S, true);
+            check("apply-instance");
+            click("tab:Scene");
+            text("transform:forge.position:0", "4", true);
+            key(ImGuiKey_Enter);
+            check("apply-overridden");
+            click("button:Apply instance overrides...");
+            capture("prefab-apply-review");
+            click("button:Cancel");
+            check("apply-cancelled");
+            click("button:Apply instance overrides...");
+            click("button:Apply and save both");
+            check("apply-published");
+            capture("prefab-apply-published");
+            key(ImGuiKey_Z, true);
+            check("apply-undone");
+            key(ImGuiKey_Y, true);
+            check("apply-redone");
+            click("menu:Run");
+            click("action:game.export");
+            click("button:Project Settings");
+            click("button:Use saved current scene as startup");
+            click("button:Set up game defaults");
+            click("button:Save Settings");
+            click("button:Close Settings");
+            text("export:Destination", path_utf8(evidence / "exported-starter-game"));
+            click("export:start");
+            check("game-exported");
+            capture("starter-export-complete");
+            click("button:Close Export");
+            return;
+        }
         if (!physics_project.empty()) {
             std::ifstream input(physics_project / "main.scene.json");
             const auto level = Json::parse(input);
@@ -776,7 +920,15 @@ class EditorInputWorkflow {
             }
         }
         if (step.kind == Kind::SourceEdit && frame_ == 0) {
-            if (step.value == "collision-external-refresh") {
+            if (step.value == "starter-break" || step.value == "starter-restore") {
+                const auto path = project_ / "Native/gameplay.cpp";
+                if (step.value == "starter-break") {
+                    std::ifstream input(path);
+                    starter_source_.assign(std::istreambuf_iterator<char>(input), {});
+                    write(path, starter_source_ + "\nthis intentionally fails compilation;\n");
+                } else
+                    write(path, starter_source_);
+            } else if (step.value == "collision-external-refresh") {
                 const auto path = project_ / "Assets/workflow.collision.json";
                 Json source;
                 {
@@ -822,7 +974,12 @@ class EditorInputWorkflow {
         if (!since_)
             since_ = SDL_GetTicks();
         const auto& step = steps_[index_];
-        if (SDL_GetTicks() - since_ > 12000) {
+        const auto limit = step.kind == Kind::Check && (step.value == "starter-built" ||
+                                                        step.value == "starter-rebuilt" ||
+                                                        step.value == "starter-rejected")
+                               ? 180000u
+                               : 12000u;
+        if (SDL_GetTicks() - since_ > limit) {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;
             if (step.value == "authored-collision-option") {

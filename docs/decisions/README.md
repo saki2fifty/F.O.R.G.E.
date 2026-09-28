@@ -5,7 +5,8 @@ The freeze was approved and Phase7 has since been implemented. Dated implementat
 checkpoints link to the current contracts; decision-time baseline and deferred text
 remains historical. See [render features](../render-features.md), [asset formats](../asset-formats.md)
 and [delivery status](../status.md) for current capability and validation limits.
-Physical acceptance is PARTIAL / PENDING; Phase8 has not begun.
+Physical graphics acceptance has its documented limits; Phase8 is complete and
+Phase9 authoring workflow validation is in progress.
 
 | Record | Decision |
 | --- | --- |
@@ -25,6 +26,7 @@ Physical acceptance is PARTIAL / PENDING; Phase8 has not begun.
 | [014](014-extensions.md) | Trusted restart-bound editor extensions and isolated gameplay |
 | [015](015-diagnostics.md) | Distinct diagnostics and telemetry channels |
 | [016](016-project-build.md) | Shared project intent, private machine state and explicit profiles |
+| [017](017-prefab-apply.md) | Coordinated prefab/scene Apply with recoverable publication and Scene history |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

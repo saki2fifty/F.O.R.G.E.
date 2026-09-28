@@ -43,3 +43,12 @@ The Content panel shows the project name; hover it for the complete folder path.
 
 
 Shared simulation frequency and startup scene identity are edited in [Project settings](project-settings.md). Version-1 project manifests remain readable; settings saves migrate them explicitly with a backup.
+
+## From a new project to a game
+
+Create the project, add scene entities and Save. In Gameplay Code, use
+**Create C++ gameplay project**, **Build gameplay**, then **Inspect components**
+to author admitted gameplay data. Choose the saved startup scene and game defaults
+in Project Settings. Save settings, then use **Run → Export Game...**. Managed
+module kits are selected automatically; external kits require a folder choice.
+See [Native gameplay](native-gameplay.md) for the complete source/build workflow.

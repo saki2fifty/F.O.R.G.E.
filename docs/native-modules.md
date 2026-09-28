@@ -44,3 +44,20 @@ An incompatible identity/schema explicitly starts a fresh process with supported
 A later runtime crash exposes **Recover**, which starts the last completed checkpoint with its module. Recovery is user-triggered to avoid repeatedly running crashing code. **Play/Restart** instead use the authored scene. Neither path modifies authored edits. Editor code and trusted native editor plugins can still crash the editor.
 
 Current limits: build tool discovery is Windows/VS 2022-specific; native sessions select a validated artifact in memory, so rebuild after reopening the editor (the incremental build cache is retained). Source watching checks timestamps and sizes under `Native`, with a quiet period before building. New files must also be referenced by the CMake target. Single build commands time out after three minutes. Runtime responses are limited to 16 MiB and five seconds; Console keeps recent output while the current build log retains complete output. Compiler subprocess descendants are not yet managed as a Windows job; avoid closing the editor during a build. SDL process APIs and ImGui remain editor-only.
+
+## Managed exact-SDK onboarding
+
+Gameplay Code can copy the installed `sdk/template` into an empty Native folder.
+The recipe marker identifies this specific build workflow, not module authority.
+ProjectSettings remains authoritative for the declared modules. `SdkBuild` reuses
+BuildCommand, the installed CMake deployment helper and the isolated schema worker.
+No project library loads into the editor. A fresh kit is validated before its
+project-relative declaration publishes through expected-version ProjectSettings IO.
+Compiler/validation failure leaves the previous declaration and deployment intact.
+Rich registration remains stopped-only, distinct from ABI1 transactional reload.
+Externally maintained module layouts retain their external build workflow.
+
+SDK exports select the matching shared inspection runtime rather than the editor's
+static runtime. The final Windows package gate exercises source creation, failed
+compilation, successful replacement, schema admission, real fixed ticks, prefab
+Apply/Undo/Redo and export followed by startup after source deletion/relocation.

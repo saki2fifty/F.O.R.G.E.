@@ -86,6 +86,30 @@ print('Installed SDK client, PE/ELF shared dependency, relocated runtime, fixed 
 subprocess.run([sys.executable,str(Path(__file__).with_name('audio_process_test.py')),str(runtime),str(client/('audio_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=40)
 # Compile and load the installed Animator component across the same shared Flecs boundary.
 subprocess.run([sys.executable,str(Path(__file__).with_name('animation_process_test.py')),str(runtime),str(build/('forge_animation_tests'+exe)),str(build/'tools'/('gltf2ozz'+exe)),str(Path(__file__).resolve().parents[1]/'samples/animation/two-joints.gltf'),str(build/('forge_sample'+ext)),str(client/('animation_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=60)
+# Ordinary gameplay starter: installed-only headers, admitted data and fixed system.
+# No internal probe behavior, private headers, graphics device or second Flecs.
+starter = build / 'sdk-starter-client-test'
+subprocess.run([cmake,'-S',str(stage/'sdk/template'),'-B',str(starter),'-G','Ninja',compiler_arg,
+                '-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,
+                '-DForgeNativeSdk_DIR='+str(stage/'sdk')],check=True)
+subprocess.run([cmake,'--build',str(starter),'--parallel','2'],check=True)
+starter_project = stage / 'starter-project'; starter_project.mkdir()
+shutil.copy2(starter/('gameplay'+ext),starter_project/('gameplay'+ext))
+starter_manifest = dict(manifest)
+starter_manifest['modules'] = [dict(id='project.gameplay',sdk='experimental-1',implementation='1',
+    fingerprint=info['fingerprint'],library='gameplay'+ext,dependencies=[])]
+(starter_project/'forge.project.json').write_text(json.dumps(starter_manifest))
+starter_schema=json.loads(subprocess.check_output([str(runtime),'--inspect-sdk',str(starter_project)],
+                                                 env=env,cwd=stage,text=True))
+assert [c['id'] for c in starter_schema['components']] == ['project.counter'],starter_schema
+if windows:
+    starter_kits=build/'sdk-starter-kits-test'
+    if starter_kits.exists(): shutil.rmtree(starter_kits)
+    subprocess.run([cmake,'--install',str(starter),'--component','GameplayRuntime','--prefix',str(starter_kits)],check=True)
+    metadata=json.loads((starter_kits/'project.gameplay/forge.module-kit.json').read_text())
+    assert metadata['fingerprint']==info['fingerprint'] and metadata['library']=='gameplay.dll'
+shutil.rmtree(starter_project)
+print('Installed gameplay starter, isolated schema admission and Windows deployment kit verified')
 # Retain a clean install for CI artifact, without the test project and trace.
 (stage/'trace.txt').unlink();shutil.rmtree(project)
 

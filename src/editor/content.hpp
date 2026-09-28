@@ -442,8 +442,12 @@ class ContentBrowser {
                 if (ui::button("New scene",
                                "Create an empty scene through the unsaved-change guard."))
                     files.request({EditorFiles::Command::NewScene, {}, {}});
-                if (prefab_controls && ImGui::CollapsingHeader("Prefabs"))
-                    prefab_controls();
+                if (prefab_controls) {
+                    const bool expanded = ImGui::CollapsingHeader("Prefabs");
+                    FORGE_UI_PROBE("content:prefabs");
+                    if (expanded)
+                        prefab_controls();
+                }
                 ui::help(
                     "Create a prefab from the selected entity, instantiate, duplicate or edit a "
                     "selected prefab asset.");

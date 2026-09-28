@@ -17,6 +17,7 @@ class GameExportTask {
     std::stop_source stop_;
     std::shared_ptr<ProjectLease const> writer_;
     GameExportRequest request_;
+    std::filesystem::path inspection_runtime_;
     struct Progress {
         std::mutex mutex;
         GameExportProgress value;
@@ -32,8 +33,12 @@ class GameExportTask {
     bool writing() const { return job_.valid(); }
     const std::string& output() const { return output_; }
     const std::string& error() const { return error_; }
-    void open(bool native_modules = false) {
+    void open(bool native_modules = false, const std::filesystem::path& managed_kits = {},
+              const std::filesystem::path& inspection_runtime = {}) {
         open_ = true;
+        inspection_runtime_ = inspection_runtime;
+        if (!managed_kits.empty())
+            SDL_strlcpy(module_kits_.data(), path_utf8(managed_kits).c_str(), module_kits_.size());
         if (!kit_[0])
             SDL_strlcpy(
                 kit_.data(),
@@ -161,6 +166,12 @@ class GameExportTask {
 #ifdef _WIN32
                     request_.inspection_runtime += ".exe";
 #endif
+                    if (document.settings().requires_native_sdk()) {
+                        if (inspection_runtime_.empty())
+                            throw std::runtime_error(
+                                "Select the matching Native SDK in Gameplay Code before export.");
+                        request_.inspection_runtime = inspection_runtime_;
+                    }
                     request_.reference_schema = scene.schema();
                     for (const auto& module :
                          document.settings().document().value("modules", Json::array()))

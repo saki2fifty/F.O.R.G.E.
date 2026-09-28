@@ -45,6 +45,12 @@ class Scene {
     // leaves live instances, revision and history untouched.
     void publish_prefab_sources(const PrefabSources& sources,
                                 const std::function<void()>& durable_write);
+    // Narrow coordinated prefab authoring history. The asset/document owner supplies
+    // durable IO and replay; Scene owns the entry and candidate ECS handoff.
+    using PrefabReplay = std::function<void(Scene&, const Json&, bool)>;
+    void edit_prefab(const PrefabSources&, const Json&, const std::function<void()>&,
+                     std::shared_ptr<PrefabReplay> replay);
+    void replay_prefab(const PrefabSources&, const Json&, const std::function<void()>&);
     Json snapshot() const;
     void restore_snapshot(const Json& snapshot);
     void replace(const Json& document);
@@ -74,7 +80,11 @@ class Scene {
     void restore_child_order(const Json& document);
     void replace_prefab_sources(const PrefabSources&, const Json&, const std::function<void()>&,
                                 bool, bool refresh_native_types = false);
-    std::vector<Json> undo_, redo_;
+    struct HistoryEntry {
+        Json document;
+        std::shared_ptr<PrefabReplay> prefab;
+    };
+    std::vector<HistoryEntry> undo_, redo_;
     PrefabSources prefab_sources_;
     PrefabTemplates prefab_templates_;
 };

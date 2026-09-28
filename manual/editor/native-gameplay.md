@@ -1,6 +1,6 @@
 # Native gameplay
 
-The Gameplay Code panel creates and compiles a small C++ gameplay module for the current project. The supplied sample moves entities along X. This default workflow uses the constrained ABI1 interface. Projects that need direct Flecs component/system registration use the separate exact SDK workflow below.
+Gameplay Code creates and builds C++ source for the current project. Use **Create C++ gameplay project** for Flecs components and systems. The separate **Create source** / **Build & Reload** controls retain the constrained ABI1 movement workflow described below.
 
 ## Prepare Windows tools
 
@@ -33,17 +33,33 @@ can register Flecs components and systems in the separate runtime process. They
 never load into the editor. This remains an experimental, exact-version C++ SDK;
 it is not the stable ABI1 movement interface described above.
 
-1. Obtain the Native SDK built from the same FORGE source as your editor.
-2. Open **Gameplay Code**. Set **Native SDK folder** to the installation containing `bin` and `sdk`. This is a personal machine setting, not shared project data. Leave it blank when `NativeSdk` is installed beside the editor executable.
-3. Build your project modules using that installation's CMake SDK package and supported compiler/configuration. Declare the module IDs, exact fingerprint, dependencies and project-relative library files in the project manifest.
-4. Press **Play**. FORGE checks the runtime profile/source and the runtime validates module compatibility. The normal **Pause**, **Step**, **Stop**, input capture, Game view and runtime diagnostics then work through the isolated runtime.
-5. To change rich SDK registrations, **Stop**, compile a replacement in your external developer terminal, then **Play** again. Preserve the previous good library if compilation fails. This starts from authored scene state.
+### Create and build gameplay in FORGE
 
-The ABI1 **Create source**, **Build & Reload** and **Build on save** controls do not
-operate on an exact SDK project's code. They are replaced by its SDK setup and
-restart instructions. In-place rich SDK reload is unavailable. After a rich SDK
-runtime crash, restart with Play; FORGE does not offer a partial checkpoint as if
-it could restore arbitrary custom C++ state.
+1. Launch **Run-Forge-Dev.cmd** to provide the matching Visual Studio compiler environment. Use the NativeSdk shipped with this editor. In **Gameplay Code**, choose **Create C++ gameplay project**. Existing files in Native are never overwritten.
+2. Choose **Build gameplay**. FORGE configures CMake, compiles the module, collects its runtime dependencies and validates the candidate in a separate process. On success it updates the project module declaration. A failed build preserves the last good module and settings.
+3. Choose **Inspect components**. Select a scene entity, use **+ Add Component**, search **Gameplay Counter**, and add it. Its **rate** determines the value added each simulation second; **value** is its starting value. Save the scene.
+4. Press **Play**. The template's Flecs system advances the counter in the isolated fixed-step runtime. Edit `Native/gameplay.cpp` in your code editor to change gameplay. **Stop**, rebuild, then **Play** again. Rich SDK registrations are restart-bound; this is not hot reload.
+5. Expand **Compiler setup** for CMake/Ninja paths, or **SDK build output** for compiler diagnostics. **Cancel build** leaves the previous module active. The complete compiler log is `.forge/sdk-build/build.log`.
+6. Use **Run → Export Game...** after saving your scene and setting startup/game defaults. FORGE selects the managed module kits automatically, including after reopening the project. The exported folder contains the runtime dependencies and does not need the editor, compiler or source project.
+
+The starter opts a plain reflected component into authoring explicitly. It links the
+installed SDK's shared Flecs; do not add a second Flecs implementation to the DLL.
+Native/Builds contains immutable deployment kits, not source code. Do not delete
+a kit still referenced by `forge.project.json`.
+
+### Existing externally built SDK projects
+
+Set **Native SDK folder** to the matching installation containing `bin` and `sdk`.
+Leave it blank for NativeSdk beside the editor. This path is personal machine state.
+Build your external modules with that SDK's CMake package, declare their IDs,
+fingerprints/dependencies/project-relative libraries, then Play. The editor's
+managed starter does not overwrite external build layouts or additional module kits.
+Select their module kits explicitly for export. Compiler, architecture, configuration,
+flags and CRT must match the installed SDK.
+
+ABI1 **Build & Reload** and **Build on save** do not operate on rich SDK modules.
+After a rich runtime crash, restart Play from the authored scene; FORGE does not
+claim recovery of arbitrary custom C++ state.
 
 ## Author opted-in project components
 

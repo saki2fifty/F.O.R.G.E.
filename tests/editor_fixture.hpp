@@ -23,7 +23,8 @@ struct EditorFixture {
     std::filesystem::path output, project, config;
     unsigned stage = 0, frames = 0;
     Uint64 started = SDL_GetTicks(), stage_started = started;
-    bool prepared = false, workflow = false, physics = false, sdk_play = false;
+    bool prepared = false, workflow = false, physics = false, sdk_play = false,
+         sdk_onboarding = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
@@ -37,15 +38,18 @@ struct EditorFixture {
     // user's saves.
     std::filesystem::path sdk_root, user_data;
     explicit EditorFixture(int argc, char** argv) {
+        sdk_onboarding = argc == 4 && std::string(argv[2]) == "--sdk-onboarding";
+        if (sdk_onboarding)
+            sdk_root = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
         physics = argc == 4 && std::string(argv[2]) == "--physics";
         // --sdk-play needs EXE OUTPUT --sdk-play PROJECT SDK USERDATA: 6 args.
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
-        if (!physics && !sdk_play && argc != 2 &&
+        if (!physics && !sdk_play && !sdk_onboarding && argc != 2 &&
             (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
                 "--sdk-play PROJECT SDK USERDATA]");
-        workflow = argc == 3 || physics;
+        workflow = argc == 3 || physics || sdk_onboarding;
         output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         if (sdk_play) {

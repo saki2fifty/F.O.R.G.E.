@@ -164,6 +164,7 @@ class PrefabEditor {
             }
         };
         ImGui::InputTextWithHint("##prefab-path", "Assets/Name.prefab.json", path_, sizeof(path_));
+        FORGE_UI_PROBE("prefab:path");
         ui::help("Project-relative destination for Create or Duplicate. Existing files are never "
                  "overwritten.");
         ImGui::BeginDisabled(selection.empty());
@@ -191,7 +192,11 @@ class PrefabEditor {
         if (ui::button(
                 "Instantiate",
                 "Add a linked prefab instance with fresh entity identities. One scene Undo step."))
-            run([&] { selection = instantiate_prefab(scene, selected_); });
+            run([&] {
+                selection = instantiate_prefab(scene, selected_);
+                if (ui::editor_context)
+                    ui::editor_context->selection.select_entity(selection);
+            });
         ImGui::SameLine();
         if (ui::button("Edit source", "Open the reusable prefab definition. Published edits affect "
                                       "all instances without overriding their explicit edits."))
@@ -246,6 +251,67 @@ class PrefabEditor {
                 error_ = e.what();
             }
         }
+        ImGui::BeginDisabled(!item.contains("prefab_instance") || !project.on_disk() || dirty());
+        if (ui::button(
+                "Apply instance overrides...",
+                "Review admitted overrides across this instance. Save the prefab and current scene "
+                "together; one Scene Undo/Redo step. Opaque values and attachments stay in the "
+                "scene.")) {
+            try {
+                apply_candidate_ = project.prefabs().prepare_apply(scene, item.at("id"));
+                apply_revision_ = scene.revision();
+                apply_generation_ = project.generation();
+                apply_error_.clear();
+                ImGui::OpenPopup("Apply to Prefab");
+            } catch (const std::exception& e) {
+                error_ = e.what();
+            }
+        }
+        ImGui::EndDisabled();
+        ui::help(
+            "Select the instance root and save the scene first. Publish or discard an open prefab "
+            "draft before Apply. Apply uses the published source, never an unsaved draft.");
+        if (ImGui::BeginPopupModal("Apply to Prefab", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextWrapped("Apply %zu admitted override(s) to the shared prefab?",
+                               apply_candidate_.overrides);
+            ui::help("Known components, supported property overrides and root names. Independent "
+                     "local TRS "
+                     "channels retain their intent. Unknown data is preserved on the instance.");
+            ImGui::TextWrapped("This saves BOTH the prefab and this scene, including other unsaved "
+                               "scene changes.");
+            ui::help("All open instances follow changed source values unless overridden. Scene "
+                     "Undo/Redo "
+                     "writes both files again. Direct source publication remains a separate "
+                     "history boundary.");
+            ImGui::TextWrapped("Scene: %s", project.path().filename().string().c_str());
+            ui::help(path_text(project.path()).c_str());
+            const bool stale =
+                apply_revision_ != scene.revision() || apply_generation_ != project.generation();
+            if (stale)
+                ImGui::TextWrapped("Scene changed. Cancel and review Apply again.");
+            ImGui::BeginDisabled(stale);
+            if (ui::button("Apply and save both", "Validate all affected instances, then commit "
+                                                  "the recoverable two-file pair.")) {
+                try {
+                    project.apply_prefab(apply_candidate_, apply_revision_);
+                    apply_candidate_ = {};
+                    ImGui::CloseCurrentPopup();
+                } catch (const std::exception& e) {
+                    apply_error_ = e.what();
+                }
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ui::button("Cancel", "Keep source, scene, overrides and history unchanged.")) {
+                apply_candidate_ = {};
+                ImGui::CloseCurrentPopup();
+            }
+            if (!apply_error_.empty())
+                ui::field_error(apply_error_);
+            ImGui::EndPopup();
+        }
+        if (!error_.empty())
+            ui::field_error(error_);
         const std::string entity = item.at("id");
         if (item.value("name_override", false) &&
             ui::button("Revert name",
@@ -687,6 +753,9 @@ class PrefabEditor {
             ui::editor_context->selection.kind() == ui::SelectionKind::PrefabMember)
             ui::editor_context->selection.select_asset(ui::editor_context->selection.asset());
     }
+    PrefabApplyCandidate apply_candidate_;
+    std::uint64_t apply_revision_ = 0, apply_generation_ = 0;
+    std::string apply_error_;
     char component_filter_[192]{};
     bool close_requested_ = false, save_requested_ = false, focus_requested_ = false;
     AssetId pending_asset_;

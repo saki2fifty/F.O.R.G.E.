@@ -67,7 +67,7 @@ After editing source files outside FORGE, increase the source revision and use *
 
 ## Current boundaries
 
-The source window edits the current built-in components. Unknown plugin data is preserved without interpreting it. Nested prefabs, per-instance interior hierarchy changes, Unpack and Apply to Prefab are deferred. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
+The source window edits the current built-in components. Unknown plugin data is preserved without interpreting it. Nested prefabs, per-instance interior hierarchy changes and Unpack remain deferred. Apply is available for admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
 
 See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and recovery](saving-recovery.md) and [Play mode](play-mode.md).
 
@@ -81,7 +81,7 @@ A newly instantiated prefab root keeps the existing per-instance spatial attachm
 
 Prefab source stays open when Content is hidden. An asterisk and **Unsaved draft** identify unpublished changes. Selecting the same source again keeps its draft. Closing, switching source or switching project asks **Publish**, **Discard**, or **Cancel**. Failed publication leaves the draft open and previous good source/instances intact.
 
-Ctrl+S publishes when Prefab source is the active task. Scene Save does not publish it, and scene Undo/Redo does not edit it. Publishing may clear scene history because existing instances reconcile to a new source revision. No Apply to Prefab or cross-document undo transaction is provided.
+Ctrl+S publishes when Prefab source is the active task. Scene Save does not publish it, and scene Undo/Redo does not edit it. Publishing may clear scene history because existing instances reconcile to a new source revision. This direct-source publication is different from the coordinated Apply workflow below.
 
 Source members use **+ Add Component** and the same typed fields as the entity Inspector, including UI Document asset references and integer Layer. Source draft changes validate on Publish.
 
@@ -93,3 +93,29 @@ Unavailable component schemas are shown read-only in the source member Inspector
 Their values remain in the prefab when you publish unrelated changes. A missing
 module does not replace those values with defaults. Inherited unknown data also
 remains visible on scene instances without becoming a local override.
+
+## Apply instance overrides
+
+Select the **instance root** in Hierarchy. In Inspector's **Prefab instance** section,
+choose **Apply instance overrides...**. Review the override count and select
+**Apply and save both**, or **Cancel**.
+
+Apply transfers admitted component, supported property and name overrides across
+that instance to its existing prefab members. The selected instance then inherits
+those values again. Other instances follow them unless they have their own overrides.
+Equal-value overrides transfer too. Translation, rotation and scale stay independent.
+Unknown/unadmitted component payloads stay on the instance. Structural attachments,
+spatial binding and new/removed members are not inferred or copied to the source.
+
+**Apply saves both the prefab and the current scene, including other unsaved scene
+changes.** Save an untitled scene first. Publish or discard any open prefab draft
+before Apply. A scene change while the confirmation is open requires a new review.
+
+One **Scene Undo** reverses Apply and saves both files; Redo publishes both again.
+Undo/Redo uses fresh source revisions rather than rewinding revision numbers.
+Subsequent ordinary scene edits have their usual history entries. Direct **Publish
+source** keeps its separate history boundary. External scene or prefab changes
+make Apply/Undo reject instead of overwriting newer work; the history entry remains.
+
+If interrupted, reopening the project recovers the pair before loading the scene.
+An external conflict preserves the files and journal with an actionable diagnostic.

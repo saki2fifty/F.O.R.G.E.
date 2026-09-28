@@ -3,6 +3,8 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include <forge/assets.hpp>
+#include <forge/prefab.hpp>
+#include <forge/scene.hpp>
 #include <set>
 namespace forge {
 #ifdef FORGE_ASSET_FILE_TRANSACTION_TESTING
@@ -60,9 +62,12 @@ void check_digest(const Json& value) {
 }
 Json load_journal(const ProjectPaths& paths, std::string_view data) {
     auto result = asset_detail::parse_bounded_json(std::as_bytes(std::span(data)), journal_limit);
-    if (result.at("format") != "forge.asset-file-operation" || result.at("version") != 1 ||
-        !result.at("retain_backups").is_boolean() || !result.at("changes").is_array() ||
-        result.at("changes").empty() || result.at("changes").size() > 8192)
+    const bool pair = result.value("version", 0) == 2 && result.value("kind", "") == "prefab-apply";
+    if (result.at("format") != "forge.asset-file-operation" ||
+        (!pair && (result.at("version") != 1 || result.contains("kind"))) ||
+        (pair && result.at("changes").size() != 2) || !result.at("retain_backups").is_boolean() ||
+        !result.at("changes").is_array() || result.at("changes").empty() ||
+        result.at("changes").size() > 8192)
         throw std::runtime_error("Unsupported asset operation recovery record");
     (void)directory(paths, result.at("transaction").get<std::string>());
     std::set<std::filesystem::path, ProjectLocatorLess> locators;
@@ -72,11 +77,20 @@ Json load_journal(const ProjectPaths& paths, std::string_view data) {
         const auto path = std::filesystem::u8path(change.at("source").get<std::string>());
         source_path(paths, path);
         if (!locators.insert(path).second ||
-            paths.same_locator(path, "forge.assets.json") != (i + 1 == changes.size()) ||
-            (i + 1 == changes.size() && path != std::filesystem::path("forge.assets.json")))
-            throw std::runtime_error("Asset operation needs one final catalog commit point");
+            (pair ? (paths.same_locator(path, "forge.assets.json") ||
+                     (i == 0 && !path.filename().string().ends_with(".prefab.json")) ||
+                     (i == 1 && (path.extension() != ".json" ||
+                                 path.filename().string().ends_with(".prefab.json"))))
+                  : (paths.same_locator(path, "forge.assets.json") != (i + 1 == changes.size()) ||
+                     (i + 1 == changes.size() &&
+                      path != std::filesystem::path("forge.assets.json")))))
+            throw std::runtime_error(
+                pair ? "Prefab Apply requires a prefab followed by one scene commit point"
+                     : "Asset operation needs one final catalog commit point");
         check_digest(change.at("before"));
         check_digest(change.at("after"));
+        if (pair && (change.at("before").is_null() || change.at("after").is_null()))
+            throw std::runtime_error("Prefab Apply requires two existing authored documents");
     }
     const auto& catalog = changes.back();
     if (catalog.at("after").is_null() || catalog.at("before") == catalog.at("after"))
@@ -106,6 +120,30 @@ void validate_blobs(const ProjectPaths& paths, const Json& record) {
                     throw std::runtime_error("Asset operation backup bytes exceed 2 GiB");
             }
         }
+    if (record.value("kind", "") == "prefab-apply") {
+        const auto before_bytes = blob(folder, record.at("changes")[0].at("before"));
+        const auto after_bytes = blob(folder, record.at("changes")[0].at("after"));
+        const auto before =
+            asset_detail::parse_bounded_json(std::as_bytes(std::span(before_bytes)), file_limit);
+        const auto after =
+            asset_detail::parse_bounded_json(std::as_bytes(std::span(after_bytes)), file_limit);
+        PrefabDocument old(before), next(after);
+        if (old.asset() != next.asset() || old.root() != next.root() ||
+            next.revision() <= old.revision())
+            throw std::runtime_error("Prefab Apply must preserve identity and advance revision");
+        Json scene_before;
+        for (const auto* name : {"before", "after"}) {
+            const auto bytes = blob(folder, record.at("changes")[1].at(name));
+            const auto doc =
+                asset_detail::parse_bounded_json(std::as_bytes(std::span(bytes)), file_limit);
+            Scene::validate_document(doc);
+            if (name == std::string_view("before"))
+                scene_before = doc;
+            else if (doc.at("asset_id") != scene_before.at("asset_id"))
+                throw std::runtime_error("Prefab Apply cannot replace scene identity");
+        }
+        return;
+    }
     for (const auto* name : {"before", "after"}) {
         const auto& key = record.at("changes").back().at(name);
         if (!key.is_null()) {
@@ -181,7 +219,8 @@ bool AssetFileTransaction::recover() {
                                      change.at("source").get<std::string>());
     }
     const bool committed =
-        current(AssetCatalog::project_index(paths.root())) == changes.back().at("after");
+        current(paths.resolve(std::filesystem::u8path(
+            changes.back().at("source").get<std::string>()))) == changes.back().at("after");
     if (committed) {
         for (const auto& change : changes)
             if (current(paths.resolve(std::filesystem::u8path(
@@ -200,6 +239,15 @@ bool AssetFileTransaction::recover() {
 }
 AssetFileCommit AssetFileTransaction::commit(std::vector<AssetFileChange> changes,
                                              bool retain_backups, std::stop_token stop) {
+    return commit_impl(std::move(changes), retain_backups, stop, false);
+}
+AssetFileCommit AssetFileTransaction::commit_prefab_apply(AssetFileChange prefab,
+                                                          AssetFileChange scene) {
+    return commit_impl({std::move(prefab), std::move(scene)}, false, {}, true);
+}
+AssetFileCommit AssetFileTransaction::commit_impl(std::vector<AssetFileChange> changes,
+                                                  bool retain_backups, std::stop_token stop,
+                                                  bool pair) {
     check();
     cancel(stop);
     const ProjectPaths paths(lease_.root());
@@ -211,6 +259,10 @@ AssetFileCommit AssetFileTransaction::commit(std::vector<AssetFileChange> change
                    {"transaction", AssetId::generate().str()},
                    {"retain_backups", retain_backups},
                    {"changes", Json::array()}};
+    if (pair) {
+        record["version"] = 2;
+        record["kind"] = "prefab-apply";
+    }
     std::uint64_t total = 0;
     for (const auto& change : changes) {
         cancel(stop);
@@ -266,8 +318,10 @@ AssetFileCommit AssetFileTransaction::commit(std::vector<AssetFileChange> change
         }
     } catch (...) {
         if (started) {
-            const bool committed = current(AssetCatalog::project_index(paths.root())) ==
-                                   record.at("changes").back().at("after");
+            const bool committed =
+                current(paths.resolve(std::filesystem::u8path(
+                    record.at("changes").back().at("source").get<std::string>()))) ==
+                record.at("changes").back().at("after");
             recover();
             if (committed)
                 return {id, retain_backups ? paths.relative(folder) : std::filesystem::path{},

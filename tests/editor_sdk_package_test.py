@@ -180,6 +180,36 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
+    # Ordinary project authoring through shipped Gameplay Code and export controls.
+    # Keep the compiler environment for this separate source-building scenario;
+    # the subsequent reference/relocated checks still remove toolchain PATH entries.
+    onboarding = evidence / 'onboarding'
+    onboarding.mkdir(parents=True, exist_ok=True)
+    with (onboarding/'fixture.log').open('w', encoding='utf-8') as stream:
+        starter = subprocess.Popen([str(fixture_dst), str(onboarding), '--sdk-onboarding', str(sdk_root)],
+                                   cwd=extracted, env=os.environ.copy(), stdout=stream, stderr=subprocess.STDOUT)
+        try:
+            starter_code = starter.wait(timeout=360)
+        except subprocess.TimeoutExpired:
+            terminate_tree(starter)
+            raise AssertionError('SDK onboarding exceeded 360s watchdog')
+    starter_trace_path=onboarding/'workflow.json'
+    if starter_code or not starter_trace_path.is_file():
+        raise AssertionError('SDK onboarding failed; see '+str(onboarding/'fixture.log'))
+    starter_trace=json.loads(starter_trace_path.read_text())
+    if not starter_trace.get('ok'):
+        raise AssertionError('SDK onboarding workflow failed: '+str(starter_trace.get('error',starter_trace)))
+    starter_export=Path(starter_trace['state']['export_output'])
+    # Prove source deletion and a second relocation do not prevent startup.
+    relocated_starter=scratch/'starter exported game relocated'
+    shutil.move(str(starter_export),relocated_starter)
+    runtime_env=os.environ.copy()
+    runtime_env['PATH']=str(Path(os.environ.get('SystemRoot','C:/Windows'))/'System32')
+    result=subprocess.run([str(relocated_starter/'forge_game.exe'),'--verify-startup'],
+                          cwd=relocated_starter,env=runtime_env,capture_output=True,text=True,timeout=60)
+    (onboarding/'relocated-startup.log').write_text(result.stdout+'\n'+result.stderr)
+    if result.returncode: raise AssertionError('Relocated starter startup failed: '+result.stderr)
+
     # ---- launch fixture with bounded watchdog --------------------------
     env = os.environ.copy()
     env['PATH'] = str(Path(os.environ.get('SystemRoot', 'C:/Windows'))

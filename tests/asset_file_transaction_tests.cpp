@@ -2,6 +2,7 @@
 #include "asset_storage.hpp"
 #include <cstdlib>
 #include <forge/asset_publication.hpp>
+#include <forge/scene.hpp>
 #include <fstream>
 #include <future>
 #include <iostream>
@@ -82,6 +83,50 @@ int main(int argc, char** argv) {
     try {
         if (argc < 2)
             throw std::runtime_error("Expected project path");
+        if (argc > 2 && std::string(argv[2]).starts_with("--prefab-")) {
+            const auto root = project(argv[1]);
+            ProjectLease lease(root);
+            AssetFileTransaction operations(lease);
+            const auto mode = std::string(argv[2]);
+            const auto path = root / "source.prefab.json", scene_path = root / "scene.json";
+            if (mode == "--prefab-recover") {
+                check(operations.recover(), "Missing prefab Apply journal");
+                const auto expected = unsigned(std::stoul(argv[3])) == 3 ? 2 : 1;
+                check(nlohmann::json::parse(*asset_storage::read(path)).at("revision") == expected,
+                      "Apply recovery selected wrong prefab revision");
+                check(nlohmann::json::parse(*asset_storage::read(scene_path)).at("label") ==
+                          expected,
+                      "Apply recovery selected wrong scene revision");
+                check(!operations.recover(), "Apply recovery is not idempotent");
+                return 0;
+            }
+            const auto member = PrefabMemberId::generate();
+            nlohmann::json prefab{
+                {"format", "forge.prefab"},
+                {"version", 1},
+                {"asset_id", AssetId::generate()},
+                {"revision", 1u},
+                {"root", member},
+                {"members", nlohmann::json::array({{{"id", member},
+                                                    {"name", "Root"},
+                                                    {"components", nlohmann::json::object()}}})}};
+            auto before = bytes(prefab.dump());
+            prefab["revision"] = 2u;
+            auto after = bytes(prefab.dump());
+            WorldContext world;
+            Scene scene(world);
+            auto doc = scene.document();
+            doc["label"] = 1;
+            auto scene_before = bytes(doc.dump());
+            doc["label"] = 2;
+            auto scene_after = bytes(doc.dump());
+            asset_storage::replace(path, *before);
+            asset_storage::replace(scene_path, *scene_before);
+            crash_stage = unsigned(std::stoul(argv[3]));
+            operations.commit_prefab_apply({"source.prefab.json", before, after},
+                                           {"scene.json", scene_before, scene_after});
+            throw std::runtime_error("Expected process interruption");
+        }
         const bool recovery = argc > 2 && std::string(argv[2]) == "--recover";
         Fixture f(argv[1], !recovery);
         if (recovery) {
