@@ -2,7 +2,9 @@
 
 Original decision: 2026-09-19. Revised by explicit user instruction: 2026-09-28.
 This revision supersedes the proposed future high-level gameplay language and
-visual-scripting layer. The integrated C++ editor is implemented in source; Windows acceptance and delivery are pending.
+visual-scripting layer. The integrated C++ editor is implemented and passed automated
+Windows acceptance in Build 260928-000125. Package promotion is awaiting approval;
+physical hardware acceptance remains separate.
 
 ## Decision
 
@@ -41,7 +43,7 @@ CPU/frame time and memory when affected. C++ alone is not evidence of performanc
 use measurements and existing ECS/ownership contracts to justify optimizations.
 Do not introduce a language runtime or duplicate build manager for this feature.
 
-## Planned acceptance
+## Acceptance contract
 
 Open/create project C++ files; edit/save with source undo/redo, syntax highlighting,
 line numbers and search; build with the existing Gameplay Code owner; navigate

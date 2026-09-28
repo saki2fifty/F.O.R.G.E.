@@ -1,3 +1,28 @@
+# Integrated C++ authoring validated — 2026-09-28
+
+Build **260928-000125**, compiled source
+`7e7f1300ff7848e79381e8da1d7e2d9d37bca696`, passed the
+[full validation gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36491352542):
+all eight required source build/test roles and final assembled-package acceptance.
+This adds central C++ source tabs, syntax highlighting, line numbers, search,
+source Undo/Redo, safe saves, explicit source registration, installed compiler
+readiness testing, compiler diagnostic navigation and optional Build on Save.
+
+Native Windows input verified source creation/editing/history, ordinary-launch
+compiler discovery, readiness without module publication, automatic builds,
+failed-build retention, diagnostic navigation and exported-game relocation.
+The reference-game acceptance flow also passed. Changed D3D12 WARP captures were
+retrieved and visually reviewed; the ZIP and manifest hashes were verified.
+Package promotion is awaiting explicit approval; **Build 117 remains the current
+promoted download**. Physical hardware acceptance and the deferred reference-game
+FPS/smoothness feedback remain separate. No performance fix is claimed.
+
+Gameplay remains C++ only, using the existing exact-SDK Stop/build/Play workflow.
+The editor widget and compiler tools are absent from exported games. See
+[the gameplay manual](../manual/editor/native-gameplay.md) and
+[native modules](native-modules.md). The package contains documentation from its
+compiled source; this post-validation status update does not change its bytes.
+
 # Phase 9 complete — 2026-09-28
 
 Build **260928-000117**, compiled source

@@ -172,6 +172,7 @@ on demand, drains imports, owns the project lease through completion and changes
 only disposable data. Reimport remains necessary after clearing selected artifacts.
 
 Gameplay programming is C++ only under [ADR010](decisions/010-scripting-layers.md).
-The integrated C++ editor is implemented in source; Windows acceptance and delivery are pending.
+The integrated C++ editor passed automated Windows acceptance and capture review
+in Build 260928-000125; package promotion is awaiting approval.
 No FORGE editor or source-editing UI belongs in a running exported game.
 Material, animation and other domain graphs do not imply visual gameplay scripting.

@@ -70,7 +70,7 @@ The completed gate is recorded below.
 - Require measured editor/runtime performance and reuse of the existing build
   workflow. This is a documented plan, not a newly implemented editor or delivery.
 
-## Integrated C++ authoring — implementation, acceptance pending
+## Integrated C++ authoring — validated Build 260928-000125
 
 - Added central C++ source tabs with highlighting, line numbers, source Undo/Redo,
   search, file creation/registration and baseline-checked atomic saves. External
@@ -85,5 +85,22 @@ The completed gate is recorded below.
   authored formats remain unchanged. Added focused editing/file/conflict/diagnostic
   tests and real source-editing/compiler-test input acceptance.
 - Corrected stale Inspector/prefab manual statements contradicting delivered Phase9.
-- Local checks and Windows capture/delivery evidence are recorded separately;
-  implementation is not yet claimed as accepted Windows delivery.
+- Full [Windows/Linux gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36491352542)
+  passed at source `7e7f1300ff7848e79381e8da1d7e2d9d37bca696`, including the
+  Windows source-editor test, native onboarding, reference-game flow and relocated
+  exported-game startup. Reviewed actual compiler-ready, source-editor, saved-source
+  and compiler-error captures. ZIP integrity and manifest hashes were verified.
+- Corrected Windows compiler environment name casing using the pinned SDL UTF8
+  snapshot, launched the compiler script from its working directory, and placed
+  only the isolated readiness build in a short temporary path after reproducing
+  MSVC path-length failures. No toolchain compatibility checks were relaxed.
+- Native fixtures now use bounded wheel increments, simulate an ordinary launch
+  without inherited developer-session markers, retain compiler logs before fixture
+  teardown, and execute both mandatory scenarios even if one fails. Existing
+  assertions and deadlines remain intact.
+- Build on Save can be disabled during compilation; this controls future work.
+  Cancel build remains the explicit action for the current task. File actions and
+  inputs occupy two aligned rows to preserve editing space.
+- Package promotion awaits explicit approval after automatic review rejected the
+  current-download replacement. Build 117 remains promoted. Physical hardware
+  acceptance and deferred reference-game FPS/smoothness review remain separate.
