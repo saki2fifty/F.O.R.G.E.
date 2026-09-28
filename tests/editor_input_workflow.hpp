@@ -440,6 +440,12 @@ class EditorInputWorkflow {
             check("empty");
             create("3D Primitive", "Cube");
             check("cube");
+            create("Rendering", "Camera");
+            check("camera");
+            text("transform:forge.position:2", "-5", true);
+            key(ImGuiKey_Enter);
+            create("Rendering", "Light");
+            check("light");
             key(ImGuiKey_S, true);
             check("saved");
             click("tab:Native");
