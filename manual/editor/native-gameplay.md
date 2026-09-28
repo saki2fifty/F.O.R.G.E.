@@ -196,3 +196,7 @@ not include the C++ editor, compiler or source files.
 
 Export uses the last successfully built gameplay module. Save and build your code
 changes before exporting; unsaved drafts and failed builds are not included.
+
+You can change **Build on Save** while a build is running. Turning it off affects
+future saves; it does not stop a build already in progress. Use **Cancel build**
+in Gameplay Code to stop the current build.

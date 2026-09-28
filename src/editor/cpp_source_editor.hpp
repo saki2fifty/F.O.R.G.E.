@@ -182,13 +182,14 @@ class CppSourceEditor {
                     ImGui::OpenPopup("Reload C++ source?");
                 }
             }
+            ImGui::EndDisabled();
             ImGui::SameLine();
             if (ImGui::Checkbox("Build on Save", &build_on_save) && !build_on_save)
                 build_pending = false;
             FORGE_UI_PROBE("cpp:build-on-save");
             help("Queue a managed gameplay build after saving. Waits until Play stops and all "
-                 "source drafts are saved.");
-            ImGui::EndDisabled();
+                 "source drafts are saved. Disabling affects future saves; cancel an active "
+                 "build from Gameplay Code.");
             ImGui::BeginDisabled(!build_enabled || !request_build);
             if (button("Build gameplay", "Build all saved C++ gameplay sources using the existing "
                                          "isolated compiler task. Stop Play first."))
