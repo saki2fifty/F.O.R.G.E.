@@ -326,8 +326,18 @@ void prepare_runtime_content_catalog(const ProjectLease& lease, std::span<const 
     package_detail::prepare_documents(candidate, lease.root(), roots, schema, {}, stop, false,
                                       capture, true);
     auto publication = before;
-    // Re-admit exact worker bytes and persist only UI registration metadata.
+    // Persist only newly discovered reachable authored identities and UI metadata.
     // Reflected document-edge preparation remains detached, as before.
+    for (const auto& [id, record] : candidate.records())
+        if (!before.records().contains(id) && package_detail::authored_document(record)) {
+            const auto bytes =
+                read_bytes(ProjectPaths(lease.root()).resolve(record.source), 64 * 1024 * 1024);
+            (void)package_detail::admit_document(record, bytes);
+            require(content_digest(bytes) ==
+                        record.metadata.at("forge.runtime_document").at("sha256"),
+                    "Authored document changed during identity preparation");
+            publication.add({record.id, record.type, record.source, record.schema_version, {}});
+        }
     for (const auto& snapshot : snapshots) {
         cancelled(stop);
         publication = prepare_ui_asset_catalog(std::move(publication), lease.root(), snapshot);

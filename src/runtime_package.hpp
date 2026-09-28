@@ -17,6 +17,7 @@ struct RuntimePackageLimits {
 using RuntimeUiInspector = std::function<UiAssetSnapshot(AssetId, std::stop_token)>;
 // Authoring metadata preparation, separate from package publication. New native
 // UI discoveries receive persisted UUIDv4s here; repeated exports never remint IDs.
+// Reachable saved scenes/prefabs retain their authored identities when first registered.
 void prepare_runtime_content_catalog(const ProjectLease&, std::span<const AssetId>,
                                      const RuntimeUiInspector&, const nlohmann::json& schema = {},
                                      std::stop_token = {});

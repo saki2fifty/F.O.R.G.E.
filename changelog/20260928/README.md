@@ -33,3 +33,9 @@
 - Fixed prefab instantiation to select the new entity rather than leave asset selection active. Updated technical contracts, ADR017 and user how-to pages.
 
 Windows delivery/visual evidence is pending the coherent final gate.
+
+### Author-to-export acceptance correction
+
+- Native input proved gameplay creation/build/rebuild/admission/runtime effect and Prefab Apply/Cancel/Undo/Redo.
+- Export exposed a fresh-project gap: discovered saved scenes/prefabs were not always in the persistent catalog. Existing export preparation now registers only reachable validated authored identities, preserving AssetIds.
+- Added fresh-scene/prefab packaging and duplicate-identity rejection coverage. Corrected fixture navigation to match compact Content menus and the actual Inspector placement button; assertions and timeouts remain unchanged.

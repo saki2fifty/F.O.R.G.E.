@@ -335,6 +335,35 @@ int main(int argc, char** argv) {
             check(failed && !std::filesystem::exists(candidate),
                   "Missing typed runtime family was not rejected before publication");
         }
+        // A freshly saved scene/prefab is discoverable without hand-registering
+        // the fixture catalog. Preparation owns atomic registration, not the UI.
+        const auto fresh = scratch / "fresh-authored";
+        std::filesystem::create_directory(fresh);
+        auto fresh_scene = instance;
+        fresh_scene["asset_id"] = AssetId::generate();
+        text(fresh / "main.json", fresh_scene.dump());
+        text(fresh / "shape.prefab.json", prefab.dump());
+        text(fresh / "unrelated.scene.json", "{invalid");
+        AssetCatalog(fresh).save(AssetCatalog::project_index(fresh));
+        const std::array fresh_roots{fresh_scene.at("asset_id").get<AssetId>()};
+        auto fresh_lease = std::make_unique<ProjectLease>(fresh);
+        prepare_runtime_content_catalog(*fresh_lease, fresh_roots, {});
+        auto admitted = AssetCatalog::open_project(fresh);
+        check(admitted.records().contains(fresh_roots[0]) && admitted.records().contains(prefab_id),
+              "Fresh reachable scene/prefab identities were not registered");
+        check(admitted.records().size() == 2, "Unrelated files were registered");
+        const auto fresh_output = scratch / "fresh-output";
+        (void)package_runtime_content(fresh, fresh_output, fresh_roots, target);
+        check(load_game_scene(fresh_output, {fresh_roots[0]}).at("_prefab_sources").size() == 1,
+              "Fresh authored prefab closure did not survive packaging");
+        fresh_lease.reset();
+        text(fresh / "duplicate.scene.json", fresh_scene.dump());
+        AssetCatalog(fresh).save(AssetCatalog::project_index(fresh));
+        fresh_lease = std::make_unique<ProjectLease>(fresh);
+        rejects([&] { prepare_runtime_content_catalog(*fresh_lease, fresh_roots, {}); });
+        check(AssetCatalog::open_project(fresh).records().empty(),
+              "Rejected identity discovery partially published the catalog");
+        fresh_lease.reset();
         std::filesystem::remove_all(native_io_path(scratch));
         std::cout << "Runtime package closure, relocation, source independence, limits, hashes and "
                      "failure preservation passed\n";

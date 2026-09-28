@@ -4,6 +4,7 @@
 #include "bounded_json.hpp"
 #include "runtime_dependencies.hpp"
 #include "ui_asset_catalog.hpp"
+#include <forge/asset_discovery.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
@@ -36,6 +37,58 @@ void prepare_documents(AssetCatalog& catalog, const std::filesystem::path& root,
     std::set<AssetId> seen;
     std::vector<AssetId> pending(roots.begin(), roots.end());
     std::size_t total = 0;
+    std::optional<std::map<AssetId, std::vector<AssetRecord>>> discovered;
+    auto discover = [&](AssetId needed) {
+        if (!discovered) {
+            SourceScanOptions options;
+            options.include_project_root = true;
+            const auto sources = scan_asset_sources(root, options, stop);
+            if (!sources.complete)
+                throw std::runtime_error("game.export.discovery: Incomplete authored source scan");
+            discovered.emplace();
+            for (const auto& [path, source] : sources.files) {
+                auto extension = path_utf8(path.extension());
+                for (auto& character : extension)
+                    if (character >= 'A' && character <= 'Z')
+                        character = char(character + ('a' - 'A'));
+                if (extension != ".json")
+                    continue;
+                // Malformed unrelated files do not prevent exporting a valid closure.
+                // Matching reachable documents are fully admitted below.
+                try {
+                    const auto bytes = asset_detail::read_bytes(ProjectPaths(root).resolve(path),
+                                                                64 * 1024 * 1024);
+                    const auto doc = asset_detail::parse_bounded_json(bytes, 64 * 1024 * 1024);
+                    const auto type =
+                        doc.contains("entities") && doc.at("entities").is_array() ? SceneAsset::type
+                        : doc.value("format", std::string{}) == "forge.prefab" ? PrefabAsset::type
+                                                                               : "";
+                    if (std::string_view(type).empty())
+                        continue;
+                    AssetRecord record{doc.at("asset_id").get<AssetId>(),
+                                       type,
+                                       path,
+                                       doc.at("version").get<unsigned>(),
+                                       {}};
+                    (*discovered)[record.id].push_back(std::move(record));
+                } catch (const std::exception&) {
+                    if (stop.stop_requested())
+                        throw;
+                }
+            }
+        }
+        const auto found = discovered->find(needed);
+        if (found == discovered->end())
+            return;
+        if (found->second.size() != 1)
+            throw std::runtime_error("game.export.identity: Duplicate authored AssetId " +
+                                     needed.str());
+        const auto& record = found->second.front();
+        (void)admit_document(
+            record,
+            asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), 64 * 1024 * 1024));
+        catalog.add(record);
+    };
     while (!pending.empty()) {
         if (stop.stop_requested())
             throw std::runtime_error("game.export.cancelled: Document closure cancelled");
@@ -45,6 +98,8 @@ void prepare_documents(AssetCatalog& catalog, const std::filesystem::path& root,
             continue;
         if (seen.size() > limits.assets)
             throw std::runtime_error("game.export.limit: Document closure exceeds asset limit");
+        if (!packaged && !catalog.records().contains(id))
+            discover(id);
         const auto found = catalog.records().find(id);
         if (found == catalog.records().end())
             throw std::runtime_error("game.export.missing: Missing dependency " + id.str());

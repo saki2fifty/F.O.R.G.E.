@@ -340,3 +340,14 @@ It validates their bounded authored bytes and existing identity, reconstructs cl
 records, rechecks their hashes and publishes registrations plus declarations in one
 catalog save. Unrelated discoveries are never copied wholesale; failed/stale requests
 preserve the saved catalog. Existing registered records remain authoritative.
+
+### Saved authored-document discovery
+
+Export preparation registers reachable saved scenes and prefabs that Content has
+discovered but that are not yet in the persistent catalog. It uses the existing
+bounded source scanner, retains authored AssetIds, rejects ambiguous duplicate
+identities, and validates matching documents before catalog publication. Malformed
+unrelated documents do not enter the closure. Only required discovered identities
+are registered; reflected dependency edges remain detached preparation data. A
+failed preparation leaves the previous catalog intact. Packaged games use their
+sealed manifest/catalog and do not scan for source documents.
