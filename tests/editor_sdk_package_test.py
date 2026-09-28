@@ -356,6 +356,13 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
             terminate_tree(starter)
             raise AssertionError('SDK onboarding exceeded 360s watchdog')
     starter_trace_path=onboarding/'workflow.json'
+    if starter_trace_path.is_file():
+        observed = json.loads(starter_trace_path.read_text())
+        project = observed.get('state', {}).get('project')
+        if project:
+            compiler_log = Path(project)/'.forge/sdk-build/build.log'
+            if compiler_log.is_file():
+                shutil.copy2(compiler_log, onboarding/'compiler-build.log')
     if starter_code or not starter_trace_path.is_file():
         raise AssertionError('SDK onboarding failed; see '+str(onboarding/'fixture.log'))
     starter_trace=json.loads(starter_trace_path.read_text())
