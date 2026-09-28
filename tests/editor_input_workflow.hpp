@@ -1136,6 +1136,11 @@ class EditorInputWorkflow {
                 const std::function<void(const Json&)>& record) {
         if (done())
             return;
+        if (steps_[index_].kind == Kind::Check && steps_[index_].value == "compiler-ready" &&
+            !state.at("sdk_build_busy").get<bool>() &&
+            !state.at("sdk_build_error").get<std::string>().empty())
+            failure_ =
+                "Compiler readiness failed: " + state.at("sdk_build_error").get<std::string>();
         if (!failure_.empty()) {
             image("FAILED-" + std::to_string(index_));
             Json available = Json::object();

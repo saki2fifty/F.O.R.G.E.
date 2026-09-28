@@ -5,6 +5,7 @@
 #include "native_build.hpp"
 #include <cstdint>
 #include <future>
+#include <memory>
 #include <sstream>
 namespace forge {
 // Stopped-only exact-SDK compiler task. All library admission remains isolated.
@@ -206,8 +207,10 @@ class SdkBuild {
                         if (split == std::string::npos)
                             continue;
                         const auto key = line.substr(0, split);
-                        if (key == "Path" || key == "PATH" || key == "INCLUDE" || key == "LIB" ||
-                            key == "LIBPATH")
+                        if (SDL_strcasecmp(key.c_str(), "PATH") == 0 ||
+                            SDL_strcasecmp(key.c_str(), "INCLUDE") == 0 ||
+                            SDL_strcasecmp(key.c_str(), "LIB") == 0 ||
+                            SDL_strcasecmp(key.c_str(), "LIBPATH") == 0)
                             if (!SDL_SetEnvironmentVariable(environment_, key.c_str(),
                                                             line.substr(split + 1).c_str(), true))
                                 throw std::runtime_error(SDL_GetError());
@@ -297,6 +300,22 @@ class SdkBuild {
         phase_ = Phase::Configure;
         status_ = "Checking compiler, Windows SDK, CMake/Ninja and matching FORGE SDK.";
     }
+#ifdef _WIN32
+    std::string windows_environment_value(const char* name) const {
+        // SDL's copied environment hash is case-sensitive; Windows names are not.
+        // Preserve UTF-8 values from the copied environment and use native Windows
+        // name semantics for these ASCII compiler/installer keys only.
+        std::unique_ptr<char*, decltype(&SDL_free)> variables(
+            SDL_GetEnvironmentVariables(environment_), &SDL_free);
+        if (!variables)
+            throw std::runtime_error(SDL_GetError());
+        const auto length = SDL_strlen(name);
+        for (auto** variable = variables.get(); *variable; ++variable)
+            if (SDL_strncasecmp(*variable, name, length) == 0 && (*variable)[length] == '=')
+                return *variable + length + 1;
+        return {};
+    }
+#endif
     void discover_compiler() {
         SDL_DestroyEnvironment(environment_);
         environment_ = SDL_CreateEnvironment(true);
@@ -304,11 +323,10 @@ class SdkBuild {
             throw std::runtime_error(SDL_GetError());
         discovery_.clear();
 #ifdef _WIN32
-        const auto* tools = SDL_GetEnvironmentVariable(environment_, "VCToolsInstallDir");
-        if (!tools || !*tools) {
-            const auto* program_files =
-                SDL_GetEnvironmentVariable(environment_, "ProgramFiles(x86)");
-            if (!program_files)
+        const auto tools = windows_environment_value("VCToolsInstallDir");
+        if (tools.empty()) {
+            const auto program_files = windows_environment_value("ProgramFiles(x86)");
+            if (program_files.empty())
                 throw std::runtime_error(
                     "Visual Studio installer discovery unavailable. Use Run-Forge-Dev.cmd.");
             const auto vswhere = std::filesystem::u8path(program_files) /

@@ -96,3 +96,8 @@ parsing, not every-frame rescans. Build on Save queues one request after a succe
 source save, waits for Stop and saved buffers, and uses the existing build owner.
 It does not infer component registration or introduce arbitrary SDK hot reload.
 Save is disabled during compilation; typing/draft history remain available.
+
+Compiler discovery compares the known Windows environment variable names without
+case sensitivity. The pinned SDL environment snapshot uses case-sensitive hashes;
+Python/other launchers may capitalize the same Windows names differently. Values
+remain UTF-8, are not logged, and changes stay in child-process environments.
