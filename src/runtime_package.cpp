@@ -333,9 +333,10 @@ void prepare_runtime_content_catalog(const ProjectLease& lease, std::span<const 
             const auto bytes =
                 read_bytes(ProjectPaths(lease.root()).resolve(record.source), 64 * 1024 * 1024);
             (void)package_detail::admit_document(record, bytes);
-            require(content_digest(bytes) ==
-                        record.metadata.at("forge.runtime_document").at("sha256"),
-                    "Authored document changed during identity preparation");
+            require(
+                content_digest(bytes) ==
+                    record.metadata.at("forge.runtime_document").at("sha256").get<std::string>(),
+                "Authored document changed during identity preparation");
             publication.add({record.id, record.type, record.source, record.schema_version, {}});
         }
     for (const auto& snapshot : snapshots) {
