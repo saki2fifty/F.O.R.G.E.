@@ -15,6 +15,14 @@ class SdkBuild {
     explicit SdkBuild(std::filesystem::path project) : project_(std::move(project)) {}
     ~SdkBuild() {
         stop_.request_stop();
+        command_.close();
+        if (inspection_.valid()) {
+            try {
+                (void)inspection_.get();
+            } catch (...) {
+            }
+        }
+        cleanup();
         SDL_DestroyEnvironment(environment_);
     }
     bool managed() const {
@@ -116,8 +124,13 @@ class SdkBuild {
             build_ = work_ / "build";
             ninja_ = ninja;
             if (test) {
-                source_ = candidate_root_ / "source";
-                build_ = candidate_root_ / "build";
+                // Keep CMake's nested compiler scratch/PDB paths below Windows limits.
+                // This disposable readiness probe owns no project source or deployment.
+                probe_root_ = std::filesystem::temp_directory_path() /
+                              ("forge-compiler-" + AssetId::generate().str());
+                std::filesystem::create_directory(probe_root_);
+                source_ = probe_root_ / "source";
+                build_ = probe_root_ / "build";
                 std::filesystem::create_directory(source_);
                 for (const auto* name : {"CMakeLists.txt", "gameplay.cpp"})
                     std::filesystem::copy_file(sdk_ / "sdk/template" / name, source_ / name);
@@ -289,7 +302,7 @@ class SdkBuild {
     SDL_Environment* environment_ = nullptr;
     bool testing_ = false, compiler_ready_ = false;
     std::uint64_t log_revision_ = 0;
-    std::filesystem::path source_, build_;
+    std::filesystem::path source_, build_, probe_root_;
     std::string ninja_, discovery_;
     void configure() {
         command_.start({cmake_, "-S", path_utf8(source_), "-B", path_utf8(build_), "-G", "Ninja",
@@ -386,11 +399,15 @@ class SdkBuild {
             throw std::runtime_error("Native SDK installation is incomplete.");
     }
     void cleanup() {
-        if (candidate_root_.empty())
-            return;
         std::error_code ignored;
-        std::filesystem::remove_all(candidate_root_, ignored);
-        candidate_root_.clear();
+        if (!candidate_root_.empty()) {
+            std::filesystem::remove_all(candidate_root_, ignored);
+            candidate_root_.clear();
+        }
+        if (!probe_root_.empty()) {
+            std::filesystem::remove_all(probe_root_, ignored);
+            probe_root_.clear();
+        }
     }
     void fail(const std::string& error) {
         stop_.request_stop();

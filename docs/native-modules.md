@@ -101,3 +101,10 @@ Compiler discovery compares the known Windows environment variable names without
 case sensitivity. The pinned SDL environment snapshot uses case-sensitive hashes;
 Python/other launchers may capitalize the same Windows names differently. Values
 remain UTF-8, are not logged, and changes stay in child-process environments.
+
+The disposable readiness starter uses a unique system-temporary directory rather
+than a nested project candidate build directory: CMake's compiler scratch/PDB
+paths can exceed MSVC path limits even when project source paths fit. SdkBuild
+cleans this directory on success, failure, cancellation and normal teardown after
+its processes finish. Normal gameplay builds keep their existing incremental
+project cache; no project source or working deployment is moved by the probe.
