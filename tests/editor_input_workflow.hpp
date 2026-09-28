@@ -1082,7 +1082,10 @@ class EditorInputWorkflow {
             // visible row can extend above its child clip edge even though its
             // click center is fully visible; scrolling cannot remove that padding.
             if (pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
-                const float direction = pointer_.y < t.clip_minimum.y ? 3.f : -3.f;
+                // Pinned ImGui caps one wheel unit at 0.67 * viewport height.
+                // Three units can jump completely over a short dock; half a unit
+                // moves at most 0.335 * height and cannot skip its visible span.
+                const float direction = pointer_.y < t.clip_minimum.y ? .5f : -.5f;
                 // Use the scrollable window's edge, outside preview images that
                 // correctly consume the wheel for their own camera/image zoom.
                 pointer_.x = t.clip_maximum.x - 1.f;
