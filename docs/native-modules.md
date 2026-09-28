@@ -61,3 +61,38 @@ SDK exports select the matching shared inspection runtime rather than the editor
 static runtime. The final Windows package gate exercises source creation, failed
 compilation, successful replacement, schema admission, real fixed ticks, prefab
 Apply/Undo/Redo and export followed by startup after source deletion/relocation.
+
+## Integrated C++ authoring and compiler readiness
+
+C++ Sources is an editor-only DocumentWorkspace adapter. Each open source owns its
+buffer, upstream widget history, normalized editing baseline and original disk
+bytes. It uses existing ProjectPaths containment and asset_storage atomic replacement
+under the SceneDocument writer lease. Save rejects changed disk bytes; timestamp
+checks provide advisory external-change notices. Reload/discard is explicit. Save
+and history do not mutate scene state. Source/compiler tools are not linked into
+runtime or exported games.
+
+Managed source creation explicitly appends root-level .cpp files to
+Native/forge.sources.cmake. New starters include that optional fragment. Only the
+exact original FORGE starter can be upgraded automatically; custom CMake is never
+rewritten. Headers are created but not compiled as translation units. Creation
+never overwrites existing files. Source plus fragment is not a generic multi-file
+transaction: an interrupted creation can leave an unregistered new source; existing
+compiled modules and scene settings remain unchanged. External/copied sources and
+custom targets require explicit CMake registration.
+
+SdkBuild remains the sole managed compiler task. Installed Visual Studio2022 discovery
+uses vswhere; a disposable developer-environment command reads only PATH, INCLUDE,
+LIB and LIBPATH into child-process SDL environments. No global PATH/registry changes
+are made. CMake/Ninja/compiler/SDK readiness is proved by compiling the installed
+starter, collecting its kit and isolated metadata admission without publishing any
+project settings or replacing an active deployment. Failures/cancellation preserve
+previous good modules. Download help opens Microsoft's official page; installation
+is human-operated. No portable compiler or automatic toolchain upgrade is provided.
+
+MSVC and Clang/GCC-style file/line/column diagnostics route to admitted contained
+C++ source paths. Other diagnostics remain raw logs. Output/revision changes drive
+parsing, not every-frame rescans. Build on Save queues one request after a successful
+source save, waits for Stop and saved buffers, and uses the existing build owner.
+It does not infer component registration or introduce arbitrary SDK hot reload.
+Save is disabled during compilation; typing/draft history remain available.

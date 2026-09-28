@@ -20,7 +20,7 @@ class BuildCommand {
             process_ = nullptr;
         }
     }
-    void start(const std::vector<std::string>& arguments) {
+    void start(const std::vector<std::string>& arguments, SDL_Environment* environment = nullptr) {
         close();
         std::vector<const char*> args;
         for (const auto& argument : arguments)
@@ -30,6 +30,9 @@ class BuildCommand {
         if (!properties)
             throw std::runtime_error(SDL_GetError());
         const bool configured =
+            (!environment ||
+             SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_ENVIRONMENT_POINTER,
+                                    environment)) &&
             SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, args.data()) &&
             SDL_SetNumberProperty(properties, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER,
                                   SDL_PROCESS_STDIO_APP) &&

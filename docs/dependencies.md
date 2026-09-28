@@ -313,3 +313,26 @@ without changing any upstream pin. See the [patch contract and provenance](../cm
 and [validation and remaining warnings](dependency-known-issues.md#pinned-diligentfx-fxc-warnings--verified-2026-09-24).
 Clean builds verify exact revisions, source hashes and patch identity before
 staging modified shader inputs. Upgrades must explicitly review or remove it.
+
+## Editor-only C++ text widget — verified 2026-09-28
+
+ImGuiColorTextEdit official upstream has no tagged stable release. Selected immutable
+snapshot: `ca2f9f1462e3b60e56351bc466acda448c5ea50d`,
+[exact source](https://github.com/BalazsJako/ImGuiColorTextEdit/tree/ca2f9f1462e3b60e56351bc466acda448c5ea50d).
+MIT; notice installed as licenses/ImGuiColorTextEdit.txt. Build only TextEditor.cpp,
+linked to existing pinned ImGui, only in editor/source-widget tests; no runtime,
+gameplay SDK or game linkage. C++ lexical coloring, line numbers, UTF-8 selection,
+indentation, clipboard and Undo/Redo use that source's public interfaces. No language
+interpreter is introduced; FORGE selects the C++ definition only.
+
+Exact source compiled against ImGui1.92.9b. Supply standard cstdint via compiler
+forced include because the upstream implementation/header uses uint8_t without
+including its defining header; FORGE's wrapper includes it explicitly. No upstream
+source patch or dependency upgrade. Upstream identifier descriptions are cleared
+so its intrinsic popups cannot bypass FORGE's global Tooltips preference. Diagnostic
+navigation/help is owned by FORGE rather than upstream error-marker popups.
+Official README/source evidence matches the selected snapshot; no release/version
+number or compatibility with other ImGui revisions is claimed. FORGE bounds opened
+sources at1MiB/32tabs and measures actual editing, rather than relying on upstream
+large-file marketing. New source and end-of-file newline/history checks execute
+against the exact snapshot; Windows delivery/visual evidence is recorded separately.

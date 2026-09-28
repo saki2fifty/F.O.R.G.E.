@@ -42,13 +42,13 @@ The component's usual validation and Undo/Redo apply when you commit the edit.
 
 Prefab properties show **Inherited** or **Overridden** from explicit ownership/override intent. A value equal to its source can still be overridden. **Revert** follows the source again and supports scene Undo/Redo. Whole-component overrides have **Revert component**; independent translation, rotation and scale each have their own Revert.
 
-The lower **Prefab instance** section shows revision/status and **Open prefab source**. **All override operations** is an advanced summary, not another source-editing transaction. Publishing source changes is outside scene Undo. Apply to Prefab remains deferred.
+The lower **Prefab instance** section shows revision/status and **Open prefab source**. **All override operations** is an advanced summary, not another source-editing transaction. Publishing source changes is outside scene Undo. Apply is available from the instance root; see [Prefabs](prefabs.md).
 
 ## More operations
 
 Use the **Entity** menu or Hierarchy context menu to duplicate or delete. Transform reset, snap, ground placement, and color/shape commands are searchable in the [Command palette](commands.md). Ground placement aligns the preview mesh to Y=0; it does not query terrain.
 
-Materials have their own [central editor](materials.md). Multi-selection and arbitrary plugin inspectors are not implemented.
+Materials have their own [central editor](materials.md). Multi-selection exposes shared components and mixed values; see [Hierarchy](entities-hierarchy.md). Arbitrary plugin inspectors are not implemented.
 
 Ordinary fields read label then value; narrow panels stack the label to preserve usable field width. Transform utilities are in its **three-dot** header menu.
 

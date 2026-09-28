@@ -29,6 +29,7 @@
 #include "content_files.hpp"
 #include "content_imports.hpp"
 #include "content_thumbnails.hpp"
+#include "cpp_source_editor.hpp"
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
 #include "ecs_tools.hpp"
@@ -383,6 +384,7 @@ int main(int argc, char** argv) {
         }
 #endif
         bool auto_build = false;
+        bool cpp_build_on_save = false;
         forge::ui::SceneTools scene_tools;
         forge::ui::SpatialHelpers spatial_helpers;
         bool preview_lighting = true;
@@ -411,6 +413,7 @@ int main(int argc, char** argv) {
                 forge::Json j;
                 f >> j;
                 forge::ui::tooltips = j.value("tooltips", true);
+                cpp_build_on_save = j.value("cpp_build_on_save", false);
                 forge::ui::style(j.value("interface_scale", 1.0f));
                 SDL_strlcpy(cmake_path, j.value("cmake", std::string("cmake")).c_str(),
                             sizeof(cmake_path));
@@ -452,6 +455,7 @@ int main(int argc, char** argv) {
                                       {"ninja", ninja_path},
                                       {"exact_sdk_root", exact_sdk_root},
                                       {"auto_build", auto_build},
+                                      {"cpp_build_on_save", cpp_build_on_save},
                                       {"create_at_view_target", blockout.at_view_target},
                                       {"grid", scene_tools.grid},
                                       {"spatial_helpers", spatial_helpers.visible},
@@ -548,6 +552,11 @@ int main(int argc, char** argv) {
         native->ninja = ninja_path;
         native->auto_build = auto_build;
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
+        forge::ui::CppSourceEditor cpp_sources;
+        cpp_sources.project_changed(files.document.project());
+        cpp_sources.build_on_save = cpp_build_on_save;
+        std::uint64_t compiler_log_revision = 0;
+        std::vector<forge::ui::CppDiagnostic> compiler_diagnostics;
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
         forge::DiligentPresentation presentation(device);
@@ -1096,6 +1105,30 @@ int main(int argc, char** argv) {
              {},
              {},
              [&] { return std::exchange(project_settings.close_cancelled, false); }});
+        documents.add(
+            {"cpp_sources",
+             "C++ Sources",
+             "C++ Sources###C++ Sources",
+             true,
+             [&] { return cpp_sources.is_open(); },
+             [&] { return cpp_sources.dirty(); },
+             [&] {
+                 cpp_sources.draw(files.document, editor, files.busy() || content_files.busy(),
+                                  sdk_build->busy() || game_export.busy() ||
+                                      runtime_dependencies.busy());
+             },
+             [&] {
+                 if (sdk_build->busy())
+                     throw std::runtime_error("Wait for the gameplay build before saving source.");
+                 cpp_sources.save(files.document);
+             },
+             [&] { cpp_sources.undo(false); },
+             [&] { cpp_sources.undo(true); },
+             [&] { cpp_sources.request_close(); },
+             [&] { return cpp_sources.can_undo(); },
+             [&] { return cpp_sources.can_redo(); },
+             {},
+             [&] { return std::exchange(cpp_sources.close_cancelled, false); }});
         documents.add({"flecs_script",
                        "Flecs Script",
                        "Flecs Script###Flecs Script",
@@ -1272,6 +1305,22 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("Finish the Content file/cache operation before saving");
             if (!documents.save(editor.task.id()))
                 throw std::runtime_error("Active document cannot save");
+        };
+        cpp_sources.request_build = [&] {
+            if (!sdk_build->managed())
+                throw std::runtime_error("This project uses its external build recipe.");
+            if (play.active() || sdk_build->busy() || native->busy() || files.busy() ||
+                content_files.busy() || game_export.busy() || runtime_dependencies.busy() ||
+                authored_components.busy())
+                throw std::runtime_error(
+                    "Stop Play and finish pending project work before building.");
+            if (cpp_sources.dirty())
+                throw std::runtime_error("Save or discard all C++ source drafts before building.");
+            cpp_sources.build_pending = false;
+            sdk_build->build(files.document,
+                             exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
+                                               : std::filesystem::path(base) / "NativeSdk",
+                             cmake_path, ninja_path);
         };
         char entity_name[1024]{};
         bool running = true;
@@ -1507,6 +1556,9 @@ int main(int argc, char** argv) {
                     native = std::make_unique<forge::NativeBuild>(
                         active_project, std::filesystem::path(base) / "sdk", runtime_path);
                     sdk_build = std::make_unique<forge::SdkBuild>(active_project);
+                    cpp_sources.project_changed(active_project);
+                    compiler_diagnostics.clear();
+                    compiler_log_revision = 0;
                     native->cmake = cmake_path;
                     native->ninja = ninja_path;
                     native->auto_build = auto_build;
@@ -1636,6 +1688,17 @@ int main(int argc, char** argv) {
                 play.sdk_diag_slow("runtime_ui.sync", SDL_GetTicks() - _t0);
             }
             sdk_build->pump(files.document);
+            if (compiler_log_revision != sdk_build->log_revision()) {
+                compiler_log_revision = sdk_build->log_revision();
+                compiler_diagnostics =
+                    forge::ui::cpp_diagnostics(files.document.project(), sdk_build->log());
+            }
+            if (cpp_sources.build_pending && cpp_sources.build_on_save && !cpp_sources.dirty() &&
+                sdk_build->managed() && !play.active() && !sdk_build->busy() && !native->busy() &&
+                !files.busy() && !content_files.busy() && !authored_components.busy() &&
+                !game_export.busy() && !runtime_dependencies.busy()) {
+                perform(cpp_sources.request_build);
+            }
             native->simulation_hz = files.document.settings().simulation_hz();
             native->gravity = files.document.settings().physics().gravity;
             if (!files.document.settings().requires_native_sdk() && !sdk_build->managed()) {
@@ -1729,6 +1792,9 @@ int main(int argc, char** argv) {
                                      play.active() || (native->busy() || sdk_build->busy()) ||
                                      files.busy() || scene_tools.move.active() || modal.active() ||
                                      blockout.active();
+            cpp_sources.build_enabled = sdk_build->managed() && !edit_locked &&
+                                        !content_files.busy() && !authored_components.busy() &&
+                                        !cpp_sources.dirty();
             document_locked = edit_locked;
             asset_document_locked = game_export.busy() || runtime_dependencies.busy() ||
                                     (native->busy() || sdk_build->busy()) || files.busy() ||
@@ -1768,8 +1834,9 @@ int main(int argc, char** argv) {
                         action.unavailable_reason =
                             "Stop Play or finish the active gesture, file operation or build.";
                     else if (action.id == "undo" || action.id == "redo")
-                        action.unavailable_reason = "This task has no available history step. "
-                                                    "Prefab/Settings drafts have no Undo history.";
+                        action.unavailable_reason =
+                            "This task has no available history step. "
+                            "The active task does not provide this history action.";
                     else if (!scene_task)
                         action.unavailable_reason =
                             "Select the Scene task for this authored-entity action.";
@@ -1801,18 +1868,25 @@ int main(int argc, char** argv) {
                 "scene.lighting", "Scene / Lighting", "",
                 "Edit environment lighting, sky and game exposure using Scene Save and Undo.", true,
                 [&] { scene_lighting_open = true; });
+            const bool cpp_task = editor.task.id() == "cpp_sources";
+            const bool task_save_locked =
+                cpp_task ? (files.busy() || content_files.busy() || sdk_build->busy() ||
+                            game_export.busy() || runtime_dependencies.busy())
+                         : edit_locked;
+            const bool task_history_locked =
+                cpp_task ? (files.busy() || content_files.busy()) : edit_locked;
             add_action("save", std::string("Save / ") + editor.task.name(), "Ctrl+S",
                        "Save or Publish the active task. Scene, prefab and settings have "
                        "independent ownership.",
-                       !edit_locked, [&] { files.save_active(); });
+                       !task_save_locked, [&] { files.save_active(); });
             add_action(
                 "undo", std::string("Undo / ") + editor.task.name(), "Ctrl+Z",
                 "Undo in the active task. Prefab and Settings drafts do not provide history.",
-                !edit_locked && documents.history(editor.task.id(), false),
+                !task_history_locked && documents.history(editor.task.id(), false),
                 [&] { documents.undo(editor.task.id(), false); });
             add_action("redo", std::string("Redo / ") + editor.task.name(), "Ctrl+Y",
                        "Redo in the active task. Ctrl+Shift+Z also works.",
-                       !edit_locked && documents.history(editor.task.id(), true),
+                       !task_history_locked && documents.history(editor.task.id(), true),
                        [&] { documents.undo(editor.task.id(), true); });
             for (auto entry : forge::ui::palette_entries(selected, scene_tools.snap_step,
                                                          camera.target, blockout.at_view_target)) {
@@ -3866,6 +3940,10 @@ int main(int argc, char** argv) {
             }
             script_editor.poll(files.document, editor.problems);
             documents.draw();
+            if (cpp_build_on_save != cpp_sources.build_on_save) {
+                cpp_build_on_save = cpp_sources.build_on_save;
+                perform(save_preferences);
+            }
             cache_tools.draw(
                 files.busy() || files.changed || scene_tools.move.active() || modal.active() ||
                 blockout.active() || play.active() || (native->busy() || sdk_build->busy()) ||
@@ -3918,8 +3996,10 @@ int main(int argc, char** argv) {
                                                   : std::filesystem::path(base) / "NativeSdk";
                     ImGui::BeginDisabled(play.active() || sdk_build->busy());
                     if (ImGui::InputText("Native SDK folder", exact_sdk_root,
-                                         sizeof(exact_sdk_root)))
+                                         sizeof(exact_sdk_root))) {
+                        sdk_build->invalidate_compiler();
                         perform(save_preferences);
+                    }
                     forge::ui::help("Machine-local matching installation with bin and sdk. Blank "
                                     "uses NativeSdk beside this editor.");
                     ImGui::EndDisabled();
@@ -3932,6 +4012,14 @@ int main(int argc, char** argv) {
                                               "Counter to an entity."))
                             perform([&] { sdk_build->create(files.document, selected_sdk); });
                         ImGui::EndDisabled();
+                    }
+                    if (native->has_source()) {
+                        if (forge::ui::button(
+                                "Open C++ source",
+                                "Edit Native/gameplay.cpp inside FORGE. Other source files can be "
+                                "opened or created in the C++ Sources window."))
+                            perform(
+                                [&] { cpp_sources.open(files.document, "Native/gameplay.cpp"); });
                     }
                     if (files.document.settings().requires_native_sdk() || sdk_build->managed()) {
                         ImGui::TextWrapped(
@@ -3947,10 +4035,7 @@ int main(int argc, char** argv) {
                                                   "validate in an isolated runtime. "
                                                   "A successful build registers the new module. "
                                                   "Stop Play first."))
-                                perform([&] {
-                                    sdk_build->build(files.document, selected_sdk, cmake_path,
-                                                     ninja_path);
-                                });
+                                perform(cpp_sources.request_build);
                             ImGui::EndDisabled();
                             if (sdk_build->busy() &&
                                 forge::ui::button(
@@ -3965,21 +4050,68 @@ int main(int argc, char** argv) {
                                 ImGui::TextWrapped("%s", sdk_build->error().c_str());
                                 FORGE_UI_PROBE("sdk:build-error");
                             }
-                            if (ImGui::TreeNode("Compiler setup")) {
-                                if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path)))
+                            const bool compiler_setup_open = ImGui::TreeNode("Compiler setup");
+                            FORGE_UI_PROBE("sdk:compiler-setup");
+                            if (compiler_setup_open) {
+                                ImGui::BeginDisabled(play.active() || sdk_build->busy());
+                                if (forge::ui::button(
+                                        "Test compiler tools",
+                                        "Find installed tools, compile a matching SDK starter and "
+                                        "load it in an isolated worker. Does not replace your "
+                                        "gameplay module."))
+                                    perform([&] {
+                                        sdk_build->test_compiler(files.document, selected_sdk,
+                                                                 cmake_path, ninja_path);
+                                    });
+                                ImGui::EndDisabled();
+                                if (forge::ui::button("Get C++ Build Tools",
+                                                      "Open Microsoft's official Build Tools "
+                                                      "download page. No automatic installation."))
+                                    SDL_OpenURL("https://visualstudio.microsoft.com/downloads/"
+                                                "#build-tools-for-visual-studio-2022");
+                                ImGui::TextUnformatted(sdk_build->compiler_ready()
+                                                           ? "Compiler test passed"
+                                                           : "Compiler readiness not verified");
+                                forge::ui::help(
+                                    "The test checks compiler, SDK headers/libraries, CMake, Ninja "
+                                    "and exact module compatibility. Editing and exported games do "
+                                    "not require these tools.");
+                                if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
+                                    sdk_build->invalidate_compiler();
                                     perform(save_preferences);
+                                }
                                 forge::ui::help(
                                     "CMake from the installed SDK's supported toolchain. Runtime "
                                     "deployment requires its policies.");
-                                if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path)))
+                                if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
+                                    sdk_build->invalidate_compiler();
                                     perform(save_preferences);
+                                }
                                 forge::ui::help("Ninja executable. Launch FORGE from the matching "
                                                 "x64 Native Tools prompt for MSVC.");
                                 ImGui::TreePop();
                             }
                             forge::ui::help("Machine-local compiler commands; the SDK validates "
                                             "compiler, flags, architecture and CRT.");
-                            if (ImGui::TreeNode("SDK build output")) {
+                            const bool sdk_output_open = ImGui::TreeNode("SDK build output");
+                            FORGE_UI_PROBE("sdk:build-output");
+                            if (sdk_output_open) {
+                                for (std::size_t i = 0; i < compiler_diagnostics.size(); ++i) {
+                                    const auto& diagnostic = compiler_diagnostics[i];
+                                    ImGui::PushID(int(i));
+                                    const auto label = diagnostic.source + ":" +
+                                                       std::to_string(diagnostic.line) + " — " +
+                                                       diagnostic.message;
+                                    if (forge::ui::button(label.c_str(),
+                                                          "Open this project C++ source at the "
+                                                          "reported line and column."))
+                                        perform([&] {
+                                            cpp_sources.open(files.document, diagnostic.source,
+                                                             diagnostic.line, diagnostic.column);
+                                        });
+                                    FORGE_UI_PROBE("cpp:diagnostic:" + std::to_string(i));
+                                    ImGui::PopID();
+                                }
                                 ImGui::TextUnformatted(sdk_build->log().c_str());
                                 ImGui::TreePop();
                             }
@@ -4376,6 +4508,10 @@ int main(int argc, char** argv) {
                         ? forge::read_json(files.document.project() /
                                            material_editor.document()->locator())
                         : forge::Json(nullptr);
+                observed["cpp_source"] = cpp_sources.active_source();
+                observed["cpp_source_text"] = cpp_sources.active_text();
+                observed["cpp_source_dirty"] = cpp_sources.dirty();
+                observed["compiler_ready"] = sdk_build->compiler_ready();
                 observed["sdk_build_busy"] = sdk_build->busy();
                 observed["sdk_build_error"] = sdk_build->error();
                 observed["sdk_build_managed"] = sdk_build->managed();

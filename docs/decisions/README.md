@@ -6,7 +6,7 @@ checkpoints link to the current contracts; decision-time baseline and deferred t
 remains historical. See [render features](../render-features.md), [asset formats](../asset-formats.md)
 and [delivery status](../status.md) for current capability and validation limits.
 Physical graphics acceptance has its documented limits; Phase8 is complete and
-Phase9 authoring workflow validation is in progress.
+Phase9 authoring workflows are implemented and automatically accepted.
 
 | Record | Decision |
 | --- | --- |
@@ -19,7 +19,7 @@ Phase9 authoring workflow validation is in progress.
 | [007](007-resource-lifetime.md) | Asset references and runtime resource leases differ |
 | [008](008-rendering-assets.md) | One mesh/material rendering path |
 | [009](009-coordinates.md) | Explicit engine and boundary conventions |
-| [010](010-scripting-layers.md) | Native, Flecs Script and future high-level scripting |
+| [010](010-scripting-layers.md) | C++ gameplay, integrated source editing and editor/runtime separation |
 | [011](011-standalone-runtime.md) | Reusable visual host around an independent simulation |
 | [012](012-threading.md) | Owners, stages and bounded jobs |
 | [013](013-persistence.md) | Authored documents, recovery, save games and network state differ |

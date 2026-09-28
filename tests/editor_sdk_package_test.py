@@ -336,9 +336,14 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     # workloads after timed gameplay acceptance, keeping scenarios independent.
     onboarding = evidence / 'onboarding'
     onboarding.mkdir(parents=True, exist_ok=True)
+    onboarding_env = os.environ.copy()
+    # Prove discovery without requiring the special developer launcher. Keep
+    # installed CMake/Ninja available; compiler INCLUDE/LIB are initialized by FORGE.
+    for key in ('VCToolsInstallDir', 'INCLUDE', 'LIB', 'LIBPATH'):
+        onboarding_env.pop(key, None)
     with (onboarding/'fixture.log').open('w', encoding='utf-8') as stream:
         starter = subprocess.Popen([str(fixture_dst), str(onboarding), '--sdk-onboarding', str(sdk_root)],
-                                   cwd=extracted, env=os.environ.copy(), stdout=stream, stderr=subprocess.STDOUT)
+                                   cwd=extracted, env=onboarding_env, stdout=stream, stderr=subprocess.STDOUT)
         try:
             starter_code = starter.wait(timeout=360)
         except subprocess.TimeoutExpired:

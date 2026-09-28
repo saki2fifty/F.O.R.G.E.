@@ -1,31 +1,55 @@
-# ADR 010 — Three scripting layers
+# ADR 010 — C++ gameplay and integrated source editing
 
-Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
-validation is complete. Future implementation requires its own authorized scope.
+Original decision: 2026-09-19. Revised by explicit user instruction: 2026-09-28.
+This revision supersedes the proposed future high-level gameplay language and
+visual-scripting layer. The integrated C++ editor is implemented in source; Windows acceptance and delivery are pending.
 
 ## Decision
 
-Keep three distinct layers: exact native gameplay modules for C/C++ systems;
-Flecs Script for ECS data/world construction and procedural recipes; a future
-high-level gameplay language/visual scripting layer, deliberately not selected yet.
-All ultimately use the same ECS authority and fixed runtime clock.
+C++ is FORGE's sole supported direction for gameplay programming. Do not introduce
+Lua, another gameplay language, a gameplay VM or a separate visual gameplay language.
+Provide a C++ source editor inside FORGE so users can create, open, edit, save,
+build and diagnose project gameplay code without switching to an external IDE.
+External IDEs remain optional. Existing native module, ECS and fixed-runtime
+owners continue to execute compiled gameplay; source editing does not create a
+second runtime or component authority.
 
-## Current evidence and implementation boundary
+The editor exists in FORGE only. Exported games must not contain a FORGE editor,
+source-editing interface or authoring/compilation workflow. Existing runtime UI,
+player settings and development diagnostics are not game editors.
 
-native_sdk.cpp, module_api.h and flecs_script.cpp implement the first two different
-boundaries. The stable pin lacks the development asynchronous Script APIs and native
-Meta maps; those are tracked rather than imitated.
+## Existing implementation and compatibility
 
-## Consequences
+Phase9 provides C++ source generation, managed build, isolated admission and
+export. The current authoring batch adds integrated source editing. Preserve existing
+failed-build retention, process separation and exact-SDK compatibility checks.
+Rich exact-SDK changes remain Stop/build/Play; do not imply arbitrary C++ hot reload.
 
-The future layer must define sandbox/trust, VM ownership, deterministic modes,
-asset identity, debug/reload and native bindings before adoption. Graph UI reuse
-is permitted; a universal graph evaluator is not assumed. Native code remains trusted,
-not a security sandbox.
+Flecs Script remains the already accepted ECS data/world construction and recipe
+facility (ADR003), not a second gameplay programming language. Shader source,
+UI markup and serialized asset data likewise are not gameplay language choices.
+This decision does not remove the C-compatible module ABI or break existing C17
+compatibility; new user-facing gameplay onboarding and editor work target C++.
 
-## Deferred work and exact trigger
+## Performance requirement
 
-Select the high-level language only when an authorized gameplay-language work
-package supplies concrete designer/debug/platform requirements. Reserve stable
-component/property/command IDs and isolated runtime lifecycle now. No new foundational
-dependency or language runtime is introduced by this architecture package.
+FORGE must remain performance-minded in both editor and exported runtime. Keep
+compilation and substantial source analysis outside the UI frame path, reuse
+incremental build outputs, and keep editor-only source tools out of runtime targets
+and exports. Assess representative editing responsiveness, build latency, runtime
+CPU/frame time and memory when affected. C++ alone is not evidence of performance;
+use measurements and existing ECS/ownership contracts to justify optimizations.
+Do not introduce a language runtime or duplicate build manager for this feature.
+
+## Planned acceptance
+
+Open/create project C++ files; edit/save with source undo/redo, syntax highlighting,
+line numbers and search; build with the existing Gameplay Code owner; navigate
+compiler diagnostics to file/line; inspect/attach admitted components and Play;
+verify a bad build preserves the last good module. External edits and unsaved
+source must have explicit conflict/save behavior. Verify editor responsiveness
+and export a game that runs without editor UI, sources, SDK or compiler tools.
+
+Completion-aware editing, debugger integration and more advanced IDE features
+need separately defined scope and evidence; they are not implicitly delivered.
+No editor widget/library or new dependency is selected by this decision.

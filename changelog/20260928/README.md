@@ -59,3 +59,31 @@ The completed gate is recorded below.
 - Phase9 implementation and automated acceptance are complete. Physical hardware
   acceptance remains separate; reference-game FPS/smoothness feedback stays deferred.
   Phase10 has not begun.
+
+## Gameplay authoring direction — planned
+
+- User selected C++ as the sole gameplay programming direction and requested a
+  C++ source editor inside FORGE. External IDEs will remain optional.
+- Superseded the proposed future gameplay language/visual scripting layer in
+  ADR010. Existing Flecs construction recipes and C-compatible ABI remain intact.
+- Explicitly exclude FORGE editor/source-authoring tools from exported games.
+- Require measured editor/runtime performance and reuse of the existing build
+  workflow. This is a documented plan, not a newly implemented editor or delivery.
+
+## Integrated C++ authoring — implementation, acceptance pending
+
+- Added central C++ source tabs with highlighting, line numbers, source Undo/Redo,
+  search, file creation/registration and baseline-checked atomic saves. External
+  edits receive notices and explicit reload; dirty close prompts preserve drafts.
+- Added installed Visual Studio2022 discovery and an isolated matching-SDK compiler
+  test that never publishes into the project. Official download help is provided;
+  no portable compiler or automatic installation.
+- Added contained file/line compiler navigation and optional queued Build on Save,
+  using the existing managed compiler/admission/export owners. Gameplay changes
+  remain Stop/build/Play; source tools stay out of exported games.
+- Pinned an editor-only MIT text widget; existing dependency pins, runtime ABI and
+  authored formats remain unchanged. Added focused editing/file/conflict/diagnostic
+  tests and real source-editing/compiler-test input acceptance.
+- Corrected stale Inspector/prefab manual statements contradicting delivered Phase9.
+- Local checks and Windows capture/delivery evidence are recorded separately;
+  implementation is not yet claimed as accepted Windows delivery.

@@ -47,7 +47,7 @@ FORGE validates the candidate and prepares replacement instances before replacin
 
 A successful publication updates non-overridden values. Existing overrides remain intact. **Discard edits** restores the window's last published contents. Closing an unsaved source asks Publish, Discard or Cancel.
 
-**History boundary:** publishing a source change affecting the current scene clears that scene's Undo/Redo history. Scene Undo does not undo shared prefab-asset edits. Save your scene after a source change adds new members so their new object mappings are persisted. Apply from an instance back into its source is not available.
+**History boundary:** publishing a source change affecting the current scene clears that scene's Undo/Redo history. Scene Undo does not undo shared prefab-asset edits. Save your scene after a source change adds new members so their new object mappings are persisted. Apply from an instance uses the separate coordinated workflow below.
 
 Prefab authoring is disabled while Play, native builds, file dialogs or transform gestures are active. Stop Play before publishing; the next Play session receives the updated prefab definitions.
 

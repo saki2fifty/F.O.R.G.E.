@@ -3,14 +3,19 @@
 #include "../authored_inspection.hpp"
 #include "document.hpp"
 #include "native_build.hpp"
+#include <cstdint>
 #include <future>
+#include <sstream>
 namespace forge {
 // Stopped-only exact-SDK compiler task. All library admission remains isolated.
 // The project manifest is the publication point; failed candidates never replace it.
 class SdkBuild {
   public:
     explicit SdkBuild(std::filesystem::path project) : project_(std::move(project)) {}
-    ~SdkBuild() { stop_.request_stop(); }
+    ~SdkBuild() {
+        stop_.request_stop();
+        SDL_DestroyEnvironment(environment_);
+    }
     bool managed() const {
         return std::filesystem::is_regular_file(project_ / "Native/forge.sdk-project.json");
     }
@@ -18,6 +23,14 @@ class SdkBuild {
     const std::string& status() const { return status_; }
     const std::string& error() const { return error_; }
     const std::string& log() const { return log_; }
+    std::uint64_t log_revision() const { return log_revision_; }
+    bool testing() const { return testing_; }
+    bool compiler_ready() const { return compiler_ready_; }
+    void invalidate_compiler() { compiler_ready_ = false; }
+    void test_compiler(SceneDocument& project, const std::filesystem::path& sdk,
+                       const std::string& cmake, const std::string& ninja) {
+        build(project, sdk, cmake, ninja, true);
+    }
     std::filesystem::path module_kits(const ProjectSettings& settings) const {
         if (!kits_.empty())
             return kits_;
@@ -60,29 +73,35 @@ class SdkBuild {
         }
     }
     void build(SceneDocument& project, std::filesystem::path sdk, const std::string& cmake,
-               const std::string& ninja) {
+               const std::string& ninja, bool test = false) {
         if (busy())
             return;
         try {
             project.check_ownership();
             check_sdk(sdk);
-            if (!managed())
+            if (!test && !managed())
                 throw std::runtime_error(
                     "This project uses an external SDK build. Its sources were not changed.");
-            const auto marker = read_json(project_ / "Native/forge.sdk-project.json");
+            const auto marker = test ? Json{{"format", "forge.sdk-project"},
+                                            {"version", 1},
+                                            {"module", "project.gameplay"}}
+                                     : read_json(project_ / "Native/forge.sdk-project.json");
             if (marker.value("format", "") != "forge.sdk-project" || marker.at("version") != 1 ||
                 marker.at("module") != "project.gameplay")
                 throw std::runtime_error("Unsupported gameplay build recipe.");
+            testing_ = test;
+            compiler_ready_ = false;
             sdk_ = std::filesystem::absolute(sdk);
             cmake_ = cmake;
             expected_ = project.settings().document();
             for (const auto& module : expected_.value("modules", Json::array()))
-                if (module.is_object() && module.value("id", "") != "project.gameplay")
+                if (!test && module.is_object() && module.value("id", "") != "project.gameplay")
                     throw std::runtime_error(
                         "Additional external SDK modules require your external build workflow; "
                         "the managed starter never rewrites their deployment.");
             candidate_ = expected_;
             log_.clear();
+            ++log_revision_;
             error_.clear();
             work_ = ProjectPaths(project_).resolve(".forge/sdk-build");
             std::filesystem::create_directories(work_);
@@ -92,12 +111,18 @@ class SdkBuild {
                 throw std::runtime_error("Cannot open SDK build log.");
             candidate_root_ = work_ / AssetId::generate().str();
             std::filesystem::create_directory(candidate_root_);
-            command_.start({cmake_, "-S", (project_ / "Native").string(), "-B",
-                            (work_ / "build").string(), "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
-                            "-DForgeNativeSdk_DIR=" + (sdk_ / "sdk").string(),
-                            "-DCMAKE_MAKE_PROGRAM=" + ninja});
-            phase_ = Phase::Configure;
-            status_ = "Configuring with the matching installed SDK.";
+            source_ = project_ / "Native";
+            build_ = work_ / "build";
+            ninja_ = ninja;
+            if (test) {
+                source_ = candidate_root_ / "source";
+                build_ = candidate_root_ / "build";
+                std::filesystem::create_directory(source_);
+                for (const auto* name : {"CMakeLists.txt", "gameplay.cpp"})
+                    std::filesystem::copy_file(sdk_ / "sdk/template" / name, source_ / name);
+                candidate_["modules"] = Json::array();
+            }
+            discover_compiler();
         } catch (const std::exception& e) {
             fail(e.what());
             throw;
@@ -123,6 +148,14 @@ class SdkBuild {
                 (void)inspection_.get();
                 if (stop_.stop_requested())
                     throw std::runtime_error("SDK build cancelled.");
+                if (testing_) {
+                    phase_ = Phase::Idle;
+                    compiler_ready_ = true;
+                    status_ = "Compiler ready: matching SDK module compiled and loaded in an "
+                              "isolated worker. Project unchanged.";
+                    cleanup();
+                    return;
+                }
                 const auto deployment =
                     ProjectPaths(project_).resolve("Native/Builds") / AssetId::generate().str();
                 unpublished_deployment_ = deployment;
@@ -144,15 +177,50 @@ class SdkBuild {
                 kits_.swap(published_kits);
                 phase_ = Phase::Idle;
                 status_.swap(completed_status);
+                compiler_ready_ = true;
                 cleanup();
                 return;
             }
             std::string output;
             int code = 0;
             const bool finished = command_.pump(output, code);
+            if (phase_ == Phase::Discover || phase_ == Phase::Environment) {
+                discovery_ += output;
+                if (discovery_.size() > 128 * 1024)
+                    throw std::runtime_error("Compiler discovery output exceeded its bound.");
+                if (!finished)
+                    return;
+                if (code)
+                    throw std::runtime_error(
+                        "Compiler discovery failed. Install Visual Studio 2022 C++ Build Tools and "
+                        "Windows SDK, or use Run-Forge-Dev.cmd.");
+                if (phase_ == Phase::Discover)
+                    prepare_environment();
+                else {
+                    std::istringstream lines(discovery_);
+                    std::string line;
+                    while (std::getline(lines, line)) {
+                        if (!line.empty() && line.back() == '\r')
+                            line.pop_back();
+                        const auto split = line.find('=');
+                        if (split == std::string::npos)
+                            continue;
+                        const auto key = line.substr(0, split);
+                        if (key == "Path" || key == "PATH" || key == "INCLUDE" || key == "LIB" ||
+                            key == "LIBPATH")
+                            if (!SDL_SetEnvironmentVariable(environment_, key.c_str(),
+                                                            line.substr(split + 1).c_str(), true))
+                                throw std::runtime_error(SDL_GetError());
+                    }
+                    configure();
+                }
+                return;
+            }
             log_file_ << output;
             log_file_.flush();
             log_ += output;
+            if (!output.empty())
+                ++log_revision_;
             if (log_.size() > 256 * 1024)
                 log_.erase(0, log_.size() - 256 * 1024);
             if (!finished)
@@ -161,14 +229,15 @@ class SdkBuild {
                 throw std::runtime_error("SDK build command failed (" + std::to_string(code) +
                                          "). See build output; last good module retained.");
             if (phase_ == Phase::Configure) {
-                command_.start({cmake_, "--build", (work_ / "build").string(), "--target",
-                                "gameplay", "--parallel", "2"});
+                command_.start({cmake_, "--build", path_utf8(build_), "--target", "gameplay",
+                                "--parallel", "2"},
+                               environment_);
                 phase_ = Phase::Compile;
                 status_ = "Compiling gameplay; previous module retained.";
             } else if (phase_ == Phase::Compile) {
-                command_.start({cmake_, "--install", (work_ / "build").string(), "--component",
-                                "GameplayRuntime", "--prefix",
-                                (candidate_root_ / "kits").string()});
+                command_.start({cmake_, "--install", path_utf8(build_), "--component",
+                                "GameplayRuntime", "--prefix", path_utf8(candidate_root_ / "kits")},
+                               environment_);
                 phase_ = Phase::Install;
                 status_ = "Preparing complete runtime deployment kit.";
             } else {
@@ -210,10 +279,76 @@ class SdkBuild {
     }
 
   private:
-    enum class Phase { Idle, Configure, Compile, Install, Inspect };
+    enum class Phase { Idle, Discover, Environment, Configure, Compile, Install, Inspect };
     Phase phase_ = Phase::Idle;
     std::filesystem::path project_, sdk_, work_, candidate_root_, kits_, unpublished_deployment_;
     BuildCommand command_;
+    SDL_Environment* environment_ = nullptr;
+    bool testing_ = false, compiler_ready_ = false;
+    std::uint64_t log_revision_ = 0;
+    std::filesystem::path source_, build_;
+    std::string ninja_, discovery_;
+    void configure() {
+        command_.start({cmake_, "-S", path_utf8(source_), "-B", path_utf8(build_), "-G", "Ninja",
+                        "-DCMAKE_BUILD_TYPE=Release",
+                        "-DForgeNativeSdk_DIR=" + path_utf8(sdk_ / "sdk"),
+                        "-DCMAKE_MAKE_PROGRAM=" + ninja_},
+                       environment_);
+        phase_ = Phase::Configure;
+        status_ = "Checking compiler, Windows SDK, CMake/Ninja and matching FORGE SDK.";
+    }
+    void discover_compiler() {
+        SDL_DestroyEnvironment(environment_);
+        environment_ = SDL_CreateEnvironment(true);
+        if (!environment_)
+            throw std::runtime_error(SDL_GetError());
+        discovery_.clear();
+#ifdef _WIN32
+        const auto* tools = SDL_GetEnvironmentVariable(environment_, "VCToolsInstallDir");
+        if (!tools || !*tools) {
+            const auto* program_files =
+                SDL_GetEnvironmentVariable(environment_, "ProgramFiles(x86)");
+            if (!program_files)
+                throw std::runtime_error(
+                    "Visual Studio installer discovery unavailable. Use Run-Forge-Dev.cmd.");
+            const auto vswhere = std::filesystem::u8path(program_files) /
+                                 "Microsoft Visual Studio/Installer/vswhere.exe";
+            if (!std::filesystem::is_regular_file(vswhere))
+                throw std::runtime_error("C++ Build Tools not found. Install Visual Studio 2022 "
+                                         "C++ Build Tools with Windows SDK.");
+            command_.start({path_utf8(vswhere), "-latest", "-products", "*", "-version",
+                            "[17.0,18.0)", "-utf8", "-requires",
+                            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property",
+                            "installationPath"});
+            phase_ = Phase::Discover;
+            status_ = "Finding installed Visual Studio 2022 C++ tools.";
+            return;
+        }
+#endif
+        configure();
+    }
+    void prepare_environment() {
+#ifdef _WIN32
+        while (!discovery_.empty() && (discovery_.back() == '\r' || discovery_.back() == '\n'))
+            discovery_.pop_back();
+        if (discovery_.empty() || discovery_.find_first_of("\r\n\"") != std::string::npos)
+            throw std::runtime_error("No supported Visual Studio 2022 C++ installation found.");
+        const auto devcmd = std::filesystem::u8path(discovery_) / "Common7/Tools/VsDevCmd.bat";
+        if (!std::filesystem::is_regular_file(devcmd))
+            throw std::runtime_error("C++ developer environment is incomplete.");
+        const auto script = candidate_root_ / "compiler-environment.cmd";
+        asset_storage::replace(script, "@echo off\r\nchcp 65001 >nul\r\ncall \"" +
+                                           path_utf8(devcmd) +
+                                           "\" -arch=x64 -host_arch=x64 >nul\r\nif errorlevel 1 "
+                                           "exit /b 1\r\nset PATH\r\nset INCLUDE\r\nset LIB\r\n");
+        discovery_.clear();
+        command_.start({"cmd.exe", "/d", "/s", "/c", "\"" + path_utf8(script) + "\""});
+        phase_ = Phase::Environment;
+        status_ = "Preparing compiler environment for child processes only.";
+#else
+        configure();
+#endif
+    }
     Json expected_, candidate_;
     std::future<Json> inspection_;
     std::stop_source stop_;

@@ -81,7 +81,28 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "starter-created") {
+        if (what == "cpp-source-empty") {
+            require(state.at("cpp_source_text").get<std::string>().size() < 2,
+                    "Delete did not clear C++ source");
+            require(state.at("cpp_source_dirty").get<bool>() && entities.size() == 3,
+                    "Source Delete changed scene or failed to record source history");
+        } else if (what == "cpp-diagnostic-source") {
+            require(state.at("cpp_source") == "Native/gameplay.cpp",
+                    "Compiler diagnostic opened wrong source");
+        } else if (what == "compiler-ready") {
+            require(!state.at("sdk_build_busy").get<bool>() &&
+                        state.at("compiler_ready").get<bool>(),
+                    "Compiler test did not complete successfully");
+            require(state.at("project_settings").value("modules", Json::array()).empty(),
+                    "Compiler test published gameplay into the project");
+        } else if (what == "cpp-source-dirty" || what == "cpp-source-saved") {
+            require(state.at("cpp_source") == "Native/extra.cpp", "Wrong source tab active");
+            require(state.at("cpp_source_text").get<std::string>().find("forge_extra_source") !=
+                        std::string::npos,
+                    "Actual C++ source input missing");
+            require(state.at("cpp_source_dirty").get<bool>() == (what == "cpp-source-dirty"),
+                    "C++ source save/dirty state incorrect");
+        } else if (what == "starter-created") {
             require(state.at("sdk_build_managed"), "Gameplay source was not created");
         } else if (what == "starter-built" || what == "starter-rebuilt") {
             require(!state.at("sdk_build_busy").get<bool>(), "SDK build still running");
@@ -452,7 +473,32 @@ class EditorInputWorkflow {
             capture("gameplay-create");
             click("button:Create C++ gameplay project");
             check("starter-created");
-            click("button:Build gameplay");
+            click("sdk:compiler-setup");
+            click("button:Test compiler tools");
+            check("compiler-ready");
+            capture("compiler-ready");
+            click("button:Open C++ source");
+            capture("cpp-source-editor");
+            text("cpp:new-filename", "extra.cpp");
+            click("button:Create source file");
+            text("cpp:editor", "int forge_extra_source() { return 9; }", true);
+            check("cpp-source-dirty");
+            click("cpp:build-on-save");
+            key(ImGuiKey_S, true);
+            check("cpp-source-saved");
+            capture("cpp-source-saved");
+            click("cpp:editor");
+            key(ImGuiKey_A, true);
+            key(ImGuiKey_Delete);
+            check("cpp-source-empty");
+            key(ImGuiKey_Z, true);
+            check("cpp-source-saved");
+            key(ImGuiKey_Y, true);
+            check("cpp-source-empty");
+            key(ImGuiKey_Z, true);
+            check("cpp-source-saved");
+            click("cpp:build-on-save");
+            click("tab:Native");
             check("starter-built");
             hover("sdk:build-status");
             capture("gameplay-built");
@@ -461,6 +507,12 @@ class EditorInputWorkflow {
             check("starter-rejected");
             hover("sdk:build-error");
             capture("gameplay-build-rejected");
+            click("sdk:build-output");
+            hover("cpp:diagnostic:0");
+            click("cpp:diagnostic:0");
+            check("cpp-diagnostic-source");
+            capture("cpp-compiler-diagnostic");
+            click("tab:Native");
             steps_.push_back({Kind::SourceEdit, "starter-restore"});
             click("button:Build gameplay");
             check("starter-rebuilt");
@@ -986,11 +1038,12 @@ class EditorInputWorkflow {
         if (!since_)
             since_ = SDL_GetTicks();
         const auto& step = steps_[index_];
-        const auto limit = step.kind == Kind::Check && (step.value == "starter-built" ||
-                                                        step.value == "starter-rebuilt" ||
-                                                        step.value == "starter-rejected")
-                               ? 180000u
-                               : 12000u;
+        const auto limit =
+            step.kind == Kind::Check &&
+                    (step.value == "compiler-ready" || step.value == "starter-built" ||
+                     step.value == "starter-rebuilt" || step.value == "starter-rejected")
+                ? 180000u
+                : 12000u;
         if (SDL_GetTicks() - since_ > limit) {
             failure_ = "Timed out at step " + std::to_string(index_) + ": " + step.value + " " +
                        last_check_;

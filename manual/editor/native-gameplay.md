@@ -1,6 +1,6 @@
 # Native gameplay
 
-Gameplay Code creates and builds C++ source for the current project. Use **Create C++ gameplay project** for Flecs components and systems. The separate **Create source** / **Build & Reload** controls retain the constrained ABI1 movement workflow described below.
+Gameplay Code creates and builds C++ source for the current project. **C++ Sources** lets you edit it inside FORGE. Use **Create C++ gameplay project** for Flecs components and systems. The separate **Create source** / **Build & Reload** controls retain the constrained ABI1 movement workflow described below.
 
 ## Prepare Windows tools
 
@@ -38,7 +38,7 @@ it is not the stable ABI1 movement interface described above.
 1. Launch **Run-Forge-Dev.cmd** to provide the matching Visual Studio compiler environment. Use the NativeSdk shipped with this editor. In **Gameplay Code**, choose **Create C++ gameplay project**. Existing files in Native are never overwritten.
 2. Choose **Build gameplay**. FORGE configures CMake, compiles the module, collects its runtime dependencies and validates the candidate in a separate process. On success it updates the project module declaration. A failed build preserves the last good module and settings.
 3. Choose **Inspect components**. Select a scene entity, use **+ Add Component**, search **Gameplay Counter**, and add it. Its **rate** determines the value added each simulation second; **value** is its starting value. Save the scene.
-4. Press **Play**. The template's Flecs system advances the counter in the isolated fixed-step runtime. Edit `Native/gameplay.cpp` in your code editor to change gameplay. **Stop**, rebuild, then **Play** again. Rich SDK registrations are restart-bound; this is not hot reload.
+4. Press **Play**. The template's Flecs system advances the counter in the isolated fixed-step runtime. Choose **Open C++ source** in Gameplay Code to edit `Native/gameplay.cpp` inside FORGE; an external code editor remains optional. **Stop**, rebuild, then **Play** again. Rich SDK registrations are restart-bound; this is not hot reload.
 5. Expand **Compiler setup** for CMake/Ninja paths, or **SDK build output** for compiler diagnostics. **Cancel build** leaves the previous module active. The complete compiler log is `.forge/sdk-build/build.log`.
 6. Use **Run → Export Game...** after saving your scene and setting startup/game defaults. FORGE selects the managed module kits automatically, including after reopening the project. The exported folder contains the runtime dependencies and does not need the editor, compiler or source project.
 
@@ -147,3 +147,52 @@ object to the editor's saved scene or its Undo history. The SDK guide includes t
 code, scene-selection rules, cancellation and lifetime details.
 
 The migration review stays within the available editor area at larger interface scales. **Rules (JSON)** appears above its text field so the label remains readable. Scroll the review when its contents need more space; opening it does not change the scene or prefab.
+
+## Check your compiler tools
+
+In **Gameplay Code**, create a C++ gameplay project, then expand **Compiler setup**.
+Choose **Test compiler tools**. FORGE finds supported installed Visual Studio2022
+C++ tools and tests the compiler, Windows SDK, CMake, Ninja and matching FORGE SDK
+by building and checking a separate starter module. Your gameplay and project
+settings stay unchanged. Wait for **Compiler ready**; a failure explains the
+missing tool or incompatible build in the status/output.
+
+**Get C++ Build Tools** opens Microsoft's official download page. Install the C++
+Build Tools and Windows SDK, then test again. There is no portable compiler download
+or automatic installation. CMake/Ninja fields accept explicit executable paths.
+Changing tool paths requires another test. Editing source alone and running an
+exported game do not require the compiler.
+
+## Edit C++ inside FORGE
+
+1. In Gameplay Code, select **Open C++ source** to open `Native/gameplay.cpp` in the central **C++ Sources** window. Its **Source path → Open file** controls let you open another project C++ file.
+2. Edit with C++ highlighting, line numbers and indentation. Each file has its own tab and Undo/Redo. **Ctrl+F** focuses Find; **Find next** selects a match and wraps.
+3. **Save source** or **Ctrl+S** saves the active file. The star identifies unsaved source. Saving code is separate from saving your scene. Close asks you to save, discard or cancel when code is unsaved.
+4. Save every edited source before **Build gameplay**. **SDK build output** lists clickable project-file diagnostics: click one to open the reported line/column. External SDK/generated-file errors remain visible in the raw log.
+5. After a successful build, **Inspect components**, add an opted-in component to an entity, and Play. Changing code does not automatically expose a new component.
+
+**New source filename → Create source file** creates a `.cpp` or `.hpp` directly
+inside Native and opens its tab. New `.cpp` files are registered for the managed
+build; `.hpp` files are headers. Existing files are never overwritten. An old
+unchanged FORGE starter is updated automatically to support source registration.
+Custom build recipes require the displayed CMake include instruction; files copied
+in externally also need explicit CMake registration.
+
+Enable **Build on Save** in C++ Sources to queue a build after saving. It waits
+until Play stops, existing work finishes and all source drafts are saved. It never
+silently saves your drafts. You may keep typing during a build, but save after it
+finishes. **Stop → Build → Play** remains the exact-SDK iteration workflow; neither
+Windows nor the editor needs a reboot for an ordinary gameplay change.
+
+If another editor changes a file, FORGE shows a notice. A conflicting Save keeps
+your draft and rejects the overwrite. Reopening a file without unsaved edits refreshes
+its disk contents and source history. **Reload from disk** asks before discarding
+that draft and its history. Sources must be valid UTF-8, at most 1 MiB per file;
+close a tab before exceeding 32 open files. This is a source editor, not a full IDE:
+autocompletion, debugger integration and unrestricted C++ hot reload are not provided.
+
+Export includes the compiled gameplay module and runtime dependencies. It does
+not include the C++ editor, compiler or source files.
+
+Export uses the last successfully built gameplay module. Save and build your code
+changes before exporting; unsaved drafts and failed builds are not included.

@@ -79,8 +79,8 @@ These are placement requirements, **not implemented features**.
 
 | Feature | Content / primary surface | Entity/Inspector or supporting tool |
 | --- | --- | --- |
-| Native/text scripting | C++ project source/external IDE; Flecs Script central source document | Gameplay Code builds/reloads; future behavior attachment |
-| Visual scripting | Script Graph asset → central graph editor | Entity behavior reference |
+| C++ gameplay | Central C++ source editor; external IDE optional | Existing Gameplay Code build/admission and entity component attachment; no arbitrary SDK hot reload |
+| ECS construction recipes | Existing Flecs Script central source document | Data/world construction, not a second gameplay language |
 | Materials | Material asset → central Material Editor | Rendering material reference |
 | Shaders | Shader asset → central source/graph editor | Material/shader references; diagnostics in Problems |
 | Animation | Skeleton/clip → central Animation Editor | Animator and references |
@@ -170,3 +170,8 @@ clip/variant/name choices. File operations retain their reviewed transaction own
 source publication is never presented as a scene Undo step. Derived cache work is
 on demand, drains imports, owns the project lease through completion and changes
 only disposable data. Reimport remains necessary after clearing selected artifacts.
+
+Gameplay programming is C++ only under [ADR010](decisions/010-scripting-layers.md).
+The integrated C++ editor is implemented in source; Windows acceptance and delivery are pending.
+No FORGE editor or source-editing UI belongs in a running exported game.
+Material, animation and other domain graphs do not imply visual gameplay scripting.
