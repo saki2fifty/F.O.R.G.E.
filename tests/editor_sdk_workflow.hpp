@@ -508,6 +508,11 @@ class EditorSdkWorkflow {
         entry["snapshot_version"] = play.snapshot_version();
         entry["activation_generation"] = play.sdk_activation_generation();
         entry["status"] = play.status();
+        entry["input_routing"] = game_input_captured();
+        entry["input_epoch"] = play.current_effective_epoch();
+        entry["input_epoch_confirmed"] = play.editor_epoch_confirmed();
+        entry["platform_effects"] = play.sdk_platform_effects();
+        entry["release_required"] = play.sdk_release_required();
         trace_["stages"].push_back(std::move(entry));
         stage_ = next;
         stage_started_ = SDL_GetTicks();
@@ -533,6 +538,11 @@ class EditorSdkWorkflow {
                     {"position_z", player_position(play)[2]},
                     {"timing", play.timing()},
                     {"input", play.input_status()},
+                    {"input_routing", game_input_captured()},
+                    {"input_epoch", play.current_effective_epoch()},
+                    {"input_epoch_confirmed", play.editor_epoch_confirmed()},
+                    {"platform_effects", play.sdk_platform_effects()},
+                    {"release_required", play.sdk_release_required()},
                     {"prompt", model.value("prompt", std::string{})},
                     {"save_z", save_z_},
                     {"save_interactions", save_interactions_}};
@@ -658,6 +668,14 @@ class EditorSdkWorkflow {
         const bool gameplay_input_ready = rel_mouse && !play.paused() &&
                                           play.sdk_platform_effects().empty() &&
                                           !play.sdk_release_required();
+        // A visible menu/listening model can precede a cursor-routing acknowledgement.
+        // The corresponding neutral edge cancels RuntimeInput's rebind listener.
+        // Exercise rebinding only after that edge and observation have settled.
+        const auto input_epoch = play.current_effective_epoch();
+        const bool menu_input_ready = game_input_captured() && !rel_mouse && play.paused() &&
+                                      play.sdk_platform_effects().empty() &&
+                                      !play.sdk_release_required() && input_epoch != 0 &&
+                                      play.editor_epoch_confirmed() >= input_epoch;
 
         // Gate native Rml input: do not drive when the live context is
         // staged (not the published live document) or when no unique
@@ -1057,18 +1075,19 @@ class EditorSdkWorkflow {
             }
             return;
         }
-        if (stage_ == 5 && page == "pause" && live_rml) {
+        if (stage_ == 5 && page == "pause" && live_rml && menu_input_ready) {
             capture("sdk-pause", play);
             if (activate(window, "Options"))
                 append_stage(6, play, "options");
             return;
         }
-        if (stage_ == 6 && page == "options" && live_rml) {
+        if (stage_ == 6 && page == "options" && live_rml && menu_input_ready) {
             if (activate(window, "Rebind Jump"))
                 append_stage(7, play, "rebind");
             return;
         }
-        if (stage_ == 7 && model_binding(model).rfind("Press a key", 0) == 0 && live_rml) {
+        if (stage_ == 7 && model_binding(model).rfind("Press a key", 0) == 0 && live_rml &&
+            menu_input_ready) {
             capture("sdk-listening", play);
             tap_key(window, SDL_SCANCODE_J, SDLK_J);
             append_stage(8, play, "J pressed");
