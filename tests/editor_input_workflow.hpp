@@ -480,8 +480,10 @@ class EditorInputWorkflow {
             click("content:prefabs");
             click("button:Create from selection");
             key(ImGuiKey_Escape);
-            // New prefab is selected as an asset; controls also appear in Inspector.
-            click("button:Instantiate");
+            key(ImGuiKey_Escape);
+            // Close both nested Content popups, then use the selected asset's
+            // existing Inspector placement action.
+            click("action:asset.place");
             key(ImGuiKey_S, true);
             check("apply-instance");
             click("tab:Scene");
