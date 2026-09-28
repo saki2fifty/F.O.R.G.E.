@@ -180,155 +180,161 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
-    # ---- launch fixture with bounded watchdog --------------------------
-    env = os.environ.copy()
-    env['PATH'] = str(Path(os.environ.get('SystemRoot', 'C:/Windows'))
-                      / 'System32')
-    command = [str(fixture_dst),
-               str(output_dir),
-               '--sdk-play',
-               str(project_dir),
-               str(sdk_root),
-               str(userdata)]
-    fixture_log = log_path('fixture.log')
-    with fixture_log.open('w', encoding='utf-8', newline='') as stream:
-        process = subprocess.Popen(command,
-                                   cwd=str(extracted),
-                                   env=env,
-                                   stdout=stream,
-                                   stderr=subprocess.STDOUT)
-        # Fixture has its own 240s bound for a clean run; give the
-        # watchdog margin beyond that so a final screenshot/trace
-        # flush can complete before we tear the process tree down.
-        try:
-            returncode = process.wait(timeout=300)
-        except subprocess.TimeoutExpired:
-            terminate_tree(process)
-            raise AssertionError('Fixture executable exceeded 300s watchdog')
+    reference_failure = None
+    try:
+        # ---- launch fixture with bounded watchdog --------------------------
+        env = os.environ.copy()
+        env['PATH'] = str(Path(os.environ.get('SystemRoot', 'C:/Windows'))
+                          / 'System32')
+        command = [str(fixture_dst),
+                   str(output_dir),
+                   '--sdk-play',
+                   str(project_dir),
+                   str(sdk_root),
+                   str(userdata)]
+        fixture_log = log_path('fixture.log')
+        with fixture_log.open('w', encoding='utf-8', newline='') as stream:
+            process = subprocess.Popen(command,
+                                       cwd=str(extracted),
+                                       env=env,
+                                       stdout=stream,
+                                       stderr=subprocess.STDOUT)
+            # Fixture has its own 240s bound for a clean run; give the
+            # watchdog margin beyond that so a final screenshot/trace
+            # flush can complete before we tear the process tree down.
+            try:
+                returncode = process.wait(timeout=300)
+            except subprocess.TimeoutExpired:
+                terminate_tree(process)
+                raise AssertionError('Fixture executable exceeded 300s watchdog')
 
-    if returncode != 0:
-        # Surface test-only crash capture if the fixture installed one.
-        # The fixture registers a SetUnhandledExceptionFilter that writes
-        # a best-effort exception record + module + offset + last
-        # breadcrumb to <output>/fixture-crash.txt via plain Win32 file
-        # I/O before the CRT terminates the process. Reading it back
-        # here turns an opaque 0xC0000005 into a useful crash record
-        # without changing the underlying acceptance gate. Breadcrumbs
-        # are interleaved with normal stdout/stderr in the existing
-        # fixture_log.
-        crash_path = output_dir / 'fixture-crash.txt'
-        extras = []
-        if crash_path.is_file():
-            extras.append('Fixture crash record at ' + str(crash_path))
-        extras.append('Fixture stdout/stderr log at ' + str(fixture_log))
-        message = 'Fixture executable returned non-zero exit code: ' + str(returncode)
-        if extras:
-            message += '\n' + '\n'.join(extras)
-        raise AssertionError(message)
+        if returncode != 0:
+            # Surface test-only crash capture if the fixture installed one.
+            # The fixture registers a SetUnhandledExceptionFilter that writes
+            # a best-effort exception record + module + offset + last
+            # breadcrumb to <output>/fixture-crash.txt via plain Win32 file
+            # I/O before the CRT terminates the process. Reading it back
+            # here turns an opaque 0xC0000005 into a useful crash record
+            # without changing the underlying acceptance gate. Breadcrumbs
+            # are interleaved with normal stdout/stderr in the existing
+            # fixture_log.
+            crash_path = output_dir / 'fixture-crash.txt'
+            extras = []
+            if crash_path.is_file():
+                extras.append('Fixture crash record at ' + str(crash_path))
+            extras.append('Fixture stdout/stderr log at ' + str(fixture_log))
+            message = 'Fixture executable returned non-zero exit code: ' + str(returncode)
+            if extras:
+                message += '\n' + '\n'.join(extras)
+            raise AssertionError(message)
 
-    # ---- assert evidence schema, identity, captures --------------------
-    workflow_path = output_dir / 'workflow.json'
-    if not workflow_path.is_file():
-        raise AssertionError('Final workflow.json missing under: '
-                             + str(output_dir))
-    trace = json.loads(workflow_path.read_text(encoding='utf-8'))
+        # ---- assert evidence schema, identity, captures --------------------
+        workflow_path = output_dir / 'workflow.json'
+        if not workflow_path.is_file():
+            raise AssertionError('Final workflow.json missing under: '
+                                 + str(output_dir))
+        trace = json.loads(workflow_path.read_text(encoding='utf-8'))
 
-    def assert_field(trace, key, expected, summary):
-        actual = trace.get(key)
-        if actual != expected:
-            summary[key] = {'actual': actual, 'expected': expected}
-            raise AssertionError('Trace field mismatch for ' + key + ': ' +
-                                 json.dumps(summary, default=str))
+        def assert_field(trace, key, expected, summary):
+            actual = trace.get(key)
+            if actual != expected:
+                summary[key] = {'actual': actual, 'expected': expected}
+                raise AssertionError('Trace field mismatch for ' + key + ': ' +
+                                     json.dumps(summary, default=str))
 
-    summary = {}
-    assert_field(trace, 'complete', True, summary)
-    assert_field(trace, 'source_commit', manifest.get('source_commit'), summary)
-    assert_field(trace, 'build_id', manifest.get('build_id'), summary)
-    assert_field(trace, 'scene_round_trip', True, summary)
-    assert_field(trace, 'save_load', True, summary)
-    assert_field(trace, 'binding_persisted_same_process', True, summary)
-    assert_field(trace, 'binding_persisted_restart', True, summary)
-    assert_field(trace, 'sdk_play', True, summary)
-    # Focus-gated menu routing regression: the helper refused to
-    # set complete=true unless the surrender → click Capture
-    # gameplay input → restore sequence reached the gameplay
-    # substate. Asserted as REQUIRED because the adapter's
-    # acquire_routing predicate now depends on the Game panel
-    # holding ImGui focus; without this gate the SDK runtime can
-    # silently reclaim logical routing after the user surrenders
-    # it by clicking outside the Game panel. Acceptance must not
-    # pass on shipped editor builds that bypass this coverage.
-    assert_field(trace, 'focus_gated_routing', True, summary)
+        summary = {}
+        assert_field(trace, 'complete', True, summary)
+        assert_field(trace, 'source_commit', manifest.get('source_commit'), summary)
+        assert_field(trace, 'build_id', manifest.get('build_id'), summary)
+        assert_field(trace, 'scene_round_trip', True, summary)
+        assert_field(trace, 'save_load', True, summary)
+        assert_field(trace, 'binding_persisted_same_process', True, summary)
+        assert_field(trace, 'binding_persisted_restart', True, summary)
+        assert_field(trace, 'sdk_play', True, summary)
+        # Focus-gated menu routing regression: the helper refused to
+        # set complete=true unless the surrender → click Capture
+        # gameplay input → restore sequence reached the gameplay
+        # substate. Asserted as REQUIRED because the adapter's
+        # acquire_routing predicate now depends on the Game panel
+        # holding ImGui focus; without this gate the SDK runtime can
+        # silently reclaim logical routing after the user surrenders
+        # it by clicking outside the Game panel. Acceptance must not
+        # pass on shipped editor builds that bypass this coverage.
+        assert_field(trace, 'focus_gated_routing', True, summary)
 
-    # The fixture writes complete=true captures as PPM images named
-    # editor-<label>.ppm and sidecar JSONs named sdk-<label>.json.
-    expected_captures = [
-        'sdk-play-active',
-        'sdk-main-menu',
-        'sdk-gameplay',
-        'sdk-outside-surrender',
-        'sdk-outside-regain',
-        'sdk-interaction',
-        'sdk-moved',
-        'sdk-pause',
-        'sdk-candidate',
-        'sdk-applied',
-        'sdk-rebound-jump',
-        'sdk-saved',
-        'sdk-main-returned',
-        'sdk-restored',
-        'sdk-persisted-binding',
-        'sdk-editor-recovered',
-        'sdk-restart-loaded',
-        'sdk-restarted-persisted-binding',
-        'sdk-editor-usable',
-    ]
-    missing_ppm = [name for name in expected_captures
-                   if not (output_dir / ('editor-' + name + '.ppm')).is_file()]
-    if missing_ppm:
-        summary['missing_ppm'] = missing_ppm
-        raise AssertionError('Required stage PPM captures missing: '
-                             + ', '.join(missing_ppm))
-    empty_ppm = [name for name in expected_captures
-                 if (output_dir / ('editor-' + name + '.ppm')).stat().st_size == 0]
-    if empty_ppm:
-        summary['empty_ppm'] = empty_ppm
-        raise AssertionError('Required stage PPM captures empty: '
-                             + ', '.join(empty_ppm))
-    missing_sidecar = [name for name in expected_captures
-                       if not (output_dir / ('sdk-' + name + '.json')).is_file()]
-    if missing_sidecar:
-        summary['missing_sidecar'] = missing_sidecar
-        raise AssertionError('Required stage sidecar JSONs missing: '
-                             + ', '.join(missing_sidecar))
+        # The fixture writes complete=true captures as PPM images named
+        # editor-<label>.ppm and sidecar JSONs named sdk-<label>.json.
+        expected_captures = [
+            'sdk-play-active',
+            'sdk-main-menu',
+            'sdk-gameplay',
+            'sdk-outside-surrender',
+            'sdk-outside-regain',
+            'sdk-interaction',
+            'sdk-moved',
+            'sdk-pause',
+            'sdk-candidate',
+            'sdk-applied',
+            'sdk-rebound-jump',
+            'sdk-saved',
+            'sdk-main-returned',
+            'sdk-restored',
+            'sdk-persisted-binding',
+            'sdk-editor-recovered',
+            'sdk-restart-loaded',
+            'sdk-restarted-persisted-binding',
+            'sdk-editor-usable',
+        ]
+        missing_ppm = [name for name in expected_captures
+                       if not (output_dir / ('editor-' + name + '.ppm')).is_file()]
+        if missing_ppm:
+            summary['missing_ppm'] = missing_ppm
+            raise AssertionError('Required stage PPM captures missing: '
+                                 + ', '.join(missing_ppm))
+        empty_ppm = [name for name in expected_captures
+                     if (output_dir / ('editor-' + name + '.ppm')).stat().st_size == 0]
+        if empty_ppm:
+            summary['empty_ppm'] = empty_ppm
+            raise AssertionError('Required stage PPM captures empty: '
+                                 + ', '.join(empty_ppm))
+        missing_sidecar = [name for name in expected_captures
+                           if not (output_dir / ('sdk-' + name + '.json')).is_file()]
+        if missing_sidecar:
+            summary['missing_sidecar'] = missing_sidecar
+            raise AssertionError('Required stage sidecar JSONs missing: '
+                                 + ', '.join(missing_sidecar))
 
-    # Persist the acceptance summary into the evidence directory so
-    # the upload step can publish it. output_dir is already under
-    # evidence and contains the workflow.json, sidecars, and PPMs.
-    captures = sorted(p.name for p in output_dir.iterdir()
-                      if p.is_file()
-                      and (p.suffix in ('.ppm', '.json')
-                           or p.name == 'sdk-workflow-failure.json'))
-    (evidence / 'editor-sdk-acceptance.json').write_text(json.dumps({
-        'fixture_exit_code': returncode,
-        'fixture_log': str(fixture_log),
-        'fixture_output': str(output_dir),
-        'workflow': str(workflow_path),
-        'complete': trace.get('complete'),
-        'source_commit': trace.get('source_commit'),
-        'build_id': trace.get('build_id'),
-        'package_source_commit': manifest.get('source_commit'),
-        'package_build_id': manifest.get('build_id'),
-        'scene_round_trip': trace.get('scene_round_trip'),
-        'save_load': trace.get('save_load'),
-        'binding_persisted_same_process': trace.get('binding_persisted_same_process'),
-        'binding_persisted_restart': trace.get('binding_persisted_restart'),
-        'sdk_play': trace.get('sdk_play'),
-        'focus_gated_routing': trace.get('focus_gated_routing'),
-        'captures': captures,
-        'hardware': 'WARP rasterizer on Windows CI; physical GPU acceptance '
-                    'requires manual local execution and is not asserted here.',
-    }, indent=2), encoding='utf-8')
+        # Persist the acceptance summary into the evidence directory so
+        # the upload step can publish it. output_dir is already under
+        # evidence and contains the workflow.json, sidecars, and PPMs.
+        captures = sorted(p.name for p in output_dir.iterdir()
+                          if p.is_file()
+                          and (p.suffix in ('.ppm', '.json')
+                               or p.name == 'sdk-workflow-failure.json'))
+        (evidence / 'editor-sdk-acceptance.json').write_text(json.dumps({
+            'fixture_exit_code': returncode,
+            'fixture_log': str(fixture_log),
+            'fixture_output': str(output_dir),
+            'workflow': str(workflow_path),
+            'complete': trace.get('complete'),
+            'source_commit': trace.get('source_commit'),
+            'build_id': trace.get('build_id'),
+            'package_source_commit': manifest.get('source_commit'),
+            'package_build_id': manifest.get('build_id'),
+            'scene_round_trip': trace.get('scene_round_trip'),
+            'save_load': trace.get('save_load'),
+            'binding_persisted_same_process': trace.get('binding_persisted_same_process'),
+            'binding_persisted_restart': trace.get('binding_persisted_restart'),
+            'sdk_play': trace.get('sdk_play'),
+            'focus_gated_routing': trace.get('focus_gated_routing'),
+            'captures': captures,
+            'hardware': 'WARP rasterizer on Windows CI; physical GPU acceptance '
+                        'requires manual local execution and is not asserted here.',
+        }, indent=2), encoding='utf-8')
+
+    except Exception as failure:
+        reference_failure = failure
+        (evidence/'reference-failure.txt').write_text(str(failure), encoding='utf-8')
 
     # Ordinary project authoring through shipped Gameplay Code and export controls.
     # Keep the compiler environment for this separate source-building scenario;
@@ -365,6 +371,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
                           cwd=relocated_starter,env=runtime_env,capture_output=True,text=True,timeout=60)
     (onboarding/'relocated-startup.log').write_text(result.stdout+'\n'+result.stderr)
     if result.returncode: raise AssertionError('Relocated starter startup failed: '+result.stderr)
+
+    if reference_failure is not None:
+        raise reference_failure
 
 
 print('Editor SDK acceptance against final package passed: '
