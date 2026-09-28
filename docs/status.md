@@ -1,13 +1,37 @@
-# Phase 9 authoring checkpoint — 2026-09-28
+# Phase 9 complete — 2026-09-28
 
-Build260928-000109 delivered multi-selection and batch authoring. The remaining
-SDK onboarding and coordinated Apply source implementation is now in validation:
-installed gameplay template, stopped-only builds and isolated admission, managed
-module-kit export, typed prefab/scene journal and durable Scene history. Focused
-core/editor document and installed-header starter checks pass. The coherent Windows
-package/input/capture gate remains pending; this is not full Phase9 completion.
-See [native modules](native-modules.md), [prefabs](prefabs.md) and
-[ADR017](decisions/017-prefab-apply.md). Historical deliveries follow.
+Build **260928-000117**, compiled source
+`efa67a2bb20c06e5d21e69cd0c2e4776810cb433`, completes the authorized Phase 9
+implementation and automated acceptance:
+
+- Multi-selection, mixed-value Inspector and atomic batch authoring.
+- Exact-SDK C++ starter, managed builds, failed-build retention, isolated component
+  admission/attachment and author-to-export workflow.
+- Reviewed Apply to Prefab, coordinated prefab/scene publication, recovery,
+  conflict checks and durable Undo/Redo with monotonic revisions.
+- Fresh saved scene/prefab identity admission for reachable export dependencies.
+- Updated technical documentation and user how-to manual.
+
+The [source gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36440905658)
+passed all eight required build/test job roles (Linux/Windows core and shared SDK,
+editor, formatting, graphical shared game and relocation). Its package job failed
+an existing reference-fixture deadline. The
+[final package gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36448103341)
+reused those exact compiled artifacts and passed both the 24-transition reference
+workflow and 98-step native onboarding, including relocated exported-game startup.
+Both scenarios remain mandatory; assertions and deadlines were unchanged.
+The compiler-heavy onboarding now runs after timed reference acceptance.
+This passing ordering does not establish the cause of earlier deadline misses.
+
+The numbered ZIP was verified, promoted and redundant staging cleaned. Changed
+Windows captures were visually reviewed on D3D12 WARP. Physical GPU, input feel,
+audio and DPI acceptance remain separate. The user's reference-game FPS/smoothness
+feedback remains explicitly deferred; no performance fix is claimed.
+No Phase 10 work has begun.
+
+See [native modules](native-modules.md), [prefabs](prefabs.md),
+[ADR017](decisions/017-prefab-apply.md), [gameplay how-to](../manual/editor/native-gameplay.md)
+and [daily changes](../changelog/20260928/README.md). Earlier entries are historical.
 
 # FORGE implementation and validation status
 
@@ -38,9 +62,11 @@ Strict sanitizer evidence includes the affected worker/UI-package tests after th
 publication-race correction, plus attributable earlier core and focused SDK checks.
 The approved Flecs managed-include finding remains separately classified.
 
-Phase8 is not complete: editor Play does not yet host the standalone session/storage
-control loop. Physical mouse/controller feel, GPU/display, speakers, mixed DPI and
-extended play remain separate from hosted WARP acceptance. No Phase9 work is included.
+At this Build74 checkpoint, Phase8 was not complete: editor Play did not yet host
+the standalone session/storage control loop. Phase8 subsequently completed in
+Build260927-000105; the current Phase9 delivery includes that foundation.
+Physical mouse/controller feel, GPU/display, speakers, mixed DPI and extended play
+remain separate from hosted WARP acceptance. Build74 included no Phase9 work.
 
 See [reference game](../manual/reference-game.md), [gameplay services](gameplay-services.md),
 [input](input.md), [standalone host](standalone-host.md),

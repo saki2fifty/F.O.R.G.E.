@@ -1,7 +1,11 @@
 # ADR 017 — Coordinated Apply to Prefab
 
 Date: 2026-09-28. Authorized in the complete Phase 9 work package.
-Implementation and acceptance evidence are pending.
+Implemented and automatically accepted in Build **260928-000117**.
+[Source build/test gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36440905658)
+and [final assembled-package acceptance](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36448103341)
+cover the coordinated publication and author-to-export workflow. Physical desktop
+acceptance remains separate.
 
 ## Ownership and scope
 

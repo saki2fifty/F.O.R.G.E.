@@ -292,3 +292,10 @@ the SDK. Onboarding traces, compiler diagnostics and captures are retained in
 `FORGE-Editor-SDK-Acceptance/onboarding`. Observation probes expose widget geometry
 only; mouse/key input performs authoring and scrolling. The unchanged New Project
 menu is not claimed as tested merely because the fixture creates a project.
+
+The package gate runs timed reference-game acceptance before compiler-heavy native
+onboarding; both scenarios are mandatory. Build117's final package-only gate reused
+its unchanged source-validated compiled artifacts. Earlier ordering produced two
+reference snapshot deadline failures despite successful onboarding. The passing
+isolation run does not prove a runtime cause or a performance correction; no
+shipping timing, deadlines or assertions were changed.
