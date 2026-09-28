@@ -448,10 +448,12 @@ class EditorInputWorkflow {
             check("starter-created");
             click("button:Build gameplay");
             check("starter-built");
+            hover("sdk:build-status");
             capture("gameplay-built");
             steps_.push_back({Kind::SourceEdit, "starter-break"});
             click("button:Build gameplay");
             check("starter-rejected");
+            hover("sdk:build-error");
             capture("gameplay-build-rejected");
             steps_.push_back({Kind::SourceEdit, "starter-restore"});
             click("button:Build gameplay");
@@ -466,6 +468,7 @@ class EditorInputWorkflow {
             key(ImGuiKey_Escape);
             key(ImGuiKey_S, true);
             check("saved");
+            hover("component-field:project.counter:value");
             capture("gameplay-counter-inspector");
             click("icon:play");
             check("starter-ticked");

@@ -278,3 +278,17 @@ errors against the same staged dependency patch. The GPU differential reference
 intentionally compiles the original upstream function with its original warning;
 review production warnings separately. A focused audit does not replace the full
 core/shared-SDK/editor/relocation/package gate for numbered delivery.
+
+## Phase 9 installed-SDK onboarding acceptance
+
+The final assembled-package job also starts an ordinary empty project and drives
+real widgets for gameplay source creation, successful build, failed-build retention,
+rebuild, component admission/attachment and a fixed-runtime effect. It creates a
+prefab, reviews/cancels/applies instance overrides, checks durable Undo/Redo, and
+exports the authored game. The exported folder is relocated and verified without
+the source project or developer tools on PATH. Compiler tools remain available
+only during the authoring build, using the same pinned MSVC/CMake/Ninja setup as
+the SDK. Onboarding traces, compiler diagnostics and captures are retained in
+`FORGE-Editor-SDK-Acceptance/onboarding`. Observation probes expose widget geometry
+only; mouse/key input performs authoring and scrolling. The unchanged New Project
+menu is not claimed as tested merely because the fixture creates a project.

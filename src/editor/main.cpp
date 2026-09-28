@@ -3958,10 +3958,13 @@ int main(int argc, char** argv) {
                                     "Keep the previous module and stop this candidate."))
                                 sdk_build->cancel();
                             ImGui::TextWrapped("%s", sdk_build->status().c_str());
+                            FORGE_UI_PROBE("sdk:build-status");
                             forge::ui::help("Source: Native/gameplay.cpp. Full compiler output: "
                                             ".forge/sdk-build/build.log.");
-                            if (!sdk_build->error().empty())
+                            if (!sdk_build->error().empty()) {
                                 ImGui::TextWrapped("%s", sdk_build->error().c_str());
+                                FORGE_UI_PROBE("sdk:build-error");
+                            }
                             if (ImGui::TreeNode("Compiler setup")) {
                                 if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path)))
                                     perform(save_preferences);

@@ -196,6 +196,7 @@ class ComponentInspector {
                     key == "forge.mesh_renderer" && name == "materials" && material_slots
                         ? material_slots(values.at(key), value)
                         : property_field(project.project(), field, value);
+                FORGE_UI_PROBE("component-field:" + key + ":" + name);
                 if (changed)
                     edit_property(scene, entity, key, name, value);
                 if (ImGui::BeginPopupContextItem("property-actions")) {
