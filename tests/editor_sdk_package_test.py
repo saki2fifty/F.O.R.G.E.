@@ -346,8 +346,11 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     onboarding_env = os.environ.copy()
     # Prove discovery without requiring the special developer launcher. Keep
     # installed CMake/Ninja available; compiler INCLUDE/LIB are initialized by FORGE.
-    for key in ('VCToolsInstallDir', 'INCLUDE', 'LIB', 'LIBPATH'):
-        onboarding_env.pop(key, None)
+    for key in list(onboarding_env):
+        name = key.upper()
+        if name in ('VCTOOLSINSTALLDIR', 'INCLUDE', 'LIB', 'LIBPATH') or name.startswith(('VSCMD_', '__VSCMD_')):
+            onboarding_env.pop(key, None)
+
     with (onboarding/'fixture.log').open('w', encoding='utf-8') as stream:
         starter = subprocess.Popen([str(fixture_dst), str(onboarding), '--sdk-onboarding', str(sdk_root)],
                                    cwd=extracted, env=onboarding_env, stdout=stream, stderr=subprocess.STDOUT)
