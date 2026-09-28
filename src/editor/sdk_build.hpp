@@ -342,7 +342,10 @@ class SdkBuild {
                                            "\" -arch=x64 -host_arch=x64 >nul\r\nif errorlevel 1 "
                                            "exit /b 1\r\nset PATH\r\nset INCLUDE\r\nset LIB\r\n");
         discovery_.clear();
-        command_.start({"cmd.exe", "/d", "/s", "/c", "\"" + path_utf8(script) + "\""});
+        // SDL quotes ordinary arguments for a C runtime, not cmd shell commands.
+        // A fixed basename plus child cwd avoids shell interpretation of project paths.
+        command_.start({"cmd.exe", "/d", "/s", "/c", "compiler-environment.cmd"}, nullptr,
+                       candidate_root_);
         phase_ = Phase::Environment;
         status_ = "Preparing compiler environment for child processes only.";
 #else

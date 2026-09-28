@@ -334,7 +334,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     # Keep the compiler environment for this separate source-building scenario;
     # reference/relocated checks above removed toolchain PATH entries. Run compiler
     # workloads after timed gameplay acceptance, keeping scenarios independent.
-    onboarding = evidence / 'onboarding'
+    onboarding = evidence / 'onboarding with spaces'
     onboarding.mkdir(parents=True, exist_ok=True)
     onboarding_env = os.environ.copy()
     # Prove discovery without requiring the special developer launcher. Keep

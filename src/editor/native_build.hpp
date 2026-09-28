@@ -20,7 +20,8 @@ class BuildCommand {
             process_ = nullptr;
         }
     }
-    void start(const std::vector<std::string>& arguments, SDL_Environment* environment = nullptr) {
+    void start(const std::vector<std::string>& arguments, SDL_Environment* environment = nullptr,
+               const std::filesystem::path& directory = {}) {
         close();
         std::vector<const char*> args;
         for (const auto& argument : arguments)
@@ -29,7 +30,11 @@ class BuildCommand {
         const auto properties = SDL_CreateProperties();
         if (!properties)
             throw std::runtime_error(SDL_GetError());
+        const auto working_directory = path_utf8(directory);
         const bool configured =
+            (directory.empty() ||
+             SDL_SetStringProperty(properties, SDL_PROP_PROCESS_CREATE_WORKING_DIRECTORY_STRING,
+                                   working_directory.c_str())) &&
             (!environment ||
              SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_ENVIRONMENT_POINTER,
                                     environment)) &&
