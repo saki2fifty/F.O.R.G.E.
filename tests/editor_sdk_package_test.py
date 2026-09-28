@@ -32,6 +32,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -351,7 +352,19 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         starter = subprocess.Popen([str(fixture_dst), str(onboarding), '--sdk-onboarding', str(sdk_root)],
                                    cwd=extracted, env=onboarding_env, stdout=stream, stderr=subprocess.STDOUT)
         try:
-            starter_code = starter.wait(timeout=360)
+            deadline = time.monotonic() + 360
+            while starter.poll() is None:
+                # EditorFixture removes its private project during teardown.
+                # Retain the flushed compiler log while that project still exists.
+                for compiler_log in onboarding.glob('project-*/.forge/sdk-build/build.log'):
+                    try:
+                        shutil.copy2(compiler_log, onboarding/'compiler-build.log')
+                    except FileNotFoundError:
+                        pass  # Teardown can remove the file between glob and copy.
+                if time.monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(starter.args, 360)
+                time.sleep(.25)
+            starter_code = starter.returncode
         except subprocess.TimeoutExpired:
             terminate_tree(starter)
             raise AssertionError('SDK onboarding exceeded 360s watchdog')
