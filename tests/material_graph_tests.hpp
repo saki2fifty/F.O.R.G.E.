@@ -101,6 +101,21 @@ inline void run() {
     bad = graph;
     bad["nodes"][0]["version"] = -1;
     rejects([&] { validate_material_graph_document(bad); });
+    check(compile_material_graph(graph).surface.uv_sets.empty(),
+          "Untextured parameter graph required absent mesh UV channels");
+    auto normal = create_material_graph_node("normal_map", {30, 200});
+    auto normal_graph = graph;
+    normal_graph["nodes"].push_back(normal);
+    normal_graph["edges"].push_back(edge(normal, "out", normal_graph["nodes"][1], "normal"));
+    check(compile_material_graph(normal_graph).surface.uv_sets == std::vector<unsigned>{0},
+          "Implicit normal-map coordinates lost their required UV set");
+    auto cube_texture = create_material_graph_node("texturecube", {30, 200});
+    auto cube_graph = graph;
+    cube_graph["nodes"].push_back(cube_texture);
+    cube_graph["edges"] =
+        Json::array({edge(cube_texture, "out", cube_graph["nodes"][1], "base_color")});
+    check(compile_material_graph(cube_graph).surface.uv_sets.empty(),
+          "Cube coordinates unnecessarily required planar mesh UV channels");
     auto texture = create_material_graph_node("texture2d", {40, 220});
     texture["data"]["uv_set"] = 2;
     auto uv = create_material_graph_node("uv", {10, 350});
@@ -111,8 +126,8 @@ inline void run() {
     bad["edges"] = Json::array(
         {edge(texture, "out", bad["nodes"][1], "base_color"), edge(uv, "out", texture, "uv")});
     const auto textured = compile_material_graph(bad);
-    check(textured.surface.uv_sets == std::vector<unsigned>{0, 2, 3}, "Logical UV sets changed");
-    check(textured.source.find("input.UV[2]") != std::string::npos &&
+    check(textured.surface.uv_sets == std::vector<unsigned>{2, 3}, "Logical UV sets changed");
+    check(textured.source.find("input.UV[1]") != std::string::npos &&
               textured.source.find("input.UV[3]") == std::string::npos,
           "Logical UV was used as dense shader index");
     std::set<GraphNodeId> selection;
@@ -192,7 +207,7 @@ inline void run() {
     arbitrary_uv["nodes"][2]["data"]["uv_set"] = 83;
     arbitrary_uv["nodes"][3]["data"]["uv_set"] = 81;
     const auto wide_uv = compile_material_graph(arbitrary_uv);
-    check(wide_uv.surface.uv_sets == std::vector<unsigned>{0, 81, 83},
+    check(wide_uv.surface.uv_sets == std::vector<unsigned>{81, 83},
           "Arbitrary logical UV set was restricted by physical varying count");
     arbitrary_uv["nodes"][3]["data"]["uv_set"] = -1;
     rejects([&] { compile_material_graph(arbitrary_uv); }, "invalid_configuration");

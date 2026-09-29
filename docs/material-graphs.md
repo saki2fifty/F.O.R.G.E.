@@ -41,7 +41,10 @@ emission and occlusion. Graph values feed the existing metallic/roughness PBR
 geometry/lighting helpers; this is not a copied BRDF or custom vertex deformation.
 Physical surface fields are bounded at their established shader boundary; output
 nonfinite checks provide the existing diagnostic color instead of nonfinite pixels.
-UV numbers remain logical semantics, projected to compact varyings. Texture2D
+UV numbers remain logical semantics, projected to compact varyings. A graph with no
+planar-coordinate consumer does not require mesh UV channels; cube/volume coordinates
+do not create an artificial UV0 requirement. An unconnected Normal Map UV input
+explicitly requires UV0. Texture2D
 implicit sampling respects Material UV transforms and overrides.
 
 Extract Function turns a selected pure calculation with one outward result into

@@ -4581,6 +4581,15 @@ int main(int argc, char** argv) {
                 observed["graph_error"] = graph_editor.diagnostic();
                 observed["graph_compiled"] = graph_editor.preview_ready();
                 observed["graph_preview_current"] = graph_editor.preview_current();
+                observed["scene_mesh_pending"] = viewport.meshes() && viewport.meshes()->pending();
+                observed["scene_mesh_diagnostics"] = forge::Json::array();
+                if (viewport.meshes())
+                    for (const auto& diagnostic : viewport.meshes()->diagnostics())
+                        observed["scene_mesh_diagnostics"].push_back(
+                            {{"entity", diagnostic.context.entity
+                                            ? forge::Json(*diagnostic.context.entity)
+                                            : forge::Json(nullptr)},
+                             {"text", diagnostic.text}});
                 observed["graph_gpu_ready"] = graph_preview && !graph_preview->pending() &&
                                               graph_preview->diagnostics().empty();
                 observed["material_disk"] =

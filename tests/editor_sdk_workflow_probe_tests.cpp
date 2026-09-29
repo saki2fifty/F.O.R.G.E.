@@ -192,6 +192,14 @@ int main() {
         require(model.is_object() && model.empty(),
                 "malformed snapshot: ui_model_from_snapshot must return empty object");
     }
+    // Visible authored UI can exist before its runtime data model is ready.
+    {
+        auto snapshot = menu_snapshot();
+        snapshot["documents"][0]["model"] = nullptr;
+        const auto model = forge::test::EditorSdkWorkflow::ui_model_from_snapshot(snapshot);
+        require(model.is_object() && model.empty(),
+                "Unready null UI model must yield an empty read-only observation");
+    }
     // (7) Hidden / unready document: the only document is present
     //     but visible=false. This is the snapshot shape produced
     //     immediately after a scene replacement before the

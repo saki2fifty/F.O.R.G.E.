@@ -21,7 +21,7 @@ class EditorInputWorkflow {
     };
     std::vector<Step> steps_;
     std::size_t index_ = 0;
-    unsigned frame_ = 0;
+    unsigned frame_ = 0, play_click_retries_ = 0;
     Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
@@ -222,6 +222,8 @@ class EditorInputWorkflow {
                 admitted |= c.at("id") == "project.counter";
             require(admitted, "Gameplay Counter was not admitted");
         } else if (what == "starter-ticked") {
+            require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
+                    "Waiting for started gameplay runtime and its first snapshot");
             bool increased = false;
             for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
                 if (row.at("components").contains("project.counter"))
@@ -384,6 +386,15 @@ class EditorInputWorkflow {
         } else if (what == "material-undone") {
             require(state.at("material_document") == initial_material_ && doc == saved_,
                     "Material Undo did not restore its own source without changing the scene");
+        } else if (what == "graph-mesh-ready") {
+            require(!state.at("scene_mesh_pending").get<bool>(),
+                    "Assigned graph mesh preparation is pending");
+            for (const auto& diagnostic : state.at("scene_mesh_diagnostics"))
+                require(!diagnostic.at("entity").is_string() ||
+                            diagnostic.at("entity").get<std::string>() != model_mesh_,
+                        ("Assigned graph rejected its UV-less mesh: " +
+                         diagnostic.at("text").get<std::string>())
+                            .c_str());
         } else if (what == "material-assigned") {
             const auto& materials = state.at("selected_preview")
                                         .at("components")
@@ -1041,6 +1052,7 @@ class EditorInputWorkflow {
         check("material-assigned");
         key(ImGuiKey_S, true);
         check("saved");
+        check("graph-mesh-ready");
         capture("scene-graph-material");
         click("tab:Content");
         text("content:search", "scene");
@@ -1417,6 +1429,25 @@ class EditorInputWorkflow {
                 verify(step.value, state);
             } catch (const std::exception& e) {
                 last_check_ = e.what();
+                // A real mouse press can straddle an asynchronous enabled-state
+                // change. Retry only an untouched stopped session, at most twice;
+                // preserve reported startup failures rather than masking them.
+                if (step.value == "starter-ticked" && !state.at("playing").get<bool>() &&
+                    state.at("play_status").get<std::string>().starts_with("Stopped.") &&
+                    state.at("play_log").get<std::string>().empty() &&
+                    state.at("problems").empty() && play_click_retries_ < 2 &&
+                    SDL_GetTicks() - since_ > 500 && index_ > 0 &&
+                    steps_[index_ - 1].kind == Kind::Click &&
+                    steps_[index_ - 1].value == "icon:play") {
+                    ++play_click_retries_;
+                    trace_.push_back({{"step", index_},
+                                      {"operation", "retry stopped toolbar click"},
+                                      {"attempt", play_click_retries_ + 1}});
+                    --index_;
+                    frame_ = 0;
+                    since_ = 0;
+                    return;
+                }
                 // Keep current failure evidence even if CTest's overall limit
                 // expires before this individual readiness check does.
                 if (SDL_GetTicks() - checkpoint_ >= 5000) {

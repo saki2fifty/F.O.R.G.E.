@@ -548,6 +548,12 @@ class MaterialGraphCanvas {
         }
         ImGui::BeginDisabled(locked);
         bool changed = false;
+        // Labels above full-width controls remain readable in narrow columns.
+        auto control = [](const char* label) {
+            ImGui::TextUnformatted(label);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            return std::string("##") + label;
+        };
         static constexpr const char* types[]{"scalar",  "vector2", "vector3",
                                              "vector4", "color3",  "color4"};
         if (kind == "constant" || kind == "parameter" || kind == "add" || kind == "subtract" ||
@@ -560,7 +566,7 @@ class MaterialGraphCanvas {
             for (int i = 0; i < 6; ++i)
                 if (current == types[i])
                     index = i;
-            if (ImGui::BeginCombo("Value type", types[index])) {
+            if (ImGui::BeginCombo(control("Value type").c_str(), types[index])) {
                 for (int i = 0; i < 6; ++i) {
                     const bool selected = index == i;
                     if (ImGui::Selectable(types[i], selected)) {
@@ -583,7 +589,7 @@ class MaterialGraphCanvas {
                 for (int i = 0; i < 6; ++i)
                     if (from == types[i])
                         input = i;
-                if (ImGui::Combo("From type", &input, types, 6)) {
+                if (ImGui::Combo(control("From type").c_str(), &input, types, 6)) {
                     data["from"] = types[input];
                     changed = true;
                 }
@@ -608,13 +614,14 @@ class MaterialGraphCanvas {
                 if (index >= 4)
                     edited =
                         width == 3
-                            ? ImGui::ColorEdit3("Value", values,
+                            ? ImGui::ColorEdit3(control("Value").c_str(), values,
                                                 ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR)
-                            : ImGui::ColorEdit4("Value", values,
+                            : ImGui::ColorEdit4(control("Value").c_str(), values,
                                                 ImGuiColorEditFlags_Float |
                                                     ImGuiColorEditFlags_HDR);
                 else
-                    edited = ImGui::DragScalarN("Value", ImGuiDataType_Float, values, width, .01f);
+                    edited = ImGui::DragScalarN(control("Value").c_str(), ImGuiDataType_Float,
+                                                values, width, .01f);
                 FORGE_UI_PROBE("graph:node-value");
                 ui::help("A finite GPU value. Colors are linear; parameter values are defaults "
                          "that material instances may override.");
@@ -631,7 +638,7 @@ class MaterialGraphCanvas {
             for (int i = 0; i < 6; ++i)
                 if (from == types[i])
                     input = i;
-            if (ImGui::Combo("Input type", &input, types, 6)) {
+            if (ImGui::Combo(control("Input type").c_str(), &input, types, 6)) {
                 data["from"] = types[input];
                 changed = true;
             }
@@ -651,7 +658,7 @@ class MaterialGraphCanvas {
             char label[512]{};
             const auto text = data.value("label", key);
             std::copy_n(text.data(), std::min(text.size(), sizeof(label) - 1), label);
-            if (ImGui::InputText("Label", label, sizeof(label))) {
+            if (ImGui::InputText(control("Label").c_str(), label, sizeof(label))) {
                 data["label"] = label;
                 changed = true;
             }
@@ -662,7 +669,7 @@ class MaterialGraphCanvas {
             static constexpr const char* semantics[]{"color", "data", "normal"};
             const auto value = data.value("semantic", std::string("color"));
             int index = value == "normal" ? 2 : value == "data" ? 1 : 0;
-            if (ImGui::Combo("Usage", &index, semantics, 3)) {
+            if (ImGui::Combo(control("Usage").c_str(), &index, semantics, 3)) {
                 data["semantic"] = semantics[index];
                 changed = true;
             }
@@ -671,7 +678,7 @@ class MaterialGraphCanvas {
         }
         if (kind == "uv" || kind == "texture2d" || kind == "texture2d_array") {
             unsigned uv = data.value("uv_set", 0u);
-            if (ImGui::InputScalar("UV set", ImGuiDataType_U32, &uv)) {
+            if (ImGui::InputScalar(control("UV set").c_str(), ImGuiDataType_U32, &uv)) {
                 data["uv_set"] = uv;
                 changed = true;
             }

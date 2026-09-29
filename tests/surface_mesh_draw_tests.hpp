@@ -2,6 +2,7 @@
 #include "mesh_draw.hpp"
 #include "shader_diligent.hpp"
 #include "texture_gpu.hpp"
+#include <forge/material_graph.hpp>
 inline void check_surface_draw(forge::DiligentPresentation& presentation,
                                Diligent::IDeviceContext* context,
                                const std::filesystem::path& images) {
@@ -52,6 +53,29 @@ inline void check_surface_draw(forge::DiligentPresentation& presentation,
                                           program ? program : &snapshot);
     };
     auto current = prepare(gpu.lods[0].parts[0], material);
+    // A parameter-only graph must prepare on imported geometry with no UVs.
+    // This used to reject TEXCOORD_0 and retain an unrelated previous material.
+    {
+        const auto graph = compile_material_graph(create_material_graph());
+        check(graph.surface.uv_sets.empty(), "Untextured graph declared unnecessary UVs");
+        ShaderProgramSource graph_source;
+        graph_source.stages = {
+            {ShaderStage::Pixel, "engine/forge.graph.hlsl", "ForgeGraphSurface"}};
+        graph_source.surface = graph.surface;
+        const auto compiled = asset_detail::compile_diligent_shader(
+            presentation.device(), graph_source, {{"engine/forge.graph.hlsl", graph.source}}, {});
+        MaterialShaderSnapshot graph_snapshot{{AssetId::generate()},
+                                              compiled.data.build_key,
+                                              decode_shader(encode_shader(compiled.data))};
+        auto no_uv = mesh;
+        std::erase_if(no_uv.lods[0].parts[0].streams,
+                      [](const auto& stream) { return stream.semantic.starts_with("TEXCOORD_"); });
+        auto no_uv_gpu = upload_mesh(presentation.device(), no_uv);
+        auto graph_draw = prepare(no_uv_gpu.lods[0].parts[0],
+                                  surface_material_defaults(graph.surface), false, &graph_snapshot);
+        check(bool(graph_draw), "Graph did not prepare an actual UV-less native mesh draw");
+    }
+
     const auto hits = presentation.cache_hits();
     auto repeated = prepare(gpu.lods[0].parts[0], material);
     require(presentation.cache_hits() >= hits + 3,

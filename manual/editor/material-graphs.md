@@ -27,7 +27,8 @@ have the same number of channels. Add **Convert** when you intentionally change 
 **Combine** assembles channels; **Component** extracts one. Surface Output accepts
 color/alpha, metallic, roughness, normal, emission and occlusion.
 
-Select a node header to see its properties beside the canvas. Drag the header to
+Select a node header to see its properties beside the canvas. Labels sit above
+their controls so the properties remain readable in narrow workspaces. Drag the header to
 move it. Ctrl-click selects several nodes. Delete removes selected nodes; Ctrl+C/V
 copies/pastes them. A copied parameter becomes a separate parameter. Middle mouse
 pans; the wheel zooms around the pointer; **Frame graph** fits the nodes.
@@ -52,6 +53,8 @@ assignments in the Material workspace.
 For a normal texture, use its data/normal usage, convert sampled channels to the
 Normal Map node's vector input if needed, and connect Normal Map to Surface Normal.
 The graph also supports texture arrays, cubes and volumes when matching assets exist.
+A graph using only colors or parameters works on meshes without UV coordinates.
+Planar textures and an unconnected Normal Map UV input require the selected mesh UV set.
 
 ## Reuse a function
 

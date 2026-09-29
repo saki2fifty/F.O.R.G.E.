@@ -214,7 +214,9 @@ class Compiler {
                              ")";
         } else if (key == "normal_map") {
             const auto sample = arg(0, "float4(0.5,0.5,1,1)");
-            const auto uv = arg(1, "input.UV[0]");
+            if (!edges_.contains({id, "uv"}))
+                result_.surface.uv_sets.push_back(0);
+            const auto uv = arg(1, "FORGE_GRAPH_UV_0_END");
             const auto scale = arg(2, "1.0");
             expression = "ForgeGraphNormal(input," + sample + ".xyz," + uv + "," + scale + ")";
         } else if (key == "uv") {
@@ -364,10 +366,11 @@ class Compiler {
         }
         for (const auto& [key, slot] : result_.surface.textures) {
             (void)key;
-            result_.surface.uv_sets.push_back(slot.uv_set);
+            if (slot.dimension == TextureDimension::D2 ||
+                slot.dimension == TextureDimension::D2Array)
+                result_.surface.uv_sets.push_back(slot.uv_set);
         }
         auto& uv = result_.surface.uv_sets;
-        uv.push_back(0);
         std::sort(uv.begin(), uv.end());
         uv.erase(std::unique(uv.begin(), uv.end()), uv.end());
         // All graph texture helpers index a dense array, not the logical UV number.

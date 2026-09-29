@@ -323,7 +323,8 @@ class EditorSdkWorkflow {
         }
         if (ambiguous || match.is_null())
             return Json::object();
-        return match.value("model", Json::object());
+        const auto model = match.value("model", Json::object());
+        return model.is_object() ? model : Json::object();
     }
 
   private:
