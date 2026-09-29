@@ -1,4 +1,5 @@
 #pragma once
+#include "../install_paths.hpp"
 #include "../runtime_dependencies.hpp"
 #include "../self_executable.hpp"
 #include "../ui_asset_catalog.hpp"
@@ -261,10 +262,11 @@ class RuntimeDependenciesEditor {
 #ifdef _WIN32
                         executable += ".exe";
 #endif
-                        snapshot = inspect_ui_dependencies(executable,
-                                                           self_executable().parent_path() /
-                                                               "resources/ui/LatoLatin-Regular.ttf",
-                                                           lease->root(), owner);
+                        snapshot = inspect_ui_dependencies(
+                            executable,
+                            installation_root(self_executable().parent_path()) /
+                                "resources/ui/LatoLatin-Regular.ttf",
+                            lease->root(), owner);
                     }
                     return declare_runtime_dependencies(*lease, owner, edges, expected,
                                                         snapshot ? &*snapshot : nullptr,

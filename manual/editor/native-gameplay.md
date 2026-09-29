@@ -4,7 +4,7 @@ Gameplay Code creates and builds C++ source for the current project. **C++ Sourc
 
 ## Prepare Windows tools
 
-Install Visual Studio 2022 C++ build tools with the Windows SDK, CMake 3.24 or newer, and Ninja. Launch **Run-Forge-Dev.cmd** from the extracted package so FORGE receives the compiler environment. The regular launcher is sufficient for editing without compilation.
+For C++ gameplay, extract the optional **Developer Kit with the same build number** into the editor folder. It adds NativeSdk and **Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows SDK, CMake 3.30 or newer, and Ninja. Launch **Run-Forge-Dev.cmd** from that folder so FORGE receives the compiler environment. The regular launcher is sufficient for editing without compilation.
 
 ## Build your first module
 
@@ -35,7 +35,7 @@ it is not the stable ABI1 movement interface described above.
 
 ### Create and build gameplay in FORGE
 
-1. Launch **Run-Forge-Dev.cmd** to provide the matching Visual Studio compiler environment. Use the NativeSdk shipped with this editor. In **Gameplay Code**, choose **Create C++ gameplay project**. Existing files in Native are never overwritten.
+1. Launch **Run-Forge-Dev.cmd** to provide the matching Visual Studio compiler environment. Use the NativeSdk from the matching Developer Kit. In **Gameplay Code**, choose **Create C++ gameplay project**. Existing files in Native are never overwritten.
 2. Choose **Build gameplay**. FORGE configures CMake, compiles the module, collects its runtime dependencies and validates the candidate in a separate process. On success it updates the project module declaration. A failed build preserves the last good module and settings.
 3. Choose **Inspect components**. Select a scene entity, use **+ Add Component**, search **Gameplay Counter**, and add it. Its **rate** determines the value added each simulation second; **value** is its starting value. Save the scene.
 4. Press **Play**. The template's Flecs system advances the counter in the isolated fixed-step runtime. Choose **Open C++ source** in Gameplay Code to edit `Native/gameplay.cpp` inside FORGE; an external code editor remains optional. **Stop**, rebuild, then **Play** again. Rich SDK registrations are restart-bound; this is not hot reload.
@@ -50,7 +50,7 @@ a kit still referenced by `forge.project.json`.
 ### Existing externally built SDK projects
 
 Set **Native SDK folder** to the matching installation containing `bin` and `sdk`.
-Leave it blank for NativeSdk beside the editor. This path is personal machine state.
+Leave it blank for `NativeSdk/` in the editor installation after extracting the matching Developer Kit. This path is personal machine state.
 Build your external modules with that SDK's CMake package, declare their IDs,
 fingerprints/dependencies/project-relative libraries, then Play. The editor's
 managed starter does not overwrite external build layouts or additional module kits.

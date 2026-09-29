@@ -15,3 +15,10 @@
 - Inspected native Windows captures of graph editing, diagnostics, material parameters and assignment to a cube and imported UV-less mesh.
 - Verified graph material rendering after export, deleting the source project and moving the game installation twice; saves/settings and package integrity remained intact.
 - Added explicit standalone graph-package coverage to future delivery and source-audit workflows. Physical GPU/DPI acceptance remains separate from WARP validation.
+
+## Windows package layout
+
+- Put editor executables, import/shader/navigation/UI workers and matching DLLs under `bin/`; keep one obvious root launcher.
+- Move the exact C++ SDK, shared native runtime kit, developer launcher and reference game into an optional same-build Developer Kit ZIP.
+- Bind the Developer Kit to the editor manifest hash and validate an overlaid relocated installation before either artifact is uploaded.
+- Keep the static export runtime kit and offline manual in the ordinary editor package. Numbered delivery validation is pending.

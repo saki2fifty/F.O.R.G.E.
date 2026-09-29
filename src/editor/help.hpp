@@ -1,4 +1,5 @@
 #pragma once
+#include "../install_paths.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
 #include <filesystem>
@@ -27,7 +28,7 @@ inline void help_menu(const std::filesystem::path& executable_folder, std::strin
     if (ImGui::BeginMenu("Help")) {
         if (ImGui::MenuItem("User Manual")) {
             try {
-                const auto manual = executable_folder / "manual/index.html";
+                const auto manual = installation_root(executable_folder) / "manual/index.html";
                 if (!std::filesystem::is_regular_file(manual))
                     status = "Manual missing. Extract the complete Windows ZIP beside the editor.";
                 else if (!SDL_OpenURL(local_file_url(manual).c_str()))

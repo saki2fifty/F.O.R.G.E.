@@ -54,8 +54,8 @@ def package(build, dependencies, output):
             raise ValueError(f'No license notice found in {source}')
         notices.extend((p, 'licenses/'+name+'/'+p.relative_to(source).as_posix()) for p in matches)
     manifest = {'build_id': build_id, 'source_commit': metadata['source_commit'], 'architecture': 'windows-x64', 'configuration': 'Release', 'files': {
-        p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}}
-    manifest['files']['tools/gltf2ozz.exe'] = hashlib.sha256(converter.read_bytes()).hexdigest()
+        'bin/'+p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in images}}
+    manifest['files']['bin/tools/gltf2ozz.exe'] = hashlib.sha256(converter.read_bytes()).hexdigest()
     kit = build/'runtime-kit'
     kit_manifest = json.loads((kit/'forge.runtime-kit.json').read_text())
     if kit_manifest['engine']['build_id'] != build_id or kit_manifest['engine']['source_commit'] != metadata['source_commit']:
@@ -103,8 +103,6 @@ def package(build, dependencies, output):
     sdk_files = ('include/forge/module_api.h', 'samples/native/movement.c', 'samples/native/CMakeLists.txt')
     for relative in sdk_files:
         manifest['files']['sdk/'+relative] = hashlib.sha256((source/relative).read_bytes()).hexdigest()
-    launcher = (source/'tools/Run-Forge-Dev.cmd').read_text().replace('\n', '\r\n')
-    manifest['files']['Run-Forge-Dev.cmd'] = hashlib.sha256(launcher.encode()).hexdigest()
     output.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(dir=output.parent, suffix='.zip.pending')
     os.close(fd)
@@ -115,10 +113,10 @@ def package(build, dependencies, output):
                 archive.writestr(name, text)
             for resource in ui_resources:
                 archive.write(resource, 'resources/ui/'+resource.name)
-            archive.write(converter, 'tools/gltf2ozz.exe')
+            archive.write(converter, 'bin/tools/gltf2ozz.exe')
             archive.write(animation_source, 'Examples/Animation/two-joints.gltf')
             for image in images:
-                archive.write(image, image.name)
+                archive.write(image, 'bin/'+image.name)
             for file in kit_files:
                 archive.write(file, "runtime-kit/"+file.relative_to(kit).as_posix())
             for notice, name in notices:
@@ -129,12 +127,11 @@ def package(build, dependencies, output):
                 archive.write(example, 'Examples/'+example.relative_to(example_root).as_posix())
             for automation_source in automation_sources:
                 archive.write(automation_source, 'Examples/Automation/'+automation_source.name)
-            archive.writestr('Run-Forge-Dev.cmd', launcher)
             archive.write(build/'build.json', 'build.json')
             for page in manual_files:
                 archive.write(page, 'manual/'+page.relative_to(manual_output).as_posix())
-            write_text('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\nforge_editor.exe "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\nOpen Examples/Rendering for the model/material/camera walkthrough.\n\nExtract the ENTIRE archive. Keep all DLLs beside forge_editor.exe.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor gameplay compilation, use Run-Forge-Dev.cmd with Visual Studio 2022 C++ tools,\nCMake 3.30+ and Ninja installed. In Gameplay Code: Create source, Build & Reload, then Play.\nThis is the editor foundation, not a finished game engine.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            write_text('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\n"%~dp0bin\\forge_editor.exe" "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
+            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\nOpen Examples/Rendering for the model/material/camera walkthrough.\n\nExtract the ENTIRE archive. Keep bin/ and the other packaged folders together.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor C++ gameplay, extract the matching optional Developer Kit into this folder.\nIt adds the C++ launcher and SDK. You also need Visual Studio 2022\nC++ tools, CMake 3.30+ and Ninja. In Gameplay Code: Create source, Build & Reload, then Play.\nThe optional Developer Kit also contains the reference game.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
         os.replace(temporary, output)
     finally:

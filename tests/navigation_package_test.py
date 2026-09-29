@@ -5,8 +5,8 @@ archive,fixture=map(lambda x:Path(x).resolve(),sys.argv[1:])
 with tempfile.TemporaryDirectory(prefix='navigation-relocation-',dir=archive.parent) as temporary:
  root=Path(temporary)/'Relocated FORGE';root.mkdir()
  with zipfile.ZipFile(archive) as package:package.extractall(root)
- manifest=json.loads((root/'manifest.json').read_text());worker=root/'forge_nav_build.exe'
- assert hashlib.sha256(worker.read_bytes()).hexdigest()==manifest['files'][worker.name]
+ manifest=json.loads((root/'manifest.json').read_text());worker=root/'bin/forge_nav_build.exe'
+ assert hashlib.sha256(worker.read_bytes()).hexdigest()==manifest['files']['bin/'+worker.name]
  assert (root/'licenses/recast-src/License.txt').is_file()
  env=os.environ.copy();env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
  project=Path(subprocess.check_output([fixture,root/'projects',worker,'--prepare'],env=env,cwd=root,text=True,timeout=60).strip())

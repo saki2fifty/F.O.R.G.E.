@@ -17,7 +17,7 @@ class Assembly(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             identity = dict(build_id='260919-000063', source_commit='a'*40)
-            editor = {'README.txt': b'Editor', 'forge_editor.exe': b'fixture'}
+            editor = {'README.txt': b'Editor', 'bin/forge_editor.exe': b'fixture'}
             manifest = dict(**identity, files={k:hashlib.sha256(v).hexdigest() for k,v in editor.items()})
             with zipfile.ZipFile(root/'editor.zip', 'w') as archive:
                 for k,v in editor.items(): archive.writestr(k,v)
@@ -45,11 +45,16 @@ class Assembly(unittest.TestCase):
                     executable='forge_game.exe',target=dict(platform='windows',backend='d3d12'),engine=engine,files=records)))
                 if corrupt:(kit/'forge_game.exe').write_bytes(b'corrupt')
             runtime()
-            sdk(); output=root/'final.zip'
-            assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit)
-            original=output.read_bytes()
+            sdk(); output=root/'final.zip'; dev=root/'developer.zip'
+            assemble(root/'editor.zip',root/'sdk.tar.gz',output,dev,kit)
+            original=output.read_bytes(); original_dev=dev.read_bytes()
             with zipfile.ZipFile(output) as archive:
+                self.assertNotIn('NativeSdk/bin/flecs.dll', archive.namelist())
+                self.assertIn('bin/forge_editor.exe', archive.namelist())
+                self.assertNotIn('Run-Forge-Dev.cmd', archive.namelist())
+            with zipfile.ZipFile(dev) as archive:
                 self.assertEqual(archive.read('NativeSdk/bin/flecs.dll'),b'flecs')
+                self.assertIn('Run-Forge-Dev.cmd', archive.namelist())
                 self.assertEqual(archive.read('runtime-kits/shared-native-sdk/forge_game.exe'),b'game')
             game = root/'reference'
             game.mkdir()
@@ -66,25 +71,31 @@ class Assembly(unittest.TestCase):
                 (game/'forge.standalone.json').write_text(json.dumps(metadata))
                 if corrupt: (game/'forge_game.exe').write_bytes(b'changed')
             reference()
-            assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit,game)
-            original=output.read_bytes()
-            with zipfile.ZipFile(output) as archive:
+            assemble(root/'editor.zip',root/'sdk.tar.gz',output,dev,kit,game)
+            original=output.read_bytes(); original_dev=dev.read_bytes()
+            with zipfile.ZipFile(dev) as archive:
                 self.assertEqual(archive.read('ReferenceGame/forge_game.exe'), b'game')
-                self.assertIn(b'ReferenceGame/forge_game.exe', archive.read('README.txt'))
+                self.assertIn(b'ReferenceGame/forge_game.exe', archive.read('Developer-README.txt'))
+                overlay=json.loads(archive.read('developer-manifest.json'))
+                with zipfile.ZipFile(output) as core:
+                    self.assertEqual(overlay['editor_manifest_sha256'],hashlib.sha256(core.read('manifest.json')).hexdigest())
             for kwargs in (dict(change=True),dict(corrupt=True),dict(fixture=True)):
                 reference(**kwargs)
-                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit,game)
+                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,dev,kit,game)
                 self.assertEqual(output.read_bytes(),original)
+                self.assertEqual(dev.read_bytes(),original_dev)
             for kwargs in (dict(change=True),dict(corrupt=True),dict(escape=True)):
                 sdk(**kwargs)
-                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit)
+                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,dev,kit)
                 self.assertEqual(output.read_bytes(),original)
+                self.assertEqual(dev.read_bytes(),original_dev)
 
             sdk()
             for kwargs in (dict(change=True),dict(corrupt=True)):
                 runtime(**kwargs)
-                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,kit)
+                with self.assertRaises(ValueError): assemble(root/'editor.zip',root/'sdk.tar.gz',output,dev,kit)
                 self.assertEqual(output.read_bytes(),original)
+                self.assertEqual(dev.read_bytes(),original_dev)
 
 
 if __name__=='__main__': unittest.main()

@@ -457,9 +457,10 @@ jobs:
         run: |
           $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
           $root = Join-Path $env:RUNNER_TEMP 'forge-package'
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game"
+          $developer = "$env:FORGE_PACKAGE_ID-FORGE-Windows-Developer-x64.zip"
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --developer-output "$root/final/$developer" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
-          python tests/windows_combined_package_test.py "$root/final/$name"
+          python tests/windows_combined_package_test.py "$root/final/$name" "$root/final/$developer"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }
       - name: Verify final package with editor SDK fixture and editable project
         # Run the editor fixture EXE (downloaded separately) against the
@@ -475,11 +476,12 @@ jobs:
           $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
           $root = Join-Path $env:RUNNER_TEMP 'forge-package'
           $zip = Join-Path $root 'final' $name
+          $developer = Join-Path $root 'final' "$env:FORGE_PACKAGE_ID-FORGE-Windows-Developer-x64.zip"
           $fixture = Join-Path $root 'editor-sdk-fixture/forge_editor_fixture.exe'
           $project = Join-Path $root 'editor-sdk-project'
           $evidence = Join-Path $root 'editor-sdk-evidence'
           New-Item -ItemType Directory -Path $evidence -Force | Out-Null
-          foreach ($required in @($zip, $fixture, $project)) {
+          foreach ($required in @($zip, $developer, $fixture, $project)) {
             if (-not (Test-Path $required)) { throw "Missing editor SDK acceptance input: $required" }
           }
           # Diagnostic opt-in for the SDK acceptance run. The editor
@@ -491,7 +493,7 @@ jobs:
           # inherit the env var.
           $env:FORGE_SDK_DIAGNOSTIC_DIR = Join-Path $evidence 'sdk-diagnostic'
           New-Item -ItemType Directory -Path $env:FORGE_SDK_DIAGNOSTIC_DIR -Force | Out-Null
-          python tests/editor_sdk_package_test.py --zip $zip --fixture $fixture --project $project --evidence $evidence
+          python tests/editor_sdk_package_test.py --zip $zip --developer-zip $developer --fixture $fixture --project $project --evidence $evidence
           if ($LASTEXITCODE) { throw 'Editor SDK acceptance against final package failed' }
       - name: Upload editor SDK acceptance evidence
         if: always()
@@ -506,6 +508,13 @@ jobs:
         with:
           name: FORGE-Windows-x64
           path: ${{ runner.temp }}/forge-package/final/*-FORGE-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload matching optional Windows Developer Kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Windows-Developer-x64
+          path: ${{ runner.temp }}/forge-package/final/*-FORGE-Windows-Developer-x64.zip
           if-no-files-found: error
           retention-days: 14
   format:

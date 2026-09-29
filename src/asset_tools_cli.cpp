@@ -2,6 +2,7 @@
 #include "bounded_json.hpp"
 #include "cache_maintenance.hpp"
 #include "game_export.hpp"
+#include "install_paths.hpp"
 #include "runtime_package.hpp"
 #include "self_executable.hpp"
 #include "ui_inspection.hpp"
@@ -109,10 +110,11 @@ int asset_tools_cli(int argc, char** argv) {
 #ifdef _WIN32
                     worker += ".exe";
 #endif
-                    return inspect_ui_dependencies(worker,
-                                                   self_executable().parent_path() /
-                                                       "resources/ui/LatoLatin-Regular.ttf",
-                                                   project, id, stop);
+                    return inspect_ui_dependencies(
+                        worker,
+                        installation_root(self_executable().parent_path()) /
+                            "resources/ui/LatoLatin-Regular.ttf",
+                        project, id, stop);
                 };
                 result["manifest"] = package_runtime_content(
                     project, std::filesystem::u8path(argv[4]), roots, target, {}, {}, {}, inspect);

@@ -1,5 +1,6 @@
 #pragma once
 #include "../game_export.hpp"
+#include "../install_paths.hpp"
 #include "../self_executable.hpp"
 #include "../ui_inspection.hpp"
 #include "content_imports.hpp"
@@ -42,7 +43,7 @@ class GameExportTask {
         if (!kit_[0])
             SDL_strlcpy(
                 kit_.data(),
-                path_utf8(self_executable().parent_path() /
+                path_utf8(installation_root(self_executable().parent_path()) /
                           (native_modules ? "runtime-kits/shared-native-sdk" : "runtime-kit"))
                     .c_str(),
                 kit_.size());
@@ -71,9 +72,10 @@ class GameExportTask {
                     return export_standalone_game(
                         *writer, request,
                         [&](AssetId id, std::stop_token stop) {
-                            return inspect_ui_dependencies(
-                                worker, root / "resources/ui/LatoLatin-Regular.ttf", writer->root(),
-                                id, stop);
+                            return inspect_ui_dependencies(worker,
+                                                           installation_root(root) /
+                                                               "resources/ui/LatoLatin-Regular.ttf",
+                                                           writer->root(), id, stop);
                         },
                         [progress](const GameExportProgress& value) {
                             std::lock_guard lock(progress->mutex);

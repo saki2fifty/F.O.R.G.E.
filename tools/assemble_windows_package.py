@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path, PurePosixPath
 import tarfile
 import tempfile
@@ -25,7 +26,7 @@ def verified(files, manifest, manifest_name):
             raise ValueError('File hash mismatch: ' + name)
 
 
-def assemble(editor, sdk, output, runtime_kit=None, reference_game=None):
+def assemble(editor, sdk, output, developer_output, runtime_kit=None, reference_game=None):
     files = {}
     with zipfile.ZipFile(editor) as archive:
         for entry in archive.infolist():
@@ -35,6 +36,7 @@ def assemble(editor, sdk, output, runtime_kit=None, reference_game=None):
             if name in files:
                 raise ValueError('Duplicate editor archive path')
             files[name] = archive.read(entry)
+    editor_files = dict(files)
     manifest = json.loads(files['manifest.json'])
     verified(files, manifest, 'manifest.json')
     native = {}
@@ -88,7 +90,6 @@ def assemble(editor, sdk, output, runtime_kit=None, reference_game=None):
             if target in files:
                 raise ValueError('Shared runtime kit namespace collision')
             files[target] = value
-            manifest['files'][target] = hashlib.sha256(value).hexdigest()
     if reference_game is not None:
         root = Path(reference_game)
         paths = list(root.rglob('*'))
@@ -115,38 +116,56 @@ def assemble(editor, sdk, output, runtime_kit=None, reference_game=None):
             if target in files:
                 raise ValueError('Reference game namespace collision')
             files[target] = value
-            manifest['files'][target] = hashlib.sha256(value).hexdigest()
         manifest['reference_game'] = {'path': 'ReferenceGame', 'executable': 'forge_game.exe'}
     for name, data in native.items():
         target = 'NativeSdk/' + name
         if target in files:
             raise ValueError('SDK namespace collision')
         files[target] = data
-        manifest['files'][target] = hashlib.sha256(data).hexdigest()
-    note = ('\nExact C++ gameplay SDK: NativeSdk/ contains the matching shared runtime,\n'
-            'headers and samples. SDK projects use it automatically for Editor Play.\n'
-            'Use the matching Visual Studio C++ toolchain/runtime described in its SDK docs.\n'
-            'Stop Play, rebuild project code externally, then Play again.\n'
-            'runtime-kits/shared-native-sdk contains the matching graphical game host for native gameplay exports.\n')
-    if reference_game is not None:
-        note += '\nPlay the reference game: ReferenceGame/forge_game.exe. See manual/reference-game.html.\n'
-    files['README.txt'] += note.encode()
-    manifest['files']['README.txt'] = hashlib.sha256(files['README.txt']).hexdigest()
-    manifest['native_sdk'] = {'path': 'NativeSdk', 'source_commit': build['source_commit'],
-                              'build_id': build['build_id']}
-    files['manifest.json'] = (json.dumps(manifest, indent=2)+'\n').encode()
+    # The ordinary editor is exactly the prevalidated editor archive. The
+    # matching SDK, reference game and shared host form a separate optional
+    # overlay. Bind that overlay to the exact editor manifest and verify each
+    # of its members before either artifact can be published.
+    developer_files = {name: data for name, data in files.items() if name not in editor_files}
+    note = ('FORGE Developer Kit | Build: ' + build['build_id'] + '\n\n'
+            'Extract this ZIP into the root of the matching FORGE editor ZIP.\n'
+            'Do not extract it into a nested folder. Then use Run-Forge-Dev.cmd\n'
+            'for C++ gameplay or open ReferenceGame/forge_game.exe.\n'
+            'NativeSdk/ and runtime-kits/shared-native-sdk/ are exact-version\n'
+            'additions for gameplay modules and standalone export.\n')
+    developer_files['Developer-README.txt'] = note.encode()
+    developer_files['Run-Forge-Dev.cmd'] = (Path(__file__).resolve().parents[1] /
+                                             'tools/Run-Forge-Dev.cmd').read_text().replace('\n', '\r\n').encode()
+    developer_manifest = dict(build_id=build['build_id'],
+                              source_commit=build['source_commit'],
+                              editor_manifest_sha256=hashlib.sha256(
+                                  editor_files['manifest.json']).hexdigest(),
+                              files={name: hashlib.sha256(value).hexdigest()
+                                     for name, value in developer_files.items()})
+    developer_files['developer-manifest.json'] = (json.dumps(developer_manifest, indent=2)+'\n').encode()
     output = Path(output)
+    developer_output = Path(developer_output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fd, staging = tempfile.mkstemp(dir=output.parent, suffix='.pending')
+    developer_output.parent.mkdir(parents=True, exist_ok=True)
+    fd, staging = tempfile.mkstemp(dir=developer_output.parent, suffix='.pending')
     os.close(fd)
     try:
         with zipfile.ZipFile(staging, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-            for name, data in sorted(files.items()):
+            for name, data in sorted(developer_files.items()):
                 archive.writestr(name, data)
-        os.replace(staging, output)
+        # The input editor archive passed hash verification above; retain its
+        # exact bytes instead of rewriting its independent manifest.
+        core_staging = output.with_suffix('.zip.pending')
+        try:
+            shutil.copy2(editor, core_staging)
+            os.replace(staging, developer_output)
+            os.replace(core_staging, output)
+        finally:
+            core_staging.unlink(missing_ok=True)
     finally:
         Path(staging).unlink(missing_ok=True)
-    print(f'Combined {len(files)-1} hashed files: {output}')
+    print(f'Verified editor {len(editor_files)-1} files: {output}')
+    print(f'Verified optional developer kit {len(developer_files)-1} files: {developer_output}')
 
 
 if __name__ == '__main__':
@@ -154,7 +173,8 @@ if __name__ == '__main__':
     parser.add_argument('--editor', type=Path, required=True)
     parser.add_argument('--sdk', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--developer-output', type=Path, required=True)
     parser.add_argument('--runtime-kit', type=Path, required=True)
     parser.add_argument('--reference-game', type=Path, required=True)
     args = parser.parse_args()
-    assemble(args.editor, args.sdk, args.output, args.runtime_kit, args.reference_game)
+    assemble(args.editor, args.sdk, args.output, args.developer_output, args.runtime_kit, args.reference_game)

@@ -10,6 +10,7 @@
 #include "thumbnail_cache_tests.hpp"
 #include <backends/imgui_impl_sdl3.h>
 #endif
+#include "../install_paths.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
 #include "actions.hpp"
@@ -342,7 +343,7 @@ int main(int argc, char** argv) {
         forge::ui::style();
         // Reuse the already packaged OFL-licensed runtime UI font; no new dependency.
         const auto editor_font =
-            std::filesystem::path(SDL_GetBasePath()) / "resources/ui/LatoLatin-Regular.ttf";
+            forge::installation_root(SDL_GetBasePath()) / "resources/ui/LatoLatin-Regular.ttf";
         if (std::filesystem::exists(editor_font))
             ImGui::GetIO().FontDefault = ImGui::GetIO().Fonts->AddFontFromFileTTF(
                 forge::path_utf8(editor_font).c_str(), 16.f);
@@ -498,6 +499,7 @@ int main(int argc, char** argv) {
         const char* base = SDL_GetBasePath();
         if (!base)
             throw std::runtime_error("Cannot locate runtime directory");
+        const auto install_root = forge::installation_root(base);
         const auto runtime_path = (std::filesystem::path(base) / "forge_runtime.exe").string();
         forge::EditorFiles files(scene, window.get(), recent_projects);
         forge::NavigationTools navigation_tools(std::filesystem::path(base) /
@@ -547,8 +549,8 @@ int main(int argc, char** argv) {
         }
         if (!startup_layout.warning.empty())
             message = startup_layout.warning;
-        auto native = std::make_unique<forge::NativeBuild>(
-            files.document.project(), std::filesystem::path(base) / "sdk", runtime_path);
+        auto native = std::make_unique<forge::NativeBuild>(files.document.project(),
+                                                           install_root / "sdk", runtime_path);
         native->cmake = cmake_path;
         native->ninja = ninja_path;
         native->auto_build = auto_build;
@@ -570,8 +572,7 @@ int main(int argc, char** argv) {
         // the UI host pointer and must not outlive it. Both `play` and
         // the rest of the editor lifetime are still above this scope.
         forge::RuntimeUiHost runtime_ui(window.get(), device,
-                                        std::filesystem::path(base) /
-                                            "resources/ui/LatoLatin-Regular.ttf");
+                                        install_root / "resources/ui/LatoLatin-Regular.ttf");
 #ifdef FORGE_UI_FIXTURE
         // Probe install for the safe RmlUi-context enumeration helper
         // (tests/editor_sdk_workflow.hpp::find_live_visible_context).
@@ -1381,7 +1382,7 @@ int main(int argc, char** argv) {
             cpp_sources.build_pending = false;
             sdk_build->build(files.document,
                              exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                               : std::filesystem::path(base) / "NativeSdk",
+                                               : install_root / "NativeSdk",
                              cmake_path, ninja_path);
         };
         char entity_name[1024]{};
@@ -1616,7 +1617,7 @@ int main(int argc, char** argv) {
                     editor.log.clear();
                     editor.last_status.clear();
                     native = std::make_unique<forge::NativeBuild>(
-                        active_project, std::filesystem::path(base) / "sdk", runtime_path);
+                        active_project, install_root / "sdk", runtime_path);
                     sdk_build = std::make_unique<forge::SdkBuild>(active_project);
                     cpp_sources.project_changed(active_project);
                     compiler_diagnostics.clear();
@@ -1920,7 +1921,7 @@ int main(int argc, char** argv) {
                                     [](const auto& module) { return module.is_object(); }),
                         sdk_build->module_kits(files.document.settings()),
                         (exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                           : std::filesystem::path(base) / "NativeSdk") /
+                                           : install_root / "NativeSdk") /
                             "bin/forge_runtime.exe");
                 });
             for (auto action : content.action_set(nullptr).entries)
@@ -2036,7 +2037,7 @@ int main(int argc, char** argv) {
                     if (sdk) {
                         const auto root = exact_sdk_root[0]
                                               ? std::filesystem::u8path(exact_sdk_root)
-                                              : std::filesystem::path(base) / "NativeSdk";
+                                              : install_root / "NativeSdk";
                         executable = root / "bin/forge_runtime.exe";
                         if (!std::filesystem::is_regular_file(executable))
                             throw std::runtime_error(
@@ -4064,15 +4065,16 @@ int main(int argc, char** argv) {
                                                    "isolated runtimes load gameplay DLLs.");
                     const auto selected_sdk = exact_sdk_root[0]
                                                   ? std::filesystem::u8path(exact_sdk_root)
-                                                  : std::filesystem::path(base) / "NativeSdk";
+                                                  : install_root / "NativeSdk";
                     ImGui::BeginDisabled(play.active() || sdk_build->busy());
                     if (ImGui::InputText("Native SDK folder", exact_sdk_root,
                                          sizeof(exact_sdk_root))) {
                         sdk_build->invalidate_compiler();
                         perform(save_preferences);
                     }
-                    forge::ui::help("Machine-local matching installation with bin and sdk. Blank "
-                                    "uses NativeSdk beside this editor.");
+                    forge::ui::help(
+                        "Machine-local matching installation with bin and sdk. Blank "
+                        "uses NativeSdk from the matching Developer Kit in this installation.");
                     ImGui::EndDisabled();
                     if (!native->has_source() && !files.document.settings().requires_native_sdk()) {
                         ImGui::BeginDisabled(play.active() || sdk_build->busy());
@@ -4205,7 +4207,7 @@ int main(int argc, char** argv) {
                                         "C++ objects serializable or safely editable.");
                         const auto sdk_root = exact_sdk_root[0]
                                                   ? std::filesystem::u8path(exact_sdk_root)
-                                                  : std::filesystem::path(base) / "NativeSdk";
+                                                  : install_root / "NativeSdk";
                         authored_components.draw(scene, files.document, prefab_editor,
                                                  sdk_root / "bin/forge_runtime.exe",
                                                  play.active() ||

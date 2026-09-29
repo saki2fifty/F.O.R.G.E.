@@ -393,7 +393,8 @@ class SdkBuild {
         const auto info = read_json(sdk / "build.json");
         if (info.value("linkage_profile", "") != "shared-native-sdk" ||
             info.value("source_commit", "") != forge::source_commit)
-            throw std::runtime_error("Choose the NativeSdk shipped with this editor build.");
+            throw std::runtime_error(
+                "Install the matching Developer Kit or choose its NativeSdk folder.");
         if (!std::filesystem::is_regular_file(sdk / "sdk/ForgeNativeSdkConfig.cmake") ||
             !std::filesystem::is_regular_file(sdk / "bin/forge_runtime.exe"))
             throw std::runtime_error("Native SDK installation is incomplete.");

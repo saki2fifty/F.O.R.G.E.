@@ -1,7 +1,7 @@
 """Launch the editor SDK fixture against the final Windows package.
 
-The shipped FORGE-Windows-x64 ZIP contains the static editor and
-the matching NativeSdk; the shipped ZIP must NOT contain the editor
+The editor ZIP and matching optional Developer Kit contain the static editor and
+NativeSdk respectively; neither ZIP may contain the editor
 fixture executable. The fixture executable is shipped separately via
 the FORGE-Editor-SDK-Fixture artifact (the exe only — DLLs and
 resources are reused from the shipped package so a missing packaged
@@ -38,6 +38,8 @@ from pathlib import Path
 
 
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--developer-zip', type=Path, required=True,
+                    help='Matching optional FORGE Developer Kit ZIP.')
 parser.add_argument('--zip', type=Path, required=True,
                     help='Path to the final FORGE-Windows-x64 ZIP package.')
 parser.add_argument('--fixture', type=Path, required=True,
@@ -53,6 +55,7 @@ parser.add_argument('--evidence', type=Path, required=True,
                          'private userdata live outside this directory.')
 args = parser.parse_args()
 zip_path = args.zip.resolve()
+developer_zip_path = args.developer_zip.resolve()
 fixture_path = args.fixture.resolve()
 project_path = args.project.resolve()
 evidence = args.evidence.resolve()
@@ -91,14 +94,22 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         archive.extractall(extracted)
     manifest_path = extracted / 'manifest.json'
     manifest = json.loads(manifest_path.read_text())
-    for required in ('build_id', 'source_commit', 'files', 'native_sdk'):
+    for required in ('build_id', 'source_commit', 'files'):
         if required not in manifest:
             raise AssertionError('Final ZIP manifest missing required field: '
                                  + required)
-    native_meta = manifest.get('native_sdk') or {}
-    sdk_relpath = native_meta.get('path')
-    if not sdk_relpath:
-        raise AssertionError('Final ZIP manifest has no native_sdk.path entry')
+    with zipfile.ZipFile(developer_zip_path) as archive:
+        archive.extractall(extracted)
+    developer = json.loads((extracted/'developer-manifest.json').read_text())
+    import hashlib
+    if (developer['build_id'] != manifest['build_id'] or
+        developer['source_commit'] != manifest['source_commit'] or
+        developer['editor_manifest_sha256'] != hashlib.sha256(manifest_path.read_bytes()).hexdigest()):
+        raise AssertionError('Developer Kit does not match editor ZIP')
+    for name, digest in developer['files'].items():
+        if hashlib.sha256((extracted/name).read_bytes()).hexdigest() != digest:
+            raise AssertionError('Developer Kit file mismatch: '+name)
+    sdk_relpath = 'NativeSdk'
     sdk_root = (extracted / sdk_relpath).resolve()
     if not (sdk_root / 'bin' / 'forge_runtime.exe').is_file():
         raise AssertionError('Extracted SDK does not contain '
@@ -111,7 +122,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     # order. The fixture's own stage in the FORGE-Editor-SDK-Fixture
     # artifact is intentionally not duplicated here.
     fixture_exe_name = fixture_path.name
-    editor_dir = extracted
+    editor_dir = extracted/'bin'
     fixture_dst = editor_dir / fixture_exe_name
     if fixture_dst.exists():
         fixture_dst.unlink()

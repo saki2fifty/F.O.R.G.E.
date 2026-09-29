@@ -14,10 +14,25 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     with zipfile.ZipFile(sys.argv[1]) as archive:
         archive.extractall(root)
     manifest = json.loads((root/'manifest.json').read_text())
+    assert 'bin/forge_editor.exe' in manifest['files']
+    assert 'Run-Forge-Dev.cmd' not in manifest['files']
+    assert not any(name.endswith('.exe') and '/' not in name for name in manifest['files'])
+    assert b'bin\\forge_editor.exe' in (root/'Run-Forge.cmd').read_bytes()
+    assert not any(name.startswith(('NativeSdk/', 'ReferenceGame/', 'runtime-kits/'))
+                   for name in manifest['files'])
+    with zipfile.ZipFile(sys.argv[2]) as addon:
+        addon.extractall(root)
+    developer = json.loads((root/'developer-manifest.json').read_text())
+    assert developer['build_id'] == manifest['build_id']
+    assert developer['source_commit'] == manifest['source_commit']
+    assert developer['editor_manifest_sha256'] == hashlib.sha256(
+        (root/'manifest.json').read_bytes()).hexdigest()
+    for name, digest in developer['files'].items():
+        assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     if os.environ.get('FORGE_COMPILED_SOURCE'):
         assert manifest['source_commit'] == os.environ['FORGE_COMPILED_SOURCE']
     files = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
-    assert files == set(manifest['files']) | {'manifest.json'}
+    assert files == set(manifest['files']) | set(developer['files']) | {'manifest.json', 'developer-manifest.json'}
     for name, digest in manifest['files'].items():
         assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     env = os.environ.copy()
@@ -30,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                             cwd=reference, env=env, text=True, capture_output=True, timeout=180)
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
-    tools = root/'forge_tools.exe'
+    tools = root/'bin/forge_tools.exe'
     rendering = root/'Examples/Rendering'
     assert (rendering/'README.md').is_file()
     assert (root/'manual/editor/models.html').is_file()

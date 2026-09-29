@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='ui-relocation-', dir=archive.parent) as
     assert (root / 'licenses/rmlui-src/LICENSE.txt').is_file()
     assert (root / 'licenses/freetype-src/docs/FTL.TXT').is_file()
     assert (root / 'manual/editor/runtime-ui.html').is_file()
-    relocated = root / fixture.name
+    relocated = root / 'bin' / fixture.name
     shutil.copy2(fixture, relocated)
     env = os.environ.copy()
     env['PATH'] = str(Path(os.environ['SystemRoot']) / 'System32')
