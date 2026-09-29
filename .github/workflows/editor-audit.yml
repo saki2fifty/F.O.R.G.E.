@@ -157,7 +157,7 @@ jobs:
         shell: pwsh
         run: |
           $targets = @('forge_editor_fixture', 'forge_editor_tests', 'forge_editor_native_tests', 'forge_fault_runtime')
-          if (Test-Path cmake/game.cmake) { $targets += 'forge_game_fixture' }
+          if (Test-Path cmake/game.cmake) { $targets += @('forge_game_fixture', 'forge_tools') }
           cmake --build ../AgentFiles/b --target $targets --parallel 2
           if ($LASTEXITCODE) { throw 'Native workflow fixture build failed' }
       - name: Build actual editor with audit fixture
