@@ -22,7 +22,7 @@ class EditorInputWorkflow {
     std::vector<Step> steps_;
     std::size_t index_ = 0;
     unsigned frame_ = 0;
-    Uint64 since_ = 0;
+    Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
     std::uint64_t paused_tick_ = 0;
@@ -1394,6 +1394,18 @@ class EditorInputWorkflow {
                 verify(step.value, state);
             } catch (const std::exception& e) {
                 last_check_ = e.what();
+                // Keep current failure evidence even if CTest's overall limit
+                // expires before this individual readiness check does.
+                if (SDL_GetTicks() - checkpoint_ >= 5000) {
+                    checkpoint_ = SDL_GetTicks();
+                    record({{"ok", false},
+                            {"completed_steps", index_},
+                            {"total_steps", steps_.size()},
+                            {"waiting_for", step.value},
+                            {"last_check", last_check_},
+                            {"trace", trace_},
+                            {"state", state}});
+                }
                 return;
             }
         }

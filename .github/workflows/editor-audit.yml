@@ -173,10 +173,6 @@ jobs:
           if (Test-Path $kit) { Remove-Item -LiteralPath $kit -Recurse -Force }
           cmake --install ../AgentFiles/b --component GameRuntime --prefix $kit
           if ($LASTEXITCODE) { throw 'Runtime kit installation failed' }
-      - name: Execute native input and capture workflows
-        if: inputs.workflow_only
-        working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_native_iteration|editor_input_workflow|editor_physics_workflow|standalone_game_workflow)$" --output-on-failure
       - name: Render fresh reset-layout evidence
         if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -189,6 +185,10 @@ jobs:
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics)$" --output-on-failure
+      - name: Execute native input and capture workflows
+        if: inputs.workflow_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_native_iteration|editor_input_workflow|editor_physics_workflow|standalone_game_workflow)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
