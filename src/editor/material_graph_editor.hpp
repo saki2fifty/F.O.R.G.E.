@@ -51,7 +51,7 @@ class MaterialGraphEditor {
         return document_ && !publishing_ && !canvas.draft_dirty() && document_->can_redo();
     }
     const MaterialGraphDocument* document() const { return document_.get(); }
-    const std::string& diagnostic() const { return error_; }
+    const std::string& diagnostic() const { return error_.empty() ? preview_error_ : error_; }
     bool preview_ready() const { return preview_ready_; }
     bool preview_current() const {
         return preview_ready_ && ready_generation_ == generation_ && !wants_preview_ &&
@@ -81,9 +81,9 @@ class MaterialGraphEditor {
         ImGui::TextWrapped("%s", path_utf8(document_->locator()).c_str());
         ui::help("The graph owns its source and history. Edit selected node properties in the "
                  "graph workspace.");
-        ImGui::TextWrapped("%s", error_.empty()
+        ImGui::TextWrapped("%s", diagnostic().empty()
                                      ? (dirty() ? "Unpublished changes" : "Published source")
-                                     : error_.c_str());
+                                     : diagnostic().c_str());
         for (const auto& n : view_graph().at("nodes"))
             if (n.at("id").get<std::string>() == key) {
                 ImGui::Separator();
@@ -167,8 +167,8 @@ class MaterialGraphEditor {
             ui::next_text_button("Cancel");
             if (ui::button("Cancel", "Close without creating an asset."))
                 ImGui::CloseCurrentPopup();
-            if (!error_.empty())
-                ui::field_error(error_);
+            if (!diagnostic().empty())
+                ui::field_error(diagnostic());
             ImGui::EndPopup();
         }
     }
@@ -209,11 +209,11 @@ class MaterialGraphEditor {
                         update_preview(std::move(data), catalog_);
                     preview_ready_ = true;
                     ready_generation_ = requested_generation_;
-                    error_.clear();
+                    preview_error_.clear();
                 }
             } catch (const std::exception& e) {
                 if (!cancel_.stop_requested())
-                    error_ = e.what();
+                    preview_error_ = e.what();
             }
         }
         if (publishing_ && publication_busy && !publication_busy()) {
@@ -268,7 +268,7 @@ class MaterialGraphEditor {
             try {
                 compiler = compiler_();
             } catch (const std::exception& e) {
-                error_ = e.what();
+                preview_error_ = e.what();
                 return;
             }
             const auto stop = cancel_.get_token();
@@ -330,8 +330,8 @@ class MaterialGraphEditor {
                                                     : "Preparing preview");
             ui::help("The last usable preview remains visible while compilation or resource "
                      "preparation runs.");
-            if (!error_.empty()) {
-                ui::field_error(error_);
+            if (!diagnostic().empty()) {
+                ui::field_error(diagnostic());
                 if (ui::button("Go to error node",
                                "Select the node named by the validation/compiler diagnostic, "
                                "including a function interior."))
@@ -552,8 +552,8 @@ class MaterialGraphEditor {
                 close_cancelled = true;
                 ImGui::CloseCurrentPopup();
             }
-            if (!error_.empty())
-                ui::field_error(error_);
+            if (!diagnostic().empty())
+                ui::field_error(diagnostic());
             ImGui::EndPopup();
         }
     }
@@ -571,7 +571,7 @@ class MaterialGraphEditor {
     std::chrono::steady_clock::time_point edited_;
     std::optional<std::filesystem::path> pending_source_;
     std::optional<std::string> function_name_;
-    std::string error_;
+    std::string error_, preview_error_;
     MaterialTextureBindings preview_textures_;
     std::optional<ResolvedMaterialSource> preview_source_, pending_preview_;
     char path_[512] = "Assets/SurfaceGraph.shader.json";
@@ -614,7 +614,7 @@ class MaterialGraphEditor {
         const auto& g = document_->source().document.at("graph");
         const auto locate = [&](const Json& nodes) {
             for (const auto& n : nodes)
-                if (error_.find(n.at("id").get<std::string>()) != std::string::npos) {
+                if (diagnostic().find(n.at("id").get<std::string>()) != std::string::npos) {
                     canvas.selection = {n.at("id").get<GraphNodeId>()};
                     return true;
                 }
@@ -681,6 +681,7 @@ class MaterialGraphEditor {
         save_ = close_ = focus_ = publishing_ = needs_publish_ = wants_preview_ = preview_ready_ =
             false;
         error_.clear();
+        preview_error_.clear();
         if (release_preview)
             release_preview();
     }

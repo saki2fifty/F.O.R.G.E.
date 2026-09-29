@@ -110,7 +110,10 @@ AssetBuildInput shader_import_input(const ShaderSnapshot& snapshot,
             content_digest(std::as_bytes(std::span(snapshot.sources.at(name))));
     ShaderSources engine;
     for (const auto& [name, source] : snapshot.sources)
-        if (!snapshot.project_sources.contains(name))
+        // Generated graph text is captured content, not a host recipe revision.
+        // It is already hashed by the compiler input and authored-source digest.
+        if (!snapshot.project_sources.contains(name) &&
+            !(snapshot.document.at("version") == 3 && name == "engine/forge.graph.hlsl"))
             engine.emplace(name, source);
     input.importer_revision = shader_import_revision(compiler, engine);
     input.settings = {{"permutation", permutation}};

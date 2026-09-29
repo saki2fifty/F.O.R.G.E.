@@ -58,6 +58,20 @@ int main(int argc, char** argv) {
         require(graph_snapshot.sources.size() == 1 && graph_snapshot.project_sources.empty() &&
                     graph_snapshot.program.surface->physically_based,
                 "Graph capture invented authored HLSL sources");
+        const auto graph_importer = shader_importer("fixture-worker.exe", compiler);
+        const auto graph_input = shader_import_input(graph_snapshot, {}, compiler);
+        require(graph_input.importer_revision == graph_importer->descriptor().revision,
+                "Generated graph content changed the importer recipe identity");
+        auto other_graph = graph_source;
+        other_graph.document["graph"]["nodes"][0]["type"] = "constant";
+        write(root / "graph.shader.json", other_graph.document.dump());
+        const auto other_snapshot = capture_shader_source(root, "graph.shader.json", {});
+        const auto other_input = shader_import_input(other_snapshot, {}, compiler);
+        require(other_snapshot.sources != graph_snapshot.sources &&
+                    other_input.importer_revision == graph_input.importer_revision &&
+                    other_input.key() != graph_input.key(),
+                "Graph content must invalidate its artifact without changing the importer recipe");
+        write(root / "graph.shader.json", graph_source.document.dump());
         const auto graph_request = shader_process_request(graph_snapshot, {}, compiler);
         const auto graph_decoded = decode_shader_process_request(graph_request, compiler);
         require(graph_decoded.sources == graph_snapshot.sources,

@@ -22,9 +22,13 @@ inline void add_graph_game_material(const std::filesystem::path& project,
                                                asset_detail::diligent_shader_compiler_debug()}));
     registry->seal();
     AssetImportService shaders(lease, registry, {"windows-x64", "d3d12", "fxc-5.1"});
-    shaders.submit(shaders.prepare("Assets/Surface.shader.json"),
-                   [](auto& c, const auto& p, const auto&) { prepare_shader_publication(c, p); },
-                   {});
+    // These are new assets with no live consumers yet. Preparation validates
+    // their cooked content; there is no active binding compatibility to check.
+    const auto no_live_consumers = [](const auto&, const auto&) {};
+    shaders.submit(
+        shaders.prepare("Assets/Surface.shader.json"),
+        [](auto& c, const auto& p, const auto&) { prepare_shader_publication(c, p); },
+        no_live_consumers);
     if (!shaders.wait_idle(std::chrono::seconds(65)))
         throw std::runtime_error("Graph game Shader compile timed out");
     const auto shader_result = shaders.poll();
@@ -44,7 +48,8 @@ inline void add_graph_game_material(const std::filesystem::path& project,
                                  {"windows", "d3d12", "desktop"});
     materials.submit(
         materials.prepare("Assets/Surface.material.json"),
-        [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); }, {});
+        [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); },
+        no_live_consumers);
     if (!materials.wait_idle(std::chrono::seconds(10)))
         throw std::runtime_error("Graph game material import timed out");
     const auto material_result = materials.poll();
