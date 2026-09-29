@@ -188,7 +188,7 @@ jobs:
       - name: Execute native input and capture workflows
         if: inputs.workflow_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_native_iteration|editor_input_workflow|editor_physics_workflow|standalone_game_workflow)$" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_native_iteration|editor_input_workflow|editor_physics_workflow|standalone_game_workflow|standalone_package_workflow)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh

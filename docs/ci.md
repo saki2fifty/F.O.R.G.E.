@@ -132,6 +132,10 @@ source audit. The artifact records the selected scope; focused success is not a
 full-suite result. Use the full audit when shared behavior or rendering changes
 require its additional coverage. Locally on a configured Windows
 build, use `ctest --test-dir <build> -R '^editor_input_workflow$' --output-on-failure`.
+The input-driven source audit also runs the graphical standalone fixture and its
+package workflow. The package workflow deletes source/kit inputs, restricts PATH,
+moves the exported folder twice, and asserts graph-material pixels after each
+launch. The numbered editor gate includes both standalone tests too.
 No package/build-number allocation is needed for a source audit.
 
 A passing test establishes only the listed interactions and assertions. Review
