@@ -205,5 +205,7 @@ if(BUILD_TESTING)
  add_test(NAME editor_redesign_render COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor")
  set_tests_properties(editor_redesign_render PROPERTIES TIMEOUT 260)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
- set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 180)
+ # The full authoring/export scenario includes native compilation and three
+ # graph-worker preparations. Individual input/readiness deadlines remain bounded.
+ set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 360)
 endif()
