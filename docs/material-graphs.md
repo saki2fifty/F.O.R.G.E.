@@ -34,7 +34,7 @@ The UI-independent schema/projection layer provides constants, parameters, textu
 sampling (2D, 2D array, cube, cube array and3D), UVs, camera-relative positions,
 normals, vertex colors, normal maps, typed conversions, channel composition/extraction,
 arithmetic, mix, clamp-to-unit, trigonometry, absolute/fraction/floor, dot/cross and
-safe normalization. Divide returns zero for a zero denominator per lane.
+safe normalization. Divide selects zero for a zero denominator per lane, rather than multiplying a possibly overflowed result by zero.
 
 Exactly one Surface Output defines base color/alpha, metallic, roughness, normal,
 emission and occlusion. Graph values feed the existing metallic/roughness PBR

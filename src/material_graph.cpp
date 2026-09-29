@@ -261,7 +261,9 @@ class Compiler {
                                             ? std::string{}
                                             : "." + std::string(1, "xyzw"[lane]);
                     const auto x = a + suffix, y = b + suffix, zero = "(" + y + "==0)";
-                    expression += "(" + x + "/(" + zero + "?1:" + y + "))*(" + zero + "?0:1)";
+                    // Select zero rather than multiply by a mask: an overflowed
+                    // upstream value times zero is NaN, not the promised zero.
+                    expression += "(" + zero + "?0:(" + x + "/(" + zero + "?1:" + y + ")))";
                 }
                 expression += ")";
             } else
