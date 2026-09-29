@@ -31,7 +31,8 @@ class EditorInputWorkflow {
     std::filesystem::path external_source_, project_;
     std::string drop_path_, model_asset_, model_root_, material_asset_, collision_asset_;
     std::uint64_t model_generation_ = 0;
-    std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_;
+    std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
+        graph_function_, graph_call_;
     Json graph_before_;
     Json starter_modules_, apply_before_, apply_after_;
     std::string starter_source_;
@@ -99,6 +100,26 @@ class EditorInputWorkflow {
             require(nodes.size() == 3 && nodes[2].at("type") == "constant",
                     "Node search/add did not create a constant");
             graph_added_ = nodes[2].at("id");
+        } else if (what == "graph-function-extracted") {
+            const auto& graph = state.at("graph_document").at("graph");
+            require(graph.at("functions").size() == 1,
+                    "Extraction did not create one typed function");
+            graph_function_ = graph.at("functions")[0].at("id");
+            for (const auto& node : graph.at("nodes"))
+                if (node.at("type") == "function")
+                    graph_call_ = node.at("id");
+            require(!graph_call_.empty(),
+                    "Extraction did not replace the selected node with a function call");
+        } else if (what == "graph-function-edited") {
+            const auto& body =
+                state.at("graph_document").at("graph").at("functions")[0].at("graph");
+            bool found = false;
+            for (const auto& node : body.at("nodes"))
+                if (node.at("id") == graph_added_) {
+                    found = node.at("data").at("value")[0].get<double>() > .39 &&
+                            node.at("data").at("value")[0].get<double>() < .41;
+                }
+            require(found, "Function source editing failed to retain its member value");
         } else if (what == "graph-add-removed") {
             require(state.at("graph_document").at("graph").at("nodes").size() == 2,
                     "Delete did not remove the added node");
@@ -912,6 +933,18 @@ class EditorInputWorkflow {
         check("graph-added");
         click("graph-added-node");
         capture("material-graph-node-properties");
+        drag("graph-added-port", "graph-roughness-port");
+        click("graph-added-node");
+        click("graph:extract-function");
+        check("graph-function-extracted");
+        click("graph:functions");
+        click("graph-function-edit");
+        click("graph-added-node");
+        text("graph:node-value", "0.4", true);
+        click("graph:back-surface");
+        check("graph-function-edited");
+        capture("material-graph-function-edited");
+        click("graph-call-node");
         key(ImGuiKey_Delete);
         check("graph-add-removed");
         drag("graph-parameter-port", "graph-surface-port");
@@ -1192,11 +1225,13 @@ class EditorInputWorkflow {
         }
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             const auto target =
-                step.value == "saved-cube-row"              ? "entity:" + cube_
-                : step.value == "graph-parameter-node"      ? "graph:node:" + graph_parameter_
-                : step.value == "graph-added-node"          ? "graph:node:" + graph_added_
-                : step.value == "graph-output-node"         ? "graph:node:" + graph_output_
-                : step.value == "graph-shader-option"       ? "picker-option:" + graph_asset_
+                step.value == "saved-cube-row"         ? "entity:" + cube_
+                : step.value == "graph-parameter-node" ? "graph:node:" + graph_parameter_
+                : step.value == "graph-function-edit"  ? "graph:function-edit:" + graph_function_
+                : step.value == "graph-call-node"      ? "graph:node:" + graph_call_
+                : step.value == "graph-added-node"     ? "graph:node:" + graph_added_
+                : step.value == "graph-output-node"    ? "graph:node:" + graph_output_
+                : step.value == "graph-shader-option"  ? "picker-option:" + graph_asset_
                 : step.value == "authored-material-option"  ? "picker-option:" + material_asset_
                 : step.value == "authored-collision-option" ? "picker-option:" + collision_asset_
                 : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
@@ -1241,6 +1276,10 @@ class EditorInputWorkflow {
                 frame_ < 4 ? step.value.substr(0, separator) : step.value.substr(separator + 1);
             if (name == "graph-parameter-port")
                 name = "graph:output:" + graph_parameter_ + ":out";
+            if (name == "graph-added-port")
+                name = "graph:output:" + graph_added_ + ":out";
+            if (name == "graph-roughness-port")
+                name = "graph:input:" + graph_output_ + ":roughness";
             if (name == "graph-surface-port")
                 name = "graph:input:" + graph_output_ + ":base_color";
             const auto found = ui_targets.find(name);

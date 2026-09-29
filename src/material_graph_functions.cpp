@@ -269,7 +269,7 @@ GraphFunctionId extract_material_graph_function(Json& graph, const std::set<Grap
         std::find_if(body["nodes"].begin(), body["nodes"].end(),
                      [&](const auto& n) { return n.at("id") == external_output->at("node"); });
     const auto ports = material_graph_outputs(*source);
-    need(ports.size() == 1 && ports[0].key == external_output->at("port"),
+    need(ports.size() == 1 && ports[0].key == external_output->at("port").get<std::string>(),
          "Invalid function output");
     const auto source_position = source->at("position");
     auto out = create_material_graph_node("function_output", {500, 80});
@@ -284,8 +284,9 @@ GraphFunctionId extract_material_graph_function(Json& graph, const std::set<Grap
             std::find_if(body["nodes"].begin(), body["nodes"].end(),
                          [&](const auto& n) { return n.at("id") == e.at("to").at("node"); });
         const auto ins = material_graph_inputs(*target);
-        const auto p = std::find_if(ins.begin(), ins.end(),
-                                    [&](const auto& p) { return p.key == e.at("to").at("port"); });
+        const auto p = std::find_if(ins.begin(), ins.end(), [&](const auto& p) {
+            return p.key == e.at("to").at("port").template get<std::string>();
+        });
         need(p != ins.end(), "Unknown extraction input port");
         auto in = create_material_graph_node("function_input", {0, double(keys.size() * 100)});
         auto key = "in_" + e.at("id").template get<GraphEdgeId>().str();

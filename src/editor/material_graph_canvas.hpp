@@ -222,9 +222,16 @@ class MaterialGraphCanvas {
                     label = "Missing function";
                 }
             }
+            if ((n.source->at("type") == "parameter" ||
+                 n.source->at("type").get<std::string>().starts_with("texture")) &&
+                n.source->at("data").contains("label") &&
+                n.source->at("data").at("label").is_string())
+                label += ": " + n.source->at("data").at("label").get<std::string>();
+            const ImVec4 header_clip{p.x + 5 * zoom * scale, p.y, end.x - 5 * zoom * scale,
+                                     p.y + 28 * zoom * scale};
             draw->AddText(ImGui::GetFont(), ImGui::GetFontSize() * zoom,
                           {p.x + 10 * zoom * scale, p.y + 6 * zoom * scale},
-                          IM_COL32(230, 236, 244, 255), label.c_str());
+                          IM_COL32(230, 236, 244, 255), label.c_str(), nullptr, 0, &header_clip);
             ImGui::PushID(id.str().c_str());
             ImGui::SetCursorScreenPos(p);
             ImGui::InvisibleButton("Node header", {width, 28 * zoom * scale});
@@ -287,10 +294,11 @@ class MaterialGraphCanvas {
                                          : center.x - textwidth - 10 * zoom * scale,
                                    center.y - 7 * zoom * scale},
                                   IM_COL32(205, 216, 228, 255), text.c_str());
-                    ImGui::SetCursorScreenPos({center.x - 8 * scale, center.y - 8 * scale});
+                    const float hit_radius = std::min(8 * scale, 10 * zoom * scale);
+                    ImGui::SetCursorScreenPos({center.x - hit_radius, center.y - hit_radius});
                     ImGui::PushID(port.key.c_str());
                     ImGui::InvisibleButton(input ? "Input port" : "Output port",
-                                           {16 * scale, 16 * scale});
+                                           {2 * hit_radius, 2 * hit_radius});
                     FORGE_UI_PROBE(std::string(input ? "graph:input:" : "graph:output:") +
                                    id.str() + ":" + port.key);
                     if (ImGui::IsItemHovered()) {
@@ -303,7 +311,8 @@ class MaterialGraphCanvas {
                     if (!locked && !input && ImGui::IsItemClicked())
                         linking_ = Link{id, port.key, port.type, center};
                     if (!locked && input && linking_ &&
-                        ImGui::IsMouseReleased(ImGuiMouseButton_Left) && ImGui::IsItemHovered()) {
+                        ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
+                        ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
                         const auto source = *linking_;
                         const auto target = id;
                         const auto key = port.key;

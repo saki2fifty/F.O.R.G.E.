@@ -23,11 +23,6 @@ install(FILES ${cpp_text_editor_SOURCE_DIR}/LICENSE DESTINATION licenses COMPONE
 
 set(DILIGENT_DEAR_IMGUI_PATH "${imgui_source_SOURCE_DIR}" CACHE PATH "" FORCE)
 include(cmake/presentation.cmake)
-add_executable(forge_shader_build_worker src/shader_worker_main.cpp)
-set_target_properties(forge_shader_build_worker PROPERTIES OUTPUT_NAME forge_shader_build)
-target_compile_definitions(forge_shader_build_worker PRIVATE UNICODE _UNICODE NOMINMAX)
-target_link_libraries(forge_shader_build_worker PRIVATE forge_shader_pipeline forge_import_process forge_shader_diligent Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings d3d12 dxgi)
-copy_required_dlls(forge_shader_build_worker)
 add_executable(forge_editor src/editor/main.cpp src/editor/viewport.cpp src/editor/play_presentation.cpp)
 add_dependencies(forge_editor forge_shader_build_worker)
 target_include_directories(forge_editor PRIVATE src/editor "${diligent_SOURCE_DIR}/DiligentCore")

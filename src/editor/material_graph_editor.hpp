@@ -382,19 +382,25 @@ class MaterialGraphEditor {
                     function_.reset();
                     canvas.reset();
                 }
+                FORGE_UI_PROBE("graph:back-surface");
                 ImGui::SameLine();
             }
             std::optional<GraphFunctionId> next_function;
             std::optional<Json> next_call;
-            if (document_->source().document.at("graph").contains("functions") &&
+            const bool functions_menu =
+                document_->source().document.at("graph").contains("functions") &&
                 ImGui::BeginCombo("Functions", function_ ? function_->str().c_str()
-                                                         : "Select a reusable function")) {
+                                                         : "Select a reusable function");
+            if (document_->source().document.at("graph").contains("functions"))
+                FORGE_UI_PROBE("graph:functions");
+            if (functions_menu) {
                 for (const auto& f : document_->source().document.at("graph").at("functions")) {
                     ui::IdScope scope(f.at("id").get<std::string>().c_str());
                     const auto label = f.at("label").get<std::string>();
                     if (ImGui::Selectable(("Edit " + label).c_str())) {
                         next_function = f.at("id").get<GraphFunctionId>();
                     }
+                    FORGE_UI_PROBE("graph:function-edit:" + f.at("id").get<std::string>());
                     ui::help("Edit this function's interior. All calls use the same definition on "
                              "the next valid compilation.");
                     if (!function_ && ImGui::Selectable(("Add call: " + label).c_str())) {
@@ -467,7 +473,8 @@ class MaterialGraphEditor {
                 (canvas.selection != old_selection ||
                  ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) &&
                 (canvas.selection != old_selection ||
-                 ui::editor_context->selection.kind() != ui::SelectionKind::DocumentItem))
+                 (ui::editor_context->selection.kind() != ui::SelectionKind::DocumentItem ||
+                  ui::editor_context->selection.document() != "material.graph")))
                 ui::editor_context->selection.select_document_item(
                     "material.graph",
                     canvas.selection.size() == 1 ? canvas.selection.begin()->str() : "");
@@ -568,7 +575,9 @@ class MaterialGraphEditor {
                                 f(body);
                                 auto definitions = body.at("functions");
                                 body.erase("functions");
-                                function["graph"] = std::move(body);
+                                for (auto& definition : definitions)
+                                    if (definition.at("id").get<GraphFunctionId>() == *function_)
+                                        definition["graph"] = body;
                                 source["graph"]["functions"] = std::move(definitions);
                                 found = true;
                                 break;

@@ -26,6 +26,16 @@ target_include_directories(forge_shader_diligent PUBLIC "${diligent_SOURCE_DIR}/
 target_compile_definitions(forge_shader_diligent PRIVATE UNICODE _UNICODE NOMINMAX)
 target_link_libraries(forge_shader_diligent PUBLIC forge_shader Diligent-BuildSettings PRIVATE forge_diligent_pbr_native Diligent-GraphicsTools Diligent-GraphicsEngineD3D12-shared d3dcompiler)
 
+# Editor authoring and graphical test fixtures use the same bounded compiler.
+# Production standalone installs do not acquire a source compiler dependency.
+if(FORGE_BUILD_EDITOR OR BUILD_TESTING)
+add_executable(forge_shader_build_worker src/shader_worker_main.cpp)
+set_target_properties(forge_shader_build_worker PROPERTIES OUTPUT_NAME forge_shader_build)
+target_compile_definitions(forge_shader_build_worker PRIVATE UNICODE _UNICODE NOMINMAX)
+target_link_libraries(forge_shader_build_worker PRIVATE forge_shader_pipeline forge_import_process forge_shader_diligent Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings d3d12 dxgi)
+copy_required_dlls(forge_shader_build_worker)
+endif()
+
 if(NOT FORGE_BUILD_UI_PRESENTER)
  message(FATAL_ERROR "Graphical hosts require FORGE_BUILD_UI_PRESENTER")
 endif()
