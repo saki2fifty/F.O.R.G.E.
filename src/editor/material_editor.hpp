@@ -567,6 +567,7 @@ inline void MaterialEditor::fields() {
         bool value = overrides.value(key, fallback);
         if (ImGui::Checkbox(label, &value))
             mutate(std::string("Change ") + label, [&](auto& j) { j["overrides"][key] = value; });
+        FORGE_UI_PROBE("material:state:" + std::string(key));
         ui::help("Explicit material pipeline state. Revert restores inherited state rather than "
                  "guessing a new value.");
         revert(key);

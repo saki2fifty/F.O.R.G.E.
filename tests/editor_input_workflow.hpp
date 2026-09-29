@@ -386,6 +386,9 @@ class EditorInputWorkflow {
         } else if (what == "material-undone") {
             require(state.at("material_document") == initial_material_ && doc == saved_,
                     "Material Undo did not restore its own source without changing the scene");
+        } else if (what == "graph-material-two-sided") {
+            require(state.at("material_document").at("overrides").at("double_sided").get<bool>(),
+                    "Flat imported test geometry needs the material's explicit Two-sided state");
         } else if (what == "graph-mesh-ready") {
             require(!state.at("scene_mesh_pending").get<bool>(),
                     "Assigned graph mesh preparation is pending");
@@ -1033,6 +1036,8 @@ class EditorInputWorkflow {
         check("graph-material-reverted");
         text("graph-material-value", "0.2");
         check("graph-material-override");
+        click("material:state:double_sided");
+        check("graph-material-two-sided");
         click("material:document");
         key(ImGuiKey_S, true);
         check("graph-material-saved");
