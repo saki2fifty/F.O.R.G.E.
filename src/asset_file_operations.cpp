@@ -5,6 +5,7 @@
 #include "gltf_container.hpp"
 #include <forge/asset_publication.hpp>
 #include <forge/collision_source.hpp>
+#include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
@@ -212,8 +213,12 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             value["asset_id"] = identities.at(record.id);
         }
     } else {
-        if (!identities.empty())
-            value["asset_id"] = identities.at(record.id);
+        if (!identities.empty()) {
+            if (record.type == "shader" && value.at("version") == 3)
+                value = MaterialGraphSource{value}.duplicate(identities.at(record.id)).document;
+            else
+                value["asset_id"] = identities.at(record.id);
+        }
         if (record.type == "material")
             MaterialSource{value}.validate();
         else if (record.type == "collision")

@@ -65,6 +65,10 @@ and connect additional calls. Recursive functions and incompatible signatures pr
 errors instead of silently changing connections. Functions currently belong to this
 graph asset; they are not separately published function assets.
 
+Duplicating the Shader asset in Content creates a separate logical graph with new
+node and function identities. Its parameter binding contract stays compatible;
+opaque extension data is preserved. Compile the duplicate before using it.
+
 ## Save, undo and errors
 
 Undo/Redo reverses graph edits independently of scene edits. Save & Compile writes

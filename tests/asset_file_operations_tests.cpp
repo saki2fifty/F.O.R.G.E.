@@ -4,6 +4,7 @@
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
 #include <forge/asset_publication.hpp>
+#include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
 #include <forge/scene_identity.hpp>
 #include <iostream>
@@ -250,6 +251,21 @@ int main(int argc, char** argv) {
                   prefab_document.at("root").get<PrefabMemberId>() != prefab_member &&
                   prefab_document.at("revision") == 1,
               "Prefab copy reused its member identity or revision");
+        auto graph = MaterialGraphSource::create(AssetId::generate());
+        write(project / "Assets/source.shader.json", graph.document);
+        catalog = AssetCatalog::open_project(project);
+        catalog.add({graph.asset(), "shader", "Assets/source.shader.json"});
+        catalog.save(AssetCatalog::project_index(project));
+        auto graph_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, graph.asset(), "Moved/copied.shader.json"},
+            rewrite);
+        transaction.commit(graph_copy.changes, false);
+        const auto copied_graph = MaterialGraphSource{read(project / "Moved/copied.shader.json")};
+        check(copied_graph.asset() == graph_copy.result && copied_graph.asset() != graph.asset() &&
+                  copied_graph.document.at("graph").at("nodes")[0].at("id") !=
+                      graph.document.at("graph").at("nodes")[0].at("id"),
+              "Shader file duplicate did not remap graph identities");
+        (void)compile_material_graph(copied_graph.document.at("graph"));
         test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;

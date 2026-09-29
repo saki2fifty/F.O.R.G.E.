@@ -39,7 +39,7 @@ class MaterialGraphEditor {
             pending_preview_ = source;
     }
     bool is_open() const { return bool(document_); }
-    bool pending() const { return preview_job_.valid() || publishing_; }
+    bool pending() const { return wants_preview_ || preview_job_.valid() || publishing_; }
     bool dirty() const {
         return document_ &&
                (document_->dirty() || canvas.draft_dirty() || needs_publish_ || publishing_);
@@ -53,6 +53,10 @@ class MaterialGraphEditor {
     const MaterialGraphDocument* document() const { return document_.get(); }
     const std::string& diagnostic() const { return error_; }
     bool preview_ready() const { return preview_ready_; }
+    bool preview_current() const {
+        return preview_ready_ && ready_generation_ == generation_ && !wants_preview_ &&
+               !preview_job_.valid();
+    }
     void undo() {
         if (can_undo()) {
             flush();
@@ -204,6 +208,7 @@ class MaterialGraphEditor {
                     if (update_preview)
                         update_preview(std::move(data), catalog_);
                     preview_ready_ = true;
+                    ready_generation_ = requested_generation_;
                     error_.clear();
                 }
             } catch (const std::exception& e) {
@@ -229,9 +234,11 @@ class MaterialGraphEditor {
                     error_.clear();
                     message = "Graph source saved; compiling a publication candidate.";
                 } else
-                    error_ = "Graph source saved. Finish the current Shader import task, then Save "
-                             "& Compile again. " +
-                             (publication_error ? publication_error() : std::string{});
+                    error_ =
+                        "Graph source saved; publication did not start. " +
+                        (publication_error && !publication_error().empty()
+                             ? publication_error()
+                             : "Finish the current Shader import task, then Save & Compile again.");
             } catch (const std::exception& e) {
                 error_ = e.what();
             }
@@ -317,9 +324,10 @@ class MaterialGraphEditor {
                 visible = false;
             FORGE_UI_PROBE("graph:close");
             ImGui::SameLine();
-            ImGui::TextUnformatted(preview_job_.valid() ? "Compiling preview..."
-                                   : preview_ready_     ? "Preview ready"
-                                                        : "Preparing preview");
+            ImGui::TextUnformatted(wants_preview_ || preview_job_.valid() ? "Compiling preview..."
+                                   : preview_current()                    ? "Preview ready"
+                                   : preview_ready_ ? "Previous preview retained"
+                                                    : "Preparing preview");
             ui::help("The last usable preview remains visible while compilation or resource "
                      "preparation runs.");
             if (!error_.empty()) {
@@ -387,10 +395,15 @@ class MaterialGraphEditor {
             }
             std::optional<GraphFunctionId> next_function;
             std::optional<Json> next_call;
+            std::string function_label = "Select a reusable function";
+            if (function_ && document_->source().document.at("graph").contains("functions"))
+                for (const auto& definition :
+                     document_->source().document.at("graph").at("functions"))
+                    if (definition.at("id").get<GraphFunctionId>() == *function_)
+                        function_label = definition.at("label").get<std::string>();
             const bool functions_menu =
                 document_->source().document.at("graph").contains("functions") &&
-                ImGui::BeginCombo("Functions", function_ ? function_->str().c_str()
-                                                         : "Select a reusable function");
+                ImGui::BeginCombo("Functions", function_label.c_str());
             if (document_->source().document.at("graph").contains("functions"))
                 FORGE_UI_PROBE("graph:functions");
             if (functions_menu) {
@@ -469,15 +482,17 @@ class MaterialGraphEditor {
             const auto old_selection = canvas.selection;
             canvas.draw(view_graph(), document_->revision(), edit_callback(),
                         locked || publishing_);
-            if (ui::editor_context &&
-                (canvas.selection != old_selection ||
-                 ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) &&
-                (canvas.selection != old_selection ||
-                 (ui::editor_context->selection.kind() != ui::SelectionKind::DocumentItem ||
-                  ui::editor_context->selection.document() != "material.graph")))
-                ui::editor_context->selection.select_document_item(
-                    "material.graph",
-                    canvas.selection.size() == 1 ? canvas.selection.begin()->str() : "");
+            if (ui::editor_context) {
+                auto& selection = ui::editor_context->selection;
+                const auto key =
+                    canvas.selection.size() == 1 ? canvas.selection.begin()->str() : "";
+                const bool owns_selection = selection.kind() == ui::SelectionKind::DocumentItem &&
+                                            selection.document() == "material.graph";
+                if ((owns_selection || canvas.selection != old_selection ||
+                     ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) &&
+                    (!owns_selection || selection.member() != key))
+                    selection.select_document_item("material.graph", key);
+            }
             if (canvas.take_preview_change())
                 changed();
             ImGui::EndChild();
@@ -552,7 +567,7 @@ class MaterialGraphEditor {
     std::stop_source cancel_;
     bool wants_preview_ = false, preview_ready_ = false, save_ = false, close_ = false,
          focus_ = false, publishing_ = false, needs_publish_ = false;
-    uint64_t generation_ = 0, requested_generation_ = 0;
+    uint64_t generation_ = 0, requested_generation_ = 0, ready_generation_ = 0;
     std::chrono::steady_clock::time_point edited_;
     std::optional<std::filesystem::path> pending_source_;
     std::optional<std::string> function_name_;

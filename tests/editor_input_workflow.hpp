@@ -131,6 +131,7 @@ class EditorInputWorkflow {
                     "Mouse port drag did not connect typed nodes");
         } else if (what == "graph-ready") {
             require(!state.at("graph_dirty").get<bool>() &&
+                        state.at("graph_preview_current").get<bool>() &&
                         state.at("graph_gpu_ready").get<bool>() && state.at("graph_error") == "",
                     "Graph publication/preview is not ready");
         } else if (what == "graph-renamed" || what == "graph-undo") {

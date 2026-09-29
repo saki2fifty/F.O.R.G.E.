@@ -154,6 +154,23 @@ inline void run() {
     check(compile_material_graph(renamed_function).source == function_compiled.source &&
               renamed_function["functions"][0]["id"] == function_graph["functions"][0]["id"],
           "Function rename changed identity or math");
+    auto duplicate_source = MaterialGraphSource::create(AssetId::generate());
+    duplicate_source.document["graph"] = function_graph;
+    duplicate_source.document["graph"]["nodes"][0]["opaque"] = {
+        {"node", function_graph["nodes"][0]["id"]}};
+    const auto duplicate = duplicate_source.duplicate(AssetId::generate());
+    const auto& copied_graph = duplicate.document.at("graph");
+    check(duplicate.asset() != duplicate_source.asset() &&
+              copied_graph.at("nodes")[0].at("id") != function_graph.at("nodes")[0].at("id") &&
+              copied_graph.at("functions")[0].at("id").get<GraphFunctionId>() != function_id,
+          "Whole graph duplicate reused authored identities");
+    check(copied_graph.at("nodes")[0].at("opaque") ==
+              duplicate_source.document.at("graph").at("nodes")[0].at("opaque"),
+          "Whole graph duplicate rewrote opaque references");
+    check(surface_definition_document(compile_material_graph(copied_graph).surface) ==
+              surface_definition_document(function_compiled.surface),
+          "Whole graph duplicate changed the parameter binding contract");
+    rejects([&] { duplicate_source.duplicate(duplicate_source.asset()); });
     auto function_bad = function_graph;
     function_bad["functions"][0]["graph"]["nodes"][0]["type"] = "missing.function.node";
     rejects([&] { compile_material_graph(function_bad); });

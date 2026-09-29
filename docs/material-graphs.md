@@ -21,7 +21,7 @@ position and configuration. Unknown schemas/versions and extension payload survi
 source history/save/copy; compilation refuses unsupported content. Copy remaps known
 node/edge IDs and duplicated parameter/texture binding keys; opaque references are
 not guessed or rewritten. Function definitions retain their stable identities and
-conflicting definitions cannot silently replace one another.
+conflicting definitions cannot silently replace one another. Whole Shader asset duplication uses the existing asset-file transaction owner and generates new node, edge and function IDs, remapping known internal links while retaining opaque payloads and the same parameter binding contract.
 
 A parameter or texture has a persistent binding key independent of its display
 label. MaterialSource stores values/references using that key, so renaming a label

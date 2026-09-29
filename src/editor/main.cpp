@@ -4580,6 +4580,7 @@ int main(int argc, char** argv) {
                 observed["graph_dirty"] = graph_editor.dirty();
                 observed["graph_error"] = graph_editor.diagnostic();
                 observed["graph_compiled"] = graph_editor.preview_ready();
+                observed["graph_preview_current"] = graph_editor.preview_current();
                 observed["graph_gpu_ready"] = graph_preview && !graph_preview->pending() &&
                                               graph_preview->diagnostics().empty();
                 observed["material_disk"] =

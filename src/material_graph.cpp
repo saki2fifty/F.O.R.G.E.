@@ -741,6 +741,42 @@ void MaterialGraphSource::validate() const {
     require(document.dump().size() <= 1024 * 1024, "Graph shader source exceeds byte limit");
     validate_material_graph_document(document.at("graph"));
 }
+MaterialGraphSource MaterialGraphSource::duplicate(AssetId id) const {
+    validate();
+    require(id && id != asset(), "A duplicated Shader requires a new AssetId");
+    auto result = *this;
+    result.document["asset_id"] = id;
+    auto& root = result.document["graph"];
+    std::map<GraphFunctionId, GraphFunctionId> functions;
+    if (root.contains("functions"))
+        for (auto& f : root["functions"]) {
+            const auto old = f.at("id").get<GraphFunctionId>();
+            f["id"] = functions.emplace(old, GraphFunctionId::generate()).first->second;
+        }
+    const auto remap_graph = [&](Json& graph) {
+        std::map<GraphNodeId, GraphNodeId> nodes;
+        for (auto& n : graph["nodes"]) {
+            const auto old = n.at("id").get<GraphNodeId>();
+            n["id"] = nodes.emplace(old, GraphNodeId::generate()).first->second;
+            if (n.at("type") == "function" && n.at("version") == 1) {
+                const auto fn = n.at("data").at("function").get<GraphFunctionId>();
+                if (functions.contains(fn))
+                    n["data"]["function"] = functions.at(fn);
+            }
+        }
+        for (auto& e : graph["edges"]) {
+            e["id"] = GraphEdgeId::generate();
+            for (const auto* endpoint : {"from", "to"})
+                e[endpoint]["node"] = nodes.at(e.at(endpoint).at("node").get<GraphNodeId>());
+        }
+    };
+    remap_graph(root);
+    if (root.contains("functions"))
+        for (auto& f : root["functions"])
+            remap_graph(f["graph"]);
+    result.validate();
+    return result;
+}
 MaterialGraphSource MaterialGraphSource::parse(std::span<const std::byte> bytes) {
     MaterialGraphSource result{asset_detail::parse_bounded_json(bytes, 1024 * 1024)};
     result.validate();

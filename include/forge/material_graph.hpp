@@ -53,6 +53,8 @@ struct MaterialGraphSource {
     nlohmann::json document;
     AssetId asset() const;
     void validate() const;
+    // A new logical Shader owns new graph identities; its binding contract stays compatible.
+    MaterialGraphSource duplicate(AssetId) const;
     static MaterialGraphSource parse(std::span<const std::byte>);
     static MaterialGraphSource create(AssetId);
 };

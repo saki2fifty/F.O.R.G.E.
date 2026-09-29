@@ -7,4 +7,5 @@
 - Added readable parameter labels with stable material binding identities; existing material instances and Revert remain authoritative.
 - Reused the bounded Shader worker/publication pipeline, retained previous usable preview/revision on failure and fixed hidden background import submission/cleanup.
 - Added graph document selection/Inspector context, actual native authoring/assignment/export workflow, all-node compiler coverage and relocated standalone graph fixture.
+- Added identity-safe whole graph Shader duplication through existing Content file operations, preserving opaque data and compatible parameter bindings.
 - Updated technical contracts, rendering decision and user manual. Native execution, visual review and numbered delivery are pending at this source checkpoint.
