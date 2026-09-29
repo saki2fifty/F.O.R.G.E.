@@ -15,7 +15,6 @@ set(forge_presentation_sources
  src/mesh_gpu.cpp
  src/mesh_vertex_fetch.cpp
  src/mesh_draw.cpp
- src/mesh_draw_shader.cpp
  src/mesh_draw_bundle.cpp
  src/mesh_render_host.cpp
  src/gpu_residency.cpp

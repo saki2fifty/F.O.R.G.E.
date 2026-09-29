@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "shader_authoring.hpp"
 #include "shader_pipeline.hpp"
+#include <forge/material_graph.hpp>
 #include <forge/project_lease.hpp>
 #include <forge/shader_resource.hpp>
 #include <fstream>
@@ -51,6 +52,20 @@ int main(int argc, char** argv) {
         require(snapshot.sources.size() == 3 && snapshot.project_sources.size() == 2 &&
                     snapshot.document == doc,
                 "Shader capture changed source or namespace");
+        const auto graph_source = MaterialGraphSource::create(AssetId::generate());
+        write(root / "graph.shader.json", graph_source.document.dump());
+        const auto graph_snapshot = capture_shader_source(root, "graph.shader.json", {});
+        require(graph_snapshot.sources.size() == 1 && graph_snapshot.project_sources.empty() &&
+                    graph_snapshot.program.surface->physically_based,
+                "Graph capture invented authored HLSL sources");
+        const auto graph_request = shader_process_request(graph_snapshot, {}, compiler);
+        const auto graph_decoded = decode_shader_process_request(graph_request, compiler);
+        require(graph_decoded.sources == graph_snapshot.sources,
+                "Graph worker lost immutable source snapshot");
+        auto altered_graph = graph_request;
+        altered_graph.inputs[0].bytes.push_back(std::byte{' '});
+        rejects([&] { decode_shader_process_request(altered_graph, compiler); });
+        rejects([&] { capture_shader_source(root, "graph.shader.json", engine); });
         const auto input = shader_import_input(snapshot, {}, compiler);
         require(input.source_dependencies.contains("Shaders/lib/color.hlsli") &&
                     input.source_dependencies.size() == 2,

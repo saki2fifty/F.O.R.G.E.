@@ -119,7 +119,9 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
     return {std::move(vs), std::move(geometry), std::move(varyings), instanced};
 }
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
-                                bool shadow_pass, MaterialSamplerBinding sampler_binding) {
+                                bool shadow_pass, MaterialSamplerBinding sampler_binding,
+                                const SurfaceShaderDefinition* graph,
+                                std::string_view graph_source) {
     const auto& source = profile.values;
     const bool transmission = !shadow_pass && material_transmits(profile);
     const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
@@ -164,6 +166,24 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     const auto& skin =
         fetch.skin ? std::string("cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};\n")
                    : std::string{};
+    if (graph) {
+        require(graph->physically_based && profile.workflow == PbrWorkflow::MetallicRoughness,
+                "Graph lighting requires the shared metallic-roughness model");
+        if (shadow_pass)
+            return {vs,
+                    "#include \"engine/forge.surface.hlsli\"\n#include \"" +
+                        std::string(graph_source) +
+                        "\"\nvoid ForgeSurfaceDepth(ForgeSurfaceInput input) {\n"
+                        "ForgeGraphValues graph=ForgeGraphSurface(input);\n"
+                        "if(!all(isfinite(graph.BaseColor)))discard;\n"
+                        "if(g_ForgeSurfaceState.x==1 && "
+                        "graph.BaseColor.a*input.Color.a<g_ForgeSurfaceState.y)discard;\n}\n",
+                    material,
+                    false,
+                    false,
+                    geometry,
+                    instanced};
+    }
     if (shadow_pass) {
         std::string depth = varyings + material.source + "void main(ForgeVarying input) {\n";
         if (source.alpha == MaterialAlpha::Mask) {
@@ -190,6 +210,9 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     if (profile.workflow == PbrWorkflow::MetallicRoughness)
         ps += "#include \"Iridescence.fxh\"\n";
     ps += object_source + skin + varyings + material.source;
+    if (graph)
+        ps += "#include \"engine/forge.surface.hlsli\"\n#include \"" + std::string(graph_source) +
+              "\"\n";
     if (sheen)
         ps += "Texture2D g_ForgeSheen;\n";
     if (profile.workflow != PbrWorkflow::Unlit)
@@ -206,6 +229,12 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
     bool valid=true;
 )";
+    if (graph)
+        ps += "ForgeGraphValues graph=ForgeGraphSurface(input);\n"
+              "if(!all(isfinite(graph.BaseColor)) || !isfinite(graph.Metallic) || "
+              "!isfinite(graph.Roughness) || "
+              "!all(isfinite(graph.Normal)) || !all(isfinite(graph.Emissive)) || "
+              "!isfinite(graph.Occlusion))return float4(1,0,1,1);\n";
     for (const auto& slot : material.textures) {
         ps += "bool ok_" + slot.role + ";float4 sample_" + slot.role + "=ForgeSample_" + slot.role +
               "(input.UV[" + std::to_string(slot.uv_slot) + "],ok_" + slot.role +
@@ -227,12 +256,20 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         if (profile.values.textures.contains(role))
             ps += std::string(expression) + ";\n";
     };
+    if (graph)
+        ps +=
+            "base=graph.BaseColor*input.Color;base.rgb=max(base.rgb,0);base.a=saturate(base.a);\n";
     sample("baseColorTexture", "base*=sample_baseColorTexture");
     sample("diffuseTexture", "base*=sample_diffuseTexture");
-    if (source.alpha == MaterialAlpha::Mask)
-        ps += "if(base.a<ForgeAlphaCutoff())discard;\n";
-    if (source.alpha != MaterialAlpha::Blend)
-        ps += "base.a=1;\n";
+    if (graph)
+        ps += "if(g_ForgeSurfaceState.x==1 && base.a<g_ForgeSurfaceState.y)discard;\n"
+              "if(g_ForgeSurfaceState.x!=2)base.a=1;\n";
+    else {
+        if (source.alpha == MaterialAlpha::Mask)
+            ps += "if(base.a<ForgeAlphaCutoff())discard;\n";
+        if (source.alpha != MaterialAlpha::Blend)
+            ps += "base.a=1;\n";
+    }
     if (profile.workflow == PbrWorkflow::Unlit)
         ps += R"(
     if(input.LegacyTint.w!=0) {
@@ -267,6 +304,8 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                 ".xyz*2-1;mapped.xy*=ForgeParameter_" + scale + "();" + destination +
                 "=ForgePerturbNormal(frame,mapped); }\n";
         };
+        if (graph)
+            ps += "if(any(graph.Normal!=0))n=ForgeUnit(graph.Normal);\n";
         mapped_normal("normalTexture", "normalScale", "n");
         ps += "n*=face;s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
         if (profile.workflow == PbrWorkflow::MetallicRoughness) {
@@ -285,6 +324,8 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                                                "sample_metallicRoughnessTexture.b");
             sample("specularTexture", "weight*=sample_specularTexture.a");
             sample("specularColorTexture", "specular*=sample_specularColorTexture.rgb");
+            if (graph)
+                ps += "rough=saturate(graph.Roughness);metal=saturate(graph.Metallic);\n";
             ps +=
                 "s.BaseLayer.Metallic=metal;\n"
                 // Native five-argument MR fixes dielectric F0 at .04. Adapt its
@@ -292,6 +333,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                 "float3 dielectric=min(ForgeDielectricF0()*specular,1)*weight;\n"
                 "specular=min(ForgeDielectricF0()*specular,1)/.04;\n"
                 "s.BaseLayer.Srf=GetSurfaceReflectanceMR(base.rgb,metal,rough,specular,weight);\n";
+
             ps += "float film=ForgeParameter_iridescenceFactor();"
                   "float thickness=ForgeParameter_iridescenceThicknessMaximum();\n";
             sample("iridescenceTexture", "film*=sample_iridescenceTexture.r");
@@ -355,6 +397,8 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         }
         ps += "s.Occlusion=1;s.IBLScale=g_Environment.x;\n"
               "s.Emissive=ForgeParameter_emissiveFactor()*ForgeParameter_emissiveStrength();\n";
+        if (graph)
+            ps += "s.Occlusion=saturate(graph.Occlusion);s.Emissive=max(graph.Emissive,0);\n";
         sample("occlusionTexture",
                "s.Occlusion=lerp(1,sample_occlusionTexture.r,ForgeParameter_occlusionStrength())");
         sample("emissiveTexture", "s.Emissive*=sample_emissiveTexture.rgb");
@@ -439,5 +483,26 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     }
 
     return {vs, ps, material, sheen, transmission, geometry, instanced};
+}
+std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definition,
+                                          std::string_view source, bool depth_only) {
+    MaterialData values;
+    values.model = "forge.gltf.metallic-roughness.v1";
+    const auto profile = prepare_pbr_material(values);
+    MeshVertexFetch fetch;
+    fetch.uv_sets = definition.uv_sets;
+    fetch.normal = fetch.tangent = true;
+    auto generated = mesh_draw_shader(fetch, profile, depth_only, MaterialSamplerBinding::Array,
+                                      &definition, source);
+    if (!depth_only) {
+        const std::string old =
+            "float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {";
+        const auto at = generated.pixel.find(old);
+        require(at != std::string::npos, "Graph wrapper lost shared PBR entry");
+        generated.pixel.replace(at, old.size(),
+                                "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 { "
+                                "bool front=input.FrontFace;");
+    }
+    return generated.pixel;
 }
 } // namespace forge

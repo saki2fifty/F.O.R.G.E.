@@ -16,6 +16,7 @@ class MaterialEditor {
         update_preview;
     std::function<void(bool)> draw_preview;
     std::function<void()> release_preview;
+    std::function<void(AssetRef<ShaderAsset>, const ResolvedMaterialSource&)> edit_graph;
     ~MaterialEditor() { cancel_.request_stop(); }
     bool close_cancelled = false;
     bool is_open() const { return bool(document_); }
@@ -483,6 +484,14 @@ inline void MaterialEditor::fields() {
                 j["overrides"].erase("model");
             });
     }
+    if (selected_shader && edit_graph && resolved_ && surface_ &&
+        surface_->program.surface->physically_based) {
+        if (ui::button("Edit surface graph",
+                       "Open this material's Shader graph with its current material values and "
+                       "texture bindings in the preview."))
+            edit_graph(*selected_shader, *resolved_);
+        FORGE_UI_PROBE("material:edit-graph");
+    }
     const bool custom = bool(selected_shader);
     MaterialData values = resolved_ ? resolved_->values : MaterialData{};
     if (values.model.empty())
@@ -633,7 +642,9 @@ inline void MaterialEditor::fields() {
                  key == "metallicFactor"))
                 continue;
             ui::IdScope scope(key.c_str());
-            const auto text = label(key);
+            const auto text = custom && surface_->program.surface->labels.contains(key)
+                                  ? surface_->program.surface->labels.at(key)
+                                  : label(key);
             const bool expanded = ImGui::TreeNode(text.c_str());
             FORGE_UI_PROBE("material:parameter:" + key);
             if (!expanded) {
@@ -697,7 +708,10 @@ inline void MaterialEditor::fields() {
                                  "slot keeps independent sampling and UV settings.");
     for (const auto& [key, texture_layout] : layout.textures) {
         ui::IdScope scope(key.c_str());
-        if (!ImGui::TreeNode(label(key).c_str())) {
+        const auto text = custom && surface_->program.surface->labels.contains(key)
+                              ? surface_->program.surface->labels.at(key)
+                              : label(key);
+        if (!ImGui::TreeNode(text.c_str())) {
             ui::help("Expand to assign or clear this texture and edit its sampling.");
             continue;
         }

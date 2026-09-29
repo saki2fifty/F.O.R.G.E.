@@ -52,3 +52,14 @@ current immutable revision. Sparse overrides use those tokens; removed bindings
 remain unresolved instead of being reassigned. This preserves the original single
 Mesh/Material path and ID families. It is a source-backed representation correction,
 not a change to Flecs scene authority or authorization for a separate material graph.
+
+## Phase10 material graph decision — 2026-09-29
+
+Extend the existing Shader logical asset with authored graph source version3 and
+surface metadata version2 opting into existing metallic/roughness PBR. The graph
+is the only authored program; generated HLSL/interface are immutable projections.
+Material variations retain MaterialSource sparse parameter/texture overrides.
+Typed graph/source history uses AssetSourceDocument and DocumentWorkspace; compiler
+projection is UI independent and has no runtime VM. Publication, resource admission,
+export and shader ownership remain with their existing subsystems. Old stage
+programs and final-color surfaces remain supported. See [graph contract](../material-graphs.md).

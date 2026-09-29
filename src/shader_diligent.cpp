@@ -2,7 +2,9 @@
 #include "Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/ShaderD3D12.h"
 #include "Graphics/GraphicsTools/interface/ShaderSourceFactoryUtils.h"
+#include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "asset_bytes.hpp"
+#include "mesh_draw_shader.hpp"
 #include <algorithm>
 #include <d3d12shader.h>
 #include <d3dcompiler.h>
@@ -246,6 +248,14 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     CreateMemoryShaderSourceFactory({files.data(), static_cast<Uint32>(files.size()), false},
                                     &factory);
     require(bool(factory), "Shader source snapshot factory creation failed");
+    RefCntAutoPtr<IShaderSourceInputStreamFactory> graph_factory;
+    if (program.surface && program.surface->physically_based) {
+        IShaderSourceInputStreamFactory* factories[]{
+            factory, &DiligentFXShaderSourceStreamFactory::GetInstance()};
+        CreateCompoundShaderSourceFactory({factories, 2}, &graph_factory);
+        require(bool(graph_factory), "Pinned graph lighting factory creation failed");
+        factory = graph_factory;
+    }
     std::vector<ShaderMacro> macros;
     for (const auto& [name, value] : defines)
         macros.push_back({name.c_str(), value.c_str()});
@@ -268,8 +278,11 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
             ci.EntryPoint = entry.entry.c_str();
             std::string wrapper;
             if (role != ShaderEntryRole::Program) {
-                wrapper = surface_shader_wrapper(entry.source, entry.entry,
-                                                 role == ShaderEntryRole::SurfaceDepth);
+                wrapper = program.surface->physically_based
+                              ? material_graph_shader_wrapper(*program.surface, entry.source,
+                                                              role == ShaderEntryRole::SurfaceDepth)
+                              : surface_shader_wrapper(entry.source, entry.entry,
+                                                       role == ShaderEntryRole::SurfaceDepth);
                 ci.FilePath = nullptr;
                 ci.Source = wrapper.c_str();
                 ci.EntryPoint = role == ShaderEntryRole::SurfaceColor ? "ForgeSurfaceColor"

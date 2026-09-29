@@ -1,3 +1,4 @@
+#include "material_shader.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -85,6 +86,11 @@ void validate_surface_definition(const SurfaceShaderDefinition& d) {
     validate_material(surface_material_defaults(d));
     // Admission budgets, not universal hardware limits. Shader/PSO preparation
     // separately validates the actual enabled device/backend capabilities.
+    require(d.labels.empty() || d.physically_based, "Display labels require surface interface v2");
+    require(d.labels.size() <= d.parameters.size() + d.textures.size(), "Too many surface labels");
+    for (const auto& [key, label] : d.labels)
+        require((d.parameters.contains(key) || d.textures.contains(key)) && label.size() <= 512,
+                "Invalid surface label");
     require(d.uv_sets.size() <= 32, "Surface UV declaration count exceeds admission budget");
     std::set<unsigned> unique;
     for (const auto uv : d.uv_sets)
@@ -101,18 +107,29 @@ void validate_surface_definition(const SurfaceShaderDefinition& d) {
 Json surface_definition_document(const SurfaceShaderDefinition& d) {
     validate_surface_definition(d);
     const auto values = material_values_document(surface_material_defaults(d));
-    return {{"version", 1},
-            {"uv_sets", d.uv_sets},
-            {"parameters", values.at("parameters")},
-            {"textures", values.at("textures")}};
+    Json result{{"version", d.physically_based ? 2 : 1},
+                {"uv_sets", d.uv_sets},
+                {"parameters", values.at("parameters")},
+                {"textures", values.at("textures")}};
+    if (d.physically_based) {
+        result["lighting"] = "metallic-roughness";
+        result["labels"] = d.labels;
+    }
+    return result;
 }
 SurfaceShaderDefinition surface_definition(const Json& j) {
     require(j.is_object() && j.size() <= 16 && j.at("version").is_number_integer() &&
-                j.at("version") == 1,
+                (j.at("version") == 1 || j.at("version") == 2),
             "Unsupported surface interface version");
     require(j.at("uv_sets").is_array() && j.at("uv_sets").size() <= 32,
             "Surface UV declaration count exceeds admission budget");
     SurfaceShaderDefinition d;
+    if (j.at("version") == 2) {
+        require(j.at("lighting") == "metallic-roughness", "Unsupported surface lighting contract");
+        d.physically_based = true;
+        if (j.contains("labels"))
+            d.labels = j.at("labels").get<std::map<std::string, std::string>>();
+    }
     for (const auto& uv : j.at("uv_sets"))
         d.uv_sets.push_back(count(uv, UINT32_MAX));
     auto values = material_values_document(surface_material_defaults(d));
@@ -158,7 +175,8 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
                  ";\n";
         s += "};\n";
         for (const auto& [name, p] : d.parameters)
-            s += float_type(material_parameter_width(p.type)) + " ForgeParameter_" + name +
+            s += float_type(material_parameter_width(p.type)) +
+                 (d.physically_based ? " ForgeGraphParameter_" : " ForgeParameter_") + name +
                  "(){return g_SurfaceParameter_" + name + ";}\n";
     }
     for (std::size_t i = 0; i < d.uv_sets.size(); ++i)
@@ -293,6 +311,48 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                 else
                     result.uv_bytes = bytes;
             }
+        } else if (d.physically_based) {
+            // These names are the existing engine PBR interface, not authored
+            // register layouts. The cooked stage's actual reflection is checked.
+            if (name == "ForgeObject" || name == "ForgeLights" || name == "ForgeEnvironment" ||
+                name == "ForgeShadows" || name == "ForgeMaterialValues") {
+                unsigned bytes = 0;
+                if (name == "ForgeObject")
+                    bytes = 15 * 16;
+                else if (name == "ForgeLights")
+                    bytes = 64 * 4 * 16;
+                else if (name == "ForgeEnvironment")
+                    bytes = 16;
+                else if (name == "ForgeShadows")
+                    bytes = 8 * (32 + 8 + 2) * 16;
+                else {
+                    MaterialData defaults;
+                    defaults.model = "forge.gltf.metallic-roughness.v1";
+                    bytes = unsigned(
+                        material_shader(prepare_pbr_material(defaults), d.uv_sets).uniforms.size() *
+                        16);
+                }
+                require(kind == "constant_buffer" && resource.at("array_size") == 1 &&
+                            resource.at("size") == bytes,
+                        "Graph PBR engine buffer differs from its shared declaration");
+            } else if (name == "g_ForgeLightSampler" || name == "g_ForgeShadowSampler")
+                require(kind == "sampler" && resource.at("array_size") == 1,
+                        "Graph lighting sampler mismatch");
+            else if (name == "g_ForgeGGX")
+                require(kind == "texture_srv" && resource.at("dimension") == "texture2d" &&
+                            resource.at("array_size") == 1,
+                        "Graph GGX texture mismatch");
+            else if (name == "g_ForgeDiffuse" || name == "g_ForgeSpecular" ||
+                     name == "g_ForgeCharlie")
+                require(kind == "texture_srv" && resource.at("dimension") == "texture_cube" &&
+                            resource.at("array_size") == 1,
+                        "Graph environment texture mismatch");
+            else if (name == "g_ForgeShadows")
+                require(kind == "texture_srv" && resource.at("dimension") == "texture2d_array" &&
+                            resource.at("array_size") == 8,
+                        "Graph shadow texture mismatch");
+            else
+                throw std::runtime_error("Undeclared graph surface resource: " + name);
         } else
             throw std::runtime_error("Undeclared surface resource: " + name);
     }

@@ -1,7 +1,9 @@
 #pragma once
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "material_graph_compile_fixture.hpp"
 #include "shader_diligent.hpp"
 #include <chrono>
+#include <forge/material_graph.hpp>
 #include <functional>
 #include <iostream>
 namespace forge::test {
@@ -99,6 +101,33 @@ float4 fixture_color(){return float4(0,.25,1,1);}
     auto loaded = realize_diligent_shader(device, decode_shader(cooked));
     check(loaded.data.layout_digest() == selected.data.layout_digest(),
           "Cooked shader layout changed");
+    {
+        const auto graph = compile_material_graph(create_material_graph());
+        ShaderProgramSource surface;
+        surface.stages = {{ShaderStage::Pixel, "engine/forge.graph.hlsl", "ForgeGraphSurface"}};
+        surface.surface = graph.surface;
+        const auto compiled = compile_diligent_shader(
+            device, surface, {{"engine/forge.graph.hlsl", graph.source}}, {});
+        const auto realized =
+            realize_diligent_shader(device, decode_shader(encode_shader(compiled.data)));
+        check(realized.stages.size() == 2, "Graph lost shared color/depth programs");
+        for (const auto& stage : compiled.data.stages)
+            (void)surface_binding_layout(graph.surface, stage.reflection);
+        const auto rich = compile_material_graph(graph_tests::all_node_graph());
+        auto rich_source = surface;
+        rich_source.surface = rich.surface;
+        const auto rich_compiled = compile_diligent_shader(
+            device, rich_source, {{"engine/forge.graph.hlsl", rich.source}}, {});
+        for (const auto& stage : rich_compiled.data.stages)
+            (void)surface_binding_layout(rich.surface, stage.reflection);
+        (void)realize_diligent_shader(device, decode_shader(encode_shader(rich_compiled.data)));
+        auto relabeled = graph.surface;
+        relabeled.labels.begin()->second = "Another label";
+        auto copy = compiled.data;
+        copy.surface = relabeled;
+        check(copy.layout_digest() == compiled.data.layout_digest(),
+              "Graph label changed the GPU binding layout");
+    }
     {
         ShaderProgramSource surface;
         surface.stages = {{ShaderStage::Pixel, "surface/main.hlsl", "Shade"}};

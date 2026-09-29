@@ -100,6 +100,36 @@ int main(int argc, char** argv) {
                     problem.line == 1 && problem.column > 0 && problem.source_navigation,
                 "Shader compile failure did not navigate to its authored asset and HLSL location");
         require(!document.dirty(), "Shader UI compilation dirtied authored scene");
+        // Source frontends compile without opening the import-settings window.
+        ShaderImportEditor background(std::filesystem::absolute(argv[1]), [] {
+            return asset_detail::ShaderCompilerProfile{
+                asset_detail::diligent_shader_compiler_digest(),
+                asset_detail::diligent_shader_compiler_debug()};
+        });
+        require(background.begin_background_import(document, "surface.shader.json"),
+                "Background submission did not start");
+        auto wait_background = [&] {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(45);
+            while (background.pending() && std::chrono::steady_clock::now() < deadline) {
+                background.poll(document, message);
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+            require(!background.pending() && !background.is_open() && !background.dirty(),
+                    "Hidden import retained a job, window or invisible dirty document");
+        };
+        wait_background();
+        require(!background.diagnostic().empty() &&
+                    AssetCatalog::open_project(root).document() == good,
+                "Background failure lost diagnostics or changed last-good publication");
+        write(root / "Shaders/surface.hlsl",
+              "float4 vs(uint id:SV_VertexID):SV_POSITION{return float4(id,0,0,1);}\nfloat4 "
+              "ps():SV_TARGET{return 1;}\n");
+        require(background.begin_background_import(document, "surface.shader.json"),
+                "Background retry did not start");
+        wait_background();
+        require(background.diagnostic().empty() && background.last_published_asset() == id &&
+                    background.take_catalog(),
+                "Background success did not publish the source identity/catalog");
         ImGui::DestroyContext();
         return 0;
     } catch (const std::exception& e) {

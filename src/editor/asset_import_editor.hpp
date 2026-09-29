@@ -90,6 +90,22 @@ class AssetImportEditor {
         return job_ || !decisions_.empty() ||
                (draft_ && (!saved_ || Json(draft_->request.settings) != baseline_));
     }
+    AssetId last_published_asset() const { return published_asset_; }
+    bool begin_background_import(SceneDocument& document, const std::filesystem::path& source) {
+        if (pending() || (open_ && dirty()))
+            return false;
+        try {
+            ensure(document);
+            load(source);
+            open_ = focus_ = false;
+            submit_draft();
+            return bool(job_);
+        } catch (const std::exception& e) {
+            error_ = e.what();
+            report(error_);
+            return false;
+        }
+    }
     void request_save() { save_ = true; }
     void request_close() {
         close_ = true;
@@ -145,6 +161,7 @@ class AssetImportEditor {
                 continue;
             job_ = 0;
             if (result.published) {
+                published_asset_ = draft_->ticket.owner;
                 ++selection_generation_;
                 published_catalog_ =
                     std::make_shared<const AssetCatalog>(result.publication->catalog);
@@ -174,6 +191,16 @@ class AssetImportEditor {
                 message = error_ = result.diagnostic;
                 report(error_);
             }
+        }
+        // Background imports have no editable settings document. Their source
+        // frontend owns dirty/publication state; do not leave an invisible draft.
+        if (!open_ && !job_) {
+            draft_.reset();
+            decisions_.clear();
+            conflicts_.clear();
+            conflict_key_.clear();
+            if (close_)
+                finish_close();
         }
     }
     void draw(SceneDocument& document, bool locked) {
@@ -285,18 +312,7 @@ class AssetImportEditor {
         if (save_ && !locked && !job_ && draft_) {
             save_ = false;
             try {
-                job_ = service_->submit(
-                    *draft_,
-                    [prepare = profile_.publish, decisions = decisions_,
-                     key = conflict_key_](auto& candidate, const auto& plan, const auto& catalog) {
-                        if (!decisions.empty() && plan.input.key() != key)
-                            throw std::runtime_error(
-                                "Source/settings changed after identity review. Reimport and "
-                                "review the new correspondence before publishing.");
-                        prepare(candidate, plan, catalog, decisions);
-                    },
-                    [](const auto&, const auto&) {});
-                error_.clear();
+                submit_draft();
             } catch (const std::exception& e) {
                 error_ = e.what();
                 report(error_);
@@ -345,6 +361,20 @@ class AssetImportEditor {
     }
 
   private:
+    void submit_draft() {
+        job_ = service_->submit(
+            *draft_,
+            [prepare = profile_.publish, decisions = decisions_,
+             key = conflict_key_](auto& candidate, const auto& plan, const auto& catalog) {
+                if (!decisions.empty() && plan.input.key() != key)
+                    throw std::runtime_error(
+                        "Source/settings changed after identity review. Reimport and "
+                        "review the new correspondence before publishing.");
+                prepare(candidate, plan, catalog, decisions);
+            },
+            [](const auto&, const auto&) {});
+        error_.clear();
+    }
     void report(const std::string& text) const {
         if (!ui::editor_context)
             return;
@@ -373,6 +403,7 @@ class AssetImportEditor {
     std::optional<std::filesystem::path> pending_source_;
     Json baseline_;
     AssetJobId job_ = 0;
+    AssetId published_asset_;
     bool open_ = false, saved_ = false, save_ = false, close_ = false, focus_ = false;
     char source_[1024]{};
     std::string error_;

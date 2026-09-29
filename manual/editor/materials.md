@@ -119,8 +119,7 @@ External file changes are checked before overwriting the source. Reload and reso
 a conflict instead of assuming the editor can merge another writer's edits.
 
 The current editor exposes built-in material models and numeric/texture properties.
-It does not expose a node graph or let an arbitrary Shader asset replace the mesh
-renderer's shader contract. See [Shader import](shaders.md) for that separate workflow.
+Use [Material Graph](material-graphs.md) to author a typed PBR surface graph. An arbitrary Shader asset still cannot replace the mesh renderer's shader contract. See [Shader import](shaders.md) for that separate workflow.
 
 
 ### Preview framing and field ownership
@@ -166,3 +165,5 @@ checker textures. Choose the shape required by the slot; these built-in resource
 do not need image files in your project.
 
 In a narrow Material document or at a larger interface scale, the preview stacks above the properties and reduces its height to leave room for editing. Widen the document to restore the split properties/preview view.
+
+Graph-backed materials expose **Edit graph** and use readable parameter labels. Material values, texture assignments and instance Revert keep their existing ownership. See [Material Graph](material-graphs.md).

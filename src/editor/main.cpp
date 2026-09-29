@@ -41,6 +41,7 @@
 #include "help.hpp"
 #include "hierarchy.hpp"
 #include "material_editor.hpp"
+#include "material_graph_editor.hpp"
 #include "material_preview.hpp"
 #include "mesh_material_inspector.hpp"
 #include "model_imports.hpp"
@@ -828,6 +829,32 @@ int main(int argc, char** argv) {
                     forge::asset_detail::diligent_shader_compiler_debug()};
             });
         forge::MaterialEditor material_editor;
+        forge::MaterialGraphEditor graph_editor(
+            std::filesystem::path(base) / "forge_shader_build.exe", [] {
+                return forge::asset_detail::ShaderCompilerProfile{
+                    forge::asset_detail::diligent_shader_compiler_digest(),
+                    forge::asset_detail::diligent_shader_compiler_debug()};
+            });
+        graph_editor.publish = [&](const auto& source) {
+            return shader_imports.begin_background_import(files.document, source);
+        };
+        graph_editor.publication_busy = [&] { return shader_imports.pending(); };
+        graph_editor.publication_error = [&] { return shader_imports.diagnostic(); };
+        const auto open_shader = [&](const std::filesystem::path& source) {
+            if (forge::MaterialGraphEditor::source_is_graph(files.document.project(), source))
+                graph_editor.open(files.document, source);
+            else
+                shader_imports.open(files.document, source);
+        };
+        material_editor.edit_graph = [&](auto ref, const auto& values) {
+            const auto catalog = forge::AssetCatalog::open_project(files.document.project());
+            const auto resolution = catalog.resolve(ref);
+            if (resolution.state != forge::AssetState::Available)
+                throw std::runtime_error(resolution.diagnostic);
+            const auto& asset = catalog.records().at(ref.id);
+            open_shader(asset.source);
+            graph_editor.preview_material(values);
+        };
         forge::CollisionEditor collision_editor;
         std::unique_ptr<forge::MaterialPreview> material_preview;
         std::shared_ptr<const forge::AssetCatalog> material_preview_catalog;
@@ -846,6 +873,24 @@ int main(int argc, char** argv) {
         material_editor.release_preview = [&] {
             material_preview.reset();
             material_preview_catalog.reset();
+        };
+        std::unique_ptr<forge::MaterialPreview> graph_preview;
+        std::shared_ptr<const forge::AssetCatalog> graph_preview_catalog;
+        graph_editor.update_preview = [&](auto data, auto catalog) {
+            if (!graph_preview)
+                graph_preview = std::make_unique<forge::MaterialPreview>(
+                    presentation, context, files.document.project(), catalog);
+            graph_preview->catalog(catalog);
+            graph_preview->material(forge::engine_material(), std::move(data));
+            graph_preview_catalog = std::move(catalog);
+        };
+        graph_editor.draw_preview = [&](bool stacked) {
+            if (graph_preview && graph_preview_catalog)
+                graph_preview->draw(*graph_preview_catalog, stacked);
+        };
+        graph_editor.release_preview = [&] {
+            graph_preview.reset();
+            graph_preview_catalog.reset();
         };
         forge::ContentImports content_imports;
         forge::ContentFiles content_files;
@@ -871,7 +916,7 @@ int main(int argc, char** argv) {
                 animation_tools.pending() || navigation_tools.pending() ||
                 script_editor.pending() || texture_imports.pending() || audio_imports.pending() ||
                 model_imports.pending() || shader_imports.pending() || material_editor.pending() ||
-                collision_editor.pending())
+                graph_editor.pending() || collision_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -906,6 +951,11 @@ int main(int argc, char** argv) {
                     if (plan.request.action == forge::AssetFileAction::Move)
                         material_editor.open(files.document, plan.request.destination);
                 }
+                if (graph_editor.document() && graph_editor.document()->source().asset() == id) {
+                    graph_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        graph_editor.open(files.document, plan.request.destination);
+                }
                 if (collision_editor.document() &&
                     collision_editor.document()->source().asset() == id) {
                     collision_editor.request_close();
@@ -918,6 +968,7 @@ int main(int argc, char** argv) {
             if (mesh_resources)
                 mesh_resources->catalog(catalog);
             material_editor.asset_catalog_changed(catalog);
+            graph_editor.asset_catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
             play.model_assets_changed();
             if (plan.request.action == forge::AssetFileAction::Delete) {
@@ -957,6 +1008,8 @@ int main(int argc, char** argv) {
         };
         content_imports.blocked = [&](forge::AssetId id) {
             return files.busy() ||
+                   (graph_editor.document() && graph_editor.document()->source().asset() == id &&
+                    graph_editor.dirty()) ||
                    (collision_editor.document() &&
                     collision_editor.document()->source().asset() == id &&
                     collision_editor.dirty()) ||
@@ -973,9 +1026,11 @@ int main(int argc, char** argv) {
             model_imports.source_published(id);
             shader_imports.source_published(id);
             material_editor.source_published(files.document, id);
+            graph_editor.source_published(id);
             collision_editor.source_published(files.document, id);
             collision_editor.asset_catalog_changed(catalog);
             material_editor.asset_catalog_changed(catalog);
+            graph_editor.asset_catalog_changed(catalog);
             if (mesh_resources)
                 mesh_resources->catalog(catalog);
             play.model_assets_changed();
@@ -1014,7 +1069,7 @@ int main(int argc, char** argv) {
                     material_editor.open(files.document, path);
             } else if (kind == "shader_program") {
                 if (open)
-                    shader_imports.open(files.document, path);
+                    open_shader(path);
             } else
                 return false;
             return true;
@@ -1257,10 +1312,17 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(shader_imports.close_cancelled, false); }});
-        asset_editors.add(
-            {"shader", "Import settings / Compile", [&](const forge::AssetRecord& asset) {
-                 shader_imports.open(files.document, asset.source);
-             }});
+        asset_editors.add({"shader", "Open graph / Compile",
+                           [&](const forge::AssetRecord& asset) { open_shader(asset.source); }});
+        documents.add({"material.graph", "Material Graph", "Material Graph###Material Graph", true,
+                       [&] { return graph_editor.is_open(); }, [&] { return graph_editor.dirty(); },
+                       [&] { graph_editor.draw(files.document, asset_document_locked); },
+                       [&] { graph_editor.request_save(); }, [&] { graph_editor.undo(); },
+                       [&] { graph_editor.redo(); }, [&] { graph_editor.request_close(); },
+                       [&] { return graph_editor.can_undo(); },
+                       [&] { return graph_editor.can_redo(); },
+                       [&](std::string_view key) { return graph_editor.inspect(key); },
+                       [&] { return std::exchange(graph_editor.close_cancelled, false); }});
         documents.add({"material",
                        "Material",
                        "Material###Material",
@@ -3044,6 +3106,7 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                graph_editor.poll(files.document, message);
                 material_editor.poll(files.document, message);
                 if (auto catalog = material_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -3057,20 +3120,26 @@ int main(int argc, char** argv) {
                     if (mesh_resources)
                         mesh_resources->catalog(catalog);
                     material_editor.asset_catalog_changed(catalog);
+                    graph_editor.asset_catalog_changed(catalog);
                     content.refresh(files);
                 }
                 texture_imports.poll(files.document, message);
                 if (auto catalog = texture_imports.take_catalog()) {
                     content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
+                    graph_editor.asset_catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
                     content.refresh(files);
                 }
                 shader_imports.poll(files.document, message);
                 if (auto catalog = shader_imports.take_catalog()) {
+                    graph_editor.source_published(shader_imports.last_published_asset());
+                    material_editor.source_published(files.document,
+                                                     shader_imports.selected_asset());
                     content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
+                    graph_editor.asset_catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
                     content.refresh(files);
@@ -3079,6 +3148,7 @@ int main(int argc, char** argv) {
                 if (auto catalog = model_imports.take_catalog()) {
                     content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
+                    graph_editor.asset_catalog_changed(catalog);
                     play.model_assets_changed();
                     if (mesh_resources)
                         mesh_resources->catalog(std::move(catalog));
@@ -3923,6 +3993,7 @@ int main(int argc, char** argv) {
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
                         material_editor.content(files.document, edit_locked);
+                        graph_editor.content(files.document, edit_locked);
                         collision_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);
                         audio_imports.content(files.document, edit_locked);
@@ -3949,9 +4020,9 @@ int main(int argc, char** argv) {
                 blockout.active() || play.active() || (native->busy() || sdk_build->busy()) ||
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
-                material_editor.pending() || source_import.busy() || animation_tools.pending() ||
-                navigation_tools.pending() || script_editor.pending() ||
-                authored_components.busy() || content_files.busy());
+                material_editor.pending() || graph_editor.pending() || source_import.busy() ||
+                animation_tools.pending() || navigation_tools.pending() ||
+                script_editor.pending() || authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
             source_import.draw(play.active() || (native->busy() || sdk_build->busy()) ||
                                content_files.busy() || authored_components.busy() ||
@@ -4503,6 +4574,14 @@ int main(int argc, char** argv) {
                                                     ? material_editor.document()->source().document
                                                     : forge::Json(nullptr);
                 observed["material_dirty"] = material_editor.dirty();
+                observed["graph_document"] = graph_editor.document()
+                                                 ? graph_editor.document()->source().document
+                                                 : forge::Json(nullptr);
+                observed["graph_dirty"] = graph_editor.dirty();
+                observed["graph_error"] = graph_editor.diagnostic();
+                observed["graph_compiled"] = graph_editor.preview_ready();
+                observed["graph_gpu_ready"] = graph_preview && !graph_preview->pending() &&
+                                              graph_preview->diagnostics().empty();
                 observed["material_disk"] =
                     material_editor.document()
                         ? forge::read_json(files.document.project() /

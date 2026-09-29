@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
+#include <forge/material_graph.hpp>
 namespace forge::asset_detail {
 namespace {
 using Json = nlohmann::json;
@@ -41,6 +42,16 @@ ShaderSnapshot capture_shader_source(const std::filesystem::path& project,
     result.document = parse_bounded_json(bytes, document_limit);
     result.document_digest = content_digest(bytes);
     result.program = shader_program_source(result.document);
+    if (result.document.at("version") == 3) {
+        require(engine.empty(),
+                "Graph sources derive their engine dependencies from the pinned compiler recipe");
+        const auto compiled = compile_material_graph(result.document.at("graph"));
+        require(result.sources.emplace("engine/forge.graph.hlsl", compiled.source).second,
+                "Engine sources shadow the graph-generated source");
+        validate_shader_sources(result.sources);
+        cancelled(stop);
+        return result;
+    }
     const auto root_name = result.document.at("source_root").get<std::string>();
     const auto root = ProjectPaths::normalize(std::filesystem::u8path(root_name));
     require(path_utf8(root) == root_name, "Shader source root must be a canonical project locator");
@@ -157,6 +168,11 @@ ShaderProcessInput decode_shader_process_request(const ImportProcessRequest& req
                 "Missing/reused/oversized shader worker source");
         result.sources.emplace(name, text(*found->second));
         inputs.erase(found);
+    }
+    if (p.at("document").at("version") == 3) {
+        const auto graph = compile_material_graph(p.at("document").at("graph"));
+        require(result.sources == ShaderSources{{"engine/forge.graph.hlsl", graph.source}},
+                "Graph worker sources differ from the authoritative graph");
     }
     const auto input = shader_build_input(result.program, result.sources, result.permutation,
                                           actual.digest, actual.debug);

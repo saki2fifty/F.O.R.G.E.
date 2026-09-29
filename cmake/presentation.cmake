@@ -24,7 +24,7 @@ include(cmake/pbr.cmake)
 add_library(forge_shader_diligent src/shader_diligent.cpp)
 target_include_directories(forge_shader_diligent PUBLIC "${diligent_SOURCE_DIR}/DiligentCore" PRIVATE src)
 target_compile_definitions(forge_shader_diligent PRIVATE UNICODE _UNICODE NOMINMAX)
-target_link_libraries(forge_shader_diligent PUBLIC forge_shader Diligent-BuildSettings PRIVATE Diligent-GraphicsTools Diligent-GraphicsEngineD3D12-shared d3dcompiler)
+target_link_libraries(forge_shader_diligent PUBLIC forge_shader Diligent-BuildSettings PRIVATE forge_diligent_pbr_native Diligent-GraphicsTools Diligent-GraphicsEngineD3D12-shared d3dcompiler)
 
 if(NOT FORGE_BUILD_UI_PRESENTER)
  message(FATAL_ERROR "Graphical hosts require FORGE_BUILD_UI_PRESENTER")

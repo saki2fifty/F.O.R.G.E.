@@ -1,5 +1,6 @@
 #include "component_inspector.hpp"
 #include "material_editor.hpp"
+#include "material_graph_document_tests.hpp"
 #include "mesh_material_inspector.hpp"
 #include "surface_material_fixture.hpp"
 #include <iostream>
@@ -259,6 +260,7 @@ int main(int argc, char** argv) {
             require(scene.document() == authored_before_custom,
                     "Custom material source editing changed authored scene state");
         }
+        test::material_graph_documents(project, scene);
         ImGui::DestroyContext();
         return 0;
     } catch (const std::exception& e) {

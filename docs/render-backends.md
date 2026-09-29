@@ -165,3 +165,17 @@ This check does not grant a general graphics-error exception or suppress message
 The shipped editor adds no forced GPU wait or backend-specific synchronization.
 The observed hosted-software delay remains a documented performance limitation;
 physical-GPU behavior and the exact driver-side cost are not established here.
+
+## Phase10 material graph backend matrix
+
+| Capability | D3D12 | Vulkan | Metal/WebGPU |
+|---|---|---|---|
+| Logical graph/Material/Texture formats | Neutral | Same format | Same format |
+| Named resource/PBR HLSL projection | Native compiler tests | DXC SPIR-V compile probe | Design mapping only |
+| Cooked graph Shader bytecode | Current FXC target | No shipped cook | No shipped cook |
+| Graph editor and exported draw | Windows/WARP acceptance gate | No GPU acceptance | No acceptance |
+
+Actual Phase10 pass/fail evidence belongs to its completion report. A compile probe
+is not backend runtime acceptance. Graph admission budgets do not replace Diligent
+device features, shader reflection or complete pipeline validation. No raw D3D12
+objects/register-space assumptions enter the shared graph/compiler renderer path.

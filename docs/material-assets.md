@@ -206,3 +206,7 @@ Pinned Diligent PBR BRDF/environment defaults remain presentation-owned resource
 They are not duplicated as project assets merely to increase asset-type coverage.
 These policies use shared Diligent abstractions and do not introduce native backend
 handles or descriptor layout assumptions.
+
+## Phase10 graph extension
+
+[Material graphs](material-graphs.md) add Shader source version3 and surface metadata version2 with shared metallic/roughness PBR and binding labels. Existing final-color custom surfaces, Material sparse overrides and publication/history owners remain supported. Graph source and generated HLSL cannot both be authored authorities.

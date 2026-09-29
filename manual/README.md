@@ -25,6 +25,7 @@ Start with [Your first scene](getting-started/first-scene.md), or try [Build a b
 - [Model import tools](editor/models.md): prepare static glTF asset families and resolve identity conflicts.
 - [Scene lighting](editor/lighting.md): environment maps, sky, intensity, rotation and exposure.
 - [Textures](editor/textures.md): import images, choose usages and reimport safely.
+- [Material Graph](editor/material-graphs.md): connect surface values, reuse functions and make material variations.
 - [Materials](editor/materials.md): edit reusable surfaces, preview them and assign mesh slots.
 - [Shader import](editor/shaders.md): compile project HLSL programs and retain good revisions on errors.
 - [Content browser](editor/content-browser.md): find and open project scene files.
@@ -60,7 +61,7 @@ This manual describes the source or packaged build it accompanies. FORGE include
 imported and skinned mesh rendering, materials, textures, scene lighting, standalone
 export, runtime dependency declarations, Collision assets and reusable character
 mechanics. Build260923-000066 predates these Phase8 runtime/export/physics additions.
-Terrain and material graphs remain future work. The controller supplies physics mechanics;
+Terrain remains future work. Material graphs are described in the graph guide. The controller supplies physics mechanics;
 gameplay code still supplies movement keys and camera behavior.
 
 ## Commands and inspection

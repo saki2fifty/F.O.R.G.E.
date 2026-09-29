@@ -12,7 +12,7 @@ namespace forge::test {
 // Scene state is observed, never edited through commands or model APIs.
 // Inputs drive authoring; raw files supply a DCC import/reimport scenario.
 class EditorInputWorkflow {
-    enum class Kind { Click, Hover, Text, Key, Check, Capture, DropFile, SourceEdit };
+    enum class Kind { Click, Drag, Hover, Text, Key, Check, Capture, DropFile, SourceEdit };
     struct Step {
         Kind kind;
         std::string value;
@@ -31,6 +31,8 @@ class EditorInputWorkflow {
     std::filesystem::path external_source_, project_;
     std::string drop_path_, model_asset_, model_root_, material_asset_, collision_asset_;
     std::uint64_t model_generation_ = 0;
+    std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_;
+    Json graph_before_;
     Json starter_modules_, apply_before_, apply_after_;
     std::string starter_source_;
     static Json model_source(bool changed = false) {
@@ -59,6 +61,9 @@ class EditorInputWorkflow {
     void click(std::string target, bool ctrl = false) {
         steps_.push_back({Kind::Click, std::move(target), ImGuiKey_None, ctrl});
     }
+    void drag(std::string from, std::string to) {
+        steps_.push_back({Kind::Drag, std::move(from) + "|" + std::move(to)});
+    }
     void hover(std::string target) { steps_.push_back({Kind::Hover, std::move(target)}); }
     void check(std::string what) { steps_.push_back({Kind::Check, std::move(what)}); }
     void capture(std::string name) { steps_.push_back({Kind::Capture, std::move(name)}); }
@@ -81,7 +86,62 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "cpp-source-empty") {
+        if (what == "graph-created") {
+            const auto& g = state.at("graph_document");
+            require(g.is_object(), "Graph creation did not open a source document");
+            graph_before_ = g;
+            graph_asset_ = g.at("asset_id");
+            graph_parameter_ = g.at("graph").at("nodes")[0].at("id");
+            graph_output_ = g.at("graph").at("nodes")[1].at("id");
+            graph_binding_ = g.at("graph").at("nodes")[0].at("data").at("key");
+        } else if (what == "graph-added") {
+            const auto& nodes = state.at("graph_document").at("graph").at("nodes");
+            require(nodes.size() == 3 && nodes[2].at("type") == "constant",
+                    "Node search/add did not create a constant");
+            graph_added_ = nodes[2].at("id");
+        } else if (what == "graph-add-removed") {
+            require(state.at("graph_document").at("graph").at("nodes").size() == 2,
+                    "Delete did not remove the added node");
+        } else if (what == "graph-connected") {
+            const auto& edge = state.at("graph_document").at("graph").at("edges").at(0);
+            require(edge.at("id") != graph_before_.at("graph").at("edges").at(0).at("id") &&
+                        edge.at("from").at("node") == graph_parameter_ &&
+                        edge.at("to").at("node") == graph_output_,
+                    "Mouse port drag did not connect typed nodes");
+        } else if (what == "graph-ready") {
+            require(!state.at("graph_dirty").get<bool>() &&
+                        state.at("graph_gpu_ready").get<bool>() && state.at("graph_error") == "",
+                    "Graph publication/preview is not ready");
+        } else if (what == "graph-renamed" || what == "graph-undo") {
+            const auto& g = state.at("graph_document");
+            require(g.at("asset_id") == graph_asset_ &&
+                        g.at("graph").at("nodes")[0].at("data").at("key") == graph_binding_,
+                    "Graph label edit changed binding/asset identity");
+            require(g.at("graph").at("nodes")[0].at("data").at("label") ==
+                        (what == "graph-undo" ? "Color" : "Surface Tint"),
+                    "Graph label history failed");
+        } else if (what == "graph-rejected") {
+            require(!state.at("graph_error").get<std::string>().empty() &&
+                        state.at("graph_compiled").get<bool>() &&
+                        state.at("graph_gpu_ready").get<bool>(),
+                    "Failed graph compilation removed the usable preview");
+            require(state.at("graph_document").at("graph").at("nodes").size() == 1,
+                    "Graph Delete did not affect the canvas");
+            require(doc == saved_, "Graph Delete changed scene entities");
+        } else if (what == "graph-closed") {
+            require(state.at("graph_document").is_null(), "Graph did not close");
+        } else if (what == "graph-material-created") {
+            require(state.at("material_document").is_object(), "Graph material did not open");
+            material_asset_ = state.at("material_document").at("asset_id");
+        } else if (what == "graph-material-saved") {
+            require(!state.at("material_dirty").get<bool>() &&
+                        state.at("material_document").at("overrides").at("shader") == graph_asset_,
+                    "Graph material did not publish its Shader reference");
+        } else if (what == "graph-reopened") {
+            require(state.at("graph_document").at("asset_id") == graph_asset_ &&
+                        state.at("graph_document").at("graph").at("nodes").size() == 2,
+                    "Graph did not reopen intact");
+        } else if (what == "cpp-source-empty") {
             require(state.at("cpp_source_text").get<std::string>().size() < 2,
                     "Delete did not clear C++ source");
             require(state.at("cpp_source_dirty").get<bool>() && entities.size() == 3,
@@ -838,6 +898,76 @@ class EditorInputWorkflow {
         check("saved");
         capture("scene-material-assignment");
         click("tab:Content");
+        click("button:Actions");
+        click("button:Create / Register");
+        click("graph:new");
+        text("graph:new-path", "Assets/WorkflowSurface.shader.json");
+        click("graph:create");
+        check("graph-created");
+        click("graph:save");
+        check("graph-ready");
+        capture("material-graph-workspace");
+        click("graph:add-node");
+        click("graph:node-choice:constant");
+        check("graph-added");
+        click("graph-added-node");
+        capture("material-graph-node-properties");
+        key(ImGuiKey_Delete);
+        check("graph-add-removed");
+        drag("graph-parameter-port", "graph-surface-port");
+        check("graph-connected");
+        key(ImGuiKey_Z, true);
+
+        click("graph-parameter-node");
+        text("graph:node-label", "Surface Tint");
+        click("graph-output-node");
+        check("graph-renamed");
+        key(ImGuiKey_Z, true);
+        check("graph-undo");
+        key(ImGuiKey_Y, true);
+        check("graph-renamed");
+        click("graph:save");
+        check("graph-ready");
+        click("graph-output-node");
+        key(ImGuiKey_Delete);
+        click("graph:save");
+        check("graph-rejected");
+        capture("material-graph-error-retention");
+        key(ImGuiKey_Z, true);
+        click("graph:save");
+        check("graph-ready");
+        click("graph:close");
+        check("graph-closed");
+        click("tab:Content");
+        text("content:search", "WorkflowSurface");
+        click("source:Assets/WorkflowSurface.shader.json");
+        click("menu:Assets");
+        click("action:asset.open");
+        check("graph-reopened");
+        capture("material-graph-reopened");
+        click("tab:Content");
+        click("button:Actions");
+        click("button:Create / Register");
+        click("button:New material...");
+        text("material:new-path", "Assets/WorkflowGraph.material.json");
+        click("button:Create");
+        check("graph-material-created");
+        click("asset-picker:shader:Surface Shader");
+        click("graph-shader-option");
+        click("material:document");
+        key(ImGuiKey_S, true);
+        check("graph-material-saved");
+        capture("graph-material-instance");
+        click("tab:Scene");
+        click("placed-model-row");
+        click("renderer-slots");
+        click("asset-picker:material:##material");
+        click("authored-material-option");
+        check("material-assigned");
+        key(ImGuiKey_S, true);
+        check("saved");
+        capture("scene-graph-material");
+        click("tab:Content");
         text("content:search", "scene");
         click("saved-scene-asset");
         click("dependencies:section");
@@ -1041,7 +1171,8 @@ class EditorInputWorkflow {
         const auto limit =
             step.kind == Kind::Check &&
                     (step.value == "compiler-ready" || step.value == "starter-built" ||
-                     step.value == "starter-rebuilt" || step.value == "starter-rejected")
+                     step.value == "starter-rebuilt" || step.value == "starter-rejected" ||
+                     step.value == "graph-ready" || step.value == "graph-rejected")
                 ? 180000u
                 : 12000u;
         if (SDL_GetTicks() - since_ > limit) {
@@ -1062,6 +1193,10 @@ class EditorInputWorkflow {
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             const auto target =
                 step.value == "saved-cube-row"              ? "entity:" + cube_
+                : step.value == "graph-parameter-node"      ? "graph:node:" + graph_parameter_
+                : step.value == "graph-added-node"          ? "graph:node:" + graph_added_
+                : step.value == "graph-output-node"         ? "graph:node:" + graph_output_
+                : step.value == "graph-shader-option"       ? "picker-option:" + graph_asset_
                 : step.value == "authored-material-option"  ? "picker-option:" + material_asset_
                 : step.value == "authored-collision-option" ? "picker-option:" + collision_asset_
                 : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
@@ -1099,6 +1234,27 @@ class EditorInputWorkflow {
                               {"target", target},
                               {"rect", {t.minimum.x, t.minimum.y, t.maximum.x, t.maximum.y}},
                               {"route", "ImGui queued mouse/key input"}});
+        }
+        if (step.kind == Kind::Drag) {
+            const auto separator = step.value.find('|');
+            auto name =
+                frame_ < 4 ? step.value.substr(0, separator) : step.value.substr(separator + 1);
+            if (name == "graph-parameter-port")
+                name = "graph:output:" + graph_parameter_ + ":out";
+            if (name == "graph-surface-port")
+                name = "graph:input:" + graph_output_ + ":base_color";
+            const auto found = ui_targets.find(name);
+            if (found == ui_targets.end() || !found->second.enabled) {
+                ui_targets.clear();
+                return;
+            }
+            const auto& t = found->second;
+            pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
+            io.AddMousePosEvent(pointer_.x, pointer_.y);
+            if (frame_ == 2)
+                io.AddMouseButtonEvent(0, true);
+            if (frame_ == 6)
+                io.AddMouseButtonEvent(0, false);
         }
         io.AddMousePosEvent(pointer_.x, pointer_.y);
         if (step.kind == Kind::Click) {

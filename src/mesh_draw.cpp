@@ -51,6 +51,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         validate_shader(surface->program);
         require(surface->program.surface.has_value(), "Shader has no surface interface");
         validate_surface_material(source, *surface->program.surface);
+        if (surface->program.surface->physically_based) {
+            MaterialData defaults;
+            defaults.model = "forge.gltf.metallic-roughness.v1";
+            profile = prepare_pbr_material(defaults);
+        }
     } else
         profile = prepare_pbr_material(source);
     const auto fetch = surface
@@ -66,6 +71,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         program.vertex = generated.vertex;
         program.geometry = generated.geometry;
         program.instanced = generated.instanced;
+        if (surface->program.surface->physically_based)
+            program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
     } else
         program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding);
     const auto& material = program.material;
@@ -103,7 +110,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection);
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
-    const bool lit = !surface && !shadow_pass_ && profile->workflow != PbrWorkflow::Unlit;
+    const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
+                                               : profile->workflow != PbrWorkflow::Unlit);
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
         ggx = presentation.pbr(context).GetPreintegratedGGX_SRV();
@@ -147,7 +155,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     }
     object_ = buffer(device, "FORGE camera-relative object", 15 * sizeof(Row));
     lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
-    RefCntAutoPtr<IBuffer> values, surface_state, surface_uv;
+    RefCntAutoPtr<IBuffer> values, surface_state, surface_uv, graph_pbr_values;
     if (surface) {
         const auto bytes = surface_parameter_bytes(source, surface_layout);
         if (!bytes.empty())
@@ -167,6 +175,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     } else
         values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
                         material.uniforms.data());
+    if (surface && surface->program.surface->physically_based)
+        graph_pbr_values = buffer(device, "FORGE graph PBR defaults",
+                                  material.uniforms.size() * sizeof(Row), material.uniforms.data());
     auto sampler_states = material.samplers;
     if (surface)
         for (const auto& [role, declaration] : surface->program.surface->textures) {
@@ -271,6 +282,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                 bind(SHADER_TYPE_PIXEL, "ForgeSurfaceState", surface_state);
             if (surface_uv)
                 bind(SHADER_TYPE_PIXEL, "ForgeSurfaceUV", surface_uv);
+            if (graph_pbr_values)
+                bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", graph_pbr_values, false);
         } else
             bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values, !shadow_pass_);
         if (lit) {

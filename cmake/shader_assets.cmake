@@ -4,6 +4,9 @@ set(_forge_shader_recipe_inputs "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_V
 foreach(source
  include/forge/shader_asset.hpp src/shader_asset.cpp src/shader_pipeline.hpp src/shader_pipeline.cpp
  include/forge/surface_shader.hpp src/surface_shader.cpp src/material_asset.cpp
+ include/forge/material_graph.hpp src/material_graph.cpp src/material_graph_functions.cpp src/mesh_shader_input.hpp src/mesh_draw_shader.hpp src/mesh_draw_shader.cpp
+ resources/shaders/ForgeSurface.fxh resources/shaders/ForgeLighting.fxh resources/shaders/ForgeShadows.fxh
+ cmake/patches/diligentfx-aaa41d47-shader-warnings.json cmake/patches/diligentfx-aaa41d47-shader-warnings.patch
  src/shader_importer.cpp src/shader_diligent.hpp src/shader_diligent.cpp src/shader_worker_main.cpp
  src/import_process.hpp src/import_process.cpp src/asset_worker.hpp src/worker_stage_lease.hpp src/worker_stage_lease.cpp src/asset_worker.cpp
  src/cooked_envelope.hpp src/bounded_json.hpp cmake/shader_assets.cmake cmake/diligent_source.cmake)

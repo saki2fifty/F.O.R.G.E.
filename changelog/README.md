@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-09-29](20260929/README.md) — Material graph workspace and PBR integration.
+
 Browse FORGE changes by **UTC day**, newest first. Each day has one continuously maintained page, organized by function, with build results and known limitations. Build counters increase across dates; they do not reset.
 
 | Day | Changes |

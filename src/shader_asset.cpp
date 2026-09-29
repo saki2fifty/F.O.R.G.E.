@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "cooked_envelope.hpp"
 #include <algorithm>
+#include <forge/material_graph.hpp>
 #include <forge/shader_asset.hpp>
 #include <tuple>
 namespace forge {
@@ -104,8 +105,10 @@ Json layout(const ShaderData& data) {
                 {"profile", "5.1"},
                 {"row_major", data.row_major},
                 {"stages", stages}};
-    if (data.surface)
+    if (data.surface) {
         result["surface"] = surface_definition_document(*data.surface);
+        result["surface"].erase("labels"); // Display metadata is not a GPU binding layout.
+    }
     return result;
 }
 } // namespace
@@ -184,6 +187,17 @@ void validate_shader_program(const ShaderProgramSource& program) {
     }
 }
 ShaderProgramSource shader_program_source(const Json& doc) {
+    if (doc.is_object() && doc.value("version", 0) == 3) {
+        MaterialGraphSource source{doc};
+        source.validate();
+        const auto compiled = compile_material_graph(doc.at("graph"));
+        ShaderProgramSource result;
+        result.stages.push_back(
+            {ShaderStage::Pixel, "engine/forge.graph.hlsl", "ForgeGraphSurface"});
+        result.surface = compiled.surface;
+        validate_shader_program(result);
+        return result;
+    }
     require(doc.dump().size() <= 1024 * 1024, "Shader source document exceeds byte profile");
     require(doc.is_object() && doc.at("format") == "forge.shader" &&
                 doc.at("version").is_number_integer() &&
@@ -205,6 +219,8 @@ ShaderProgramSource shader_program_source(const Json& doc) {
         require(doc.at("version") == 2,
                 "Material surface functions require shader source version2");
         result.surface = surface_definition(doc.at("surface"));
+        require(!result.surface->physically_based,
+                "Lit graph interfaces require graph shader source version3");
     }
     validate_shader_program(result);
     return result;

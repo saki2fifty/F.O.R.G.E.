@@ -9,6 +9,9 @@ struct SurfaceShaderDefinition {
     std::vector<unsigned> uv_sets;
     std::map<std::string, MaterialParameter> parameters;
     std::map<std::string, MaterialTextureSlot> textures;
+    bool physically_based = false;
+    // Display metadata; binding names remain stable and independent of labels.
+    std::map<std::string, std::string> labels;
     bool operator==(const SurfaceShaderDefinition&) const = default;
 };
 void validate_surface_definition(const SurfaceShaderDefinition&);

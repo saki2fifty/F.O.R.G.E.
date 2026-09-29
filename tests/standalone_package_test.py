@@ -86,6 +86,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     mode = '--packaged-mixed' if args.source else '--packaged'
     run([relocated/'forge_game_fixture.exe', mode, evidence], cwd=relocated, env=env,
         evidence_log=evidence/'capture-host.log')
+    assert json.loads((evidence/'material-graph-result.json').read_text())['green_surface_pixels'] > 100
     storage_result = json.loads((evidence/'storage-result.json').read_text())
     assert not storage_result['reopened'], 'Fixture application ID unexpectedly reused'
     user_root = Path(storage_result['root'])
@@ -98,6 +99,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     restarted = evidence/'restarted'
     run([relocated/'forge_game_fixture.exe', mode, restarted], cwd=relocated, env=env,
         evidence_log=evidence/'restarted.log')
+    assert json.loads((restarted/'material-graph-result.json').read_text())['green_surface_pixels'] > 100
     restored = json.loads((restarted/'storage-result.json').read_text())
     assert restored['reopened'] and restored['root'] == storage_result['root']
     assert restored['scene'] == storage_result['scene']
@@ -158,7 +160,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     if args.retain:
         shutil.copytree(relocated, args.retain.resolve())
     (evidence/'relocation.json').write_text(json.dumps({
-        'production_startup': True, 'source_removed': True,
+        'production_startup': True, 'source_removed': True, 'material_graph_rendered_after_relocation': True,
         'kit_removed': True, 'path_system_only': True,
         'profile': manifest['engine']['profile'],
         'engine': manifest['engine'], 'module_count': len(modules),

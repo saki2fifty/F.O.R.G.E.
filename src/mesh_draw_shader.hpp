@@ -1,6 +1,7 @@
 #pragma once
 #include "material_shader.hpp"
-#include "mesh_vertex_fetch.hpp"
+#include "mesh_shader_input.hpp"
+#include <forge/surface_shader.hpp>
 namespace forge {
 inline constexpr unsigned mesh_draw_light_limit = 64;
 struct MeshGeometryShader {
@@ -20,5 +21,9 @@ struct MeshDrawShader {
 // Pure source/binding preparation; no device, pipeline or source importer.
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile&,
                                 bool shadow_pass = false,
-                                MaterialSamplerBinding = MaterialSamplerBinding::Array);
+                                MaterialSamplerBinding = MaterialSamplerBinding::Array,
+                                const SurfaceShaderDefinition* graph = nullptr,
+                                std::string_view graph_source = {});
+std::string material_graph_shader_wrapper(const SurfaceShaderDefinition&, std::string_view source,
+                                          bool depth_only);
 } // namespace forge

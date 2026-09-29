@@ -1,5 +1,6 @@
 #pragma once
 #include "game_host_source.hpp"
+#include "material_graph_game_fixture.hpp"
 #include "reference_game_workflow.hpp"
 #include <algorithm>
 #include <cstring>
@@ -73,6 +74,8 @@ struct GameHostFixture {
         if (packaged)
             return;
         project = make_game_host_project(output);
+        add_graph_game_material(project, std::filesystem::absolute(argv[0]).parent_path() /
+                                             "forge_shader_build.exe");
     }
     static void check(bool ok, const char* why) {
         if (!ok)
@@ -125,6 +128,14 @@ struct GameHostFixture {
         unsigned contrast = 0;
         for (unsigned c = 0; c < 3; ++c)
             contrast += unsigned(std::abs(int(center[c]) - int(corner[c])));
+        std::size_t graph_pixels = 0;
+        if (!reference && std::string_view(name) == "standalone-running.ppm")
+            for (unsigned y = desc.Height / 4; y < desc.Height * 3 / 4; ++y)
+                for (unsigned x = desc.Width / 4; x < desc.Width * 3 / 4; ++x) {
+                    const auto* p = pixels + y * data.Stride + x * 4;
+                    graph_pixels +=
+                        p[1] > 30 && p[1] > unsigned(p[0]) + 10 && p[1] > unsigned(p[2]) + 5;
+                }
         std::size_t imported_pixels = 0;
         if (mixed && std::string_view(name) == "standalone-running.ppm")
             for (unsigned y = desc.Height * 4 / 10; y < desc.Height * 6 / 10; ++y)
@@ -146,6 +157,12 @@ struct GameHostFixture {
         check(bool(file), "Standalone capture write failed");
         if (!reference) // This contrast probe belongs to the original cube fixture.
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
+        if (!reference && std::string_view(name) == "standalone-running.ppm") {
+            check(graph_pixels > 100,
+                  "The authored green graph material is not visible in standalone rendering");
+            atomic_write(output / "material-graph-result.json",
+                         Json{{"green_surface_pixels", graph_pixels}}.dump(2));
+        }
         if (mixed && std::string_view(name) == "standalone-running.ppm")
             check(imported_pixels > 100,
                   "Imported textured mesh is not visible to the right of the built-in cube");

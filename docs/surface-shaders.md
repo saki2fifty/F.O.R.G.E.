@@ -103,3 +103,7 @@ Exact Diligent Core revision remains
 `ShaderResourceVariable.h`, `GraphicsAccessories.cpp`, native reflection and
 separate-texture/sampler tests supply the API contract. No vendor patch or upgrade
 is introduced. See the [dependency policy](dependency-policy.md).
+
+## Phase10 graph extension
+
+[Material graphs](material-graphs.md) add Shader source version3 and surface metadata version2 with shared metallic/roughness PBR and binding labels. Existing final-color custom surfaces, Material sparse overrides and publication/history owners remain supported. Graph source and generated HLSL cannot both be authored authorities.

@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "cooked_envelope.hpp"
+#include "material_graph_tests.hpp"
 #include "material_source_tests.hpp"
 #include "pbr_material_tests.hpp"
 #include "surface_shader_tests.hpp"
@@ -66,6 +67,7 @@ std::vector<std::byte> changed(const std::vector<std::byte>& bytes,
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material scratch directory");
+        forge::graph_tests::run();
         test_pbr_material_profile();
         test_material_source();
         check_surface_shader();
