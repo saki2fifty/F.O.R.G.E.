@@ -945,6 +945,9 @@ class EditorInputWorkflow {
         click("graph:node-choice:constant");
         check("graph-added");
         click("graph-added-node");
+        click("graph:node-type");
+        click("graph:node-type:scalar");
+        click("graph:frame");
         capture("material-graph-node-properties");
         drag("graph-added-port", "graph-roughness-port");
         click("graph-added-node");
@@ -1321,6 +1324,11 @@ class EditorInputWorkflow {
             }
             const auto& t = found->second;
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
+            if (pointer_.x < t.clip_minimum.x || pointer_.x > t.clip_maximum.x ||
+                pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
+                failure_ = "Graph port is outside the visible canvas: " + name;
+                return;
+            }
             io.AddMousePosEvent(pointer_.x, pointer_.y);
             if (frame_ == 2)
                 io.AddMouseButtonEvent(0, true);

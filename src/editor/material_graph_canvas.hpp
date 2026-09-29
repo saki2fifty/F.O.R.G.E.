@@ -47,6 +47,7 @@ class MaterialGraphCanvas {
     }
     void draw(const Json& graph, uint64_t revision, const Edit& edit, bool locked) {
         std::vector<std::pair<std::string, std::function<void(Json&)>>> actions;
+        bool frame_after_edit = false;
         auto queue = [&](std::string label, std::function<void(Json&)> f) {
             actions.emplace_back(std::move(label), std::move(f));
         };
@@ -69,7 +70,8 @@ class MaterialGraphCanvas {
         if (ui::button("Frame graph", "Fit all node positions inside the graph canvas."))
             frame_ = true;
         ImGui::SameLine();
-        ImGui::Text("View %.0f%%", zoom * 100);
+        FORGE_UI_PROBE("graph:frame");
+        ImGui::Text("View %.3g%%", double(zoom) * 100);
         ui::help("Wheel zooms this graph. Middle mouse pans. Global interface zoom remains "
                  "Ctrl+Plus/Minus.");
         if (open_add_) {
@@ -93,7 +95,7 @@ class MaterialGraphCanvas {
                     for (const auto& existing : graph.at("nodes"))
                         y = std::max(y, existing.at("position").at(1).get<double>() + 280);
                     const auto node = create_material_graph_node(schema.key, {30, y});
-                    frame_ = true;
+                    frame_after_edit = true;
                     queue("Add graph node", [node](Json& g) { g["nodes"].push_back(node); });
                     selection = {node.at("id").get<GraphNodeId>()};
                     ImGui::CloseCurrentPopup();
@@ -123,17 +125,23 @@ class MaterialGraphCanvas {
                 minx = std::min(minx, x);
                 miny = std::min(miny, y);
                 maxx = std::max(maxx, x + 250);
-                maxy = std::max(maxy, y + 210);
+                std::vector<MaterialGraphPort> inputs, outputs;
+                try {
+                    inputs = material_graph_inputs(n);
+                    outputs = material_graph_outputs(n);
+                } catch (const std::exception&) {
+                }
+                maxy = std::max(maxy, y + 42 + 24 * std::max(inputs.size(), outputs.size()));
             }
             zoom = std::clamp(float(std::min(size.x / ((maxx - minx) * scale + 40),
                                              size.y / ((maxy - miny) * scale + 40))),
-                              .35f, 2.f);
+                              .000001f, 2.f);
             pan = {float(-minx * zoom * scale + 20), float(-miny * zoom * scale + 20)};
             frame_ = false;
         }
         if (hovered && !ImGui::GetIO().KeyCtrl && ImGui::GetIO().MouseWheel != 0) {
             const auto old = zoom;
-            zoom = std::clamp(zoom * std::pow(1.15f, ImGui::GetIO().MouseWheel), .35f, 2.f);
+            zoom = std::clamp(zoom * std::pow(1.15f, ImGui::GetIO().MouseWheel), .000001f, 2.f);
             pan = {mouse.x - origin.x - (mouse.x - origin.x - pan.x) * zoom / old,
                    mouse.y - origin.y - (mouse.y - origin.y - pan.y) * zoom / old};
         }
@@ -411,6 +419,10 @@ class MaterialGraphCanvas {
         }
         for (const auto& [label, f] : actions)
             edit(label, f);
+        // Added nodes are committed after drawing; frame the new document on
+        // the next frame instead of fitting the pre-edit graph.
+        if (frame_after_edit)
+            frame_ = true;
     }
 
   private:
@@ -544,10 +556,21 @@ class MaterialGraphCanvas {
             for (int i = 0; i < 6; ++i)
                 if (current == types[i])
                     index = i;
-            if (ImGui::Combo("Value type", &index, types, 6)) {
-                data["type"] = types[index];
-                changed = true;
+            if (ImGui::BeginCombo("Value type", types[index])) {
+                for (int i = 0; i < 6; ++i) {
+                    const bool selected = index == i;
+                    if (ImGui::Selectable(types[i], selected)) {
+                        index = i;
+                        data["type"] = types[index];
+                        changed = true;
+                    }
+                    FORGE_UI_PROBE("graph:node-type:" + std::string(types[i]));
+                    if (selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
             }
+            FORGE_UI_PROBE("graph:node-type");
             ui::help("Scalar, vector and linear-color ports are distinct. Existing connections may "
                      "require an explicit conversion after a type change.");
             if (kind == "convert") {
