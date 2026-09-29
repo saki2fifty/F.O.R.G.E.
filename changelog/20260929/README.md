@@ -21,4 +21,4 @@
 - Put editor executables, import/shader/navigation/UI workers and matching DLLs under `bin/`; keep one obvious root launcher.
 - Move the exact C++ SDK, shared native runtime kit, developer launcher and reference game into an optional same-build Developer Kit ZIP.
 - Bind the Developer Kit to the editor manifest hash and validate an overlaid relocated installation before either artifact is uploaded.
-- Keep the static export runtime kit and offline manual in the ordinary editor package. Numbered delivery validation is pending.
+- Keep the static export runtime kit and offline manual in the ordinary editor package. Numbered delivery validation is pending; updated offline examples use the new `bin/` paths.

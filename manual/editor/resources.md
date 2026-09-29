@@ -40,8 +40,8 @@ Close the editor for that project before running these maintenance commands. Eac
 command acquires the project's writer lock, so it refuses to overlap a running editor.
 
 ```powershell
-.\forge_tools.exe --assets cache-stats "C:\Projects\MyGame"
-.\forge_tools.exe --assets cache-verify "C:\Projects\MyGame"
+.\bin\forge_tools.exe --assets cache-stats "C:\Projects\MyGame"
+.\bin\forge_tools.exe --assets cache-verify "C:\Projects\MyGame"
 ```
 
 `cache-stats` reports entry count, stored bytes and quarantined entries.
@@ -53,8 +53,8 @@ A failed check returns a diagnostic and exit code 1.
 ## Remove unused generated files
 
 ```powershell
-.\forge_tools.exe --assets cache-prune "C:\Projects\MyGame" 0
-.\forge_tools.exe --assets cache-cleanup "C:\Projects\MyGame"
+.\bin\forge_tools.exe --assets cache-prune "C:\Projects\MyGame" 0
+.\bin\forge_tools.exe --assets cache-cleanup "C:\Projects\MyGame"
 ```
 
 `cache-prune` removes older, unselected revisions toward the supplied byte budget;
@@ -77,7 +77,7 @@ data before deciding whether to remove it yourself.
 Copy the asset's ID from Content and run:
 
 ```powershell
-.\forge_tools.exe --assets cache-clear-asset "C:\Projects\MyGame" "12345678-1234-4123-8123-123456789abc"
+.\bin\forge_tools.exe --assets cache-clear-asset "C:\Projects\MyGame" "12345678-1234-4123-8123-123456789abc"
 ```
 
 This removes its currently selected cooked artifact. An imported model's members
@@ -89,7 +89,7 @@ settings, AssetIds, scenes and catalog references remain unchanged.
 To remove all recognized cooked entries and quarantined/staging data:
 
 ```powershell
-.\forge_tools.exe --assets cache-clear-all "C:\Projects\MyGame"
+.\bin\forge_tools.exe --assets cache-clear-all "C:\Projects\MyGame"
 ```
 
 Reimport the affected assets before expecting them to load again. Cache maintenance

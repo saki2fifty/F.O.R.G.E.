@@ -80,10 +80,10 @@ placement. Reload the saved settings to load the current revision.
 
 1. Put the model and its external buffers/images inside the project's **Assets** folder.
 2. Close the editor for this project so the tools command can obtain writer ownership.
-3. Open a terminal beside `forge_tools.exe` and run:
+3. Open a terminal in the extracted FORGE folder and run:
 
 ```
-forge_tools.exe --assets import "C:\Projects\MyGame" "Assets\Model\scene.gltf"
+.\bin\forge_tools.exe --assets import "C:\Projects\MyGame" "Assets\Model\scene.gltf"
 ```
 
 The command prints a JSON result. `ok: true` means the complete asset family was
@@ -109,7 +109,7 @@ An optional JSON object after the source path changes these settings:
 - **animation_sampling_rate:**1–240. Samples per second when the official converter resamples animation curves; default30.
 - **animation_optimize:** `true` / `false`. Use the official converter's animation optimization; default `true`.
 
-Animated models require the packaged `tools/gltf2ozz.exe` converter. If conversion
+Animated models require the packaged `bin/tools/gltf2ozz.exe` converter. If conversion
 fails, the previous complete model import remains selected. Use **Place model** to create scene entities and choose their optional animation.
 
 The default normal/tangent choice is `missing`. Exact merging and vertex-fetch

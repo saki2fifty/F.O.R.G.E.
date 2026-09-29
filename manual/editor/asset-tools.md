@@ -14,14 +14,14 @@ assets uses the separate `--assets import` workflow documented under [Models](mo
 Open a terminal in the extracted FORGE folder and run:
 
 ```powershell
-.\forge_tools.exe --assets scan "C:\Projects\MyGame"
+.\bin\forge_tools.exe --assets scan "C:\Projects\MyGame"
 ```
 
 This scans the project's `Assets` folder recursively. To inspect another
 project-relative folder, add it at the end:
 
 ```powershell
-.\forge_tools.exe --assets scan "C:\Projects\MyGame" "Examples"
+.\bin\forge_tools.exe --assets scan "C:\Projects\MyGame" "Examples"
 ```
 
 The JSON result lists each source path, byte count, content digest, and recognized
@@ -41,7 +41,7 @@ large project can take time. The command does not modify or repair source files.
 ## Inspect registered assets
 
 ```powershell
-.\forge_tools.exe --assets query "C:\Projects\MyGame"
+.\bin\forge_tools.exe --assets query "C:\Projects\MyGame"
 ```
 
 This reads `forge.assets.json` and reports logical AssetIds, types, source
@@ -58,7 +58,7 @@ output of the container.
 Copy an AssetId from the query result and run:
 
 ```powershell
-.\forge_tools.exe --assets dependents "C:\Projects\MyGame" "12345678-1234-4123-8123-123456789abc"
+.\bin\forge_tools.exe --assets dependents "C:\Projects\MyGame" "12345678-1234-4123-8123-123456789abc"
 ```
 
 `direct` lists assets with registered references to that ID. `transitive` also
@@ -69,7 +69,7 @@ To find assets affected by a raw source file, such as a model buffer or shader
 include, use its project-relative path:
 
 ```powershell
-.\forge_tools.exe --assets source-dependents "C:\Projects\MyGame" "Assets\Shaders\lighting.hlsli"
+.\bin\forge_tools.exe --assets source-dependents "C:\Projects\MyGame" "Assets\Shaders\lighting.hlsli"
 ```
 
 `direct` lists the registered consumers of that file; `affected` also includes
@@ -81,6 +81,6 @@ includes and buffers appear only after their dependency records are registered.
 Every response is JSON with `api: 1` and an `ok` value. Success returns exit code
 0; invalid arguments, unreadable catalogs, and incomplete scans return exit code
 1 with a diagnostic. Commands work from any current folder when the project path
-is absolute. On Linux use `./forge_tools` in place of `.\forge_tools.exe`.
+is absolute. On Linux use `./forge_tools` in place of `.\bin\forge_tools.exe`.
 
 See also [Content browser](content-browser.md) and [Headless authoring tools](automation.md).

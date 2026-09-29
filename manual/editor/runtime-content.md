@@ -129,7 +129,7 @@ itself must be new.
 ```powershell
 $target = '{"platform":"windows","backend":"d3d12"}'
 $roots = '["12345678-1234-4123-8123-123456789abc"]'
-.\forge_tools.exe --assets package "C:\Projects\MyGame" "C:\Builds\GameContent" $target $roots
+.\bin\forge_tools.exe --assets package "C:\Projects\MyGame" "C:\Builds\GameContent" $target $roots
 ```
 
 Before copying files, the tool registers newly discovered static UI resources in
@@ -150,7 +150,7 @@ use `{"platform":"linux","backend":"none"}`.
 Copy the complete package directory to another location, then run:
 
 ```powershell
-.\forge_tools.exe --assets verify-package "D:\CopiedGameContent" $target
+.\bin\forge_tools.exe --assets verify-package "D:\CopiedGameContent" $target
 ```
 
 Verification checks every file, its hash, the asset dependencies, target profiles

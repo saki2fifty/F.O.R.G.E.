@@ -1,13 +1,13 @@
 # Headless authoring tools
 
-The Windows package includes `forge_tools.exe` for scripts that inspect and edit a scene in memory, without opening the editor or using a GPU. It shares authoring commands with the editor.
+The Windows package includes `bin/forge_tools.exe` for scripts that inspect and edit a scene in memory, without opening the editor or using a GPU. It shares authoring commands with the editor.
 
 ## Start a session
 
 Open a terminal in the extracted package folder and run:
 
 ```text
-forge_tools.exe --stdio
+.\bin\forge_tools.exe --stdio
 ```
 
 Send this single line first:
@@ -23,7 +23,7 @@ The response lists supported commands, property descriptions, a document target,
 With Python 3 installed, run this from the extracted package folder:
 
 ```text
-python Examples/Automation/create_blockout.py forge_tools.exe
+python Examples/Automation/create_blockout.py .\bin\forge_tools.exe
 ```
 
 It prints a four-shape scene created through one command batch. To keep that result, redirect it to a new scene file in a writable location you choose, then open the file in FORGE. Avoid overwriting a scene that is currently open. The sample does not require additional Python packages.
