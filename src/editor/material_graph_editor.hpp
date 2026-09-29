@@ -381,6 +381,11 @@ class MaterialGraphEditor {
                 if (!stacked)
                     ImGui::SameLine();
             }
+            // Keep navigation, properties and canvas in one column. SameLine
+            // only positions the next item; subsequent items need their own
+            // child cursor rather than inheriting the preview's full height.
+            ImGui::BeginChild("Graph workspace", {}, ImGuiChildFlags_None,
+                              ImGuiWindowFlags_NoScrollbar);
             ImGui::BeginDisabled(locked || publishing_);
             if (function_) {
                 if (ui::button("Back to surface",
@@ -438,7 +443,6 @@ class MaterialGraphEditor {
                     }
             }
             ImGui::EndDisabled();
-            FORGE_UI_PROBE("graph:functions");
             if (function_name_) {
                 const auto id = *function_;
                 const auto name = std::exchange(function_name_, {}).value();
@@ -495,6 +499,7 @@ class MaterialGraphEditor {
             }
             if (canvas.take_preview_change())
                 changed();
+            ImGui::EndChild();
             ImGui::EndChild();
             if (extract_) {
                 extract_ = false;
