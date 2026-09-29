@@ -695,6 +695,7 @@ inline void MaterialEditor::fields() {
             ImGui::BeginDisabled(!owns);
             if (ui::button("Revert", "Remove this parameter override and follow the base."))
                 mutate("Revert " + key, [&](auto& j) { j["overrides"]["parameters"].erase(key); });
+            FORGE_UI_PROBE("material:revert:" + key);
             ImGui::EndDisabled();
             ui::next_text_button("Reset to default");
             if (ui::button("Reset to default", "Explicitly use the shader-model default even when "

@@ -20,6 +20,7 @@ inline void add_graph_game_material(const std::filesystem::path& project,
     registry->add(
         asset_detail::shader_importer(worker, {asset_detail::diligent_shader_compiler_digest(),
                                                asset_detail::diligent_shader_compiler_debug()}));
+    registry->seal();
     AssetImportService shaders(lease, registry, {"windows", "d3d12", "desktop"});
     shaders.submit(shaders.prepare("Assets/Surface.shader.json"),
                    [](auto& c, const auto& p, const auto&) { prepare_shader_publication(c, p); },

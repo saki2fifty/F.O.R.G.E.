@@ -252,15 +252,16 @@ int main(int argc, char** argv) {
                   prefab_document.at("revision") == 1,
               "Prefab copy reused its member identity or revision");
         auto graph = MaterialGraphSource::create(AssetId::generate());
-        write(project / "Assets/source.shader.json", graph.document);
+        write(project / "Assets/graph.shader.json", graph.document);
         catalog = AssetCatalog::open_project(project);
-        catalog.add({graph.asset(), "shader", "Assets/source.shader.json"});
+        catalog.add({graph.asset(), "shader", "Assets/graph.shader.json"});
         catalog.save(AssetCatalog::project_index(project));
         auto graph_copy = prepare_asset_file_operation(
-            project, {AssetFileAction::Duplicate, graph.asset(), "Moved/copied.shader.json"},
+            project, {AssetFileAction::Duplicate, graph.asset(), "Moved/graph-copy.shader.json"},
             rewrite);
         transaction.commit(graph_copy.changes, false);
-        const auto copied_graph = MaterialGraphSource{read(project / "Moved/copied.shader.json")};
+        const auto copied_graph =
+            MaterialGraphSource{read(project / "Moved/graph-copy.shader.json")};
         check(copied_graph.asset() == graph_copy.result && copied_graph.asset() != graph.asset() &&
                   copied_graph.document.at("graph").at("nodes")[0].at("id") !=
                       graph.document.at("graph").at("nodes")[0].at("id"),

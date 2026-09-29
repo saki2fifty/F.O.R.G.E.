@@ -155,6 +155,18 @@ class EditorInputWorkflow {
         } else if (what == "graph-material-created") {
             require(state.at("material_document").is_object(), "Graph material did not open");
             material_asset_ = state.at("material_document").at("asset_id");
+        } else if (what == "graph-material-override" || what == "graph-material-reverted") {
+            const auto& overrides = state.at("material_document").at("overrides");
+            const bool owns = overrides.contains("parameters") &&
+                              overrides.at("parameters").contains(graph_binding_);
+            require(owns == (what == "graph-material-override"),
+                    "Graph material parameter override intent is wrong");
+            if (owns)
+                require(
+                    std::abs(
+                        overrides.at("parameters").at(graph_binding_).at("value")[0].get<double>() -
+                        .2) < 1e-5,
+                    "Graph material parameter widget did not edit its first channel");
         } else if (what == "graph-material-saved") {
             require(!state.at("material_dirty").get<bool>() &&
                         state.at("material_document").at("overrides").at("shader") == graph_asset_,
@@ -988,6 +1000,18 @@ class EditorInputWorkflow {
         check("graph-material-created");
         click("asset-picker:shader:Surface Shader");
         click("graph-shader-option");
+        click("graph-material-parameter");
+        text("graph-material-value", "0.2");
+        check("graph-material-override");
+        click("material:document");
+        key(ImGuiKey_Z, true);
+        check("graph-material-reverted");
+        key(ImGuiKey_Y, true);
+        check("graph-material-override");
+        click("graph-material-revert");
+        check("graph-material-reverted");
+        text("graph-material-value", "0.2");
+        check("graph-material-override");
         click("material:document");
         key(ImGuiKey_S, true);
         check("graph-material-saved");
@@ -1233,6 +1257,9 @@ class EditorInputWorkflow {
                 : step.value == "graph-added-node"     ? "graph:node:" + graph_added_
                 : step.value == "graph-output-node"    ? "graph:node:" + graph_output_
                 : step.value == "graph-shader-option"  ? "picker-option:" + graph_asset_
+                : step.value == "graph-material-parameter"  ? "material:parameter:" + graph_binding_
+                : step.value == "graph-material-value"      ? "material:value:" + graph_binding_
+                : step.value == "graph-material-revert"     ? "material:revert:" + graph_binding_
                 : step.value == "authored-material-option"  ? "picker-option:" + material_asset_
                 : step.value == "authored-collision-option" ? "picker-option:" + collision_asset_
                 : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
@@ -1249,6 +1276,10 @@ class EditorInputWorkflow {
             }
             const auto& t = it->second;
             pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
+            // InputScalarN groups four channels and its label. Aim at the
+            // first channel rather than the center of the entire group.
+            if (step.value == "graph-material-value")
+                pointer_.x = t.minimum.x + (t.maximum.x - t.minimum.x) * .1f;
             // Selectable expands its hit rectangle into ItemSpacing. The first
             // visible row can extend above its child clip edge even though its
             // click center is fully visible; scrolling cannot remove that padding.
@@ -1373,9 +1404,10 @@ class EditorInputWorkflow {
                               {"image", "editor-" + name + ".ppm"},
                               {"ui_scale", state.at("ui_scale")}});
         }
-        constexpr const char* names[] = {
-            "click",  "hover",   "type",          "shortcut",
-            "assert", "capture", "SDL file drop", "external source edit"};
+        constexpr const char* names[] = {"click",   "drag",          "hover",
+                                         "type",    "shortcut",      "assert",
+                                         "capture", "SDL file drop", "external source edit"};
+        static_assert(std::size(names) == static_cast<unsigned>(Kind::SourceEdit) + 1);
         trace_.push_back({{"step", index_},
                           {"operation", names[int(step.kind)]},
                           {"value", step.value},

@@ -10,6 +10,12 @@ See the [shader manual](../manual/editor/shaders.md) for the end-user workflow.
 
 ## Source and compilation profile
 
+Version2 adds the engine-owned [surface interface](surface-shaders.md). Version3
+stores the typed [material graph](material-graphs.md) as its authored program;
+the graph compiler supplies stages and surface metadata to the same bounded
+worker/publication pipeline. Graph sources do not also own an HLSL source root.
+The file/include rules below describe authored HLSL stage sources.
+
 A `forge.shader` version1 source document has an AssetId and a list of stage,
 source-file and entry-point records. Its original JSON is the authored document;
 projection into compiler inputs does not remove unknown extension fields.
