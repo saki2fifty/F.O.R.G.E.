@@ -3,8 +3,12 @@
 Phase10 extends the existing Shader asset, MaterialSource/MaterialDocument,
 AssetSourceDocument history, DocumentWorkspace, bounded shader worker, AssetPublisher,
 resource leases and renderer. It introduces no scene component, gameplay VM, public
-plugin ABI or parallel asset/history owner. Native and delivery evidence is recorded
-separately; source implementation alone is not Windows acceptance.
+plugin ABI or parallel asset/history owner.
+
+Build 260929-000127 passed the Linux/Windows delivery gate. Supplemental native
+Windows/D3D12 WARP checks exercised authoring, imported UV-less mesh assignment and
+exported graph rendering after source removal and two installation relocations.
+These checks do not establish physical GPU/DPI acceptance or Vulkan GPU execution.
 
 ## Authored contract
 

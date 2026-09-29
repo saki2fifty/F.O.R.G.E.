@@ -10,4 +10,8 @@
 - Added identity-safe whole graph Shader duplication through existing Content file operations, preserving opaque data and compatible parameter bindings.
 - Removed unnecessary UV-channel requirements for untextured graphs and cube/volume sampling; added actual UV-less mesh preparation/assignment coverage.
 - Kept graph property labels readable in narrow columns and hardened native acceptance observations for unready UI models.
-- Updated technical contracts, rendering decision and user manual. Native execution, visual review and numbered delivery are pending at this source checkpoint.
+- Updated technical contracts, rendering decision and user manual.
+- Completed Build 260929-000127 software validation: Linux/Windows core and SDK checks, native editor authoring, installed SDK workflows and package verification.
+- Inspected native Windows captures of graph editing, diagnostics, material parameters and assignment to a cube and imported UV-less mesh.
+- Verified graph material rendering after export, deleting the source project and moving the game installation twice; saves/settings and package integrity remained intact.
+- Added explicit standalone graph-package coverage to future delivery and source-audit workflows. Physical GPU/DPI acceptance remains separate from WARP validation.

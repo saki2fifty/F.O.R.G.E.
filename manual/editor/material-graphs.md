@@ -44,6 +44,10 @@ Constants describe values shared by the graph itself.
 3. Edit its named parameters and texture slots, then save the material.
 4. Assign that material to a scene object's mesh slot in the Inspector.
 
+An imported model can have a grouping root and separate mesh children. Select the
+mesh child to assign its material. A flat mesh may disappear when viewed from its
+back side; enable **Two-sided** in the Material workspace if both sides should show.
+
 Create a material instance from an existing material to make a reusable variation.
 Change only the values that differ. **Revert** follows the base value again.
 **Edit graph** opens the assigned graph using that material for preview values.
