@@ -1,5 +1,6 @@
 #pragma once
 #include "property_drawer.hpp"
+#include "search.hpp"
 #include <forge/material_graph.hpp>
 #include <functional>
 namespace forge {
@@ -80,7 +81,9 @@ class MaterialGraphCanvas {
         }
         if (ImGui::BeginPopup("Add graph node")) {
             ImGui::InputText("Search nodes", search_, sizeof(search_));
-            ui::help("Filter node names and categories.");
+            FORGE_UI_PROBE("graph:search");
+            ui::help("Filter node names, categories and descriptions without case sensitivity.");
+            const auto filter = search_key(search_);
             for (const auto& schema : material_graph_node_schemas()) {
                 if (schema.key == "function" || schema.key == "function_input" ||
                     schema.key == "function_output" ||
@@ -88,7 +91,8 @@ class MaterialGraphCanvas {
                                         schema.key.starts_with("texture"))))
                     continue;
                 auto label = schema.category + " / " + schema.label;
-                if (*search_ && label.find(search_) == std::string::npos)
+                if (!filter.empty() &&
+                    search_key(label + " " + schema.help).find(filter) == std::string::npos)
                     continue;
                 if (ImGui::Selectable(label.c_str())) {
                     double y = 30;

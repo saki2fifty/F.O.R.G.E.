@@ -78,7 +78,7 @@ do not edit the shared image source.
 
 ## Assign a material to an object
 
-1. Select an entity with **Mesh renderer** in Inspector. Imported model placement creates this component; it can also be added through **+ Add Component**.
+1. Select an entity with **Mesh renderer** in Inspector. For an imported model, expand its root in Hierarchy and select a mesh child. The root groups the model; each mesh child owns its slots. This component can also be added through **+ Add Component**.
 2. Choose its **Mesh** if one is not already assigned.
 3. Under **Materials**, choose a material for **Surface** or a named mesh slot. Each slot has its own label and picker, which stack in narrow views. You can also drop the Material from Content onto that picker.
 4. Save the scene to retain the assignment. Scene Undo/Redo reverses the assignment.

@@ -29,7 +29,8 @@ class EditorInputWorkflow {
     Json multi_before_, cache_scene_, saved_, before_model_, initial_material_,
         trace_ = Json::array();
     std::filesystem::path external_source_, project_;
-    std::string drop_path_, model_asset_, model_root_, material_asset_, collision_asset_;
+    std::string drop_path_, model_asset_, model_root_, model_mesh_, material_asset_,
+        collision_asset_;
     std::uint64_t model_generation_ = 0;
     std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
         graph_function_, graph_call_;
@@ -415,6 +416,11 @@ class EditorInputWorkflow {
                                            entity.at("components").contains("forge.model_source");
                                 }),
                 "Place configured model did not create its root and mesh node");
+            for (const auto& entity : entities)
+                if (entity.value("parent", std::string{}) == model_root_ &&
+                    entity.at("components").contains("forge.mesh_renderer"))
+                    model_mesh_ = entity.at("id").get<std::string>();
+            require(!model_mesh_.empty(), "Placed model has no authored mesh child");
         } else if (what == "model-undone") {
             require(doc == before_model_, "Scene Undo did not remove complete model placement");
         } else if (what == "hot-reimport-rejected") {
@@ -942,6 +948,7 @@ class EditorInputWorkflow {
         check("graph-ready");
         capture("material-graph-workspace");
         click("graph:add-node");
+        text("graph:search", "CoNsTaNt");
         click("graph:node-choice:constant");
         check("graph-added");
         click("graph-added-node");
@@ -1020,8 +1027,15 @@ class EditorInputWorkflow {
         check("graph-material-saved");
         capture("graph-material-instance");
         click("tab:Scene");
-        click("placed-model-row");
-        click("renderer-slots");
+        click("saved-cube-row");
+        click("asset-picker:material:##material");
+        click("authored-material-option");
+        check("material-assigned");
+        key(ImGuiKey_S, true);
+        check("saved");
+        capture("cube-graph-material");
+        click("hierarchy:expand-all");
+        click("placed-model-mesh-row");
         click("asset-picker:material:##material");
         click("authored-material-option");
         check("material-assigned");
@@ -1267,6 +1281,7 @@ class EditorInputWorkflow {
                 : step.value == "authored-collision-option" ? "picker-option:" + collision_asset_
                 : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
                 : step.value == "placed-model-row"          ? "entity:" + model_root_
+                : step.value == "placed-model-mesh-row"     ? "entity:" + model_mesh_
                 : step.value == "camera-marker"             ? "marker:" + camera_
                 : step.value == "light-marker"              ? "marker:" + light_
                 : step.value == "saved-scene-asset"         ? "asset:" + scene_

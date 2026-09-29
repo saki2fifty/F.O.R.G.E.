@@ -339,7 +339,7 @@ class MaterialGraphEditor {
                 FORGE_UI_PROBE("graph:go-error");
             }
             const auto available = ImGui::GetContentRegionAvail();
-            const bool stacked = available.x < 900 * ui::interface_scale;
+            const bool stacked = available.x < 720 * ui::interface_scale;
             if (draw_preview) {
                 ImGui::BeginChild("Graph preview",
                                   {stacked
