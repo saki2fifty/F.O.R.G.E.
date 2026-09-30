@@ -111,7 +111,7 @@
         }
       },
       "id": "34a78c0d-42e0-438c-accb-27109bfada26",
-      "name": "Perspective \u2014 left half",
+      "name": "Perspective - left half",
       "spatial": {
         "mode": "world"
       }
@@ -160,7 +160,7 @@
         }
       },
       "id": "4f37b336-4636-471b-a148-e63de13b1435",
-      "name": "Orthographic \u2014 right half",
+      "name": "Orthographic - right half",
       "spatial": {
         "mode": "world"
       }
