@@ -1,11 +1,13 @@
 # Changelog
 
-- [2026-09-29](20260929/README.md) — Material graph workspace and PBR integration.
+- [2026-09-30](20260930/README.md) — Editable Feature Gallery scenes and export workflow.
 
 Browse FORGE changes by **UTC day**, newest first. Each day has one continuously maintained page, organized by function, with build results and known limitations. Build counters increase across dates; they do not reset.
 
 | Day | Changes |
 | --- | --- |
+| [2026-09-30](20260930/README.md) | Editable Feature Gallery project with four focused scenes, export instructions, and source/Windows acceptance checks. |
+| [2026-09-29](20260929/README.md) | Material graph workspace, PBR integration, and Windows package layout. |
 | [2026-09-28](20260928/README.md) | Native multi-selection input acceptance and acknowledged SDK menu-rebinding validation. |
 | [2026-09-27](20260927/README.md) | Runtime shutdown diagnostics; Phase 9 multi-selection, atomic batch Inspector/transforms, framing and Hierarchy shortcut validation. |
 | [2026-09-26](20260926/README.md) | Dedicated Play transport worker, bounded Windows pipe writes, native reload recovery regression, and improved test diagnostics. |

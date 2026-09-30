@@ -2,7 +2,7 @@
 
 FORGE is the Flecs-Oriented Runtime & Game Editor. Use this manual to learn the editor's current controls and complete everyday authoring tasks.
 
-Start with [Your first scene](getting-started/first-scene.md), or try [Build a blockout scene](getting-started/blockout.md) with the packaged example. The offline edition is included with each Windows ZIP and opens through **Help → User Manual**. Its build identifier matches the packaged editor. Markdown pages in the repository track the current source.
+Start with [Your first scene](getting-started/first-scene.md), explore the [Feature Gallery](getting-started/feature-gallery.md), or try [Build a blockout scene](getting-started/blockout.md) with the packaged example. The offline edition is included with each Windows ZIP and opens through **Help → User Manual**. Its build identifier matches the packaged editor. Markdown pages in the repository track the current source.
 
 ## Projects and authored content
 

@@ -1,0 +1,314 @@
+{
+  "asset_id": "78502956-f720-48b4-832b-a70d0863af90",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3532b3cc-4a8b-41b1-86e6-826fb7eecf88",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "aa4d0695-3e15-4fac-9f28-0183d2aaca76",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "1698c020-8720-43ce-a195-9770bf0461ac",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.3,
+          "y": 4.2,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.23999999463558197,
+          "g": 0.41999998688697815,
+          "r": 0.9100000262260437
+        }
+      },
+      "id": "8866ac7d-d7a6-4b83-a27e-bc39b721fa69",
+      "name": "Falling cube A",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.2,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.44999998807907104,
+          "g": 0.7300000190734863,
+          "r": 0.27000001072883606
+        }
+      },
+      "id": "4d7152e6-c080-44ba-b744-c8872fe9e5da",
+      "name": "Falling cube B",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.3,
+          "y": 8.2,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.9599999785423279,
+          "g": 0.5199999809265137,
+          "r": 0.3700000047683716
+        }
+      },
+      "id": "0df35a8a-8a3e-4006-ab1d-938b5c994433",
+      "name": "Falling cube C",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 1.2000000476837158,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 0.6,
+          "z": 2.5
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.27000001072883606,
+          "g": 0.6700000166893005,
+          "r": 0.7200000286102295
+        }
+      },
+      "id": "a777dfd1-ff29-4c28-9c6f-774e70bc1ee3",
+      "name": "Static obstacle",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 3
+}

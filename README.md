@@ -29,6 +29,10 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 
 Phase8 remains in progress. Advanced authoring systems and a broad public plugin SDK remain planned. See [implementation status](docs/status.md) for validation and the current delivered build; source implementation and downloadable delivery are recorded separately.
 
+## Explore features
+
+The [Feature Gallery](manual/getting-started/feature-gallery.md) is an editable sample project with focused scenes for transforms, lighting, physics and cameras. Open a scene in the editor, change its authored components, then select it as the startup scene and export a standalone game. The [reference game](manual/reference-game.md) remains the combined gameplay example.
+
 ## Build and test
 Requires Git, CMake 3.30+, Ninja, Python 3.10+, and a C++20/C17 compiler. Windows requires an MSVC developer shell and Windows SDK.
 

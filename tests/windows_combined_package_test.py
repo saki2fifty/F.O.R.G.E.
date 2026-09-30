@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -46,6 +47,27 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     tools = root/'bin/forge_tools.exe'
+    # The user-facing gallery is a normal editable project. Copy it before export,
+    # just as the manual instructs, so package hashes remain immutable.
+    gallery = root/'Gallery Copy'
+    shutil.copytree(root/'Examples/FeatureGallery', gallery)
+    assert len(list((gallery/'Scenes').glob('*.scene.json'))) == 4
+    gallery_settings = json.loads((gallery/'forge.project.json').read_text())
+    selected = json.loads((gallery/gallery_settings['startup_scene']['source']).read_text())
+    assert gallery_settings['startup_scene']['asset'] == selected['asset_id']
+    gallery_export = root/'Gallery Standalone'
+    options = dict(destination=str(gallery_export), runtime_kit=str(root/'runtime-kit'))
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert json.loads(result.stdout)['ok'], result.stdout
+    standalone = json.loads((gallery_export/'forge.standalone.json').read_text())
+    assert standalone['settings']['startup_scene']['asset'] == selected['asset_id']
+    started = subprocess.run([str(gallery_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=gallery_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
     rendering = root/'Examples/Rendering'
     assert (rendering/'README.md').is_file()
     assert (root/'manual/editor/models.html').is_file()
@@ -104,5 +126,5 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     contract = hello['runtime_contract']
     assert contract['sdk_project'] and contract['profile'] == 'shared-native-sdk'
     assert contract['source_commit'] == manifest['source_commit']
-    print('Final package hashes, relocated model/texture workers, cache/failure retention, '
-          'shared DLL loading and SDK Hello passed')
+    print('Final package hashes, gallery export/startup, relocated model/texture workers, '
+          'cache/failure retention, shared DLL loading and SDK Hello passed')
