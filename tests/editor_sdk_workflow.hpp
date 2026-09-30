@@ -93,6 +93,7 @@ class EditorSdkWorkflow {
     StableYState pre_continue_jump_{};
     StableYState pre_restart_continue_jump_{};
     bool held_w_ = false;
+    bool pending_j_release_ = false; // Release synthetic J on the next editor input frame.
     bool failed_ = false;
     bool done_ = false;
     bool captured_failure_ = false;
@@ -218,6 +219,21 @@ class EditorSdkWorkflow {
     static void tap_key(SDL_Window* window, SDL_Scancode code, SDL_Keycode value) {
         key_down(window, code, value);
         key_up(window, code, value);
+    }
+    // A real key press spans input frames. Sending J down and up before the
+    // same SDL_PollEvent pass can collapse the edge under WARP/CI timing,
+    // leaving rebinding or a later jump unobserved.
+    void press_j(SDL_Window* window) {
+        if (pending_j_release_)
+            throw std::runtime_error("previous J press was not released");
+        key_down(window, SDL_SCANCODE_J, SDLK_J);
+        pending_j_release_ = true;
+    }
+    void release_pending_j(SDL_Window* window) {
+        if (pending_j_release_) {
+            key_up(window, SDL_SCANCODE_J, SDLK_J);
+            pending_j_release_ = false;
+        }
     }
     static void mouse_motion(SDL_Window* window, float x, float y) {
         SDL_Event event{};
@@ -536,7 +552,9 @@ class EditorSdkWorkflow {
                     {"session", play.session()},
                     {"snapshot_version", play.snapshot_version()},
                     {"activation_generation", play.sdk_activation_generation()},
+                    {"position_y", player_position(play)[1]},
                     {"position_z", player_position(play)[2]},
+                    {"pending_j_release", pending_j_release_},
                     {"timing", play.timing()},
                     {"input", play.input_status()},
                     {"input_routing", game_input_captured()},
@@ -564,6 +582,7 @@ class EditorSdkWorkflow {
     }
 
     void release_held(SDL_Window* window) {
+        release_pending_j(window);
         if (held_w_) {
             key_up(window, SDL_SCANCODE_W, SDLK_W);
             held_w_ = false;
@@ -653,6 +672,9 @@ class EditorSdkWorkflow {
             release_held(window);
             return;
         }
+        // Complete any J press from the prior input frame before observing or
+        // sending another workflow action. SDL_PollEvent follows this callback.
+        release_pending_j(window);
         // Pump staged toolbar click first so its second-frame up is observed.
         pump_toolbar_click(window);
         // Same for the outside-surrender split-click: DOWN is sent
@@ -1090,7 +1112,7 @@ class EditorSdkWorkflow {
         if (stage_ == 7 && model_binding(model).rfind("Press a key", 0) == 0 && live_rml &&
             menu_input_ready) {
             capture("sdk-listening", play);
-            tap_key(window, SDL_SCANCODE_J, SDLK_J);
+            press_j(window);
             append_stage(8, play, "J pressed");
             return;
         }
@@ -1117,7 +1139,7 @@ class EditorSdkWorkflow {
                 return;
             jump_baseline_y_ = player_position(play)[1];
             jump_baseline_recorded_ = false;
-            tap_key(window, SDL_SCANCODE_J, SDLK_J);
+            press_j(window);
             append_stage(12, play, "rebound jump");
             return;
         }
@@ -1236,7 +1258,7 @@ class EditorSdkWorkflow {
                 return;
             jump_baseline_y_ = player_position(play)[1];
             jump_baseline_recorded_ = false;
-            tap_key(window, SDL_SCANCODE_J, SDLK_J);
+            press_j(window);
             append_stage(17, play, "post-restart jump");
             return;
         }
@@ -1316,7 +1338,7 @@ class EditorSdkWorkflow {
                 return;
             jump_baseline_y_ = player_position(play)[1];
             jump_baseline_recorded_ = false;
-            tap_key(window, SDL_SCANCODE_J, SDLK_J);
+            press_j(window);
             append_stage(22, play, "restarted persisted binding jump");
             return;
         }

@@ -7,3 +7,7 @@
 - Added a short experiment and expected result for each scene, a manual entry point, and a clear workflow to select a saved scene as startup and export it as a standalone game.
 - Made `Examples/FeatureGallery/` a required directory in every future numbered Windows editor ZIP. Packaging now fails if the project, its scenes, or any gallery file would be omitted; source and final-package tests remain open to additional scenes. The reference game remains the combined gameplay example.
 - Added authored-scene admission/identity regression and a packaged Windows test that copies, exports, and starts the gallery. Local scene admission passed; the Windows export/startup test has not run for this source yet.
+
+## Windows acceptance correction
+
+- Made the editor SDK reference-game fixture send synthetic Jump key-down and key-up on separate input frames, matching a real key press during rebinding and jump checks under slow Windows WARP runs. Failure evidence now records player height and whether a Jump release is pending.
