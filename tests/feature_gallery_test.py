@@ -1,5 +1,6 @@
 """Admission and durable-identity check for shipped editable feature scenes."""
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -25,6 +26,26 @@ def call(method, **fields):
     assert result['ok'], (method, result)
     return result
 
+def same_authored_value(actual, expected, location='$'):
+    # SceneDraft recasts reflected float32 values. Native JSON float parsing may
+    # differ by a final float32 ULP across platforms; document structure and
+    # discrete identities must still match exactly.
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict) and actual.keys() == expected.keys(), location
+        for key in expected:
+            same_authored_value(actual[key], expected[key], location + '.' + key)
+    elif isinstance(expected, list):
+        assert isinstance(actual, list) and len(actual) == len(expected), location
+        for index, (item, value) in enumerate(zip(actual, expected)):
+            same_authored_value(item, value, f'{location}[{index}]')
+    elif isinstance(expected, float):
+        assert isinstance(actual, (float, int)) and not isinstance(actual, bool), location
+        assert math.isclose(actual, expected, rel_tol=2e-7, abs_tol=2e-7), (
+            location, actual, expected)
+    else:
+        assert actual == expected and type(actual) is type(expected), (
+            location, actual, expected)
+
 try:
     context = call('discover')['result']
     all_ids = set()
@@ -44,7 +65,7 @@ try:
                       expected_revision=context['revision'], document=source)
         context = call('discover')['result']
         loaded = call('scene.read', target=context['target'])['result']
-        assert loaded == source, path
+        same_authored_value(loaded, source, str(path))
         assert context['revision'] == result['revision']
         if path.name.startswith('01-'):
             assert sum('parent' in row for row in loaded['entities']) == 3
