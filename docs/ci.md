@@ -64,11 +64,15 @@ EXE is copied beside `bin/forge_editor.exe` and uses only shipped DLLs/resources
 A failed overlay or acceptance gate prevents either ZIP upload. The test-only
 fixture/project/private user-data directory are not shipped. WARP validation
 does not claim physical-GPU/audio acceptance.
-The same final-package test copies `Examples/FeatureGallery` into a writable
-project, exports its saved startup scene using the packaged static runtime kit,
-and runs the resulting standalone executable in startup-verification mode. The
-source-level `feature_gallery` test admits all four gallery scenes through the
-normal authoring API and checks their durable identities and key components.
+Every numbered editor ZIP includes the complete editable project under
+`Examples/FeatureGallery/`. Packaging fails if its manifest, README, scenes or
+any current gallery file would be omitted; a newly added source format must be
+explicitly admitted by the package copier. The same final-package test copies
+the extracted gallery into a writable project, exports its saved startup scene
+using the packaged static runtime kit, and runs the resulting standalone
+executable in startup-verification mode. The source-level `feature_gallery` test
+admits every gallery scene through the normal authoring API and checks durable
+identities and key components.
 
 The official artifact download action is pinned to v4 commit
 `d3f86a106a0bac45b974a628896c90dbdf5c8093`. Modified files, path escapes

@@ -8,7 +8,8 @@ import uuid
 project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text())
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
-assert len(scenes) == 4
+assert {'01-transforms.scene.json', '02-lighting.scene.json',
+        '03-physics.scene.json', '04-cameras.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -62,4 +63,4 @@ try:
 finally:
     process.stdin.close()
     assert process.wait(timeout=10) == 0
-print('Feature Gallery: four authored scenes admitted and unchanged by FORGE')
+print(f'Feature Gallery: {len(scenes)} authored scenes admitted and unchanged by FORGE')

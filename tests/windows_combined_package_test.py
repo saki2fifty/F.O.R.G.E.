@@ -51,7 +51,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     # just as the manual instructs, so package hashes remain immutable.
     gallery = root/'Gallery Copy'
     shutil.copytree(root/'Examples/FeatureGallery', gallery)
-    assert len(list((gallery/'Scenes').glob('*.scene.json'))) == 4
+    assert {'01-transforms.scene.json', '02-lighting.scene.json',
+            '03-physics.scene.json', '04-cameras.scene.json'} <= {
+                p.name for p in (gallery/'Scenes').glob('*.scene.json')}
     gallery_settings = json.loads((gallery/'forge.project.json').read_text())
     selected = json.loads((gallery/gallery_settings['startup_scene']['source']).read_text())
     assert gallery_settings['startup_scene']['asset'] == selected['asset_id']

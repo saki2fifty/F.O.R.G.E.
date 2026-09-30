@@ -93,6 +93,16 @@ def package(build, dependencies, output):
     manifest['files']['build.json'] = hashlib.sha256((build/'build.json').read_bytes()).hexdigest()
     example_root = source/'samples/projects'
     example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav', '.gltf', '.png', '.md'))
+    gallery_root = example_root/'FeatureGallery'
+    gallery_files = sorted(p for p in gallery_root.rglob('*') if p.is_file() or p.is_symlink())
+    required_gallery = {gallery_root/'README.md', gallery_root/'forge.project.json'}
+    gallery_scenes = list((gallery_root/'Scenes').glob('*.scene.json'))
+    if not required_gallery.issubset(gallery_files) or not gallery_scenes:
+        raise ValueError('Feature Gallery project or scenes missing from Windows package source')
+    omitted_gallery = [p for p in gallery_files if p.is_symlink() or p not in example_files]
+    if omitted_gallery:
+        raise ValueError('Feature Gallery files would be omitted from Windows ZIP: ' +
+                         ', '.join(str(p.relative_to(example_root)) for p in omitted_gallery))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
     animation_source = source/'samples/animation/two-joints.gltf'
