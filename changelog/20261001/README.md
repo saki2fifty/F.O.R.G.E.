@@ -12,6 +12,12 @@
 - Play offers Save, Build & Play when source is dirty or the admitted module is stale. Export refuses dirty/stale managed gameplay. Failed candidates leave the last good artifact intact without presenting it as current.
 - Added typed, session/generation/entity-scoped Play property tuning through the existing runtime transport. Runtime validates and applies admitted reflected values at its owner-thread boundary, acknowledges the result, and keeps authored scene/prefab state unchanged. The Inspector labels transient live values separately from read-only authored values during Play.
 
+## Windows acceptance and guide reconciliation
+
+- Extended the extracted Windows editor/Developer Kit walkthrough to create and edit Rotator and RotationSystem through the built-in C++ editor, verify explicit Build and optional Build on Save, test a failed build and stale Play gate, and execute the edited System after two standalone relocations. The fixture now observes a typed live-value acknowledgement and compares fixed-tick rotation before and after Speed 90 → 360.
+- Build 135 passed all source jobs but the final SDK onboarding fixture failed because its file check used an uninitialized fixture project path; the editor had created and opened the file correctly. The path was corrected and a new numbered validation run was started. Build 135 was not delivered.
+- Reconciled the README, C++ gameplay manual and scripting ADR: removed obsolete C17 ABI/reload guidance and duplicated C++ editing steps, retained useful source-editor/compiler details, and clarified that export requires current saved code.
+
 ## Documentation and validation
 
 - Updated the gameplay and Play manuals, README, native module contract and affected architecture/extension guidance for the single gameplay path. Updated the Windows onboarding fixture to create a C++ Component/System and exercise rotation and live speed tuning.
