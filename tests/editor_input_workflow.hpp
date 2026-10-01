@@ -222,6 +222,15 @@ class EditorInputWorkflow {
                 require(modules != starter_modules_, "Rebuild did not publish a fresh deployment");
             starter_modules_ = modules;
             project_ = std::filesystem::u8path(state.at("project").get<std::string>());
+        } else if (what == "build-required") {
+            require(!state.at("playing").get<bool>() && !state.at("gameplay_current").get<bool>() &&
+                        !state.at("sdk_build_busy").get<bool>() &&
+                        state.at("sdk_build_error").get<std::string>().empty(),
+                    "Changed saved gameplay source did not require a build");
+        } else if (what == "stale-play-offered") {
+            const auto* popup = ImGui::FindWindowByName("Build C++ gameplay before Play?");
+            require(!state.at("playing").get<bool>() && popup && popup->Active && !popup->Hidden,
+                    "Play did not offer Save, Build & Play for changed source");
         } else if (what == "starter-rejected") {
             require(!state.at("sdk_build_busy").get<bool>() &&
                         !state.at("sdk_build_error").get<std::string>().empty(),
@@ -638,6 +647,7 @@ class EditorInputWorkflow {
             click("button:Create source file");
             text("cpp:editor", "int forge_extra_source() { return 9; }", true);
             check("cpp-source-dirty");
+            capture("cpp-source-dirty");
             click("cpp:build-on-save");
             key(ImGuiKey_S, true);
             check("cpp-source-saved");
@@ -658,6 +668,12 @@ class EditorInputWorkflow {
             hover("sdk:build-status");
             capture("gameplay-built");
             steps_.push_back({Kind::SourceEdit, "starter-break"});
+            check("build-required");
+            capture("gameplay-build-required");
+            click("icon:play");
+            check("stale-play-offered");
+            capture("gameplay-stale-play-offer");
+            click("button:Cancel");
             click("button:Build gameplay");
             check("starter-rejected");
             hover("sdk:build-error");

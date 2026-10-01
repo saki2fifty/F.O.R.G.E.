@@ -4678,6 +4678,7 @@ int main(int argc, char** argv) {
                 observed["cpp_source"] = cpp_sources.active_source();
                 observed["cpp_source_text"] = cpp_sources.active_text();
                 observed["cpp_source_dirty"] = cpp_sources.dirty();
+                observed["gameplay_current"] = gameplay_current;
                 observed["compiler_ready"] = sdk_build->compiler_ready();
                 observed["sdk_build_busy"] = sdk_build->busy();
                 observed["sdk_build_error"] = sdk_build->error();
