@@ -1,5 +1,16 @@
 # ADR 010 — C++ gameplay and integrated source editing
 
+## 2026-10-01 gameplay consolidation amendment
+
+The movement-only C17-compatible ABI1 gameplay path was retired by explicit
+authorization. Exact-SDK C++ with shared Flecs is the sole project gameplay
+model. Its versioned C-shaped entry is still a binary compatibility boundary,
+not the old movement-only gameplay interface. Code and schema changes require
+Stop → Save → Build → Play; source editing and live reflected-value tuning do
+not introduce arbitrary native hot reload. The September compatibility sentence
+below is historical. See [the current runtime contract](../native-modules.md).
+
+
 Original decision: 2026-09-19. Revised by explicit user instruction: 2026-09-28.
 This revision supersedes the proposed future high-level gameplay language and
 visual-scripting layer. The integrated C++ editor is implemented and passed automated

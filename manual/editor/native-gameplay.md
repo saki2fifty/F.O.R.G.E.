@@ -11,8 +11,13 @@ Sources** document. They are project code, not Content assets or Hierarchy entri
 Extract the matching optional Developer Kit into the editor folder, then launch
 **Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows
 SDK, CMake 3.30 or newer, and Ninja. In **Gameplay Code**, expand **Compiler setup**
-and choose **Test compiler tools**. Normal editing and an exported game do not need
-these tools. A matching installed Native SDK is required to build and Play C++.
+and choose **Test compiler tools**. FORGE builds and checks a separate starter
+module without changing your gameplay or project settings. A failure names the
+missing or incompatible tool. **Get C++ Build Tools** opens Microsoft's official
+download page; FORGE does not install or bundle a compiler. You can specify CMake
+and Ninja executable paths in Compiler setup. Normal source editing and an
+exported game do not need these tools. A matching installed Native SDK is required
+to build and Play C++.
 
 ## Create a component and system
 
@@ -28,8 +33,17 @@ these tools. A matching installed Native SDK is required to build and Play C++.
 **Components** in Gameplay Code lists component source files; **Systems** lists
 system source files. **Registered systems** shows wizard-created systems with their
 source and fixed-gameplay query component. Other project source and headers appear
-under **Other source / headers**. Ordinary `.cpp` and `.hpp` files can also be
-created. Source organization is flexible; CMake must register any extra `.cpp`.
+under **Other source / headers**. **New source filename → Create source file**
+adds a `.cpp` or `.hpp` under `Native/` without overwriting an existing file;
+managed builds register new `.cpp` files. A custom CMake recipe must include
+them explicitly.
+
+The built-in source editor provides C++ highlighting, line numbers, source-only
+Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
+notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
+discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
+be open. This editor does not include a debugger, full IDE completion or arbitrary
+in-place C++ reload.
 
 ## Tune values while playing
 
@@ -49,8 +63,10 @@ source differs from the admitted module. **Building**, **Build Failed**, and
 last good artifact, but Play and Export do not treat it as current. Click a
 compiler diagnostic in **Compiler output** to open its source line. The full log
 is `.forge/sdk-build/build.log`; source remains editable. Build on Save uses the
-same build operation after source is saved. You can cancel a candidate without
-replacing the previous good module.
+same build operation after source is saved. It waits for Play to stop and all
+source drafts to be saved; turning it off affects future saves and does not
+cancel a running build. Use **Cancel build** for that. Cancelling a candidate
+never replaces the previous good module.
 
 ## Export
 
@@ -88,7 +104,7 @@ schemas needed for migration and reserves a removed component's key for its
 original module owner. It contains copied metadata, not gameplay code, and does
 not activate a module by itself. Changing a type's structure requires a new schema
 version; changing presentation labels or defaults does not rewrite existing values.
-The history is bounded to1024 recorded declarations and32MiB; exceeding that limit
+The history is bounded to 1,024 recorded declarations and 32 MiB; exceeding that limit
 rejects activation without dropping old records.
 
 ## Migrate a changed component schema
@@ -150,56 +166,3 @@ object to the editor's saved scene or its Undo history. The SDK guide includes t
 code, scene-selection rules, cancellation and lifetime details.
 
 The migration review stays within the available editor area at larger interface scales. **Rules (JSON)** appears above its text field so the label remains readable. Scroll the review when its contents need more space; opening it does not change the scene or prefab.
-
-## Check your compiler tools
-
-In **Gameplay Code**, create a C++ gameplay project, then expand **Compiler setup**.
-Choose **Test compiler tools**. FORGE finds supported installed Visual Studio2022
-C++ tools and tests the compiler, Windows SDK, CMake, Ninja and matching FORGE SDK
-by building and checking a separate starter module. Your gameplay and project
-settings stay unchanged. Wait for **Compiler ready**; a failure explains the
-missing tool or incompatible build in the status/output.
-
-**Get C++ Build Tools** opens Microsoft's official download page. Install the C++
-Build Tools and Windows SDK, then test again. There is no portable compiler download
-or automatic installation. CMake/Ninja fields accept explicit executable paths.
-Changing tool paths requires another test. Editing source alone and running an
-exported game do not require the compiler.
-
-## Edit C++ inside FORGE
-
-1. In Gameplay Code, select **Open C++ source** to open `Native/gameplay.cpp` in the central **C++ Sources** window. Its **Source path → Open file** controls let you open another project C++ file.
-2. Edit with C++ highlighting, line numbers and indentation. Each file has its own tab and Undo/Redo. **Ctrl+F** focuses Find; **Find next** selects a match and wraps.
-3. **Save source** or **Ctrl+S** saves the active file. The star identifies unsaved source. Saving code is separate from saving your scene. Close asks you to save, discard or cancel when code is unsaved.
-4. Save every edited source before **Build gameplay**. **Compiler output** lists clickable project-file diagnostics: click one to open the reported line/column. External SDK/generated-file errors remain visible in the raw log.
-5. After a successful build, **Inspect components**, add an opted-in component to an entity, and Play. Changing code does not automatically expose a new component.
-
-**New source filename → Create source file** creates a `.cpp` or `.hpp` directly
-inside Native and opens its tab. New `.cpp` files are registered for the managed
-build; `.hpp` files are headers. Existing files are never overwritten. An old
-unchanged FORGE starter is updated automatically to support source registration.
-Custom build recipes require the displayed CMake include instruction; files copied
-in externally also need explicit CMake registration.
-
-Enable **Build on Save** in C++ Sources to queue a build after saving. It waits
-until Play stops, existing work finishes and all source drafts are saved. It never
-silently saves your drafts. You may keep typing during a build, but save after it
-finishes. **Stop → Build → Play** remains the exact-SDK iteration workflow; neither
-Windows nor the editor needs a reboot for an ordinary gameplay change.
-
-If another editor changes a file, FORGE shows a notice. A conflicting Save keeps
-your draft and rejects the overwrite. Reopening a file without unsaved edits refreshes
-its disk contents and source history. **Reload from disk** asks before discarding
-that draft and its history. Sources must be valid UTF-8, at most 1 MiB per file;
-close a tab before exceeding 32 open files. This is a source editor, not a full IDE:
-autocompletion, debugger integration and unrestricted C++ hot reload are not provided.
-
-Export includes the compiled gameplay module and runtime dependencies. It does
-not include the C++ editor, compiler or source files.
-
-Export uses the last successfully built gameplay module. Save and build your code
-changes before exporting; unsaved drafts and failed builds are not included.
-
-You can change **Build on Save** while a build is running. Turning it off affects
-future saves; it does not stop a build already in progress. Use **Cancel build**
-in Gameplay Code to stop the current build.
