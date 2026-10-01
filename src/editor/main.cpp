@@ -1403,6 +1403,7 @@ int main(int argc, char** argv) {
         char entity_name[1024]{};
         bool running = true;
         std::string current_title;
+        std::string live_inspector_entity;
 #ifdef FORGE_UI_FIXTURE
         // SDK mode drives the supplied reference project unchanged.
         // The legacy cube/prefab/UI-document mutations belong to the
@@ -3373,10 +3374,20 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
+            const bool live_inspector_ready = play.active() && play.sdk_play() && play.ready() &&
+                                              editor.selection.entities().size() == 1;
+            if (!live_inspector_ready || !workspace.inspector)
+                live_inspector_entity.clear();
             if (workspace.inspector) {
                 if (ImGui::Begin("Inspector", &workspace.inspector)) {
-                    if (play.active() && play.sdk_play() && play.ready() &&
-                        editor.selection.entities().size() == 1) {
+                    if (live_inspector_ready) {
+                        // Play adds transient fields above the authored Inspector. Reveal
+                        // them once per selected entity instead of retaining an old scroll
+                        // offset that can leave the editable values out of view.
+                        if (live_inspector_entity != selected) {
+                            ImGui::SetScrollY(0.0f);
+                            live_inspector_entity = selected;
+                        }
                         component_inspector.draw_runtime(
                             play.effective_snapshot(), play.runtime_schema(),
                             files.document.project(), selected,

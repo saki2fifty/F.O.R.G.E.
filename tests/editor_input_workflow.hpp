@@ -315,6 +315,11 @@ class EditorInputWorkflow {
                         ack.value("property", std::string{}) == "speed" &&
                         ack.value("value", 0.0) == 360.0 && tuned && authored_unchanged,
                     "Runtime tuning was not acknowledged or changed authored component data");
+        } else if (what == "live-field-visible") {
+            const auto it = ui_targets.find("runtime-field:project.rotator:speed");
+            require(it != ui_targets.end() && it->second.minimum.y >= it->second.clip_minimum.y &&
+                        it->second.maximum.y <= it->second.clip_maximum.y,
+                    "Play did not reveal the complete live Rotator Speed field");
         } else if (what == "spin-sample") {
             spin_sample_ = rotator_pose(state);
             require(spin_sample_.has_value(), "Rotator pose unavailable for speed measurement");
@@ -799,6 +804,7 @@ class EditorInputWorkflow {
             capture("cpp-rotator-inspector");
             click("icon:play");
             check("starter-ticked");
+            check("live-field-visible");
             check("spin-sample");
             check("spin-before");
             capture("cpp-rotator-playing");
