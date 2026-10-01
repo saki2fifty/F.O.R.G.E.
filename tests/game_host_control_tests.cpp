@@ -116,7 +116,7 @@ void run(const std::filesystem::path& root) {
               host.settings().at("display").at("width") == 1280 && applications == 2,
           "Failed setting was committed or platform was not restored");
     check(request({{"operation", "rebind_begin"}, {"action", action}, {"index", 0}}).state ==
-              "succeeded" &&
+                  "succeeded" &&
               game.active().simulation.input_status().at("rebind_listening") == true,
           "Could not begin player rebind or publish listener state");
     game.input({{"key.j", 1}});

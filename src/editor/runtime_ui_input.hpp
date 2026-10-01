@@ -88,8 +88,8 @@ class RuntimeUiInput {
         // Read the owner-published state, and keep each routed release with its
         // press even if capture completes before the next editor frame.
         const auto& input_status = play.input_status();
-        const bool rebinding = input_status.is_object() &&
-                               input_status.value("rebind_listening", false);
+        const bool rebinding =
+            input_status.is_object() && input_status.value("rebind_listening", false);
         if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) {
             const bool routed = rebinding || rebind_keys_.contains(e.key.scancode);
             if (routed) {
@@ -112,8 +112,7 @@ class RuntimeUiInput {
         }
         if (rebinding && e.type == SDL_EVENT_MOUSE_WHEEL)
             return game.event(e, play);
-        if (rebinding && (e.type == SDL_EVENT_TEXT_INPUT ||
-                          e.type == SDL_EVENT_TEXT_EDITING))
+        if (rebinding && (e.type == SDL_EVENT_TEXT_INPUT || e.type == SDL_EVENT_TEXT_EDITING))
             return true;
         const auto modifiers = RmlSDL::GetKeyModifierState();
         bool consumed = false;
