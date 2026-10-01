@@ -224,8 +224,8 @@ class CppSourceEditor {
         ImGui::SetNextItemWidth(180);
         ImGui::InputText("System name", system_name_, sizeof(system_name_));
         ImGui::SameLine();
-        if (button("Create C++ System", "Create a fixed-step Flecs system using the selected "
-                                        "component, then open its source."))
+        if (button("Create C++ System", "Create a fixed-step rotation example using the selected "
+                                        "component speed, then open its source."))
             attempt([&] {
                 project.check_ownership();
                 const auto source = create_cpp_system(root_, system_name_, system_component_);
@@ -249,7 +249,8 @@ class CppSourceEditor {
         }
         ImGui::EndDisabled();
         help("Components hold entity data. Systems run behavior over matching entities. "
-             "Save open source drafts before creating files. Build Gameplay after creation.");
+             "The generated sample rotates using a speed field; edit the data and behavior "
+             "for your game. Save source drafts before creating files, then Build Gameplay.");
         if (!error_.empty())
             ImGui::TextWrapped("%s", error_.c_str());
     }

@@ -97,6 +97,8 @@ int main(int argc, char** argv) {
                 "Registered system inspection is incorrect");
         require(cpp_project_sources(root).size() >= 5, "Gameplay source browser missed files");
         rejects([&] { create_cpp_component(root, "Rotator"); }, "Component overwritten");
+        rejects([&] { create_cpp_component(root, "ROTATOR"); },
+                "Duplicate stable component key admitted");
         rejects([&] { create_cpp_system(root, "RotationSystem", "Rotator"); },
                 "System overwritten");
         const auto original_identity = forge::gameplay_source_digest(root);

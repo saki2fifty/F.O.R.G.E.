@@ -168,6 +168,8 @@ inline std::string create_cpp_component(const std::filesystem::path& root,
     std::string key = name;
     std::transform(key.begin(), key.end(), key.begin(),
                    [](unsigned char c) { return char(std::tolower(c)); });
+    if (registry->find("// FORGE_SOURCE_COMPONENT project." + key + " ") != std::string::npos)
+        throw std::runtime_error("A C++ component already owns this stable type key.");
     std::ostringstream source;
     source << "#pragma once\n#include <cstdio>\n#include <exception>\n#include <flecs.h>\n"
               "#include <forge/native_sdk.h>\n\n"

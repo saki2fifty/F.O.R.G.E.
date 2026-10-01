@@ -134,8 +134,9 @@ class ComponentInspector {
                 ui::model_variant_controls(scene, project, entity, source, variant_error_);
             }
         }
-        ui::heading("Components", "Behavior attached to this entity. Values come from the Flecs "
-                                  "world; inherited values follow their prefab.");
+        ui::heading("Components", "Data attached to this entity. Values come from the Flecs "
+                                  "world; inherited values follow their prefab. Systems provide "
+                                  "behavior for matching entities.");
         add_menu(scene, entity, values);
         const auto schema = scene.schema();
         unsigned optional_count = 0;
