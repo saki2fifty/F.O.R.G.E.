@@ -13,7 +13,7 @@ This is the standing policy for FORGE editor additions. Place a control by **wha
 
 ## The shell
 
-Hierarchy is scene structure; the center is the primary document workspace; Inspector edits the selected target; Content finds assets; Problems summarizes actionable issues; Console keeps chronological detail; Gameplay Code owns build/reload work. Preserve docking, personal layouts, and the compact status bar. A subsystem does not earn a permanent default panel merely by existing.
+Hierarchy is scene structure; the center is the primary document workspace; Inspector edits the selected target; Content finds assets; Problems summarizes actionable issues; Console keeps chronological detail; Gameplay Code owns C++ project source discovery, compiler checks and gameplay builds. Preserve docking, personal layouts, and the compact status bar. A subsystem does not earn a permanent default panel merely by existing.
 
 | Scope | Home |
 | --- | --- |
@@ -29,7 +29,7 @@ Hierarchy is scene structure; the center is the primary document workspace; Insp
 
 ## Entities, components, assets and tools
 
-An **entity** is an instance in a world. A **component** is data/behavior attached to it. An **asset** is reusable project content with AssetId. A **tool/document editor** is the UI for editing or analyzing content. A graph node is not made a Flecs entity just to satisfy editor selection. Flecs remains the authority for gameplay entities/components/relationships/reflection/prefabs; editor selection, document focus, layout and transient previews belong to editor owners.
+An **entity** is an instance in a world. A **component** is data attached to it; a Flecs system supplies behavior for every entity matching its query. An **asset** is reusable project content with AssetId. A **tool/document editor** is the UI for editing or analyzing content. A graph node is not made a Flecs entity just to satisfy editor selection. Flecs remains the authority for gameplay entities/components/relationships/reflection/prefabs; editor selection, document focus, layout and transient previews belong to editor owners.
 
 Expose useful terms such as Entity, Component, Parent, Prefab and Override. Put schema IDs, generations, module ownership and SDK details in collapsed Details or diagnostics. Do not introduce GameObject/Actor classes beside Flecs.
 

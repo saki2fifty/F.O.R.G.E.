@@ -564,6 +564,13 @@ int main(int argc, char** argv) {
         Uint64 source_identity_checked = 0;
         std::uint64_t source_revision_seen = 0;
         bool gameplay_current = false;
+        auto current_managed_gameplay = [&] {
+            const auto sdk_root = exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
+                                                    : install_root / "NativeSdk";
+            return forge::gameplay_source_current(
+                files.document.project(), files.document.settings().document(),
+                forge::installed_gameplay_sdk_fingerprint(sdk_root));
+        };
         std::string source_identity_error;
         bool cpp_play_dialog = false, cpp_play_build_pending = false;
         bool cpp_play_build_seen_busy = false, cpp_play_ready = false;
@@ -1762,8 +1769,7 @@ int main(int argc, char** argv) {
                 source_identity_checked = SDL_GetTicks();
                 source_revision_seen = cpp_sources.source_revision;
                 try {
-                    gameplay_current = forge::gameplay_source_current(
-                        files.document.project(), files.document.settings().document());
+                    gameplay_current = current_managed_gameplay();
                     source_identity_error.clear();
                 } catch (const std::exception& e) {
                     gameplay_current = false;
@@ -1776,8 +1782,7 @@ int main(int argc, char** argv) {
                     cpp_play_build_pending = cpp_play_build_seen_busy = false;
                     try {
                         if (sdk_build->error().empty() && !cpp_sources.dirty() &&
-                            forge::gameplay_source_current(files.document.project(),
-                                                           files.document.settings().document()))
+                            current_managed_gameplay())
                             cpp_play_ready = true;
                         else
                             message = "Gameplay build did not complete. Last good build retained; "
@@ -1950,8 +1955,7 @@ int main(int argc, char** argv) {
                         if (cpp_sources.dirty())
                             throw std::runtime_error(
                                 "Save C++ source and Build Gameplay before exporting.");
-                        if (!forge::gameplay_source_current(files.document.project(),
-                                                            files.document.settings().document()))
+                        if (!current_managed_gameplay())
                             throw std::runtime_error(
                                 "Build Gameplay before exporting: saved C++ source is not the "
                                 "admitted module. Last-good gameplay is retained.");
@@ -2070,9 +2074,7 @@ int main(int argc, char** argv) {
                             "Older C++ gameplay source is preserved but unsupported. "
                             "Migrate it to the managed C++ gameplay project before Play.");
                     if (sdk_build->managed() &&
-                        (cpp_sources.dirty() ||
-                         !forge::gameplay_source_current(files.document.project(),
-                                                         files.document.settings().document()))) {
+                        (cpp_sources.dirty() || !current_managed_gameplay())) {
                         cpp_play_dialog = true;
                         return;
                     }

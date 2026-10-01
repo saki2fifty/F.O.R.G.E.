@@ -177,10 +177,6 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
         throw std::runtime_error(
             "Older C++ gameplay source is preserved but unsupported. Migrate it to the "
             "managed C++ gameplay project before export.");
-    if (managed_gameplay)
-        require(gameplay_source_current(source.root(), settings),
-                "C++ gameplay source changed or has not been built. Save and Build Gameplay before "
-                "export");
     require(!settings.contains("game") || settings.at("game").at("profile") == "development",
             "Only Development standalone export is currently supported");
     require(settings.contains("game") && !settings.at("startup_scene").is_null(),
@@ -190,6 +186,11 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     const auto runtime =
         verify_distribution_files(kit.root(), "forge.runtime-kit.json", "forge.runtime-kit", stop);
     const auto engine = runtime.at("engine");
+    if (managed_gameplay)
+        require(gameplay_source_current(source.root(), settings,
+                                        engine.at("sdk_fingerprint").get<std::string>()),
+                "C++ gameplay source or SDK changed since the admitted build. Save and Build "
+                "Gameplay before export");
     const RuntimePackageTarget target{runtime.at("target").at("platform"),
                                       runtime.at("target").at("backend")};
     const auto profile = engine.at("profile").get<std::string>(),

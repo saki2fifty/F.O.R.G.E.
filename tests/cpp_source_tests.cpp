@@ -114,6 +114,16 @@ int main(int argc, char** argv) {
                                             {"fingerprint", std::string(64, 'a')},
                                             {"source_identity", id}}}}};
         require(forge::gameplay_source_current(root, settings), "Current build not recognized");
+        require(forge::gameplay_source_current(root, settings, std::string(64, 'a')),
+                "Matching SDK fingerprint not recognized");
+        std::filesystem::create_directories(root / "kit/sdk/include/forge");
+        forge::asset_storage::replace(root / "kit/sdk/include/forge/native_sdk_identity.h",
+                                      "#define FORGE_NATIVE_SDK_FINGERPRINT \"" +
+                                          std::string(64, 'a') + "\"\r\n");
+        require(forge::installed_gameplay_sdk_fingerprint(root / "kit") == std::string(64, 'a'),
+                "Installed SDK fingerprint not read correctly");
+        require(!forge::gameplay_source_current(root, settings, std::string(64, 'b')),
+                "Changed SDK fingerprint reported as current");
         forge::asset_storage::replace(root / "Native/behavior.cpp", "int changed = 2;\n");
         require(!forge::gameplay_source_current(root, settings),
                 "Stale last-good module reported as current");

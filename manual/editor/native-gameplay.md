@@ -45,7 +45,7 @@ new build and fresh Play session.
 
 **Source Dirty** means a C++ tab has unsaved edits. **Build Required** means saved
 source differs from the admitted module. **Building**, **Build Failed**, and
-**Gameplay Current** distinguish the remaining states. A failed build keeps the
+**Gameplay Current** distinguish the remaining states. A changed Developer Kit requires a compatible new build; a missing matching kit blocks managed Play until it is installed. A failed build keeps the
 last good artifact, but Play and Export do not treat it as current. Click a
 compiler diagnostic in **Compiler output** to open its source line. The full log
 is `.forge/sdk-build/build.log`; source remains editable. Build on Save uses the

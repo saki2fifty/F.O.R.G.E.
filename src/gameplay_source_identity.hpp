@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <forge/project_paths.hpp>
+#include <fstream>
 #include <nlohmann/json.hpp>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace forge {
@@ -59,12 +61,33 @@ inline std::string gameplay_build_identity(const std::string& source_digest,
     const auto record = "forge.gameplay-build.v1\n" + source_digest + "\n" + sdk_fingerprint;
     return asset_detail::content_digest(std::as_bytes(std::span(record)));
 }
+inline std::string installed_gameplay_sdk_fingerprint(const std::filesystem::path& sdk) {
+    std::ifstream input(sdk / "sdk/include/forge/native_sdk_identity.h");
+    if (!input)
+        throw std::runtime_error("Matching C++ Developer Kit is unavailable");
+    constexpr std::string_view prefix = "#define FORGE_NATIVE_SDK_FINGERPRINT \"";
+    std::string line;
+    while (std::getline(input, line)) {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        if (line.starts_with(prefix) && line.size() == prefix.size() + 65 && line.back() == '"') {
+            auto value = line.substr(prefix.size(), 64);
+            if (std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                }))
+                return value;
+        }
+    }
+    throw std::runtime_error("C++ Developer Kit has no valid SDK fingerprint");
+}
 inline bool gameplay_source_current(const std::filesystem::path& project,
-                                    const nlohmann::json& settings) {
+                                    const nlohmann::json& settings,
+                                    std::string_view expected_fingerprint = {}) {
     for (const auto& module : settings.value("modules", nlohmann::json::array()))
         if (module.is_object() && module.value("id", "") == "project.gameplay") {
-            if (!module.contains("source_identity"))
-                return false; // Older managed builds need one new build.
+            if (!module.contains("source_identity") ||
+                (!expected_fingerprint.empty() && module.at("fingerprint") != expected_fingerprint))
+                return false; // Older or mismatched SDK builds need one new build.
             return module.at("source_identity") ==
                    gameplay_build_identity(gameplay_source_digest(project),
                                            module.at("fingerprint").get<std::string>());
