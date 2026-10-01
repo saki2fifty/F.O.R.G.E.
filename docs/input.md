@@ -59,6 +59,13 @@ are rejected. `binding_conflicts` returns action/context ownership so a UI can
 separate same-context conflicts from cross-context shadowing. Cross-context
 sharing is not inherently an error: gameplay and menu actions commonly share keys.
 
+Editor Play publishes the runtime-owned `rebind_listening` flag with its input
+snapshot. While true, keyboard and mouse binding events go directly to the
+runtime listener before RmlUi can consume them; their releases follow the same
+route. UI-generated neutral input is delivered before a UI command that starts
+rebinding, so it cannot cancel the newly started listener. Escape, loss of focus
+and explicit reset still cancel the listener.
+
 `begin_rebind` listens through the existing RuntimeInput event path. It ignores
 controls already held until released, stick noise below0.5 and incidental mouse
 motion. A key, button, wheel or significant analog sample completes capture;

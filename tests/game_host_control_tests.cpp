@@ -116,10 +116,13 @@ void run(const std::filesystem::path& root) {
               host.settings().at("display").at("width") == 1280 && applications == 2,
           "Failed setting was committed or platform was not restored");
     check(request({{"operation", "rebind_begin"}, {"action", action}, {"index", 0}}).state ==
-              "succeeded",
-          "Could not begin player rebind");
+              "succeeded" &&
+              game.active().simulation.input_status().at("rebind_listening") == true,
+          "Could not begin player rebind or publish listener state");
     game.input({{"key.j", 1}});
     host.pump(RuntimeClock::Time{});
+    check(game.active().simulation.input_status().at("rebind_listening") == false,
+          "Captured binding still advertises an active listener");
     check(request({{"operation", "rebind_commit"}}).state == "succeeded", "Captured rebind failed");
     game.input({{"key.j", 1}});
     check(game.active().simulation.input().latch(1).actions.at(action).pressed,

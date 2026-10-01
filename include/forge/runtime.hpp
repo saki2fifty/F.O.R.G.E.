@@ -66,7 +66,11 @@ class RuntimeSimulation {
     void audio_paused(bool value);
     void sync_audio();
     RuntimeInput& input() { return input_; }
-    Json input_status() const { return input_monitor_.status(input_.map()); }
+    Json input_status() const {
+        auto status = input_monitor_.status(input_.map());
+        status["rebind_listening"] = input_.rebinding();
+        return status;
+    }
     void reset_presentation();
     void restore_input_tick(std::uint64_t tick) {
         input_tick_ = tick;

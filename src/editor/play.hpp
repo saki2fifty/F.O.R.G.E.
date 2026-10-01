@@ -1009,9 +1009,16 @@ class PlaySession {
                         property_tune_command_ = nullptr;
                         send(std::move(command));
                     } else if (!ui_command_.is_null()) {
-                        auto command = std::move(ui_command_);
-                        ui_command_ = nullptr;
-                        send({{"command", "ui"}, {"ui_command", std::move(command)}});
+                        // UI clicks can queue neutral input. Ship those older events before
+                        // a command such as rebind_begin, which would otherwise be cancelled
+                        // by the reset in the next snapshot.
+                        if (!input_events_.empty())
+                            send({{"command", "snapshot"}});
+                        else {
+                            auto command = std::move(ui_command_);
+                            ui_command_ = nullptr;
+                            send({{"command", "ui"}, {"ui_command", std::move(command)}});
+                        }
                     } else if (SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 } else if (!sdk_game_ && stage_ == Stage::Running) {
@@ -1023,9 +1030,16 @@ class PlaySession {
                         model_assets_changed_ = false;
                         send({{"command", "refresh_model_assets"}});
                     } else if (!ui_command_.is_null()) {
-                        auto command = std::move(ui_command_);
-                        ui_command_ = nullptr;
-                        send({{"command", "ui"}, {"ui_command", std::move(command)}});
+                        // UI clicks can queue neutral input. Ship those older events before
+                        // a command such as rebind_begin, which would otherwise be cancelled
+                        // by the reset in the next snapshot.
+                        if (!input_events_.empty())
+                            send({{"command", "snapshot"}});
+                        else {
+                            auto command = std::move(ui_command_);
+                            ui_command_ = nullptr;
+                            send({{"command", "ui"}, {"ui_command", std::move(command)}});
+                        }
                     } else if (!probe_ && SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 }

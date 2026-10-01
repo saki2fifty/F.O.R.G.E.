@@ -11,6 +11,8 @@ class RuntimeUiInput {
     unsigned target_width_ = 1, target_height_ = 1;
     std::set<SDL_Scancode> ui_keys_;
     std::set<Uint8> ui_buttons_;
+    std::set<SDL_Scancode> rebind_keys_;
+    std::set<Uint8> rebind_buttons_;
     bool captured_ = false;
     bool inside(float x, float y) const {
         return x >= origin_.x && y >= origin_.y && x < origin_.x + size_.x &&
@@ -33,6 +35,8 @@ class RuntimeUiInput {
         neutralize(play);
         ui_keys_.clear();
         ui_buttons_.clear();
+        rebind_keys_.clear();
+        rebind_buttons_.clear();
         captured_ = false;
     }
     bool event(const SDL_Event& e, UiPresenter& presenter, TextInputMethodEditor_SDL& ime,
@@ -42,6 +46,8 @@ class RuntimeUiInput {
             presenter.release_input();
             ui_keys_.clear();
             ui_buttons_.clear();
+            rebind_keys_.clear();
+            rebind_buttons_.clear();
             neutralize(play);
             return false;
         }
@@ -50,6 +56,8 @@ class RuntimeUiInput {
                 presenter.release_input();
                 ui_keys_.clear();
                 ui_buttons_.clear();
+                rebind_keys_.clear();
+                rebind_buttons_.clear();
             }
             captured_ = false;
             return false;
@@ -74,6 +82,39 @@ class RuntimeUiInput {
             }
             return game.event(e, play);
         }
+        // The runtime owns a pending binding capture. A focused RmlUi button may
+        // consume the replacement key or mouse press; routing it through the UI
+        // would also send a neutral reset that cancels RuntimeInput's listener.
+        // Read the owner-published state, and keep each routed release with its
+        // press even if capture completes before the next editor frame.
+        const auto& input_status = play.input_status();
+        const bool rebinding = input_status.is_object() &&
+                               input_status.value("rebind_listening", false);
+        if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) {
+            const bool routed = rebinding || rebind_keys_.contains(e.key.scancode);
+            if (routed) {
+                if (e.key.down)
+                    rebind_keys_.insert(e.key.scancode);
+                else
+                    rebind_keys_.erase(e.key.scancode);
+                return game.event(e, play);
+            }
+        }
+        if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            const bool routed = rebinding || rebind_buttons_.contains(e.button.button);
+            if (routed) {
+                if (e.button.down)
+                    rebind_buttons_.insert(e.button.button);
+                else
+                    rebind_buttons_.erase(e.button.button);
+                return game.event(e, play);
+            }
+        }
+        if (rebinding && e.type == SDL_EVENT_MOUSE_WHEEL)
+            return game.event(e, play);
+        if (rebinding && (e.type == SDL_EVENT_TEXT_INPUT ||
+                          e.type == SDL_EVENT_TEXT_EDITING))
+            return true;
         const auto modifiers = RmlSDL::GetKeyModifierState();
         bool consumed = false;
         if (e.type == SDL_EVENT_MOUSE_MOTION) {
