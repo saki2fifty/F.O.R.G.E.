@@ -9,7 +9,7 @@
 ## Build, Play, Export and live values
 
 - Added deterministic saved-source/build identity over bounded regular files under managed `Native/` plus the installed exact SDK fingerprint. Managed candidate publication checks source stability; editor status distinguishes dirty, required, building, failed, current and last-good. Build can explicitly save drafts first. Optional Build on Save remains.
-- Play offers Save, Build & Play when source is dirty or the admitted module is stale. Export refuses dirty/stale managed gameplay. Failed candidates leave the last good artifact intact without presenting it as current.
+- Play offers Save, Build & Play when source is dirty or the admitted module is stale. Export refuses dirty/stale managed gameplay and rechecks source immediately before publication, so a source edit made while export is preparing cannot publish the older module as current. Failed candidates leave the last good artifact intact without presenting it as current.
 - Added typed, session/generation/entity-scoped Play property tuning through the existing runtime transport. Runtime validates and applies admitted reflected values at its owner-thread boundary, acknowledges the result, and keeps authored scene/prefab state unchanged. The Inspector labels transient live values separately from read-only authored values during Play.
 
 ## Windows acceptance and guide reconciliation

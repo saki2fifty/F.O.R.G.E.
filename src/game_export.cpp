@@ -313,6 +313,10 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
                     asset_detail::read_bytes(path, 512ull * 1024 * 1024)) == expected,
                 "Native module changed during export; rebuild/retry");
     progress("Publish validated game", 5);
+    if (managed_gameplay)
+        require(gameplay_source_current(source.root(), original_settings, fingerprint),
+                "C++ gameplay source or SDK changed during export. Save and Build Gameplay "
+                "again before retrying");
     // Final cancellation boundary. After the durable journal, complete or recover
     // the two directory renames; never report cancellation halfway through commit.
     const auto candidate = output.control / "candidate", previous = output.control / "previous";
