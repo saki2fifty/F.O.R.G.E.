@@ -1,3 +1,26 @@
+# One C++ gameplay model delivered — 2026-10-01
+
+Build **261001-000142**, compiled source `1ef5b4d577b8ee4a9d2ba337439af96787e6ccf3`, passed the
+[full Windows gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/36937863416):
+all eight required source roles and the final extracted-package acceptance.
+The editor now creates separate C++ Flecs Components and Systems, edits project
+source, builds and diagnoses it, gates Play/Export on current saved code, and
+allows typed transient gameplay-property tuning during Play. The redundant
+movement-only ABI1 gameplay path was retired; the exact shared-Flecs SDK is the
+one normal C++ route.
+
+Windows acceptance completed the 204-step C++ onboarding and 24-stage reference
+game flow. Two source/toolchain-free relocated exports ran the edited C++ System.
+Changed D3D12 WARP captures were opened and reviewed. Both package ZIPs and their
+embedded source identities were verified; the numbered editor and optional
+Developer Kit were promoted. Physical GPU/input/audio/DPI acceptance and the
+previously deferred reference-game FPS/smoothness feedback remain separate. The
+package contains documentation from its compiled source; this status update
+only records post-validation delivery and does not change packaged bytes. See
+[the C++ gameplay manual](../manual/editor/native-gameplay.md),
+[native module contract](native-modules.md) and
+[daily changes](../changelog/20261001/README.md).
+
 # Integrated C++ authoring validated — 2026-09-28
 
 Build **260928-000125**, compiled source
@@ -13,7 +36,7 @@ compiler discovery, readiness without module publication, automatic builds,
 failed-build retention, diagnostic navigation and exported-game relocation.
 The reference-game acceptance flow also passed. Changed D3D12 WARP captures were
 retrieved and visually reviewed; the ZIP and manifest hashes were verified.
-**Build 125 is the current promoted download**. The release ledger, ZIP hashes and
+**Build 125 was the promoted download at this checkpoint**. The release ledger, ZIP hashes and
 current extracted executable were verified; Build 117 was archived and redundant
 staging cleaned using the established scripts. Physical hardware acceptance and
 the deferred reference-game FPS/smoothness feedback remain separate. No performance
@@ -91,7 +114,7 @@ The approved Flecs managed-include finding remains separately classified.
 
 At this Build74 checkpoint, Phase8 was not complete: editor Play did not yet host
 the standalone session/storage control loop. Phase8 subsequently completed in
-Build260927-000105; the current Phase9 delivery includes that foundation.
+Build260927-000105; the later Phase9 delivery included that foundation.
 Physical mouse/controller feel, GPU/display, speakers, mixed DPI and extended play
 remain separate from hosted WARP acceptance. Build74 included no Phase9 work.
 
