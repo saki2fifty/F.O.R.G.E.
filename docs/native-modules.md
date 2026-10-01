@@ -53,7 +53,7 @@ and never publishes it. Externally maintained exact-SDK layouts retain their
 external build workflow.
 
 For managed projects, the admitted module records a deterministic identity of
-saved `Native/` C++/header/CMake/registration inputs and the exact SDK fingerprint.
+all saved ordinary files in managed `Native/` (excluding build/deployment directories) and the selected exact SDK fingerprint. This conservatively includes custom CMake inputs and nonstandard include suffixes.
 Generated deployment and build caches are excluded. Files, paths and bytes are
 bounded; redirected/special inputs reject. Source hashes are checked on revision
 and a throttled interval in the editor, plus at build/Play/export boundaries, not

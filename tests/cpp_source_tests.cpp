@@ -102,6 +102,12 @@ int main(int argc, char** argv) {
         rejects([&] { create_cpp_system(root, "RotationSystem", "Rotator"); },
                 "System overwritten");
         const auto original_identity = forge::gameplay_source_digest(root);
+        forge::asset_storage::replace(root / "Native/Components/rotation.inl", "first\n");
+        require(forge::gameplay_source_digest(root) != original_identity,
+                "Nonstandard C++ include failed to invalidate gameplay build");
+        std::filesystem::remove(root / "Native/Components/rotation.inl");
+        require(forge::gameplay_source_digest(root) == original_identity,
+                "Removed include did not restore source identity");
         std::filesystem::create_directories(root / "Native/Builds");
         forge::asset_storage::replace(root / "Native/Builds/ignored.cpp", "generated");
         require(forge::gameplay_source_digest(root) == original_identity,

@@ -34,11 +34,9 @@ inline std::string gameplay_source_digest(const std::filesystem::path& project) 
         }
         if (!std::filesystem::is_regular_file(status))
             throw std::runtime_error("C++ gameplay source contains a special file");
-        const auto name = it->path().filename().string();
-        const auto ext = it->path().extension().string();
-        if (name != "CMakeLists.txt" && name != "forge.sdk-project.json" && ext != ".cmake" &&
-            ext != ".cpp" && ext != ".cc" && ext != ".cxx" && ext != ".h" && ext != ".hpp")
-            continue;
+        // Managed Native/ is the build input tree. CMake can include arbitrary
+        // files, so an extension whitelist would silently miss a changed .inl,
+        // generated include or custom configuration input.
         if (files.size() >= 2048)
             throw std::runtime_error("C++ gameplay source file limit exceeded");
         files.push_back(paths.relative(it->path()));

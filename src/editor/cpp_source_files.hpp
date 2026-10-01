@@ -18,7 +18,8 @@ inline bool cpp_source_extension(const std::filesystem::path& path) {
     std::transform(extension.begin(), extension.end(), extension.begin(),
                    [](unsigned char c) { return char(std::tolower(c)); });
     return extension == ".cpp" || extension == ".hpp" || extension == ".h" || extension == ".cc" ||
-           extension == ".cxx";
+           extension == ".cxx" || extension == ".hh" || extension == ".hxx" ||
+           extension == ".inl" || extension == ".ipp" || extension == ".tpp";
 }
 inline std::filesystem::path cpp_source_path(const std::filesystem::path& root,
                                              const std::filesystem::path& locator) {
