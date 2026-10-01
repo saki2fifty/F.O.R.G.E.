@@ -750,6 +750,39 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
     }
     committed();
 }
+Json Scene::tune_runtime_property(const std::string& entity_id, const std::string& type_key,
+                                  const std::string& property_key, const Json& value) {
+    if (context_.role() != WorldRole::Runtime || !context_.on_owner_thread())
+        throw std::runtime_error("Live property tuning requires the runtime owner thread");
+    const auto target = entity(entity_id);
+    if (!target || !target.is_alive() || target.has(flecs::Prefab))
+        throw std::runtime_error("Live property target is missing or a prefab source");
+    for (const auto& codec : context_.authored_codecs()) {
+        if (codec.key() != type_key)
+            continue;
+        const auto current = codec.read(target, true);
+        if (current.is_null() || !codec.matches(current))
+            throw std::runtime_error("Live property component is unavailable");
+        bool allowed = false;
+        for (const auto& field : codec.declaration.at("structure").at("fields"))
+            if (field.at("id") == property_key) {
+                if (field.value("read_only", false))
+                    throw std::runtime_error("Live property is read only");
+                allowed = true;
+                break;
+            }
+        if (!allowed)
+            throw std::runtime_error("Live property is not admitted");
+        auto candidate = current;
+        candidate[property_key] = value;
+        auto prepared = codec.prepare(world(), candidate);
+        if (!prepared)
+            throw std::runtime_error("Live property schema changed");
+        codec.apply(target, prepared);
+        return codec.read(target, true).at(property_key);
+    }
+    throw std::runtime_error("Live property type is not authorable");
+}
 Json Scene::snapshot() const {
     auto result = document();
     std::set<AssetId> referenced;

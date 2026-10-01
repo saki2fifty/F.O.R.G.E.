@@ -6,7 +6,7 @@ These classifications describe supported ownership, not a promise of permanent C
 - **B — Exact SDK:** the installed value headers, matching Flecs, and checked host callbacks. Rebuild against the exact distribution when its fingerprint changes.
 - **C — Built-in/private:** source-engine composition; not installed for binary gameplay consumers.
 - **D — Implementation:** replaceable subsystem internals and private transport.
-- **E — Legacy compatibility:** ABI1, retained unchanged.
+- **E — Legacy compatibility:** retired movement-only ABI1 (historical classification).
 
 | Contract | Class | Boundary and actual consumers |
 |---|---|---|
@@ -38,7 +38,6 @@ These classifications describe supported ownership, not a promise of permanent C
 | UI bridge / process protocol / recovery envelopes | D | Private independent versions and session/generation checks; not save-game/network/plugin protocols. |
 | ForgeNativeSdkV1 / ForgeSdkWorldV1 / sdk::Client | B | Trusted exact registration + borrowed host and value callbacks, single shared Flecs. |
 | SDK fingerprint / CMake Client target | B | Exact headers/value implementation/bridge/Flecs/toolchain/configuration identity. |
-| module_api.h / Module / Build & Reload | E | ABI1 constrained native translation/tick path and existing transactional reload. |
 | Broad plugin/provider/editor extension ABI | Deferred | Direction only; no marketplace ABI, provider hot swap or editor native reload. |
 
 ## Services and capability discovery

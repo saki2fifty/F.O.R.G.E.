@@ -62,7 +62,7 @@ Exceeding these bounds returns a diagnostic rather than silently truncating a pa
 
 ## Exact gameplay SDK
 
-`NavigationAgent` is available to exact-version direct-Flecs modules. `FORGE_SDK_NAVIGATION` exposes `navigation_query` for projection and path finding during an owner fixed tick. Results use a caller-owned buffer with capacity 1–64 and explicit status/count. An undersized buffer returns the limit status with no points. No Recast/Detour type crosses the boundary. SDK fingerprints include the new component/header contract; modules must be rebuilt together. Legacy gameplay ABI1 is unchanged. Generic AssetHandle remains deferred: the private AssetId cache is sufficient.
+`NavigationAgent` is available to exact-version direct-Flecs modules. `FORGE_SDK_NAVIGATION` exposes `navigation_query` for projection and path finding during an owner fixed tick. Results use a caller-owned buffer with capacity 1–64 and explicit status/count. An undersized buffer returns the limit status with no points. No Recast/Detour type crosses the boundary. SDK fingerprints include the new component/header contract; modules must be rebuilt together. The movement-only ABI1 path mentioned in the original phase record has since been retired. Generic AssetHandle remains deferred: the private AssetId cache is sufficient.
 
 ## Deferred work
 

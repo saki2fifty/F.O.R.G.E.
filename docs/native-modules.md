@@ -1,110 +1,91 @@
-# Native gameplay iteration
+# C++ gameplay build and runtime contract
 
-## Create and watch a project
-From the FORGE checkout, after building `forge_runtime`:
+FORGE has one supported project gameplay model: exact-SDK C++ code registers Flecs
+components and systems in a separate runtime process. Components carry data;
+systems query matching entities at the registered lifecycle phase. A system is
+not attached to one entity. `Native/` is project source, not an AssetId asset or
+a scene Hierarchy entry. The [user guide](../manual/editor/native-gameplay.md)
+shows the editor workflow.
 
-```sh
-python tools/forge_native.py create --project /absolute/path/to/game --language cpp
-python tools/forge_native.py watch --project /absolute/path/to/game --work /absolute/path/to/game-work --runtime /absolute/path/to/forge_runtime
-```
+## Binary and ownership boundary
 
-Use `--language c` for C17. `--cmake` and `--ninja` accept explicit executable paths. Keep the work directory outside the project's source directory. Compilation output appears in the terminal and `build.log` in the work directory. The editor also provides its own native build controls described below.
+The exact SDK uses a versioned C-shaped entry descriptor, an exact fingerprint,
+shared Flecs, descriptor size checks and module identity/dependency admission.
+That compatibility mechanism does not make arbitrary native code safe. The editor
+never loads project gameplay libraries. The isolated runtime validates and owns
+registrations, callbacks and world-scoped services. Module contexts and code leases
+outlive Flecs teardown; callbacks cannot run after their library retires. The
+[engine module contract](engine-modules.md) and [extension contracts](extension-contracts.md)
+describe the detailed ABI and lifecycle rules. No rich C++ in-place reload exists.
+Code and schema iteration is **Stop → Save → Build → Play**.
 
-Each successful build is copied to a unique DLL/shared-library path. A disposable runtime probes it first. Compatible code replaces the active module only at a command boundary; host-owned scene values survive. Compile/probe failures retain the active module. Schema changes restart the play process with host-owned values. A killed/crashed runtime can recover from the latest completed step checkpoint. Crashes after external side effects cannot be rolled back.
+Runtime protocol 2 carries correlated JSON-line requests. The runtime owns its
+fixed clock; Step means one fixed tick. Editor FPS and transport polling never
+supply simulation time. Source save and scene save have separate document history.
 
-## ABI v1
-`include/forge/module_api.h` is a C17-compatible header with C++ linkage guards. The module exports `forge_module_v1`, returns a size/version-checked descriptor, and supplies a stateless tick callback. All pointers are borrowed. No allocations, exceptions or C++ standard-library types cross the boundary. Module identity and state schema are compared before in-process replacement.
+## Managed source and registration
 
-The initial host service requests world displacement of host-owned Flecs transforms; the host updates LocalTranslation with parent compensation. This deliberately does not expose raw world pointers. General native component/system registration and migration require a later ABI with registration ownership and lifecycle tests. Do not use v1 for module-owned objects, retained callbacks or background jobs.
+**Create C++ gameplay project** copies the matching installed SDK template into
+an empty `Native/` directory. It does not overwrite existing source. The template
+still supports `Native/gameplay.cpp`; further `.cpp` and `.hpp` files can be
+created in FORGE. The optional `Native/forge.sources.cmake` registers managed
+translation units. User CMake is never silently rewritten.
 
-## Runtime protocol v1
-Runtime protocol **2** uses correlated JSON-line requests over process pipes. The runtime owns a fixed 60 Hz clock; `step` means exactly one paused fixed tick, never caller-supplied seconds. `hello` establishes a transient session and each request has an increasing ID. Successful responses separate uninterpolated recovery `scene` from derived `effective_scene`, and report timing and candidate activation state. See [runtime timing and transport](runtime-timing.md) for commands, limits, configuration and backpressure.
+**Create C++ Component** creates a reflected, authorable data scaffold in
+`Native/Components/`; **Create C++ System** creates a Flecs fixed-gameplay system
+in `Native/Systems/`. Their registrations are generated through
+`Native/forge.registration.hpp`, with source provenance for the Inspector's
+**Open C++ Definition** action. Unmanaged or hand-written registrations do not
+claim a source mapping. Registered systems are listed on demand in Gameplay Code.
+The ordinary Inspector's generic schema and property drawer author component
+values, including prefab intent, scene persistence and Undo/Redo.
+
+## Build and source identity
+
+`SdkBuild` is the single managed compiler task. It uses the installed matching
+SDK, selected CMake/Ninja/MSVC environment, incremental CMake build directory,
+isolated metadata inspection and immutable candidate deployment. A failed or
+cancelled candidate does not replace the last good project module declaration.
+`Native/Builds` holds deployment kits, not editable source. The build log is
+`.forge/sdk-build/build.log`; contained compiler file/line/column diagnostics open
+in the built-in C++ document. **Test compiler tools** uses a disposable starter
+and never publishes it. Externally maintained exact-SDK layouts retain their
+external build workflow.
+
+For managed projects, the admitted module records a deterministic identity of
+saved `Native/` C++/header/CMake/registration inputs and the exact SDK fingerprint.
+Generated deployment and build caches are excluded. Files, paths and bytes are
+bounded; redirected/special inputs reject. Source hashes are checked on revision
+and a throttled interval in the editor, plus at build/Play/export boundaries, not
+each frame. A build rejects source changed while it was preparing its candidate.
+**Gameplay Current** means the admitted module exactly matches saved source.
+**Source Dirty**, **Build Required**, **Building**, and **Build Failed** remain
+distinct. Build on Save is optional convenience. A failed build retains Last Good,
+but does not claim it is Current.
+
+Play with dirty or unbuilt managed source offers **Save, Build & Play** and waits
+for candidate admission; a failure leaves Play stopped. Export rejects dirty or
+stale managed source. The standalone package contains the admitted compiled
+module, matching runtime, declared dependencies and cooked content, not source,
+editor or compiler. Normal export remains relocatable. An older project whose
+`Native/gameplay.cpp` has no managed SDK marker is diagnosed as unsupported; its
+source is preserved for deliberate manual migration, without unsafe automatic
+C/C++ translation.
+
+## Live values and recovery
+
+Admitted reflected values can be tuned in Play's **Live gameplay** Inspector.
+The editor sends session/generation, scene AssetId, EntityId, type, property and
+typed value through the runtime transport. The runtime validates and applies on
+its owner thread between simulation ticks, then acknowledges with a snapshot.
+Invalid/stale/unadmitted updates reject; authored scene and prefab overrides are
+unchanged. Stop discards transient tuning. Schema or C++ code changes still need a
+new build and fresh Play. No arbitrary native-object checkpoint or hot reload is
+claimed. Runtime crashes cannot mutate the editor's authored scene; game Save
+Game/Continue persists only the game-defined save schema.
 
 ## Editor plugins
-`tools/forge_plugins.py` supplies package staging and startup validation, not a DLL loader. Manifest fields: `id`, `version`, `api_version`, `kind`, `library`, `sha256`; C++ packages also declare `sdk` and `toolchain`. `capabilities` is a list and `dependencies` maps IDs to exact versions.
 
-`stage()` retains the active package; `startup()` validates the prospective dependency graph; the eventual native loader must initialize successfully before `commit_startup()`. `startup(safe_mode=True)` returns no plugins. `disable()` stages a restart change. Do not invoke activation while editor plugins are loaded.
-
-## Gameplay Code panel
-
-The Windows package includes a minimal SDK and `Run-Forge-Dev.cmd`. With Visual Studio 2022's **Desktop development with C++** workload and **C++ CMake tools** installed, this launcher discovers the compiler using Microsoft's [vswhere workflow](https://github.com/microsoft/vswhere/wiki/Find-VC) and initializes its [x64 developer environment](https://learn.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022). It changes only the launched process environment and does not install tools. CMake 3.24+ and Ninja must be available; the Native panel accepts explicit executable paths.
-
-1. Open **Gameplay Code** and click **Create source**. This creates `Project/Native/gameplay.cpp` and its CMake project without overwriting existing source or changing your scene.
-2. Click **Build & Reload**. Configure/build run asynchronously; output appears in Console and `Project/.forge/native/build.log`.
-3. Add an entity if needed, then press **Play**. The sample moves positioned entities along X.
-4. Edit `gameplay.cpp` in your code editor. Enable **Build on save**, or click **Build & Reload** again.
-5. A successful compatible change preserves the running scene. A syntax error or invalid candidate retains the previous module.
-
-Every build creates a unique artifact under `Project/.forge/native/modules`. A disposable probe loads it and executes one real fixed tick against representative current state. Probe success does not guarantee all future native behavior. Live replacement first pauses at a tick boundary and acknowledges an authoritative uninterpolated checkpoint. Loading changes activation to **LoadedPendingFirstTick**. Only the first completed live fixed tick commits the candidate as **Active**.
-
-Running sessions resume automatically. Paused sessions display **Reload pending first tick** and wait for Step or Resume; Step still advances exactly one tick and stays paused. Stop cancels pending activation. A newer pending candidate supersedes the prior transaction from the original known-good checkpoint, without stacking transactions. Failure during load or first live tick restarts the previous artifact/checkpoint and restores the prior run/pause policy. The old DLL may already be unloaded; retaining it means preserving the artifact for process recovery. Restart resets the clock accumulator, session and interpolation samples. Python tooling uses the same pending/activation boundary.
-
-An incompatible identity/schema explicitly starts a fresh process with supported host-owned transform values. This is constrained ABI v1 reload, not arbitrary C++ object migration. Native callbacks must not retain host pointers or register unmanaged objects, threads or hooks. The ABI `tick(float seconds)` layout is unchanged; every gameplay invocation now receives the runtime's fixed dt. There is no zero-delta validation path.
-
-A later runtime crash exposes **Recover**, which starts the last completed checkpoint with its module. Recovery is user-triggered to avoid repeatedly running crashing code. **Play/Restart** instead use the authored scene. Neither path modifies authored edits. Editor code and trusted native editor plugins can still crash the editor.
-
-Current limits: build tool discovery is Windows/VS 2022-specific; native sessions select a validated artifact in memory, so rebuild after reopening the editor (the incremental build cache is retained). Source watching checks timestamps and sizes under `Native`, with a quiet period before building. New files must also be referenced by the CMake target. Single build commands time out after three minutes. Runtime responses are limited to 16 MiB and five seconds; Console keeps recent output while the current build log retains complete output. Compiler subprocess descendants are not yet managed as a Windows job; avoid closing the editor during a build. SDL process APIs and ImGui remain editor-only.
-
-## Managed exact-SDK onboarding
-
-Gameplay Code can copy the installed `sdk/template` into an empty Native folder.
-The recipe marker identifies this specific build workflow, not module authority.
-ProjectSettings remains authoritative for the declared modules. `SdkBuild` reuses
-BuildCommand, the installed CMake deployment helper and the isolated schema worker.
-No project library loads into the editor. A fresh kit is validated before its
-project-relative declaration publishes through expected-version ProjectSettings IO.
-Compiler/validation failure leaves the previous declaration and deployment intact.
-Rich registration remains stopped-only, distinct from ABI1 transactional reload.
-Externally maintained module layouts retain their external build workflow.
-
-SDK exports select the matching shared inspection runtime rather than the editor's
-static runtime. The final Windows package gate exercises source creation, failed
-compilation, successful replacement, schema admission, real fixed ticks, prefab
-Apply/Undo/Redo and export followed by startup after source deletion/relocation.
-
-## Integrated C++ authoring and compiler readiness
-
-C++ Sources is an editor-only DocumentWorkspace adapter. Each open source owns its
-buffer, upstream widget history, normalized editing baseline and original disk
-bytes. It uses existing ProjectPaths containment and asset_storage atomic replacement
-under the SceneDocument writer lease. Save rejects changed disk bytes; timestamp
-checks provide advisory external-change notices. Reload/discard is explicit. Save
-and history do not mutate scene state. Source/compiler tools are not linked into
-runtime or exported games.
-
-Managed source creation explicitly appends root-level .cpp files to
-Native/forge.sources.cmake. New starters include that optional fragment. Only the
-exact original FORGE starter can be upgraded automatically; custom CMake is never
-rewritten. Headers are created but not compiled as translation units. Creation
-never overwrites existing files. Source plus fragment is not a generic multi-file
-transaction: an interrupted creation can leave an unregistered new source; existing
-compiled modules and scene settings remain unchanged. External/copied sources and
-custom targets require explicit CMake registration.
-
-SdkBuild remains the sole managed compiler task. Installed Visual Studio2022 discovery
-uses vswhere; a disposable developer-environment command reads only PATH, INCLUDE,
-LIB and LIBPATH into child-process SDL environments. No global PATH/registry changes
-are made. CMake/Ninja/compiler/SDK readiness is proved by compiling the installed
-starter, collecting its kit and isolated metadata admission without publishing any
-project settings or replacing an active deployment. Failures/cancellation preserve
-previous good modules. Download help opens Microsoft's official page; installation
-is human-operated. No portable compiler or automatic toolchain upgrade is provided.
-
-MSVC and Clang/GCC-style file/line/column diagnostics route to admitted contained
-C++ source paths. Other diagnostics remain raw logs. Output/revision changes drive
-parsing, not every-frame rescans. Build on Save queues one request after a successful
-source save, waits for Stop and saved buffers, and uses the existing build owner.
-It does not infer component registration or introduce arbitrary SDK hot reload.
-Save is disabled during compilation; typing/draft history remain available.
-
-Compiler discovery compares the known Windows environment variable names without
-case sensitivity. The pinned SDL environment snapshot uses case-sensitive hashes;
-Python/other launchers may capitalize the same Windows names differently. Values
-remain UTF-8, are not logged, and changes stay in child-process environments.
-
-The disposable readiness starter uses a unique system-temporary directory rather
-than a nested project candidate build directory: CMake's compiler scratch/PDB
-paths can exceed MSVC path limits even when project source paths fit. SdkBuild
-cleans this directory on success, failure, cancellation and normal teardown after
-its processes finish. Normal gameplay builds keep their existing incremental
-project cache; no project source or working deployment is moved by the probe.
+Native editor plugins are trusted, validated and restart-bound. Staging and
+manifest checks in `tools/forge_plugins.py` do not constitute a live editor DLL
+loader. This is separate from C++ gameplay modules.

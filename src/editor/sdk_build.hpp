@@ -1,9 +1,11 @@
 #pragma once
 #include "../asset_storage.hpp"
 #include "../authored_inspection.hpp"
+#include "../gameplay_source_identity.hpp"
+#include "build_command.hpp"
 #include "document.hpp"
-#include "native_build.hpp"
 #include <cstdint>
+#include <forge/game_settings.hpp>
 #include <future>
 #include <memory>
 #include <sstream>
@@ -54,6 +56,16 @@ class SdkBuild {
                 }
         return {};
     }
+    void enable_game_profile(SceneDocument& project) {
+        project.check_ownership();
+        auto before = project.settings().document();
+        if (before.contains("game"))
+            return;
+        auto after = before;
+        after["game"] = default_game_settings("com.forge." + AssetId::generate().str(),
+                                              before.at("name").get<std::string>());
+        project.save_settings(after, &before);
+    }
     void create(SceneDocument& project, const std::filesystem::path& sdk) {
         project.check_ownership();
         check_sdk(sdk);
@@ -66,7 +78,7 @@ class SdkBuild {
         const auto pending = project_ / ("Native.pending-" + AssetId::generate().str());
         std::filesystem::create_directory(pending);
         try {
-            for (const auto* name : {"CMakeLists.txt", "gameplay.cpp"})
+            for (const auto* name : {"CMakeLists.txt", "gameplay.cpp", "forge.registration.hpp"})
                 std::filesystem::copy_file(sdk / "sdk/template" / name, pending / name);
             asset_storage::replace(
                 pending / "forge.sdk-project.json",
@@ -74,7 +86,8 @@ class SdkBuild {
             if (empty && !std::filesystem::remove(source))
                 throw std::runtime_error("Native changed while creating source.");
             std::filesystem::rename(pending, source);
-            status_ = "Source created at Native/gameplay.cpp. Build to register the module.";
+            enable_game_profile(project);
+            status_ = "C++ gameplay source created. Build to register the component types.";
         } catch (...) {
             std::error_code ignored;
             std::filesystem::remove_all(pending, ignored);
@@ -123,6 +136,8 @@ class SdkBuild {
             source_ = project_ / "Native";
             build_ = work_ / "build";
             ninja_ = ninja;
+            if (!test)
+                source_digest_ = gameplay_source_digest(project_);
             if (test) {
                 // Keep CMake's nested compiler scratch/PDB paths below Windows limits.
                 // This disposable readiness probe owns no project source or deployment.
@@ -132,7 +147,8 @@ class SdkBuild {
                 source_ = probe_root_ / "source";
                 build_ = probe_root_ / "build";
                 std::filesystem::create_directory(source_);
-                for (const auto* name : {"CMakeLists.txt", "gameplay.cpp"})
+                for (const auto* name :
+                     {"CMakeLists.txt", "gameplay.cpp", "forge.registration.hpp"})
                     std::filesystem::copy_file(sdk_ / "sdk/template" / name, source_ / name);
                 candidate_["modules"] = Json::array();
             }
@@ -170,6 +186,9 @@ class SdkBuild {
                     cleanup();
                     return;
                 }
+                if (gameplay_source_digest(project_) != source_digest_)
+                    throw std::runtime_error(
+                        "C++ source changed during build; current source is unbuilt.");
                 const auto deployment =
                     ProjectPaths(project_).resolve("Native/Builds") / AssetId::generate().str();
                 unpublished_deployment_ = deployment;
@@ -270,12 +289,14 @@ class SdkBuild {
                     else
                         ++it;
                 }
-                modules.push_back({{"id", "project.gameplay"},
-                                   {"sdk", "experimental-1"},
-                                   {"implementation", "1"},
-                                   {"fingerprint", fingerprint},
-                                   {"library", "kits/project.gameplay/" + library_},
-                                   {"dependencies", Json::array()}});
+                modules.push_back(
+                    {{"id", "project.gameplay"},
+                     {"sdk", "experimental-1"},
+                     {"implementation", "1"},
+                     {"fingerprint", fingerprint},
+                     {"source_identity", gameplay_build_identity(source_digest_, fingerprint)},
+                     {"library", "kits/project.gameplay/" + library_},
+                     {"dependencies", Json::array()}});
                 candidate_["modules"] = std::move(modules);
                 ProjectSettings::validate(candidate_);
                 asset_storage::replace(candidate_root_ / "forge.project.json", candidate_.dump(2));
@@ -387,8 +408,8 @@ class SdkBuild {
     std::future<Json> inspection_;
     std::stop_source stop_;
     std::ofstream log_file_;
-    std::string cmake_, library_, status_ = "Create an exact-SDK gameplay source project.", error_,
-                                  log_;
+    std::string cmake_, library_, source_digest_, status_ = "Create a C++ gameplay project.",
+                                                  error_, log_;
     static void check_sdk(const std::filesystem::path& sdk) {
         const auto info = read_json(sdk / "build.json");
         if (info.value("linkage_profile", "") != "shared-native-sdk" ||

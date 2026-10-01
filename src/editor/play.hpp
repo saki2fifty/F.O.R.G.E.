@@ -24,7 +24,6 @@ class PlaySession {
     PlaySession() = default;
     PlaySession(const PlaySession&) = delete;
     PlaySession& operator=(const PlaySession&) = delete;
-    enum class Reload { Idle, Pending, Succeeded, Failed, Cancelled };
     // Mirror the runtime-side 8 KiB diagnostic cap so the editor can
     // reject oversized entries locally before they reach the wire.
     static constexpr std::size_t kSdkPlatformAcksDiagnosticBytes = 8 * 1024;
@@ -47,10 +46,6 @@ class PlaySession {
         if (active())
             model_assets_changed_ = true;
     }
-    bool pending_activation() const { return ready() && transaction_; }
-    bool awaiting_activation_input() const {
-        return pending_activation() && desired_paused_ && paused();
-    }
     bool control_ready() const {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
     }
@@ -60,8 +55,25 @@ class PlaySession {
     const Json& input_status() const { return input_status_; }
     const Json& ui_snapshot() const { return ui_snapshot_; }
     const Json& ui_ack() const { return ui_ack_; }
+    const Json& property_tune_ack() const { return property_tune_ack_; }
+    bool submit_property_tune(const std::string& entity, const std::string& type,
+                              const std::string& property, Json value) {
+        if (!sdk_game_ || !ready() || !property_tune_command_.is_null() ||
+            sdk_activation_generation_ == 0 || !snapshot_.is_object() ||
+            !snapshot_.contains("asset_id"))
+            return false;
+        property_tune_command_ = {{"command", "property_tune"},
+                                  {"generation", sdk_activation_generation_},
+                                  {"scene_asset", snapshot_.at("asset_id")},
+                                  {"entity", entity},
+                                  {"type", type},
+                                  {"property", property},
+                                  {"value", std::move(value)}};
+        property_tune_ack_ = nullptr;
+        return true;
+    }
     bool submit_ui(const Json& command) {
-        if (!ready() || !ui_command_.is_null() || transaction_)
+        if (!ready() || !ui_command_.is_null())
             return false;
         if (command.value("session", "") != session_ || ui_snapshot_.is_null() ||
             command.at("generation") != ui_snapshot_.at("generation"))
@@ -130,8 +142,6 @@ class PlaySession {
     bool headless_audio() const { return headless_audio_; }
     const std::string& user_data_override() const { return user_data_override_; }
     const std::string& session() const { return session_; }
-    const std::string& module() const { return module_; } // Last known-good artifact only.
-    Reload reload_result() const { return reload_result_; }
     bool can_recover() const { return !active() && recoverable_; }
     void pause() {
         if (control_ready())
@@ -148,34 +158,14 @@ class PlaySession {
     void recover() {
         if (!can_recover())
             return;
-        loading_ = module_;
-        transaction_ = false;
         desired_paused_ = paused();
-        restoring_ = true;
         launch(snapshot_, recovery_);
-    }
-    // Caller has executed this immutable artifact in a separate fixed-tick probe.
-    void reload(const std::string& path) {
-        if (exact_sdk_)
-            throw std::runtime_error("Exact SDK registrations require Stop, rebuild, then Play");
-        if (!ready() || recovery_.is_null())
-            throw std::runtime_error(
-                "Play is not ready for reload. Wait for asset loading or resolve Console errors.");
-        if (transaction_) {
-            // No candidate tick completed: discard its world before superseding.
-            // Keep the original known-good artifact/checkpoint and prior run policy.
-            loading_ = path;
-            notice_ = "Previous pending activation cancelled. ";
-            launch(checkpoint_, checkpoint_recovery_);
-        } else {
-            requested_ = path;
-        }
-        reload_result_ = Reload::Pending;
     }
     Double3 gravity() const { return gravity_; }
     const Json& recovery() const { return recovery_; }
     const Json& snapshot() const { return snapshot_; }
     const Json& effective_snapshot() const { return effective_; }
+    const Json& runtime_schema() const { return runtime_schema_; }
     std::uint64_t snapshot_version() const { return snapshot_version_; }
     const std::string& status() const { return status_; }
     const std::string& log() const { return log_; }
@@ -555,41 +545,31 @@ class PlaySession {
     }
     void stop() {
         close_process();
-        if (transaction_ || !requested_.empty())
-            reload_result_ = Reload::Cancelled;
-        transaction_ = false;
-        requested_.clear();
         recoverable_ = false;
         status_ = "Stopped. Authored scene preserved.";
         // SDK Play transport state is reset by close_process(); stop()
         // additionally clears any pending snapshot-side acks/epochs.
         sdk_pending_candidate_ack_ = false;
         sdk_candidate_ack_ = nullptr;
+        property_tune_command_ = nullptr;
+        property_tune_ack_ = nullptr;
+        runtime_schema_ = nullptr;
         sdk_pending_platform_acks_ = false;
         sdk_platform_acks_ = nullptr;
         sdk_pending_editor_epoch_ = false;
         sdk_editor_epoch_ = nullptr;
         sdk_pending_cancel_loading_ticket_ = 0;
     }
-    void start(const std::string& executable, const Json& scene, const std::string& module = {},
-               bool probe = false, const Json& recovery = Json()) {
-        if (exact_sdk_ && (!module.empty() || !recovery.is_null()))
-            throw std::runtime_error("Exact SDK Play starts from authored state; ABI1 reload and "
-                                     "partial custom-state recovery are unavailable");
+    void start(const std::string& executable, const Json& scene, bool probe = false,
+               const Json& recovery = Json()) {
+        if (exact_sdk_ && !recovery.is_null())
+            throw std::runtime_error("Exact SDK Play starts from authored state; "
+                                     "partial custom-state recovery is unavailable");
         const auto initial = scene;
         stop();
         executable_ = executable;
-        loading_ = module;
-        module_.clear();
-        previous_.clear();
-        checkpoint_ = initial;
-        checkpoint_recovery_ = recovery;
         probe_ = probe;
         desired_paused_ = probe;
-        prior_paused_ = probe;
-        transaction_ = !module.empty();
-        restoring_ = false;
-        reload_result_ = Reload::Idle;
         notice_.clear();
         launch(initial, recovery);
     }
@@ -714,13 +694,6 @@ class PlaySession {
                 }
                 if (!response.value("ok", false)) {
                     const auto error = response.value("error", "Runtime rejected request");
-                    if (transaction_ && stage_ == Stage::Load &&
-                        error.starts_with("Play restart required:")) {
-                        notice_ =
-                            "Schema changed; restarted play with compatible host-owned values. ";
-                        launch(checkpoint_, checkpoint_recovery_);
-                        return;
-                    }
                     // Too-late SDK loading cancel: the runtime
                     // reports the cancel ticket no longer matches
                     // the prepared scene. This is a nonfatal race
@@ -766,8 +739,16 @@ class PlaySession {
                         }
                         return;
                     }
+                    if (sent_command_ == "property_tune" && sdk_game_) {
+                        property_tune_ack_ = {{"ok", false}, {"error", error}};
+                        notice_ = "Live property change rejected: " + error + ". ";
+                        sent_at_ = 0;
+                        return;
+                    }
                     throw std::runtime_error(error);
                 }
+                if (sent_command_ == "property_tune" && sdk_game_)
+                    property_tune_ack_ = response.value("property_tune", Json());
                 if (stage_ == Stage::Hello && (exact_sdk_ || sdk_game_)) {
                     const auto info = response.value("runtime_contract", Json::object());
                     if (info.value("profile", "") != "shared-native-sdk" ||
@@ -795,6 +776,7 @@ class PlaySession {
                 snapshot_ = response.at("scene");
                 recovery_ = response.at("recovery");
                 effective_ = response.at("effective_scene");
+                runtime_schema_ = response.value("schema", Json());
                 timing_ = response.at("timing");
                 input_status_ = response.value("input", Json::object());
                 physics_status_ = response.value("physics", Json::object());
@@ -911,35 +893,6 @@ class PlaySession {
                         sdk_activation_active_ = false;
                         sdk_activation_generation_ = 0;
                         stage_ = Stage::Preparing;
-                    } else if (!loading_.empty()) {
-                        stage_ = Stage::Load;
-                        send({{"command", "load_module"}, {"path", loading_}});
-                    } else
-                        begin_running();
-                } else if (stage_ == Stage::Boundary) {
-                    if (recovery_.is_null()) {
-                        requested_.clear();
-                        reload_result_ = Reload::Failed;
-                        notice_ = "Reload postponed: Play has no complete recovery snapshot. "
-                                  "Previous module retained. ";
-                        stage_ = Stage::Running;
-                        if (!prior_paused_)
-                            control_ = "resume";
-                        return;
-                    }
-                    checkpoint_ = snapshot_;
-                    checkpoint_recovery_ = recovery_;
-                    previous_ = module_;
-                    transaction_ = true;
-                    loading_ = requested_;
-                    requested_.clear();
-                    stage_ = Stage::Load;
-                    send({{"command", "load_module"}, {"path", loading_}});
-                } else if (stage_ == Stage::Load) {
-                    activation_generation_ = response.at("activation").at("generation");
-                    if (probe_) {
-                        stage_ = Stage::ProbeTick;
-                        send({{"command", "step"}});
                     } else
                         begin_running();
                 } else if (stage_ == Stage::Preparing) {
@@ -984,24 +937,9 @@ class PlaySession {
                         sdk_ack_terminal_ticket_ = 0;
                         sdk_ack_terminal_value_ = nullptr;
                         sdk_expected_ticket_ = 0;
-                        activation_generation_ = gen;
                         sdk_activation_active_ = true;
                         begin_running();
                     }
-                } else if (stage_ == Stage::ProbeTick) {
-                    transaction_ = false;
-                    module_ = loading_;
-                    stage_ = Stage::Running;
-                    status_ = "Probe passed one fixed tick.";
-                }
-                if (stage_ == Stage::Running && transaction_ &&
-                    response.at("activation").value("state", "") == "active" &&
-                    response.at("activation").value("generation", std::uint64_t{}) ==
-                        activation_generation_) {
-                    transaction_ = false;
-                    module_ = loading_;
-                    reload_result_ = Reload::Succeeded;
-                    notice_ = "Reload committed after first live fixed tick. " + notice_;
                 }
                 if (stage_ == Stage::Running && !probe_)
                     update_status();
@@ -1066,6 +1004,10 @@ class PlaySession {
                     } else if (model_assets_changed_) {
                         model_assets_changed_ = false;
                         send({{"command", "refresh_model_assets"}});
+                    } else if (!property_tune_command_.is_null()) {
+                        auto command = std::move(property_tune_command_);
+                        property_tune_command_ = nullptr;
+                        send(std::move(command));
                     } else if (!ui_command_.is_null()) {
                         auto command = std::move(ui_command_);
                         ui_command_ = nullptr;
@@ -1073,13 +1015,7 @@ class PlaySession {
                     } else if (SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 } else if (!sdk_game_ && stage_ == Stage::Running) {
-                    if (!requested_.empty()) {
-                        prior_paused_ = paused();
-                        desired_paused_ = prior_paused_;
-                        stage_ = Stage::Boundary;
-                        control_.clear();
-                        send({{"command", "pause"}});
-                    } else if (!control_.empty()) {
+                    if (!control_.empty()) {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
@@ -1096,25 +1032,13 @@ class PlaySession {
             }
         } catch (const std::exception& error) {
             const std::string diagnostic = error.what();
-            if (transaction_ && !probe_ && !restoring_) {
-                transaction_ = false;
-                reload_result_ = Reload::Failed;
-                loading_ = previous_;
-                module_ = previous_;
-                desired_paused_ = prior_paused_;
-                restoring_ = true;
-                notice_ =
-                    "Reload failed; restored previous module and checkpoint: " + diagnostic + ". ";
-                launch(checkpoint_, checkpoint_recovery_);
-            } else {
-                const bool recover = !exact_sdk_ && !probe_ && !restoring_ &&
-                                     stage_ == Stage::Running && !recovery_.is_null();
-                close_process();
-                recoverable_ = recover;
-                status_ = diagnostic + ". Authored scene is safe; " +
-                          (recover ? "Recover resumes the last completed checkpoint."
-                                   : "press Play to restart.");
-            }
+            const bool recover =
+                !exact_sdk_ && !probe_ && stage_ == Stage::Running && !recovery_.is_null();
+            close_process();
+            recoverable_ = recover;
+            status_ = diagnostic + ". Authored scene is safe; " +
+                      (recover ? "Recover resumes the last completed checkpoint."
+                               : "press Play to restart.");
         }
     }
     // Bounded timing wrapper for unaccounted main-loop sections. Emits
@@ -1133,7 +1057,7 @@ class PlaySession {
     }
 
   private:
-    enum class Stage { Hello, Replace, Load, Boundary, ProbeTick, Running, Preparing };
+    enum class Stage { Hello, Replace, Running, Preparing };
     void collect_stderr() {
         std::string chunk;
         if (worker_.drain_stderr(chunk)) {
@@ -1206,12 +1130,9 @@ class PlaySession {
         stage_ = Stage::Running;
         if (!desired_paused_)
             control_ = "resume";
-        restoring_ = false;
     }
     void update_status() {
-        status_ = transaction_ ? "Reload pending first tick. Step or Resume to activate. "
-                  : paused()   ? "Paused. "
-                               : "Playing in isolated runtime. ";
+        status_ = paused() ? "Paused. " : "Playing in isolated runtime. ";
         status_ += notice_;
     }
     void launch(const Json& scene, const Json& recovery = Json()) {
@@ -1233,9 +1154,7 @@ class PlaySession {
             // and the OS writable base handed to the runtime via
             // --user-data. The user-data path is held through this
             // string so SDL_CreateProcess reads it once via c_str().
-            // Audio + UI service flags are shared with the legacy
-            // branch so the Reference Game runtime still gets Ui and
-            // Audio capabilities. No other flags are duplicated.
+            // Audio and UI service flags are shared with ordinary Play.
             if (!audio_project_.empty()) {
                 args.push_back("--sdk-project");
                 args.push_back(audio_project_.c_str());
@@ -1381,7 +1300,7 @@ class PlaySession {
         sent_at_monotonic_ms_ = send_monotonic;
     }
     Double3 gravity_{0, -9.81, 0};
-    Json recovery_, initial_recovery_, checkpoint_recovery_;
+    Json recovery_, initial_recovery_;
     double simulation_hz_ = 60;
     Json physics_status_ = Json::object();
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
@@ -1390,18 +1309,18 @@ class PlaySession {
     std::vector<InputEvent> input_events_;
     SDL_Process* process_ = nullptr;
     Stage stage_ = Stage::Hello;
-    Reload reload_result_ = Reload::Idle;
-    std::string executable_, module_, loading_, requested_, previous_, notice_, session_, control_;
-    Json checkpoint_, initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
+    std::string executable_, notice_, session_, control_;
+    Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
+    Json property_tune_command_, property_tune_ack_, runtime_schema_;
     Json diagnostics_ = Json::array();
     std::string audio_project_;
-    bool transaction_ = false, restoring_ = false, probe_ = false, recoverable_ = false;
+    bool probe_ = false, recoverable_ = false;
     // Explicit offline audio opt-in (set only by the CI SDK play fixture).
     // Independent from probe_ so the UI capability stays untouched.
     bool headless_audio_ = false;
     bool exact_sdk_ = false;
-    bool prior_paused_ = false, desired_paused_ = false, waiting_ = false;
-    std::uint64_t snapshot_version_ = 0, request_id_ = 0, activation_generation_ = 0;
+    bool desired_paused_ = false, waiting_ = false;
+    std::uint64_t snapshot_version_ = 0, request_id_ = 0;
     std::string sent_command_, log_, status_ = "Stopped. Play uses a copy of your authored scene.";
     Uint64 sent_at_ = 0;
     // Worker-clock sent timestamp used for the receive-deadline. The

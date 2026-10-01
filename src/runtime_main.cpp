@@ -96,12 +96,9 @@ int main(int argc, char** argv) {
                                                         bootstrap_services.access());
         }
         if (sdk_play) {
-            // Opt-in Editor Play host path. Dispatches before any legacy
-            // RuntimeWorld construction so the ABI1 process loop is never
-            // entered. Requires both --sdk-project (already parsed) and an
-            // absolute --user-data directory supplied by the editor. The
-            // --sdk-project flag already gates legacy consumers; the
-            // editor must opt into the SDK profile to reach this branch.
+            // Editor Play host path for exact-SDK projects. Requires
+            // --sdk-project and an absolute --user-data directory supplied
+            // by the editor. SDK candidate admission owns this world.
             if (!sdk_profile)
                 throw std::runtime_error("--sdk-play requires --sdk-project <root>");
             if (project_root.empty() || !sdk_project)
@@ -147,9 +144,8 @@ int main(int argc, char** argv) {
         forge::PhysicsConfig physics_config =
             sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
-        forge::Module module; // Code outlives all systems, scene content and the world.
         using Runtime = forge::RuntimeWorld;
-        auto runtime = std::make_unique<Runtime>(module, sdk_modules, physics_config, audio_config,
+        auto runtime = std::make_unique<Runtime>(sdk_modules, physics_config, audio_config,
                                                  project_root, ui_enabled);
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
@@ -275,9 +271,8 @@ int main(int argc, char** argv) {
                     if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
-                        auto candidate =
-                            std::make_unique<Runtime>(module, sdk_modules, physics_config,
-                                                      audio_config, project_root, ui_enabled);
+                        auto candidate = std::make_unique<Runtime>(
+                            sdk_modules, physics_config, audio_config, project_root, ui_enabled);
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
                         if (request.contains("recovery") && !request.at("recovery").is_null()) {
@@ -345,18 +340,7 @@ int main(int argc, char** argv) {
                         clock.pause(forge::RuntimeClock::Clock::now());
                     } else if (command == "step")
                         clock.step(tick);
-                    else if (command == "load_module") {
-                        if (!clock.paused())
-                            throw std::runtime_error(
-                                "Pause and checkpoint before module replacement");
-                        module.load(request.at("path").get<std::string>());
-                        runtime->simulation.input().release_all();
-                        activation = "loaded_pending_first_tick";
-                        ++activation_generation;
-                        ui_commands.reset(session, ++ui_generation);
-                        activation_tick = 0;
-                        runtime->simulation.reset_presentation();
-                    } else if (command == "ui") {
+                    else if (command == "ui") {
                         if (!ui_enabled)
                             throw std::runtime_error("Runtime UI is omitted from this composition");
                         auto ui = std::static_pointer_cast<forge::UiRuntime>(
@@ -388,7 +372,6 @@ int main(int argc, char** argv) {
                                command != "schema")
                         throw std::runtime_error("Unknown command");
                     response["ok"] = true;
-                    response["module"] = module.id();
                     response["scene"] = runtime->scene.snapshot();
                     if (!tick_failed)
                         response["recovery"] = capture();

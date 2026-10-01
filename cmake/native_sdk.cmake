@@ -1,5 +1,5 @@
 # Shared Flecs is an explicit profile; never link a private static copy into an SDK module.
-set(FORGE_LINKAGE_PROFILE "static-abi1")
+set(FORGE_LINKAGE_PROFILE "static-core")
 if(FORGE_ENABLE_NATIVE_SDK)
  set(FORGE_LINKAGE_PROFILE "shared-native-sdk")
  if(MSVC)

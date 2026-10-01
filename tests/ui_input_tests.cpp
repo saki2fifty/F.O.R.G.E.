@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
                                     {"kind", "digital"},
                                     {"bindings", Json::array({{{"control", "key.w"}},
                                                               {{"control", "mouse.left"}}})}}})}}));
-        play.start(argv[1], {{"version", 1}, {"entities", Json::array()}}, {}, true);
+        play.start(argv[1], {{"version", 1}, {"entities", Json::array()}}, true);
         auto wait = [&](auto done) {
             auto end = SDL_GetTicks() + 5000;
             while (!done() && play.active() && SDL_GetTicks() < end) {
@@ -187,29 +187,6 @@ int main(int argc, char** argv) {
         wait([&] { return !play.ui_ack().is_null(); });
         check(play.ui_ack().at("ok"), "Editor observes UI acknowledgement");
         wait([&] { return play.control_ready(); });
-        auto generation = play.ui_snapshot().at("generation");
-        check(play.submit_ui(request(2)), "Queue command before reload");
-#ifdef _WIN32
-        const auto sample = std::filesystem::path(argv[1]).parent_path() / "forge_sample.dll";
-#else
-        const auto sample = std::filesystem::path(argv[1]).parent_path() / "forge_sample.so";
-#endif
-        play.reload(sample.string());
-        wait([&] { return play.pending_activation(); });
-        check(play.ui_snapshot().at("generation") != generation,
-              "Native reload changes UI generation");
-        const auto deadline = SDL_GetTicks() + 30;
-        while (SDL_GetTicks() < deadline) {
-            play.pump();
-            SDL_Delay(1);
-        }
-        check(play.active() && play.ui_ack().is_null(),
-              "Old queued UI request discarded at native replacement");
-        play.step();
-        wait([&] { return play.reload_result() == PlaySession::Reload::Succeeded; });
-        check(play.submit_ui(request(1)), "Fresh-generation UI sequence restarts");
-        wait([&] { return !play.ui_ack().is_null(); });
-        check(play.ui_ack().at("ok"), "Fresh UI after native reload");
         play.stop();
         std::filesystem::remove_all(root);
         SDL_Quit();

@@ -1,8 +1,7 @@
 """Private runtime checkpoint boundary, rejection, paused recovery and isolation."""
 import copy,json,subprocess,sys,time
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-from forge_native import Runtime
+from runtime_client import Runtime
 runtime=Path(sys.argv[1]).resolve()
 def body(name,y,motion):
  return dict(id=name,name=name,components={'forge.position':dict(x=0,y=y,z=0),'forge.physics_body':dict(motion=motion,density=1000,mass=0,friction=.5,restitution=0,gravity_factor=1),'forge.box_collider':dict(x=1,y=1,z=1)})

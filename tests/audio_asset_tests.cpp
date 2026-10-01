@@ -197,8 +197,7 @@ int main(int argc, char** argv) {
                                                       {"spatialized", false},
                                                       {"minimum_distance", 1},
                                                       {"maximum_distance", 100}}}}}}})}});
-        Module legacy;
-        RuntimeSimulation simulation(engine.world(), scene, legacy);
+        RuntimeSimulation simulation(engine.world(), scene);
         simulation.tick(1.f / 60);
         auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
         audio->paused(false);

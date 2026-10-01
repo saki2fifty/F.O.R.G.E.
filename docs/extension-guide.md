@@ -6,10 +6,9 @@ Use the smallest supported extension tier for your task.
 |---|---|---|
 | Built-in/source EngineModule | Engine subsystem composition and source-built features | Full source rebuild; injected world services and explicit dependency order. |
 | Exact SDK gameplay module | Trusted C++ gameplay using Flecs components/systems and optional services | Matching SDK fingerprint/toolchain, one shared Flecs; restart runtime for registration changes. |
-| ABI1 | Existing editor Gameplay Code / Build & Reload workflow | Constrained version1 C callbacks; transactional candidate activation and existing recovery. |
 | Future broad plugin ABI | Not implemented | Will require stable function tables, ownership, version negotiation, dependency/provider/editor registration and retirement proofs. |
 
-Native editor extensions remain trusted and restart-bound. Exact gameplay DLLs do not load into the editor process. The ordinary Windows editor package still uses ABI1; the separate exact SDK artifact provides the richer headless runtime workflow.
+Native editor extensions remain trusted and restart-bound. Exact gameplay DLLs do not load into the editor process. The Windows editor and standalone runtime both use the exact-SDK gameplay path. Managed projects build in Gameplay Code; external SDK projects keep their own build recipe.
 
 ## Build the exact SDK sample
 
@@ -66,11 +65,10 @@ A borrowed `ForgeSdkWorldV1`, Client, Flecs world/entity wrapper, callback or se
 | Native descriptor/host layout version1 | Size checked; this exact tier also rejects changed header fingerprints. Version1 is not a cross-release binary stability promise. |
 | Capability contract version1 | Query exact requested version; unsupported version reports unavailable. Independent from descriptor/build number. |
 | Module implementation | Exact declared string must match binary; independent from SDK fingerprint. |
-| ABI1 | Existing module_api.h version/layout unchanged. Native reload semantics stay constrained. |
 | Process2, UI1 and recovery sections | Private independently versioned protocols; no public compatibility/save-game claim. |
 | Build yymmdd-counter | Distribution identity only; never substitutes for API/format compatibility. |
 
-Renderer-only edits do not change the gameplay SDK contract. CMake rejects incompatible supported package configurations; runtime fingerprint checking verifies cooperative module declarations, not every possible compiler switch a malicious or misconfigured client could hide. New registering SDK code restarts the runtime; do not apply ABI1's in-place replacement to rich Flecs registrations.
+Renderer-only edits do not change the gameplay SDK contract. CMake rejects incompatible supported package configurations; runtime fingerprint checking verifies cooperative module declarations, not every possible compiler switch a malicious or misconfigured client could hide. New registering SDK code restarts the runtime; there is no project gameplay in-place DLL replacement.
 
 ## Thread/process and fixed-clock map
 
@@ -83,7 +81,7 @@ Renderer-only edits do not change the gameplay SDK contract. CMake rejects incom
 | Headless | Same required gameplay composition, no ImGui/D3D12/RmlUi presenter or editor dependency. |
 | Conversion/build workers | Bounded official gltf2ozz and navigation generation; results admitted before publication. |
 
-Actual fixed tick order in RuntimeSimulation is: input latch → navigation synchronization → module input borrow → Flecs InputMonitor → Gameplay (SDK systems and ABI1) → Navigation movement → PrePhysics synchronization/queued commands → Physics → PhysicsAdoption → PostPhysics → final transforms → end module input borrow → animation playback → pose capture → audio synchronization → discontinuity snapping. No relative order is promised between unrelated systems in the same phase. Gameplay code declares its own Flecs dependencies when needed.
+Actual fixed tick order in RuntimeSimulation is: input latch → navigation synchronization → module input borrow → Flecs InputMonitor → Gameplay (SDK systems) → Navigation movement → PrePhysics synchronization/queued commands → Physics → PhysicsAdoption → PostPhysics → final transforms → end module input borrow → animation playback → pose capture → audio synchronization → discontinuity snapping. No relative order is promised between unrelated systems in the same phase. Gameplay code declares its own Flecs dependencies when needed.
 
 UI custom model values are published by their actual fixed gameplay system; they are not secretly reevaluated in a later presentation phase. The runtime adds authoritative tick/paused when extracting a UI snapshot. Presentation extracts/interpolates completed state independently. Ozz presentation sampling may evaluate a derived interpolated pose; it does not advance authoritative animation time.
 
@@ -179,7 +177,7 @@ shutdown closes the resource scopes and drains workers. Limits are64subscription
 per SDK module,256per world and128MiB CPU bytes per resource family. Token0 or a
 false callback result means rejected/unavailable; output observations are cleared
 on rejected inspections. These callbacks change the exact SDK fingerprint and
-require rebuilding native modules; ABI1 is unchanged.
+require rebuilding native modules.
 
 ## Creating registered runtime renderables
 
@@ -231,7 +229,7 @@ tokens promptly. Token0/false reports rejection or unavailable context. This API
 does not alter the editor's authored scene, add scene Undo, write project files,
 or promise generic recovery of custom native runtime state. No Diligent pointer or
 resource ownership is exposed. The appended callbacks and value headers are part
-of the exact fingerprint; rebuild matching modules. ABI1 remains unchanged.
+of the exact fingerprint; rebuild matching modules. The retired movement-only ABI1 path is absent.
 
 ## Character mechanics and filtered physics queries
 

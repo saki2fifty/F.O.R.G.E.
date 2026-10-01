@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
             require(done(), "SDK controller timeout: " + play.status() + " " + play.log());
         };
         install(argv[2]);
-        play.start(argv[5], original, {}, true);
+        play.start(argv[5], original, true);
         wait([&] { return !play.active(); });
         require(!play.can_recover() &&
                     play.status().find("SDK runtime does not match") != std::string::npos,
@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
         authored.load(root / "authored.scene.json");
         require(authored.snapshot() == original,
                 "Authored SDK values changed during scene save/reopen");
-        play.start(argv[1], original, {}, true);
+        play.start(argv[1], original, true);
         wait([&] { return !play.active() || play.ready(); });
         require(play.ready() && play.paused(), "SDK Editor Play failed: " + play.status());
         const auto session = play.session();
@@ -115,24 +115,19 @@ int main(int argc, char** argv) {
                 "Matching SDK runtime did not consume persisted authoring values exactly: " +
                     play.log());
         require(authored.snapshot() == original, "SDK Play modified authoring");
-        try {
-            play.reload("unused");
-            throw std::logic_error("Rich SDK in-place reload was accepted");
-        } catch (const std::runtime_error&) {
-        }
         play.stop();
         install(argv[3]);
-        play.start(argv[1], original, {}, true);
+        play.start(argv[1], original, true);
         wait([&] { return !play.active(); });
         require(!play.can_recover(), "Rejected SDK offered partial recovery");
         install(argv[2]);
-        play.start(argv[1], original, {}, true);
+        play.start(argv[1], original, true);
         wait([&] { return !play.active() || play.ready(); });
         require(play.ready() && play.session() != session && play.timing().at("tick") == 0,
                 "SDK restart did not create a fresh paused world");
         play.stop();
         install(argv[4]);
-        play.start(argv[1], original, {}, true);
+        play.start(argv[1], original, true);
         wait([&] { return !play.active() || play.ready(); });
         require(play.ready(), "Crash fixture did not reach Play");
         play.step();

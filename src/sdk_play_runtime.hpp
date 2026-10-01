@@ -23,7 +23,7 @@ namespace forge {
 // GameStorage, one GameSession and one GameHostControls. No second world,
 // clock, queue, renderer or platform adapter is introduced. Process
 // interaction with the editor happens exclusively over the existing
-// protocol2 envelope and never touches the legacy ABI1 reload path.
+// protocol2 envelope and owns no editor-side gameplay reload path.
 //
 // --- Wire contract (sdk_play) -----------------------------------------
 //

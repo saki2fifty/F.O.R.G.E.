@@ -65,8 +65,7 @@ int main(int argc, char** argv) {
             EngineContext optional(WorldRole::Runtime, true,
                                    {load_native_sdk(argv[6], "project.example", "1")});
             Scene scene(optional.world());
-            Module legacy;
-            RuntimeSimulation sim(optional.world(), scene, legacy);
+            RuntimeSimulation sim(optional.world(), scene);
             sim.tick(1.f / 60);
             bool observed = false;
             for (const auto& d : optional.services().diagnostics())
@@ -115,7 +114,6 @@ int main(int argc, char** argv) {
         std::filesystem::remove(trace);
         auto sdk = load_native_sdk(std::filesystem::absolute(argv[1]), "project.sdk_probe", "1");
         std::weak_ptr<void> lease = sdk.code;
-        Module legacy;
         {
 #ifdef _WIN32
             _putenv_s("FORGE_SDK_SPAWN_TEST", "1");
@@ -187,7 +185,7 @@ int main(int argc, char** argv) {
             check(!client.profile("invalid", -1) && !client.profile("invalid", NAN),
                   "Invalid profile sample accepted");
             Scene scene(engine.world());
-            RuntimeSimulation sim(engine.world(), scene, legacy);
+            RuntimeSimulation sim(engine.world(), scene);
             const auto id = ActionId::parse("12345678-1234-4234-8234-123456789abc");
             sim.input().configure(InputMap(
                 {{"version", 1},

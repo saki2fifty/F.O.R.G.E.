@@ -1,5 +1,15 @@
 # ADR 014 — Extension boundaries
 
+## 2026-10-01 superseding gameplay decision
+
+The movement-only ABI1 gameplay interface and its Build & Reload workflow are
+retired. Exact-SDK C++ with one shared Flecs is the sole project gameplay path;
+registration/schema changes use Stop → Save → Build → Play. The exact SDK retains
+its versioned C-shaped binary entry and fingerprint checks. Native editor plugins
+remain trusted and restart-bound. The original September decision below is kept
+as a historical record, not current implementation guidance. See
+[C++ gameplay](../native-modules.md).
+
 ## Implementation checkpoint — 2026-09-23
 
 Exact-version SDK component authoring/Play, checked resource subscriptions and host-created runtime renderable entities are implemented and tested. See [native SDK](../native-modules.md), [runtime resources](../runtime-resources.md) and [custom component authoring](../custom-component-authoring.md). A public editor binary plugin ABI remains future work; trusted native editor extensions remain restart-bound.

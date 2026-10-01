@@ -16,10 +16,9 @@ template <class F> void reject(F f) {
     throw std::runtime_error("Expected rejection");
 }
 struct Fixture {
-    Module module;
     EngineContext engine{WorldRole::Runtime, false, {physics_module()}};
     Scene scene{engine.world()};
-    RuntimeSimulation simulation{engine.world(), scene, module};
+    RuntimeSimulation simulation{engine.world(), scene};
     std::shared_ptr<PhysicsRuntime> physics =
         std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
     void tick(unsigned n = 1) {

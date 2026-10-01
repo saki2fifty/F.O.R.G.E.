@@ -75,7 +75,6 @@ class GameSession {
     GamePreparationProgress poll_candidate();
     void discard_candidate();
     GameSessionConfig config_;
-    Module module_; // Last runtime code lease released after all worlds.
     RuntimeClock clock_;
     std::unique_ptr<RuntimeWorld> active_, candidate_;
     // Destroy resource consumers before the worlds/code they may refer to.

@@ -9,7 +9,7 @@
 #include <forge/runtime_ui.hpp>
 #include <forge/runtime_world.hpp>
 namespace forge {
-RuntimeWorld::RuntimeWorld(Module& module, std::vector<EngineModule> modules, PhysicsConfig physics,
+RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig physics,
                            const std::optional<AudioConfig>& audio,
                            const std::filesystem::path& project, bool ui)
     : engine(WorldRole::Runtime, false,
@@ -25,7 +25,7 @@ RuntimeWorld::RuntimeWorld(Module& module, std::vector<EngineModule> modules, Ph
                      modules.push_back(audio_module(*audio));
                  return std::move(modules);
              }()),
-      scene(engine.world()), simulation(engine.world(), scene, module) {}
+      scene(engine.world()), simulation(engine.world(), scene) {}
 std::shared_ptr<PhysicsRuntime> RuntimeWorld::physics() {
     return std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
 }

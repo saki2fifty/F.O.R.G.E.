@@ -1,13 +1,13 @@
 # Engine modules and the internal native SDK
 
-For the consolidated Phase6 contract, use the [extension author guide](extension-guide.md) and [classified API inventory](extension-contracts.md).
+For the current C++ gameplay contract, use the [extension author guide](extension-guide.md) and [classified API inventory](extension-contracts.md).
 
 Phase6A adds registration and lifetime policy; Phase6B physics, Phase6C audio, Phase6D animation, Phase6E navigation and Phase6F runtime UI exercise it with concrete providers. Phase6G consolidates the exact SDK and service boundary. A broadly stable public binary SDK remains deferred. Apply to Prefab and AssetHandle remain deferred.
 
 ## Three categories
 
 - **Built-in/source modules:** ordinary C++ compiled with FORGE, direct Flecs access, exact engine code. EngineModule describes dependencies, schema roles, active runtime roles and service permissions. It does not impose the DLL ABI on source code.
-- **Project gameplay:** the existing limited ABI1 workflow stays supported. A separate experimental exact-SDK profile permits trusted registering DLLs/shared objects. Its contract remains exact-version, not a stable third-party ABI.
+- **Project gameplay:** trusted exact-SDK C++ modules register Flecs components/systems only in isolated runtimes. Their contract is exact-version, not a stable third-party ABI.
 - **General binary plugins:** bounded versioned C API by default. Direct ECS access requires explicit adoption of the exact-SDK tier. Native editor extensions remain trusted and restart-bound; their broad panel/importer/drawer SDK is not implemented here.
 
 ## Registration and ownership
@@ -22,15 +22,16 @@ Startup occurs after all schemas register. Each started module must tolerate Sto
 
 Module errors use structured diagnostic severity/category/text plus module, dependency and world_role context where known. SDK tick diagnostics include the fixed tick. Current runtime session envelope remains the process identity. Optional existing CPU scopes instrument registration/start/shutdown; no profiler UI is added.
 
-## Static profile and ABI1
+## Core and shared gameplay profiles
 
-Default/core/windows-editor profiles retain static Flecs and the existing module_api.h contract. Generated gameplay.cpp, Build & Reload, disposable probe, first-live-tick activation and checkpoint/fallback behavior remain separate and compatible. ABI1 contains no arbitrary ECS registrations or module-owned surviving state. Its constrained replacement policy must never be applied to rich registering code.
-
-A static-profile host rejects direct-Flecs SDK modules. SDK metadata validation does not make a native binary safe: these are trusted code, and native initializers can run when a library loads.
+Default core tooling may use static Flecs. Project C++ gameplay uses the shared
+exact-SDK profile and one shared Flecs implementation. A static-profile host
+rejects direct-Flecs SDK modules. Native metadata validation is a compatibility
+check, not a safety sandbox: project DLLs are trusted inside their runtime process.
 
 ## Explicit native-sdk profile
 
-Configure/build/test with the native-sdk preset. It builds shared Flecs at the unchanged4.1.6 commit, with no flecs_static target. Participating hosts and direct-access modules link that same shared library. Windows uses matching /MD Release settings (/MDd only for matching development Debug builds); the legacy default editor profile keeps its existing CRT policy.
+Configure/build/test with the native-sdk preset. It builds shared Flecs at the unchanged4.1.6 commit, with no flecs_static target. Participating hosts and direct-access modules link that same shared library. Windows uses matching /MD Release settings (/MDd only for matching development Debug builds); the editor keeps its existing CRT policy.
 
 The generated fingerprint includes the native boundary header, internal API identity, exact Flecs revision, linkage profile, compiler version/toolset, architecture, configuration, CRT and compiler/sanitizer settings. It deliberately excludes unrelated renderer/UI dependencies. An installed CMake package checks supported compiler/architecture/configuration/flags/CRT when building a client. Entry size/version, module identity/implementation, fingerprint and Flecs function/global identities are checked before registration. This is compatibility checking for cooperative trusted modules, not a sandbox against a malicious binary.
 
@@ -46,7 +47,7 @@ The lifecycle probe is a test-only transient component/system/observer. The comb
 
 Existing forge.project.json version2 remains the owner. Legacy modules strings core/transforms/input are accepted as aliases for forge.core/forge.transforms/forge.input. Built-ins may use canonical IDs. Duplicate declarations reject, including an alias plus its canonical name.
 
-An experimental project module uses an exact local declaration:
+A project C++ gameplay module uses an exact local declaration:
 
 ```json
 {
@@ -61,13 +62,13 @@ An experimental project module uses an exact local declaration:
 
 Use the platform's shared-object filename on Linux. Paths remain confined by ProjectPaths. Dependencies must exist and match the binary descriptor; implementation and SDK compatibility are independent exact values. Unknown payload fields remain preserved. There is no package/version solver or second manifest.
 
-The experimental headless workflow is `forge_runtime --sdk-project PROJECT`. It loads declarations before constructing/publishing its world. Changing registration/schema/hooks requires terminating that runtime and starting a new process. No rich in-place reload command exists. Editor Play now selects the matching shared runtime for projects declaring experimental SDK modules, validates its source/profile handshake, and keeps gameplay code outside the editor. The Windows package includes it under NativeSdk; a personal Gameplay Code setting can select another matching installation. Stop, build project code externally with the exact SDK, then Play to restart rich registration. ABI1 projects retain their existing Build & Reload workflow. Rich SDK crash recovery is not offered because arbitrary custom C++ state has no checkpoint contract. See [native gameplay manual](../manual/editor/native-gameplay.md).
+The headless developer workflow is `forge_runtime --sdk-project PROJECT`. It loads declarations before constructing/publishing its world. Changing registration/schema/hooks requires terminating that runtime and starting a new process. No rich in-place reload command exists. Editor Play now selects the matching shared runtime for projects declaring exact-SDK modules, validates its source/profile handshake, and keeps gameplay code outside the editor. The Windows package includes it under NativeSdk; a personal Gameplay Code setting can select another matching installation. Managed projects build in Gameplay Code; externally maintained projects build with their own matching exact-SDK recipe. Stop, build, then Play to restart registration. Rich SDK crash recovery is not offered because arbitrary custom C++ state has no checkpoint contract. See [native gameplay manual](../manual/editor/native-gameplay.md).
 
 ## Installation and linkage evidence
 
 Install the NativeSdk component. Its bin contains the runtime and shared Flecs; sdk contains required headers, Windows import library, generated fingerprint, CMake configuration and sample. Release Windows installation stages compiler runtime redistributables through CMake's InstallRequiredSystemLibraries. Linux Flecs SONAME is libflecs.so.4, with installed host $ORIGIN lookup. Debug runtime redistribution is not supported.
 
-The experimental artifact contains a tar.gz archive so executable permissions and SONAME links survive download. Extract it before using the SDK.
+The SDK artifact contains a tar.gz archive so executable permissions and SONAME links survive download. Extract it before using the SDK.
 
 The package test builds the sample using only the installed SDK, inspects PE/ELF imports/exports, relocates the installed package, strips developer search-path overrides and executes it there. Runtime checks compare the host/module Flecs API/global addresses and operate on host-created worlds. Tests cover independent WorldContexts and teardown sentinels, including failed bootstrap and a crashing isolated runtime. This establishes the supported build's single implementation; it does not prove arbitrary untrusted DLL internals.
 
@@ -96,7 +97,7 @@ Ozz stays private. See [Animation](animation.md).
 
 ## Runtime UI
 
-`forge.ui` registers UiDocument through the builtin schema module and supplies a runtime-only, world-scoped UiService when explicitly composed. It produces copied values and validates semantic commands. The separate reusable RmlUi presenter owns no WorldContext and does not load gameplay code. The actual experimental SDK consumer uses allow-action, numeric publication and fixed-tick action polling, without RmlUi types. ABI1 remains unchanged. See [Runtime UI](runtime-ui.md).
+`forge.ui` registers UiDocument through the builtin schema module and supplies a runtime-only, world-scoped UiService when explicitly composed. It produces copied values and validates semantic commands. The separate reusable RmlUi presenter owns no WorldContext and does not load gameplay code. The actual experimental SDK consumer uses allow-action, numeric publication and fixed-tick action polling, without RmlUi types. This does not introduce another gameplay model. See [Runtime UI](runtime-ui.md).
 
 ## Flecs capability registration
 
@@ -109,5 +110,4 @@ layout and identity are unchanged; its finite numerical domain is[-10000,+10000]
 including zero and float-representable tiny values. Nonzero JSON/API values that
 would underflow to zero are rejected. Native code must not assume positivity or
 an available inverse. Rebuild modules against the matching SDK and revalidate
-installed consumer/Editor Play behavior. See[transforms](transforms.md); ABI1 layout
-is unchanged. Actual Windows SDK validation remains part of the Phase7 delivery gate.
+installed consumer/Editor Play behavior. See [transforms](transforms.md). Actual Windows SDK validation remains part of the Phase7 delivery gate.

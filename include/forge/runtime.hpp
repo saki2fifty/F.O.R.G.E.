@@ -3,7 +3,6 @@
 #include <forge/animation.hpp>
 #include <forge/audio.hpp>
 #include <forge/input.hpp>
-#include <forge/module.hpp>
 #include <forge/navigation.hpp>
 #include <forge/physics.hpp>
 #include <forge/scene.hpp>
@@ -59,7 +58,7 @@ class PresentationPoses {
 };
 class RuntimeSimulation {
   public:
-    RuntimeSimulation(WorldContext& context, Scene& scene, Module& module);
+    RuntimeSimulation(WorldContext& context, Scene& scene);
     ~RuntimeSimulation();
     RuntimeSimulation(const RuntimeSimulation&) = delete;
     RuntimeSimulation& operator=(const RuntimeSimulation&) = delete;
@@ -78,15 +77,13 @@ class RuntimeSimulation {
   private:
     WorldContext& context_;
     Scene& scene_;
-    Module& module_;
-    ForgeHostV1 host_;
     PresentationPoses poses_;
     RuntimeInput input_;
     InputMonitor input_monitor_;
     std::uint64_t input_tick_ = 0;
     flecs::entity previous_pipeline_;
     flecs::entity input_phase_, input_system_;
-    flecs::entity pipeline_, gameplay_, transforms_, gameplay_phase_, transform_phase_;
+    flecs::entity pipeline_, transforms_, gameplay_phase_, transform_phase_;
     flecs::entity pre_physics_, physics_step_, physics_adopt_;
     flecs::entity pre_phase_, physics_phase_, adoption_phase_, post_phase_;
     std::shared_ptr<PhysicsRuntime> physics_;

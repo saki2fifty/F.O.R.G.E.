@@ -262,10 +262,9 @@ static void input_tests() {
     input.submit({{"key.space", 0}});
     clock.step(tick);
     check(input.snapshot().actions.at(button).released, "Paused release failed");
-    Module module;
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
-    RuntimeSimulation sim(engine.world(), scene, module);
+    RuntimeSimulation sim(engine.world(), scene);
     sim.input().configure(map);
     sim.input().submit({{"key.space", 1}});
     sim.tick(1.0f / 60);

@@ -1,8 +1,8 @@
-"""Fixed-clock animation presentation, pause/step, ABI1 reload and crash reconstruction."""
+"""Fixed-clock animation presentation, pause/step and crash reconstruction."""
 import copy,hashlib,json,shutil,subprocess,sys,time
 from pathlib import Path
-runtime,prepare,converter,source,module=map(lambda p:Path(p).resolve(),sys.argv[1:6])
-sdk=Path(sys.argv[6]).resolve() if len(sys.argv)>6 else None
+runtime,prepare,converter,source=map(lambda p:Path(p).resolve(),sys.argv[1:5])
+sdk=Path(sys.argv[5]).resolve() if len(sys.argv)>5 else None
 root=Path(subprocess.check_output([prepare,runtime.parent/'animation-process-data',converter,source,'--prepare'],text=True).strip())
 for record in json.loads((root/'forge.assets.json').read_text())['assets']:
  if record['type'] in ('skeleton','animation_clip'):
@@ -34,9 +34,7 @@ try:
  a.request('hello',simulation_hz=60)
  first=a.request('replace',scene=json.loads((root/'scene.json').read_text()))
  assert pose(first)['time']==0
- if not sdk:a.request('load_module',path=str(module))
  stepped=a.request('step')
- if not sdk:assert stepped['activation']['state']=='active'
  assert abs(pose(stepped)['time']-(2 if sdk else 1)/60)<1e-6
  time.sleep(.03);assert pose(a.request('snapshot'))==pose(stepped)
  for _ in range(4):stepped=a.request('step')
@@ -53,7 +51,7 @@ try:
  except AssertionError:pass
  else:raise AssertionError('Invalid animation checkpoint accepted')
  assert pose(b.request('snapshot'))==pose(next_frame)
- print('Animation process pause/step/resume, ABI1 activation and crash recovery passed')
+ print('Animation process pause/step/resume and crash recovery passed')
 finally:
  a.close()
  if b:b.close()

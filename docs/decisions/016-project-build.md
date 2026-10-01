@@ -14,7 +14,7 @@ of schema/IPC/SDK version.
 ## Current evidence and implementation boundary
 
 ProjectPaths, project.hpp, SceneDocument and native build staging already separate
-shared data from session state. CMake distinguishes static ABI1 and shared exact SDK;
+shared data from session state. CMake distinguishes static core and shared exact SDK;
 SDK package tests verify relocation and shared-library dependency identity.
 
 ## Consequences
@@ -31,3 +31,10 @@ delete checks reverse dependents, produces missing diagnostics and retains recov
 metadata/revisions. Phase 7 implements this through the common catalog transaction,
 not per-importer filesystem tricks. Source-control integration later reports external
 conflicts and never silently overwrites a newer disk revision.
+
+## 2026-10-01 gameplay consolidation amendment
+
+The limited movement-only ABI1 path was retired. The exact-SDK C++ module is now
+the only supported project gameplay implementation. Managed source/build identity
+records saved `Native/` inputs plus exact SDK fingerprint; stale last-good modules
+are not admitted as current for Play/export. See [C++ gameplay](../native-modules.md).

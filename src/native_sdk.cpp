@@ -856,6 +856,12 @@ void validate_project_modules(const nlohmann::json& project) {
         if (fingerprint.size() != 64 ||
             fingerprint.find_first_not_of("0123456789abcdef") != std::string::npos)
             throw std::runtime_error("Invalid SDK fingerprint: " + id);
+        if (m.contains("source_identity")) {
+            const auto identity = m.at("source_identity").get<std::string>();
+            if (identity.size() != 64 ||
+                identity.find_first_not_of("0123456789abcdef") != std::string::npos)
+                throw std::runtime_error("Invalid gameplay source identity: " + id);
+        }
         (void)ProjectPaths::normalize(std::filesystem::u8path(m.at("library").get<std::string>()));
         auto deps = m.at("dependencies").get<std::vector<std::string>>();
         if (deps.size() > 64 ||

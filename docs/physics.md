@@ -45,7 +45,7 @@ Contact callbacks append bounded token records under a mutex. After Update, the 
 
 ## Private recovery
 
-Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. ABI1 `module_api.h` layout/version is unchanged. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
+Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
 
 At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics adds format version, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending FORGE commands, and Jolt StateRecorder bytes. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
 
@@ -57,7 +57,7 @@ Limits: 8192 bodies, 16384 contact events, 2 MiB raw solver bytes, 6 MiB physics
 
 ## Experimental SDK
 
-The exact fingerprint covers the callback table plus FORGE physics component definitions. The existing callback table has size-checked extensions for Physics capability, PostPhysics phase, raycast and movement. Modules still use one shared Flecs implementation, matched compiler/config/CRT, and startup-only code leases. No Jolt headers or static implementation enter a gameplay module. ABI1 retains its existing host-owned movement contract; it gains no physics API.
+The exact fingerprint covers the callback table plus FORGE physics component definitions. The existing callback table has size-checked extensions for Physics capability, PostPhysics phase, raycast and movement. Modules still use one shared Flecs implementation, matched compiler/config/CRT, and startup-only code leases. No Jolt headers or static implementation enter a gameplay module. The former movement-only ABI1 gameplay contract was later retired.
 
 ## Deferred
 

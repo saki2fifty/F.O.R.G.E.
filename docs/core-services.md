@@ -1,6 +1,6 @@
 # Core services foundation
 
-Phase 5.5 extends the existing context and process boundaries. Dependency pins, native ABI1, protocol2, scene/prefab semantics and the editor layout remain unchanged. User workflows: [Project settings](../manual/editor/project-settings.md) and [Gameplay input](../manual/editor/input.md).
+Phase 5.5 extends the existing context and process boundaries. At its Phase 5.5 checkpoint, dependency pins, gameplay interface, protocol2, scene/prefab semantics and editor layout were unchanged. The movement-only interface was retired later; see [C++ gameplay](native-modules.md). User workflows: [Project settings](../manual/editor/project-settings.md) and [Gameplay input](../manual/editor/input.md).
 
 ## Ownership
 

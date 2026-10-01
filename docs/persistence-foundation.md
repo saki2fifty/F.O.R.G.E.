@@ -76,7 +76,6 @@ No wire format, rollback netcode or replication service is frozen prematurely.
 | Layer | Behavior/component/services/state | Authoring / persistence / reload / packaging |
 | --- | --- | --- |
 | Native exact SDK | Trusted C++ registers native Flecs types/systems and calls declared EngineModule providers; host owns fixed phases/lifetime | Opt-in bounded custom authoring contract; exact rebuild fingerprint; startup-bound registration with Stop/build/Play; package matching runtime+modules later |
-| ABI1 gameplay | Restricted versioned C host callbacks and supported reflected state | Existing constrained build/probe/migration/rollback, separate from rich C++ registration; preserve previous artifact on failure |
 | Flecs Script | Native language for preview now; explicit procedural generation, recipes and opt-in runtime configuration/world setup direction | Roles below; no automatic durable entity promotion or arbitrary C++ callback unloading |
 | Future visual scripting | Graph asset compiles/interprets through a deliberate VM/backend; ECS service bindings and owned runtime state | Same asset/document/dependency model; versioned debug/state/reload contract required before runtime consumer; not a material/VFX evaluator reused by analogy |
 

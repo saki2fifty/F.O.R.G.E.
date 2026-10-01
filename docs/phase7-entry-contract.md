@@ -1,6 +1,6 @@
 # Phase7 entry contract
 
-**Approved architecture baseline; Phase7 implementation is in progress.**
+**Historical Phase7 entry baseline.** Phase7 has completed; this page records the then-approved entry conditions. The movement-only ABI1 path cited below was subsequently retired in favor of the exact-SDK C++ gameplay model. See [C++ gameplay](native-modules.md).
 The user approved Build260919-000063 physical acceptance and the frozen contracts
 on2026-09-19, and separately authorized Phase7. This document records the entry
 contract, not completion of the implementation. Existing
@@ -12,7 +12,7 @@ foundation implementation is distinguished from designed future work below.
 - Persistent EntityId/AssetId/EntityRef/typed AssetRef, Scene AssetId as document identity; no persistent DocumentId. Scene duplication allocates new scene/entity IDs and remaps only understood refs.
 - Independent inheritable LocalTranslation/LocalRotation/LocalScale and transient derived WorldTransform; FollowStructure/World/Explicit spatial binding and representability validation.
 - Structured prefab AssetId/PrefabMemberId/mappings, immutable revisions/candidate reconciliation, explicit equal-value/property intent and scene Revert. Legacy scene-local prefabs remain supported without automatic migration.
-- Runtime-owned fixed clock, separate Editor Play process, existing subsystem ownership and compatible checkpoint contracts. ABI1 reload remains constrained and transactional.
+- Runtime-owned fixed clock, separate Editor Play process, existing subsystem ownership and compatible checkpoint contracts. At this entry checkpoint, ABI1 reload was constrained and transactional; it has since been removed.
 - Native module lifecycle/provider permissions and exact shared SDK compatibility. Editor SDK Play uses a matching source/profile runtime; rich registrations require Stop/rebuild/Play, not arbitrary in-place hot reload or custom-state recovery.
 - Built-in Meta/Doc/Units/ranges and generic built-in property widgets; FORGE enforces reject-before-commit. Native on_validate and Meta maps are absent; template declaration inheritance is also absent. See [known issues](flecs-known-issues.md) and [upgrade watchlist](flecs-upgrade-watchlist.md).
 - AssetCatalog/ProjectPaths, existing bounded converter/navigation/Script candidate workers, shared commands/recipes/document adapters/asset-editor dispatch, typed selection and personal workspace persistence.

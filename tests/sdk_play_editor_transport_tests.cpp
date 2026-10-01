@@ -78,7 +78,7 @@ void run_lifecycle(const std::string& runtime, const std::filesystem::path& proj
     forge::PlaySession play;
     play.configure(60, forge::InputMap{}, {0, -9.81, 0}, project_root, true, true);
     play.set_user_data_override(user_data);
-    play.start(runtime, make_scene(), {}, true);
+    play.start(runtime, make_scene(), true);
     auto wait = [&](auto done) {
         const auto deadline = SDL_GetTicks() + 10000;
         while (!done() && SDL_GetTicks() < deadline) {
@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
                 }
                 require(done(), "SDK transport timeout: " + play.status() + " " + play.log());
             };
-            play.start(argv[1], make_scene(), {}, true);
+            play.start(argv[1], make_scene(), true);
             wait([&] { return !play.active() || !play.sdk_candidate_envelope().is_null(); });
             require(play.active(), "Process failed: " + play.status() + " " + play.log());
             require(!play.ready(), "Play reached ready before candidate admission");
@@ -232,7 +232,7 @@ int main(int argc, char** argv) {
             require(play.snapshot().at("entities").size() == 1, "Authored scene lost during Play");
             play.stop();
             // Restart: epoch counters MUST reset.
-            play.start(argv[1], make_scene(), {}, true);
+            play.start(argv[1], make_scene(), true);
             wait([&] { return !play.active() || !play.sdk_candidate_envelope().is_null(); });
             require(play.active() && play.editor_epoch_confirmed() == 0 &&
                         play.current_effective_epoch() == 0 && play.next_editor_epoch() == 1,
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
             require(play.ready(), "Restart did not reach ready");
             play.stop();
             // Overflow at the uint64 ceiling.
-            play.start(argv[1], make_scene(), {}, true);
+            play.start(argv[1], make_scene(), true);
             wait([&] { return !play.active() || !play.sdk_candidate_envelope().is_null(); });
             require(play.submit_sdk_editor_epoch({{"epoch", UINT64_MAX},
                                                   {"captured", false},
@@ -322,7 +322,7 @@ int main(int argc, char** argv) {
             forge::PlaySession play;
             play.configure(60, forge::InputMap{}, {0, -9.81, 0}, malformed_root, true, true);
             play.set_user_data_override(user_data);
-            play.start(std::filesystem::absolute(argv[0]).string(), make_scene(), {}, true);
+            play.start(std::filesystem::absolute(argv[0]).string(), make_scene(), true);
             SDL_Delay(1000);
             play.stop();
             require(play.log().find("malformed worker diagnostic") != std::string::npos,
@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
             play.configure(60, forge::InputMap{}, {0, -9.81, 0}, malformed_root, true, true);
             play.set_user_data_override(user_data);
             const auto scene_input = make_scene();
-            play.start(std::filesystem::absolute(argv[0]).string(), scene_input, {}, true);
+            play.start(std::filesystem::absolute(argv[0]).string(), scene_input, true);
             const auto deadline = SDL_GetTicks() + 5000;
             while (play.active() && SDL_GetTicks() < deadline) {
                 play.pump();

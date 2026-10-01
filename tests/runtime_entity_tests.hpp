@@ -27,8 +27,7 @@ inline void test_runtime_entities() {
               RuntimeEntityState::Pending,
           "Startup request must wait for a scene and fixed boundary");
     auto scene = std::make_unique<Scene>(context);
-    Module legacy;
-    auto simulation = std::make_unique<RuntimeSimulation>(context, *scene, legacy);
+    auto simulation = std::make_unique<RuntimeSimulation>(context, *scene);
     RuntimeClock clock;
     auto tick = [&](float dt) { simulation->tick(dt); };
     clock.advance(RuntimeClock::Time{} + std::chrono::seconds(10), tick);

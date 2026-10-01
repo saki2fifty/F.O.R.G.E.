@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
         std::ofstream("result.json") << Json{
             {"format", "forge.authored-types"},
             {"version", 1},
-            {"profile", "static-abi1"},
+            {"profile", "static-core"},
             {"fingerprint", request.at("fingerprint")},
             {"components", Json::array()}}.dump();
         return 0;

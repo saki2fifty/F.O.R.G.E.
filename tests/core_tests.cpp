@@ -5,7 +5,6 @@
 #include "reflected_native_tests.hpp"
 #include "reflected_value_tests.hpp"
 #include "reflection_tests.hpp"
-#include <forge/module.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
 #include <stdexcept>
@@ -22,7 +21,6 @@ int main(int argc, char** argv) {
         test_reflected_extensions();
         test_flecs_contracts();
         test_ecs_tools();
-        check(argc == 2, "module argument");
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         forge::Json doc = {
@@ -178,22 +176,6 @@ int main(int argc, char** argv) {
         restored.load(path);
         check(restored.document() == expected_moved, "disk round trip");
         std::filesystem::remove(path);
-        forge::Module module;
-        module.load(std::filesystem::absolute(argv[1]));
-        ForgeHostV1 host{sizeof(ForgeHostV1), 1, &scene, [](void* p, float x, float y, float z) {
-                             static_cast<forge::Scene*>(p)->translate(x, y, z);
-                         }};
-        module.tick(host, 0.5f);
-        check(scene.document()["entities"][0]["components"]["forge.local_translation"]["x"] == 5.5,
-              "native callback changes Flecs state");
-        try {
-            module.load(std::filesystem::absolute("missing-library"));
-            throw std::logic_error("accepted missing module");
-        } catch (const std::runtime_error&) {
-        }
-        module.tick(host, 0.5f);
-        check(scene.document()["entities"][0]["components"]["forge.local_translation"]["x"] == 6.0,
-              "failed module retains active code");
         std::cout << "core behavior passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

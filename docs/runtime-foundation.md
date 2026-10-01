@@ -85,9 +85,9 @@ standalone milestone; architecture alone is not evidence it already works.
 ## Extensions
 
 Built-in EngineModule supplies dependencies, capabilities, lifecycle and native Flecs imports.
-ABI1 remains the restricted versioned C interface. Exact SDK is deliberately compiler/build
-matched, trusted C++ and startup-bound. Future third-party gameplay plugins must choose one of
-those contracts with manifest/ownership validation, not silently mix private Flecs copies.
+Project gameplay uses the exact-SDK compiler/build-matched, trusted C++ boundary.
+Future third-party gameplay plugins require explicit manifest/ownership validation and
+may not mix private Flecs copies into this world.
 Trusted native editor extensions load at startup and require restart for changes; they can crash
 the editor. Gameplay modules remain outside its process.
 

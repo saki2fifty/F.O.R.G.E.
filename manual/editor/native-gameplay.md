@@ -1,65 +1,68 @@
-# Native gameplay
+# C++ gameplay
 
-Gameplay Code creates and builds C++ source for the current project. **C++ Sources** lets you edit it inside FORGE. Use **Create C++ gameplay project** for Flecs components and systems. The separate **Create source** / **Build & Reload** controls retain the constrained ABI1 movement workflow described below.
+FORGE uses Flecs components for data and systems for behavior. Give a Cube a
+`Rotator` component; a `RotationSystem` then processes every entity whose query
+matches. Systems are registered for the world, not attached to individual objects.
+C++ files live in your project's `Native/` folder and open in the central **C++
+Sources** document. They are project code, not Content assets or Hierarchy entries.
 
-## Prepare Windows tools
+## Prepare the compiler
 
-For C++ gameplay, extract the optional **Developer Kit with the same build number** into the editor folder. It adds NativeSdk and **Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows SDK, CMake 3.30 or newer, and Ninja. Launch **Run-Forge-Dev.cmd** from that folder so FORGE receives the compiler environment. The regular launcher is sufficient for editing without compilation.
+Extract the matching optional Developer Kit into the editor folder, then launch
+**Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows
+SDK, CMake 3.30 or newer, and Ninja. In **Gameplay Code**, expand **Compiler setup**
+and choose **Test compiler tools**. Normal editing and an exported game do not need
+these tools. A matching installed Native SDK is required to build and Play C++.
 
-## Build your first module
+## Create a component and system
 
-1. Open your project and add an entity.
-2. In **Gameplay Code**, select **Create source**. Existing source files are not overwritten.
-3. Expand **Compiler setup** and check **CMake** and **Ninja**. Use command names on PATH or full executable paths.
-4. Select **Build & Reload** and watch the status and Build output in the same panel.
-5. Select **Play** after a successful build. The sample moves the block along X.
+1. Open **Gameplay Code**. Choose **Create C++ gameplay project** for a new project. Existing `Native/` source is never overwritten.
+2. In **Project C++ sources**, choose **Create C++ Component** and enter `Rotator`. This creates `Native/Components/Rotator.hpp` with a reflected `speed` value.
+3. Choose **Create C++ System**, select `Rotator`, and enter `RotationSystem`. This creates `Native/Systems/RotationSystem.cpp`, which queries Rotator, reads any effective rotation or identity, and runs on the fixed gameplay tick.
+4. Click either source path to edit it. The tab and **Save source** button mark unsaved changes with `*`. **Ctrl+S**, document Save and the button save the active C++ file. Scene Save is separate.
+5. Choose **Build Gameplay**. With unsaved drafts the action becomes **Save & Build Gameplay**. It compiles saved files, validates the candidate in an isolated worker and publishes after admission. **Build on Save** is optional.
+6. Wait for **Gameplay Current**. Create a Cube, select it, use **Inspector → + Add Component** to add Rotator, set Speed and save the scene. Right-click the component header for **Open C++ Definition**.
+7. Press **Play** to see the cube rotate. Code or schema changes use **Stop → Save → Build → Play**. FORGE offers **Save, Build & Play** for unbuilt source and never silently runs stale code.
 
-Edit `Native/gameplay.cpp` in your code editor. Enable **Build on save** to watch supported source changes and start incremental compilation automatically. The current complete build log is stored in `.forge/native/build.log`.
 
-## Understand reload results
+**Components** in Gameplay Code lists component source files; **Systems** lists
+system source files. **Registered systems** shows wizard-created systems with their
+source and fixed-gameplay query component. Other project source and headers appear
+under **Other source / headers**. Ordinary `.cpp` and `.hpp` files can also be
+created. Source organization is flexible; CMake must register any extra `.cpp`.
 
-A failed compilation keeps the previous validated module available. Candidates are built as separate artifacts and checked in a worker with one real fixed tick before live activation. Compatible supported changes can preserve the play session; incompatible schema changes restart the play world.
+## Tune values while playing
 
-While paused, a successful load displays **Reload pending first tick**. **Step** validates it with exactly one tick and stays paused; **Resume** validates it through normal running. The previous module remains the known-good artifact until that tick succeeds. A failed first live tick restores the checkpoint and module from before reload, including whether you were paused. **Stop** cancels pending activation; another successful build explicitly supersedes it.
+During Play, the Inspector has a **Live gameplay** section for admitted reflected
+properties. Select the runtime entity and change Rotator Speed from 90 to 360. The
+runtime validates the typed update at its owner-thread boundary and acknowledges
+it; behavior changes without compiling. **Stop** discards this transient tuning:
+the authored scene and prefab override intent stay at their saved values. A
+read-only runtime field remains read-only. Code or schema edits still require a
+new build and fresh Play session.
 
-The current interface supports stateless movement callbacks over host-owned transforms, applied through local translation. It does not migrate arbitrary C++ state. Do not retain host pointers or create unmanaged background work in a module.
+## Build status and failure
 
-Rebuild after reopening the editor to select a validated module; previous artifacts remain cached. Wait for compilation to finish before switching scenes or projects. See [Play mode](play-mode.md).
+**Source Dirty** means a C++ tab has unsaved edits. **Build Required** means saved
+source differs from the admitted module. **Building**, **Build Failed**, and
+**Gameplay Current** distinguish the remaining states. A failed build keeps the
+last good artifact, but Play and Export do not treat it as current. Click a
+compiler diagnostic in **Compiler output** to open its source line. The full log
+is `.forge/sdk-build/build.log`; source remains editable. Build on Save uses the
+same build operation after source is saved. You can cancel a candidate without
+replacing the previous good module.
 
-## Exact SDK projects
+## Export
 
-An exact SDK project declares native modules in `forge.project.json`. Those modules
-can register Flecs components and systems in the separate runtime process. They
-never load into the editor. This remains an experimental, exact-version C++ SDK;
-it is not the stable ABI1 movement interface described above.
+Save the scene, build current gameplay, then choose **Run → Export Game...**.
+Export refuses dirty or unbuilt managed source. The standalone folder contains
+the admitted compiled C++ module, matching runtime and cooked dependencies. It
+runs after relocation without the source project, editor or compiler. Externally
+built exact-SDK projects keep their explicit module kit/deployment workflow.
 
-### Create and build gameplay in FORGE
-
-1. Launch **Run-Forge-Dev.cmd** to provide the matching Visual Studio compiler environment. Use the NativeSdk from the matching Developer Kit. In **Gameplay Code**, choose **Create C++ gameplay project**. Existing files in Native are never overwritten.
-2. Choose **Build gameplay**. FORGE configures CMake, compiles the module, collects its runtime dependencies and validates the candidate in a separate process. On success it updates the project module declaration. A failed build preserves the last good module and settings.
-3. Choose **Inspect components**. Select a scene entity, use **+ Add Component**, search **Gameplay Counter**, and add it. Its **rate** determines the value added each simulation second; **value** is its starting value. Save the scene.
-4. Press **Play**. The template's Flecs system advances the counter in the isolated fixed-step runtime. Choose **Open C++ source** in Gameplay Code to edit `Native/gameplay.cpp` inside FORGE; an external code editor remains optional. **Stop**, rebuild, then **Play** again. Rich SDK registrations are restart-bound; this is not hot reload.
-5. Expand **Compiler setup** for CMake/Ninja paths, or **SDK build output** for compiler diagnostics. **Cancel build** leaves the previous module active. The complete compiler log is `.forge/sdk-build/build.log`.
-6. Use **Run → Export Game...** after saving your scene and setting startup/game defaults. FORGE selects the managed module kits automatically, including after reopening the project. The exported folder contains the runtime dependencies and does not need the editor, compiler or source project.
-
-The starter opts a plain reflected component into authoring explicitly. It links the
-installed SDK's shared Flecs; do not add a second Flecs implementation to the DLL.
-Native/Builds contains immutable deployment kits, not source code. Do not delete
-a kit still referenced by `forge.project.json`.
-
-### Existing externally built SDK projects
-
-Set **Native SDK folder** to the matching installation containing `bin` and `sdk`.
-Leave it blank for `NativeSdk/` in the editor installation after extracting the matching Developer Kit. This path is personal machine state.
-Build your external modules with that SDK's CMake package, declare their IDs,
-fingerprints/dependencies/project-relative libraries, then Play. The editor's
-managed starter does not overwrite external build layouts or additional module kits.
-Select their module kits explicitly for export. Compiler, architecture, configuration,
-flags and CRT must match the installed SDK.
-
-ABI1 **Build & Reload** and **Build on save** do not operate on rich SDK modules.
-After a rich runtime crash, restart Play from the authored scene; FORGE does not
-claim recovery of arbitrary custom C++ state.
+Older projects with the retired movement-only module format are preserved on disk
+but cannot Play or Export with that code. Create a new managed C++ project and
+migrate the source deliberately; FORGE does not automatically translate C/C++.
 
 ## Author opted-in project components
 
@@ -168,7 +171,7 @@ exported game do not require the compiler.
 1. In Gameplay Code, select **Open C++ source** to open `Native/gameplay.cpp` in the central **C++ Sources** window. Its **Source path → Open file** controls let you open another project C++ file.
 2. Edit with C++ highlighting, line numbers and indentation. Each file has its own tab and Undo/Redo. **Ctrl+F** focuses Find; **Find next** selects a match and wraps.
 3. **Save source** or **Ctrl+S** saves the active file. The star identifies unsaved source. Saving code is separate from saving your scene. Close asks you to save, discard or cancel when code is unsaved.
-4. Save every edited source before **Build gameplay**. **SDK build output** lists clickable project-file diagnostics: click one to open the reported line/column. External SDK/generated-file errors remain visible in the raw log.
+4. Save every edited source before **Build gameplay**. **Compiler output** lists clickable project-file diagnostics: click one to open the reported line/column. External SDK/generated-file errors remain visible in the raw log.
 5. After a successful build, **Inspect components**, add an opted-in component to an entity, and Play. Changing code does not automatically expose a new component.
 
 **New source filename → Create source file** creates a `.cpp` or `.hpp` directly

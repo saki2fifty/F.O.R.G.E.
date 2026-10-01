@@ -2,8 +2,7 @@
 import copy,json,math,shutil,struct,subprocess,sys,tempfile,time,wave
 from pathlib import Path
 runtime=Path(sys.argv[1]).resolve()
-abi1=Path(sys.argv[3]).resolve() if len(sys.argv)>3 and sys.argv[2]=='--abi1' else None
-module=Path(sys.argv[2]).resolve() if len(sys.argv)>2 and not abi1 else None
+module=Path(sys.argv[2]).resolve() if len(sys.argv)>2 else None
 scene_id='11111111-1111-4111-8111-111111111111'
 entity_id='22222222-2222-4222-8222-222222222222'
 clip_id='33333333-3333-4333-8333-333333333333'
@@ -44,13 +43,10 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   initial=worker.request('replace',scene=scene)
   assert initial['audio']['paused'] and initial['audio']['voices']==1
   assert 'audio' not in initial['scene'] and 'audio' not in initial['recovery']
-  if abi1:
-   loaded=worker.request('load_module',path=str(abi1));assert loaded['activation']['state']=='loaded_pending_first_tick'
   before=initial['timing']['tick'];time.sleep(.04)
   assert worker.request('snapshot')['timing']['tick']==before
   for n in range(1,5):
    stepped=worker.request('step');assert stepped['timing']['tick']==n and stepped['audio']['paused']
-   if abi1:assert stepped['activation']['state']=='active'
    if module:
     assert stepped['audio']['playing_sources']==n%2,(n,stepped['audio'],stepped['diagnostics'])
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['gain']==.5

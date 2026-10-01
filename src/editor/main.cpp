@@ -47,7 +47,6 @@
 #include "mesh_material_inspector.hpp"
 #include "model_imports.hpp"
 #include "model_viewer.hpp"
-#include "native_build.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
 #include "performance.hpp"
@@ -385,7 +384,6 @@ int main(int argc, char** argv) {
             SDL_strlcpy(exact_sdk_root, sdk_root_str.c_str(), sizeof(exact_sdk_root));
         }
 #endif
-        bool auto_build = false;
         bool cpp_build_on_save = false;
         forge::ui::SceneTools scene_tools;
         forge::ui::SpatialHelpers spatial_helpers;
@@ -427,7 +425,6 @@ int main(int argc, char** argv) {
                 content.load_settings(j.value("content_browser", forge::Json::object()));
                 orientation.visible = j.value("orientation_gizmo", true);
                 physics_overlay.visible = j.value("collision_overlay", false);
-                auto_build = j.value("auto_build", false);
                 blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
                 spatial_helpers.visible = j.value("spatial_helpers", true);
@@ -456,7 +453,6 @@ int main(int argc, char** argv) {
                                       {"cmake", cmake_path},
                                       {"ninja", ninja_path},
                                       {"exact_sdk_root", exact_sdk_root},
-                                      {"auto_build", auto_build},
                                       {"cpp_build_on_save", cpp_build_on_save},
                                       {"create_at_view_target", blockout.at_view_target},
                                       {"grid", scene_tools.grid},
@@ -549,15 +545,28 @@ int main(int argc, char** argv) {
         }
         if (!startup_layout.warning.empty())
             message = startup_layout.warning;
-        auto native = std::make_unique<forge::NativeBuild>(files.document.project(),
-                                                           install_root / "sdk", runtime_path);
-        native->cmake = cmake_path;
-        native->ninja = ninja_path;
-        native->auto_build = auto_build;
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
         forge::ui::CppSourceEditor cpp_sources;
         cpp_sources.project_changed(files.document.project());
+        component_inspector.open_cpp_definition = [&](const std::string& key) {
+            try {
+                const auto source =
+                    forge::ui::managed_component_definition(files.document.project(), key);
+                if (!source)
+                    throw std::runtime_error(
+                        "This component has no verified managed C++ source mapping.");
+                cpp_sources.open(files.document, *source);
+            } catch (const std::exception& e) {
+                message = e.what();
+            }
+        };
         cpp_sources.build_on_save = cpp_build_on_save;
+        Uint64 source_identity_checked = 0;
+        std::uint64_t source_revision_seen = 0;
+        bool gameplay_current = false;
+        std::string source_identity_error;
+        bool cpp_play_dialog = false, cpp_play_build_pending = false;
+        bool cpp_play_build_seen_busy = false, cpp_play_ready = false;
         std::uint64_t compiler_log_revision = 0;
         std::vector<forge::ui::CppDiagnostic> compiler_diagnostics;
         auto active_project = files.document.project();
@@ -913,11 +922,11 @@ int main(int argc, char** argv) {
                                         forge::AssetFileAction action) -> std::string {
             if (play.active())
                 return "Stop Play before changing source files.";
-            if ((native->busy() || sdk_build->busy()) || files.busy() ||
-                animation_tools.pending() || navigation_tools.pending() ||
-                script_editor.pending() || texture_imports.pending() || audio_imports.pending() ||
-                model_imports.pending() || shader_imports.pending() || material_editor.pending() ||
-                graph_editor.pending() || collision_editor.pending())
+            if (sdk_build->busy() || files.busy() || animation_tools.pending() ||
+                navigation_tools.pending() || script_editor.pending() ||
+                texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
+                shader_imports.pending() || material_editor.pending() || graph_editor.pending() ||
+                collision_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -1372,13 +1381,12 @@ int main(int argc, char** argv) {
         cpp_sources.request_build = [&] {
             if (!sdk_build->managed())
                 throw std::runtime_error("This project uses its external build recipe.");
-            if (play.active() || sdk_build->busy() || native->busy() || files.busy() ||
-                content_files.busy() || game_export.busy() || runtime_dependencies.busy() ||
-                authored_components.busy())
+            if (play.active() || sdk_build->busy() || files.busy() || content_files.busy() ||
+                game_export.busy() || runtime_dependencies.busy() || authored_components.busy())
                 throw std::runtime_error(
                     "Stop Play and finish pending project work before building.");
             if (cpp_sources.dirty())
-                throw std::runtime_error("Save or discard all C++ source drafts before building.");
+                cpp_sources.save_all(files.document);
             cpp_sources.build_pending = false;
             sdk_build->build(files.document,
                              exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
@@ -1410,8 +1418,8 @@ int main(int argc, char** argv) {
                                            const forge::AssetRecord& asset) {
             runtime_dependencies.draw(
                 files.document, catalog, asset,
-                asset_document_locked || play.active() || (native->busy() || sdk_build->busy()) ||
-                    files.busy() || files.changed || cache_tools.busy() || source_import.busy() ||
+                asset_document_locked || play.active() || sdk_build->busy() || files.busy() ||
+                    files.changed || cache_tools.busy() || source_import.busy() ||
                     content_files.busy(),
                 [&](const forge::AssetRecord& target) { asset_editors.open(target); });
         };
@@ -1435,10 +1443,9 @@ int main(int argc, char** argv) {
                 }
             }
             if (game_export.busy() || runtime_dependencies.busy() || play.active() ||
-                (native->busy() || sdk_build->busy()) || files.busy() || files.changed ||
-                cache_tools.busy() || source_import.busy() || content_files.busy() ||
-                scene_asset_drop.busy() || scene_tools.move.active() || modal.active() ||
-                blockout.active())
+                sdk_build->busy() || files.busy() || files.changed || cache_tools.busy() ||
+                source_import.busy() || content_files.busy() || scene_asset_drop.busy() ||
+                scene_tools.move.active() || modal.active() || blockout.active())
                 context.blocked =
                     "Stop Play and finish the current gesture, file, import, or cache operation.";
             context.openable = context.target && asset_editors.find(context.target->type);
@@ -1523,7 +1530,7 @@ int main(int argc, char** argv) {
                     // Use the current window-relative pointer only for that path.
                     if (!source_drop_position)
                         SDL_GetMouseState(&drop_x, &drop_y);
-                    if (files.busy() || (native->busy() || sdk_build->busy()) || play.active() ||
+                    if (files.busy() || sdk_build->busy() || play.active() ||
                         !content.accepts_file_drop({origin.x + drop_x, origin.y + drop_y}) ||
                         dropped_sources.size() >= 256 || !event.drop.data) {
                         source_drop_rejected = true;
@@ -1593,10 +1600,10 @@ int main(int argc, char** argv) {
                     files.request({forge::EditorFiles::Command::Quit, {}, {}});
             }
             scene_asset_drop.poll(scene, files, editor.selection,
-                                  play.active() || (native->busy() || sdk_build->busy()) ||
-                                      content_files.busy() || authored_components.busy(),
+                                  play.active() || sdk_build->busy() || content_files.busy() ||
+                                      authored_components.busy(),
                                   message);
-            files.pump(!(native->busy() || sdk_build->busy()));
+            files.pump(!sdk_build->busy());
             if (files.changed) {
                 play.stop();
                 editor.selection.clear();
@@ -1616,15 +1623,10 @@ int main(int argc, char** argv) {
                     editor.problems.reset();
                     editor.log.clear();
                     editor.last_status.clear();
-                    native = std::make_unique<forge::NativeBuild>(
-                        active_project, install_root / "sdk", runtime_path);
                     sdk_build = std::make_unique<forge::SdkBuild>(active_project);
                     cpp_sources.project_changed(active_project);
                     compiler_diagnostics.clear();
                     compiler_log_revision = 0;
-                    native->cmake = cmake_path;
-                    native->ninja = ninja_path;
-                    native->auto_build = auto_build;
                 }
                 files.changed = false;
             }
@@ -1750,27 +1752,57 @@ int main(int argc, char** argv) {
                 runtime_ui.sync(play, files.document.project(), workspace.game);
                 play.sdk_diag_slow("runtime_ui.sync", SDL_GetTicks() - _t0);
             }
+            const bool sdk_build_was_busy = sdk_build->busy();
             sdk_build->pump(files.document);
+            if (sdk_build_was_busy && !sdk_build->busy())
+                source_identity_checked = 0;
+            if (sdk_build->managed() && !sdk_build->busy() &&
+                (source_revision_seen != cpp_sources.source_revision ||
+                 SDL_GetTicks() - source_identity_checked > 3000)) {
+                source_identity_checked = SDL_GetTicks();
+                source_revision_seen = cpp_sources.source_revision;
+                try {
+                    gameplay_current = forge::gameplay_source_current(
+                        files.document.project(), files.document.settings().document());
+                    source_identity_error.clear();
+                } catch (const std::exception& e) {
+                    gameplay_current = false;
+                    source_identity_error = e.what();
+                }
+            }
+            if (cpp_play_build_pending) {
+                cpp_play_build_seen_busy |= sdk_build->busy();
+                if (cpp_play_build_seen_busy && !sdk_build->busy()) {
+                    cpp_play_build_pending = cpp_play_build_seen_busy = false;
+                    try {
+                        if (sdk_build->error().empty() && !cpp_sources.dirty() &&
+                            forge::gameplay_source_current(files.document.project(),
+                                                           files.document.settings().document()))
+                            cpp_play_ready = true;
+                        else
+                            message = "Gameplay build did not complete. Last good build retained; "
+                                      "Play was not started.";
+                    } catch (const std::exception& e) {
+                        message = std::string("Gameplay build identity failed: ") + e.what();
+                    }
+                }
+            }
             if (compiler_log_revision != sdk_build->log_revision()) {
                 compiler_log_revision = sdk_build->log_revision();
                 compiler_diagnostics =
                     forge::ui::cpp_diagnostics(files.document.project(), sdk_build->log());
             }
             if (cpp_sources.build_pending && cpp_sources.build_on_save && !cpp_sources.dirty() &&
-                sdk_build->managed() && !play.active() && !sdk_build->busy() && !native->busy() &&
-                !files.busy() && !content_files.busy() && !authored_components.busy() &&
-                !game_export.busy() && !runtime_dependencies.busy()) {
+                sdk_build->managed() && !play.active() && !sdk_build->busy() && !files.busy() &&
+                !content_files.busy() && !authored_components.busy() && !game_export.busy() &&
+                !runtime_dependencies.busy()) {
                 perform(cpp_sources.request_build);
             }
-            native->simulation_hz = files.document.settings().simulation_hz();
-            native->gravity = files.document.settings().physics().gravity;
             if (!files.document.settings().requires_native_sdk() && !sdk_build->managed()) {
                 const auto _t0 = SDL_GetTicks();
-                native->pump(play, authoring_snapshot.snapshot(scene));
                 play.sdk_diag_slow("native.pump", SDL_GetTicks() - _t0);
             }
-            files.set_switch_available(!game_export.busy() &&
-                                       !(native->busy() || sdk_build->busy()));
+            files.set_switch_available(!game_export.busy() && !sdk_build->busy());
             int width = 0, height = 0;
             SDL_GetWindowSizeInPixels(window.get(), &width, &height);
             if (width <= 0 || height <= 0 ||
@@ -1786,9 +1818,9 @@ int main(int argc, char** argv) {
                 play.sdk_diag_slow("swap.Resize", SDL_GetTicks() - _t0);
             }
             const std::string automation_busy =
-                play.active()                           ? "Stop play before editing"
-                : (native->busy() || sdk_build->busy()) ? "Wait for the native build"
-                : (files.busy() || files.changed)       ? "Finish the file operation"
+                play.active()                     ? "Stop play before editing"
+                : sdk_build->busy()               ? "Wait for the native build"
+                : (files.busy() || files.changed) ? "Finish the file operation"
                 : (scene_tools.move.active() || modal.active() || blockout.active() ||
                    ImGui::IsAnyItemActive() ||
                    ImGui::IsPopupOpen(nullptr,
@@ -1833,7 +1865,7 @@ int main(int argc, char** argv) {
                 play.can_recover() ? "CRASHED"
                 : play.active()    ? (play.paused() ? "PAUSED" : "PLAYING")
                                    : "EDIT",
-                editor.problems.size(), !selected.empty(), (native->busy() || sdk_build->busy()),
+                editor.problems.size(), !selected.empty(), sdk_build->busy(),
                 [&] {
                     workspace.toggle_bottom();
                     perform(save_preferences);
@@ -1852,17 +1884,15 @@ int main(int argc, char** argv) {
             game_export.poll(content_imports, [&] { content.refresh(files); });
             runtime_dependencies.poll([&] { content.refresh(files); });
             const bool edit_locked = game_export.busy() || runtime_dependencies.busy() ||
-                                     play.active() || (native->busy() || sdk_build->busy()) ||
-                                     files.busy() || scene_tools.move.active() || modal.active() ||
+                                     play.active() || sdk_build->busy() || files.busy() ||
+                                     scene_tools.move.active() || modal.active() ||
                                      blockout.active();
             cpp_sources.build_enabled = sdk_build->managed() && !edit_locked &&
-                                        !content_files.busy() && !authored_components.busy() &&
-                                        !cpp_sources.dirty();
+                                        !content_files.busy() && !authored_components.busy();
             document_locked = edit_locked;
-            asset_document_locked = game_export.busy() || runtime_dependencies.busy() ||
-                                    (native->busy() || sdk_build->busy()) || files.busy() ||
-                                    scene_tools.move.active() || modal.active() ||
-                                    blockout.active();
+            asset_document_locked =
+                game_export.busy() || runtime_dependencies.busy() || sdk_build->busy() ||
+                files.busy() || scene_tools.move.active() || modal.active() || blockout.active();
             editor.selection.reconcile(scene.document());
             if (editor.task.owner == forge::ui::DocumentTask::Extension &&
                 !documents.available(editor.task.id()))
@@ -1911,9 +1941,21 @@ int main(int argc, char** argv) {
                 "game.export", "Export Game...", "",
                 "Build a relocatable Development standalone game from saved project content.", true,
                 [&] {
-                    if (sdk_build->managed() && !files.document.settings().requires_native_sdk())
+                    if (!sdk_build->managed() && !files.document.settings().requires_native_sdk() &&
+                        std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
                         throw std::runtime_error(
-                            "Build gameplay successfully before exporting this SDK project.");
+                            "Older C++ gameplay source is preserved but unsupported. "
+                            "Migrate it to the managed C++ gameplay project before export.");
+                    if (sdk_build->managed()) {
+                        if (cpp_sources.dirty())
+                            throw std::runtime_error(
+                                "Save C++ source and Build Gameplay before exporting.");
+                        if (!forge::gameplay_source_current(files.document.project(),
+                                                            files.document.settings().document()))
+                            throw std::runtime_error(
+                                "Build Gameplay before exporting: saved C++ source is not the "
+                                "admitted module. Last-good gameplay is retained.");
+                    }
                     const auto modules =
                         files.document.settings().document().value("modules", forge::Json::array());
                     game_export.open(
@@ -2019,9 +2061,21 @@ int main(int argc, char** argv) {
                 "scan and queued asset imports to finish. Authoring remains in Scene.",
                 content_imports.ready_for_play() &&
                     (!sdk_build->managed() || files.document.settings().requires_native_sdk()) &&
-                    !play.active() && !(native->busy() || sdk_build->busy()) && !files.busy() &&
-                    !modal.active() && !blockout.active() && !scene_tools.move.active(),
+                    !play.active() && !sdk_build->busy() && !files.busy() && !modal.active() &&
+                    !blockout.active() && !scene_tools.move.active(),
                 [&] {
+                    if (!sdk_build->managed() && !files.document.settings().requires_native_sdk() &&
+                        std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
+                        throw std::runtime_error(
+                            "Older C++ gameplay source is preserved but unsupported. "
+                            "Migrate it to the managed C++ gameplay project before Play.");
+                    if (sdk_build->managed() &&
+                        (cpp_sources.dirty() ||
+                         !forge::gameplay_source_current(files.document.project(),
+                                                         files.document.settings().document()))) {
+                        cpp_play_dialog = true;
+                        return;
+                    }
                     const bool sdk = files.document.settings().requires_native_sdk();
                     // The opt-in SDK Play profile is gated by an
                     // exact-SDK configuration AND an authored
@@ -2031,8 +2085,10 @@ int main(int argc, char** argv) {
                     // read the project file inside configure —
                     // settings already mirrors the authored
                     // document.
-                    const bool sdk_game =
-                        sdk && files.document.settings().document().contains("game");
+                    if (sdk && !files.document.settings().document().contains("game"))
+                        throw std::runtime_error(
+                            "Enable game runtime settings in Gameplay Code before Play.");
+                    const bool sdk_game = sdk;
                     auto executable = std::filesystem::path(runtime_path);
                     if (sdk) {
                         const auto root = exact_sdk_root[0]
@@ -2063,11 +2119,42 @@ int main(int argc, char** argv) {
                     // and SDK Play; physical output has separate acceptance.
                     play.set_headless_audio(true);
 #endif
-                    play.start(forge::path_utf8(executable), scene.snapshot(),
-                               sdk ? std::string{} : native->artifact());
+                    play.start(forge::path_utf8(executable), scene.snapshot());
                     workspace.game = true;
                     focus_game = true;
                 });
+            if (cpp_play_ready) {
+                cpp_play_ready = false;
+                if (!actions.invoke("play"))
+                    message = "Gameplay built, but Play is currently unavailable.";
+            }
+            if (cpp_play_dialog) {
+                ImGui::OpenPopup("Build C++ gameplay before Play?");
+                cpp_play_dialog = false;
+            }
+            if (ImGui::BeginPopupModal("Build C++ gameplay before Play?", nullptr,
+                                       ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::TextWrapped("C++ gameplay source changed after the last admitted build. "
+                                   "Save, build and validate it before Play.");
+                if (forge::ui::button(
+                        "Save, Build & Play",
+                        "Save open C++ drafts, build the complete saved source, then start "
+                        "Play only after the new module passes validation.")) {
+                    perform([&] {
+                        cpp_sources.save_all(files.document);
+                        cpp_sources.request_build();
+                        cpp_play_build_pending = sdk_build->busy();
+                        cpp_play_build_seen_busy = sdk_build->busy();
+                        if (!cpp_play_build_pending)
+                            throw std::runtime_error("Gameplay build did not start.");
+                        ImGui::CloseCurrentPopup();
+                    });
+                }
+                ImGui::SameLine();
+                if (forge::ui::button("Cancel", "Keep source and authored scene unchanged."))
+                    ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
             add_action("pause", play.active() && play.paused() ? "Resume" : "Pause", "F6",
                        "Pause or resume the runtime clock. SDK profile requires an observed "
                        "physical release before Pause.",
@@ -2115,14 +2202,13 @@ int main(int argc, char** argv) {
                            // auto-clears on session change.
                            play.stop();
                        });
-            add_action(
-                "recover", "Recover runtime", "",
-                "Reconstruct the last compatible completed checkpoint.",
-                play.can_recover() && !(native->busy() || sdk_build->busy()) && !files.busy(), [&] {
-                    play.recover();
-                    workspace.game = true;
-                    focus_game = true;
-                });
+            add_action("recover", "Recover runtime", "",
+                       "Reconstruct the last compatible completed checkpoint.",
+                       play.can_recover() && !sdk_build->busy() && !files.busy(), [&] {
+                           play.recover();
+                           workspace.game = true;
+                           focus_game = true;
+                       });
             for (auto [id, label, key] : {std::tuple{"tool.select", "Select", "Q"},
                                           {"tool.move", "Move", "W"},
                                           {"tool.rotate", "Rotate", "R"},
@@ -3287,9 +3373,26 @@ int main(int argc, char** argv) {
             }
             if (workspace.inspector) {
                 if (ImGui::Begin("Inspector", &workspace.inspector)) {
-                    ImGui::BeginDisabled(play.active() || (native->busy() || sdk_build->busy()) ||
-                                         files.busy() || scene_tools.move.active() ||
-                                         modal.active());
+                    if (play.active() && play.sdk_play() && play.ready() &&
+                        editor.selection.entities().size() == 1) {
+                        component_inspector.draw_runtime(
+                            play.effective_snapshot(), play.runtime_schema(),
+                            files.document.project(), selected,
+                            [&](const std::string& type, const std::string& property,
+                                const forge::Json& value) {
+                                return play.submit_property_tune(selected, type, property, value);
+                            });
+                        const auto& tune = play.property_tune_ack();
+                        if (tune.is_object())
+                            ImGui::TextWrapped(
+                                "%s", tune.value("ok", true)
+                                          ? "Live value applied to runtime."
+                                          : tune.value("error", "Live change rejected.").c_str());
+                        ImGui::Separator();
+                        ImGui::TextDisabled("Authored Scene (read only during Play)");
+                    }
+                    ImGui::BeginDisabled(play.active() || sdk_build->busy() || files.busy() ||
+                                         scene_tools.move.active() || modal.active());
                     if (editor.selection.kind() != forge::ui::SelectionKind::DocumentItem)
                         editor.task.focus(editor.selection.kind() ==
                                                       forge::ui::SelectionKind::PrefabMember &&
@@ -3747,9 +3850,8 @@ int main(int argc, char** argv) {
                                     "camera range.";
                         }
                         const bool can_edit =
-                            !game_view && focused && !play.active() &&
-                            !(native->busy() || sdk_build->busy()) && !files.busy() &&
-                            !blockout.active() &&
+                            !game_view && focused && !play.active() && !sdk_build->busy() &&
+                            !files.busy() && !blockout.active() &&
                             !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
                                                              ImGuiPopupFlags_AnyPopupLevel);
                         scene_asset_drop.target(
@@ -4018,16 +4120,15 @@ int main(int argc, char** argv) {
             }
             cache_tools.draw(
                 files.busy() || files.changed || scene_tools.move.active() || modal.active() ||
-                blockout.active() || play.active() || (native->busy() || sdk_build->busy()) ||
+                blockout.active() || play.active() || sdk_build->busy() ||
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
                 material_editor.pending() || graph_editor.pending() || source_import.busy() ||
                 animation_tools.pending() || navigation_tools.pending() ||
                 script_editor.pending() || authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
-            source_import.draw(play.active() || (native->busy() || sdk_build->busy()) ||
-                               content_files.busy() || authored_components.busy() ||
-                               scene_asset_drop.busy());
+            source_import.draw(play.active() || sdk_build->busy() || content_files.busy() ||
+                               authored_components.busy() || scene_asset_drop.busy());
             script_editor.draw_source_viewer(files.document);
             diagnostic_source.draw(files.document.project());
             if (editor.reveal_content) {
@@ -4076,17 +4177,19 @@ int main(int argc, char** argv) {
                         "Machine-local matching installation with bin and sdk. Blank "
                         "uses NativeSdk from the matching Developer Kit in this installation.");
                     ImGui::EndDisabled();
-                    if (!native->has_source() && !files.document.settings().requires_native_sdk()) {
+                    if (!std::filesystem::exists(files.document.project() /
+                                                 "Native/gameplay.cpp") &&
+                        !files.document.settings().requires_native_sdk()) {
                         ImGui::BeginDisabled(play.active() || sdk_build->busy());
-                        if (forge::ui::button("Create C++ gameplay project",
-                                              "Create exact-SDK Native/gameplay.cpp without "
-                                              "overwriting existing files. "
-                                              "Build it, inspect components, then add Gameplay "
-                                              "Counter to an entity."))
+                        if (forge::ui::button(
+                                "Create C++ gameplay project",
+                                "Create a Flecs C++ gameplay starter without "
+                                "overwriting existing files. Then create Components "
+                                "and Systems, build, and add component data to entities."))
                             perform([&] { sdk_build->create(files.document, selected_sdk); });
                         ImGui::EndDisabled();
                     }
-                    if (native->has_source()) {
+                    if (sdk_build->managed()) {
                         if (forge::ui::button(
                                 "Open C++ source",
                                 "Edit Native/gameplay.cpp inside FORGE. Other source files can be "
@@ -4096,14 +4199,51 @@ int main(int argc, char** argv) {
                     }
                     if (files.document.settings().requires_native_sdk() || sdk_build->managed()) {
                         ImGui::TextWrapped(
-                            "Exact SDK project — registrations load when Play starts.");
-                        forge::ui::help("The runtime validates every declared module and its exact "
-                                        "SDK fingerprint before creating the play world.");
+                            "C++ gameplay project — components and systems run during Play.");
+                        forge::ui::help("The isolated runtime validates the matching game build "
+                                        "before creating the play world.");
+                        if (!files.document.settings().document().contains("game")) {
+                            ImGui::BeginDisabled(play.active() || sdk_build->busy());
+                            if (forge::ui::button(
+                                    "Enable game runtime settings",
+                                    "Add persistent game/session defaults needed for Play and "
+                                    "standalone export."))
+                                perform([&] { sdk_build->enable_game_profile(files.document); });
+                            ImGui::EndDisabled();
+                        }
                         if (sdk_build->managed()) {
+                            const bool last_good = [&] {
+                                for (const auto& module :
+                                     files.document.settings().document().value(
+                                         "modules", forge::Json::array()))
+                                    if (module.is_object() &&
+                                        module.value("id", "") == "project.gameplay")
+                                        return true;
+                                return false;
+                            }();
+                            const char* gameplay_state =
+                                sdk_build->busy()                                  ? "Building"
+                                : cpp_sources.dirty()                              ? "Source Dirty"
+                                : !sdk_build->error().empty() && !gameplay_current ? "Build Failed"
+                                : gameplay_current ? "Gameplay Current"
+                                                   : "Build Required";
+                            ImGui::Text("Gameplay: %s", gameplay_state);
+                            FORGE_UI_PROBE("cpp:gameplay-state");
+                            if (last_good && !gameplay_current)
+                                ImGui::TextUnformatted(
+                                    "Last good build retained; source is not current.");
+                            if (!source_identity_error.empty())
+                                ImGui::TextWrapped("%s", source_identity_error.c_str());
+                            cpp_sources.draw_browser(files.document,
+                                                     play.active() || sdk_build->busy() ||
+                                                         files.busy() || modal.active() ||
+                                                         content_files.busy() ||
+                                                         authored_components.busy());
                             ImGui::BeginDisabled(play.active() || sdk_build->busy() ||
                                                  modal.active() || content_files.busy() ||
                                                  authored_components.busy());
-                            if (forge::ui::button("Build gameplay",
+                            if (forge::ui::button(cpp_sources.dirty() ? "Save & Build gameplay"
+                                                                      : "Build gameplay",
                                                   "Configure, compile, collect dependencies and "
                                                   "validate in an isolated runtime. "
                                                   "A successful build registers the new module. "
@@ -4117,8 +4257,10 @@ int main(int argc, char** argv) {
                                 sdk_build->cancel();
                             ImGui::TextWrapped("%s", sdk_build->status().c_str());
                             FORGE_UI_PROBE("sdk:build-status");
-                            forge::ui::help("Source: Native/gameplay.cpp. Full compiler output: "
-                                            ".forge/sdk-build/build.log.");
+                            forge::ui::help(
+                                "Project source lives in Native/; Components and Systems "
+                                "may use separate files. Full compiler output: "
+                                ".forge/sdk-build/build.log.");
                             if (!sdk_build->error().empty()) {
                                 ImGui::TextWrapped("%s", sdk_build->error().c_str());
                                 FORGE_UI_PROBE("sdk:build-error");
@@ -4166,7 +4308,7 @@ int main(int argc, char** argv) {
                             }
                             forge::ui::help("Machine-local compiler commands; the SDK validates "
                                             "compiler, flags, architecture and CRT.");
-                            const bool sdk_output_open = ImGui::TreeNode("SDK build output");
+                            const bool sdk_output_open = ImGui::TreeNode("Compiler output");
                             FORGE_UI_PROBE("sdk:build-output");
                             if (sdk_output_open) {
                                 for (std::size_t i = 0; i < compiler_diagnostics.size(); ++i) {
@@ -4192,15 +4334,15 @@ int main(int argc, char** argv) {
                                             "remains in the build log.");
                         }
                         ImGui::TextWrapped(
-                            "Stop Play, build your project modules with the matching "
-                            "installed SDK, inspect authored components, then press Play. Changes "
+                            "Stop Play, build gameplay with the matching installed SDK, "
+                            "inspect authored components, then press Play. Code changes "
                             "restart from "
                             "the authored scene; arbitrary C++ state is not restored.");
                         forge::ui::help(
                             "Managed projects use Build gameplay above. Other projects use their "
                             "external developer terminal. Failed builds retain the previous "
                             "module. "
-                            "Rich SDK registration is restart-bound, not ABI1 hot reload.");
+                            "C++ registration changes require Stop, Build, then Play.");
                         ImGui::TextWrapped("Runtime-only types remain in gameplay. Types that "
                                            "explicitly opt into authoring can be inspected below.");
                         forge::ui::help("Flecs reflection alone does not make arbitrary native "
@@ -4210,84 +4352,18 @@ int main(int argc, char** argv) {
                                                   : install_root / "NativeSdk";
                         authored_components.draw(scene, files.document, prefab_editor,
                                                  sdk_root / "bin/forge_runtime.exe",
-                                                 play.active() ||
-                                                     (native->busy() || sdk_build->busy()) ||
+                                                 play.active() || sdk_build->busy() ||
                                                      modal.active() || scene_tools.move.active() ||
                                                      blockout.active() || content_files.busy());
                     } else {
-                        ImGui::BeginDisabled((native->busy() || sdk_build->busy()) ||
-                                             modal.active() || scene_tools.move.active() ||
-                                             blockout.active());
-                        try {
-                            if (forge::ui::button(
-                                    "Create source",
-                                    "Create Native/gameplay.cpp and CMakeLists.txt. Existing "
-                                    "files are never overwritten."))
-                                native->create_source();
-                            if (forge::ui::button(
-                                    "Build & Reload",
-                                    "Incrementally compile, probe a unique candidate DLL, then "
-                                    "reload "
-                                    "at a "
-                                    "runtime boundary. Failed builds retain the previous module."))
-                                native->build();
-                            if (ImGui::TreeNode("Compiler setup")) {
-                                forge::ui::help(
-                                    "Advanced executable paths for local gameplay compilation.");
-                                if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
-                                    native->cmake = cmake_path;
-                                    perform(save_preferences);
-                                }
-                                forge::ui::help(
-                                    "CMake executable path or command on PATH. Version 3.24 or "
-                                    "newer required.");
-                                if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
-                                    native->ninja = ninja_path;
-                                    perform(save_preferences);
-                                }
-                                forge::ui::help("Ninja executable path or command on PATH. Launch "
-                                                "FORGE from an "
-                                                "x64 Native "
-                                                "Tools command prompt to provide the MSVC compiler "
-                                                "environment.");
-                                ImGui::TreePop();
-                            }
-                            forge::ui::help("Expand compiler and build-tool paths.");
-                            if (ImGui::Checkbox("Build on save", &auto_build)) {
-                                native->auto_build = auto_build;
-                                perform(save_preferences);
-                            }
-                            forge::ui::help("Watch C/C++ headers, sources and CMake files in "
-                                            "Native. Builds after "
-                                            "saves settle; play continues during compilation.");
-                        } catch (const std::exception& e) {
-                            message = e.what();
-                        }
-                        ImGui::EndDisabled();
-                        ImGui::TextWrapped("%s", native->source_path().c_str());
-                        forge::ui::help(
-                            "Edit this source in your code editor. The sample moves entities "
-                            "along the X axis.");
-                        if (!native->log().empty()) {
-                            forge::ui::heading(
-                                "Build output",
-                                "Recent compiler output. The complete current log is in "
-                                "Project/.forge/native/build.log.");
-                            ImGui::PushFont(log_font);
-                            ImGui::TextUnformatted(native->log().c_str());
-                            ImGui::PopFont();
-                            forge::ui::help(
-                                "Compiler diagnostics and build/validation results. Scroll "
-                                "horizontally for long source locations.");
-                        }
-                        ImGui::TextWrapped("%s", native->status().c_str());
-                        forge::ui::help("Native build and candidate activation status.");
-                        ImGui::TextWrapped(
-                            "Windows: use Run-Forge-Dev.cmd or an x64 Native Tools command prompt. "
-                            "Requires Visual Studio C++ tools, CMake and Ninja.");
-                        forge::ui::help(
-                            "These tools compile your gameplay locally. They are not needed to "
-                            "open the editor.");
+                        ImGui::TextWrapped("Create a C++ gameplay project above to begin.");
+                        if (!files.document.settings().requires_native_sdk() &&
+                            std::filesystem::exists(files.document.project() /
+                                                    "Native/gameplay.cpp"))
+                            ImGui::TextWrapped("Older gameplay source was preserved in Native. "
+                                               "Its previous module format is unsupported. "
+                                               "Migrate the source manually; FORGE will not "
+                                               "rewrite it.");
                     }
                 }
                 ImGui::End();
@@ -4295,7 +4371,7 @@ int main(int argc, char** argv) {
             editor.record_status("Editor", message);
             editor.record_status("Files", files.status);
             editor.record_status("Runtime", play.status());
-            editor.record_status("Build", native->status());
+            editor.record_status("Build", sdk_build->status());
             if (!runtime_ui.diagnostic().empty())
                 editor.problems.ingest({"runtime-ui/" + runtime_ui.diagnostic(),
                                         "Error",
@@ -4304,13 +4380,13 @@ int main(int argc, char** argv) {
                                         {},
                                         "Runtime UI",
                                         {}});
-            if (!native->error().empty())
-                editor.problems.ingest({"build/" + native->error(),
+            if (!sdk_build->error().empty())
+                editor.problems.ingest({"build/" + sdk_build->error(),
                                         "Error",
-                                        native->error(),
+                                        sdk_build->error(),
                                         {},
-                                        native->source_path(),
                                         {},
+                                        "Gameplay Code",
                                         {}});
             if (!files.error.empty())
                 editor.problems.ingest({"files/" + files.error,

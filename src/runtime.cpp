@@ -117,11 +117,8 @@ std::map<std::uint64_t, EvaluatedTransform> PresentationPoses::evaluate(double a
     }
     return evaluate_transforms(nodes);
 }
-RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module& module)
-    : context_(context), scene_(scene), module_(module),
-      host_{
-          sizeof(ForgeHostV1), FORGE_MODULE_API_VERSION, &scene,
-          [](void* p, float x, float y, float z) { static_cast<Scene*>(p)->translate(x, y, z); }} {
+RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
+    : context_(context), scene_(scene) {
     if (context.role() != WorldRole::Runtime)
         throw std::runtime_error("Simulation requires a runtime WorldContext");
     animation_ = animation_runtime(context);
@@ -225,11 +222,6 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
                     .with(flecs::Phase)
                     .cascade(flecs::DependsOn)
                     .build();
-    gameplay_ =
-        world.system("forge.runtime.NativeGameplay")
-            .kind(gameplay_phase_)
-            .immediate()
-            .run([this](flecs::iter& it) { stage([&] { module_.tick(host_, it.delta_time()); }); });
     transforms_ =
         world.system("forge.runtime.FinalTransforms")
             .kind(transform_phase_)
@@ -237,7 +229,6 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene, Module
             .run([this](flecs::iter&) { stage([&] { context_.evaluate_world_transforms(); }); });
     world.set_pipeline(pipeline_);
     input_system_.add<FixedSimulation>();
-    gameplay_.add<FixedSimulation>();
     transforms_.add<FixedSimulation>();
     reset_presentation();
 }
@@ -258,7 +249,6 @@ RuntimeSimulation::~RuntimeSimulation() {
     physics_step_.destruct();
     physics_adopt_.destruct();
     input_system_.destruct();
-    gameplay_.destruct();
     transforms_.destruct();
     pipeline_.destruct();
     transform_phase_.destruct();

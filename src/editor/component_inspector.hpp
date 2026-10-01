@@ -14,6 +14,7 @@ class ComponentInspector {
 #endif
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
+    std::function<void(const std::string&)> open_cpp_definition;
     void edit_property(Scene& scene, const std::string& entity, const std::string& component,
                        const std::string& field, const Json& value) {
         apply(scene, entity, component, field, "property.set", value);
@@ -42,6 +43,56 @@ class ComponentInspector {
                 apply(scene, entity, type.at("id"), "", "component.add", {});
             });
             ImGui::EndPopup();
+        }
+    }
+    void draw_runtime(
+        const Json& effective, const Json& schema, const std::filesystem::path& project_root,
+        const std::string& selected,
+        const std::function<bool(const std::string&, const std::string&, const Json&)>& submit) {
+        if (!effective.is_object() || !schema.is_object() || !effective.contains("entities") ||
+            !schema.contains("components"))
+            return;
+        const Json* entity = nullptr;
+        for (const auto& item : effective.at("entities"))
+            if (item.is_object() && item.value("id", "") == selected) {
+                entity = &item;
+                break;
+            }
+        if (!entity || !entity->contains("components"))
+            return;
+        ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
+                                     "scene and prefab state.");
+        ImGui::TextDisabled("PLAY — runtime only");
+        for (const auto& type : schema.at("components")) {
+            if (!type.is_object() || !type.value("custom", false) || !type.contains("admission") ||
+                !type.contains("fields"))
+                continue;
+            const auto key = type.at("id").get<std::string>();
+            const auto& components = entity->at("components");
+            if (!components.contains(key) || !components.at(key).is_object() ||
+                components.at(key).value("$forge", Json()) != type.at("admission"))
+                continue;
+            ui::IdScope component_scope(key.c_str());
+            if (!ImGui::CollapsingHeader(type.value("display_name", key).c_str(),
+                                         ImGuiTreeNodeFlags_DefaultOpen))
+                continue;
+            for (const auto& field : type.at("fields")) {
+                const auto name = field.at("id").get<std::string>();
+                if (!components.at(key).contains(name))
+                    continue;
+                ui::IdScope field_scope(name.c_str());
+                auto value = components.at(key).at(name);
+                const bool read_only = field.value("read_only", false);
+                ImGui::BeginDisabled(read_only);
+                const bool changed = property_field(project_root, field, value);
+                ImGui::EndDisabled();
+                FORGE_UI_PROBE("runtime-field:" + key + ":" + name);
+                if (changed && !read_only && !submit(key, name, value))
+                    ImGui::TextWrapped("Live change is pending or Play is not ready.");
+                ui::help(read_only ? "Runtime observation; this property is read only."
+                                   : "Tune this running world. The authored scene and prefab "
+                                     "remain unchanged after Stop.");
+            }
         }
     }
     void draw(Scene& scene, SceneDocument& project, const std::string& selected) {
@@ -160,6 +211,13 @@ class ComponentInspector {
                 continue;
             }
             if (ImGui::BeginPopupContextItem("component-actions")) {
+                if (type.value("custom", false) && open_cpp_definition) {
+                    if (ImGui::MenuItem("Open C++ Definition"))
+                        open_cpp_definition(key);
+                    ui::help("Open the registered C++ component source when FORGE has verified "
+                             "its managed source provenance.");
+                    ImGui::Separator();
+                }
                 if (prefab) {
                     ImGui::BeginDisabled(whole);
                     if (ImGui::MenuItem("Override component"))

@@ -10,7 +10,7 @@ SDL events → editor capture policy → ordered neutral InputEvents
 
 ## Timing
 
-RuntimeInput validates each batch completely before changing state. Continuous physical values are mapped to project actions. Each actual RuntimeSimulation tick latches one snapshot before the fixed pipeline; the same snapshot remains immutable through InputMonitor → NativeGameplay → FinalTransforms. InputMonitor counts digital edges without assigning gameplay meaning to action labels. ABI1 native modules do not gain action access in this phase; the monitor is the first runtime consumer and a no-code acceptance tool.
+RuntimeInput validates each batch completely before changing state. Continuous physical values are mapped to project actions. Each actual RuntimeSimulation tick latches one snapshot before the fixed pipeline; the same snapshot remains immutable through InputMonitor → NativeGameplay → FinalTransforms. InputMonitor counts digital edges without assigning gameplay meaning to action labels. The retired movement-only interface did not expose these actions; project C++ gameplay now reads input through the exact SDK.
 
 Digital held persists; pressed/released flags accumulate until the next actual tick and are cleared after consumption. Quick taps retain both flags; multiple same-type transitions within a tick interval coalesce. Catch-up ticks see held with no repeated edge. Relative mouse/wheel contributions are consumed once; continuous axes persist. Analog1D is clamped to[-1,1]; analog2D continuous length is clamped to1. Relative contributions are added afterward. Deadzones rescale gamepad axes. No caller/render delta determines input tick duration.
 
@@ -32,7 +32,7 @@ Official SDL headers at fa2c02bb6e21974a89ea9824bc53c9932abe5f9c were inspected 
 
 ## Internal SDK consumer
 
-Phase6A's separate exact native SDK exposes borrowed action snapshots through ActionId, alongside direct Flecs fixed-system registration. The existing ABI1 remains unchanged. See [Engine modules](engine-modules.md); the test module is transient and does not introduce engine-defined gameplay actions.
+Phase6A's separate exact native SDK exposes borrowed action snapshots through ActionId, alongside direct Flecs fixed-system registration. The retired movement-only ABI1 interface is no longer a project gameplay path. See [Engine modules](engine-modules.md); the test module is transient and does not introduce engine-defined gameplay actions.
 
 ## Runtime UI routing
 
@@ -87,7 +87,7 @@ session mutation is rejected. A callback exception faults the world; it cannot b
 resumed. Exact-SDK `controls` and `read_control` expose this boundary; the returned
 sequence is a control-frame index, not a physics tick. UI publication/polling is
 allowed in fixed ticks or control callbacks. Physics commands remain fixed-only.
-These extensions are exact-build SDK changes; legacy gameplay ABI1 is unchanged.
+These extensions are exact-build SDK changes; project C++ gameplay uses only the exact SDK.
 
 ### Runtime control callbacks and host requests
 

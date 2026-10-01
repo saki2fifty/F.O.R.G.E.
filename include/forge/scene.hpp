@@ -51,6 +51,10 @@ class Scene {
     void edit_prefab(const PrefabSources&, const Json&, const std::function<void()>&,
                      std::shared_ptr<PrefabReplay> replay);
     void replay_prefab(const PrefabSources&, const Json&, const std::function<void()>&);
+    // Runtime owner-thread transient reflected authoring value. Never writes authored
+    // source, scene history or prefab asset; a new Play world discards the change.
+    Json tune_runtime_property(const std::string& entity_id, const std::string& type_key,
+                               const std::string& property_key, const Json& value);
     Json snapshot() const;
     void restore_snapshot(const Json& snapshot);
     void replace(const Json& document);

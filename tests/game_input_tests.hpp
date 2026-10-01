@@ -27,7 +27,7 @@ inline void test_game_input(const char* runtime) {
                                      {"kind", "digital"},
                                      {"bindings", Json::array({{{"control", "key.space"}},
                                                                {{"control", "pad.south"}}})}}})}}));
-        play.start(runtime, empty_scene(), {}, true);
+        play.start(runtime, empty_scene(), true);
         auto wait = [&](auto done) {
             const auto deadline = SDL_GetTicks() + 5000;
             while (!done() && play.active() && SDL_GetTicks() < deadline) {
@@ -195,7 +195,7 @@ inline void test_game_input_checked_release(const char* runtime) {
                                      {"name", "Test"},
                                      {"kind", "digital"},
                                      {"bindings", Json::array({{{"control", "key.space"}}})}}})}}));
-    play.start(runtime, empty_scene(), {}, true);
+    play.start(runtime, empty_scene(), true);
     auto wait = [&](auto done) {
         const auto deadline = SDL_GetTicks() + 5000;
         while (!done() && play.active() && SDL_GetTicks() < deadline) {

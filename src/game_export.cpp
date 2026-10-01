@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "authored_inspection.hpp"
 #include "bounded_json.hpp"
+#include "gameplay_source_identity.hpp"
 #include "publish_directory.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/project.hpp>
@@ -166,6 +167,20 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
                               "startup_scene", "game", "modules"})
         if (original_settings.contains(field))
             settings[field] = original_settings.at(field);
+    const bool managed_gameplay =
+        std::filesystem::is_regular_file(source.root() / "Native/forge.sdk-project.json");
+    const auto declared_modules = settings.value("modules", Json::array());
+    if (!managed_gameplay &&
+        std::filesystem::is_regular_file(source.root() / "Native/gameplay.cpp") &&
+        !std::any_of(declared_modules.begin(), declared_modules.end(),
+                     [](const Json& module) { return module.is_object(); }))
+        throw std::runtime_error(
+            "Older C++ gameplay source is preserved but unsupported. Migrate it to the "
+            "managed C++ gameplay project before export.");
+    if (managed_gameplay)
+        require(gameplay_source_current(source.root(), settings),
+                "C++ gameplay source changed or has not been built. Save and Build Gameplay before "
+                "export");
     require(!settings.contains("game") || settings.at("game").at("profile") == "development",
             "Only Development standalone export is currently supported");
     require(settings.contains("game") && !settings.at("startup_scene").is_null(),
@@ -183,7 +198,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
         std::filesystem::u8path(runtime.at("executable").get<std::string>()));
     require(executable.parent_path().empty() && runtime.at("files").contains(path_utf8(executable)),
             "Runtime kit executable missing");
-    require(profile == "static-abi1" || profile == "shared-native-sdk",
+    require(profile == "static-core" || profile == "shared-native-sdk",
             "Unsupported runtime linkage profile");
     require(runtime.at("files").contains("resources/ui/LatoLatin-Regular.ttf"),
             "Runtime kit default font missing");

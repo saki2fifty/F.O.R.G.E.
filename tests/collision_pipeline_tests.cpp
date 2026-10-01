@@ -97,8 +97,7 @@ void runtime_collision(const std::filesystem::path& root, AssetId asset,
     require(physics->raycast({0, 0, -5}, {0, 0, 10}).has_value(),
             "Asset collider has no native collision");
     const auto checkpoint = physics->checkpoint();
-    Module module;
-    RuntimeWorld recovery(module, {}, {}, {}, root, false);
+    RuntimeWorld recovery({}, {}, {}, root, false);
     recovery.scene.restore_snapshot(game.active().scene.snapshot());
     wait_physics(*recovery.physics());
     recovery.physics()->restore(checkpoint);
@@ -205,8 +204,7 @@ int main(int argc, char** argv) {
             node["source"]["revision"] = engine_asset_revision(engine_primitive(0).id);
             save(path, source);
             {
-                Module module;
-                RuntimeWorld runtime(module, {}, PhysicsConfig{}, std::nullopt, root, false);
+                RuntimeWorld runtime({}, PhysicsConfig{}, std::nullopt, root, false);
                 const auto resources = runtime.engine.services().resources();
                 const auto observer =
                     resources->request(RuntimeResourceKind::Collision, source.asset());

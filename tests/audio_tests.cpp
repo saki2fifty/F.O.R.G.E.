@@ -60,7 +60,6 @@ Json source(AssetId clip) {
     return {{"version", 1}, {"entities", Json::array({entity})}};
 }
 struct Fixture {
-    Module module;
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;
@@ -68,7 +67,7 @@ struct Fixture {
     explicit Fixture(const std::filesystem::path& root, float volume = 1)
         : engine(WorldRole::Runtime, false,
                  {audio_module({root, AudioOutput::Offline, true, volume})}),
-          scene(engine.world()), simulation(engine.world(), scene, module),
+          scene(engine.world()), simulation(engine.world(), scene),
           audio(std::static_pointer_cast<AudioRuntime>(engine.services().audio())) {}
     void load(const Json& doc) {
         scene.restore_snapshot(doc);
@@ -471,8 +470,7 @@ int main(int argc, char** argv) {
 
             // (a) Offline audio + working source → prepare_scene_resources succeeds.
             {
-                Module module;
-                RuntimeWorld world(module, {}, PhysicsConfig{},
+                RuntimeWorld world({}, PhysicsConfig{},
                                    std::optional<AudioConfig>{
                                        AudioConfig{scene_root, AudioOutput::Offline, false}},
                                    scene_root, false);
@@ -485,8 +483,7 @@ int main(int argc, char** argv) {
 
             // (b) Offline audio + unresolvable clip → throws required-source failure.
             {
-                Module module;
-                RuntimeWorld world(module, {}, PhysicsConfig{},
+                RuntimeWorld world({}, PhysicsConfig{},
                                    std::optional<AudioConfig>{
                                        AudioConfig{scene_root, AudioOutput::Offline, false}},
                                    scene_root, false);
@@ -513,8 +510,7 @@ int main(int argc, char** argv) {
 
             // (c) No audio module + non-prefab AudioSource → throws unavailable.
             {
-                Module module;
-                RuntimeWorld world(module, {}, PhysicsConfig{}, std::nullopt, scene_root, false);
+                RuntimeWorld world({}, PhysicsConfig{}, std::nullopt, scene_root, false);
                 world.scene.restore_snapshot(working_doc);
                 check(!world.engine.services().available(Capability::Audio),
                       "Audio capability published without an audio module");

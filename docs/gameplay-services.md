@@ -1,7 +1,7 @@
 # Exact-SDK game control services
 
 The experimental exact-version SDK exposes `FORGE_SDK_GAME` through the existing
-world/module capability boundary. Legacy gameplay ABI1 is unchanged. Exact-SDK
+world/module capability boundary. Exact-SDK
 modules must rebuild against this SDK: descriptor/host sizes and the fingerprint
 include the new callbacks. No `GameSession*`, `GameStorage*`, SDL window, graphics
 context or filesystem owner crosses the boundary.
@@ -251,7 +251,7 @@ remote or GPU readiness validation.
 
 The exact-version SDK still rejects partial live DLL reload and any
 "exact SDK recovery" path that would re-attach the module after an
-admission failure; legacy gameplay ABI1 modules remain a separate
+admission failure; project C++ gameplay uses the same exact-SDK
 target with their own host.
 
 ## Host operations

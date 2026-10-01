@@ -24,13 +24,13 @@ RuntimeSimulation invokes audio synchronization only after a successful complete
 
 The device callback mixes continuously and never advances gameplay time. Pause stops the gameplay group while keeping the device alive. Step updates intent/transforms once with the group still stopped; it does not request an audio timeslice. Resume starts the group. Play commands restart the source at frame0; Stop stops and resets it. Basic playback counts are diagnostic presentation state, not authoritative simulation clocks.
 
-Recovery reconstructs autoplay from recovered authored source components, from frame0; other playback is stopped. No sample cursor or audio blob enters the private physics checkpoint or scene. Candidates start with their group paused; probes use no-device composition. Existing physics/private envelope and ABI1 activation/fallback contracts remain unchanged.
+Recovery reconstructs autoplay from recovered authored source components, from frame0; other playback is stopped. No sample cursor or audio blob enters the private physics checkpoint or scene. Candidates start with their group paused; probes use no-device composition. The physics/private recovery envelope remains unchanged. The movement-only ABI1 contract mentioned in the original phase record has since been retired.
 
 ## Composition and SDK
 
 `forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects no-device logic tests; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
 
-Exact SDK appends a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and Play/Stop operation. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK; ABI1 is unchanged. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
+Exact SDK appends a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and Play/Stop operation. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
 
 ## Validation and deferred work
 

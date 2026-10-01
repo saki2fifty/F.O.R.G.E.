@@ -95,6 +95,50 @@ int main() {
               "Known native values/unknown fields failed scene round trip");
         const auto before_bad = scene.document();
         const auto revision = scene.revision();
+        {
+            EngineModule gameplay;
+            gameplay.id = "project.game";
+            gameplay.dependencies = {"forge.transforms"};
+            gameplay.schema_roles = role_mask(WorldRole::Runtime);
+            gameplay.schemas = [](ModuleContext& context) {
+                auto& world = context.world;
+                const auto type = world.component<ProjectValue>()
+                                      .member<std::string>("title")
+                                      .member<std::uint64_t>("count")
+                                      .member<EntityRef>("target");
+                opt_in_authoring(world, type, "project.value", "project.game", 1,
+                                 {{"title", "Ready"}, {"count", UINT64_MAX}, {"target", nullptr}},
+                                 "Gameplay");
+            };
+            EngineContext runtime(WorldRole::Runtime, false, {gameplay});
+            Scene live(runtime.world());
+            live.restore_snapshot(scene.snapshot());
+            check(live.tune_runtime_property(selected, "project.value", "count", 42u) == 42u &&
+                      live.effective_document()
+                              .at("entities")[0]
+                              .at("components")
+                              .at("project.value")
+                              .at("count") == 42u &&
+                      scene.document() == before_bad,
+                  "Live tuning did not stay in the runtime world");
+            bool invalid_tune = false;
+            try {
+                live.tune_runtime_property(selected, "project.value", "count", -1);
+            } catch (const std::exception&) {
+                invalid_tune = true;
+            }
+            check(invalid_tune &&
+                      live.tune_runtime_property(selected, "project.value", "count", 42u) == 42u &&
+                      scene.document() == before_bad,
+                  "Invalid live tuning changed runtime or authored values");
+            invalid_tune = false;
+            try {
+                live.tune_runtime_property(selected, "project.value", "unknown", 5);
+            } catch (const std::exception&) {
+                invalid_tune = true;
+            }
+            check(invalid_tune, "Unknown live property was accepted");
+        }
         rejected = false;
         try {
             authoring_command(scene, "property.set",

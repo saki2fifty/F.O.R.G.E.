@@ -162,8 +162,7 @@ void poses() {
     rejects([&] { history.evaluate(-.1); });
     rejects([&] { history.evaluate(1.1); });
 }
-void live(const char* module_path) {
-    Module module;
+void live() {
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
     scene.replace(
@@ -184,8 +183,7 @@ void live(const char* module_path) {
     mesh.mesh.id = AssetId::generate();
     child.set<MeshRenderer>(mesh);
     child.set<SpatialBinding>({SpatialMode::FollowStructure, {}});
-    module.load(std::filesystem::absolute(module_path));
-    RuntimeSimulation simulation(engine.world(), scene, module);
+    RuntimeSimulation simulation(engine.world(), scene);
     unsigned system_calls = 0;
     float system_dt = 0;
     auto extra = scene.world()
@@ -194,6 +192,7 @@ void live(const char* module_path) {
                      .run([&](flecs::iter& it) {
                          ++system_calls;
                          system_dt = it.delta_time();
+                         scene.translate(it.delta_time(), 0, 0);
                      });
     extra.add<FixedSimulation>();
     rejects([&] { simulation.tick(0); });
@@ -267,11 +266,10 @@ void live(const char* module_path) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "module path required");
         clocks();
         signed_scale_interpolation();
         poses();
-        live(argv[1]);
+        live();
         test_runtime_entities();
         std::cout << "Clock, poses, live pipeline/presentation passed\n";
     } catch (const std::exception& e) {

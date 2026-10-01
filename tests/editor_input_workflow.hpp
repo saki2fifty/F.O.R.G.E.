@@ -197,6 +197,18 @@ class EditorInputWorkflow {
                     "Actual C++ source input missing");
             require(state.at("cpp_source_dirty").get<bool>() == (what == "cpp-source-dirty"),
                     "C++ source save/dirty state incorrect");
+        } else if (what == "cpp-component-created") {
+            const auto source = project_ / "Native/Components/Rotator.hpp";
+            require(std::filesystem::is_regular_file(source),
+                    "C++ component wizard did not create source");
+            require(state.at("cpp_source") == "Native/Components/Rotator.hpp",
+                    "C++ component source was not opened");
+        } else if (what == "cpp-system-created") {
+            require(
+                std::filesystem::is_regular_file(project_ / "Native/Systems/RotationSystem.cpp"),
+                "C++ system wizard did not create source");
+            require(state.at("cpp_source") == "Native/Systems/RotationSystem.cpp",
+                    "C++ system source was not opened");
         } else if (what == "starter-created") {
             require(state.at("sdk_build_managed"), "Gameplay source was not created");
         } else if (what == "starter-built" || what == "starter-rebuilt") {
@@ -220,7 +232,22 @@ class EditorInputWorkflow {
             bool admitted = false;
             for (const auto& c : state.at("component_schema").at("components"))
                 admitted |= c.at("id") == "project.counter";
-            require(admitted, "Gameplay Counter was not admitted");
+            bool rotator = false;
+            for (const auto& c : state.at("component_schema").at("components"))
+                rotator |= c.at("id") == "project.rotator";
+            require(admitted && rotator, "C++ gameplay components were not admitted");
+        } else if (what == "live-rotator-tuned") {
+            bool tuned = false, authored_unchanged = false;
+            for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
+                if (row.at("components").contains("project.rotator"))
+                    tuned |=
+                        row.at("components").at("project.rotator").value("speed", 0.0) == 360.0;
+            for (const auto& row : entities)
+                if (row.at("components").contains("project.rotator"))
+                    authored_unchanged |=
+                        row.at("components").at("project.rotator").value("speed", 0.0) == 90.0;
+            require(tuned && authored_unchanged,
+                    "Runtime tuning did not apply or changed authored component data");
         } else if (what == "starter-ticked") {
             require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
                     "Waiting for started gameplay runtime and its first snapshot");
@@ -228,7 +255,15 @@ class EditorInputWorkflow {
             for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
                 if (row.at("components").contains("project.counter"))
                     increased |= row.at("components").at("project.counter").value("value", 0.0) > 0;
-            require(increased, "Gameplay Counter fixed system did not run");
+            bool rotated = false;
+            for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
+                if (row.at("components").contains("project.rotator") &&
+                    row.at("components").contains("forge.local_rotation"))
+                    rotated |=
+                        std::abs(row.at("components").at("forge.local_rotation").value("y", 0.0)) >
+                        0.0001;
+            require(increased && rotated,
+                    "Generated C++ Flecs systems did not advance the authored entity");
         } else if (what == "apply-instance") {
             require(!state.at("selected").get<std::string>().empty(),
                     "Instantiate did not select entity");
@@ -587,6 +622,12 @@ class EditorInputWorkflow {
             capture("gameplay-create");
             click("button:Create C++ gameplay project");
             check("starter-created");
+            click("button:Create C++ Component");
+            check("cpp-component-created");
+            capture("cpp-component-created");
+            click("button:Create C++ System");
+            check("cpp-system-created");
+            capture("cpp-system-created");
             click("sdk:compiler-setup");
             click("button:Test compiler tools");
             check("compiler-ready");
@@ -638,12 +679,21 @@ class EditorInputWorkflow {
             text("component-search", "Gameplay Counter");
             click("component-choice:project.counter");
             key(ImGuiKey_Escape);
+            click("button:+ Add Component");
+            text("component-search", "Rotator");
+            click("component-choice:project.rotator");
+            key(ImGuiKey_Escape);
             key(ImGuiKey_S, true);
             check("saved");
             hover("component-field:project.counter:value");
             capture("gameplay-counter-inspector");
             click("icon:play");
             check("starter-ticked");
+            capture("cpp-rotator-playing");
+            text("runtime-field:project.rotator:speed", "360", true);
+            key(ImGuiKey_Enter);
+            check("live-rotator-tuned");
+            capture("cpp-rotator-live-tuned");
             click("icon:stop");
             check("stopped");
             click("tab:Content");
@@ -678,7 +728,6 @@ class EditorInputWorkflow {
             click("action:game.export");
             click("button:Project Settings");
             click("button:Use saved current scene as startup");
-            click("button:Set up game defaults");
             click("button:Save Settings");
             click("button:Close Settings");
             text("export:Destination", path_utf8(evidence / "exported-starter-game"));

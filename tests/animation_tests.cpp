@@ -26,14 +26,13 @@ std::string read(const std::filesystem::path& path) {
     return {std::istreambuf_iterator<char>(in), {}};
 }
 struct Fixture {
-    Module module;
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AnimationRuntime> animation;
     explicit Fixture(const std::filesystem::path& root)
         : engine(WorldRole::Runtime, false, {animation_module(root)}), scene(engine.world()),
-          simulation(engine.world(), scene, module), animation(animation_runtime(engine.world())) {}
+          simulation(engine.world(), scene), animation(animation_runtime(engine.world())) {}
     void load(const Json& doc) {
         scene.restore_snapshot(doc);
         simulation.reset_presentation();

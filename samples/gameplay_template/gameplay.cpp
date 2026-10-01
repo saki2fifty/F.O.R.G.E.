@@ -1,4 +1,5 @@
 // Exact-version FORGE gameplay. Registrations live in isolated runtimes only.
+#include "forge.registration.hpp"
 #include <cstdio>
 #include <exception>
 #include <flecs.h>
@@ -19,8 +20,10 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
         ecs_doc_set_name(world, type, "Gameplay Counter");
         ecs_doc_set_brief(world, type,
                           "Increases value by rate each simulation second during Play.");
-        return host->authoring_type(host->context, type, "project.counter", 1,
-                                    R"({"rate":1,"value":0})", "Gameplay", error, capacity);
+        if (!host->authoring_type(host->context, type, "project.counter", 1,
+                                  R"({"rate":1,"value":0})", "Gameplay", error, capacity))
+            return 0;
+        return forge_register_components(host, error, capacity);
     } catch (const std::exception& e) {
         if (capacity)
             std::snprintf(error, capacity, "%s", e.what());
@@ -40,6 +43,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 counter.value += counter.rate * it.delta_time();
             })
             .add(host->fixed_tag);
+        forge_register_systems(host);
         return 1;
     } catch (const std::exception& e) {
         if (capacity)

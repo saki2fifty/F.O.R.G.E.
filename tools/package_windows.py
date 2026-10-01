@@ -110,9 +110,6 @@ def package(build, dependencies, output):
     automation_sources = sorted((source/'samples/automation').glob('*.py'))
     for automation_source in automation_sources:
         manifest['files']['Examples/Automation/'+automation_source.name] = hashlib.sha256(automation_source.read_bytes()).hexdigest()
-    sdk_files = ('include/forge/module_api.h', 'samples/native/movement.c', 'samples/native/CMakeLists.txt')
-    for relative in sdk_files:
-        manifest['files']['sdk/'+relative] = hashlib.sha256((source/relative).read_bytes()).hexdigest()
     output.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(dir=output.parent, suffix='.zip.pending')
     os.close(fd)
@@ -131,8 +128,6 @@ def package(build, dependencies, output):
                 archive.write(file, "runtime-kit/"+file.relative_to(kit).as_posix())
             for notice, name in notices:
                 archive.write(notice, name)
-            for relative in sdk_files:
-                archive.write(source/relative, 'sdk/'+relative)
             for example in example_files:
                 archive.write(example, 'Examples/'+example.relative_to(example_root).as_posix())
             for automation_source in automation_sources:
@@ -141,7 +136,7 @@ def package(build, dependencies, output):
             for page in manual_files:
                 archive.write(page, 'manual/'+page.relative_to(manual_output).as_posix())
             write_text('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nif not exist "Project" mkdir "Project"\r\n"%~dp0bin\\forge_editor.exe" "%~dp0Project"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\nOpen Examples/Rendering for the model/material/camera walkthrough.\nOpen Examples/FeatureGallery for separate editable scenes and standalone export.\n\nExtract the ENTIRE archive. Keep bin/ and the other packaged folders together.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor C++ gameplay, extract the matching optional Developer Kit into this folder.\nIt adds the C++ launcher and SDK. You also need Visual Studio 2022\nC++ tools, CMake 3.30+ and Ninja. In Gameplay Code: Create source, Build & Reload, then Play.\nThe optional Developer Kit also contains the reference game.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\nOpen Examples/Rendering for the model/material/camera walkthrough.\nOpen Examples/FeatureGallery for separate editable scenes and standalone export.\n\nExtract the ENTIRE archive. Keep bin/ and the other packaged folders together.\nRun Run-Forge.cmd to open the editor with a scratch Project directory\nand retain console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor C++ gameplay, extract the matching optional Developer Kit into this folder.\nIt adds the C++ launcher and SDK. You also need Visual Studio 2022\nC++ tools, CMake 3.30+ and Ninja. In Gameplay Code: Create C++ gameplay project, create a Component and System, Build Gameplay, then Play.\nThe optional Developer Kit also contains the reference game.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
         os.replace(temporary, output)
     finally:

@@ -46,17 +46,14 @@ Json input() {
                        {"components", {{"forge.position", {{"x", -8}, {"y", .1}, {"z", 0}}}}}}})}};
 }
 struct Fixture {
-    Module module;
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<NavigationRuntime> navigation;
     Fixture(const std::filesystem::path& root)
         : engine(WorldRole::Runtime, false, {navigation_module(root)}), scene(engine.world()),
-          simulation(engine.world(), scene, module),
-          navigation(
-              std::static_pointer_cast<NavigationRuntime>(engine.world().services().navigation())) {
-    }
+          simulation(engine.world(), scene), navigation(std::static_pointer_cast<NavigationRuntime>(
+                                                 engine.world().services().navigation())) {}
     void tick() { simulation.tick(1.f / 60); }
     Double3 position() {
         engine.world().evaluate_world_transforms();

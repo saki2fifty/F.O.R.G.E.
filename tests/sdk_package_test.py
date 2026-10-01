@@ -85,7 +85,7 @@ print('Installed SDK client, PE/ELF shared dependency, relocated runtime, fixed 
 # Prove the installed audio headers and callback boundary from the relocated host too.
 subprocess.run([sys.executable,str(Path(__file__).with_name('audio_process_test.py')),str(runtime),str(client/('audio_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=40)
 # Compile and load the installed Animator component across the same shared Flecs boundary.
-subprocess.run([sys.executable,str(Path(__file__).with_name('animation_process_test.py')),str(runtime),str(build/('forge_animation_tests'+exe)),str(build/'tools'/('gltf2ozz'+exe)),str(Path(__file__).resolve().parents[1]/'samples/animation/two-joints.gltf'),str(build/('forge_sample'+ext)),str(client/('animation_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=60)
+subprocess.run([sys.executable,str(Path(__file__).with_name('animation_process_test.py')),str(runtime),str(build/('forge_animation_tests'+exe)),str(build/'tools'/('gltf2ozz'+exe)),str(Path(__file__).resolve().parents[1]/'samples/animation/two-joints.gltf'),str(client/('animation_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=60)
 # Ordinary gameplay starter: installed-only headers, admitted data and fixed system.
 # No internal probe behavior, private headers, graphics device or second Flecs.
 starter = build / 'sdk-starter-client-test'

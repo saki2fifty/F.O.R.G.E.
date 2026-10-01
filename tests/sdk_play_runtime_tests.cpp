@@ -2012,6 +2012,33 @@ void latch_quit_then_exercise_mutations() {
           "post-quit replace mutated scene");
 }
 
+void property_tune_rejects_wrong_world_or_unadmitted_type() {
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session);
+    const auto baseline = send(*host, 4, "snapshot", {{"session", session}});
+    check(baseline.value("ok", false), "Live tuning fixture has no active snapshot");
+    const auto generation = baseline.at("activation").at("generation").get<std::uint64_t>();
+    const auto scene = baseline.at("scene");
+    const auto asset = scene.at("asset_id").get<std::string>();
+    const auto entity = scene.at("entities")[0].at("id").get<std::string>();
+    auto target = Json{{"session", session}, {"generation", generation},     {"scene_asset", asset},
+                       {"entity", entity},   {"type", "project.unadmitted"}, {"property", "speed"},
+                       {"value", 360.0}};
+    target["generation"] = generation + 1;
+    check(!send(*host, 5, "property_tune", target).value("ok", true),
+          "Stale world generation admitted live tuning");
+    target["generation"] = generation;
+    target["scene_asset"] = AssetId::generate().str();
+    check(!send(*host, 6, "property_tune", target).value("ok", true),
+          "Foreign scene identity admitted live tuning");
+    target["scene_asset"] = asset;
+    check(!send(*host, 7, "property_tune", target).value("ok", true),
+          "Unadmitted component admitted live tuning");
+    check(send(*host, 8, "snapshot", {{"session", session}}).at("scene") == scene,
+          "Rejected live tuning changed active scene");
+}
+
 int run() {
     try {
         {
@@ -2046,6 +2073,7 @@ int run() {
         input_events_require_active_world();
         protocol_discriminator_rejects_float_and_string();
         schema_command_does_not_overwrite_real_schema();
+        property_tune_rejects_wrong_world_or_unadmitted_type();
         revoked_or_released_token_pruned_from_map();
         negative_cursor_ack_marks_unknown_keeps_physical();
         contradictory_ack_rejected_idempotent_accepted();

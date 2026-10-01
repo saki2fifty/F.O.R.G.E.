@@ -27,39 +27,18 @@ Open **Console** while playing. The runtime status shows **Tick**, **Fixed**, **
 2. Press **Step** once.
 3. Tick increases by exactly one and the game stays paused.
 
-The legacy sample gameplay module (ABI1) moves one meter per second along X. One default step moves about 0.0167 meters, which may be hard to see at a distant camera position. Use Tick to verify the step precisely.
-
-## Reload while paused (legacy ABI1)
-
-A compiled candidate is tested in a separate disposable runtime first. If you rebuild while paused, the status says **Reload pending first tick**. Loading it does not move your game.
-
-Press **Step** to test it with one tick and stay paused, or **Resume** to continue. Activation finishes after that first live tick succeeds. If it fails, FORGE restores the previous module and the checkpoint captured before reload, keeping the previous paused/running policy.
-
-**Stop** cancels a pending activation without running it. A newer successful build supersedes the pending candidate; the original known-good checkpoint remains the recovery point. See [Native gameplay](native-gameplay.md).
-
-This reload/checkpoint flow is part of the legacy ABI1 host. The exact-SDK Play path does not implement partial live DLL reload, partial recovery, or transactional external native callbacks. Stop Play to rebuild the project module externally, then Start Play again.
-
-## Recover after a runtime crash (legacy ABI1)
-
-Console reports runtime failures. After a later gameplay crash, **Recover** starts the last acknowledged checkpoint with its module. **Play** starts fresh instead. A restarted process has a new tick sequence beginning at zero.
-
-The separate process protects the editor from gameplay-process crashes. Editor defects and trusted native editor plugins can still crash the editor. Scene autosave recovery is separate from runtime checkpoint recovery.
-
-Changing projects or scenes stops play. Compilation temporarily disables conflicting file operations; waiting for a paused candidate's first tick does not block Step, Resume or Stop. See [Saving and recovery](saving-recovery.md).
-
-The runtime-checkpoint recovery described here belongs to the legacy ABI1 host. The exact-SDK Play path uses the explicit Save Game / Continue flow instead and does not perform partial recovery.
+A system's changes may be small in a single tick. Use Tick to check the exact
+step. C++ code/schema changes use **Stop → Save → Build → Play**; there is no
+in-place C++ DLL reload. Runtime crashes leave authored scene files untouched.
+A game-specific Save Game / Continue flow restores only what its save schema owns.
+The separate process protects the editor from gameplay-process crashes; trusted
+editor code and native editor plugins can still crash it.
 
 ## Structured prefabs in Play
 
 Play receives the current validated prefab definitions and stable member mappings. Changes made by gameplay remain in the isolated runtime. Stop Play before editing a prefab source. See [Prefabs](prefabs.md).
 
 Project [Simulation Hz](project-settings.md) sets the next Play session's frequency. [Gameplay input](input.md) uses explicit Game capture; Esc releases, F6 pauses/resumes and F7 steps. Console's Gameplay input section shows fixed-tick values and edge counts.
-
-## Physics recovery (legacy ABI1)
-
-[Physics](physics.md) runs on the same fixed clock. Recover restores the last complete supported physics checkpoint, including velocity and sleeping state. An incompatible or incomplete checkpoint produces a failure message and a clean Play restart option. This is session recovery, not a save-game feature.
-
-Physics checkpoint recovery is part of the legacy ABI1 host. The exact-SDK Play path does not preserve a separate physics checkpoint; a game-specific Save Game restores only the state explicitly supported by that game's save schema. The exact-SDK path does not offer legacy physics-checkpoint recovery.
 
 ## Loading, cancel and error feedback
 
@@ -86,11 +65,11 @@ Stop Play before editing or saving the **authored scene** — runtime Save Game 
 
 The toolkit used to build your gameplay module must match the folder you point at. A mismatch refuses to start Play and the editor does not load the module. Your authored scene stays untouched.
 
-The exact-SDK Play path does not implement partial live DLL reload, partial recovery, or transactional external native callbacks. Stop Play to rebuild the project module externally, then Start Play again.
+Code changes require Stop, Save, Build and Play. Runtime values can be tuned in the Live gameplay Inspector without compiling.
 
 ## Keyboard in play
 
-**Esc** releases the physical relative mouse capture and forwards the down/up to the gameplay module. Whether the game opens Pause or its in-game menu on Escape is project policy, not something FORGE controls. Legacy Play sessions that used Escape as the universal release still work — pressing Escape returns the cursor and stops sending motion to gameplay. The dedicated pause/resume/step keys are listed in [Gameplay input](input.md).
+**Esc** releases the physical relative mouse capture and forwards the down/up to the gameplay module. Whether the game opens Pause or its in-game menu on Escape is project policy, not something FORGE controls. The dedicated pause/resume/step keys are listed in [Gameplay input](input.md).
 
 ## Scene and Game are separate views
 
@@ -103,5 +82,3 @@ Several enabled cameras render in their **Order**, with their own viewport recta
 Global Play/Pause/Step/Stop are also in **Run**, the command palette and the **More** (three-dot) button at narrow widths. Game labels Starting, Playing, Paused, Stopped or Crashed/Recovery available; the permanent status bar also identifies runtime state.
 
 Use **Capture gameplay input** in Game. Escape, focus loss, hiding Game, or clicking outside its image releases input. Editor buttons receive that outside click. Runtime HUD and Reload UI belong to Game. Authoring stays locked during Play.
-
-Legacy gameplay modules (ABI1) keep their own host and are not part of the SDK Play acceptance flow.

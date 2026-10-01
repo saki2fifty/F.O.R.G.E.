@@ -87,7 +87,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: |
           python tools/ci_cache_key.py
-          python -c "import os; from pathlib import Path; from tools.ci_cache_key import cache_key; os.environ['FORGE_LINKAGE_PROFILE']='static-abi1'; os.environ['FORGE_CRT_PROFILE']='MultiThreaded'; key=cache_key(Path.cwd(),os.environ); open(os.environ['GITHUB_OUTPUT'],'a').write('legacy_shared='+key+'\n')"
+          python -c "import os; from pathlib import Path; from tools.ci_cache_key import cache_key; os.environ['FORGE_LINKAGE_PROFILE']='static-core'; os.environ['FORGE_CRT_PROFILE']='MultiThreaded'; key=cache_key(Path.cwd(),os.environ); open(os.environ['GITHUB_OUTPUT'],'a').write('legacy_shared='+key+'\n')"
       - name: Restore Windows dependencies and build outputs
         id: editor-cache
         continue-on-error: true
@@ -129,7 +129,7 @@ jobs:
         run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_BUILD_EDITOR=OFF -DFORGE_BUILD_GAME=ON -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_ENABLE_NATIVE_SDK=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_ID="${{ inputs.build_id }}" -DFORGE_SOURCE_COMMIT="${{ inputs.source_commit }}" -DCMAKE_PROJECT_INCLUDE:FILEPATH=
       - name: Build exact standalone and export tools
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_sample forge_game forge_game_fixture forge_tools forge_runtime forge_ui_inspect forge_standalone_manifest_tests forge_runtime_ui_package_tests forge_sdk_tests forge_reference_game_tests forge_reference_level_tests forge_reference_project_fixture forge_game_control_tests forge_game_host_control_tests forge_navigation_tests forge_nav_build forge_animation_tests forge_asset_build_worker gltf2ozz --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_game forge_game_fixture forge_tools forge_runtime forge_ui_inspect forge_standalone_manifest_tests forge_runtime_ui_package_tests forge_sdk_tests forge_reference_game_tests forge_reference_level_tests forge_reference_project_fixture forge_game_control_tests forge_game_host_control_tests forge_navigation_tests forge_nav_build forge_animation_tests forge_asset_build_worker gltf2ozz --parallel 2
       - name: Install runtime and matching SDK; build a consumer deployment
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh

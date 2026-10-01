@@ -9,7 +9,7 @@ from pathlib import Path
 # only the process banner when CTest's outer deadline expires.
 faulthandler.dump_traceback_later(20, repeat=True)
 atexit.register(faulthandler.cancel_dump_traceback_later)
-runtime, module = map(str, map(Path, sys.argv[1:]))
+runtime = str(Path(sys.argv[1]))
 p = subprocess.Popen([runtime], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 session=''
 sequence=0
@@ -78,11 +78,9 @@ try:
     invalid_camera['entities'][0]['components']['forge.camera']['near_plane']=0
     assert not request('replace',scene=invalid_camera)['ok']
     assert request('snapshot')['scene']==loaded['scene']
-    assert request('load_module', path=module)['ok']
     stepped = request('step')
     assert stepped['ok'] and stepped['effective_scene']['version'] == 3
     assert stepped['timing']['tick']==1 and stepped['timing']['paused']
-    assert stepped['activation']['state']=='active'
     assert not request('step', seconds=0)['ok']
     assert not request('step', protocol=1, seconds=.1)['ok']
     assert not request('resume', session='old-session')['ok']
@@ -186,11 +184,10 @@ try:
     assert child['spatial_resolved']
     assert all(not e['components'] for e in checkpoint['entities'])
     assert request('replace',scene=checkpoint)['scene']==checkpoint
-    assert request('load_module',path=module)['ok']
-    step=request('step');assert step['ok'] and step['activation']['state']=='active'
+    step=request('step');assert step['ok']
     assert step['scene']['_prefab_sources']==[prefab]
     assert next(e for e in step['scene']['entities'] if e['id']==root_entity)['prefab_instance']['members']==mapping
     assert request('quit')['ok'];assert p.wait(timeout=5)==0
 finally:
     if p.poll() is None:p.kill();p.wait()
-print('Structured prefab isolated runtime realization, checkpoint and native fixed-tick preservation passed')
+print('Structured prefab isolated runtime realization, checkpoint and fixed-tick preservation passed')

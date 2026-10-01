@@ -1,3 +1,4 @@
+#include "../src/gameplay_source_identity.hpp"
 #include "cpp_source_files.hpp"
 #include <TextEditor.h>
 #include <chrono>
@@ -57,6 +58,65 @@ int main(int argc, char** argv) {
                 "New CPP not registered");
         rejects([&] { create_cpp_source(root, "behavior.cpp"); }, "Existing source overwritten");
         rejects([&] { create_cpp_source(root, "x;evil.cpp"); }, "CMake source injection accepted");
+        forge::asset_storage::replace(
+            root / "Native/forge.registration.hpp",
+            "#pragma once\n// FORGE_COMPONENT_INCLUDES\n// FORGE_SYSTEM_DECLARATIONS\n"
+            "inline int forge_register_components(const ForgeSdkWorldV1* host, char* error, "
+            "unsigned capacity) {\n// FORGE_COMPONENT_CALLS\nreturn 1; }\n"
+            "inline void forge_register_systems(const ForgeSdkWorldV1* host) {\n"
+            "// FORGE_SYSTEM_CALLS\n}\n");
+        require(create_cpp_component(root, "Rotator") == "Native/Components/Rotator.hpp",
+                "Component source was not created");
+        require(create_cpp_system(root, "RotationSystem", "Rotator") ==
+                    "Native/Systems/RotationSystem.cpp",
+                "System source was not created");
+        const auto component = read_cpp_source(root / "Native/Components/Rotator.hpp");
+        const auto system = read_cpp_source(root / "Native/Systems/RotationSystem.cpp");
+        const auto registry = read_cpp_source(root / "Native/forge.registration.hpp");
+        require(component.find(R"RAW(R"({"speed":90})")RAW") != std::string::npos &&
+                    component.find(".member<float>(\"speed\")") != std::string::npos,
+                "Generated reflected component is invalid");
+        require(system.find(".kind(host->fixed_phase)") != std::string::npos &&
+                    system.find("world.system<const Rotator>") != std::string::npos &&
+                    system.find("entity.has<forge::LocalRotation>()") != std::string::npos &&
+                    system.find("entity.set<forge::LocalRotation>") != std::string::npos,
+                "Generated Flecs system is invalid");
+        require(registry.find("#include \"Components/Rotator.hpp\"") != std::string::npos &&
+                    registry.find("forge_register_system_RotationSystem(host)") !=
+                        std::string::npos,
+                "Generated source is not registered");
+        require(managed_component_definition(root, "project.rotator") ==
+                    "Native/Components/Rotator.hpp",
+                "Component definition provenance missing");
+        require(!managed_component_definition(root, "project.unknown"),
+                "Unknown component invented a source mapping");
+        const auto systems = managed_system_sources(root);
+        require(systems.size() == 1 && systems.front().name == "RotationSystem" &&
+                    systems.front().component == "Rotator" &&
+                    systems.front().source == "Native/Systems/RotationSystem.cpp",
+                "Registered system inspection is incorrect");
+        require(cpp_project_sources(root).size() >= 5, "Gameplay source browser missed files");
+        rejects([&] { create_cpp_component(root, "Rotator"); }, "Component overwritten");
+        rejects([&] { create_cpp_system(root, "RotationSystem", "Rotator"); },
+                "System overwritten");
+        const auto original_identity = forge::gameplay_source_digest(root);
+        std::filesystem::create_directories(root / "Native/Builds");
+        forge::asset_storage::replace(root / "Native/Builds/ignored.cpp", "generated");
+        require(forge::gameplay_source_digest(root) == original_identity,
+                "Generated deployment affected source identity");
+        forge::asset_storage::replace(root / "Native/behavior.cpp", "int changed = 1;\n");
+        require(forge::gameplay_source_digest(root) != original_identity,
+                "Saved source change did not invalidate gameplay build");
+        const auto digest = forge::gameplay_source_digest(root);
+        const auto id = forge::gameplay_build_identity(digest, std::string(64, 'a'));
+        const nlohmann::json settings = {{"modules",
+                                          {{{"id", "project.gameplay"},
+                                            {"fingerprint", std::string(64, 'a')},
+                                            {"source_identity", id}}}}};
+        require(forge::gameplay_source_current(root, settings), "Current build not recognized");
+        forge::asset_storage::replace(root / "Native/behavior.cpp", "int changed = 2;\n");
+        require(!forge::gameplay_source_current(root, settings),
+                "Stale last-good module reported as current");
         auto* context = ImGui::CreateContext();
         auto& io = ImGui::GetIO();
         io.IniFilename = nullptr;

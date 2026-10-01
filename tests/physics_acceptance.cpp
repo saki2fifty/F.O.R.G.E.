@@ -116,8 +116,7 @@ Json run_level(const std::filesystem::path& project, const Json& scene,
     game.step();
     require(physics->character(character).jump_accepted, "Acceptance platform jump failed");
     const auto checkpoint = physics->checkpoint();
-    Module module;
-    RuntimeWorld recovered(module, {}, {}, {}, project, false);
+    RuntimeWorld recovered({}, {}, {}, project, false);
     recovered.scene.restore_snapshot(world.scene.snapshot());
     const auto recovery_deadline = std::chrono::steady_clock::now() + 30s;
     while (!recovered.physics()->prepare_assets()) {

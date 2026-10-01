@@ -115,7 +115,6 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
         cancelled.close();
     }
     struct Runtime {
-        Module module;
         EngineContext engine;
         Scene scene;
         RuntimeSimulation simulation;
@@ -131,7 +130,7 @@ void model_animation_runtime(const std::filesystem::path& project, const AssetCa
                          }
                          return modules;
                      }()),
-              scene(engine.world()), simulation(engine.world(), scene, module),
+              scene(engine.world()), simulation(engine.world(), scene),
               animation(animation_runtime(engine.world())) {}
         Json pose() { return animation->presentation(scene.entity("actor").id(), 1); }
     };

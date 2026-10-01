@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
                       {"content", "content"},
                       {"target", {{"platform", "linux"}, {"backend", "none"}}},
                       {"engine",
-                       {{"profile", "static-abi1"},
+                       {{"profile", "static-core"},
                         {"sdk_fingerprint", std::string(64, 'a')},
                         {"source_commit", std::string(40, 'b')},
                         {"build_id", "260923-000066"}}},
@@ -113,6 +113,13 @@ int main(int argc, char** argv) {
             check(result.at("ok") && std::filesystem::exists(exported / "forge_game"),
                   "Export assembly failed");
             const auto first = asset_storage::read(exported / "forge.standalone.json");
+            std::filesystem::create_directories(project / "Native");
+            asset_storage::replace(project / "Native/gameplay.cpp",
+                                   "// Retired movement-only source remains on disk.\n");
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "Unsupported legacy source replaced the good export");
+            std::filesystem::remove(project / "Native/gameplay.cpp");
             std::stop_source stop;
             reject([&] {
                 export_standalone_game(
@@ -134,7 +141,7 @@ int main(int argc, char** argv) {
             ProjectSettings(project).save(project_settings);
             // Use actual validated game setting field instead of accepting unknown keys.
             result = export_standalone_game(lease, request);
-            (void)open_standalone_distribution(exported, target, "static-abi1",
+            (void)open_standalone_distribution(exported, target, "static-core",
                                                std::string(64, 'a'));
             const auto destination_name = path_utf8(exported.filename());
             const auto control = exported.parent_path() /
@@ -253,7 +260,7 @@ int main(int argc, char** argv) {
         } // Release the Windows project writer handle before moving its directory.
         std::filesystem::rename(project, scratch / "unavailable");
         auto open = [&] {
-            return open_standalone_distribution(out, target, "static-abi1", std::string(64, 'a'));
+            return open_standalone_distribution(out, target, "static-core", std::string(64, 'a'));
         };
         auto admitted = open();
         check(admitted.settings == settings && admitted.content == out / "content",
@@ -263,14 +270,14 @@ int main(int argc, char** argv) {
         check(!std::filesystem::exists(out / "content/forge.project.json"),
               "Runtime created source project configuration");
         reject([&] {
-            open_standalone_distribution(out, {"windows", "d3d12"}, "static-abi1",
+            open_standalone_distribution(out, {"windows", "d3d12"}, "static-core",
                                          std::string(64, 'a'));
         });
         reject([&] {
             open_standalone_distribution(out, target, "shared-native-sdk", std::string(64, 'a'));
         });
         reject([&] {
-            open_standalone_distribution(out, target, "static-abi1", std::string(64, 'c'));
+            open_standalone_distribution(out, target, "static-core", std::string(64, 'c'));
         });
         for (unsigned test = 0; test < 8; ++test) {
             auto bad = manifest;

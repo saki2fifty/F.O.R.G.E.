@@ -252,7 +252,7 @@ admission values rather than changes to already authored state.
 The worker's current component limit is256 and copied output limit16MiB. Individual
 native reconstruction and value bounds still apply. The SDK headers and implementation
 are part of the exact compatibility fingerprint; clients must rebuild against the same
-SDK. This does not change portable gameplay ABI1. The private application worker wrapper adds fixed-command process supervision,
+SDK. Project gameplay uses the exact SDK; the retired movement-only ABI1 path is absent. The private application worker wrapper adds fixed-command process supervision,
 cancellation,30-second wall/25-second CPU/512MiB memory limits and bounded output.
 It checks SDK provenance and unchanged project module settings, then returns copied
 metadata. Native reconstruction and complete type/default/digest validation run on
