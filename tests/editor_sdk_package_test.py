@@ -407,7 +407,10 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         'gameplay-save-build-play-offer',
         'starter-export-complete')
     for name in required_onboarding_captures:
-        if not (onboarding / ('editor-' + name + '.ppm')).is_file():
+        matching = [entry['step'] for entry in starter_trace['trace']
+                    if entry.get('operation') == 'capture' and entry.get('value') == name]
+        if not matching or any(not (onboarding / f'editor-{step}-{name}.ppm').is_file()
+                               for step in matching):
             raise AssertionError('Missing C++ onboarding UI capture: ' + name)
     starter_export=Path(starter_trace['state']['export_output'])
     # The fixture has already removed its source project. PATH now exposes only
