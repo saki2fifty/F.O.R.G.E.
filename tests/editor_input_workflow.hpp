@@ -287,8 +287,11 @@ class EditorInputWorkflow {
                 if (row.at("components").contains("project.rotator"))
                     authored_unchanged |=
                         row.at("components").at("project.rotator").value("speed", 0.0) == 90.0;
-            require(tuned && authored_unchanged,
-                    "Runtime tuning did not apply or changed authored component data");
+            const auto& ack = state.at("property_tune_ack");
+            require(ack.is_object() && ack.value("type", std::string{}) == "project.rotator" &&
+                        ack.value("property", std::string{}) == "speed" &&
+                        ack.value("value", 0.0) == 360.0 && tuned && authored_unchanged,
+                    "Runtime tuning was not acknowledged or changed authored component data");
         } else if (what == "authored-rotator") {
             bool found = false;
             for (const auto& row : entities)
@@ -679,6 +682,10 @@ class EditorInputWorkflow {
             capture("gameplay-create");
             click("button:Create C++ gameplay project");
             check("starter-created");
+            click("sdk:compiler-setup");
+            click("button:Test compiler tools");
+            check("compiler-ready");
+            capture("compiler-ready");
             click("button:Create C++ Component");
             check("cpp-component-created");
             capture("cpp-component-created");
@@ -695,10 +702,11 @@ class EditorInputWorkflow {
             check("cpp-component-saved");
             check("build-required");
             capture("gameplay-build-required");
-            click("sdk:compiler-setup");
-            click("button:Test compiler tools");
-            check("compiler-ready");
-            capture("compiler-ready");
+            click("button:Build gameplay");
+            check("starter-built");
+            click("tab:Native");
+            hover("sdk:build-status");
+            capture("gameplay-built");
             click("button:Open C++ source");
             capture("cpp-source-editor");
             text("cpp:new-filename", "extra.cpp");
@@ -723,28 +731,6 @@ class EditorInputWorkflow {
             click("cpp:build-on-save");
             click("tab:Native");
             check("starter-built");
-            hover("sdk:build-status");
-            capture("gameplay-built");
-            steps_.push_back({Kind::SourceEdit, "starter-break"});
-            check("build-required");
-            capture("gameplay-build-required");
-            click("icon:play");
-            check("stale-play-offered");
-            capture("gameplay-stale-play-offer");
-            click("button:Cancel");
-            click("button:Build gameplay");
-            check("starter-rejected");
-            hover("sdk:build-error");
-            capture("gameplay-build-rejected");
-            click("sdk:build-output");
-            hover("cpp:diagnostic:0");
-            click("cpp:diagnostic:0");
-            check("cpp-diagnostic-source");
-            capture("cpp-compiler-diagnostic");
-            click("tab:Native");
-            steps_.push_back({Kind::SourceEdit, "starter-restore"});
-            click("button:Build gameplay");
-            check("starter-rebuilt");
             click("button:Inspect components");
             check("starter-admitted");
             click("tab:Scene");
@@ -791,6 +777,35 @@ class EditorInputWorkflow {
             click("icon:play");
             check("system-reversed");
             capture("cpp-system-reversed");
+            click("icon:stop");
+            check("stopped");
+            steps_.push_back({Kind::SourceEdit, "starter-break"});
+            check("build-required");
+            capture("gameplay-build-required");
+            click("button:Build gameplay");
+            check("starter-rejected");
+            click("icon:play");
+            check("stale-play-offered");
+            capture("gameplay-stale-play-offer");
+            click("button:Cancel");
+            hover("sdk:build-error");
+            capture("gameplay-build-rejected");
+            click("sdk:build-output");
+            hover("cpp:diagnostic:0");
+            click("cpp:diagnostic:0");
+            check("cpp-diagnostic-source");
+            capture("cpp-compiler-diagnostic");
+            click("tab:Native");
+            steps_.push_back({Kind::SourceEdit, "starter-restore"});
+            click("button:Build gameplay");
+            check("starter-rebuilt");
+            steps_.push_back({Kind::SourceEdit, "starter-touch"});
+            check("build-required");
+            click("icon:play");
+            check("stale-play-offered");
+            capture("gameplay-save-build-play-offer");
+            click("button:Save, Build & Play");
+            check("system-reversed");
             click("icon:stop");
             check("stopped");
             click("tab:Content");
@@ -1352,14 +1367,17 @@ class EditorInputWorkflow {
             }
         }
         if (step.kind == Kind::SourceEdit && frame_ == 0) {
-            if (step.value == "starter-break" || step.value == "starter-restore") {
+            if (step.value == "starter-break" || step.value == "starter-restore" ||
+                step.value == "starter-touch") {
                 const auto path = project_ / "Native/gameplay.cpp";
                 if (step.value == "starter-break") {
                     std::ifstream input(path);
                     starter_source_.assign(std::istreambuf_iterator<char>(input), {});
                     write(path, starter_source_ + "\nthis intentionally fails compilation;\n");
-                } else
+                } else if (step.value == "starter-restore")
                     write(path, starter_source_);
+                else
+                    write(path, starter_source_ + "\n// Play must build this saved source.\n");
             } else if (step.value == "collision-external-refresh") {
                 const auto path = project_ / "Assets/workflow.collision.json";
                 Json source;
@@ -1410,7 +1428,8 @@ class EditorInputWorkflow {
             step.kind == Kind::Check &&
                     (step.value == "compiler-ready" || step.value == "starter-built" ||
                      step.value == "starter-rebuilt" || step.value == "starter-rejected" ||
-                     step.value == "graph-ready" || step.value == "graph-rejected")
+                     step.value == "system-reversed" || step.value == "graph-ready" ||
+                     step.value == "graph-rejected")
                 ? 180000u
                 : 12000u;
         if (SDL_GetTicks() - since_ > limit) {

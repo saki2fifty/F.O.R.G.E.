@@ -4688,6 +4688,7 @@ int main(int argc, char** argv) {
                 observed["project_settings"] = files.document.settings().document();
                 observed["component_schema"] = scene.schema();
                 observed["runtime_snapshot"] = play.snapshot();
+                observed["property_tune_ack"] = play.property_tune_ack();
                 observed["prefab_sources"] = forge::Json::array();
                 for (const auto& [asset, source] : scene.prefab_sources()) {
                     (void)asset;

@@ -367,7 +367,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         starter = subprocess.Popen([str(fixture_dst), str(onboarding), '--sdk-onboarding', str(sdk_root)],
                                    cwd=extracted, env=onboarding_env, stdout=stream, stderr=subprocess.STDOUT)
         try:
-            deadline = time.monotonic() + 360
+            deadline = time.monotonic() + 600
             while starter.poll() is None:
                 # EditorFixture removes its private project during teardown.
                 # Retain the flushed compiler log while that project still exists.
@@ -377,12 +377,12 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
                     except FileNotFoundError:
                         pass  # Teardown can remove the file between glob and copy.
                 if time.monotonic() >= deadline:
-                    raise subprocess.TimeoutExpired(starter.args, 360)
+                    raise subprocess.TimeoutExpired(starter.args, 600)
                 time.sleep(.25)
             starter_code = starter.returncode
         except subprocess.TimeoutExpired:
             terminate_tree(starter)
-            raise AssertionError('SDK onboarding exceeded 360s watchdog')
+            raise AssertionError('SDK onboarding exceeded 600s watchdog')
     starter_trace_path=onboarding/'workflow.json'
     if starter_trace_path.is_file():
         observed = json.loads(starter_trace_path.read_text())
@@ -404,6 +404,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         'cpp-compiler-diagnostic', 'cpp-rotator-playing', 'cpp-rotator-live-tuned',
         'cpp-system-dirty', 'cpp-system-current', 'cpp-system-reversed',
         'cpp-rotator-inspector', 'gameplay-stale-play-offer',
+        'gameplay-save-build-play-offer',
         'starter-export-complete')
     for name in required_onboarding_captures:
         if not (onboarding / ('editor-' + name + '.ppm')).is_file():
