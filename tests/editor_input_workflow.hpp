@@ -1,11 +1,13 @@
 #pragma once
 #include "ui_probe.hpp"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 
 namespace forge::test {
@@ -48,6 +50,27 @@ class EditorInputWorkflow {
     Json graph_before_;
     Json starter_modules_, apply_before_, apply_after_;
     std::string starter_source_, generated_input_;
+    struct SpinPose {
+        std::uint64_t tick = 0;
+        double y = 0, w = 1;
+    };
+    std::optional<SpinPose> spin_sample_;
+    double initial_spin_radians_per_tick_ = 0;
+    static std::optional<SpinPose> rotator_pose(const Json& state) {
+        const auto& snapshot = state.at("runtime_snapshot");
+        if (!snapshot.is_object())
+            return std::nullopt;
+        for (const auto& row : snapshot.value("entities", Json::array())) {
+            const auto& components = row.at("components");
+            if (components.contains("project.rotator") &&
+                components.contains("forge.local_rotation")) {
+                const auto& q = components.at("forge.local_rotation");
+                return SpinPose{state.at("tick").get<std::uint64_t>(), q.value("y", 0.0),
+                                q.value("w", 1.0)};
+            }
+        }
+        return std::nullopt;
+    }
     static Json model_source(bool changed = false) {
         auto source = Json::parse(R"({"asset":{"version":"2.0"},
             "extensionsUsed":["KHR_materials_unlit"],
@@ -292,6 +315,30 @@ class EditorInputWorkflow {
                         ack.value("property", std::string{}) == "speed" &&
                         ack.value("value", 0.0) == 360.0 && tuned && authored_unchanged,
                     "Runtime tuning was not acknowledged or changed authored component data");
+        } else if (what == "spin-sample") {
+            spin_sample_ = rotator_pose(state);
+            require(spin_sample_.has_value(), "Rotator pose unavailable for speed measurement");
+        } else if (what == "spin-before" || what == "spin-after") {
+            const auto next = rotator_pose(state);
+            require(spin_sample_.has_value() && next.has_value() &&
+                        next->tick >= spin_sample_->tick + 2,
+                    "Waiting for at least two fixed simulation ticks");
+            const auto ticks = next->tick - spin_sample_->tick;
+            if (ticks > 12) {
+                spin_sample_ = next;
+                throw std::runtime_error("Resampling rotation within a short fixed-tick window");
+            }
+            const double dot = std::abs(spin_sample_->y * next->y + spin_sample_->w * next->w);
+            const double rate = 2 * std::acos(std::clamp(dot, 0.0, 1.0)) / double(ticks);
+            if (what == "spin-before") {
+                const double expected = 1.5707963267948966 * state.at("fixed_dt").get<double>();
+                require(rate > expected * .75 && rate < expected * 1.25,
+                        "Initial Rotator did not advance at approximately 90 degrees/second");
+                initial_spin_radians_per_tick_ = rate;
+            } else
+                require(rate > initial_spin_radians_per_tick_ * 2.5 &&
+                            rate < initial_spin_radians_per_tick_ * 5.5,
+                        "Live Speed 360 did not increase angular motion without compilation");
         } else if (what == "authored-rotator") {
             bool found = false;
             for (const auto& row : entities)
@@ -752,10 +799,14 @@ class EditorInputWorkflow {
             capture("cpp-rotator-inspector");
             click("icon:play");
             check("starter-ticked");
+            check("spin-sample");
+            check("spin-before");
             capture("cpp-rotator-playing");
             text("runtime-field:project.rotator:speed", "360", true);
             key(ImGuiKey_Enter);
             check("live-rotator-tuned");
+            check("spin-sample");
+            check("spin-after");
             capture("cpp-rotator-live-tuned");
             click("icon:stop");
             check("stopped");

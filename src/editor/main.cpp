@@ -4630,6 +4630,7 @@ int main(int argc, char** argv) {
                     {"control_ready", play.control_ready()},
                     {"paused", play.paused()},
                     {"tick", play.timing().value("tick", std::uint64_t{0})},
+                    {"fixed_dt", play.timing().value("fixed_dt", 1.0 / 60.0)},
                     {"cameras", game_viewport->cameras().size()},
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
