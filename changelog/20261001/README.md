@@ -15,7 +15,7 @@
 ## Windows acceptance and guide reconciliation
 
 - Extended the extracted Windows editor/Developer Kit walkthrough to create and edit Rotator and RotationSystem through the built-in C++ editor, verify explicit Build and optional Build on Save, test a failed build and stale Play gate, and execute the edited System after two standalone relocations. The fixture now observes a typed live-value acknowledgement and compares fixed-tick rotation before and after Speed 90 → 360.
-- Build 135 passed all source jobs but the final SDK onboarding fixture failed because its file check used an uninitialized fixture project path; the editor had created and opened the file correctly. The path was corrected and a new numbered validation run was started. Build 135 was not delivered.
+- Build 135 passed all source jobs but the final SDK onboarding fixture used an uninitialized project path; the editor had created and opened the file correctly. Build 136 then reached Play and exposed duplicate Dear ImGui IDs between live and authored component fields. The live field now has its own widget scope. Neither failed build was delivered.
 - Reconciled the README, C++ gameplay manual and scripting ADR: removed obsolete C17 ABI/reload guidance and duplicated C++ editing steps, retained useful source-editor/compiler details, and clarified that export requires current saved code.
 
 ## Documentation and validation

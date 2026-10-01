@@ -60,6 +60,9 @@ class ComponentInspector {
             }
         if (!entity || !entity->contains("components"))
             return;
+        // Live fields coexist with the read-only authored Inspector below. Keep their
+        // ImGui IDs distinct so activating one cannot collide with its authored peer.
+        ui::IdScope runtime_scope("live-gameplay");
         ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
                                      "scene and prefab state.");
         ImGui::TextDisabled("PLAY — runtime only");
