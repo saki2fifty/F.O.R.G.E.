@@ -84,7 +84,8 @@ inline bool gameplay_source_current(const std::filesystem::path& project,
     for (const auto& module : settings.value("modules", nlohmann::json::array()))
         if (module.is_object() && module.value("id", "") == "project.gameplay") {
             if (!module.contains("source_identity") ||
-                (!expected_fingerprint.empty() && module.at("fingerprint") != expected_fingerprint))
+                (!expected_fingerprint.empty() &&
+                 module.at("fingerprint").get<std::string>() != expected_fingerprint))
                 return false; // Older or mismatched SDK builds need one new build.
             return module.at("source_identity") ==
                    gameplay_build_identity(gameplay_source_digest(project),
