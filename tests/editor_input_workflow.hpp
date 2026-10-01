@@ -12,7 +12,18 @@ namespace forge::test {
 // Scene state is observed, never edited through commands or model APIs.
 // Inputs drive authoring; raw files supply a DCC import/reimport scenario.
 class EditorInputWorkflow {
-    enum class Kind { Click, Drag, Hover, Text, Key, Check, Capture, DropFile, SourceEdit };
+    enum class Kind {
+        Click,
+        Drag,
+        Hover,
+        Text,
+        Key,
+        Check,
+        Capture,
+        DropFile,
+        SourceEdit,
+        SourceText
+    };
     struct Step {
         Kind kind;
         std::string value;
@@ -36,7 +47,7 @@ class EditorInputWorkflow {
         graph_function_, graph_call_;
     Json graph_before_;
     Json starter_modules_, apply_before_, apply_after_;
-    std::string starter_source_;
+    std::string starter_source_, generated_input_;
     static Json model_source(bool changed = false) {
         auto source = Json::parse(R"({"asset":{"version":"2.0"},
             "extensionsUsed":["KHR_materials_unlit"],
@@ -209,12 +220,33 @@ class EditorInputWorkflow {
                 "C++ system wizard did not create source");
             require(state.at("cpp_source") == "Native/Systems/RotationSystem.cpp",
                     "C++ system source was not opened");
+        } else if (what == "cpp-component-opened" || what == "cpp-system-opened") {
+            require(state.at("cpp_source") == (what == "cpp-component-opened"
+                                                   ? "Native/Components/Rotator.hpp"
+                                                   : "Native/Systems/RotationSystem.cpp"),
+                    "C++ source browser opened the wrong file");
+        } else if (what == "cpp-component-dirty" || what == "cpp-system-dirty" ||
+                   what == "cpp-component-saved") {
+            const bool component = what != "cpp-system-dirty";
+            require(state.at("cpp_source") == (component ? "Native/Components/Rotator.hpp"
+                                                         : "Native/Systems/RotationSystem.cpp") &&
+                        state.at("cpp_source_dirty").get<bool>() == (what != "cpp-component-saved"),
+                    "C++ source editor did not preserve expected file/dirty state");
+            require(state.at("cpp_source_text")
+                            .get<std::string>()
+                            .find(component
+                                      ? "// Edited and saved through the FORGE C++ source editor."
+                                      : "-0.008726646259971648") != std::string::npos,
+                    "Edited C++ source text is missing from the built-in editor");
         } else if (what == "starter-created") {
             require(state.at("sdk_build_managed"), "Gameplay source was not created");
+            project_ = std::filesystem::u8path(state.at("project").get<std::string>());
         } else if (what == "starter-built" || what == "starter-rebuilt") {
             require(!state.at("sdk_build_busy").get<bool>(), "SDK build still running");
             require(state.at("sdk_build_error").get<std::string>().empty(),
                     state.at("sdk_build_error").get<std::string>().c_str());
+            require(state.at("gameplay_current").get<bool>(),
+                    "Published gameplay does not match current saved source");
             const auto modules = state.at("project_settings").at("modules");
             require(!modules.empty() && modules.back().at("id") == "project.gameplay",
                     "SDK module not registered");
@@ -257,6 +289,22 @@ class EditorInputWorkflow {
                         row.at("components").at("project.rotator").value("speed", 0.0) == 90.0;
             require(tuned && authored_unchanged,
                     "Runtime tuning did not apply or changed authored component data");
+        } else if (what == "authored-rotator") {
+            bool found = false;
+            for (const auto& row : entities)
+                if (row.at("components").contains("project.rotator"))
+                    found |= row.at("components").at("project.rotator").value("speed", 0.0) == 90.0;
+            require(found, "Stop did not preserve authored Rotator Speed = 90");
+        } else if (what == "system-reversed") {
+            require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
+                    "Changed C++ System has not started Play");
+            bool reversed = false;
+            for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
+                if (row.at("components").contains("project.rotator") &&
+                    row.at("components").contains("forge.local_rotation"))
+                    reversed |=
+                        row.at("components").at("forge.local_rotation").value("y", 0.0) < -0.0001;
+            require(reversed, "Rebuilt RotationSystem did not rotate in the opposite direction");
         } else if (what == "starter-ticked") {
             require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
                     "Waiting for started gameplay runtime and its first snapshot");
@@ -637,6 +685,16 @@ class EditorInputWorkflow {
             click("button:Create C++ System");
             check("cpp-system-created");
             capture("cpp-system-created");
+            click("button:Native/Components/Rotator.hpp");
+            check("cpp-component-opened");
+            click("cpp:editor");
+            steps_.push_back({Kind::SourceText, "component-edit"});
+            check("cpp-component-dirty");
+            capture("cpp-component-dirty");
+            key(ImGuiKey_S, true);
+            check("cpp-component-saved");
+            check("build-required");
+            capture("gameplay-build-required");
             click("sdk:compiler-setup");
             click("button:Test compiler tools");
             check("compiler-ready");
@@ -703,6 +761,9 @@ class EditorInputWorkflow {
             check("saved");
             hover("component-field:project.counter:value");
             capture("gameplay-counter-inspector");
+            check("authored-rotator");
+            hover("component-field:project.rotator:speed");
+            capture("cpp-rotator-inspector");
             click("icon:play");
             check("starter-ticked");
             capture("cpp-rotator-playing");
@@ -710,6 +771,26 @@ class EditorInputWorkflow {
             key(ImGuiKey_Enter);
             check("live-rotator-tuned");
             capture("cpp-rotator-live-tuned");
+            click("icon:stop");
+            check("stopped");
+            check("authored-rotator");
+            click("tab:Native");
+            click("button:Open C++ source");
+            click("button:Native/Systems/RotationSystem.cpp");
+            check("cpp-system-opened");
+            click("cpp:editor");
+            steps_.push_back({Kind::SourceText, "system-reverse"});
+            check("cpp-system-dirty");
+            capture("cpp-system-dirty");
+            key(ImGuiKey_S, true);
+            check("build-required");
+            click("button:Build gameplay");
+            check("starter-rebuilt");
+            capture("cpp-system-current");
+            click("tab:Scene");
+            click("icon:play");
+            check("system-reversed");
+            capture("cpp-system-reversed");
             click("icon:stop");
             check("stopped");
             click("tab:Content");
@@ -1347,6 +1428,37 @@ class EditorInputWorkflow {
                                     std::to_string(target.clip_maximum.y);
             }
         }
+        if (step.kind == Kind::SourceText && frame_ == 0) {
+            const bool component = step.value == "component-edit";
+            require(component || step.value == "system-reverse",
+                    "Unknown editor-driven source replacement");
+            const auto path = project_ / (component ? "Native/Components/Rotator.hpp"
+                                                    : "Native/Systems/RotationSystem.cpp");
+            std::ifstream file(path, std::ios::binary);
+            require(bool(file), "Generated C++ source disappeared before editor edit");
+            generated_input_.assign(std::istreambuf_iterator<char>(file), {});
+            if (component)
+                generated_input_ += "\n// Edited and saved through the FORGE C++ source editor.\n";
+            else {
+                const std::string before = "0.008726646259971648";
+                const auto pos = generated_input_.find(before);
+                require(pos != std::string::npos, "RotationSystem scaffold changed unexpectedly");
+                generated_input_.replace(pos, before.size(), "-" + before);
+                const auto header = generated_input_.find("#include <cmath>\n");
+                require(header != std::string::npos, "RotationSystem has no standard math include");
+                generated_input_.insert(header, "#include <cstdio>\n");
+                const std::string update = "entity.set<forge::LocalRotation>(next);";
+                const auto update_pos = generated_input_.find(update);
+                require(update_pos != std::string::npos,
+                        "RotationSystem no longer publishes its rotation");
+                generated_input_.insert(
+                    update_pos + update.size(),
+                    "\n                std::fprintf(stderr, \"FORGE_TEST_ROTATOR_HALF=%f\\n\", "
+                    "double(half));");
+            }
+            require(SDL_SetClipboardText(generated_input_.c_str()),
+                    "Cannot paste edited C++ source into the editor");
+        }
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             const auto target =
                 step.value == "saved-cube-row"         ? "entity:" + cube_
@@ -1442,6 +1554,19 @@ class EditorInputWorkflow {
                 io.AddMouseButtonEvent(0, false);
             if (frame_ == 4)
                 io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        } else if (step.kind == Kind::SourceText) {
+            if (frame_ == 0) {
+                io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                io.AddKeyEvent(ImGuiKey_A, true);
+            }
+            if (frame_ == 1)
+                io.AddKeyEvent(ImGuiKey_A, false);
+            if (frame_ == 2)
+                io.AddKeyEvent(ImGuiKey_V, true);
+            if (frame_ == 3) {
+                io.AddKeyEvent(ImGuiKey_V, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
+            }
         } else if (step.kind == Kind::Text) {
             if (frame_ == 0) {
                 io.AddKeyEvent(ImGuiMod_Ctrl, true);
@@ -1540,10 +1665,17 @@ class EditorInputWorkflow {
                               {"image", "editor-" + name + ".ppm"},
                               {"ui_scale", state.at("ui_scale")}});
         }
-        constexpr const char* names[] = {"click",   "drag",          "hover",
-                                         "type",    "shortcut",      "assert",
-                                         "capture", "SDL file drop", "external source edit"};
-        static_assert(std::size(names) == static_cast<unsigned>(Kind::SourceEdit) + 1);
+        constexpr const char* names[] = {"click",
+                                         "drag",
+                                         "hover",
+                                         "type",
+                                         "shortcut",
+                                         "assert",
+                                         "capture",
+                                         "SDL file drop",
+                                         "external source edit",
+                                         "type generated C++ source"};
+        static_assert(std::size(names) == static_cast<unsigned>(Kind::SourceText) + 1);
         trace_.push_back({{"step", index_},
                           {"operation", names[int(step.kind)]},
                           {"value", step.value},

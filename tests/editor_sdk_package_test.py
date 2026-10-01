@@ -29,6 +29,7 @@ Python stdlib only.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -395,16 +396,38 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     starter_trace=json.loads(starter_trace_path.read_text())
     if not starter_trace.get('ok'):
         raise AssertionError('SDK onboarding workflow failed: '+str(starter_trace.get('error',starter_trace)))
+    if not starter_trace['state'].get('gameplay_current'):
+        raise AssertionError('Export completed with stale C++ gameplay source')
+    required_onboarding_captures = (
+        'cpp-component-created', 'cpp-system-created', 'cpp-component-dirty',
+        'gameplay-build-required', 'gameplay-built', 'gameplay-build-rejected',
+        'cpp-compiler-diagnostic', 'cpp-rotator-playing', 'cpp-rotator-live-tuned',
+        'cpp-system-dirty', 'cpp-system-current', 'cpp-system-reversed',
+        'cpp-rotator-inspector', 'gameplay-stale-play-offer',
+        'starter-export-complete')
+    for name in required_onboarding_captures:
+        if not (onboarding / ('editor-' + name + '.ppm')).is_file():
+            raise AssertionError('Missing C++ onboarding UI capture: ' + name)
     starter_export=Path(starter_trace['state']['export_output'])
-    # Prove source deletion and a second relocation do not prevent startup.
-    relocated_starter=scratch/'starter exported game relocated'
-    shutil.move(str(starter_export),relocated_starter)
+    # The fixture has already removed its source project. PATH now exposes only
+    # system DLLs, not the compiler or Developer Kit. Execute after two moves.
     runtime_env=os.environ.copy()
     runtime_env['PATH']=str(Path(os.environ.get('SystemRoot','C:/Windows'))/'System32')
-    result=subprocess.run([str(relocated_starter/'forge_game.exe'),'--verify-startup'],
-                          cwd=relocated_starter,env=runtime_env,capture_output=True,text=True,timeout=60)
-    (onboarding/'relocated-startup.log').write_text(result.stdout+'\n'+result.stderr)
-    if result.returncode: raise AssertionError('Relocated starter startup failed: '+result.stderr)
+    for number in (1, 2):
+        relocated_starter=scratch/('starter exported game relocated '+str(number))
+        shutil.move(str(starter_export), relocated_starter)
+        result=subprocess.run([str(relocated_starter/'forge_game.exe'),'--verify-startup'],
+                              cwd=relocated_starter,env=runtime_env,capture_output=True,
+                              text=True,timeout=60)
+        output=result.stdout+'\n'+result.stderr
+        (onboarding/('relocated-startup-'+str(number)+'.log')).write_text(output)
+        if result.returncode:
+            raise AssertionError('Relocated starter startup failed: '+result.stderr)
+        rotations=[float(value) for value in
+                   re.findall(r'FORGE_TEST_ROTATOR_HALF=([-+]?\d+(?:\.\d+)?)', output)]
+        if not any(value < -0.0001 for value in rotations):
+            raise AssertionError('Relocated game did not execute the edited RotationSystem')
+        starter_export=relocated_starter
 
     if reference_failure is not None:
         raise reference_failure
