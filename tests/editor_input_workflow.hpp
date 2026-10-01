@@ -248,6 +248,8 @@ class EditorInputWorkflow {
                                                    ? "Native/Components/Rotator.hpp"
                                                    : "Native/Systems/RotationSystem.cpp"),
                     "C++ source browser opened the wrong file");
+            require(ui_targets.contains("cpp:editor"),
+                    "C++ source opened behind another document instead of becoming visible");
         } else if (what == "cpp-component-dirty" || what == "cpp-system-dirty" ||
                    what == "cpp-component-saved") {
             const bool component = what != "cpp-system-dirty";

@@ -31,7 +31,7 @@ class CppSourceEditor {
     std::filesystem::path root_;
     std::vector<std::unique_ptr<Tab>> tabs_;
     Tab* active_ = nullptr;
-    bool open_ = false, close_all_ = false, close_popup_ = false;
+    bool open_ = false, focus_ = false, close_all_ = false, close_popup_ = false;
     std::string close_target_, error_, search_;
     char locator_[256] = "Native/gameplay.cpp", new_name_[128] = "behavior.cpp", query_[256] = "";
     char component_name_[65] = "Rotator", system_name_[65] = "RotationSystem";
@@ -90,7 +90,7 @@ class CppSourceEditor {
         root_ = root;
         tabs_.clear();
         active_ = nullptr;
-        open_ = false;
+        open_ = focus_ = false;
         close_all_ = close_popup_ = build_pending = false;
         error_.clear();
         browser_sources_.clear();
@@ -125,7 +125,7 @@ class CppSourceEditor {
         }
         tab->selected = true;
         active_ = tab;
-        open_ = true;
+        open_ = focus_ = true;
         tab->editor.SetCursorPosition(
             TextEditor::Coordinates(std::max(line - 1, 0), std::max(column - 1, 0)));
     }
@@ -285,6 +285,10 @@ class CppSourceEditor {
             if (scene->DockId)
                 ImGui::SetNextWindowDockID(scene->DockId, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize({800, 550}, ImGuiCond_FirstUseEver);
+        if (focus_) {
+            ImGui::SetNextWindowFocus();
+            focus_ = false;
+        }
         const bool contents = ImGui::Begin("C++ Sources###C++ Sources", &visible);
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             context.task.focus_document("cpp_sources", "C++ Sources");
