@@ -13,7 +13,7 @@ This is the standing policy for FORGE editor additions. Place a control by **wha
 
 ## The shell
 
-Hierarchy is scene structure; the center is the primary document workspace; Inspector edits the selected target; Content finds assets; Problems summarizes actionable issues; Console keeps chronological detail; Gameplay Code owns C++ project source discovery, compiler checks and gameplay builds. Preserve docking, personal layouts, and the compact status bar. A subsystem does not earn a permanent default panel merely by existing.
+Hierarchy is scene structure; the center is the primary document workspace; Inspector edits the selected target; Content finds assets and supported C++ project source; Problems summarizes actionable issues; Console keeps chronological detail; Build shows compiler checks, status and diagnostics. The C++ Sources document edits code. Preserve docking, personal layouts, and the compact status bar. A subsystem does not earn a permanent default panel merely by existing.
 
 | Scope | Home |
 | --- | --- |
@@ -21,9 +21,9 @@ Hierarchy is scene structure; the center is the primary document workspace; Insp
 | Scene entities: create, rename, organize, reparent, duplicate, delete | Hierarchy, Entity menu and contextual actions |
 | Primary content editing | Central workspace document |
 | Selected entity/asset/member/document item | Inspector |
-| Asset discovery, type/folder search, supported create/register/convert | Content |
+| Asset and C++ source discovery, type/folder search, supported create/register/convert | Content |
 | Actionable errors/warnings with location | Problems; local errors also beside their fields |
-| Detailed logs/compiler/runtime output | Console or Gameplay Code |
+| Detailed logs/compiler/runtime output | Console or Build |
 | Transform, snap, camera, grid, overlays and scene editing modes | Viewport-local tools |
 | Performance, extensions, project settings, packaging | On-demand tool/task window |
 
@@ -79,7 +79,7 @@ These are placement requirements, **not implemented features**.
 
 | Feature | Content / primary surface | Entity/Inspector or supporting tool |
 | --- | --- | --- |
-| C++ gameplay | Central C++ source editor; external IDE optional | Existing Gameplay Code build/admission and entity component attachment; no arbitrary SDK hot reload |
+| C++ gameplay | Central C++ source editor; external IDE optional | Existing Build panel admission and entity component attachment; no arbitrary SDK hot reload |
 | ECS construction recipes | Existing Flecs Script central source document | Data/world construction, not a second gameplay language |
 | Materials | Material asset → central Material Editor | Rendering material reference |
 | Shaders | Shader asset → central source/graph editor | Material/shader references; diagnostics in Problems |
@@ -121,7 +121,7 @@ Implementation APIs are checked against the exact pinned upstream sources listed
 
 ## Supporting workspace and small windows
 
-Content/Problems/Console/Gameplay Code share supporting dock space. A personal
+Content/Build/Problems/Console share supporting dock space. A personal
 fold state temporarily hides those panels while retaining their visibility choices
 and docking geometry. Window menu, Ctrl+Space and permanent status affordance restore
 access. Revealing an asset unfolds Content. Fresh/reset workspaces below480 logical

@@ -24,7 +24,7 @@ Ctrl+S routes to the active Scene, Prefab source or Project Settings task. Scene
 
 ## Persistence
 
-Personal panel visibility and ImGui docking geometry persist independently of project settings. Stable hidden IDs retain Hierarchy/Gameplay Code arrangements; existing Prefab source/Project Settings names migrate with docking references and a backup. New Game/Problems tabs attach on first use. Reset layout is explicit. Failed workspace replacement retains the original and disables session layout saving, as before.
+Personal panel visibility and ImGui docking geometry persist independently of project settings. Stable hidden IDs retain Hierarchy/Build arrangements; existing Prefab source/Project Settings names migrate with docking references and a backup. New Game/Problems tabs attach on first use. Reset layout is explicit. Failed workspace replacement retains the original and disables session layout saving, as before.
 
 ## Validation boundaries
 

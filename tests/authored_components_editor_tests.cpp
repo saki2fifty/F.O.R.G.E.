@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
                     components.fixture_open_migration = true;
                 }
                 ImGui::SetNextWindowSize({950, 850});
-                ImGui::Begin("Gameplay Code");
+                ImGui::Begin("Build###Native");
                 components.draw(scene, project, prefab, runtime, false);
                 ImGui::End();
                 ImGui::Render();

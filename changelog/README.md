@@ -1,11 +1,13 @@
 # Changelog
 
-- [2026-09-30](20260930/README.md) — Editable Feature Gallery scenes and export workflow.
+- [2026-10-03](20261003/README.md) — Content now includes C++ project files; the supporting panel is Build.
 
 Browse FORGE changes by **UTC day**, newest first. Each day has one continuously maintained page, organized by function, with build results and known limitations. Build counters increase across dates; they do not reset.
 
 | Day | Changes |
 | --- | --- |
+| [2026-10-03](20261003/README.md) | Unified Content browser for assets and C++ files, Build panel navigation, and C++ authoring workflow. |
+| [2026-10-01](20261001/README.md) | Unified C++ gameplay model, managed Component/System creation, live Play tuning, and standalone validation. |
 | [2026-09-30](20260930/README.md) | Editable Feature Gallery project with four focused scenes, export instructions, and source/Windows acceptance checks. |
 | [2026-09-29](20260929/README.md) | Material graph workspace, PBR integration, and Windows package layout. |
 | [2026-09-28](20260928/README.md) | Native multi-selection input acceptance and acknowledged SDK menu-rebinding validation. |

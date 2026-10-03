@@ -33,14 +33,9 @@ class CppSourceEditor {
     Tab* active_ = nullptr;
     bool open_ = false, focus_ = false, close_all_ = false, close_popup_ = false;
     std::string close_target_, error_, search_;
-    char locator_[256] = "Native/gameplay.cpp", new_name_[128] = "behavior.cpp", query_[256] = "";
-    char component_name_[65] = "Rotator", system_name_[65] = "RotationSystem";
-    std::string system_component_ = "Rotator";
+    char locator_[256] = "Native/gameplay.cpp", query_[256] = "";
     std::size_t search_from_ = 0;
-    Uint64 checked_disk_ = 0, browser_checked_ = 0;
-    std::uint64_t browser_revision_seen_ = 0;
-    std::vector<std::string> browser_sources_;
-    std::vector<ManagedSystemSource> browser_systems_;
+    Uint64 checked_disk_ = 0;
     Tab* find(const std::string& locator) {
         ProjectPaths paths(root_);
         for (auto& tab : tabs_)
@@ -68,9 +63,16 @@ class CppSourceEditor {
     bool close_cancelled = false, build_on_save = false, build_pending = false;
     bool build_enabled = false;
     std::uint64_t source_revision = 0;
-    std::function<void()> request_build;
+    std::function<void()> request_build, request_new;
+    std::function<void(const std::string&)> request_reveal;
     bool is_open() const { return open_; }
     std::string active_source() const { return active_ ? active_->locator : std::string{}; }
+    bool dirty_source(const std::string& locator) const {
+        for (const auto& tab : tabs_)
+            if (tab->locator == locator)
+                return tab->dirty;
+        return false;
+    }
     std::string active_text() const { return active_ ? active_->editor.GetText() : std::string{}; }
     bool dirty() const {
         return std::any_of(tabs_.begin(), tabs_.end(), [](const auto& tab) { return tab->dirty; });
@@ -93,9 +95,6 @@ class CppSourceEditor {
         open_ = focus_ = false;
         close_all_ = close_popup_ = build_pending = false;
         error_.clear();
-        browser_sources_.clear();
-        browser_systems_.clear();
-        browser_checked_ = 0;
         ++source_revision;
     }
     void open(SceneDocument& project, const std::string& locator, int line = 1, int column = 1) {
@@ -158,101 +157,6 @@ class CppSourceEditor {
             throw;
         }
         active_ = previous;
-    }
-    void draw_browser(SceneDocument& project, bool locked) {
-        if (root_ != project.project())
-            project_changed(project.project());
-        if (!ImGui::CollapsingHeader("Project C++ sources", ImGuiTreeNodeFlags_DefaultOpen))
-            return;
-        attempt([&] {
-            if (!browser_checked_ || SDL_GetTicks() - browser_checked_ >= 1000 ||
-                browser_revision_seen_ != source_revision) {
-                browser_sources_ = cpp_project_sources(root_);
-                browser_systems_ = managed_system_sources(root_);
-                browser_revision_seen_ = source_revision;
-                browser_checked_ = SDL_GetTicks();
-            }
-            const auto& sources = browser_sources_;
-            for (const auto& group : {"Components", "Systems", "Other source / headers"}) {
-                bool shown = false;
-                for (const auto& source : sources) {
-                    const bool component = source.starts_with("Native/Components/");
-                    const bool system = source.starts_with("Native/Systems/");
-                    const bool in_group = std::string_view(group) == "Components" ? component
-                                          : std::string_view(group) == "Systems"
-                                              ? system
-                                              : !component && !system;
-                    if (!in_group)
-                        continue;
-                    if (!shown) {
-                        ImGui::SeparatorText(group);
-                        shown = true;
-                    }
-                    ImGui::PushID(source.c_str());
-                    if (button(source.c_str(), "Open this project source in FORGE."))
-                        open(project, source);
-                    ImGui::PopID();
-                }
-            }
-            if (ImGui::TreeNode("Registered systems")) {
-                for (const auto& system : browser_systems_) {
-                    ImGui::PushID(system.source.c_str());
-                    if (button(system.name.c_str(), "Open the registered system source."))
-                        open(project, system.source);
-                    ImGui::SameLine();
-                    ImGui::TextDisabled("Fixed gameplay | %s", system.component.c_str());
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
-            }
-            if (sources.empty())
-                ImGui::TextUnformatted("Create a C++ gameplay project to begin.");
-        });
-        ImGui::SeparatorText("Create gameplay");
-        ImGui::BeginDisabled(locked || dirty());
-        ImGui::SetNextItemWidth(180);
-        ImGui::InputText("Component name", component_name_, sizeof(component_name_));
-        ImGui::SameLine();
-        if (button("Create C++ Component", "Create a Flecs data component with an authored speed "
-                                           "property, then open its header."))
-            attempt([&] {
-                project.check_ownership();
-                const auto source = create_cpp_component(root_, component_name_);
-                ++source_revision;
-                open(project, source);
-            });
-        ImGui::SetNextItemWidth(180);
-        ImGui::InputText("System name", system_name_, sizeof(system_name_));
-        ImGui::SameLine();
-        if (button("Create C++ System", "Create a fixed-step rotation example using the selected "
-                                        "component speed, then open its source."))
-            attempt([&] {
-                project.check_ownership();
-                const auto source = create_cpp_system(root_, system_name_, system_component_);
-                ++source_revision;
-                open(project, source);
-            });
-        ImGui::SameLine();
-        if (ImGui::BeginCombo("Component", system_component_.c_str())) {
-            attempt([&] {
-                for (const auto& source : cpp_project_sources(root_)) {
-                    constexpr std::string_view prefix = "Native/Components/";
-                    if (!source.starts_with(prefix) || !source.ends_with(".hpp"))
-                        continue;
-                    const auto name =
-                        source.substr(prefix.size(), source.size() - prefix.size() - 4);
-                    if (ImGui::Selectable(name.c_str(), system_component_ == name))
-                        system_component_ = name;
-                }
-            });
-            ImGui::EndCombo();
-        }
-        ImGui::EndDisabled();
-        help("Components hold entity data. Systems run behavior over matching entities. "
-             "The generated sample rotates using a speed field; edit the data and behavior "
-             "for your game. Save source drafts before creating files, then Build Gameplay.");
-        if (!error_.empty())
-            ImGui::TextWrapped("%s", error_.c_str());
     }
     void request_close() {
         close_all_ = true;
@@ -321,7 +225,7 @@ class CppSourceEditor {
             FORGE_UI_PROBE("cpp:build-on-save");
             help("Queue a managed gameplay build after saving. Waits until Play stops and all "
                  "source drafts are saved. Disabling affects future saves; cancel an active "
-                 "build from Gameplay Code.");
+                 "build from Build.");
             ImGui::BeginDisabled(!build_enabled || !request_build);
             if (button(dirty() ? "Save & Build gameplay" : "Build gameplay",
                        "Build all saved C++ gameplay sources using the existing "
@@ -502,31 +406,29 @@ class CppSourceEditor {
         ImGui::End();
     }
     void controls(SceneDocument& project, bool locked) {
-        ImGui::BeginDisabled(locked);
-        if (button("Open file", "Open the source in FORGE with its own Save and Undo history."))
-            attempt([&] { open(project, locator_); });
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x -
-                                                    ImGui::CalcTextSize("Source path").x -
-                                                    ImGui::GetStyle().ItemInnerSpacing.x));
-        ImGui::InputText("Source path", locator_, sizeof(locator_));
-        help("Project-relative C++ source/header inside Native. Deployment files are excluded.");
-        if (button("Create source file", "Create and open a managed source; .cpp is explicitly "
-                                         "added to gameplay compilation."))
-            attempt([&] {
-                project.check_ownership();
-                create_cpp_source(project.project(), new_name_);
-                ++source_revision;
-                open(project, "Native/" + std::string(new_name_));
-            });
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x -
-                                                    ImGui::CalcTextSize("New source filename").x -
-                                                    ImGui::GetStyle().ItemInnerSpacing.x));
-        ImGui::InputText("New source filename", new_name_, sizeof(new_name_));
-        FORGE_UI_PROBE("cpp:new-filename");
-        help("A new .cpp or .hpp directly inside Native; existing files are never overwritten.");
+        ImGui::BeginDisabled(locked || !request_new);
+        if (button("New...", "Create a C++ source, header, Component or System through Content."))
+            request_new();
         ImGui::EndDisabled();
+        if (active_ && request_reveal) {
+            ImGui::SameLine();
+            if (button("Reveal in Content", "Find this C++ file under Content > Code."))
+                request_reveal(active_->locator);
+        }
+        if (ImGui::TreeNode("Open by path")) {
+            ImGui::BeginDisabled(locked);
+            if (button("Open file", "Open a project-relative C++ source inside Native."))
+                attempt([&] { open(project, locator_); });
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x -
+                                                        ImGui::CalcTextSize("Source path").x -
+                                                        ImGui::GetStyle().ItemInnerSpacing.x));
+            ImGui::InputText("Source path", locator_, sizeof(locator_));
+            help(
+                "Project-relative C++ source/header inside Native. Deployment files are excluded.");
+            ImGui::EndDisabled();
+            ImGui::TreePop();
+        }
         if (!error_.empty())
             ImGui::TextWrapped("%s", error_.c_str());
     }

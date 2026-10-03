@@ -140,7 +140,7 @@ inline void initialize_workspace(ImGuiID dock,
     ImGui::DockBuilderDockWindow("Inspector", right);
     ImGui::DockBuilderDockWindow("Problems###Problems", bottom);
     ImGui::DockBuilderDockWindow("Console", bottom);
-    ImGui::DockBuilderDockWindow("Gameplay Code###Native", bottom);
+    ImGui::DockBuilderDockWindow("Build###Native", bottom);
     ImGui::DockBuilderDockWindow("Scene###Scene", center);
     ImGui::DockBuilderDockWindow("Game", center);
     if (dock_documents)

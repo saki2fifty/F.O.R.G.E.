@@ -11,7 +11,7 @@
 
 Messages are bounded to 256 displayed entries and retained across panel closure. Repeated observed diagnostics are deduplicated. Switching projects starts a new session list. Console retains the most recent 256 status changes; **Clear log** clears only the displayed log.
 
-Build output is also available in **Gameplay Code**. Runtime UI, asset conversion/build and authoring failures feed Problems. Some low-level messages have no navigable target; use their source text and Console details.
+Build output is also available in **Build**. Runtime UI, asset conversion/build and authoring failures feed Problems. Some low-level messages have no navigable target; use their source text and Console details.
 
 ## Scene diagnostics
 

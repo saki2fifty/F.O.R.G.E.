@@ -71,4 +71,4 @@ See [native iteration](docs/native-modules.md), [scene format](docs/scene-format
 - **Restart**: replace the play world with a fresh copy, including your latest authored edits.
 - **Stop**: return the viewport to authoring. Inspector edits and Save always affect the authored scene.
 
-Use **Gameplay Code → Create C++ gameplay project → Build Gameplay**, then Play. Create Flecs C++ Components and Systems in the source browser; Build on Save is optional. See [C++ gameplay](manual/editor/native-gameplay.md) for the Windows developer launcher and tool requirements.
+Use **Build → Gameplay setup → Create C++ gameplay project** for a new project. Find and create Components and Systems in **Content → Code**, edit them in **C++ Sources**, then choose **Build Gameplay** and Play. Build on Save is optional. See [C++ gameplay](manual/editor/native-gameplay.md) for the Windows developer launcher and tool requirements.

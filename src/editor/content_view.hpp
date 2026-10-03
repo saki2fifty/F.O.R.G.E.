@@ -20,6 +20,8 @@ class ContentView {
     std::function<void(AssetId)> retry_thumbnail;
     std::function<void(const std::vector<AssetId>&)> reimport;
     std::function<void(bool)> selection_actions;
+    std::function<bool(const std::string&)> code_dirty;
+    std::function<void()> setup_code, create_menu;
     Json settings() const {
         return {{"grid", grid_},
                 {"folder_tree", tree_},
@@ -64,19 +66,20 @@ class ContentView {
         if (order_changed)
             ++scope_;
     }
-    void reveal(const ui::EditorSelection& selection) {
+    bool reveal(const ui::EditorSelection& selection) {
         if (!index_)
-            return;
+            return false;
         for (const auto& entry : index_->entries)
             if (matches(entry, selection)) {
-                locations_.visit(path_utf8(entry.source.parent_path()));
+                locations_.visit(path_utf8(std::filesystem::u8path(entry.path).parent_path()));
                 query_ = {};
                 search_[0] = 0;
                 selected_ = {entry.key};
                 reveal_key_ = entry.key;
                 dirty_ = true;
-                break;
+                return true;
             }
+        return false;
     }
     const std::set<std::string>& selection() const { return selected_; }
     std::vector<AssetId> selected_assets() const {
@@ -212,11 +215,24 @@ class ContentView {
             ImGui::SameLine();
         }
         ImGui::BeginChild("content-results", {0, height}, ImGuiChildFlags_Borders);
-        if (!index_ || visible_.empty())
-            ImGui::TextWrapped(index_
-                                   ? "No matching assets. Clear filters or choose another folder."
-                                   : "Discovering project content...");
-        else
+        if (!index_ || visible_.empty()) {
+            if (index_ && query_.folder == code_folder_key && query_.text.empty() &&
+                query_.type.empty() && !query_.state &&
+                std::none_of(index_->entries.begin(), index_->entries.end(),
+                             [](const ContentEntry& entry) {
+                                 return entry.kind == ContentEntryKind::Code;
+                             })) {
+                ImGui::TextWrapped(
+                    "C++ project files live in Native. Create a C++ gameplay project to begin.");
+                if (setup_code &&
+                    ui::button("Set up C++ gameplay...",
+                               "Open Build to set up the existing C++ gameplay project."))
+                    setup_code();
+            } else
+                ImGui::TextWrapped(
+                    index_ ? "No matching items. Clear filters or choose another folder."
+                           : "Discovering project content...");
+        } else
             draw_entries(selection, locked);
         // Selection operations live in their context/command routes, not a fourth
         // permanent toolbar row. Short panels reserve their height for results.
@@ -228,6 +244,10 @@ class ContentView {
                 "Ctrl-click toggles items; Shift-click selects a range; Ctrl+A selects filtered "
                 "results; Escape clears Content selection. Inspector follows the primary item. "
                 "Hidden selected items remain selected until cleared.");
+            if (create_menu && ImGui::BeginMenu("Create...")) {
+                create_menu();
+                ImGui::EndMenu();
+            }
             if (selection_actions)
                 selection_actions(locked);
             else if (reimport && !selected_.empty()) {
@@ -275,16 +295,21 @@ class ContentView {
         return entry.asset ? selection.kind() == ui::SelectionKind::Asset &&
                                  selection.asset() == entry.asset
                            : selection.kind() == ui::SelectionKind::DocumentItem &&
-                                 selection.document() == "content.source" &&
-                                 selection.member() == entry.path;
+                                 selection.document() == (entry.kind == ContentEntryKind::Code
+                                                              ? "content.code"
+                                                              : "content.source") &&
+                                 selection.member() == path_utf8(entry.source);
     }
     static void primary(const ContentEntry& entry, ui::EditorSelection& selection) {
         if (entry.asset)
             selection.select_asset(entry.asset);
         else {
-            selection.select_document_item("content.source", entry.path);
+            const bool code = entry.kind == ContentEntryKind::Code;
+            selection.select_document_item(code ? "content.code" : "content.source",
+                                           path_utf8(entry.source));
             if (ui::editor_context)
-                ui::editor_context->task.focus_document("content.source", "Source file");
+                ui::editor_context->task.focus_document(code ? "content.code" : "content.source",
+                                                        code ? "C++ file" : "Source file");
         }
     }
     void draw_folder(const std::string& path, unsigned depth) {
@@ -301,12 +326,16 @@ class ContentView {
             flags |= ImGuiTreeNodeFlags_Leaf;
         if (path.empty())
             flags |= ImGuiTreeNodeFlags_DefaultOpen;
-        const auto label =
-            path.empty() ? "Project" : path_utf8(std::filesystem::u8path(path).filename());
+        const auto label = path.empty() ? "Project" : content_folder_label(path);
         const bool expanded = ImGui::TreeNodeEx("folder", flags, "%s", label.c_str());
+        FORGE_UI_PROBE("content:folder:" + label);
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
             locations_.visit(path);
-        ui::help(path.empty() ? "All project source folders." : path.c_str());
+        const auto actual = path == code_folder_key ? "Native/"
+                            : path.starts_with(std::string(code_folder_key) + "/")
+                                ? "Native" + path.substr(code_folder_key.size())
+                                : path;
+        ui::help(path.empty() ? "All project source folders." : actual.c_str());
         if (expanded) {
             for (const auto& child : found->second)
                 draw_folder(child, depth + 1);
@@ -354,7 +383,8 @@ class ContentView {
                 primary(*fallback, selection);
             else if (!fallback && (selection.kind() == ui::SelectionKind::Asset ||
                                    (selection.kind() == ui::SelectionKind::DocumentItem &&
-                                    selection.document() == "content.source")))
+                                    (selection.document() == "content.source" ||
+                                     selection.document() == "content.code"))))
                 selection.clear();
         }
     }
@@ -411,14 +441,21 @@ class ContentView {
                             open(entry);
                     }
                     FORGE_UI_PROBE("asset:" + entry.asset.str());
-                    FORGE_UI_PROBE("source:" + entry.path);
+                    FORGE_UI_PROBE("source:" + path_utf8(entry.source));
+                    if (entry.kind == ContentEntryKind::Code)
+                        FORGE_UI_PROBE("code:" + path_utf8(entry.source));
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                         primary(entry, selection);
                     const auto preview = grid_ && entry.asset && thumbnail && ImGui::IsItemVisible()
                                              ? thumbnail(entry.asset)
                                              : ContentThumbnail{};
-                    ui::help((entry.name + "\n" + entry.path + "\n" + entry.type + " | " +
-                              content_state_label(entry.state) +
+                    const std::string state =
+                        entry.kind == ContentEntryKind::Code
+                            ? (code_dirty && code_dirty(path_utf8(entry.source)) ? "Modified"
+                                                                                 : "C++ file")
+                            : content_state_label(entry.state);
+                    ui::help((entry.name + "\n" + path_utf8(entry.source) + "\n" + entry.type +
+                              " | " + state +
                               "\nCtrl/Shift: multiple selection. Double-click: open. Right-click: "
                               "actions." +
                               (preview.status.empty() ? "" : "\n" + preview.status))
@@ -442,7 +479,7 @@ class ContentView {
                         if (entry.asset && ImGui::MenuItem("Copy AssetId"))
                             ImGui::SetClipboardText(entry.asset.str().c_str());
                         if (ImGui::MenuItem("Copy source path"))
-                            ImGui::SetClipboardText(entry.path.c_str());
+                            ImGui::SetClipboardText(path_utf8(entry.source).c_str());
                         if (entry.asset && retry_thumbnail && !preview.status.empty() &&
                             ImGui::MenuItem("Refresh thumbnail"))
                             retry_thumbnail(entry.asset);
@@ -493,14 +530,20 @@ class ContentView {
                                            {pos.x + width * .78f - 5, pos.y + item_height}, true);
                         draw->AddText({pos.x + name_end, pos.y}, muted, entry.type.c_str());
                         draw->PopClipRect();
-                        draw->AddText({pos.x + width * .78f, pos.y}, muted,
-                                      content_state_label(entry.state));
+                        draw->AddText({pos.x + width * .78f, pos.y}, muted, state.c_str());
                     }
                     draw->PopClipRect();
                 }
             }
         }
         apply(ImGui::EndMultiSelect(), selection);
+        if (selected_.size() == 1 && ImGui::IsWindowFocused() && !ImGui::GetIO().WantTextInput &&
+            ImGui::IsKeyPressed(ImGuiKey_Enter) && open)
+            for (const auto& entry : index_->entries)
+                if (selected_.contains(entry.key) && entry.kind == ContentEntryKind::Code) {
+                    open(entry);
+                    break;
+                }
         ImGui::PopID();
     }
 };

@@ -2,6 +2,7 @@
 #include "actions.hpp"
 #include "audio_details.hpp"
 #include "content_view.hpp"
+#include "cpp_source_files.hpp"
 #include "document_workspace.hpp"
 #include "files.hpp"
 #include "help.hpp"
@@ -84,12 +85,20 @@ struct ContentCatalogScan {
     AssetCatalog catalog;
     std::shared_ptr<const std::vector<AssetRecord>> scenes;
     std::string diagnostic;
+    std::vector<std::string> code_sources;
 };
 inline ContentCatalogScan
 scan_content_catalog(const std::filesystem::path& root,
                      std::shared_ptr<const std::vector<AssetRecord>> previous = {},
-                     std::stop_token stop = {}) {
-    ContentCatalogScan result{AssetCatalog::open_project(root), std::move(previous), {}};
+                     std::vector<std::string> previous_code = {}, std::stop_token stop = {}) {
+    ContentCatalogScan result{
+        AssetCatalog::open_project(root), std::move(previous), {}, std::move(previous_code)};
+    try {
+        result.code_sources = ui::cpp_project_sources(root);
+    } catch (const std::exception& e) {
+        result.diagnostic =
+            std::string("C++ source discovery: ") + e.what() + ". Retaining the previous C++ list.";
+    }
     try {
         std::set<std::filesystem::path, ProjectLocatorLess> excluded;
         for (const auto& [id, record] : result.catalog.records()) {
@@ -119,9 +128,11 @@ scan_content_catalog(const std::filesystem::path& root,
     } catch (const std::exception& e) {
         if (stop.stop_requested())
             throw;
-        result.diagnostic = std::string("Scene discovery: ") + e.what() +
-                            ". Registered assets remain available; retaining the last complete "
-                            "discovered-scene list.";
+        if (!result.diagnostic.empty())
+            result.diagnostic += "\n";
+        result.diagnostic += std::string("Scene discovery: ") + e.what() +
+                             ". Registered assets remain available; retaining the last complete "
+                             "discovered-scene list.";
     }
     std::set<std::filesystem::path, ProjectLocatorLess> indexed_sources;
     for (const auto& [id, record] : result.catalog.records()) {
@@ -159,10 +170,48 @@ class ContentBrowser {
     std::function<std::map<AssetId, ContentState>()> import_activity;
     std::function<void(const std::vector<AssetId>&)> reimport;
     std::function<bool(const std::filesystem::path&, const std::string&, bool)> open_source;
+    std::function<void(const std::string&)> open_code;
+    std::function<bool(const std::string&)> code_dirty;
+    std::function<bool()> code_creation_ready;
+    std::function<std::string(const std::string&, const std::string&, const std::string&)>
+        create_code;
+    std::function<void()> setup_code;
+    void begin_code_create(std::string kind) {
+        code_create_kind_ = std::move(kind);
+        const auto initial = code_create_kind_ == "component" ? "Rotator"
+                             : code_create_kind_ == "system"  ? "RotationSystem"
+                             : code_create_kind_ == "header"  ? "behavior.hpp"
+                                                              : "behavior.cpp";
+        std::snprintf(code_create_name_, sizeof(code_create_name_), "%s", initial);
+        code_create_pending_ = true;
+        focus_code_create_ = true;
+    }
     void source_snapshot(std::shared_ptr<const SourceSnapshot> snapshot) {
         if (snapshot && snapshot->complete && snapshot != sources_) {
             sources_ = std::move(snapshot);
             index_dirty_ = true;
+        }
+    }
+    void inspect_code(const std::string& locator) {
+        try {
+            const auto path = ui::cpp_source_path(root_, std::filesystem::u8path(locator));
+            ImGui::TextWrapped("C++ file: %s", path_utf8(path.filename()).c_str());
+            const auto extension = search_key(path_utf8(path.extension()));
+            const bool translation_unit =
+                extension == ".cpp" || extension == ".cc" || extension == ".cxx";
+            ImGui::Text("Kind: %s", translation_unit ? "C++ source" : "C++ header");
+            ImGui::TextWrapped("Project path: %s", locator.c_str());
+            ImGui::TextDisabled("Project file; no AssetId or import status");
+            if (code_dirty && code_dirty(locator))
+                ImGui::TextUnformatted("Modified in C++ Sources (unsaved)");
+            if (open_code && ui::button("Open C++ file", "Open the central C++ Sources document."))
+                open_code(locator);
+            if (ui::button("Reveal source folder", "Open this file's physical directory."))
+                SDL_OpenURL(ui::local_file_url(path.parent_path()).c_str());
+            if (ui::button("Copy source path", "Copy the actual project-relative Native path."))
+                ImGui::SetClipboardText(locator.c_str());
+        } catch (const std::exception& e) {
+            ui::field_error(e.what());
         }
     }
     void inspect_source(const std::string& locator) {
@@ -215,10 +264,10 @@ class ContentBrowser {
         refresh_again_ = false;
         stop_ = std::stop_source{};
         scan_project_ = root_;
-        scan_ = std::async(std::launch::async,
-                           [root = root_, previous = discovered_scenes_, stop = stop_.get_token()] {
-                               return scan_content_catalog(root, previous, stop);
-                           });
+        scan_ = std::async(std::launch::async, [root = root_, previous = discovered_scenes_,
+                                                code = code_sources_, stop = stop_.get_token()] {
+            return scan_content_catalog(root, previous, code, stop);
+        });
     }
     void poll(EditorFiles& files) {
         select_project(files);
@@ -236,6 +285,7 @@ class ContentBrowser {
                 merge_prefabs(candidate.catalog, files);
                 catalog_ = std::make_shared<AssetCatalog>(std::move(candidate.catalog));
                 discovered_scenes_ = std::move(candidate.scenes);
+                code_sources_ = std::move(candidate.code_sources);
                 index_dirty_ = true;
                 error_ = std::move(candidate.diagnostic);
                 refreshed_ = SDL_GetTicks();
@@ -386,11 +436,105 @@ class ContentBrowser {
         ui::help("Advanced identity and converter/dependency metadata. AssetIds remain unchanged "
                  "by selecting or inspecting.");
     }
+    void code_create_menu(bool locked) {
+        const bool opened = ImGui::BeginMenu("C++");
+        FORGE_UI_PROBE("content:create-code-menu");
+        if (!opened)
+            return;
+        ImGui::BeginDisabled(locked);
+        for (const auto& item :
+             {std::pair{"Component...", "component"}, std::pair{"System...", "system"},
+              std::pair{"Source file...", "source"}, std::pair{"Header file...", "header"}}) {
+            const bool chosen = ImGui::MenuItem(item.first);
+            FORGE_UI_PROBE(std::string("content:create:") + item.second);
+            if (chosen)
+                begin_code_create(item.second);
+        }
+        ImGui::EndDisabled();
+        ImGui::EndMenu();
+    }
+    void draw_code_create(EditorFiles& files, bool locked) {
+        if (std::exchange(code_create_pending_, false))
+            ImGui::OpenPopup("Create C++ file");
+        if (!ImGui::BeginPopupModal("Create C++ file", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            return;
+        const bool ready = code_creation_ready && code_creation_ready();
+        if (!ready) {
+            ImGui::TextWrapped("Set up a managed C++ gameplay project before creating files.");
+            if (setup_code && ui::button("Set up C++ gameplay...", "Open the Build panel.")) {
+                setup_code();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        const bool component = code_create_kind_ == "component";
+        const bool system = code_create_kind_ == "system";
+        const bool header = code_create_kind_ == "header";
+        ImGui::TextUnformatted(component ? "Component"
+                               : system  ? "System"
+                               : header  ? "Header file"
+                                         : "Source file");
+        ImGui::InputText(component || system ? "Name" : "Filename", code_create_name_,
+                         sizeof(code_create_name_));
+        FORGE_UI_PROBE("content:cpp-name");
+        std::string destination = "Native/";
+        if (component)
+            destination += "Components/" + std::string(code_create_name_) + ".hpp";
+        else if (system)
+            destination += "Systems/" + std::string(code_create_name_) + ".cpp";
+        else
+            destination += code_create_name_;
+        ImGui::TextWrapped("Destination: %s", destination.c_str());
+        if (system) {
+            if (ImGui::BeginCombo("Component", code_system_component_.c_str())) {
+                for (const auto& source : code_sources_) {
+                    constexpr std::string_view prefix = "Native/Components/";
+                    if (!source.starts_with(prefix) || !source.ends_with(".hpp"))
+                        continue;
+                    const auto name =
+                        source.substr(prefix.size(), source.size() - prefix.size() - 4);
+                    if (ImGui::Selectable(name.c_str(), code_system_component_ == name))
+                        code_system_component_ = name;
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::TextWrapped("The generated example rotates matching entities at a fixed tick.");
+        }
+        ImGui::BeginDisabled(locked || !ready || !create_code);
+        if (ui::button("Create and open",
+                       "Create the source using the existing managed C++ owner.")) {
+            try {
+                const std::string name = code_create_name_;
+                if ((header && !name.ends_with(".hpp")) ||
+                    (code_create_kind_ == "source" && !name.ends_with(".cpp")))
+                    throw std::runtime_error(header ? "Header filename must end in .hpp"
+                                                    : "Source filename must end in .cpp");
+                files.document.check_ownership();
+                const auto locator = create_code(code_create_kind_, name, code_system_component_);
+                error_.clear();
+                refresh(files);
+                if (ui::editor_context) {
+                    ui::editor_context->selection.select_document_item("content.code", locator);
+                    reveal_created_code_ = locator;
+                }
+                ImGui::CloseCurrentPopup();
+            } catch (const std::exception& e) {
+                error_ = e.what();
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ui::button("Cancel", "Close without creating a source file."))
+            ImGui::CloseCurrentPopup();
+        if (!error_.empty())
+            ui::field_error(error_);
+        ImGui::EndPopup();
+    }
     void draw(EditorFiles& files, bool* open = nullptr,
               const std::function<void()>& prefab_controls = {},
               const std::function<void()>& asset_controls = {}, bool locked = false) {
         poll(files);
-        if (ui::editor_context && ui::editor_context->reveal_content)
+        if (std::exchange(focus_code_create_, false) ||
+            (ui::editor_context && ui::editor_context->reveal_content))
             ImGui::SetNextWindowFocus();
         const bool visible = ImGui::Begin("Content", open);
         FORGE_UI_TAB_PROBE("tab:Content");
@@ -438,6 +582,7 @@ class ContentBrowser {
                 import_status();
             }
             if (ImGui::BeginPopup("Asset operations")) {
+                code_create_menu(locked);
                 ImGui::BeginDisabled(locked);
                 if (ui::button("New scene",
                                "Create an empty scene through the unsaved-change guard."))
@@ -485,6 +630,9 @@ class ContentBrowser {
                 "Project asset discovery runs in the background. Existing results stay available; "
                 "a failed scan keeps the last complete list.");
         }
+        view_.create_menu = [&] { code_create_menu(locked); };
+        view_.setup_code = setup_code;
+        view_.code_dirty = code_dirty;
         view_.selection_actions = action_set ? std::function<void(bool)>([&](bool locked) {
             ImGui::BeginDisabled(locked);
             action_set(nullptr).item("asset.reimport", "Reimport selected");
@@ -512,6 +660,9 @@ class ContentBrowser {
                     else if (editors)
                         editors->open(*a);
                 }
+            } else if (entry.kind == ContentEntryKind::Code) {
+                if (open_code)
+                    open_code(path_utf8(entry.source));
             } else if (open_source)
                 open_source(entry.source, entry.type, true);
         };
@@ -527,6 +678,9 @@ class ContentBrowser {
                 if (const auto* editor = editors->find(a->type);
                     editor && ImGui::MenuItem(editor->label.c_str(), nullptr, false, !locked))
                     editors->open(*a);
+            } else if (entry.kind == ContentEntryKind::Code) {
+                if (open_code && ImGui::MenuItem("Open C++ file", nullptr, false, !locked))
+                    open_code(path_utf8(entry.source));
             } else if (!entry.asset && open_source &&
                        open_source(entry.source, entry.type, false) &&
                        ImGui::MenuItem("Open import / source", nullptr, false, !locked)) {
@@ -542,12 +696,20 @@ class ContentBrowser {
             }
         };
         if (ui::editor_context && ui::editor_context->reveal_content && index_) {
-            view_.reveal(selection);
-            ui::editor_context->reveal_content = false;
+            if (view_.reveal(selection) || (!refreshing() && !index_dirty_ && !index_job_.valid()))
+                ui::editor_context->reveal_content = false;
+        }
+        if (!reveal_created_code_.empty()) {
+            if (selection.kind() != ui::SelectionKind::DocumentItem ||
+                selection.document() != "content.code" ||
+                selection.member() != reveal_created_code_ || view_.reveal(selection) ||
+                (!refreshing() && !index_dirty_ && !index_job_.valid()))
+                reveal_created_code_.clear();
         }
         view_.thumbnail = thumbnail;
         view_.retry_thumbnail = retry_thumbnail;
         view_.draw(selection, locked);
+        draw_code_create(files, locked);
         if (!error_.empty()) {
             ui::field_error(error_);
             if (ui::editor_context)
@@ -578,6 +740,11 @@ class ContentBrowser {
     std::stop_source stop_;
     std::future<ContentCatalogScan> scan_;
     std::shared_ptr<const std::vector<AssetRecord>> discovered_scenes_;
+    std::string code_create_kind_ = "source", code_system_component_ = "Rotator";
+    char code_create_name_[128] = "behavior.cpp";
+    bool code_create_pending_ = false, focus_code_create_ = false;
+    std::string reveal_created_code_;
+    std::vector<std::string> code_sources_;
     void select_project(EditorFiles& files) {
         if (root_ == files.document.project())
             return;
@@ -585,6 +752,9 @@ class ContentBrowser {
         root_ = files.document.project();
         catalog_.reset();
         discovered_scenes_.reset();
+        code_sources_.clear();
+        reveal_created_code_.clear();
+        focus_code_create_ = false;
         sources_.reset();
         index_stop_.request_stop();
         index_.reset();
@@ -616,13 +786,14 @@ class ContentBrowser {
             auto activity = import_activity ? import_activity() : std::map<AssetId, ContentState>{};
             index_dirty_ = false;
             index_stop_ = std::stop_source{};
-            index_job_ = std::async(
-                std::launch::async,
-                [catalog = std::shared_ptr<const AssetCatalog>(catalog_), sources = sources_,
-                 stop = index_stop_.get_token(), activity = std::move(activity)] {
-                    return std::make_shared<const ContentIndex>(
-                        ContentIndex::build(*catalog, sources.get(), stop, activity));
-                });
+            index_job_ =
+                std::async(std::launch::async,
+                           [catalog = std::shared_ptr<const AssetCatalog>(catalog_),
+                            sources = sources_, code = code_sources_,
+                            stop = index_stop_.get_token(), activity = std::move(activity)] {
+                               return std::make_shared<const ContentIndex>(ContentIndex::build(
+                                   *catalog, sources.get(), stop, activity, code));
+                           });
         }
     }
     static void merge_prefabs(AssetCatalog& candidate, EditorFiles& files) {

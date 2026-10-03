@@ -61,7 +61,7 @@ Stop Play before editing or saving the **authored scene** — runtime Save Game 
 
 ## Native SDK folder
 
-**Gameplay Code → Native SDK folder** points at the matching installed Native SDK. The editor uses this folder to launch the runtime that drives your gameplay module. The field defaults to empty; when empty, FORGE uses the NativeSdk shipped alongside the editor and only switches to your selected folder when you override it.
+**Build → Gameplay setup → Native SDK folder** points at the matching installed Native SDK. The editor uses this folder to launch the runtime that drives your gameplay module. The field defaults to empty; when empty, FORGE uses the NativeSdk shipped alongside the editor and only switches to your selected folder when you override it.
 
 The toolkit used to build your gameplay module must match the folder you point at. A mismatch refuses to start Play and the editor does not load the module. Your authored scene stays untouched.
 

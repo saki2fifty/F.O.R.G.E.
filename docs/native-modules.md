@@ -3,8 +3,7 @@
 FORGE has one supported project gameplay model: exact-SDK C++ code registers Flecs
 components and systems in a separate runtime process. Components carry data;
 systems query matching entities at the registered lifecycle phase. A system is
-not attached to one entity. `Native/` is project source, not an AssetId asset or
-a scene Hierarchy entry. The [user guide](../manual/editor/native-gameplay.md)
+not attached to one entity. `Native/` is project source shown under **Content → Code**. It is not an AssetId asset or a scene Hierarchy entry. The [user guide](../manual/editor/native-gameplay.md)
 shows the editor workflow.
 
 ## Binary and ownership boundary
@@ -31,12 +30,12 @@ still supports `Native/gameplay.cpp`; further `.cpp` and `.hpp` files can be
 created in FORGE. The optional `Native/forge.sources.cmake` registers managed
 translation units. User CMake is never silently rewritten.
 
-**Create C++ Component** creates a reflected, authorable data scaffold in
+**Content → Create / Register → C++ → Component** creates a reflected, authorable data scaffold in
 `Native/Components/`; **Create C++ System** creates a Flecs fixed-gameplay system
 in `Native/Systems/`. Their registrations are generated through
 `Native/forge.registration.hpp`, with source provenance for the Inspector's
 **Open C++ Definition** action. Unmanaged or hand-written registrations do not
-claim a source mapping. Registered systems are listed on demand in Gameplay Code.
+claim a source mapping. C++ source and headers are browsed in Content → Code. Build owns compilation and component inspection.
 The ordinary Inspector's generic schema and property drawer author component
 values, including prefab intent, scene persistence and Undo/Redo.
 

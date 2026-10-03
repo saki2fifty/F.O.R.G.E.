@@ -48,8 +48,7 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
          "Authored entity selection count. Asset selection has a separate Inspector scope."},
         {std::to_string(problems) + " problems",
          "Open Window > Problems for actionable diagnostics."},
-        {building ? "Building..." : "Build idle",
-         "Gameplay build state; details are in Gameplay Code."}};
+        {building ? "Building..." : "Build idle", "Gameplay build state; details are in Build."}};
     const auto& style = ImGui::GetStyle();
     auto* viewport = ImGui::GetMainViewport();
     const float gap = style.ItemSpacing.x * 2;
@@ -65,7 +64,7 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
         if (toggle_bottom) {
             if (ImGui::SmallButton(bottom_folded ? "Workspace +" : "Workspace -"))
                 toggle_bottom();
-            help("Expand/fold Content, Problems, Console and Gameplay Code (Ctrl+Space). "
+            help("Expand/fold Content, Problems, Console and Build (Ctrl+Space). "
                  "Panel visibility and dock layout are retained.");
             workspace_width = ImGui::GetItemRectSize().x + gap;
             ImGui::SameLine(0, gap);

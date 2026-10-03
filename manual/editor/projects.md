@@ -9,7 +9,7 @@ A project folder keeps your scenes and gameplay source together. FORGE also stor
 3. Enter an existing **Parent folder**, or select **Browse...** to choose one.
 4. Select **Create**. If the current scene has unsaved edits, resolve the save prompt first.
 
-The new folder contains `Scenes/main.scene.json`, `Assets`, `Native`, and `forge.project.json`. Choose a new folder name: existing folders are not overwritten. Use Content to import or register supported assets in the Assets folder.
+The new folder contains `Scenes/main.scene.json`, `Assets`, `Native`, and `forge.project.json`. Choose a new folder name: existing folders are not overwritten. Use Content to import assets and browse C++ files through its Code location; the physical C++ folder is `Native/`.
 
 ## Open or return to a project
 
@@ -46,9 +46,7 @@ Shared simulation frequency and startup scene identity are edited in [Project se
 
 ## From a new project to a game
 
-Create the project, add scene entities and Save. In Gameplay Code, use
-**Create C++ gameplay project**, **Build gameplay**, then **Inspect components**
-to author admitted gameplay data. Choose the saved startup scene and game defaults
+Create the project, add scene entities and Save. In **Build → Gameplay setup**, create the C++ gameplay project. Use **Content → Code** to create and open C++ Components and Systems, then **Build Gameplay** and **Inspect components** in Build to author admitted gameplay data. Choose the saved startup scene and game defaults
 in Project Settings. Save settings, then use **Run → Export Game...**. Managed
 module kits are selected automatically; external kits require a folder choice.
 See [Native gameplay](native-gameplay.md) for the complete source/build workflow.

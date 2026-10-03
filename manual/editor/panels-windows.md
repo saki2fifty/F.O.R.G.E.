@@ -7,7 +7,7 @@ FORGE uses dockable panels. Drag a tab to move it or dock beside another panel; 
 - **Hierarchy**, left: scene entities and structural organization.
 - **Scene / Game**, center tabs: authored scene versus isolated runtime presentation.
 - **Inspector**, right: the selected entity, asset or prefab-member context.
-- **Content / Problems / Console / Gameplay Code**, bottom tabs: assets, actionable issues, chronological messages and native compilation.
+- **Content / Build / Problems / Console**, bottom tabs: assets and C++ project files, gameplay compilation, actionable issues and chronological messages.
 - The permanent one-row bottom status bar shows FPS, frame time, editor CPU/RAM, VSync state, runtime state, entity/selection counts, problem count and build activity. At narrow widths, **Details** exposes telemetry that does not fit.
 
 Application menus sit above the global action bar. The bar provides Save, Undo/Redo and Play/Pause/Step/Stop. the **More** (three-dot) button retains access to actions hidden at narrow widths. Narrow windows or large UI scales group application menus under **Menu**.
@@ -27,7 +27,7 @@ Use 1440×900 or larger at 100% for the full default workspace. At 150–200%, a
 Fresh/reset layouts show Content in the bottom workspace when there is sufficient
 height. At crowded sizes the bottom workspace starts folded. **Workspace +** in
 the status bar, **Window → Expand bottom workspace**, or **Ctrl+Space** restores it.
-**Workspace -** folds Content, Problems, Console and Gameplay Code together without
+**Workspace -** folds Content, Build, Problems and Console together without
 changing which of those panels you have chosen to show. The folded state is saved
 in personal preferences. Existing saved layouts keep their active tabs.
 

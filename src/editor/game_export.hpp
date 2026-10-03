@@ -171,7 +171,7 @@ class GameExportTask {
                     if (document.settings().requires_native_sdk()) {
                         if (inspection_runtime_.empty())
                             throw std::runtime_error(
-                                "Select the matching Native SDK in Gameplay Code before export.");
+                                "Select the matching Native SDK in Build before export.");
                         request_.inspection_runtime = inspection_runtime_;
                     }
                     request_.reference_schema = scene.schema();

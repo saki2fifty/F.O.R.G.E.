@@ -1,10 +1,16 @@
 # Content browser
 
-Content is the project's asset browser. It lists registered scenes, prefabs, models, materials, shaders, audio, animation, navigation, texture and Runtime UI assets from the existing project catalog. Saved scenes are also discovered by their scene identity.
+Content is the project browser. It lists registered scenes, prefabs, models, materials, shaders, audio, animation, navigation, texture and Runtime UI assets, plus supported C++ project files under **Code**. Saved scenes are also discovered by their scene identity. C++ files have physical paths under `Native/`; they are not registered AssetId assets.
 
 In a short panel or at high interface zoom, **Actions** contains Create / Register,
 Import files, Refresh and Source updates. Search, Filters, View and Folders stay
 visible beside it so the results retain useful space.
+
+## Find and edit C++ project files
+
+Open **Content → Code** to find C++ source and headers. **Components** and **Systems** are folders under Code; C++ files also appear in normal search and the C++ Source/Header type filters. Double-click a file, select it and press Enter, or choose **Open C++ file** to edit it in the central **C++ Sources** document. A single click shows its actual `Native/...` path in Inspector. **Reveal in Content** in C++ Sources returns to its folder. You can copy the path or reveal its physical folder without changing scene data.
+
+Choose **Create / Register → C++ → Component / System / Source file / Header file**. A short Content panel groups this under **Actions**. Component and System examples use the existing managed C++ gameplay setup; choose **Set up C++ gameplay...** to open Build when a project needs setup. Creation shows the destination and opens the new source. Save code in C++ Sources, then use **Build Gameplay** in Build. C++ file selection does not attach code to an entity: add its admitted data Component through the entity Inspector. Files under Code are not imported, reimported, dragged as assets or included in standalone export as source text. See [C++ gameplay](native-gameplay.md).
 
 ## Find and inspect an asset
 
@@ -28,7 +34,7 @@ Use the folder tree or **Folders** menu to choose a location. Inside **Folders**
 - Selected items hidden by a filter remain selected. The selection count and **Reimport selected** are in the results-background context menu; check them before reimporting.
 - Dragging sends the individual asset under the pointer. It preserves an entity Inspector for assigning that asset; it does not assign an entire multi-selection.
 
-Right-click offers **Copy AssetId** for registered assets and **Copy source path** for either kind of row. Generated model members show their imported display names, with the owning path in their tooltip and Inspector.
+Right-click offers **Copy AssetId** for registered assets and **Copy source path** for assets, import sources and C++ files. Generated model members show their imported display names, with the owning path in their tooltip and Inspector.
 
 ### Thumbnail behavior
 
@@ -114,7 +120,7 @@ See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [
 
 ## Current limits
 
-Content combines registered assets with recognized source files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; unsupported formats still require their existing registration workflows. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+Content combines registered assets with recognized import sources and C++ project files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; unsupported formats still require their existing registration workflows. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discovery is bounded to 64 directory levels, 110,000 directory/file entries and 64 MiB of JSON reads, with an 8 MiB per-file limit. Registered non-scene sources, the catalog, project metadata and import sidecars are excluded from those JSON reads. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 

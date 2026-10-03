@@ -31,6 +31,15 @@ inline void test_workspace_startup() {
                 first.text != original,
             "Real file startup migration failed (reader must close before replacement)");
     require(read(backup) == original, "Workspace backup lost original bytes");
+    require(first.text.find("[Window][Build###Native]") != std::string::npos,
+            "Legacy Native dock was not relabeled Build");
+    const std::string previous_named =
+        "[Window][Gameplay Code###Native]\nPos=30,40\nSize=400,300\n";
+    const auto renamed = forge::ui::migrate_layout(previous_named);
+    require(renamed.find("[Window][Build###Native]") != std::string::npos &&
+                renamed.find("Pos=30,40") != std::string::npos &&
+                renamed.find("Gameplay Code") == std::string::npos,
+            "Renaming Gameplay Code discarded a custom dock layout");
     auto second = forge::ui::prepare_layout(path);
     require(second.save_enabled && second.text == first.text && read(backup) == original,
             "Restart changed migrated layout or backup");

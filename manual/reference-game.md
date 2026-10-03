@@ -13,7 +13,7 @@ you do not need a compiler or SDK installed to play it.
 
 The reference game lives in the Developer Kit’s `ReferenceGame/` folder; it is not
 included as an editable project. The editor's **File → Open project** opens an
-editable project of your own. **Gameplay Code → Native SDK folder** points at
+editable project of your own. **Build → Gameplay setup → Native SDK folder** points at
 the matching installed NativeSdk that hosts your gameplay module.
 
 ## Start and explore

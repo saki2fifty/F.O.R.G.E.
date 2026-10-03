@@ -35,7 +35,7 @@ For perspective, 2500 FPS is 0.40 ms per frame, 2000 FPS is 0.50 ms and 900 FPS 
 
 ## Find an error
 
-Open Console and read the latest file/editor message, or runtime status. Compiler output is in Gameplay Code. Native compilation also writes its current complete log to `.forge/native/build.log`. The launchers retain console output on an editor failure.
+Open Console and read the latest file/editor message, or runtime status. Compiler output is in Build. Native compilation also writes its current complete log to `.forge/sdk-build/build.log`. The launchers retain console output on an editor failure.
 
 ## Runtime timing
 

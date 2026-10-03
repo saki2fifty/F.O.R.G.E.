@@ -1,5 +1,9 @@
 # ADR 010 — C++ gameplay and integrated source editing
 
+## 2026-10-03 project browser amendment
+
+Content now discovers supported C++ files under Code using their existing `Native/` paths. The C++ Sources document still owns editing, Save and source history; Build retains the existing compiler and admission owner. This presentation change creates no AssetIds for C++ files and changes no runtime or exported-game source behavior. The older Gameplay Code panel wording below records the earlier layout.
+
 ## 2026-10-01 gameplay consolidation amendment
 
 The movement-only C17-compatible ABI1 gameplay path was retired by explicit

@@ -43,12 +43,22 @@ inline const char* content_state_label(ContentState state) {
     }
     return "Unknown";
 }
+enum class ContentEntryKind { Asset, Source, Code };
+inline constexpr std::string_view code_folder_key = "@code";
+inline std::string content_folder_label(const std::string& path) {
+    if (path == code_folder_key)
+        return "Code";
+    if (path == "Code")
+        return "Code (files)";
+    return path_utf8(std::filesystem::u8path(path).filename());
+}
 struct ContentEntry {
     AssetId asset;
     std::filesystem::path source;
     std::string key, name, type, path, search;
     ContentState state = ContentState::Registered;
     std::string sort_key;
+    ContentEntryKind kind = ContentEntryKind::Source;
 };
 struct ContentQuery {
     std::string text, type, folder;
@@ -63,20 +73,28 @@ struct ContentIndex {
     std::map<std::string, std::vector<std::string>> folders;
     static ContentIndex build(const AssetCatalog& catalog, const SourceSnapshot* sources,
                               std::stop_token stop = {},
-                              const std::map<AssetId, ContentState>& activity = {}) {
+                              const std::map<AssetId, ContentState>& activity = {},
+                              const std::vector<std::string>& code_sources = {}) {
         ContentIndex result;
         result.folders[""];
+        result.folders[std::string(code_folder_key)];
         std::set<std::filesystem::path, ProjectLocatorLess> registered;
         const auto add = [&](ContentEntry entry) {
             if (stop.stop_requested())
                 throw std::runtime_error("Content indexing cancelled");
             entry.path = path_utf8(entry.source);
+            if (entry.kind == ContentEntryKind::Code)
+                entry.path = std::string(code_folder_key) + entry.path.substr(6);
             entry.sort_key = search_key(entry.path + "/" + entry.name);
-            entry.search = search_key(entry.name + " " + entry.path + " " + entry.type + " " +
-                                      content_state_label(entry.state));
+            entry.search = search_key(entry.name + " " + entry.path + " " +
+                                      path_utf8(entry.source) + " " + entry.type +
+                                      (entry.kind == ContentEntryKind::Code
+                                           ? " code native"
+                                           : " " + std::string(content_state_label(entry.state))));
             result.types.insert(entry.type);
             result.keys.insert(entry.key);
-            for (auto p = entry.source.parent_path(); !p.empty(); p = p.parent_path())
+            for (auto p = std::filesystem::u8path(entry.path).parent_path(); !p.empty();
+                 p = p.parent_path())
                 result.folders.try_emplace(path_utf8(p));
             result.entries.push_back(std::move(entry));
         };
@@ -122,12 +140,22 @@ struct ContentIndex {
                 state = job->second;
             if (asset.subasset && asset.subasset->removed)
                 state = ContentState::Removed;
-            add({id, asset.source, "a:" + id.str(), std::move(name), asset.type, {}, {}, state});
+            add({id,
+                 asset.source,
+                 "a:" + id.str(),
+                 std::move(name),
+                 asset.type,
+                 {},
+                 {},
+                 state,
+                 {},
+                 ContentEntryKind::Asset});
         }
+        std::set<std::string> code_paths(code_sources.begin(), code_sources.end());
         if (sources)
             for (const auto& [path, source] : sources->files) {
                 if (registered.contains(path) || source.source_kind == "unrecognized" ||
-                    !source.alias_of.empty())
+                    !source.alias_of.empty() || code_paths.contains(path_utf8(path)))
                     continue;
                 add({{},
                      path,
@@ -136,8 +164,27 @@ struct ContentIndex {
                      source.source_kind,
                      {},
                      {},
-                     ContentState::Unimported});
+                     ContentState::Unimported,
+                     {},
+                     ContentEntryKind::Source});
             }
+        for (const auto& code : code_sources) {
+            const auto path = std::filesystem::u8path(code);
+            if (code.rfind("Native/", 0) != 0)
+                throw std::runtime_error("C++ browser source is outside Native");
+            const auto extension = search_key(path_utf8(path.extension()));
+            add({{},
+                 path,
+                 "c:" + code,
+                 path_utf8(path.filename()),
+                 extension == ".cpp" || extension == ".cc" || extension == ".cxx" ? "C++ source"
+                                                                                  : "C++ header",
+                 {},
+                 {},
+                 ContentState::Registered,
+                 {},
+                 ContentEntryKind::Code});
+        }
         for (const auto& [path, children] : result.folders) {
             (void)children;
             if (!path.empty())
@@ -159,10 +206,11 @@ struct ContentIndex {
         for (std::size_t i = 0; i < entries.size(); ++i) {
             const auto& e = entries[i];
             if ((!query.type.empty() && query.type != e.type) ||
-                (query.state && *query.state != e.state))
+                (query.state && (e.kind == ContentEntryKind::Code || *query.state != e.state)))
                 continue;
-            if (query.descendants ? !e.path.starts_with(folder)
-                                  : path_utf8(e.source.parent_path()) != query.folder)
+            if (query.descendants
+                    ? !e.path.starts_with(folder)
+                    : path_utf8(std::filesystem::u8path(e.path).parent_path()) != query.folder)
                 continue;
             if (std::all_of(terms.begin(), terms.end(), [&](const auto& term) {
                     return e.search.find(term) != std::string::npos;

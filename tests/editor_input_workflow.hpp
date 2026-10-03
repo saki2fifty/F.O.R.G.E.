@@ -108,6 +108,14 @@ class EditorInputWorkflow {
         click(std::move(target), ctrl);
         steps_.push_back({Kind::Text, std::move(value)});
     }
+    void create_cpp(const std::string& kind) {
+        click("tab:Content");
+        click("button:Create / Register");
+        hover("content:create-code-menu");
+        click("content:create:" + kind);
+        capture("cpp-" + kind + "-create-dialog");
+        click("button:Create and open");
+    }
     void create(const std::string& category, const std::string& recipe) {
         click("menu:Entity");
         hover("menu:Create");
@@ -732,7 +740,7 @@ class EditorInputWorkflow {
             check("light");
             key(ImGuiKey_S, true);
             check("saved");
-            click("tab:Native");
+            click("tab:Build");
             capture("gameplay-create");
             click("button:Create C++ gameplay project");
             check("starter-created");
@@ -740,13 +748,18 @@ class EditorInputWorkflow {
             click("button:Test compiler tools");
             check("compiler-ready");
             capture("compiler-ready");
-            click("button:Create C++ Component");
+            create_cpp("component");
             check("cpp-component-created");
             capture("cpp-component-created");
-            click("button:Create C++ System");
+            create_cpp("system");
             check("cpp-system-created");
             capture("cpp-system-created");
-            click("button:Native/Components/Rotator.hpp");
+            click("tab:Content");
+            click("content:folder:Code");
+            capture("cpp-code-browser");
+            click("code:Native/Components/Rotator.hpp");
+            capture("cpp-code-selected");
+            key(ImGuiKey_Enter);
             check("cpp-component-opened");
             click("cpp:editor");
             steps_.push_back({Kind::SourceText, "component-edit"});
@@ -758,13 +771,17 @@ class EditorInputWorkflow {
             capture("gameplay-build-required");
             click("button:Build gameplay");
             check("starter-built");
-            click("tab:Native");
+            click("tab:Build");
             hover("sdk:build-status");
             capture("gameplay-built");
-            click("button:Open C++ source");
             capture("cpp-source-editor");
-            text("cpp:new-filename", "extra.cpp");
-            click("button:Create source file");
+            click("tab:Content");
+            click("button:Create / Register");
+            hover("content:create-code-menu");
+            click("content:create:source");
+            text("content:cpp-name", "extra.cpp");
+            capture("cpp-source-create-dialog");
+            click("button:Create and open");
             text("cpp:editor", "int forge_extra_source() { return 9; }", true);
             check("cpp-source-dirty");
             capture("cpp-source-dirty");
@@ -783,7 +800,7 @@ class EditorInputWorkflow {
             key(ImGuiKey_Z, true);
             check("cpp-source-saved");
             click("cpp:build-on-save");
-            click("tab:Native");
+            click("tab:Build");
             check("starter-built");
             click("button:Inspect components");
             check("starter-admitted");
@@ -819,9 +836,11 @@ class EditorInputWorkflow {
             click("icon:stop");
             check("stopped");
             check("authored-rotator");
-            click("tab:Native");
-            click("button:Open C++ source");
-            click("button:Native/Systems/RotationSystem.cpp");
+            click("tab:Build");
+            click("tab:Content");
+            click("content:folder:Code");
+            click("code:Native/Systems/RotationSystem.cpp");
+            key(ImGuiKey_Enter);
             check("cpp-system-opened");
             click("cpp:editor");
             steps_.push_back({Kind::SourceText, "system-reverse"});
@@ -854,7 +873,7 @@ class EditorInputWorkflow {
             click("cpp:diagnostic:0");
             check("cpp-diagnostic-source");
             capture("cpp-compiler-diagnostic");
-            click("tab:Native");
+            click("tab:Build");
             steps_.push_back({Kind::SourceEdit, "starter-restore"});
             click("button:Build gameplay");
             check("starter-rebuilt");
@@ -868,7 +887,6 @@ class EditorInputWorkflow {
             click("icon:stop");
             check("stopped");
             click("tab:Content");
-            click("button:Actions");
             click("button:Create / Register");
             click("content:prefabs");
             click("button:Create from selection");
@@ -1126,7 +1144,6 @@ class EditorInputWorkflow {
         // Continue through an independently owned material document and the
         // typed Scene assignment picker. No direct authoring API calls.
         click("tab:Content");
-        click("button:Actions");
         click("button:Create / Register");
         click("button:New material...");
         text("material:new-path", "Assets/Workflow.material.json");
@@ -1172,7 +1189,6 @@ class EditorInputWorkflow {
         check("saved");
         capture("scene-material-assignment");
         click("tab:Content");
-        click("button:Actions");
         click("button:Create / Register");
         click("graph:new");
         text("graph:new-path", "Assets/WorkflowSurface.shader.json");
@@ -1236,7 +1252,6 @@ class EditorInputWorkflow {
         check("graph-reopened");
         capture("material-graph-reopened");
         click("tab:Content");
-        click("button:Actions");
         click("button:Create / Register");
         click("button:New material...");
         text("material:new-path", "Assets/WorkflowGraph.material.json");
@@ -1355,7 +1370,6 @@ class EditorInputWorkflow {
         check("collision-preview");
         capture("character-capsule-scene");
         click("tab:Content");
-        click("button:Actions");
         click("button:Create / Register");
         click("button:New collision...");
         text("collision:path", "Assets/workflow.collision.json");

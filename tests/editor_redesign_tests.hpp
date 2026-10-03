@@ -330,9 +330,8 @@ inline void test_initial_content_tab() {
         const auto dock = ImGui::DockSpaceOverViewport();
         if (!frame)
             forge::ui::initialize_workspace(dock);
-        for (const char* name :
-             {"Hierarchy###World", "Inspector", "Scene###Scene", "Game", "Content",
-              "Problems###Problems", "Gameplay Code###Native", "Console"}) {
+        for (const char* name : {"Hierarchy###World", "Inspector", "Scene###Scene", "Game",
+                                 "Content", "Problems###Problems", "Build###Native", "Console"}) {
             ImGui::Begin(name);
             ImGui::TextUnformatted(name);
             ImGui::End();

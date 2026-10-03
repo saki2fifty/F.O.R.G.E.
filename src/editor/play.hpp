@@ -756,7 +756,7 @@ class PlaySession {
                         info.value("source_commit", "") != forge::source_commit)
                         throw std::runtime_error("SDK runtime does not match this editor source "
                                                  "or shared SDK profile. Select the matching "
-                                                 "Native SDK installation in Gameplay Code.");
+                                                 "Native SDK installation in Build.");
                     if (sdk_game_ && !info.value("sdk_play", false))
                         throw std::runtime_error("SDK Play runtime does not advertise the "
                                                  "sdk_play profile. Rebuild against the matching "

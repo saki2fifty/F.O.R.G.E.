@@ -119,9 +119,53 @@ inline void test_content_browser(const std::filesystem::path& root) {
     query = {};
     query.state = ContentState::Unimported;
     check(index.query(query).size() == 1, "Unimported status was lost");
-    check(index.folders.at("") == std::vector<std::string>{"Assets"} &&
+    check(index.folders.at("") == std::vector<std::string>({"@code", "Assets"}) &&
               index.folders.at("Assets").size() == 2,
-          "Folder tree omitted ancestors or duplicated source owners");
+          "Folder tree omitted Code, ancestors or source owners");
+    const auto code_path = std::filesystem::path("Native/Components/Rotator.hpp");
+    sources.files[code_path] = {code_path, "source", 24, {}, "image", {}};
+    const auto real_code_folder = std::filesystem::path("Code/example.png");
+    sources.files[real_code_folder] = {real_code_folder, "source", 24, {}, "image", {}};
+    auto with_code =
+        ContentIndex::build(catalog, &sources, {}, {},
+                            {"Native/gameplay.cpp", "Native/Components/Rotator.hpp",
+                             "Native/Systems/RotationSystem.cpp", "Native/Other/Rotator.hpp"});
+    ContentQuery code_query;
+    code_query.folder = "@code";
+    check(with_code.query(code_query).size() == 4 && with_code.folders.contains("Code") &&
+              content_folder_label("@code") == "Code" &&
+              content_folder_label("Code") == "Code (files)",
+          "Friendly Code folder collided with a physical Code folder");
+    code_query.descendants = false;
+    check(with_code.query(code_query).size() == 1,
+          "Code folder did not separate direct files from subfolders");
+    code_query = {};
+    code_query.text = "Rotator";
+    check(with_code.query(code_query).size() == 2,
+          "Same-named C++ files in distinct folders were merged");
+    code_query.type = "C++ header";
+    check(with_code.query(code_query).size() == 2,
+          "C++ header filter did not include supported files");
+    code_query.state = ContentState::Unimported;
+    check(with_code.query(code_query).empty(), "C++ files acquired an asset import state");
+    check(std::count_if(with_code.entries.begin(), with_code.entries.end(),
+                        [&](const ContentEntry& e) { return e.source == code_path; }) == 1,
+          "One C++ source appeared as both code and importable asset");
+    for (const auto& entry : with_code.entries)
+        if (entry.kind == ContentEntryKind::Code)
+            check(!entry.asset && entry.key.starts_with("c:") &&
+                      entry.source.string().starts_with("Native/") &&
+                      entry.path.starts_with("@code/"),
+                  "C++ browser row acquired an AssetId or lost its Native locator");
+    ContentView code_view;
+    ui::EditorSelection code_selection;
+    code_selection.select_document_item("content.code", "Native/Components/Rotator.hpp");
+    check(!code_view.reveal(code_selection),
+          "C++ reveal claimed success before asynchronous indexing completed");
+    code_view.update(std::make_shared<const ContentIndex>(with_code));
+    check(code_view.reveal(code_selection) &&
+              code_view.selection().contains("c:Native/Components/Rotator.hpp"),
+          "C++ reveal did not select the real source after indexing");
     sources.files[owner.source].digest = "changed";
     index = ContentIndex::build(catalog, &sources);
     query.state = ContentState::Changed;

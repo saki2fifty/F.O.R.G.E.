@@ -349,7 +349,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         reference_failure = failure
         (evidence/'reference-failure.txt').write_text(str(failure), encoding='utf-8')
 
-    # Ordinary project authoring through shipped Gameplay Code and export controls.
+    # Ordinary project authoring through shipped Content, Build and export controls.
     # Keep the compiler environment for this separate source-building scenario;
     # reference/relocated checks above removed toolchain PATH entries. Run compiler
     # workloads after timed gameplay acceptance, keeping scenarios independent.
@@ -399,6 +399,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     if not starter_trace['state'].get('gameplay_current'):
         raise AssertionError('Export completed with stale C++ gameplay source')
     required_onboarding_captures = (
+        'cpp-component-create-dialog', 'cpp-system-create-dialog',
+        'cpp-source-create-dialog', 'cpp-code-browser', 'cpp-code-selected',
         'cpp-component-created', 'cpp-system-created', 'cpp-component-dirty',
         'gameplay-build-required', 'gameplay-built', 'gameplay-build-rejected',
         'cpp-compiler-diagnostic', 'cpp-rotator-playing', 'cpp-rotator-live-tuned',

@@ -283,7 +283,7 @@ to scene commands, serialization and compiled prefab instances. A copied module 
 bootstrap an authoring/validation world with engine-owned native lifecycle only.
 Gameplay runtime worlds bind the same named transport to their actual opted-in C++
 component types. Known fields live in Flecs; unknown extensions remain in the
-existing authored envelope. Gameplay Code activates project schemas through the
+existing authored envelope. Build activates project schemas through the
 inspection/publication workflow described below.
 
 Each custom component stores a reserved root `$forge` identity containing format
@@ -340,7 +340,7 @@ schema before one `Scene::edit` history entry. A prefab candidate is a source dr
 for the existing single-asset revision/publication boundary; it cannot be applied
 through scene history. Migrating the source and then instance overrides is not
 one atomic operation and does not implement Apply to Prefab. Undo may restore an
-older, now-incompatible payload read-only without losing it. Gameplay Code presents
+older, now-incompatible payload read-only without losing it. Build presents
 explicit inspection and migration review; only successfully admitted opted-in types
 appear in Add Component. Prior declarations come from durable project history.
 
@@ -352,7 +352,7 @@ retain their ownership.
 
 ### Project history and editor task ownership
 
-Gameplay Code now supervises component inspection and explicit migration review.
+Build now supervises component inspection and explicit migration review.
 A successful inspection stages native metadata plus a single durable
 `forge.components.json` update before activating the new generation. Failure of
 that file replacement preserves the prior live types, scene revision, values and

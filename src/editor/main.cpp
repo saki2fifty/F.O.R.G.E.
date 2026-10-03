@@ -561,6 +561,49 @@ int main(int argc, char** argv) {
             }
         };
         cpp_sources.build_on_save = cpp_build_on_save;
+        bool focus_build = false;
+        content.open_code = [&](const std::string& locator) {
+            perform([&] { cpp_sources.open(files.document, locator); });
+        };
+        content.code_dirty = [&](const std::string& locator) {
+            return cpp_sources.dirty_source(locator);
+        };
+        content.code_creation_ready = [&] { return sdk_build->managed(); };
+        content.setup_code = [&] {
+            workspace.build = true;
+            workspace.bottom_folded = false;
+            focus_build = true;
+        };
+        content.create_code = [&](const std::string& kind, const std::string& name,
+                                  const std::string& component) -> std::string {
+            if (cpp_sources.dirty())
+                throw std::runtime_error("Save open C++ source drafts before creating files.");
+            const auto root = files.document.project();
+            std::string locator;
+            if (kind == "component")
+                locator = forge::ui::create_cpp_component(root, name);
+            else if (kind == "system")
+                locator = forge::ui::create_cpp_system(root, name, component);
+            else if (kind == "source" || kind == "header") {
+                forge::ui::create_cpp_source(root, name);
+                locator = "Native/" + name;
+            } else
+                throw std::runtime_error("Unknown C++ creation action.");
+            ++cpp_sources.source_revision;
+            perform([&] { cpp_sources.open(files.document, locator); });
+            return locator;
+        };
+        cpp_sources.request_new = [&] {
+            workspace.content = true;
+            workspace.bottom_folded = false;
+            content.begin_code_create("source");
+        };
+        cpp_sources.request_reveal = [&](const std::string& locator) {
+            editor.selection.select_document_item("content.code", locator);
+            editor.reveal_content = true;
+            workspace.content = true;
+            workspace.bottom_folded = false;
+        };
         Uint64 source_identity_checked = 0;
         std::uint64_t source_revision_seen = 0;
         bool gameplay_current = false;
@@ -1105,6 +1148,20 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&](const std::string& locator) { content.inspect_source(locator); }});
+        documents.add({"content.code",
+                       "C++ file",
+                       "Content",
+                       false,
+                       [&] { return true; },
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       {},
+                       [&](const std::string& locator) { content.inspect_code(locator); }});
         forge::Telemetry telemetry;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
@@ -2090,7 +2147,7 @@ int main(int argc, char** argv) {
                     // document.
                     if (sdk && !files.document.settings().document().contains("game"))
                         throw std::runtime_error(
-                            "Enable game runtime settings in Gameplay Code before Play.");
+                            "Enable game runtime settings in Build before Play.");
                     const bool sdk_game = sdk;
                     auto executable = std::filesystem::path(runtime_path);
                     if (sdk) {
@@ -3062,6 +3119,11 @@ int main(int argc, char** argv) {
                     }
                     if (ImGui::BeginMenu("Run")) {
                         FORGE_UI_PROBE("menu:Run");
+                        ImGui::BeginDisabled(!cpp_sources.build_enabled ||
+                                             !cpp_sources.request_build);
+                        if (ImGui::MenuItem("Build Gameplay"))
+                            perform(cpp_sources.request_build);
+                        ImGui::EndDisabled();
                         actions.item("game.export");
                         ImGui::Separator();
                         for (auto id : {"play", "pause", "step", "stop", "recover"})
@@ -4171,59 +4233,59 @@ int main(int argc, char** argv) {
             if (auto* console = ImGui::FindWindowSettingsByID(ImHashStr("Console")))
                 ImGui::SetNextWindowDockID(console->DockId, ImGuiCond_FirstUseEver);
             if (workspace.build && !workspace.bottom_folded) {
-                const bool gameplay_visible =
-                    ImGui::Begin("Gameplay Code###Native", &workspace.build);
-                FORGE_UI_TAB_PROBE("tab:Native");
+                if (std::exchange(focus_build, false))
+                    ImGui::SetNextWindowFocus();
+                const bool gameplay_visible = ImGui::Begin("Build###Native", &workspace.build);
+                FORGE_UI_TAB_PROBE("tab:Build");
                 if (gameplay_visible) {
                     forge::ui::heading("Gameplay", "C++ gameplay compiles outside the editor. Only "
                                                    "isolated runtimes load gameplay DLLs.");
                     const auto selected_sdk = exact_sdk_root[0]
                                                   ? std::filesystem::u8path(exact_sdk_root)
                                                   : install_root / "NativeSdk";
-                    ImGui::BeginDisabled(play.active() || sdk_build->busy());
-                    if (ImGui::InputText("Native SDK folder", exact_sdk_root,
-                                         sizeof(exact_sdk_root))) {
-                        sdk_build->invalidate_compiler();
-                        perform(save_preferences);
-                    }
-                    forge::ui::help(
-                        "Machine-local matching installation with bin and sdk. Blank "
-                        "uses NativeSdk from the matching Developer Kit in this installation.");
-                    ImGui::EndDisabled();
-                    if (!std::filesystem::exists(files.document.project() /
-                                                 "Native/gameplay.cpp") &&
-                        !files.document.settings().requires_native_sdk()) {
+                    if (ImGui::TreeNodeEx("Gameplay setup", sdk_build->managed()
+                                                                ? ImGuiTreeNodeFlags_None
+                                                                : ImGuiTreeNodeFlags_DefaultOpen)) {
                         ImGui::BeginDisabled(play.active() || sdk_build->busy());
-                        if (forge::ui::button(
-                                "Create C++ gameplay project",
-                                "Create a Flecs C++ gameplay starter without "
-                                "overwriting existing files. Then create Components "
-                                "and Systems, build, and add component data to entities."))
-                            perform([&] { sdk_build->create(files.document, selected_sdk); });
+                        if (ImGui::InputText("Native SDK folder", exact_sdk_root,
+                                             sizeof(exact_sdk_root))) {
+                            sdk_build->invalidate_compiler();
+                            perform(save_preferences);
+                        }
+                        forge::ui::help(
+                            "Matching installation with bin and sdk. Blank uses NativeSdk from "
+                            "the Developer Kit in this editor installation.");
                         ImGui::EndDisabled();
-                    }
-                    if (sdk_build->managed()) {
-                        if (forge::ui::button(
-                                "Open C++ source",
-                                "Edit Native/gameplay.cpp inside FORGE. Other source files can be "
-                                "opened or created in the C++ Sources window."))
-                            perform(
-                                [&] { cpp_sources.open(files.document, "Native/gameplay.cpp"); });
+                        if (!std::filesystem::exists(files.document.project() /
+                                                     "Native/gameplay.cpp") &&
+                            !files.document.settings().requires_native_sdk()) {
+                            ImGui::BeginDisabled(play.active() || sdk_build->busy());
+                            if (forge::ui::button(
+                                    "Create C++ gameplay project",
+                                    "Create the managed Flecs starter without overwriting files."))
+                                perform([&] {
+                                    sdk_build->create(files.document, selected_sdk);
+                                    content.refresh(files);
+                                });
+                            ImGui::EndDisabled();
+                        }
+                        if ((files.document.settings().requires_native_sdk() ||
+                             sdk_build->managed()) &&
+                            !files.document.settings().document().contains("game")) {
+                            ImGui::BeginDisabled(play.active() || sdk_build->busy());
+                            if (forge::ui::button("Enable game runtime settings",
+                                                  "Add persistent game/session defaults needed for "
+                                                  "Play and export."))
+                                perform([&] { sdk_build->enable_game_profile(files.document); });
+                            ImGui::EndDisabled();
+                        }
+                        ImGui::TreePop();
                     }
                     if (files.document.settings().requires_native_sdk() || sdk_build->managed()) {
                         ImGui::TextWrapped(
                             "C++ gameplay project — components and systems run during Play.");
                         forge::ui::help("The isolated runtime validates the matching game build "
                                         "before creating the play world.");
-                        if (!files.document.settings().document().contains("game")) {
-                            ImGui::BeginDisabled(play.active() || sdk_build->busy());
-                            if (forge::ui::button(
-                                    "Enable game runtime settings",
-                                    "Add persistent game/session defaults needed for Play and "
-                                    "standalone export."))
-                                perform([&] { sdk_build->enable_game_profile(files.document); });
-                            ImGui::EndDisabled();
-                        }
                         if (sdk_build->managed()) {
                             const bool last_good = [&] {
                                 for (const auto& module :
@@ -4247,11 +4309,6 @@ int main(int argc, char** argv) {
                                     "Last good build retained; source is not current.");
                             if (!source_identity_error.empty())
                                 ImGui::TextWrapped("%s", source_identity_error.c_str());
-                            cpp_sources.draw_browser(files.document,
-                                                     play.active() || sdk_build->busy() ||
-                                                         files.busy() || modal.active() ||
-                                                         content_files.busy() ||
-                                                         authored_components.busy());
                             ImGui::BeginDisabled(play.active() || sdk_build->busy() ||
                                                  modal.active() || content_files.busy() ||
                                                  authored_components.busy());
@@ -4270,10 +4327,9 @@ int main(int argc, char** argv) {
                                 sdk_build->cancel();
                             ImGui::TextWrapped("%s", sdk_build->status().c_str());
                             FORGE_UI_PROBE("sdk:build-status");
-                            forge::ui::help(
-                                "Project source lives in Native/; Components and Systems "
-                                "may use separate files. Full compiler output: "
-                                ".forge/sdk-build/build.log.");
+                            forge::ui::help("Find project C++ source under Content > Code. Full "
+                                            "compiler output: "
+                                            ".forge/sdk-build/build.log.");
                             if (!sdk_build->error().empty()) {
                                 ImGui::TextWrapped("%s", sdk_build->error().c_str());
                                 FORGE_UI_PROBE("sdk:build-error");
@@ -4324,6 +4380,8 @@ int main(int argc, char** argv) {
                             const bool sdk_output_open = ImGui::TreeNode("Compiler output");
                             FORGE_UI_PROBE("sdk:build-output");
                             if (sdk_output_open) {
+                                if (compiler_diagnostics.empty() && sdk_build->log().empty())
+                                    ImGui::TextDisabled("No compiler output yet.");
                                 for (std::size_t i = 0; i < compiler_diagnostics.size(); ++i) {
                                     const auto& diagnostic = compiler_diagnostics[i];
                                     ImGui::PushID(int(i));
@@ -4399,7 +4457,7 @@ int main(int argc, char** argv) {
                                         sdk_build->error(),
                                         {},
                                         {},
-                                        "Gameplay Code",
+                                        "Build",
                                         {}});
             if (!files.error.empty())
                 editor.problems.ingest({"files/" + files.error,

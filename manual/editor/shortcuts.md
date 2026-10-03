@@ -75,6 +75,6 @@ In Hierarchy, **F2** focuses Name in Inspector. **Ctrl+D** duplicates the select
 
 ## Bottom workspace
 
-**Ctrl+Space** folds or expands Content, Problems, Console and Gameplay Code. It is
+**Ctrl+Space** folds or expands Content, Build, Problems and Console. It is
 inactive while typing or capturing Game input. The status-bar Workspace button
 and Window menu provide the same operation.

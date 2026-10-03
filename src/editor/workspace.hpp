@@ -15,7 +15,8 @@ inline std::string migrate_layout(std::string text) {
     };
     for (const auto& names :
          {std::pair{"Scene", "Scene###Scene"}, std::pair{"World", "Hierarchy###World"},
-          std::pair{"Native", "Gameplay Code###Native"},
+          std::pair{"Native", "Build###Native"},
+          std::pair{"Gameplay Code###Native", "Build###Native"},
           std::pair{"Prefab source", "Prefab source###Prefab source"},
           std::pair{"Project Settings", "Project Settings###Project Settings"}}) {
         replace(std::string("[Window][") + names.first + "]",
@@ -103,7 +104,7 @@ struct Workspace {
                 toggle_bottom();
                 changed = true;
             }
-            help("Temporarily hide Content, Problems, Console and Gameplay Code. Their visibility "
+            help("Temporarily hide Content, Problems, Console and Build. Their visibility "
                  "choices and docking arrangement are retained. Ctrl+Space restores access.");
             ImGui::Separator();
             struct Panel {
@@ -117,7 +118,7 @@ struct Workspace {
                            {"Problems", &problems},
                            {"Content", &content},
                            {"Console", &console},
-                           {"Gameplay Code", &build}}) {
+                           {"Build", &build}}) {
                 const bool bottom = p.value == &content || p.value == &problems ||
                                     p.value == &console || p.value == &build;
                 bool visible = *p.value && !(bottom && bottom_folded);
@@ -137,7 +138,7 @@ struct Workspace {
                 changed = true;
             }
             help("Restore Hierarchy left, Scene/Game center, Inspector right, and "
-                 "Content/Problems/Console/Gameplay Code tabs below. Replaces your custom dock "
+                 "Content/Problems/Console/Build tabs below. Replaces your custom dock "
                  "arrangement.");
             ImGui::EndMenu();
         }

@@ -3,14 +3,13 @@
 FORGE uses Flecs components for data and systems for behavior. Give a Cube a
 `Rotator` component; a `RotationSystem` then processes every entity whose query
 matches. Systems are registered for the world, not attached to individual objects.
-C++ files live in your project's `Native/` folder and open in the central **C++
-Sources** document. They are project code, not Content assets or Hierarchy entries.
+C++ files live in your project's `Native/` folder. Find them under **Content → Code** and edit them in the central **C++ Sources** document. They are project files, not AssetId assets or Hierarchy entries.
 
 ## Prepare the compiler
 
 Extract the matching optional Developer Kit into the editor folder, then launch
 **Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows
-SDK, CMake 3.30 or newer, and Ninja. In **Gameplay Code**, expand **Compiler setup**
+SDK, CMake 3.30 or newer, and Ninja. In **Build**, expand **Compiler setup**
 and choose **Test compiler tools**. FORGE builds and checks a separate starter
 module without changing your gameplay or project settings. A failure names the
 missing or incompatible tool. **Get C++ Build Tools** opens Microsoft's official
@@ -21,22 +20,16 @@ to build and Play C++.
 
 ## Create a component and system
 
-1. Open **Gameplay Code**. Choose **Create C++ gameplay project** for a new project. Existing `Native/` source is never overwritten.
-2. In **Project C++ sources**, choose **Create C++ Component** and enter `Rotator`. This creates `Native/Components/Rotator.hpp` with a reflected `speed` value.
-3. Choose **Create C++ System**, select `Rotator`, and enter `RotationSystem`. This creates `Native/Systems/RotationSystem.cpp`, which queries Rotator, reads any effective rotation or identity, and runs on the fixed gameplay tick.
-4. Click either source path to edit it. The tab and **Save source** button mark unsaved changes with `*`. **Ctrl+S**, document Save and the button save the active C++ file. Scene Save is separate.
-5. Choose **Build Gameplay**. With unsaved drafts the action becomes **Save & Build Gameplay**. It compiles saved files, validates the candidate in an isolated worker and publishes after admission. **Build on Save** is optional.
+1. Open **Build → Gameplay setup**. Choose **Create C++ gameplay project** for a new project. Existing `Native/` source is never overwritten.
+2. Open **Content → Create / Register → C++ → Component...** and enter `Rotator`. This creates and opens `Native/Components/Rotator.hpp` with a reflected `speed` value. In short panels, open **Actions** first.
+3. Use **Content → Create / Register → C++ → System...**, select `Rotator`, and enter `RotationSystem`. This creates and opens `Native/Systems/RotationSystem.cpp`, which queries Rotator, reads effective rotation or identity, and runs on the fixed gameplay tick.
+4. Double-click either file in **Content → Code** to edit it. The C++ Sources tab and **Save source** button mark unsaved changes with `*`. **Ctrl+S**, document Save and the button save the active C++ file. Scene Save is separate.
+5. Choose **Build Gameplay** in Build, C++ Sources or Run. With unsaved drafts the action becomes **Save & Build Gameplay**. It compiles saved files, validates the candidate in an isolated worker and publishes after admission.
 6. Wait for **Gameplay Current**. Create a Cube, select it, use **Inspector → + Add Component** to add Rotator, set Speed and save the scene. Right-click the component header for **Open C++ Definition**.
 7. Press **Play** to see the cube rotate. Code or schema changes use **Stop → Save → Build → Play**. FORGE offers **Save, Build & Play** for unbuilt source and never silently runs stale code.
 
 
-**Components** in Gameplay Code lists component source files; **Systems** lists
-system source files. **Registered systems** shows wizard-created systems with their
-source and fixed-gameplay query component. Other project source and headers appear
-under **Other source / headers**. **New source filename → Create source file**
-adds a `.cpp` or `.hpp` under `Native/` without overwriting an existing file;
-managed builds register new `.cpp` files. A custom CMake recipe must include
-them explicitly.
+**Content → Code** shows the real `Native/Components`, `Native/Systems` and other supported source paths. Its friendly Code label does not rename `Native/` on disk. Use **Create / Register → C++ → Source file... / Header file...** to add a `.cpp` or `.hpp` directly under `Native/` without overwriting an existing file. Managed builds register new `.cpp` files; a custom CMake recipe must include them explicitly. C++ Sources has a **New...** shortcut to the same Content creation dialog.
 
 The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
@@ -89,7 +82,7 @@ and declared defaults. Native pointers and arbitrary resource-owning objects are
 not generic authored values.
 
 1. Stop Play and build the module with the matching Native SDK.
-2. In **Gameplay Code**, set **Native SDK folder**, then click **Inspect components**.
+2. In **Build → Gameplay setup**, set **Native SDK folder**, then click **Inspect components**.
 3. Wait for the available-type count. FORGE runs the inspection in a separate process; a failed inspection keeps the last admitted types and values.
 4. Select an entity and use **Inspector > + Add Component**. Search the opted-in type's friendly name or category, then edit its reflected properties.
 5. Save the scene and press Play. The matching runtime receives the authored values by stable field names. A missing or incompatible schema rejects the runtime load rather than silently ignoring those values.

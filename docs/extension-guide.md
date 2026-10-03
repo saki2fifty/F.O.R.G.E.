@@ -8,7 +8,7 @@ Use the smallest supported extension tier for your task.
 | Exact SDK gameplay module | Trusted C++ gameplay using Flecs components/systems and optional services | Matching SDK fingerprint/toolchain, one shared Flecs; restart runtime for registration changes. |
 | Future broad plugin ABI | Not implemented | Will require stable function tables, ownership, version negotiation, dependency/provider/editor registration and retirement proofs. |
 
-Native editor extensions remain trusted and restart-bound. Exact gameplay DLLs do not load into the editor process. The Windows editor and standalone runtime both use the exact-SDK gameplay path. Managed projects build in Gameplay Code; external SDK projects keep their own build recipe.
+Native editor extensions remain trusted and restart-bound. Exact gameplay DLLs do not load into the editor process. The Windows editor and standalone runtime both use the exact-SDK gameplay path. Managed projects build in the Build panel; external SDK projects keep their own build recipe.
 
 ## Build the exact SDK sample
 

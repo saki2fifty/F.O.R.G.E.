@@ -1,5 +1,9 @@
 # ADR 004 — Editor shell and workspace
 
+## 2026-10-03 Content and C++ navigation amendment
+
+Content is the single project browser for AssetId-backed assets and supported C++ files under a friendly Code location. C++ files retain project-relative `Native/` paths and existing source-editor ownership; displaying them in Content does not register them as assets. The former Gameplay Code panel is labeled Build, retaining its `###Native` dock identity and `panels.build` preference. Asset selection and code-path selection use the existing editor selection and active-task boundaries. The original 2026-09-19 default-tab wording below is historical.
+
 ## Phase 9 source checkpoint — 2026-09-27 (delivery pending)
 
 Entity multi-selection extends EditorSelection; it does not introduce another
