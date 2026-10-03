@@ -184,6 +184,7 @@ class ContentBrowser {
                                                               : "behavior.cpp";
         std::snprintf(code_create_name_, sizeof(code_create_name_), "%s", initial);
         code_create_pending_ = true;
+        code_create_request_frame_ = ImGui::GetFrameCount();
         focus_code_create_ = true;
     }
     void source_snapshot(std::shared_ptr<const SourceSnapshot> snapshot) {
@@ -454,10 +455,14 @@ class ContentBrowser {
         ImGui::EndMenu();
     }
     void draw_code_create(EditorFiles& files, bool locked) {
-        if (std::exchange(code_create_pending_, false))
+        // A selected menu item can close its parent popup at the end of this frame.
+        // Keep the request until the modal actually begins on a later frame.
+        if (code_create_pending_ && ImGui::GetFrameCount() > code_create_request_frame_ &&
+            !ImGui::IsPopupOpen("Create C++ file"))
             ImGui::OpenPopup("Create C++ file");
         if (!ImGui::BeginPopupModal("Create C++ file", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
+        code_create_pending_ = false;
         const bool ready = code_creation_ready && code_creation_ready();
         if (!ready) {
             ImGui::TextWrapped("Set up a managed C++ gameplay project before creating files.");
@@ -743,6 +748,7 @@ class ContentBrowser {
     std::string code_create_kind_ = "source", code_system_component_ = "Rotator";
     char code_create_name_[128] = "behavior.cpp";
     bool code_create_pending_ = false, focus_code_create_ = false;
+    int code_create_request_frame_ = 0;
     std::string reveal_created_code_;
     std::vector<std::string> code_sources_;
     void select_project(EditorFiles& files) {
