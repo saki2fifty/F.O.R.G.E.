@@ -110,6 +110,7 @@ class EditorInputWorkflow {
     }
     void create_cpp(const std::string& kind) {
         click("tab:Content");
+        click("button:Actions");
         click("button:Create / Register");
         hover("content:create-code-menu");
         click("content:create:" + kind);
@@ -776,6 +777,7 @@ class EditorInputWorkflow {
             capture("gameplay-built");
             capture("cpp-source-editor");
             click("tab:Content");
+            click("button:Actions");
             click("button:Create / Register");
             hover("content:create-code-menu");
             click("content:create:source");
@@ -887,6 +889,7 @@ class EditorInputWorkflow {
             click("icon:stop");
             check("stopped");
             click("tab:Content");
+            click("button:Actions");
             click("button:Create / Register");
             click("content:prefabs");
             click("button:Create from selection");
@@ -1144,6 +1147,7 @@ class EditorInputWorkflow {
         // Continue through an independently owned material document and the
         // typed Scene assignment picker. No direct authoring API calls.
         click("tab:Content");
+        click("button:Actions");
         click("button:Create / Register");
         click("button:New material...");
         text("material:new-path", "Assets/Workflow.material.json");
@@ -1189,6 +1193,7 @@ class EditorInputWorkflow {
         check("saved");
         capture("scene-material-assignment");
         click("tab:Content");
+        click("button:Actions");
         click("button:Create / Register");
         click("graph:new");
         text("graph:new-path", "Assets/WorkflowSurface.shader.json");
@@ -1252,6 +1257,7 @@ class EditorInputWorkflow {
         check("graph-reopened");
         capture("material-graph-reopened");
         click("tab:Content");
+        click("button:Actions");
         click("button:Create / Register");
         click("button:New material...");
         text("material:new-path", "Assets/WorkflowGraph.material.json");
@@ -1370,6 +1376,7 @@ class EditorInputWorkflow {
         check("collision-preview");
         capture("character-capsule-scene");
         click("tab:Content");
+        click("button:Actions");
         click("button:Create / Register");
         click("button:New collision...");
         text("collision:path", "Assets/workflow.collision.json");
