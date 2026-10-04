@@ -891,6 +891,7 @@ class EditorInputWorkflow {
             check("system-reversed");
             click("icon:stop");
             check("stopped");
+            click("saved-cube-row");
             click("tab:Content");
             click("button:Actions");
             click("button:Create / Register");
