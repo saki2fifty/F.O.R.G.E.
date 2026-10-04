@@ -8,6 +8,7 @@
 #include "widgets.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -371,8 +372,10 @@ class EditableMeshEditor {
                 for (const auto& candidate : document_->source().document.at("faces")) {
                     const auto key = candidate.at("id").get<std::uint32_t>();
                     const auto label = "Face " + std::to_string(key);
-                    if (ImGui::Selectable(label.c_str(), face_ == key))
+                    if (ImGui::Selectable(label.c_str(), face_ == key) && face_ != key) {
                         face_ = key;
+                        uv_corners_.clear();
+                    }
                 }
         }
         ImGui::EndChild();
@@ -563,6 +566,7 @@ class EditableMeshEditor {
         const double yaw = yaw_ * 3.14159265358979323846 / 180.0;
         const double pitch = pitch_ * 3.14159265358979323846 / 180.0;
         std::map<std::uint32_t, ImVec2> projected;
+        std::map<std::uint32_t, double> depth_by_vertex;
         float min_x = 1e9f, min_y = 1e9f, max_x = -1e9f, max_y = -1e9f;
         for (const auto& vertex : source.document.at("vertices")) {
             const auto& p = vertex.at("position");
@@ -572,6 +576,7 @@ class EditableMeshEditor {
             const auto vertical = std::cos(pitch) * y - std::sin(pitch) * depth;
             const auto key = vertex.at("id").get<std::uint32_t>();
             projected[key] = {static_cast<float>(horizontal), static_cast<float>(-vertical)};
+            depth_by_vertex[key] = std::cos(pitch) * depth + std::sin(pitch) * y;
             min_x = std::min(min_x, projected[key].x);
             min_y = std::min(min_y, projected[key].y);
             max_x = std::max(max_x, projected[key].x);
@@ -584,7 +589,9 @@ class EditableMeshEditor {
             point.x = origin.x + size.x * 0.5f + (point.x - (min_x + max_x) * 0.5f) * fit;
             point.y = origin.y + size.y * 0.5f + (point.y - (min_y + max_y) * 0.5f) * fit;
         }
-        if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        // Extrusion introduces preview-only element IDs. Wait until Apply before selecting them.
+        if (!preview_extrude_ && ImGui::IsItemHovered() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
             auto distance_sq = [&](ImVec2 point) {
                 const auto dx = point.x - mouse.x, dy = point.y - mouse.y;
@@ -622,18 +629,29 @@ class EditableMeshEditor {
                     }
                 }
             } else {
+                double nearest_depth = -std::numeric_limits<double>::infinity();
                 for (const auto& polygon : source.document.at("faces")) {
                     const auto& corners = polygon.at("corners");
                     bool inside = false;
+                    double depth = 0;
                     for (std::size_t i = 0, j = corners.size() - 1; i < corners.size(); j = i++) {
-                        const auto a = projected.at(corners[i].at("vertex").get<std::uint32_t>());
+                        const auto vertex = corners[i].at("vertex").get<std::uint32_t>();
+                        const auto a = projected.at(vertex);
                         const auto b = projected.at(corners[j].at("vertex").get<std::uint32_t>());
+                        depth += depth_by_vertex.at(vertex);
                         if ((a.y > mouse.y) != (b.y > mouse.y) &&
                             mouse.x < (b.x - a.x) * (mouse.y - a.y) / (b.y - a.y) + a.x)
                             inside = !inside;
                     }
-                    if (inside)
-                        face_ = polygon.at("id").get<std::uint32_t>();
+                    depth /= corners.size();
+                    if (inside && depth > nearest_depth) {
+                        nearest_depth = depth;
+                        const auto key = polygon.at("id").get<std::uint32_t>();
+                        if (face_ != key) {
+                            face_ = key;
+                            uv_corners_.clear();
+                        }
+                    }
                 }
             }
         }
