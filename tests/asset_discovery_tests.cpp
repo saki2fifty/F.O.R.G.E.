@@ -49,15 +49,17 @@ int main(int argc, char** argv) {
         require(scan_asset_sources(project).files.empty(), "Missing Assets is not empty");
         write(project / "Assets/A.PNG", "first");
         write(project / "Assets/nested/Model.glb", "not yet parsed");
+        write(project / "Assets/Crate.mesh.json", "not yet parsed");
         write(project / "Assets/z.unknown", "unknown source");
         for (const auto* name :
              {".hidden/a.png", "a.tmp", "b.pending", "b.swp", "b.bak", "~lock", "a~"})
             write(project / "Assets" / name, "filtered");
         auto initial = scan_asset_sources(project);
-        require(initial.complete && initial.files.size() == 3 && initial.filtered == 7,
+        require(initial.complete && initial.files.size() == 4 && initial.filtered == 7,
                 "Initial discovery/filtering incorrect");
         require(initial.files.at("Assets/A.PNG").source_kind == "image" &&
                     initial.files.at("Assets/nested/Model.glb").source_kind == "model" &&
+                    initial.files.at("Assets/Crate.mesh.json").source_kind == "editable_mesh" &&
                     initial.files.at("Assets/z.unknown").source_kind == "unrecognized",
                 "Source recognition was case sensitive or hid unknown inputs");
         require(initial.files.at("Assets/A.PNG").digest ==
@@ -94,11 +96,11 @@ int main(int argc, char** argv) {
         SourceScanOptions options;
         options.roots = {"Assets/nested", "Assets"};
         auto overlapping = scan_asset_sources(project, options);
-        require(overlapping.complete && overlapping.files.size() == 3,
+        require(overlapping.complete && overlapping.files.size() == 4,
                 "Overlapping roots produced duplicate sources");
         options = {};
         options.ignored = {"Assets/nested"};
-        require(scan_asset_sources(project, options).files.size() == 2, "Directory ignore failed");
+        require(scan_asset_sources(project, options).files.size() == 3, "Directory ignore failed");
         options.max_files = 1;
         require(!scan_asset_sources(project, options).complete, "File count was not bounded");
         options = {};

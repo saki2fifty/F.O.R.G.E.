@@ -34,6 +34,7 @@
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
 #include "ecs_tools.hpp"
+#include "editable_mesh_editor.hpp"
 #include "files.hpp"
 #include "flecs_script.hpp"
 #include "frame_renderer.hpp"
@@ -497,7 +498,12 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Cannot locate runtime directory");
         const auto install_root = forge::installation_root(base);
         const auto runtime_path = (std::filesystem::path(base) / "forge_runtime.exe").string();
-        forge::EditorFiles files(scene, window.get(), recent_projects);
+        const char* documents_folder = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
+        const auto project_parent =
+            documents_folder && *documents_folder
+                ? std::filesystem::u8path(documents_folder) / "FORGE" / "Projects"
+                : config / "Projects";
+        forge::EditorFiles files(scene, window.get(), recent_projects, project_parent);
         forge::NavigationTools navigation_tools(std::filesystem::path(base) /
                                                 "forge_nav_build.exe");
         forge::AnimationTools animation_tools(std::filesystem::path(base) / "tools/gltf2ozz.exe");
@@ -514,7 +520,7 @@ int main(int argc, char** argv) {
             }
         };
         auto open_scratch = [&] {
-            const auto scratch = config / "Projects" / "Scratch";
+            const auto scratch = project_parent / "Scratch";
             if (!std::filesystem::exists(scratch)) {
                 std::filesystem::create_directories(scratch.parent_path());
                 forge::SceneDocument::create_project(scratch, "Scratch");
@@ -889,6 +895,7 @@ int main(int argc, char** argv) {
                     forge::asset_detail::diligent_shader_compiler_debug()};
             });
         forge::MaterialEditor material_editor;
+        forge::EditableMeshEditor editable_mesh_editor;
         forge::MaterialGraphEditor graph_editor(
             std::filesystem::path(base) / "forge_shader_build.exe", [] {
                 return forge::asset_detail::ShaderCompilerProfile{
@@ -1059,6 +1066,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& plan, const auto&) {
                                   forge::prepare_material_publication(c, plan);
                               }});
+            routes.push_back({"forge.mesh.editable", forge::desktop_texture_target(),
+                              forge::editable_mesh_import_registry(),
+                              [](auto& c, const auto& plan, const auto&) {
+                                  forge::prepare_editable_mesh_publication(c, plan);
+                              }});
             routes.push_back({"forge.collision.builtin", forge::collision_import_target(),
                               forge::collision_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1073,6 +1085,9 @@ int main(int argc, char** argv) {
                    (collision_editor.document() &&
                     collision_editor.document()->source().asset() == id &&
                     collision_editor.dirty()) ||
+                   (editable_mesh_editor.document() &&
+                    editable_mesh_editor.document()->source().asset() == id &&
+                    editable_mesh_editor.dirty()) ||
                    (texture_imports.selected_asset() == id && texture_imports.dirty()) ||
                    (audio_imports.selected_asset() == id && audio_imports.dirty()) ||
                    (model_imports.selected_asset() == id && model_imports.dirty()) ||
@@ -1124,6 +1139,9 @@ int main(int argc, char** argv) {
             } else if (kind == "collision") {
                 if (open)
                     collision_editor.open(files.document, path);
+            } else if (kind == "editable_mesh") {
+                if (open)
+                    editable_mesh_editor.open(files.document, path);
             } else if (kind == "material") {
                 if (open)
                     material_editor.open(files.document, path);
@@ -1364,8 +1382,29 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { asset_view_document.close(); }});
-        asset_editors.add({"mesh", "View mesh", [&](const forge::AssetRecord& asset) {
-                               asset_view_document.open(files.document.project(), asset);
+        documents.add({"editable_mesh",
+                       "Editable Mesh",
+                       "Editable Mesh###Editable Mesh",
+                       true,
+                       [&] { return editable_mesh_editor.is_open(); },
+                       [&] { return editable_mesh_editor.dirty(); },
+                       [&] {
+                           editable_mesh_editor.draw(files.document,
+                                                     asset_document_locked || play.active());
+                       },
+                       [&] { editable_mesh_editor.request_save(); },
+                       [&] { editable_mesh_editor.undo(); },
+                       [&] { editable_mesh_editor.redo(); },
+                       [&] { editable_mesh_editor.request_close(); },
+                       [&] { return editable_mesh_editor.can_undo(); },
+                       [&] { return editable_mesh_editor.can_redo(); },
+                       {},
+                       [&] { return std::exchange(editable_mesh_editor.close_cancelled, false); }});
+        asset_editors.add({"mesh", "Open mesh", [&](const forge::AssetRecord& asset) {
+                               if (asset.subasset)
+                                   asset_view_document.open(files.document.project(), asset);
+                               else
+                                   editable_mesh_editor.open(files.document, asset.source);
                            }});
         asset_editors.add(
             {"model", "Import settings / Place", [&](const forge::AssetRecord& asset) {
@@ -3259,6 +3298,14 @@ int main(int argc, char** argv) {
                     content.refresh(files);
                 }
                 graph_editor.poll(files.document, message);
+                editable_mesh_editor.poll(files.document, message);
+                if (auto catalog = editable_mesh_editor.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 material_editor.poll(files.document, message);
                 if (auto catalog = material_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -4171,6 +4218,7 @@ int main(int argc, char** argv) {
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
                         material_editor.content(files.document, edit_locked);
+                        editable_mesh_editor.content(files.document, edit_locked);
                         graph_editor.content(files.document, edit_locked);
                         collision_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);
@@ -4398,7 +4446,7 @@ int main(int argc, char** argv) {
                                     FORGE_UI_PROBE("cpp:diagnostic:" + std::to_string(i));
                                     ImGui::PopID();
                                 }
-                                ImGui::TextUnformatted(sdk_build->log().c_str());
+                                ImGui::TextUnformatted(sdk_build->timed_log().c_str());
                                 ImGui::TreePop();
                             }
                             forge::ui::help("The latest bounded compiler output. Earlier output "
@@ -4492,7 +4540,7 @@ int main(int argc, char** argv) {
                     forge::ui::help("Current project root. Native builds, scenes, and recovery "
                                     "snapshots belong to this project.");
                     if (!play.log().empty()) {
-                        ImGui::TextWrapped("%s", play.log().c_str());
+                        ImGui::TextWrapped("%s", play.timed_log().c_str());
                         forge::ui::help(
                             "Recent runtime error output, limited to 64 KiB per play session.");
                     }

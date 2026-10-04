@@ -26,6 +26,8 @@ have explicit Runtime edges for every required binding. Optional future runtime
 resource semantics require an adapter rather than silently treating Build edges
 as shipped dependencies.
 
+Root editable Mesh assets use the same selected cooked-artifact closure. Export validates the immutable `mesh.bin` digest and Mesh format, retains the `forge.mesh` metadata needed by the shared Mesh resource loader, and excludes the authored `.mesh.json`. A failed or unsupported Mesh selection rejects the package.
+
 The runtime catalog's source locator addresses its packaged immutable artifact
 manifest. It does not resolve a development filename. Model member/owner locators
 remain equal, and the existing complete-family loader checks all identities,

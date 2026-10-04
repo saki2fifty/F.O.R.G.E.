@@ -63,9 +63,13 @@ class ComponentInspector {
         // Live fields coexist with the read-only authored Inspector below. Keep their
         // ImGui IDs distinct so activating one cannot collide with its authored peer.
         ui::IdScope runtime_scope("live-gameplay");
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4{0.075f, 0.18f, 0.20f, 1.0f});
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4{0.24f, 0.67f, 0.67f, 1.0f});
+        ImGui::BeginChild("##live-gameplay-panel", {0, 0},
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
         ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
                                      "scene and prefab state.");
-        ImGui::TextDisabled("PLAY — runtime only");
+        ImGui::TextColored({0.61f, 0.93f, 0.89f, 1.0f}, "PLAY — temporary values");
         for (const auto& type : schema.at("components")) {
             if (!type.is_object() || !type.value("custom", false) || !type.contains("admission") ||
                 !type.contains("fields"))
@@ -97,6 +101,8 @@ class ComponentInspector {
                                      "remain unchanged after Stop.");
             }
         }
+        ImGui::EndChild();
+        ImGui::PopStyleColor(2);
     }
     void draw(Scene& scene, SceneDocument& project, const std::string& selected) {
         if (selected.empty())

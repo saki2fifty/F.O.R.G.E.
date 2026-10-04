@@ -4,6 +4,7 @@
 #include "../gameplay_source_identity.hpp"
 #include "build_command.hpp"
 #include "document.hpp"
+#include "event_time.hpp"
 #include <cstdint>
 #include <forge/game_settings.hpp>
 #include <future>
@@ -34,6 +35,7 @@ class SdkBuild {
     const std::string& status() const { return status_; }
     const std::string& error() const { return error_; }
     const std::string& log() const { return log_; }
+    const std::string& timed_log() const { return timed_log_.text(); }
     std::uint64_t log_revision() const { return log_revision_; }
     bool testing() const { return testing_; }
     bool compiler_ready() const { return compiler_ready_; }
@@ -123,6 +125,7 @@ class SdkBuild {
                         "the managed starter never rewrites their deployment.");
             candidate_ = expected_;
             log_.clear();
+            timed_log_.clear();
             ++log_revision_;
             error_.clear();
             work_ = ProjectPaths(project_).resolve(".forge/sdk-build");
@@ -254,6 +257,7 @@ class SdkBuild {
             log_file_ << output;
             log_file_.flush();
             log_ += output;
+            timed_log_.append(output);
             if (!output.empty())
                 ++log_revision_;
             if (log_.size() > 256 * 1024)
@@ -322,6 +326,7 @@ class SdkBuild {
     BuildCommand command_;
     SDL_Environment* environment_ = nullptr;
     bool testing_ = false, compiler_ready_ = false;
+    ui::TimedTextLog timed_log_;
     std::uint64_t log_revision_ = 0;
     std::filesystem::path source_, build_, probe_root_;
     std::string ninja_, discovery_;

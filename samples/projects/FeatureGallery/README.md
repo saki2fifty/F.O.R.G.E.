@@ -1,14 +1,15 @@
 # FORGE Feature Gallery
 
 This is an editable FORGE project. Each saved scene demonstrates one focused
-engine feature using normal authored entities. The project uses built-in geometry;
-no imported assets, gameplay C++ module, SDK or compiler is needed for these four
-scenes.
+engine feature using normal authored entities. The first four scenes use built-in geometry. The fifth includes a published
+editable Mesh source and cooked Mesh. No
+gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
 ## Open and inspect
 
 1. Copy the entire `Examples/FeatureGallery` folder to a writable place outside
-   the FORGE installation. Keep `Scenes` and `forge.project.json` together.
+   the FORGE installation. Keep the complete folder, including `Assets`,
+   `forge.assets.json` and the hidden `.forge` cooked cache.
 2. In FORGE, choose **File → Open project...** and select the copied folder.
 3. Open a scene by double-clicking it in **Content** (filter Type to **scene**),
    or use **File → Open scene...**. Select named objects in the Hierarchy and
@@ -22,6 +23,7 @@ scenes.
 | `02-lighting` | Select **Sun**, **Warm point light**, and **Cool spot light**. Change intensity or color and press Play. | The same pedestals respond differently to the directional, point, and spot lights. The sun also casts shadows. |
 | `03-physics` | Press Play and watch **Falling cube A/B/C**. Select a cube to inspect its Physics Body and Box Collider. | The three dynamic cubes fall onto the static floor and obstacles. Stop restores the saved authored positions. |
 | `04-cameras` | Select the two cameras and compare their projection and viewport fields. Press Play. | Perspective fills the left half; orthographic fills the right half. Both show the same four shapes. |
+| `05-editable-mesh` | Select **Editable extruded cube**. Find **Shape.mesh.json** in Content and open it to change its form or face-corner UVs. Save & Publish, then return to the scene. | The center cube has an extruded face; its edited geometry appears in Scene, Play and standalone export. Attach a textured Material to inspect the authored UV placement. |
 
 ## Export and run a scene
 

@@ -16,6 +16,7 @@
 #include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
+#include <forge/mesh_asset.hpp>
 #include <forge/scene.hpp>
 #include <forge/shader_resource.hpp>
 #include <fstream>
@@ -166,8 +167,8 @@ AssetRecord runtime_record(AssetRecord record) {
         return record;
     }
     Json metadata = Json::object();
-    for (const auto* name : {"forge.import", "forge.model", "forge.material", "forge.shader",
-                             "forge.audio", "forge.ui_source", "forge.collision"})
+    for (const auto* name : {"forge.import", "forge.model", "forge.mesh", "forge.material",
+                             "forge.shader", "forge.audio", "forge.ui_source", "forge.collision"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -201,7 +202,18 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     const auto format = root.metadata.at("forge.import").at("output_format");
     if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
-    else if (root.type == TextureAsset::type && format == "forge.texture-bundle")
+    else if (root.type == MeshAsset::type && format == "forge.mesh-bundle") {
+        require(root.metadata.at("forge.import").at("importer") == "forge.mesh.editable" &&
+                    root.metadata.at("forge.mesh").at("version") == 1 &&
+                    root.metadata.at("forge.mesh").at("file") == "mesh.bin" &&
+                    artifact.files.size() == 1 && artifact.files.front().name == "mesh.bin" &&
+                    root.metadata.at("forge.mesh").at("sha256") ==
+                        content_digest(artifact.files.front().bytes) &&
+                    root.metadata.at("forge.mesh").at("bytes") ==
+                        artifact.files.front().bytes.size(),
+                "Editable Mesh package selection differs from cooked artifact");
+        (void)decode_mesh(artifact.files.front().bytes);
+    } else if (root.type == TextureAsset::type && format == "forge.texture-bundle")
         (void)validate_texture_bundle(artifact.files);
     else if (root.type == MaterialAsset::type && format == "forge.material-bundle")
         (void)decode_material_bundle(artifact.files, root.id);
@@ -271,6 +283,13 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                                                edge.role == "material.texture:" + role;
                                     }),
                         "Material cooked texture binding is absent from runtime closure");
+        } else if (record.type == MeshAsset::type && !record.subasset) {
+            ResourcePool<MeshAsset> pool;
+            const auto ticket =
+                request_model_mesh(pool, root, std::make_shared<const AssetCatalog>(catalog), {id});
+            require(pool.wait(ticket, std::chrono::seconds(30)) && bool(pool.acquire(ticket)),
+                    "Editable Mesh package native admission failed: " +
+                        ticket.inspect().diagnostic);
         } else if (record.type == TextureAsset::type) {
             ResourcePool<TextureAsset> pool;
             const auto ticket =

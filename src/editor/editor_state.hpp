@@ -1,4 +1,5 @@
 #pragma once
+#include "event_time.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <algorithm>
@@ -6,6 +7,7 @@
 #include <forge/assets.hpp>
 #include <forge/scene.hpp>
 #include <functional>
+#include <map>
 #include <set>
 #include <vector>
 namespace forge::ui {
@@ -159,12 +161,15 @@ struct Problem {
     AssetId asset;
     int line = 0, column = 0;
     bool source_navigation = false;
+    std::string occurred_at;
 };
 class Problems {
   public:
     void report(Problem value) {
         if (value.text.empty())
             return;
+        if (value.occurred_at.empty())
+            value.occurred_at = event_time_local();
         for (auto& p : items_)
             if (p.key == value.key) {
                 p = std::move(value);
@@ -175,8 +180,12 @@ class Problems {
         items_.push_back(std::move(value));
     }
     void ingest(Problem value) {
-        if (!seen_.insert(value.key).second)
+        const auto fingerprint =
+            value.severity + "\n" + value.text + "\n" + value.source + "\n" + value.property;
+        if (const auto found = seen_.find(value.key);
+            found != seen_.end() && found->second == fingerprint)
             return;
+        seen_[value.key] = fingerprint;
         if (seen_.size() > 2048)
             seen_.erase(seen_.begin());
         report(std::move(value));
@@ -208,7 +217,7 @@ class Problems {
                 ImGui::TextUnformatted("No problems reported.");
             for (const auto& p : items_) {
                 ImGui::PushID(p.key.c_str());
-                const auto label = p.severity + ": " + p.text;
+                const auto label = p.occurred_at + "  " + p.severity + ": " + p.text;
                 const float wrap = std::max(40.f, ImGui::GetContentRegionAvail().x);
                 const auto size = ImGui::CalcTextSize(label.c_str(), nullptr, false, wrap);
                 const auto position = ImGui::GetCursorScreenPos();
@@ -250,7 +259,7 @@ class Problems {
 
   private:
     std::deque<Problem> items_;
-    std::set<std::string> seen_;
+    std::map<std::string, std::string> seen_;
 };
 struct EditorUiContext {
     Scene* scene = nullptr;
@@ -265,7 +274,7 @@ struct EditorUiContext {
         last_status[source] = text;
         if (log.size() == 256)
             log.pop_front();
-        log.push_back(source + ": " + text);
+        log.push_back(event_time_local() + "  " + source + ": " + text);
     }
     bool reveal_content = false, add_component = false, rename_entity = false;
 };

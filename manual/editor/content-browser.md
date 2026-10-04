@@ -109,6 +109,7 @@ Open **Create / Register**:
 - **Import model...** opens [Model import](models.md) for glTF settings, identity review, scene/animation selection and placement.
 - **Import texture...** opens the [Texture import](textures.md) document for image/container settings and safe reimport.
 - **New collision...** creates a reusable [Collision asset](physics.md) with its own source document, shape settings and Save/history. A selected Mesh also offers **Assets → Create Collision from Mesh...**.
+- **New editable Mesh...** starts a reusable cube source in the central [Editable Mesh](editable-meshes.md) document.
 - **New material...** creates a reusable source in the central [Material editor](materials.md).
 - **Import shader...** opens [Shader import](shaders.md) for an existing project program.
 - **New scene** creates an untitled scene through the save guard.
@@ -126,7 +127,7 @@ Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discov
 
 The default bottom panel keeps search and filters compact so asset rows remain visible. Prefab assets come from the project’s existing prefab library and retain their AssetIds. Selecting a newly created prefab resolves it even when Content is hidden. **Reveal in Content** brings that tab forward. Closing a prefab source returns its selection to the asset, rather than leaving a closed member draft selected.
 
-Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their texture preview and import document; generated model textures open a read-only Texture viewer. Model assets open their preview, import and placement document. Mesh assets open read-only mesh inspection. AudioClips open the Audio clip import document; imported metadata also appears in Inspector.
+Double-click a Scene or Prefab asset to open its registered editing workflow. Scene opening retains unsaved-change guards; Prefab opens the independent source task. Texture assets open their texture preview and import document; generated model textures open a read-only Texture viewer. Model assets open their preview, import and placement document. Imported Model Mesh members open read-only inspection; project editable Meshes open the [Editable Mesh](editable-meshes.md) document. AudioClips open the Audio clip import document; imported metadata also appears in Inspector.
 
 Project Material assets open their source editor; imported model Material members open a read-only Material preview with an Open source import action. Shader assets open compilation settings. Each source task has its own history/publication rules and close guard.
 
@@ -152,12 +153,12 @@ Copy source files into the project, then choose **Refresh**. Recognized sources
 that have not been registered have the **Not imported** state; choose it in the
 state filter to see them separately. Selecting a source shows its relative path, size
 and kind in Inspector. **Open import / source** opens supported Model, Texture,
-Material, Collision or Shader workflows. A source row has no AssetId and cannot be dragged
+Material, Editable Mesh, Collision or Shader workflows. A source row has no AssetId and cannot be dragged
 into a typed asset field until it has been imported.
 
 FORGE checks project source contents in the background approximately every two
 seconds after the previous check completes. Changes to registered Model, Texture,
-Material and Shader sources or their import settings schedule reimport. New files
+Material, Editable Mesh and Shader sources or their import settings schedule reimport. New files
 require an explicit import; discovery alone does not assign identities.
 
 Choose **Source updates** to see the current scan, queued updates and active job.

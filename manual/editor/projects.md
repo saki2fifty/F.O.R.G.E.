@@ -6,14 +6,14 @@ A project folder keeps your scenes and gameplay source together. FORGE also stor
 
 1. Choose **File → New project**.
 2. Enter **Name / folder**. This becomes the new project subfolder's name.
-3. Enter an existing **Parent folder**, or select **Browse...** to choose one.
+3. The **Parent folder** defaults to your Documents/FORGE/Projects folder (or your personal FORGE settings folder if Documents is unavailable). Use **Browse...** to choose another location.
 4. Select **Create**. If the current scene has unsaved edits, resolve the save prompt first.
 
 The new folder contains `Scenes/main.scene.json`, `Assets`, `Native`, and `forge.project.json`. Choose a new folder name: existing folders are not overwritten. Use Content to import assets and browse C++ files through its Code location; the physical C++ folder is `Native/`.
 
 ## Open or return to a project
 
-Choose **File → Open project...** and select the project folder. **Recent projects** lists the last eight successfully opened projects. Directly launching the editor returns to the last project; launchers or command-line project arguments can select another one.
+Choose **File → Open project...** and select the project folder. **Recent projects** lists the last eight successfully opened projects. Launching FORGE normally returns to the last project. An explicit command-line project path selects another one.
 
 Each project opens its configured startup scene. The last scene edited is not automatically made the startup scene. Legacy project folders containing `main.scene.json` are supported.
 
@@ -37,9 +37,9 @@ A trusted script can work through the owning editor using [Live automation](live
 
 ## First launch and the active project
 
-Launching `bin/forge_editor.exe` directly without a project argument first reopens your last project. On a fresh installation, it creates a **Scratch** project under your personal FORGE settings folder, outside the application ZIP folder. If the last project cannot be opened, Console explains the fallback to Scratch. An explicitly supplied project that cannot be opened reports an error instead.
+Launching `bin/forge_editor.exe` directly without a project argument first reopens your last project. On a fresh installation, it creates a **Scratch** project under Documents/FORGE/Projects (or your personal FORGE settings folder if Documents is unavailable), outside the application ZIP folder. If the last project cannot be opened, Console explains the fallback to Scratch. An explicitly supplied project that cannot be opened reports an error instead.
 
-The Content panel shows the project name; hover it for the complete folder path. The title bar also identifies the project and scene. Use File → New project or Open project to choose where your game belongs. Launchers with an explicit Project argument keep using that directory. Existing projects and scenes are retained.
+The Content panel shows the project name; hover it for the complete folder path. The title bar also identifies the project and scene. Use File → New project or Open project to choose where your game belongs. The packaged Run-Forge.cmd launcher also reopens your last project. Existing projects and scenes are retained.
 
 
 Shared simulation frequency and startup scene identity are edited in [Project settings](project-settings.md). Version-1 project manifests remain readable; settings saves migrate them explicitly with a backup.

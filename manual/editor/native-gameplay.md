@@ -9,7 +9,7 @@ C++ files live in your project's `Native/` folder. Find them under **Content →
 
 Extract the matching optional Developer Kit into the editor folder, then launch
 **Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows
-SDK, CMake 3.30 or newer, and Ninja. In **Build**, expand **Compiler setup**
+SDK, CMake 4.3 or newer, and Ninja for the packaged native gameplay kit. The general FORGE source build minimum is CMake 3.30; the kit's install step needs the newer policy. In **Build**, expand **Compiler setup**
 and choose **Test compiler tools**. FORGE builds and checks a separate starter
 module without changing your gameplay or project settings. A failure names the
 missing or incompatible tool. **Get C++ Build Tools** opens Microsoft's official

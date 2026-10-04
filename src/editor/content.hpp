@@ -718,7 +718,7 @@ class ContentBrowser {
         if (!error_.empty()) {
             ui::field_error(error_);
             if (ui::editor_context)
-                ui::editor_context->problems.report(
+                ui::editor_context->problems.ingest(
                     {"content", "Error", error_, {}, path_text(root_), {}, {}});
         }
         ImGui::End();

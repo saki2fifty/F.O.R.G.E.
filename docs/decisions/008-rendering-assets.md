@@ -53,6 +53,10 @@ remain unresolved instead of being reassigned. This preserves the original singl
 Mesh/Material path and ID families. It is a source-backed representation correction,
 not a change to Flecs scene authority or authorization for a separate material graph.
 
+## Phase 11 editable Mesh checkpoint — 2026-10-04
+
+A project-authored `.mesh.json` source publishes one root Mesh AssetId through the existing candidate/cache/catalog path. The source owns stable polygon and corner-UV data; the cooked `MeshData` and existing Mesh Renderer/resource pool remain the runtime path. Imported Model Mesh subassets remain read-only. Scene transforms and material overrides remain scene-owned. See [editable Mesh contract](../editable-meshes.md).
+
 ## Phase10 material graph decision — 2026-09-29
 
 Extend the existing Shader logical asset with authored graph source version3 and

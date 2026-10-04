@@ -68,6 +68,7 @@ std::string source_kind(const std::filesystem::path& path) {
              {".scene.json", "scene"},
              {".prefab.json", "prefab"},
              {".material.json", "material"},
+             {".mesh.json", "editable_mesh"},
              {".collision.json", "collision"},
              {".shader.json", "shader_program"},
              {".gltf", "model"},

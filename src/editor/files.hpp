@@ -16,11 +16,14 @@ class EditorFiles {
     SceneDocument document;
     std::string status = "Ready", error;
     bool changed = false, preferences_changed = false, quit = false;
-    EditorFiles(Scene& scene, SDL_Window* window, std::vector<std::string>& recent)
-        : document(scene), window_(window), recent_(recent) {}
+    EditorFiles(Scene& scene, SDL_Window* window, std::vector<std::string>& recent,
+                std::filesystem::path default_project_parent = {})
+        : document(scene), window_(window), recent_(recent) {
+        if (!default_project_parent.empty())
+            SDL_strlcpy(parent_, path_text(default_project_parent).c_str(), sizeof(parent_));
+    }
     void start(const std::filesystem::path& path) {
         document.open_project(path, true);
-        SDL_strlcpy(parent_, path_text(document.project().parent_path()).c_str(), sizeof(parent_));
         recovery_untitled_ = !document.has_recovery() && document.has_untitled_recovery();
         recovery_prompt_ = document.has_recovery() || recovery_untitled_;
         remember();

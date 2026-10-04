@@ -8,9 +8,15 @@ import uuid
 
 project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text())
+mesh_asset = next(row for row in json.loads((project_root / 'forge.assets.json').read_text())['assets']
+                  if row['type'] == 'mesh')
+assert json.loads((project_root / mesh_asset['source']).read_text())['asset_id'] == mesh_asset['id']
+assert (project_root / '.forge/cache/derived' /
+        mesh_asset['metadata']['forge.import']['key'] / 'mesh.bin').is_file()
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'01-transforms.scene.json', '02-lighting.scene.json',
-        '03-physics.scene.json', '04-cameras.scene.json'} <= {p.name for p in scenes}
+        '03-physics.scene.json', '04-cameras.scene.json',
+        '05-editable-mesh.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -75,6 +81,11 @@ try:
         if path.name.startswith('03-'):
             assert sum(row['components'].get('forge.physics_body', {}).get('motion') == 2
                        for row in loaded['entities']) == 3
+        if path.name.startswith('05-'):
+            meshes = [row['components']['forge.mesh_renderer']['mesh']
+                      for row in loaded['entities']
+                      if 'forge.mesh_renderer' in row['components']]
+            assert meshes == [mesh_asset['id']]
         if path.name.startswith('04-'):
             cameras = [row['components']['forge.camera'] for row in loaded['entities']
                        if 'forge.camera' in row['components']]

@@ -1,0 +1,40 @@
+{
+  "assets": [
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ac0f7797-6699-455b-9431-bc07eb513c2f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "6a2fefacff7ea944083cde5087a000e6bfb48372ee9cab4efb45ad41a6180e6b",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "85aa4744b5ca56076a7c5139aa78b6d41c753e8b440dd7054c6c77c27013f779",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "0e9dbbe9cd53cd7166fc87df7fbd34faa98dd6d549b901a32db44422f839efb5",
+          "source_digest": "88c0c63ecff02eb6d39a0ef37e86c401063e38eb37ec7338fbdf47136db67d2e",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1924,
+          "file": "mesh.bin",
+          "sha256": "ac7d8396d7ca2d414abb97e0e1d1971602dee1f890d6a113315158a61e3db960",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Shape.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    }
+  ],
+  "version": 2
+}

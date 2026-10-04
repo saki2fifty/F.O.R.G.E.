@@ -6,7 +6,7 @@ This walkthrough creates two blocks, organizes them, saves a scene, and previews
 
 1. Extract the entire Windows ZIP into a folder on your Windows PC.
 2. Keep the extracted folders together. The editor and its DLLs are in `bin/`; the optional Developer Kit adds `NativeSdk/`.
-3. Run `Run-Forge.cmd` to open the included scratch Project folder. You can also launch `bin/forge_editor.exe` directly; it normally returns to your last project.
+3. Run `Run-Forge.cmd` to reopen your last project. On first launch, FORGE creates a Scratch project under Documents/FORGE/Projects. You can also launch `bin/forge_editor.exe` directly; it normally returns to your last project.
 4. Open **Help** to see the build identifier. Include it when reporting problems.
 
 The editor requires Windows x64, an AVX2-capable processor, and a D3D12-capable graphics driver. Native gameplay compilation requires additional developer tools, described under [Native gameplay](../editor/native-gameplay.md).

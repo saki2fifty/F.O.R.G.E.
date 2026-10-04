@@ -1,4 +1,5 @@
 #pragma once
+#include "event_time.hpp"
 #include "play_transport_worker.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -169,6 +170,7 @@ class PlaySession {
     std::uint64_t snapshot_version() const { return snapshot_version_; }
     const std::string& status() const { return status_; }
     const std::string& log() const { return log_; }
+    const std::string& timed_log() const { return timed_log_.text(); }
     const Json& diagnostics() const { return diagnostics_; }
     // ---------------------------------------------------------------------
     // SDK Play opt-in profile accessors. All return transport layer
@@ -764,11 +766,15 @@ class PlaySession {
                 }
                 const auto diagnostics = response.value("diagnostics", Json::array());
                 if (diagnostics != diagnostics_) {
-                    for (const auto& d : diagnostics)
-                        if (std::find(diagnostics_.begin(), diagnostics_.end(), d) ==
+                    for (const auto& d : diagnostics) {
+                        if (std::find(diagnostics_.begin(), diagnostics_.end(), d) !=
                             diagnostics_.end())
-                            log_ +=
-                                d.value("category", "runtime") + ": " + d.value("text", "") + "\n";
+                            continue;
+                        const auto line =
+                            d.value("category", "runtime") + ": " + d.value("text", "") + "\n";
+                        log_ += line;
+                        timed_log_.append(line);
+                    }
                     if (log_.size() > 131072)
                         log_.erase(0, log_.size() - 131072);
                     diagnostics_ = diagnostics;
@@ -1076,6 +1082,7 @@ class PlaySession {
         std::string chunk;
         if (worker_.drain_stderr(chunk)) {
             log_.append(chunk);
+            timed_log_.append(chunk);
             if (log_.size() > 65536)
                 log_.erase(0, log_.size() - 65536);
         }
@@ -1197,6 +1204,7 @@ class PlaySession {
         }
         args.push_back(nullptr);
         log_.clear();
+        timed_log_.clear();
         diagnostics_ = Json::array();
         const auto properties = SDL_CreateProperties();
         const bool configured =
@@ -1335,6 +1343,7 @@ class PlaySession {
     bool exact_sdk_ = false;
     bool desired_paused_ = false, waiting_ = false;
     std::uint64_t snapshot_version_ = 0, request_id_ = 0;
+    ui::TimedTextLog timed_log_;
     std::string sent_command_, log_, status_ = "Stopped. Play uses a copy of your authored scene.";
     Uint64 sent_at_ = 0;
     // Worker-clock sent timestamp used for the receive-deadline. The

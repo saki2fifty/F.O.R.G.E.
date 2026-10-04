@@ -12,3 +12,9 @@
 - Build `261004-000148` is the delivered editor and Developer Kit. The full Windows/Linux source, editor, SDK, format and standalone matrix passed in run `37168768113`. Its first final-package attempt withheld the ZIP after a previously documented timed reference-game restart deadline; the independent C++ editor onboarding, prefab workflow and relocated standalone export completed successfully.
 - The final-package-only retry `37170919954` reused the exact validated source and compiled artifacts. Both the reference-game acceptance and extracted-editor C++ onboarding passed; matching numbered ZIPs were verified and promoted. The editor ZIP SHA-256 is `0f084d53cacd445ac204cc09b97e347674b7b7107301dd210218df47ee00e123`.
 - Windows captures were reviewed for Code browsing/search, Component and source creation, read-only C++ Inspector, modified source, Build success/failure, compiler diagnostic navigation, prefab review and export. Automated Windows checks used WARP; user-side physical-GPU acceptance is separate.
+
+## Phase 11 source checkpoint — editable Mesh and usability
+
+- Added a bounded editable Mesh source, central Model/UV document, shared Mesh publication and standalone cooked-artifact adapter. The Feature Gallery now contains an extruded Mesh scene and its Windows-target selected artifact.
+- New projects default under Documents/FORGE/Projects; the packaged launcher resumes the last project. Play-only Inspector values are visually separated, Problems/Console/Build output carries occurrence times, and native gameplay guidance states the packaged kit's CMake 4.3+ requirement.
+- Linux geometry, publication/relocation, runtime package, discovery/import, gallery scene and manual checks passed locally. Windows editor build, input/capture review and numbered ZIP delivery remain pending; this source checkpoint is not yet a Windows-delivered build.
