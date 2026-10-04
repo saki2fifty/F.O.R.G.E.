@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
         const auto source = std::filesystem::path("Assets/Shape.mesh.json");
         auto document = EditableMeshDocument::create(lease, source);
         const auto identity = document->source().asset();
+        const auto initial = document->source().document;
         document->edit(document->revision(), "Extrude top", [](nlohmann::json& draft) {
             EditableMeshSource mesh{draft};
             const auto cap = mesh.extrude_face(13, .5);
@@ -44,6 +45,30 @@ int main(int argc, char** argv) {
                               0.75);
             draft = std::move(mesh.document);
         });
+        const auto extruded = document->source().document;
+        require(document->dirty() && document->can_undo(),
+                "Editable Mesh edit did not enter source history");
+        document->undo();
+        require(document->source().document == initial && !document->dirty() &&
+                    document->can_redo(),
+                "One Undo did not restore the original Mesh and UVs");
+        document->redo();
+        require(document->source().document == extruded && document->dirty(),
+                "Redo did not restore the extrusion and UV change together");
+        const auto revision = document->revision();
+        bool rejected = false;
+        try {
+            document->edit(revision, "Invalid transform", [](nlohmann::json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.transform_vertices(std::array<std::uint32_t, 1>{1}, {}, {}, {0, 1, 1});
+                draft = std::move(mesh.document);
+            });
+        } catch (const std::runtime_error&) {
+            rejected = true;
+        }
+        require(rejected, "Invalid Mesh edit unexpectedly succeeded");
+        require(document->revision() == revision && document->source().document == extruded,
+                "Rejected Mesh edit changed source or history revision");
         document->save();
         EditableMeshDocument reopened(lease, source);
         require(reopened.source().document == document->source().document,
