@@ -1,11 +1,13 @@
 # Changelog
 
+- [2026-10-04](20261004/README.md) — Windows onboarding verifies C++ source search in a compact Content panel.
 - [2026-10-03](20261003/README.md) — Content now includes C++ project files; the supporting panel is Build.
 
 Browse FORGE changes by **UTC day**, newest first. Each day has one continuously maintained page, organized by function, with build results and known limitations. Build counters increase across dates; they do not reset.
 
 | Day | Changes |
 | --- | --- |
+| [2026-10-04](20261004/README.md) | C++ onboarding uses Content search to reach source files below a compact panel; Windows delivery validation. |
 | [2026-10-03](20261003/README.md) | Unified Content browser for assets and C++ files, Build panel navigation, and C++ authoring workflow. |
 | [2026-10-01](20261001/README.md) | Unified C++ gameplay model, managed Component/System creation, live Play tuning, and standalone validation. |
 | [2026-09-30](20260930/README.md) | Editable Feature Gallery project with four focused scenes, export instructions, and source/Windows acceptance checks. |

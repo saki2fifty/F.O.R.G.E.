@@ -841,6 +841,8 @@ class EditorInputWorkflow {
             click("tab:Build");
             click("tab:Content");
             click("content:folder:Code");
+            text("content:search", "RotationSystem");
+            capture("cpp-system-search");
             click("code:Native/Systems/RotationSystem.cpp");
             key(ImGuiKey_Enter);
             check("cpp-system-opened");
