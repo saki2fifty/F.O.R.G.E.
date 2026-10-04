@@ -864,6 +864,7 @@ class EditorInputWorkflow {
             steps_.push_back({Kind::SourceEdit, "starter-break"});
             check("build-required");
             capture("gameplay-build-required");
+            click("tab:Build");
             click("button:Build gameplay");
             check("starter-rejected");
             click("icon:play");
