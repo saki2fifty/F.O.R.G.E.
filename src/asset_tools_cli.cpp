@@ -10,7 +10,9 @@
 #ifdef FORGE_ASSET_TOOLS
 #include "asset_bytes.hpp"
 #include "collision_authoring.hpp"
+#include "editable_mesh_authoring.hpp"
 #include "import_authoring.hpp"
+#include "material_authoring.hpp"
 #include "self_executable.hpp"
 #include "texture_authoring.hpp"
 #endif
@@ -25,7 +27,8 @@ int asset_tools_cli(int argc, char** argv) {
         if (argc < 4 || argc > 7)
             throw std::runtime_error("Usage: forge_tools --assets scan PROJECT [ROOT] | query "
                                      "PROJECT | dependents PROJECT UUID | import PROJECT SOURCE "
-                                     "[OVERRIDES_JSON [IDENTITY_DECISIONS_JSON]]");
+                                     "[OVERRIDES_JSON [IDENTITY_DECISIONS_JSON]] | "
+                                     "import-target PROJECT SOURCE TARGET_JSON");
         const std::string operation = argv[2];
         const auto project = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
         if (!std::filesystem::is_directory(project))
@@ -176,7 +179,8 @@ int asset_tools_cli(int argc, char** argv) {
             result["direct"] = catalog.dependency_graph().source_referrers(source);
             result["affected"] = catalog.dependency_graph().invalidated_by_source(source);
 #ifdef FORGE_ASSET_TOOLS
-        } else if (operation == "import" && (argc >= 5 && argc <= 7)) {
+        } else if ((operation == "import" && (argc >= 5 && argc <= 7)) ||
+                   (operation == "import-target" && argc == 6)) {
             const auto executable = self_executable();
             auto worker = executable.parent_path() / "forge_asset_build";
 #ifdef _WIN32
@@ -184,18 +188,40 @@ int asset_tools_cli(int argc, char** argv) {
 #endif
             const auto source = std::filesystem::u8path(argv[4]);
             const bool collision = path_utf8(source).ends_with(".collision.json");
-            auto registry = collision ? collision_import_registry() : asset_import_registry(worker);
+            const bool material = path_utf8(source).ends_with(".material.json");
+            const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
+            auto registry = collision       ? collision_import_registry()
+                            : material      ? material_import_registry()
+                            : editable_mesh ? editable_mesh_import_registry()
+                                            : asset_import_registry(worker);
             auto lease = std::make_shared<ProjectLease>(project);
-            AssetImportService service(
-                lease, registry, collision ? collision_import_target() : desktop_texture_target());
+            auto target = collision ? collision_import_target() : desktop_texture_target();
+            if (operation == "import-target") {
+                const std::string_view text(argv[5]);
+                const auto requested =
+                    asset_detail::parse_bounded_json(std::as_bytes(std::span(text)), 1024, 32, 4);
+                target = {requested.at("platform"), requested.at("backend"),
+                          requested.at("profile")};
+            }
+            AssetImportService service(lease, registry, target);
             AssetId identity;
             if (collision)
                 identity =
                     CollisionSource::parse(asset_detail::read_bytes(
                                                ProjectPaths(project).resolve(source), 1024 * 1024))
                         .asset();
+            else if (material)
+                identity = MaterialSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        material_source_byte_limit))
+                               .asset();
+            else if (editable_mesh)
+                identity = EditableMeshSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        editable_mesh_source_byte_limit))
+                               .asset();
             auto draft = service.prepare(source, {}, identity);
-            if (argc >= 6) {
+            if (operation == "import" && argc >= 6) {
                 const std::string_view text(argv[5]);
                 const auto overrides = asset_detail::parse_bounded_json(
                     std::as_bytes(std::span(text)), 65536, 4096, 16);
@@ -206,7 +232,7 @@ int asset_tools_cli(int argc, char** argv) {
                         draft.importer->settings().edit(draft.request.settings, key, value);
             }
             std::vector<SubassetIdentityDecision> decisions;
-            if (argc == 7) {
+            if (operation == "import" && argc == 7) {
                 const std::string_view text(argv[6]);
                 const auto choices = asset_detail::parse_bounded_json(
                     std::as_bytes(std::span(text)), 1024 * 1024, 32768, 8);
@@ -229,12 +255,23 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions, collision](auto& candidate, const auto& plan, const auto& catalog) {
+                [decisions, collision, material, editable_mesh](auto& candidate, const auto& plan,
+                                                                const auto& catalog) {
                     if (collision) {
                         if (!decisions.empty())
                             throw std::runtime_error(
                                 "Collision has no imported subasset correspondence decisions");
                         prepare_collision_publication(candidate, plan);
+                    } else if (material) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Material has no imported subasset correspondence decisions");
+                        prepare_material_publication(candidate, plan);
+                    } else if (editable_mesh) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Editable Mesh has no imported subasset correspondence decisions");
+                        prepare_editable_mesh_publication(candidate, plan);
                     } else
                         prepare_asset_publication(candidate, plan, catalog, decisions);
                 },

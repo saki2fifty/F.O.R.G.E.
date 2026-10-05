@@ -79,6 +79,12 @@ intent. The command acquires the existing project writer lease and uses the same
 import service/provider as the editor. An editor already owning the project prevents
 an unsynchronized CLI write. The authoring stdio protocol remains memory-only.
 
+The local headless importer also accepts authored `.mesh.json` and `.material.json`
+through their existing registries. `--assets import-target PROJECT SOURCE TARGET_JSON`
+selects a concrete platform/backend/profile for an explicit cook, for example a
+Windows D3D12 Gallery fixture. It still uses the same writer lease, catalog,
+sidecar and candidate publication path; it does not install a second asset owner.
+
 Success returns the logical root AssetId, build key, verified-cache-hit flag and any
 post-commit cleanup diagnostic. Failure returns the existing structured JSON error
 and nonzero exit code; prior catalog/sidecar selections remain intact. The process

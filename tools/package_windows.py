@@ -92,7 +92,7 @@ def package(build, dependencies, output):
         manifest['files']['manual/'+page.relative_to(manual_output).as_posix()] = hashlib.sha256(page.read_bytes()).hexdigest()
     manifest['files']['build.json'] = hashlib.sha256((build/'build.json').read_bytes()).hexdigest()
     example_root = source/'samples/projects'
-    example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav', '.gltf', '.png', '.md', '.bin'))
+    example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav', '.gltf', '.png', '.md', '.bin', '.values'))
     gallery_root = example_root/'FeatureGallery'
     gallery_files = sorted(p for p in gallery_root.rglob('*') if p.is_file() or p.is_symlink())
     required_gallery = {gallery_root/'README.md', gallery_root/'forge.project.json'}

@@ -37,6 +37,35 @@ template <std::size_t N> std::array<double, N> vector(const Json& value) {
     }
     return result;
 }
+std::array<double, 4> vertex_color(const Json& value) {
+    const auto result = vector<4>(value);
+    for (const auto channel : result)
+        require(channel >= 0 && channel <= 1, "Mesh vertex color must be within [0,1]");
+    return result;
+}
+void validate_brush(std::span<const MeshBrushSample> samples, double radius) {
+    require(!samples.empty() && samples.size() <= 256 && std::isfinite(radius) && radius > 1e-4 &&
+                radius <= 1000,
+            "Mesh brush stroke is empty or outside bounded settings");
+    for (const auto& sample : samples) {
+        (void)vector<3>(Json(sample.point));
+        require(std::isfinite(sample.pressure) && sample.pressure >= 0 && sample.pressure <= 1,
+                "Mesh brush pressure must be within [0,1]");
+    }
+}
+double brush_influence(Vec3 point, std::span<const MeshBrushSample> samples, double radius) {
+    double influence = 0;
+    for (const auto& sample : samples) {
+        const double dx = point[0] - sample.point[0], dy = point[1] - sample.point[1],
+                     dz = point[2] - sample.point[2];
+        const auto distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance < radius) {
+            const auto falloff = 1 - distance / radius;
+            influence = std::max(influence, sample.pressure * falloff * falloff);
+        }
+    }
+    return influence;
+}
 Vec3 sub(Vec3 a, Vec3 b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
 Vec3 cross(Vec3 a, Vec3 b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
@@ -77,6 +106,32 @@ Json face(std::uint32_t face_id, const std::array<std::uint32_t, 4>& vertices) {
     return {{"id", face_id},
             {"corners", Json::array({corner(vertices[0], {0, 0}), corner(vertices[1], {1, 0}),
                                      corner(vertices[2], {1, 1}), corner(vertices[3], {0, 1})})}};
+}
+Json triangle(std::uint32_t face_id, std::array<std::uint32_t, 3> vertices,
+              std::array<std::array<double, 2>, 3> uv) {
+    return {{"id", face_id},
+            {"corners", Json::array({corner(vertices[0], uv[0]), corner(vertices[1], uv[1]),
+                                     corner(vertices[2], uv[2])})}};
+}
+std::map<std::uint32_t, Vec3> averaged_normals(const Json& source,
+                                               const std::map<std::uint32_t, Vec3>& positions) {
+    std::map<std::uint32_t, Vec3> normals;
+    for (const auto& face : source.at("faces")) {
+        const auto geometry = polygon(face, positions);
+        for (const auto& corner : face.at("corners")) {
+            auto& normal = normals[id(corner.at("vertex"))];
+            for (unsigned axis = 0; axis < 3; ++axis)
+                normal[axis] += geometry.normal[axis];
+        }
+    }
+    for (auto& [key, normal] : normals) {
+        (void)key;
+        const auto size = length(normal);
+        require(size > 1e-8, "Mesh vertex normal is undefined");
+        for (auto& axis : normal)
+            axis /= size;
+    }
+    return normals;
 }
 Json* find_face(Json& document, std::uint32_t wanted) {
     for (auto& candidate : document.at("faces"))
@@ -119,6 +174,58 @@ EditableMeshSource EditableMeshSource::create_cube(AssetId asset_id) {
     result.validate();
     return result;
 }
+EditableMeshSource EditableMeshSource::create_sculpt_sphere(AssetId asset_id) {
+    constexpr std::uint32_t segments = 16, latitudes = 8;
+    EditableMeshSource result{{{"kind", "forge.editable-mesh"},
+                               {"version", 1},
+                               {"asset_id", asset_id},
+                               {"smooth", true},
+                               {"vertices", Json::array()},
+                               {"faces", Json::array()}}};
+    std::uint32_t next = 1;
+    const auto add_vertex = [&](Vec3 position) {
+        const auto key = next++;
+        result.document["vertices"].push_back({{"id", key}, {"position", position}});
+        return key;
+    };
+    const auto top = add_vertex({0, .5, 0});
+    std::array<std::array<std::uint32_t, segments>, latitudes - 1> rings{};
+    for (std::uint32_t row = 1; row < latitudes; ++row) {
+        const double latitude = std::numbers::pi * row / latitudes;
+        for (std::uint32_t column = 0; column < segments; ++column) {
+            const double longitude = 2 * std::numbers::pi * column / segments;
+            rings[row - 1][column] =
+                add_vertex({.5 * std::sin(latitude) * std::sin(longitude), .5 * std::cos(latitude),
+                            .5 * std::sin(latitude) * std::cos(longitude)});
+        }
+    }
+    const auto bottom = add_vertex({0, -.5, 0});
+    const auto add_triangle = [&](std::array<std::uint32_t, 3> vertices,
+                                  std::array<std::array<double, 2>, 3> uv) {
+        result.document["faces"].push_back(triangle(next++, vertices, uv));
+    };
+    for (std::uint32_t column = 0; column < segments; ++column) {
+        const auto next_column = (column + 1) % segments;
+        const double u0 = double(column) / segments, u1 = double(column + 1) / segments;
+        add_triangle({top, rings[0][column], rings[0][next_column]},
+                     {{{(u0 + u1) * .5, 0}, {u0, 1.0 / latitudes}, {u1, 1.0 / latitudes}}});
+        for (std::uint32_t row = 0; row + 1 < latitudes - 1; ++row) {
+            const double v0 = double(row + 1) / latitudes;
+            const double v1 = double(row + 2) / latitudes;
+            add_triangle({rings[row][column], rings[row + 1][column], rings[row + 1][next_column]},
+                         {{{u0, v0}, {u0, v1}, {u1, v1}}});
+            add_triangle({rings[row][column], rings[row + 1][next_column], rings[row][next_column]},
+                         {{{u0, v0}, {u1, v1}, {u1, v0}}});
+        }
+        add_triangle({rings[latitudes - 2][column], bottom, rings[latitudes - 2][next_column]},
+                     {{{u0, double(latitudes - 1) / latitudes},
+                       {(u0 + u1) * .5, 1},
+                       {u1, double(latitudes - 1) / latitudes}}});
+    }
+    result.document["next_id"] = next;
+    result.validate();
+    return result;
+}
 EditableMeshSource EditableMeshSource::parse(std::span<const std::byte> bytes) {
     EditableMeshSource result{
         asset_detail::parse_bounded_json(bytes, editable_mesh_source_byte_limit, 100000, 16)};
@@ -129,6 +236,8 @@ void EditableMeshSource::validate() const {
     require(document.is_object() && document.at("kind") == "forge.editable-mesh" &&
                 document.at("version") == 1 && bool(asset()),
             "Unsupported editable Mesh source kind/version/identity");
+    if (document.contains("smooth"))
+        require(document.at("smooth").is_boolean(), "Mesh smooth shading flag must be boolean");
     const auto& vertices = document.at("vertices");
     const auto& faces = document.at("faces");
     require(vertices.is_array() && !vertices.empty() && vertices.size() <= vertex_limit &&
@@ -142,6 +251,8 @@ void EditableMeshSource::validate() const {
         require(identities.insert(key).second &&
                     positions.emplace(key, vector<3>(v.at("position"))).second,
                 "Duplicate editable Mesh vertex identity");
+        if (v.contains("color"))
+            (void)vertex_color(v.at("color"));
         highest = std::max(highest, key);
     }
     std::size_t corners_total = 0;
@@ -185,22 +296,38 @@ MeshData EditableMeshSource::cook() const {
     std::map<std::uint32_t, Vec3> positions;
     for (const auto& v : document.at("vertices"))
         positions.emplace(id(v.at("id")), vector<3>(v.at("position")));
+    const auto smooth_normals = document.value("smooth", false)
+                                    ? averaged_normals(document, positions)
+                                    : std::map<std::uint32_t, Vec3>{};
+    std::map<std::uint32_t, std::array<double, 4>> colors;
+    for (const auto& vertex : document.at("vertices"))
+        if (vertex.contains("color"))
+            colors.emplace(id(vertex.at("id")), vertex_color(vertex.at("color")));
     MeshPart part;
     part.topology = MeshTopology::Triangles;
     part.material_slot = 0;
-    std::vector<float> position, normal, uv;
+    std::vector<float> position, normal, uv, color;
     for (const auto& f : document.at("faces")) {
         const auto geometry = polygon(f, positions);
         const auto start = static_cast<std::uint32_t>(position.size() / 3);
         for (const auto& c : f.at("corners")) {
             const auto p = positions.at(id(c.at("vertex")));
             const auto t = vector<2>(c.at("uv"));
+            const auto& shading_normal =
+                smooth_normals.empty() ? geometry.normal : smooth_normals.at(id(c.at("vertex")));
             for (unsigned axis = 0; axis < 3; ++axis) {
                 position.push_back(static_cast<float>(p[axis]));
-                normal.push_back(static_cast<float>(geometry.normal[axis]));
+                normal.push_back(static_cast<float>(shading_normal[axis]));
             }
             uv.push_back(static_cast<float>(t[0]));
             uv.push_back(static_cast<float>(t[1]));
+            if (!colors.empty()) {
+                const auto paint = colors.contains(id(c.at("vertex")))
+                                       ? colors.at(id(c.at("vertex")))
+                                       : std::array<double, 4>{1, 1, 1, 1};
+                for (const auto channel : paint)
+                    color.push_back(static_cast<float>(channel));
+            }
         }
         for (std::uint32_t i = 1; i + 1 < f.at("corners").size(); ++i) {
             part.indices.push_back(start);
@@ -212,6 +339,8 @@ MeshData EditableMeshSource::cook() const {
     part.streams.push_back({"POSITION", 3, std::move(position)});
     part.streams.push_back({"NORMAL", 3, std::move(normal)});
     part.streams.push_back({"TEXCOORD_0", 2, std::move(uv)});
+    if (!colors.empty())
+        part.streams.push_back({"COLOR_0", 4, std::move(color)});
     part.bounds = mesh_bounds(part);
     MeshData result;
     result.material_slots = 1;
@@ -296,8 +425,13 @@ std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double dist
     auto* source_face = find_face(candidate.document, wanted);
     require(source_face, "Selected Mesh face is missing");
     std::map<std::uint32_t, Vec3> positions;
-    for (const auto& v : candidate.document.at("vertices"))
-        positions.emplace(id(v.at("id")), vector<3>(v.at("position")));
+    std::map<std::uint32_t, Json> colors;
+    for (const auto& v : candidate.document.at("vertices")) {
+        const auto key = id(v.at("id"));
+        positions.emplace(key, vector<3>(v.at("position")));
+        if (v.contains("color"))
+            colors.emplace(key, v.at("color"));
+    }
     const auto normal = polygon(*source_face, positions).normal;
     const auto old = *source_face;
     const auto corners = old.at("corners");
@@ -311,7 +445,10 @@ std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double dist
         for (unsigned axis = 0; axis < 3; ++axis)
             p[axis] += normal[axis] * distance;
         const auto added = next++;
-        candidate.document["vertices"].push_back({{"id", added}, {"position", p}});
+        Json new_vertex{{"id", added}, {"position", p}};
+        if (colors.contains(vertex))
+            new_vertex["color"] = colors.at(vertex);
+        candidate.document["vertices"].push_back(std::move(new_vertex));
         old_vertices.push_back(vertex);
         new_vertices.push_back(added);
     }
@@ -340,6 +477,63 @@ std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double dist
     candidate.validate();
     document = std::move(candidate.document);
     return cap;
+}
+void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double radius,
+                                double strength) {
+    validate_brush(samples, radius);
+    require(std::isfinite(strength) && std::abs(strength) <= radius,
+            "Mesh sculpt strength exceeds brush radius");
+    auto candidate = *this;
+    std::map<std::uint32_t, Vec3> positions;
+    for (const auto& vertex : document.at("vertices"))
+        positions.emplace(id(vertex.at("id")), vector<3>(vertex.at("position")));
+    const auto normals = averaged_normals(document, positions);
+    std::map<std::uint32_t, Vec3> original_face_normals;
+    for (const auto& face : document.at("faces"))
+        original_face_normals.emplace(id(face.at("id")), polygon(face, positions).normal);
+    for (auto& vertex : candidate.document.at("vertices")) {
+        const auto key = id(vertex.at("id"));
+        const auto old = positions.at(key);
+        const auto influence = brush_influence(old, samples, radius);
+        if (influence > 0) {
+            auto next = old;
+            for (unsigned axis = 0; axis < 3; ++axis)
+                next[axis] += normals.at(key)[axis] * strength * influence;
+            vertex["position"] = next;
+        }
+    }
+    candidate.validate();
+    std::map<std::uint32_t, Vec3> changed;
+    for (const auto& vertex : candidate.document.at("vertices"))
+        changed.emplace(id(vertex.at("id")), vector<3>(vertex.at("position")));
+    for (const auto& face : candidate.document.at("faces"))
+        require(dot(original_face_normals.at(id(face.at("id"))), polygon(face, changed).normal) >
+                    0.2,
+                "Sculpt stroke would turn a face inside out");
+    document = std::move(candidate.document);
+}
+void EditableMeshSource::paint_color(std::span<const MeshBrushSample> samples, double radius,
+                                     std::array<double, 4> color, double opacity) {
+    validate_brush(samples, radius);
+    for (const auto channel : color)
+        require(std::isfinite(channel) && channel >= 0 && channel <= 1,
+                "Mesh paint color must be within [0,1]");
+    require(std::isfinite(opacity) && opacity >= 0 && opacity <= 1,
+            "Mesh paint opacity must be within [0,1]");
+    auto candidate = *this;
+    for (auto& vertex : candidate.document.at("vertices")) {
+        const auto point = vector<3>(vertex.at("position"));
+        const auto amount = opacity * brush_influence(point, samples, radius);
+        if (amount <= 0)
+            continue;
+        auto current = vertex.contains("color") ? vertex_color(vertex.at("color"))
+                                                : std::array<double, 4>{1, 1, 1, 1};
+        for (unsigned channel = 0; channel < 4; ++channel)
+            current[channel] += (color[channel] - current[channel]) * amount;
+        vertex["color"] = current;
+    }
+    candidate.validate();
+    document = std::move(candidate.document);
 }
 void EditableMeshSource::transform_uv(std::uint32_t wanted, std::span<const std::size_t> corners,
                                       std::array<double, 2> translation, double angle,

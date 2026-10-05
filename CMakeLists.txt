@@ -173,7 +173,7 @@ target_link_libraries(forge_asset_files PUBLIC forge_authoring PRIVATE forge_ass
 add_library(forge_model_placement src/model_placement.cpp src/model_view_components.cpp)
 target_link_libraries(forge_model_placement PUBLIC forge_authoring forge_model_pipeline)
 add_executable(forge_tools src/tools_main.cpp src/asset_tools_cli.cpp)
-target_link_libraries(forge_tools PRIVATE forge_authoring)
+target_link_libraries(forge_tools PRIVATE forge_authoring forge_material_authoring forge_editable_mesh_authoring)
 add_library(forge_collision_native src/physics_registration.cpp src/collision_shape.cpp src/collision_resource.cpp)
 target_link_libraries(forge_collision_native PUBLIC forge_collision_asset forge_resources PRIVATE Jolt)
 add_library(forge_collision_bundle src/collision_bundle.cpp)

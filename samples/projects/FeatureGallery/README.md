@@ -1,8 +1,8 @@
 # FORGE Feature Gallery
 
 This is an editable FORGE project. Each saved scene demonstrates one focused
-engine feature using normal authored entities. The first four scenes use built-in geometry. The fifth includes a published
-editable Mesh source and cooked Mesh. No
+engine feature using normal authored entities. The first four scenes use built-in geometry. The remaining scenes include published
+editable Mesh sources, cooked Meshes and a checker Material. No
 gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
 ## Open and inspect
@@ -23,7 +23,9 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 | `02-lighting` | Select **Sun**, **Warm point light**, and **Cool spot light**. Change intensity or color and press Play. | The same pedestals respond differently to the directional, point, and spot lights. The sun also casts shadows. |
 | `03-physics` | Press Play and watch **Falling cube A/B/C**. Select a cube to inspect its Physics Body and Box Collider. | The three dynamic cubes fall onto the static floor and obstacles. Stop restores the saved authored positions. |
 | `04-cameras` | Select the two cameras and compare their projection and viewport fields. Press Play. | Perspective fills the left half; orthographic fills the right half. Both show the same four shapes. |
-| `05-editable-mesh` | Select **Editable extruded cube**. Find **Shape.mesh.json** in Content and open it to change its form or face-corner UVs. Save & Publish, then return to the scene. | The center cube has an extruded face; its edited geometry appears in Scene, Play and standalone export. Attach a textured Material to inspect the authored UV placement. |
+| `05-editable-mesh` | Select **Editable extruded cube**. Find **Shape.mesh.json** in Content and open it to change its form or face-corner UVs. Save & Publish, then return to the scene. | The center cube has an extruded face; its edited geometry appears in Scene, Play and standalone export. The assigned checker Material makes the authored UV placement visible. |
+| `06-sculpt` | Open **SculptSphere.mesh.json** in Content. Choose **Sculpt** in Model and drag over the sphere preview, then Save & Publish. | A smooth, low-poly sphere starts with a raised area. Sculpt changes its geometry and is saved as one Undo step per stroke. |
+| `07-vertex-paint` | Open **PaintedSphere.mesh.json** in Content. Choose **Paint** in Model, change the color and drag over the sphere preview, then Save & Publish. | The sphere carries blue and warm painted vertex colors into Scene, Play and export. Paint applies to its vertices, so detail is limited by the Mesh resolution. |
 
 ## Export and run a scene
 

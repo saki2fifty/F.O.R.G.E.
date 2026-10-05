@@ -1,5 +1,5 @@
 {
-  "asset_id": "643decbd-7a3d-4bde-8a2a-7eed3ac03839",
+  "asset_id": "4fb11173-5eb5-42b4-beec-5bcb8a594b43",
   "entities": [
     {
       "components": {
@@ -22,7 +22,7 @@
           "r": 0.2800000011920929
         }
       },
-      "id": "b2623cb2-b95e-4cd8-84ba-26d6377b02e3",
+      "id": "948be138-b183-440b-ab5f-45c01b372dd7",
       "name": "Floor",
       "spatial": {
         "mode": "world"
@@ -71,7 +71,7 @@
           "kind": 4
         }
       },
-      "id": "1c6bbc6a-9771-4209-bf48-510563754eaf",
+      "id": "090e8940-555e-43fe-b9c2-15bdba5806cf",
       "name": "Game camera",
       "spatial": {
         "mode": "world"
@@ -110,7 +110,7 @@
           "kind": 4
         }
       },
-      "id": "4bcbf69c-c120-461a-a948-042f3edce556",
+      "id": "b47c4e03-2865-4f64-9180-ae1b82d3f089",
       "name": "Sun",
       "spatial": {
         "mode": "world"
@@ -137,7 +137,7 @@
           "r": 0.800000011920929
         }
       },
-      "id": "8900f53d-3b55-4e30-9a56-17a3c4de06bc",
+      "id": "02b9bdd7-8b38-407e-9706-63ea63c15ab1",
       "name": "Red pedestal",
       "spatial": {
         "mode": "world"
@@ -146,9 +146,9 @@
     {
       "components": {
         "forge.local_scale": {
-          "x": 1.5,
+          "x": 2.0,
           "y": 2.0,
-          "z": 1.5
+          "z": 2.0
         },
         "forge.local_translation": {
           "x": 0.0,
@@ -156,7 +156,7 @@
           "z": 1.0
         },
         "forge.mesh_renderer": {
-          "mesh": "ac0f7797-6699-455b-9431-bc07eb513c2f",
+          "mesh": "8156215d-8bd5-4016-8645-af3ee2755a40",
           "materials": [
             {
               "slot": "surface",
@@ -171,8 +171,8 @@
           "layers": 4294967295
         }
       },
-      "id": "a5079b2c-00d7-4288-84e4-c37b58761606",
-      "name": "Editable extruded cube - change UVs in Content",
+      "id": "32e66aa5-287e-4ab9-8f05-2d5cf6061e2e",
+      "name": "Sculpted sphere - drag with Sculpt brush",
       "spatial": {
         "mode": "world"
       }
@@ -198,7 +198,7 @@
           "r": 0.20000000298023224
         }
       },
-      "id": "1d96d6b8-4e79-445e-92c8-8623fd261675",
+      "id": "ec04ce1f-c9ae-416d-9df7-abd4eb3fcee0",
       "name": "Blue pedestal",
       "spatial": {
         "mode": "world"
@@ -237,7 +237,7 @@
           "kind": 4
         }
       },
-      "id": "991431ce-821b-4a71-aea7-a90af3a99259",
+      "id": "6c563af7-c8be-4214-9636-5da60a149f7e",
       "name": "Warm point light",
       "spatial": {
         "mode": "world"
@@ -276,7 +276,7 @@
           "kind": 4
         }
       },
-      "id": "3395e9e1-8472-4446-9020-61a016ecc1b7",
+      "id": "cd06846c-35c5-4138-a944-a36349b4a294",
       "name": "Cool spot light",
       "spatial": {
         "mode": "world"

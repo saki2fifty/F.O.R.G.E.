@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.mesh.editable",
+    "importer_revision": "forge.mesh.editable.v1",
+    "key_version": 1,
+    "output_format": "forge.mesh-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "0fcba47d0922684c2ce69e90e19ba47b073184fd3dbdd5cda61aebea9cb13708",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.editable-mesh.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "8156215d-8bd5-4016-8645-af3ee2755a40",
+    "source": "Assets/SculptSphere.mesh.json",
+    "source_digest": "0fcba47d0922684c2ce69e90e19ba47b073184fd3dbdd5cda61aebea9cb13708",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.mesh.editable",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "c439dedbb4518d530d86f6ebcb52ebd8c97d245d21bca2ad707c624f1f905c48",
+        "role": "material.texture:baseColorTexture",
+        "target": "619babf9-df8f-4d18-91da-2e8096bd9464",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "66dc7350deefc4d506d5bc4ffebeba636f32559e6957a8a0a792af40c43d60a5",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "de74ac210e17884a0d993ce4af6f2789e2bccccd797ed309528c8ec92690344b",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+    "source": "Assets/Checker.material.json",
+    "source_digest": "de74ac210e17884a0d993ce4af6f2789e2bccccd797ed309528c8ec92690344b",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

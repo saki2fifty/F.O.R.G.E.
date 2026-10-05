@@ -4,7 +4,7 @@ Use an editable Mesh when you want to shape a simple static object inside FORGE.
 
 ## Create and place a Mesh
 
-1. Stop Play. Open **Content → Create / Register → New editable Mesh...**. Enter a project-relative filename such as `Assets/Crate.mesh.json` and choose **Create**. FORGE starts with a cube.
+1. Stop Play. Open **Content → Create / Register → New editable Mesh...**. Enter a project-relative filename such as `Assets/Crate.mesh.json` choose **Cube** or **Sculpt sphere**, then choose **Create**.
 2. The **Editable Mesh** document opens with **Model** and **UV** tabs. Choose **Save & Publish** to make the initial Mesh available in Content.
 3. Drag the published Mesh from Content into the Scene. It creates an entity with **Mesh Renderer**. Save the Scene separately.
 4. Select that entity and use **Inspector → Mesh Renderer → Materials → Surface** to assign a project Material. Create or import a Texture, then assign it to the Material's color texture slot if you want to see the UV placement. See [Materials](materials.md) and [Textures](textures.md).
@@ -14,6 +14,12 @@ Use an editable Mesh when you want to shape a simple static object inside FORGE.
 Choose **Vertex**, **Edge** or **Face** in the Model tab. Click an element in the list or wireframe; Ctrl-click adds or removes vertices. Edge and face modes select one element. Enter **Move**, **Rotate (deg)** and **Scale** values, turn on **Preview transform** if useful, then **Apply transform**. **Cancel transform** clears those pending values. The operation is one source Undo step.
 
 Select a face, enter a positive **Distance**, and use **Preview extrusion** or **Extrude selected face**. The original face becomes a new cap with side walls; the cap remains selected. **Cancel extrusion** drops the preview. Invalid edits, such as a nonplanar face or zero scale, report an error and leave the source unchanged.
+
+## Sculpt and paint
+
+Create a **Sculpt sphere** for a small smooth Mesh, or open any editable Mesh. In **Model → Tool**, choose **Sculpt**, adjust **Brush radius** and **Brush strength**, then drag across the preview. Positive strength raises vertices along their surface normals; negative strength pushes inward. Release the mouse to apply one Undo step. Press Esc during a drag to cancel. The preview updates after release.
+
+Choose **Paint** to color Mesh vertices. Pick **Paint color**, **Paint opacity** and **Brush radius**, then drag across the preview. Save & Publish to see the color in Scene, Play and exported games. This colors existing vertices; it does not edit texture image pixels. A low-poly Mesh gives broad color patches. Paint and sculpt both preserve the existing source and cooked Mesh workflow.
 
 ## Place the UVs
 
@@ -25,4 +31,4 @@ Source Undo/Redo belongs to the active Editable Mesh document; Scene Undo/Redo r
 
 ## Current scope
 
-The first modeling workflow supports bounded, planar convex polygons with explicit vertex and face IDs, face extrusion, selection transforms and face-corner UV editing. It does not edit imported Model meshes, skin/morph targets, LODs, sculpting or painting. Complex or nonmanifold geometry is rejected rather than silently changed.
+The first modeling workflow supports bounded, planar convex polygons with explicit vertex and face IDs, face extrusion, selection transforms and face-corner UV editing. It does not edit imported Model meshes, skin/morph targets, LODs, automatic subdivision, dense sculpting or texture-pixel painting. Complex or nonmanifold geometry is rejected rather than silently changed.

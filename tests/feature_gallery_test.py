@@ -8,15 +8,21 @@ import uuid
 
 project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text())
-mesh_asset = next(row for row in json.loads((project_root / 'forge.assets.json').read_text())['assets']
-                  if row['type'] == 'mesh')
-assert json.loads((project_root / mesh_asset['source']).read_text())['asset_id'] == mesh_asset['id']
-assert (project_root / '.forge/cache/derived' /
-        mesh_asset['metadata']['forge.import']['key'] / 'mesh.bin').is_file()
+assets = json.loads((project_root / 'forge.assets.json').read_text())['assets']
+by_source = {row['source']: row for row in assets}
+for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
+                       ('Assets/SculptSphere.mesh.json', 'mesh.bin'),
+                       ('Assets/PaintedSphere.mesh.json', 'mesh.bin'),
+                       ('Assets/Checker.material.json', 'material.values')):
+    asset = by_source[source]
+    assert json.loads((project_root / source).read_text())['asset_id'] == asset['id']
+    assert (project_root / '.forge/cache/derived' /
+            asset['metadata']['forge.import']['key'] / cooked).is_file()
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
-        '05-editable-mesh.scene.json'} <= {p.name for p in scenes}
+        '05-editable-mesh.scene.json', '06-sculpt.scene.json',
+        '07-vertex-paint.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -85,7 +91,24 @@ try:
             meshes = [row['components']['forge.mesh_renderer']['mesh']
                       for row in loaded['entities']
                       if 'forge.mesh_renderer' in row['components']]
-            assert meshes == [mesh_asset['id']]
+            assert meshes == [by_source['Assets/Shape.mesh.json']['id']]
+            bindings = next(row['components']['forge.mesh_renderer']['materials']
+                            for row in loaded['entities']
+                            if 'forge.mesh_renderer' in row['components'])
+            assert bindings == [{'slot': 'surface',
+                                 'material': by_source['Assets/Checker.material.json']['id']}]
+        if path.name.startswith('06-'):
+            meshes = [row['components']['forge.mesh_renderer']['mesh']
+                      for row in loaded['entities']
+                      if 'forge.mesh_renderer' in row['components']]
+            assert meshes == [by_source['Assets/SculptSphere.mesh.json']['id']]
+        if path.name.startswith('07-'):
+            meshes = [row['components']['forge.mesh_renderer']['mesh']
+                      for row in loaded['entities']
+                      if 'forge.mesh_renderer' in row['components']]
+            assert meshes == [by_source['Assets/PaintedSphere.mesh.json']['id']]
+            painted = json.loads((project_root / 'Assets/PaintedSphere.mesh.json').read_text())
+            assert all('color' in vertex for vertex in painted['vertices'])
         if path.name.startswith('04-'):
             cameras = [row['components']['forge.camera'] for row in loaded['entities']
                        if 'forge.camera' in row['components']]

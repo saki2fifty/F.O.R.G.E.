@@ -1,5 +1,5 @@
 {
-  "asset_id": "643decbd-7a3d-4bde-8a2a-7eed3ac03839",
+  "asset_id": "07068543-63fd-4958-a935-f398e753b081",
   "entities": [
     {
       "components": {
@@ -22,7 +22,7 @@
           "r": 0.2800000011920929
         }
       },
-      "id": "b2623cb2-b95e-4cd8-84ba-26d6377b02e3",
+      "id": "8913c619-0376-432d-b39b-033005bcb4ed",
       "name": "Floor",
       "spatial": {
         "mode": "world"
@@ -71,7 +71,7 @@
           "kind": 4
         }
       },
-      "id": "1c6bbc6a-9771-4209-bf48-510563754eaf",
+      "id": "4612155e-eac2-4a6f-8fab-1501fb68abfd",
       "name": "Game camera",
       "spatial": {
         "mode": "world"
@@ -110,7 +110,7 @@
           "kind": 4
         }
       },
-      "id": "4bcbf69c-c120-461a-a948-042f3edce556",
+      "id": "75f36d14-e925-434b-9374-6bb06964e634",
       "name": "Sun",
       "spatial": {
         "mode": "world"
@@ -137,7 +137,7 @@
           "r": 0.800000011920929
         }
       },
-      "id": "8900f53d-3b55-4e30-9a56-17a3c4de06bc",
+      "id": "49d5cb93-8d6f-4286-908e-735b9ce466f7",
       "name": "Red pedestal",
       "spatial": {
         "mode": "world"
@@ -146,9 +146,9 @@
     {
       "components": {
         "forge.local_scale": {
-          "x": 1.5,
+          "x": 2.0,
           "y": 2.0,
-          "z": 1.5
+          "z": 2.0
         },
         "forge.local_translation": {
           "x": 0.0,
@@ -156,13 +156,8 @@
           "z": 1.0
         },
         "forge.mesh_renderer": {
-          "mesh": "ac0f7797-6699-455b-9431-bc07eb513c2f",
-          "materials": [
-            {
-              "slot": "surface",
-              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c"
-            }
-          ],
+          "mesh": "fee96741-eab6-4b9a-82cb-0fa35edf18b9",
+          "materials": [],
           "material_variant": null,
           "enabled": true,
           "visible": true,
@@ -171,8 +166,8 @@
           "layers": 4294967295
         }
       },
-      "id": "a5079b2c-00d7-4288-84e4-c37b58761606",
-      "name": "Editable extruded cube - change UVs in Content",
+      "id": "43ba4be8-9314-4380-bf78-c14a51c9deee",
+      "name": "Painted sphere - drag with Paint brush",
       "spatial": {
         "mode": "world"
       }
@@ -198,7 +193,7 @@
           "r": 0.20000000298023224
         }
       },
-      "id": "1d96d6b8-4e79-445e-92c8-8623fd261675",
+      "id": "2b46c6e5-989a-4ec8-8746-80a5eabd05ca",
       "name": "Blue pedestal",
       "spatial": {
         "mode": "world"
@@ -237,7 +232,7 @@
           "kind": 4
         }
       },
-      "id": "991431ce-821b-4a71-aea7-a90af3a99259",
+      "id": "62d0c0a0-39aa-444d-86f5-03f6db2df686",
       "name": "Warm point light",
       "spatial": {
         "mode": "world"
@@ -276,7 +271,7 @@
           "kind": 4
         }
       },
-      "id": "3395e9e1-8472-4446-9020-61a016ecc1b7",
+      "id": "2105c719-94b2-48c1-92cf-ed39e7f223de",
       "name": "Cool spot light",
       "spatial": {
         "mode": "world"

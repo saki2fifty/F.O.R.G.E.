@@ -18,3 +18,9 @@
 - Added a bounded editable Mesh source, central Model/UV document, shared Mesh publication and standalone cooked-artifact adapter. The Feature Gallery now contains an extruded Mesh scene and its Windows-target selected artifact.
 - New projects default under Documents/FORGE/Projects; the packaged launcher resumes the last project. Play-only Inspector values are visually separated, Problems/Console/Build output carries occurrence times, and native gameplay guidance states the packaged kit's CMake 4.3+ requirement.
 - Linux geometry, publication/relocation, runtime package, discovery/import, gallery scene and manual checks passed locally. Windows editor build, input/capture review and numbered ZIP delivery remain pending; this source checkpoint is not yet a Windows-delivered build.
+
+## Combined Gallery modeling checkpoint (local source)
+
+- Added a checker Material to the editable-Mesh UV scene, a sculpt sphere preset and brush, and bounded vertex-color painting. Each brush drag commits one source Undo step on release; cooked Meshes carry smooth normals and optional `COLOR_0`.
+- Feature Gallery now has separate UV, sculpt and vertex-paint scenes with Windows-target selected artifacts. Windows packaging includes Material `.values` files as well as Mesh artifacts.
+- Linux Mesh, publication/relocation and Gallery admission checks plus Windows-target content package verification pass locally. Windows editor interaction, GPU appearance and a new numbered ZIP have not yet been validated or delivered.

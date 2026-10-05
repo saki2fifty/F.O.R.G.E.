@@ -43,6 +43,9 @@ int main(int argc, char** argv) {
             const auto cap = mesh.extrude_face(13, .5);
             mesh.transform_uv(cap, std::array<std::size_t, 4>{0, 1, 2, 3}, {0.25, 0.125}, 0.0,
                               0.75);
+            const auto point =
+                mesh.document["vertices"][0]["position"].get<std::array<double, 3>>();
+            mesh.paint_color(std::array{MeshBrushSample{point, 1}}, .2, {1, 0, 0, 1}, 1);
             draft = std::move(mesh.document);
         });
         const auto extruded = document->source().document;
@@ -73,8 +76,11 @@ int main(int argc, char** argv) {
         EditableMeshDocument reopened(lease, source);
         require(reopened.source().document == document->source().document,
                 "Reopened editable Mesh lost its authored geometry or UVs");
-        const auto authored_uv = std::get<std::vector<float>>(
-            reopened.source().cook().lods[0].parts[0].find("TEXCOORD_0")->values);
+        const auto authored_mesh = reopened.source().cook();
+        const auto authored_uv =
+            std::get<std::vector<float>>(authored_mesh.lods[0].parts[0].find("TEXCOORD_0")->values);
+        const auto authored_color =
+            std::get<std::vector<float>>(authored_mesh.lods[0].parts[0].find("COLOR_0")->values);
         AssetImportService service(lease, editable_mesh_import_registry(),
                                    {"linux", "none", "cpu"});
         auto result = publish(service, source, identity);
@@ -93,6 +99,9 @@ int main(int argc, char** argv) {
         require(std::get<std::vector<float>>(
                     geometry->mesh.lods[0].parts[0].find("TEXCOORD_0")->values) == authored_uv,
                 "Published Mesh lost face-corner UV edits");
+        require(std::get<std::vector<float>>(
+                    geometry->mesh.lods[0].parts[0].find("COLOR_0")->values) == authored_color,
+                "Published Mesh lost painted vertex colors");
         const auto package = root / "standalone-content";
         const std::array roots{identity};
         (void)package_runtime_content(root, package, roots, {"linux", "none"});
@@ -110,6 +119,12 @@ int main(int argc, char** argv) {
                                                  .find("TEXCOORD_0")
                                                  ->values) == authored_uv,
                 "Relocated standalone content lost authored UV placement");
+        require(std::get<std::vector<float>>(shipped_pool.acquire(shipped_ticket)
+                                                 ->mesh.lods[0]
+                                                 .parts[0]
+                                                 .find("COLOR_0")
+                                                 ->values) == authored_color,
+                "Relocated standalone content lost painted vertex colors");
         const auto prior_key =
             catalog->records().at(identity).metadata.at("forge.import").at("key");
         {

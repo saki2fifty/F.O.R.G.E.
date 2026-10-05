@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.mesh.editable",
+    "importer_revision": "forge.mesh.editable.v1",
+    "key_version": 1,
+    "output_format": "forge.mesh-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "b3a5a00dda6ae5fde6281b0e6170ce060f38d595cd035eed2b2b734cddaea0e6",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.editable-mesh.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "fee96741-eab6-4b9a-82cb-0fa35edf18b9",
+    "source": "Assets/PaintedSphere.mesh.json",
+    "source_digest": "b3a5a00dda6ae5fde6281b0e6170ce060f38d595cd035eed2b2b734cddaea0e6",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.mesh.editable",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

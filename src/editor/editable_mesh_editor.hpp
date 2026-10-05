@@ -13,6 +13,7 @@
 #include <optional>
 #include <set>
 #include <utility>
+#include <vector>
 
 namespace forge {
 class EditableMeshEditor {
@@ -33,6 +34,8 @@ class EditableMeshEditor {
     }
     void undo() {
         if (can_undo()) {
+            stroke_active_ = false;
+            stroke_.clear();
             document_->undo();
             reconcile_selection();
             needs_publish_ = true;
@@ -40,6 +43,8 @@ class EditableMeshEditor {
     }
     void redo() {
         if (can_redo()) {
+            stroke_active_ = false;
+            stroke_.clear();
             document_->redo();
             reconcile_selection();
             needs_publish_ = true;
@@ -61,19 +66,25 @@ class EditableMeshEditor {
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
         if (ui::button("New editable Mesh...",
-                       "Create a cube Mesh source for modeling and UV editing."))
+                       "Create a cube or smooth sphere for modeling, sculpting and UV editing."))
             ImGui::OpenPopup("New editable Mesh");
         ImGui::EndDisabled();
         if (ImGui::BeginPopupModal("New editable Mesh", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Project file", path_, sizeof(path_));
+            const char* shapes[] = {"Cube", "Sculpt sphere"};
+            ImGui::Combo("Start shape", &start_shape_, shapes, 2);
             ui::help("Choose a new .mesh.json file inside your project.");
             ImGui::BeginDisabled(locked || dirty());
-            if (ui::button("Create",
-                           "Create a cube source; Save & Publish makes it usable in scenes.")) {
+            if (ui::button(
+                    "Create",
+                    "Create the selected source; Save & Publish makes it usable in scenes.")) {
                 try {
-                    auto created = EditableMeshDocument::create(project.writer_guard(),
-                                                                std::filesystem::u8path(path_));
+                    auto created = EditableMeshDocument::create(
+                        project.writer_guard(), std::filesystem::u8path(path_), [this](AssetId id) {
+                            return start_shape_ == 1 ? EditableMeshSource::create_sculpt_sphere(id)
+                                                     : EditableMeshSource::create_cube(id);
+                        });
                     load(project, created->locator());
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
@@ -226,6 +237,7 @@ class EditableMeshEditor {
     AssetJobId job_ = 0;
     bool needs_publish_ = false, save_ = false, close_ = false;
     char path_[1024] = "Assets/NewMesh.mesh.json";
+    int start_shape_ = 0;
     std::string error_;
     SelectionMode mode_ = SelectionMode::Face;
     std::set<std::uint32_t> vertices_;
@@ -239,6 +251,11 @@ class EditableMeshEditor {
     std::string model_preview_key_, uv_preview_key_, model_preview_error_, uv_preview_error_;
     std::optional<EditableMeshSource> model_preview_, uv_preview_;
     float yaw_ = 40, pitch_ = 25;
+    int brush_mode_ = 0; // 0 = Select, 1 = Sculpt, 2 = Paint
+    bool stroke_active_ = false;
+    float sculpt_radius_ = .25f, sculpt_strength_ = .05f;
+    float paint_color_[3]{.9f, .2f, .1f}, paint_opacity_ = .8f;
+    std::vector<MeshBrushSample> stroke_;
 
     void load(SceneDocument& project, const std::filesystem::path& source) {
         auto next = std::make_unique<EditableMeshDocument>(project.writer_guard(), source);
@@ -262,6 +279,8 @@ class EditableMeshEditor {
         uv_corners_.clear();
         reconcile_selection();
         preview_transform_ = preview_extrude_ = preview_uv_ = false;
+        stroke_active_ = false;
+        stroke_.clear();
         error_.clear();
         model_preview_key_.clear();
         uv_preview_key_.clear();
@@ -273,6 +292,8 @@ class EditableMeshEditor {
         service_.reset();
         model_preview_.reset();
         uv_preview_.reset();
+        stroke_active_ = false;
+        stroke_.clear();
         model_preview_key_.clear();
         uv_preview_key_.clear();
         needs_publish_ = save_ = close_ = false;
@@ -384,6 +405,25 @@ class EditableMeshEditor {
     void model_workspace(bool locked) {
         ImGui::SliderFloat("Orbit yaw", &yaw_, -180, 180);
         ImGui::SliderFloat("Orbit pitch", &pitch_, -75, 75);
+        ImGui::BeginDisabled(locked || pending());
+        const char* brush_modes[] = {"Select", "Sculpt", "Paint"};
+        if (ImGui::Combo("Tool", &brush_mode_, brush_modes, 3)) {
+            stroke_active_ = false;
+            stroke_.clear();
+            if (brush_mode_)
+                preview_transform_ = preview_extrude_ = false;
+        }
+        if (brush_mode_) {
+            ImGui::SliderFloat("Brush radius", &sculpt_radius_, .02f, 1.f);
+            if (brush_mode_ == 1)
+                ImGui::SliderFloat("Brush strength", &sculpt_strength_, -.2f, .2f);
+            else {
+                ImGui::ColorEdit3("Paint color", paint_color_);
+                ImGui::SliderFloat("Paint opacity", &paint_opacity_, 0.f, 1.f);
+            }
+            ImGui::TextDisabled("Drag on the Mesh; release to apply one Undo step. Esc cancels.");
+        }
+        ImGui::EndDisabled();
         const auto& source = document_->source();
         if (preview_extrude_ || preview_transform_) {
             const auto ids = selected_vertices();
@@ -418,7 +458,7 @@ class EditableMeshEditor {
         }
         if (!model_preview_error_.empty())
             ImGui::TextWrapped("Preview unavailable: %s", model_preview_error_.c_str());
-        draw_model_wireframe(model_preview_ ? *model_preview_ : source);
+        draw_model_wireframe(model_preview_ ? *model_preview_ : source, locked);
         selection_list();
         ImGui::BeginDisabled(locked || pending());
         ImGui::SeparatorText("Transform selection");
@@ -465,6 +505,8 @@ class EditableMeshEditor {
         ImGui::EndDisabled();
     }
     void uv_workspace(bool locked) {
+        stroke_active_ = false;
+        stroke_.clear();
         const auto& source = document_->source();
         const Json* selected = nullptr;
         for (const auto& candidate : source.document.at("faces"))
@@ -555,7 +597,7 @@ class EditableMeshEditor {
             all.push_back(i);
         return all;
     }
-    void draw_model_wireframe(const EditableMeshSource& source) {
+    void draw_model_wireframe(const EditableMeshSource& source, bool locked) {
         const auto available = ImGui::GetContentRegionAvail();
         const ImVec2 size{std::max(180.f, available.x), 240.f * ui::interface_scale};
         const auto origin = ImGui::GetCursorScreenPos();
@@ -567,6 +609,7 @@ class EditableMeshEditor {
         const double pitch = pitch_ * 3.14159265358979323846 / 180.0;
         std::map<std::uint32_t, ImVec2> projected;
         std::map<std::uint32_t, double> depth_by_vertex;
+        std::map<std::uint32_t, std::array<double, 3>> local_vertices;
         float min_x = 1e9f, min_y = 1e9f, max_x = -1e9f, max_y = -1e9f;
         for (const auto& vertex : source.document.at("vertices")) {
             const auto& p = vertex.at("position");
@@ -577,6 +620,7 @@ class EditableMeshEditor {
             const auto key = vertex.at("id").get<std::uint32_t>();
             projected[key] = {static_cast<float>(horizontal), static_cast<float>(-vertical)};
             depth_by_vertex[key] = std::cos(pitch) * depth + std::sin(pitch) * y;
+            local_vertices[key] = {x, y, z};
             min_x = std::min(min_x, projected[key].x);
             min_y = std::min(min_y, projected[key].y);
             max_x = std::max(max_x, projected[key].x);
@@ -589,8 +633,86 @@ class EditableMeshEditor {
             point.x = origin.x + size.x * 0.5f + (point.x - (min_x + max_x) * 0.5f) * fit;
             point.y = origin.y + size.y * 0.5f + (point.y - (min_y + max_y) * 0.5f) * fit;
         }
+        if (brush_mode_) {
+            const auto mouse = ImGui::GetMousePos();
+            if (ImGui::IsItemHovered()) {
+                draw->AddCircle(mouse, std::max(3.f, sculpt_radius_ * fit),
+                                brush_mode_ == 1 ? IM_COL32(111, 231, 198, 235)
+                                                 : IM_COL32(255, 170, 95, 235),
+                                0, 1.5f);
+            }
+            const auto hit = [&]() -> std::optional<MeshBrushSample> {
+                float closest = std::max(144.f, sculpt_radius_ * sculpt_radius_ * fit * fit);
+                double front_depth = -std::numeric_limits<double>::infinity();
+                std::optional<MeshBrushSample> result;
+                for (const auto& [key, point] : projected) {
+                    const auto dx = point.x - mouse.x, dy = point.y - mouse.y;
+                    const auto distance = dx * dx + dy * dy;
+                    if (distance < closest - 4 || (std::abs(distance - closest) <= 4 &&
+                                                   depth_by_vertex.at(key) > front_depth)) {
+                        closest = distance;
+                        front_depth = depth_by_vertex.at(key);
+                        result = MeshBrushSample{local_vertices.at(key), 1};
+                    }
+                }
+                return result;
+            };
+            if (stroke_active_ &&
+                (locked || pending() || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+                 !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))) {
+                stroke_active_ = false;
+                stroke_.clear();
+            }
+            if (!stroke_active_ && !locked && !pending() && ImGui::IsItemHovered() &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                if (auto point = hit()) {
+                    stroke_active_ = true;
+                    stroke_.assign(1, *point);
+                }
+            } else if (stroke_active_ && ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
+                       ImGui::IsItemHovered()) {
+                if (auto point = hit(); point && stroke_.size() < 256) {
+                    const auto from = stroke_.back().point;
+                    double distance_sq = 0;
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        distance_sq += std::pow(point->point[axis] - from[axis], 2);
+                    const auto distance = std::sqrt(distance_sq);
+                    const auto spacing = std::max(.005, double(sculpt_radius_) * .25);
+                    if (distance >= spacing) {
+                        const auto count = std::min<std::size_t>(
+                            256 - stroke_.size(), std::size_t(std::ceil(distance / spacing)));
+                        for (std::size_t step = 1; step <= count; ++step) {
+                            auto position = from;
+                            const auto fraction = double(step) / count;
+                            for (unsigned axis = 0; axis < 3; ++axis)
+                                position[axis] += (point->point[axis] - from[axis]) * fraction;
+                            stroke_.push_back({position, 1});
+                        }
+                    }
+                }
+            }
+            if (stroke_active_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                auto samples = std::exchange(stroke_, {});
+                stroke_active_ = false;
+                const double radius = sculpt_radius_, strength = sculpt_strength_;
+                if (brush_mode_ == 1)
+                    mutate("Sculpt stroke", [samples = std::move(samples), radius,
+                                             strength](EditableMeshSource& mesh) {
+                        mesh.sculpt(samples, radius, strength);
+                    });
+                else {
+                    const std::array<double, 4> color{paint_color_[0], paint_color_[1],
+                                                      paint_color_[2], 1};
+                    const double opacity = paint_opacity_;
+                    mutate("Paint stroke", [samples = std::move(samples), radius, color,
+                                            opacity](EditableMeshSource& mesh) {
+                        mesh.paint_color(samples, radius, color, opacity);
+                    });
+                }
+            }
+        }
         // Extrusion introduces preview-only element IDs. Wait until Apply before selecting them.
-        if (!preview_extrude_ && ImGui::IsItemHovered() &&
+        if (!brush_mode_ && !preview_extrude_ && ImGui::IsItemHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
             auto distance_sq = [&](ImVec2 point) {
