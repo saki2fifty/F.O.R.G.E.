@@ -89,7 +89,7 @@ class SdkBuild {
                 throw std::runtime_error("Native changed while creating source.");
             std::filesystem::rename(pending, source);
             enable_game_profile(project);
-            status_ = "C++ gameplay source created. Build to register the component types.";
+            status_ = "C++ project source created. Build to register the component types.";
         } catch (...) {
             std::error_code ignored;
             std::filesystem::remove_all(pending, ignored);
@@ -413,14 +413,14 @@ class SdkBuild {
     std::future<Json> inspection_;
     std::stop_source stop_;
     std::ofstream log_file_;
-    std::string cmake_, library_, source_digest_, status_ = "Create a C++ gameplay project.",
+    std::string cmake_, library_, source_digest_, status_ = "Set up C++ code in this project.",
                                                   error_, log_;
     static void check_sdk(const std::filesystem::path& sdk) {
         const auto info = read_json(sdk / "build.json");
         if (info.value("linkage_profile", "") != "shared-native-sdk" ||
             info.value("source_commit", "") != forge::source_commit)
             throw std::runtime_error(
-                "Install the matching Developer Kit or choose its NativeSdk folder.");
+                "The matching Native SDK is missing. Choose its folder or reinstall FORGE.");
         if (!std::filesystem::is_regular_file(sdk / "sdk/ForgeNativeSdkConfig.cmake") ||
             !std::filesystem::is_regular_file(sdk / "bin/forge_runtime.exe"))
             throw std::runtime_error("Native SDK installation is incomplete.");

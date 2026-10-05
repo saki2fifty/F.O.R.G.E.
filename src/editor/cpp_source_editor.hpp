@@ -227,8 +227,8 @@ class CppSourceEditor {
                  "source drafts are saved. Disabling affects future saves; cancel an active "
                  "build from Build.");
             ImGui::BeginDisabled(!build_enabled || !request_build);
-            if (button(dirty() ? "Save & Build gameplay" : "Build gameplay",
-                       "Build all saved C++ gameplay sources using the existing "
+            if (button(dirty() ? "Save & Build Project Code" : "Build Project Code",
+                       "Build all saved project C++ sources using the existing "
                        "isolated compiler task. Stop Play first."))
                 attempt([&] { request_build(); });
             ImGui::EndDisabled();

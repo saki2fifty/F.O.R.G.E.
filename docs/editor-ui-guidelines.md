@@ -79,7 +79,7 @@ These are placement requirements, **not implemented features**.
 
 | Feature | Content / primary surface | Entity/Inspector or supporting tool |
 | --- | --- | --- |
-| C++ gameplay | Central C++ source editor; external IDE optional | Existing Build panel admission and entity component attachment; no arbitrary SDK hot reload |
+| Project Code (C++) | Central C++ source editor; external IDE optional | Existing Build panel admission and entity component attachment; no arbitrary SDK hot reload |
 | ECS construction recipes | Existing Flecs Script central source document | Data/world construction, not a second gameplay language |
 | Materials | Material asset → central Material Editor | Rendering material reference |
 | Shaders | Shader asset → central source/graph editor | Material/shader references; diagnostics in Problems |

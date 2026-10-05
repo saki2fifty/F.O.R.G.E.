@@ -68,7 +68,7 @@ inline void create_cpp_source(const std::filesystem::path& root, const std::stri
     const auto cmake = ProjectPaths(root).resolve("Native/CMakeLists.txt");
     const auto original = asset_storage::read(cmake);
     if (!original || !std::filesystem::is_regular_file(root / "Native/forge.sdk-project.json"))
-        throw std::runtime_error("Create a managed C++ gameplay project first.");
+        throw std::runtime_error("Set up C++ code in this project first.");
     const std::string include = "include(forge.sources.cmake OPTIONAL)";
     if (original->find(include) == std::string::npos) {
         // Only upgrade the exact FORGE starter, never a user-modified CMake recipe.
@@ -126,7 +126,7 @@ inline std::vector<std::string> cpp_project_sources(const std::filesystem::path&
         (void)cpp_source_path(root, relative);
         result.push_back(path_utf8(relative));
         if (result.size() > 2048)
-            throw std::runtime_error("Too many C++ gameplay source files.");
+            throw std::runtime_error("Too many project C++ source files.");
     }
     std::sort(result.begin(), result.end());
     return result;
@@ -146,7 +146,7 @@ inline void append_managed_registration(const std::filesystem::path& root,
     if (!original)
         throw std::runtime_error("This project predates C++ Component/System creation. Existing "
                                  "gameplay still builds; add the managed registration header to "
-                                 "gameplay.cpp or create a new C++ gameplay project.");
+                                 "gameplay.cpp or set up C++ code in a new project.");
     const auto position = original->find(marker);
     if (position == std::string::npos ||
         original->find(marker, position + marker.size()) != std::string::npos)

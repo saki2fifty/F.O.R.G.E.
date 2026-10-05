@@ -222,11 +222,9 @@ class ContentView {
                              [](const ContentEntry& entry) {
                                  return entry.kind == ContentEntryKind::Code;
                              })) {
-                ImGui::TextWrapped(
-                    "C++ project files live in Native. Create a C++ gameplay project to begin.");
-                if (setup_code &&
-                    ui::button("Set up C++ gameplay...",
-                               "Open Build to set up the existing C++ gameplay project."))
+                ImGui::TextWrapped("C++ project files live in Native. Set up C++ code to begin.");
+                if (setup_code && ui::button("Set up C++ code...",
+                                             "Open Build to set up C++ code in this project."))
                     setup_code();
             } else
                 ImGui::TextWrapped(

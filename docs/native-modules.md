@@ -1,4 +1,4 @@
-# C++ gameplay build and runtime contract
+# Project Code build and runtime contract
 
 FORGE has one supported project gameplay model: exact-SDK C++ code registers Flecs
 components and systems in a separate runtime process. Components carry data;
@@ -24,7 +24,7 @@ supply simulation time. Source save and scene save have separate document histor
 
 ## Managed source and registration
 
-**Create C++ gameplay project** copies the matching installed SDK template into
+**Set up C++ code** copies the matching installed SDK template into
 an empty `Native/` directory. It does not overwrite existing source. The template
 still supports `Native/gameplay.cpp`; further `.cpp` and `.hpp` files can be
 created in FORGE. The optional `Native/forge.sources.cmake` registers managed
@@ -57,7 +57,7 @@ Generated deployment and build caches are excluded. Files, paths and bytes are
 bounded; redirected/special inputs reject. Source hashes are checked on revision
 and a throttled interval in the editor, plus at build/Play/export boundaries, not
 each frame. A build rejects source changed while it was preparing its candidate.
-**Gameplay Current** means the admitted module exactly matches saved source.
+**Project Code: Current** means the admitted module exactly matches saved source.
 **Source Dirty**, **Build Required**, **Building**, and **Build Failed** remain
 distinct. Build on Save is optional convenience. A failed build retains Last Good,
 but does not claim it is Current.

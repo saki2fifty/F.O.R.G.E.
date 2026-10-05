@@ -16,24 +16,16 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         archive.extractall(root)
     manifest = json.loads((root/'manifest.json').read_text())
     assert 'bin/forge_editor.exe' in manifest['files']
-    assert 'Run-Forge-Dev.cmd' not in manifest['files']
+    assert 'Run-Forge-Dev.cmd' in manifest['files']
+    assert 'NativeSdk/bin/forge_runtime.exe' in manifest['files']
+    assert 'runtime-kits/shared-native-sdk/forge_game.exe' in manifest['files']
+    assert 'ReferenceGame/forge_game.exe' in manifest['files']
     assert not any(name.endswith('.exe') and '/' not in name for name in manifest['files'])
     assert b'bin\\forge_editor.exe' in (root/'Run-Forge.cmd').read_bytes()
-    assert not any(name.startswith(('NativeSdk/', 'ReferenceGame/', 'runtime-kits/'))
-                   for name in manifest['files'])
-    with zipfile.ZipFile(sys.argv[2]) as addon:
-        addon.extractall(root)
-    developer = json.loads((root/'developer-manifest.json').read_text())
-    assert developer['build_id'] == manifest['build_id']
-    assert developer['source_commit'] == manifest['source_commit']
-    assert developer['editor_manifest_sha256'] == hashlib.sha256(
-        (root/'manifest.json').read_bytes()).hexdigest()
-    for name, digest in developer['files'].items():
-        assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     if os.environ.get('FORGE_COMPILED_SOURCE'):
         assert manifest['source_commit'] == os.environ['FORGE_COMPILED_SOURCE']
     files = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
-    assert files == set(manifest['files']) | set(developer['files']) | {'manifest.json', 'developer-manifest.json'}
+    assert files == set(manifest['files']) | {'manifest.json'}
     for name, digest in manifest['files'].items():
         assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     env = os.environ.copy()

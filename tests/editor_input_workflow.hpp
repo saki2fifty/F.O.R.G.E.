@@ -294,7 +294,7 @@ class EditorInputWorkflow {
                         state.at("sdk_build_error").get<std::string>().empty(),
                     "Changed saved gameplay source did not require a build");
         } else if (what == "stale-play-offered") {
-            const auto* popup = ImGui::FindWindowByName("Build C++ gameplay before Play?");
+            const auto* popup = ImGui::FindWindowByName("Build Project Code before Play?");
             require(!state.at("playing").get<bool>() && popup && popup->Active && !popup->Hidden,
                     "Play did not offer Save, Build & Play for changed source");
         } else if (what == "starter-rejected") {
@@ -743,7 +743,7 @@ class EditorInputWorkflow {
             check("saved");
             click("tab:Build");
             capture("gameplay-create");
-            click("button:Create C++ gameplay project");
+            click("button:Set up C++ code");
             check("starter-created");
             click("sdk:compiler-setup");
             click("button:Test compiler tools");
@@ -770,7 +770,7 @@ class EditorInputWorkflow {
             check("cpp-component-saved");
             check("build-required");
             capture("gameplay-build-required");
-            click("button:Build gameplay");
+            click("button:Build Project Code");
             check("starter-built");
             click("tab:Build");
             hover("sdk:build-status");
@@ -852,7 +852,7 @@ class EditorInputWorkflow {
             capture("cpp-system-dirty");
             key(ImGuiKey_S, true);
             check("build-required");
-            click("button:Build gameplay");
+            click("button:Build Project Code");
             check("starter-rebuilt");
             capture("cpp-system-current");
             click("tab:Scene");
@@ -865,7 +865,7 @@ class EditorInputWorkflow {
             check("build-required");
             capture("gameplay-build-required");
             click("tab:Build");
-            click("button:Build gameplay");
+            click("button:Build Project Code");
             check("starter-rejected");
             click("icon:play");
             check("stale-play-offered");
@@ -880,7 +880,7 @@ class EditorInputWorkflow {
             capture("cpp-compiler-diagnostic");
             click("tab:Build");
             steps_.push_back({Kind::SourceEdit, "starter-restore"});
-            click("button:Build gameplay");
+            click("button:Build Project Code");
             check("starter-rebuilt");
             steps_.push_back({Kind::SourceEdit, "starter-touch"});
             check("build-required");

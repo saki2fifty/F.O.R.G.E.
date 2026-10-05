@@ -54,7 +54,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Physics](editor/physics.md): make bodies fall and collide, with Pause/Step and prefab support.
 - [Play mode](editor/play-mode.md): run an isolated copy of your scene.
 - [Gameplay input](editor/input.md): bind actions and inspect fixed-tick input without writing code.
-- [Native gameplay](editor/native-gameplay.md): compile and reload the supported C++ sample.
+- [Project Code](editor/native-gameplay.md): create, edit, and compile project C++ components and systems.
 
 ## Current boundaries
 

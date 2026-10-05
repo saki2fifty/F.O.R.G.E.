@@ -8,7 +8,7 @@ Request a Windows package using **Build and test → Run workflow**, with **wind
 gh workflow run build.yml --ref forge/windows-build -f windows_package=true -f build_id=YYMMDD-NNNNNN
 ```
 
-Reserve the build identifier with the release coordinator before dispatch; the example above is a placeholder. The coordinator maintains one persistent, monotonically increasing counter and never reuses failed reservations. Use your intended branch in place of `forge/windows-build`. GitHub's Run workflow UI requires the workflow on the default branch; branch-specific dispatch can also be requested through the API/CLI. The editor artifact is `FORGE-Windows-x64`; the optional exact-version SDK/reference artifact is `FORGE-Windows-Developer-x64`. No new package is needed merely to validate documentation or portable code edits.
+Reserve the build identifier with the release coordinator before dispatch; the example above is a placeholder. The coordinator maintains one persistent, monotonically increasing counter and never reuses failed reservations. Use your intended branch in place of `forge/windows-build`. GitHub's Run workflow UI requires the workflow on the default branch; branch-specific dispatch can also be requested through the API/CLI. The complete user-facing artifact is FORGE-Windows-x64; it includes the editor, exact Native SDK, shared runtime kit and reference game. No new package is needed merely to validate documentation or portable code edits.
 
 ## Cache behavior
 
@@ -33,37 +33,37 @@ A [routine push](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/349876489
 
 Product identity is `yymmdd-counter`: UTC date plus a counter padded to at least six digits. It has no release-channel suffix, and the counter never resets with the date. A packaging attempt consumes a reserved identifier; re-downloads retain it. The existing sequence continues after build 000005. Scene formats, module ABI, and IPC retain independent compatibility versions.
 
-The `build_id` workflow input is required for Windows packaging. CMake embeds it and the source commit in both binaries and writes `build.json`. CI checks both `--version` outputs before packaging. Unassigned local builds cannot be packaged by the release script. The editor artifact contains `yymmdd-counter-FORGE-Windows-x64.zip`; its manifest hashes cover the build metadata and manual. The matching optional Developer Kit has the same build ID and binds to that editor manifest hash. Publication verifies the reserved source and exact artifact bytes before accepting a numbered delivery.
+The `build_id` workflow input is required for Windows packaging. CMake embeds it and the source commit in both binaries and writes `build.json`. CI checks both `--version` outputs before packaging. Unassigned local builds cannot be packaged by the release script. The final Windows ZIP contains one manifest covering the editor, SDK, runtime kits, reference game, manual, examples and license notices. Publication verifies the reserved source and exact artifact bytes before accepting a numbered delivery.
 
 End-user source pages live in `manual/`, separate from these technical documents. `python tests/manual_test.py` checks supported formatting, navigation, escaping, and identity validation. Packaging renders the current pages with `tools/build_manual.py` into a standalone offline HTML manual and includes the Markdown sources. The renderer intentionally supports headings, paragraphs, flat lists, fenced code, bold/inline code, and local page links; unsupported block forms fail validation. No web service or extra documentation dependency is required.
 
 For an unpackaged local editor build, generate the manual beside the executable with `python tools/build_manual.py --output /path/to/build/manual --build-id unassigned`. Help opens `manual/index.html` through the OS handler. A browser-launch success only confirms dispatch to that handler; desktop opening remains an interactive check.
 
-## Editor and optional exact SDK delivery
+## Complete Windows package delivery
 
-The final Windows artifacts are assembled only after core/static, shared SDK,
-editor and formatting jobs succeed. The editor ZIP keeps one root launcher,
-`Run-Forge.cmd`; executables and their DLLs live under `bin/`, while the manual,
-examples, resources and static export runtime kit remain at the package root.
+The final Windows ZIP is assembled only after core/static, shared SDK, editor
+and formatting jobs succeed. CI builds the editor, SDK, shared graphical runtime
+and reference game separately, then verifies their hashes and exact source/build
+identity before producing one user-facing archive and one manifest.
+
+The ZIP keeps Run-Forge.cmd and Run-Forge-Dev.cmd at its root. Executables and
+their DLLs live under bin/; NativeSdk/ contains C++ headers, libraries and its
+matching runtime. The shared graphical host lives in
+runtime-kits/shared-native-sdk/, while runtime-kit/ supports the static export
+profile. ReferenceGame/ is the compiled example; Examples/ contains editable
+projects. The manual, resources and license notices remain at the root.
 Source builds retain their executable-relative layout. The app resolves the
-installation root from the parent package manifest when launched from `bin/`.
+installation root from the parent package manifest when launched from bin/.
 
-The separate matching `FORGE-Windows-Developer-x64` ZIP contains `NativeSdk/`,
-`runtime-kits/shared-native-sdk/`, `ReferenceGame/`, `Run-Forge-Dev.cmd` and a
-manifest tied to the editor manifest SHA-256. Extract it into the same root as
-the editor ZIP to add exact C++ gameplay tools. Do not mix build numbers or
-extract the kit as a nested directory. The editor works without the kit; rich
-SDK gameplay and shared-runtime exports require it. The static runtime kit in
-the editor ZIP still supports its existing standalone export profile.
+The package job extracts the one archive into a private relocated test
+directory, verifies every manifest hash, runs the reference game and installed
+SDK, imports through packaged workers with a restricted PATH, and executes the
+real editor SDK workflow. The editor fixture EXE is copied beside
+bin/forge_editor.exe and uses only shipped DLLs/resources. A failed acceptance
+gate prevents ZIP upload. The test-only fixture/project/private user-data
+directory are not shipped. WARP validation does not claim physical GPU or
+audio acceptance.
 
-The package job validates both archives and their matching source/build identity.
-It then overlays them in a private relocated test directory, checks file hashes,
-runs the reference game and installed SDK, imports through packaged workers with
-a restricted PATH, and executes the real editor SDK workflow. The editor fixture
-EXE is copied beside `bin/forge_editor.exe` and uses only shipped DLLs/resources.
-A failed overlay or acceptance gate prevents either ZIP upload. The test-only
-fixture/project/private user-data directory are not shipped. WARP validation
-does not claim physical-GPU/audio acceptance.
 Every numbered editor ZIP includes the complete editable project under
 `Examples/FeatureGallery/`. Packaging fails if its manifest, README, scenes or
 any current gallery file would be omitted; a newly added source format must be

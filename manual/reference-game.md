@@ -7,13 +7,13 @@ normal imports, collision assets and a navigation bake.
 
 ## Launch the included game
 
-Extract the editor ZIP and the optional Developer Kit with the same build number into the same folder. Then open **ReferenceGame/forge_game.exe**.
+Extract the FORGE Windows ZIP, then open **ReferenceGame/forge_game.exe**.
 Keep its accompanying files together. This game runs independently of the editor;
 you do not need a compiler or SDK installed to play it.
 
-The reference game lives in the Developer Kit’s `ReferenceGame/` folder; it is not
+The reference game lives in the ZIP’s `ReferenceGame/` folder; it is not
 included as an editable project. The editor's **File → Open project** opens an
-editable project of your own. **Build → Gameplay setup → Native SDK folder** points at
+editable project of your own. **Build → C++ setup → Native SDK folder** points at
 the matching installed NativeSdk that hosts your gameplay module.
 
 ## Start and explore

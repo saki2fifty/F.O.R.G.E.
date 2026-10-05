@@ -136,7 +136,26 @@ def package(build, dependencies, output):
             for page in manual_files:
                 archive.write(page, 'manual/'+page.relative_to(manual_output).as_posix())
             write_text('Run-Forge.cmd', '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\n"%~dp0bin\\forge_editor.exe"\r\nset "FORGE_EXIT=%ERRORLEVEL%"\r\nif not "%FORGE_EXIT%"=="0" (\r\n  echo FORGE exited with code %FORGE_EXIT%.\r\n  pause\r\n)\r\nexit /b %FORGE_EXIT%\r\n')
-            write_text('README.txt', f'FORGE Windows x64 | Build: {build_id}\n\nOpen Help > User Manual or manual/index.html for offline instructions.\nOpen the Examples/Blockout project through File > Open project for a sample scene.\nOpen Examples/Rendering for the model/material/camera walkthrough.\nOpen Examples/FeatureGallery for separate editable scenes and standalone export.\n\nExtract the ENTIRE archive. Keep bin/ and the other packaged folders together.\nRun Run-Forge.cmd to reopen your last project. First launch creates Scratch under Documents/FORGE/Projects.\nThe launcher retains console output if the editor exits with an error.\nRequires Windows 10/11 x64 and a D3D12-capable graphics driver.\nFor C++ gameplay, extract the matching optional Developer Kit into this folder.\nIt adds the C++ launcher and SDK. You also need Visual Studio 2022\nC++ tools, CMake 4.3+ and Ninja for native kit installation. In Build: create a C++ gameplay project, Component and System, then build and Play.\nThe optional Developer Kit also contains the reference game.\nThe build is produced on Windows CI; real GPU execution requires your PC.\n')
+            readme = (
+                f'FORGE Windows x64 | Build: {build_id}\n\n'
+                'Extract this entire ZIP and keep its folders together.\n'
+                'Run Run-Forge.cmd to open the editor. First launch creates Scratch under '
+                'Documents/FORGE/Projects.\n'
+                'Run-Forge-Dev.cmd opens the same editor with installed Visual Studio '
+                '2022 C++ tools configured.\n'
+                'Project Code needs Visual Studio 2022 C++ tools, CMake 4.3+ and Ninja; '
+                'the compiler is not bundled.\n'
+                'In Build, set up C++ code, add Components and Systems under '
+                'Content > Code, then Build Project Code and Play.\n\n'
+                'NativeSdk/ contains the matching C++ SDK; runtime-kit/ and '
+                'runtime-kits/shared-native-sdk/ support standalone export.\n'
+                'Examples/FeatureGallery contains editable scenes; '
+                'ReferenceGame/forge_game.exe runs the compiled example.\n'
+                'Open Help > User Manual or manual/index.html for offline instructions.\n'
+                'Requires Windows 10/11 x64 and a D3D12-capable graphics driver.\n'
+                'The build is produced on Windows CI; real GPU execution requires your PC.\n'
+            )
+            write_text('README.txt', readme)
             archive.writestr('manifest.json', json.dumps(manifest, indent=2)+'\n')
         os.replace(temporary, output)
     finally:

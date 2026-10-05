@@ -81,7 +81,7 @@ schema's declared default. On a prefab instance it records an explicit override;
 A component whose schema is missing or incompatible is labeled unavailable or
 shown with a read-only explanation. Its stored data remains preserved. It does not
 become editable merely because a similarly named component exists in another build.
-Use [C++ gameplay](native-gameplay.md) to inspect
+Use [Project Code](native-gameplay.md) to inspect
 explicitly opted-in exact-SDK types. These controls do not automatically admit
 arbitrary C++ objects.
 

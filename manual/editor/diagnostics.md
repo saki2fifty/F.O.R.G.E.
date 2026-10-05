@@ -21,7 +21,7 @@ Build output is also available in **Build**. Runtime UI, asset conversion/build 
 
 **Tools → Component schema** shows registered components and their field identities, types, defaults, units and limits. These are the same schemas used by Add Component and the typed Inspector. Quaternion storage is shown here; authored rotation editing presents Euler degrees.
 
-See [Inspector](inspector.md), [Native gameplay](native-gameplay.md) and [Play mode](play-mode.md).
+See [Inspector](inspector.md), [Project Code](native-gameplay.md) and [Play mode](play-mode.md).
 
 ## Automatic asset reimport errors
 

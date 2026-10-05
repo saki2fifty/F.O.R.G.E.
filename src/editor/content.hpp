@@ -465,8 +465,8 @@ class ContentBrowser {
         code_create_pending_ = false;
         const bool ready = code_creation_ready && code_creation_ready();
         if (!ready) {
-            ImGui::TextWrapped("Set up a managed C++ gameplay project before creating files.");
-            if (setup_code && ui::button("Set up C++ gameplay...", "Open the Build panel.")) {
+            ImGui::TextWrapped("Set up C++ code in this project before creating files.");
+            if (setup_code && ui::button("Set up C++ code...", "Open the Build panel.")) {
                 setup_code();
                 ImGui::CloseCurrentPopup();
             }

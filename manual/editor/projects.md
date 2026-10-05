@@ -23,7 +23,7 @@ Save the desired scene inside the project, open **Tools → Project Settings**, 
 **Use saved current scene as startup**, then **Save Settings**. This stores the
 scene's persistent asset identity. See [Project settings](project-settings.md).
 
-Switching projects stops play and selects the new project's native source/build directory. Wait for an active native compilation to finish before switching. See [Scenes](scenes.md) and [Native gameplay](native-gameplay.md).
+Switching projects stops play and selects the new project's native source/build directory. Wait for an active native compilation to finish before switching. See [Scenes](scenes.md) and [Project Code](native-gameplay.md).
 
 ## One editor per project
 
@@ -46,7 +46,7 @@ Shared simulation frequency and startup scene identity are edited in [Project se
 
 ## From a new project to a game
 
-Create the project, add scene entities and Save. In **Build → Gameplay setup**, create the C++ gameplay project. Use **Content → Code** to create and open C++ Components and Systems, then **Build Gameplay** and **Inspect components** in Build to author admitted gameplay data. Choose the saved startup scene and game defaults
+Create the project, add scene entities and Save. In **Build → C++ setup**, set up C++ code. Use **Content → Code** to create and open C++ Components and Systems, then **Build Project Code** and **Inspect components** in Build to author admitted gameplay data. Choose the saved startup scene and game defaults
 in Project Settings. Save settings, then use **Run → Export Game...**. Managed
 module kits are selected automatically; external kits require a folder choice.
-See [Native gameplay](native-gameplay.md) for the complete source/build workflow.
+See [Project Code](native-gameplay.md) for the complete source/build workflow.

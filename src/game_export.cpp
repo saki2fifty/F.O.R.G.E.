@@ -176,7 +176,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
                      [](const Json& module) { return module.is_object(); }))
         throw std::runtime_error(
             "Older C++ gameplay source is preserved but unsupported. Migrate it to the "
-            "managed C++ gameplay project before export.");
+            "supported Project Code format before export.");
     require(!settings.contains("game") || settings.at("game").at("profile") == "development",
             "Only Development standalone export is currently supported");
     require(settings.contains("game") && !settings.at("startup_scene").is_null(),
@@ -315,7 +315,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     progress("Publish validated game", 5);
     if (managed_gameplay)
         require(gameplay_source_current(source.root(), original_settings, fingerprint),
-                "C++ gameplay source or SDK changed during export. Save and Build Gameplay "
+                "C++ gameplay source or SDK changed during export. Save and Build Project Code "
                 "again before retrying");
     // Final cancellation boundary. After the durable journal, complete or recover
     // the two directory renames; never report cancellation halfway through commit.

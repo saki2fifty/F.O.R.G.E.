@@ -62,7 +62,7 @@ inline std::string gameplay_build_identity(const std::string& source_digest,
 inline std::string installed_gameplay_sdk_fingerprint(const std::filesystem::path& sdk) {
     std::ifstream input(sdk / "sdk/include/forge/native_sdk_identity.h");
     if (!input)
-        throw std::runtime_error("Matching C++ Developer Kit is unavailable");
+        throw std::runtime_error("Matching Native SDK is unavailable");
     constexpr std::string_view prefix = "#define FORGE_NATIVE_SDK_FINGERPRINT \"";
     std::string line;
     while (std::getline(input, line)) {
@@ -76,7 +76,7 @@ inline std::string installed_gameplay_sdk_fingerprint(const std::filesystem::pat
                 return value;
         }
     }
-    throw std::runtime_error("C++ Developer Kit has no valid SDK fingerprint");
+    throw std::runtime_error("Native SDK has no valid fingerprint");
 }
 inline bool gameplay_source_current(const std::filesystem::path& project,
                                     const nlohmann::json& settings,

@@ -2047,15 +2047,15 @@ int main(int argc, char** argv) {
                         std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
                         throw std::runtime_error(
                             "Older C++ gameplay source is preserved but unsupported. "
-                            "Migrate it to the managed C++ gameplay project before export.");
+                            "Migrate it to the supported Project Code format before export.");
                     if (sdk_build->managed()) {
                         if (cpp_sources.dirty())
                             throw std::runtime_error(
-                                "Save C++ source and Build Gameplay before exporting.");
+                                "Save C++ source and Build Project Code before exporting.");
                         if (!current_managed_gameplay())
                             throw std::runtime_error(
-                                "Build Gameplay before exporting: saved C++ source is not the "
-                                "admitted module. Last-good gameplay is retained.");
+                                "Build Project Code before exporting: saved C++ source is not the "
+                                "admitted module. The last good module is retained.");
                     }
                     const auto modules =
                         files.document.settings().document().value("modules", forge::Json::array());
@@ -2169,7 +2169,7 @@ int main(int argc, char** argv) {
                         std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
                         throw std::runtime_error(
                             "Older C++ gameplay source is preserved but unsupported. "
-                            "Migrate it to the managed C++ gameplay project before Play.");
+                            "Migrate it to the supported Project Code format before Play.");
                     if (sdk_build->managed() &&
                         (cpp_sources.dirty() || !current_managed_gameplay())) {
                         cpp_play_dialog = true;
@@ -2225,15 +2225,15 @@ int main(int argc, char** argv) {
             if (cpp_play_ready) {
                 cpp_play_ready = false;
                 if (!actions.invoke("play"))
-                    message = "Gameplay built, but Play is currently unavailable.";
+                    message = "Project Code built, but Play is currently unavailable.";
             }
             if (cpp_play_dialog) {
-                ImGui::OpenPopup("Build C++ gameplay before Play?");
+                ImGui::OpenPopup("Build Project Code before Play?");
                 cpp_play_dialog = false;
             }
-            if (ImGui::BeginPopupModal("Build C++ gameplay before Play?", nullptr,
+            if (ImGui::BeginPopupModal("Build Project Code before Play?", nullptr,
                                        ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::TextWrapped("C++ gameplay source changed after the last admitted build. "
+                ImGui::TextWrapped("Project C++ source changed after the last admitted build. "
                                    "Save, build and validate it before Play.");
                 if (forge::ui::button(
                         "Save, Build & Play",
@@ -2245,7 +2245,7 @@ int main(int argc, char** argv) {
                         cpp_play_build_pending = sdk_build->busy();
                         cpp_play_build_seen_busy = sdk_build->busy();
                         if (!cpp_play_build_pending)
-                            throw std::runtime_error("Gameplay build did not start.");
+                            throw std::runtime_error("Project Code build did not start.");
                         ImGui::CloseCurrentPopup();
                     });
                 }
@@ -3160,7 +3160,7 @@ int main(int argc, char** argv) {
                         FORGE_UI_PROBE("menu:Run");
                         ImGui::BeginDisabled(!cpp_sources.build_enabled ||
                                              !cpp_sources.request_build);
-                        if (ImGui::MenuItem("Build Gameplay"))
+                        if (ImGui::MenuItem("Build Project Code"))
                             perform(cpp_sources.request_build);
                         ImGui::EndDisabled();
                         actions.item("game.export");
@@ -4286,30 +4286,30 @@ int main(int argc, char** argv) {
                 const bool gameplay_visible = ImGui::Begin("Build###Native", &workspace.build);
                 FORGE_UI_TAB_PROBE("tab:Build");
                 if (gameplay_visible) {
-                    forge::ui::heading("Gameplay", "C++ gameplay compiles outside the editor. Only "
-                                                   "isolated runtimes load gameplay DLLs.");
+                    forge::ui::heading("Project Code",
+                                       "C++ project code compiles outside the editor. Only "
+                                       "isolated runtimes load gameplay DLLs.");
                     const auto selected_sdk = exact_sdk_root[0]
                                                   ? std::filesystem::u8path(exact_sdk_root)
                                                   : install_root / "NativeSdk";
-                    if (ImGui::TreeNodeEx("Gameplay setup", sdk_build->managed()
-                                                                ? ImGuiTreeNodeFlags_None
-                                                                : ImGuiTreeNodeFlags_DefaultOpen)) {
+                    if (ImGui::TreeNodeEx("C++ setup", sdk_build->managed()
+                                                           ? ImGuiTreeNodeFlags_None
+                                                           : ImGuiTreeNodeFlags_DefaultOpen)) {
                         ImGui::BeginDisabled(play.active() || sdk_build->busy());
                         if (ImGui::InputText("Native SDK folder", exact_sdk_root,
                                              sizeof(exact_sdk_root))) {
                             sdk_build->invalidate_compiler();
                             perform(save_preferences);
                         }
-                        forge::ui::help(
-                            "Matching installation with bin and sdk. Blank uses NativeSdk from "
-                            "the Developer Kit in this editor installation.");
+                        forge::ui::help("Matching installation with bin and sdk. Blank uses the "
+                                        "NativeSdk folder included with FORGE.");
                         ImGui::EndDisabled();
                         if (!std::filesystem::exists(files.document.project() /
                                                      "Native/gameplay.cpp") &&
                             !files.document.settings().requires_native_sdk()) {
                             ImGui::BeginDisabled(play.active() || sdk_build->busy());
                             if (forge::ui::button(
-                                    "Create C++ gameplay project",
+                                    "Set up C++ code",
                                     "Create the managed Flecs starter without overwriting files."))
                                 perform([&] {
                                     sdk_build->create(files.document, selected_sdk);
@@ -4331,7 +4331,7 @@ int main(int argc, char** argv) {
                     }
                     if (files.document.settings().requires_native_sdk() || sdk_build->managed()) {
                         ImGui::TextWrapped(
-                            "C++ gameplay project — components and systems run during Play.");
+                            "C++ project code — components and systems run during Play.");
                         forge::ui::help("The isolated runtime validates the matching game build "
                                         "before creating the play world.");
                         if (sdk_build->managed()) {
@@ -4348,9 +4348,9 @@ int main(int argc, char** argv) {
                                 sdk_build->busy()                                  ? "Building"
                                 : cpp_sources.dirty()                              ? "Source Dirty"
                                 : !sdk_build->error().empty() && !gameplay_current ? "Build Failed"
-                                : gameplay_current ? "Gameplay Current"
+                                : gameplay_current ? "Current"
                                                    : "Build Required";
-                            ImGui::Text("Gameplay: %s", gameplay_state);
+                            ImGui::Text("Project Code: %s", gameplay_state);
                             FORGE_UI_PROBE("cpp:gameplay-state");
                             if (last_good && !gameplay_current)
                                 ImGui::TextUnformatted(
@@ -4360,8 +4360,8 @@ int main(int argc, char** argv) {
                             ImGui::BeginDisabled(play.active() || sdk_build->busy() ||
                                                  modal.active() || content_files.busy() ||
                                                  authored_components.busy());
-                            if (forge::ui::button(cpp_sources.dirty() ? "Save & Build gameplay"
-                                                                      : "Build gameplay",
+                            if (forge::ui::button(cpp_sources.dirty() ? "Save & Build Project Code"
+                                                                      : "Build Project Code",
                                                   "Configure, compile, collect dependencies and "
                                                   "validate in an isolated runtime. "
                                                   "A successful build registers the new module. "
@@ -4453,12 +4453,13 @@ int main(int argc, char** argv) {
                                             "remains in the build log.");
                         }
                         ImGui::TextWrapped(
-                            "Stop Play, build gameplay with the matching installed SDK, "
+                            "Stop Play, build project code with the matching installed SDK, "
                             "inspect authored components, then press Play. Code changes "
                             "restart from "
                             "the authored scene; arbitrary C++ state is not restored.");
                         forge::ui::help(
-                            "Managed projects use Build gameplay above. Other projects use their "
+                            "Managed projects use Build Project Code above. Other projects use "
+                            "their "
                             "external developer terminal. Failed builds retain the previous "
                             "module. "
                             "C++ registration changes require Stop, Build, then Play.");
@@ -4475,7 +4476,7 @@ int main(int argc, char** argv) {
                                                      modal.active() || scene_tools.move.active() ||
                                                      blockout.active() || content_files.busy());
                     } else {
-                        ImGui::TextWrapped("Create a C++ gameplay project above to begin.");
+                        ImGui::TextWrapped("Set up C++ code above to begin.");
                         if (!files.document.settings().requires_native_sdk() &&
                             std::filesystem::exists(files.document.project() /
                                                     "Native/gameplay.cpp"))

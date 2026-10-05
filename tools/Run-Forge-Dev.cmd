@@ -21,7 +21,7 @@ if /i "%~1"=="--check" exit /b 0
 call "%~dp0Run-Forge.cmd"
 exit /b %ERRORLEVEL%
 :missing
-echo Gameplay compilation needs Visual Studio 2022 C++ tools, CMake 4.3+ and Ninja.
+echo Project Code compilation needs Visual Studio 2022 C++ tools, CMake 4.3+ and Ninja.
 echo Install the Desktop development with C++ workload and C++ CMake tools.
 echo You can still open the editor using Run-Forge.cmd.
 if /i not "%~1"=="--check" pause

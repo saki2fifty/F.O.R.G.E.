@@ -8,9 +8,8 @@ configuration. Shared rendering composition is in `cmake/presentation.cmake`.
 
 This is the Development standalone host. The shared
 [export operation](runtime-content-packaging.md) assembles supported runtime
-content, the executable and admitted native-module deployments. The optional matching Developer Kit contains the standalone reference game
-under `ReferenceGame/` and the shared graphical runtime kit. The ordinary
-editor ZIP retains the static runtime kit needed for exports. The shared
+content, the executable and admitted native-module deployments. The complete
+Windows package contains the standalone reference game under `ReferenceGame/` and the shared graphical runtime kit. The same ZIP retains the static runtime kit needed for exports. The shared
 graphical-host acceptance gate validates the reference distribution.
 The static root editor host and the shared reference host are separate
 deliverables and are not claimed to be the same binary.

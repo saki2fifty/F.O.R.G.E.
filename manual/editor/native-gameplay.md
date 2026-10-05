@@ -1,4 +1,4 @@
-# C++ gameplay
+# Project Code (C++)
 
 FORGE uses Flecs components for data and systems for behavior. Give a Cube a
 `Rotator` component; a `RotationSystem` then processes every entity whose query
@@ -7,10 +7,12 @@ C++ files live in your project's `Native/` folder. Find them under **Content →
 
 ## Prepare the compiler
 
-Extract the matching optional Developer Kit into the editor folder, then launch
-**Run-Forge-Dev.cmd**. Install Visual Studio 2022 C++ build tools with the Windows
-SDK, CMake 4.3 or newer, and Ninja for the packaged native gameplay kit. The general FORGE source build minimum is CMake 3.30; the kit's install step needs the newer policy. In **Build**, expand **Compiler setup**
-and choose **Test compiler tools**. FORGE builds and checks a separate starter
+Install Visual Studio 2022 C++ build tools with the Windows SDK, CMake 4.3 or
+newer, and Ninja. Extract the FORGE Windows ZIP, which includes the matching
+Native SDK, then launch **Run-Forge-Dev.cmd** to use the installed toolchain.
+The FORGE source build minimum is CMake 3.30; the packaged Native SDK install
+needs CMake 4.3 or newer. In **Build**, expand **Compiler
+setup** and choose **Test compiler tools**. FORGE builds and checks a separate starter
 module without changing your gameplay or project settings. A failure names the
 missing or incompatible tool. **Get C++ Build Tools** opens Microsoft's official
 download page; FORGE does not install or bundle a compiler. You can specify CMake
@@ -20,12 +22,12 @@ to build and Play C++.
 
 ## Create a component and system
 
-1. Open **Build → Gameplay setup**. Choose **Create C++ gameplay project** for a new project. Existing `Native/` source is never overwritten.
+1. Open **Build → C++ setup**. Choose **Set up C++ code** for a new project. Existing `Native/` source is never overwritten.
 2. Open **Content → Create / Register → C++ → Component...** and enter `Rotator`. This creates and opens `Native/Components/Rotator.hpp` with a reflected `speed` value. In short panels, open **Actions** first.
 3. Use **Content → Create / Register → C++ → System...**, select `Rotator`, and enter `RotationSystem`. This creates and opens `Native/Systems/RotationSystem.cpp`, which queries Rotator, reads effective rotation or identity, and runs on the fixed gameplay tick.
 4. Double-click either file in **Content → Code** to edit it. The C++ Sources tab and **Save source** button mark unsaved changes with `*`. **Ctrl+S**, document Save and the button save the active C++ file. Scene Save is separate.
-5. Choose **Build Gameplay** in Build, C++ Sources or Run. With unsaved drafts the action becomes **Save & Build Gameplay**. It compiles saved files, validates the candidate in an isolated worker and publishes after admission.
-6. Wait for **Gameplay Current**. Create a Cube, select it, use **Inspector → + Add Component** to add Rotator, set Speed and save the scene. Right-click the component header for **Open C++ Definition**.
+5. Choose **Build Project Code** in Build, C++ Sources or Run. With unsaved drafts the action becomes **Save & Build Project Code**. It compiles saved files, validates the candidate in an isolated worker and publishes after admission.
+6. Wait for **Project Code: Current**. Create a Cube, select it, use **Inspector → + Add Component** to add Rotator, set Speed and save the scene. Right-click the component header for **Open C++ Definition**.
 7. Press **Play** to see the cube rotate. Code or schema changes use **Stop → Save → Build → Play**. FORGE offers **Save, Build & Play** for unbuilt source and never silently runs stale code.
 
 
@@ -52,8 +54,9 @@ new build and fresh Play session.
 
 **Source Dirty** means a C++ tab has unsaved edits. **Build Required** means saved
 source differs from the admitted module. **Building**, **Build Failed**, and
-**Gameplay Current** distinguish the remaining states. A changed Developer Kit requires a compatible new build; a missing matching kit blocks managed Play until it is installed. A failed build keeps the
-last good artifact, but Play and Export do not treat it as current. Click a
+**Project Code: Current** distinguish the remaining states. A changed Native
+SDK requires a compatible new build; a missing matching SDK blocks managed Play.
+A failed build keeps the last good artifact, but Play and Export do not treat it as current. Click a
 compiler diagnostic in **Compiler output** to open its source line. The full log
 is `.forge/sdk-build/build.log`; source remains editable. Build on Save uses the
 same build operation after source is saved. It waits for Play to stop and all
@@ -82,7 +85,7 @@ and declared defaults. Native pointers and arbitrary resource-owning objects are
 not generic authored values.
 
 1. Stop Play and build the module with the matching Native SDK.
-2. In **Build → Gameplay setup**, set **Native SDK folder**, then click **Inspect components**.
+2. In **Build → C++ setup**, set **Native SDK folder**, then click **Inspect components**.
 3. Wait for the available-type count. FORGE runs the inspection in a separate process; a failed inspection keeps the last admitted types and values.
 4. Select an entity and use **Inspector > + Add Component**. Search the opted-in type's friendly name or category, then edit its reflected properties.
 5. Save the scene and press Play. The matching runtime receives the authored values by stable field names. A missing or incompatible schema rejects the runtime load rather than silently ignoring those values.
