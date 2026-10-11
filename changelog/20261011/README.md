@@ -150,3 +150,12 @@ Native Windows curve captures and physical acceptance remain pending.
 The existing Editable Mesh UV workspace now shows whole-Mesh context and supports Corner/Face/Island canvas picking, multi-face selection, direct move preview/release, pointer zoom, pan and framing. Numeric signed nonuniform scale, Mirror U/V and padded aspect-preserving fit use one shared source operation. Exact authored seams stay separate. Drag cancel, source history, read-only locks and publication retain existing owners. Original Gallery14 demonstrates connected, split and fitted checker mappings. This slice adds no source schema, runtime code editor, automatic unwrap or atlas packing.
 
 Local and native evidence is recorded separately; the next Windows delivery includes these changes after its full gate. Build155 contains the earlier completed batches through face inset, not the curve/UV changes.
+
+## UV drag responsiveness
+
+UV dragging now evaluates selected coordinates without repeatedly copying and
+validating the whole source. Full source validation and one Undo step still happen
+on release. On the same optimized Linux test host, actual pointer-movement frames
+for the 4,096-vertex sample decreased from115ms to16.5ms; release remains about200ms
+at that limit. This measures editor CPU work, not physical GPU/game FPS. Drawn
+preview, invalid movement, cancellation, source parity and sanitizer checks pass.

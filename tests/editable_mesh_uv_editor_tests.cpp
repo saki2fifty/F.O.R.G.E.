@@ -137,6 +137,20 @@ int main(int argc, char** argv) {
             mouse(finish, true);
             require(editor.document()->source().document == before,
                     "UV drag authored before release");
+            frame(); // Render the evaluated candidate; source remains unchanged.
+            auto gold_near = [&](ImVec2 point) {
+                unsigned count = 0;
+                for (const auto* list : ImGui::GetDrawData()->CmdLists)
+                    for (const auto& vertex : list->VtxBuffer)
+                        if (vertex.col == IM_COL32(255, 226, 136, 255) &&
+                            std::abs(vertex.pos.x - point.x) < 9 * scale &&
+                            std::abs(vertex.pos.y - point.y) < 9 * scale)
+                            ++count;
+                return count;
+            };
+            require(gold_near(finish) > 0 && gold_near(start) == 0,
+                    "Held UV preview did not draw the translated selected corner");
+
             io.AddKeyEvent(ImGuiKey_Escape, true);
             frame();
             io.AddKeyEvent(ImGuiKey_Escape, false);
@@ -209,6 +223,19 @@ int main(int argc, char** argv) {
                         editor.document()->source().document == saved,
                     "UV navigation authored data");
             click("button:Frame tile");
+            // Out-of-profile pointer movement must reject its scalar preview and release.
+            click("button:Frame tile");
+            start = uv_point(.02, .26);
+            finish = {start.x + 100000000.f, start.y};
+            mouse(start, false);
+            mouse(start, true);
+            mouse(finish, true);
+            frame();
+            mouse(finish, false);
+            frame();
+            require(editor.document()->source().document == saved &&
+                        editor.document()->revision() == revision,
+                    "Invalid derived UV preview changed source/history");
             // Clear via empty canvas, then Ctrl-select two exterior corners.
             click("button:Frame tile");
             auto blank = uv_point(.9, .9);

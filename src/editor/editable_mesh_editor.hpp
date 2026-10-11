@@ -256,6 +256,14 @@ class EditableMeshEditor {
     std::uint64_t uv_revision_ = std::numeric_limits<std::uint64_t>::max(), uv_drag_revision_ = 0;
     std::vector<std::uint32_t> uv_topology_;
     std::vector<MeshUvCorner> uv_drag_selection_;
+    struct UvDragPoint {
+        MeshUvCorner corner;
+        std::array<double, 2> original{}, value{};
+    };
+    std::vector<UvDragPoint> uv_drag_points_;
+    std::array<double, 2> uv_drag_center_{};
+    bool uv_drag_valid_ = false;
+
     std::array<double, 2> uv_center_{.5, .5}, uv_drag_start_{}, uv_drag_delta_{};
     double uv_zoom_ = 1;
     int uv_mode_ = 0; // Corner, face, connected island.
@@ -563,10 +571,56 @@ class EditableMeshEditor {
             return;
         uv_drag_ = false;
         uv_drag_selection_.clear();
+        uv_drag_points_.clear();
+        uv_drag_center_ = {};
+        uv_drag_valid_ = false;
         uv_drag_delta_ = {};
         uv_preview_.reset();
         uv_preview_key_.clear();
         uv_preview_error_.clear();
+    }
+    void prepare_uv_drag() {
+        uv_drag_points_.clear();
+        uv_drag_points_.reserve(uv_drag_selection_.size());
+        for (const auto& face : document_->source().document.at("faces")) {
+            const auto id = face.at("id").get<std::uint32_t>();
+            const auto& corners = face.at("corners");
+            for (std::size_t i = 0; i < corners.size(); ++i) {
+                const MeshUvCorner corner{id, i};
+                if (uv_selection_.contains(corner)) {
+                    const auto value = corners[i].at("uv").get<std::array<double, 2>>();
+                    uv_drag_points_.push_back({corner, value, value});
+                }
+            }
+        }
+        std::sort(uv_drag_points_.begin(), uv_drag_points_.end(),
+                  [](const auto& a, const auto& b) { return a.corner < b.corner; });
+        uv_drag_center_ = {};
+        for (const auto& point : uv_drag_points_) {
+            uv_drag_center_[0] += point.original[0];
+            uv_drag_center_[1] += point.original[1];
+        }
+        if (!uv_drag_points_.empty()) {
+            uv_drag_center_[0] /= uv_drag_points_.size();
+            uv_drag_center_[1] /= uv_drag_points_.size();
+        }
+        uv_drag_valid_ = false;
+    }
+    void evaluate_uv_drag(std::array<double, 2> delta) {
+        uv_drag_valid_ = true;
+        uv_preview_error_.clear();
+        for (auto& point : uv_drag_points_) {
+            // Match the source transform's canonical mean/translation arithmetic.
+            // Derived scalar values never replace the authored document here.
+            for (unsigned axis = 0; axis < 2; ++axis) {
+                point.value[axis] = uv_drag_center_[axis] +
+                                    (point.original[axis] - uv_drag_center_[axis]) + delta[axis];
+                if (!std::isfinite(point.value[axis]) || std::abs(point.value[axis]) > 100000) {
+                    uv_drag_valid_ = false;
+                    uv_preview_error_ = "UV preview exceeds finite source coordinate bounds.";
+                }
+            }
+        }
     }
     void reset_uv_scope() {
         cancel_uv_drag();
@@ -1005,10 +1059,9 @@ class EditableMeshEditor {
             for (auto& value : uv_center_)
                 value = std::clamp(value, -200000., 200000.);
         }
-        auto screen = [&](const Json& uv) {
-            return std::array<double, 2>{
-                middle[0] + (uv[0].get<double>() - uv_center_[0]) * base * uv_zoom_,
-                middle[1] + (uv[1].get<double>() - uv_center_[1]) * base * uv_zoom_};
+        auto screen = [&](std::array<double, 2> uv) {
+            return std::array<double, 2>{middle[0] + (uv[0] - uv_center_[0]) * base * uv_zoom_,
+                                         middle[1] + (uv[1] - uv_center_[1]) * base * uv_zoom_};
         };
         auto* draw = ImGui::GetWindowDrawList();
         draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
@@ -1039,7 +1092,7 @@ class EditableMeshEditor {
             draw->AddLine({float(a[0] + low * dx), float(a[1] + low * dy)},
                           {float(a[0] + high * dx), float(a[1] + high * dy)}, color, width);
         };
-        const auto tile0 = screen(Json::array({0, 0})), tile1 = screen(Json::array({1, 1}));
+        const auto tile0 = screen({0, 0}), tile1 = screen({1, 1});
         line(tile0, {tile1[0], tile0[1]}, IM_COL32(97, 128, 145, 255), 1);
         line({tile1[0], tile0[1]}, tile1, IM_COL32(97, 128, 145, 255), 1);
         line(tile1, {tile0[0], tile1[1]}, IM_COL32(97, 128, 145, 255), 1);
@@ -1051,8 +1104,20 @@ class EditableMeshEditor {
             const auto id = face.at("id").get<std::uint32_t>();
             const auto& corners = face.at("corners");
             std::vector<std::array<double, 2>> points;
-            for (const auto& corner : corners)
-                points.push_back(screen(corner.at("uv")));
+            for (std::size_t i = 0; i < corners.size(); ++i) {
+                auto uv = corners[i].at("uv").get<std::array<double, 2>>();
+                if (uv_drag_valid_) {
+                    const MeshUvCorner corner{id, i};
+                    const auto at =
+                        std::lower_bound(uv_drag_points_.begin(), uv_drag_points_.end(), corner,
+                                         [](const auto& point, MeshUvCorner wanted) {
+                                             return point.corner < wanted;
+                                         });
+                    if (at != uv_drag_points_.end() && at->corner == corner)
+                        uv = at->value;
+                }
+                points.push_back(screen(uv));
+            }
             bool inside = false;
             for (std::size_t i = 0, j = points.size() - 1; i < points.size(); j = i++) {
                 const auto a = points[i], b = points[j];
@@ -1110,6 +1175,7 @@ class EditableMeshEditor {
                 uv_drag_delta_ = {};
                 uv_drag_revision_ = document_->revision();
                 uv_drag_selection_ = selected_uv_corners();
+                prepare_uv_drag();
             }
         }
         if (uv_drag_ && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
@@ -1128,25 +1194,19 @@ class EditableMeshEditor {
         const bool released_move = ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
                                    dx * dx + dy * dy >= threshold * threshold;
         if (uv_drag_ && ImGui::IsMousePosValid(&mouse) &&
-            (drag_pixels.x != 0 || drag_pixels.y != 0 || uv_preview_ || released_move)) {
+            (drag_pixels.x != 0 || drag_pixels.y != 0 || uv_drag_valid_ ||
+             !uv_preview_error_.empty() || released_move)) {
             uv_drag_delta_ = {position[0] - uv_drag_start_[0], position[1] - uv_drag_start_[1]};
             const auto key = Json::array({uv_drag_revision_, uv_drag_delta_}).dump();
             if (key != uv_preview_key_) {
                 uv_preview_key_ = key;
-                uv_preview_ = document_->source();
-                uv_preview_error_.clear();
-                try {
-                    uv_preview_->transform_uv(uv_drag_selection_, uv_drag_delta_, 0, {1, 1});
-                } catch (const std::exception& e) {
-                    uv_preview_error_ = e.what();
-                    uv_preview_.reset();
-                }
+                evaluate_uv_drag(uv_drag_delta_);
             }
         }
         if (uv_drag_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
             const auto selection = uv_drag_selection_;
             const auto delta = uv_drag_delta_;
-            const bool accept = uv_preview_ && uv_preview_error_.empty() &&
+            const bool accept = uv_drag_valid_ && uv_preview_error_.empty() &&
                                 uv_drag_revision_ == document_->revision();
             cancel_uv_drag();
             if (accept)
