@@ -368,3 +368,12 @@ content. Native fixture139–141 stages reversed original Cube controls at100/15
 with controlled scrolling/undocking; capture increments the stage before exit142.
 The final combined package route exports Gallery19 and runs its actual EXE startup.
 These authored native routes are separate from executed evidence.
+
+### Windows SDK job allowance
+
+The Windows native-SDK matrix job has a45minute job allowance for configure, build,
+its complete core test suite and SDK installation. Other core matrix jobs retain
+30minutes. Build159 reached the former30minute limit after compiling successfully
+and passing98of103 tests, while the catalog scale test was running. Individual test
+limits and acceptance requirements remain intact; a timed-out job never qualifies
+as passing delivery evidence.

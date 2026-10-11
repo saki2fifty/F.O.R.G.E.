@@ -28,10 +28,14 @@ class EditableMeshEditor {
     bool can_redo() const { return document_ && !job_ && document_->can_redo(); }
     const EditableMeshDocument* document() const { return document_.get(); }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
-    void request_save() { save_ = true; }
+    void request_save() {
+        cancel_vertex_box();
+        save_ = true;
+    }
     void request_close() {
         cancel_stroke();
         cancel_uv_drag();
+        cancel_vertex_box();
         close_ = true;
         if (!dirty())
             finish_close();
@@ -40,6 +44,7 @@ class EditableMeshEditor {
         if (can_undo()) {
             cancel_stroke();
             cancel_uv_drag();
+            cancel_vertex_box();
             document_->undo();
             reconcile_selection();
             needs_publish_ = true;
@@ -49,6 +54,7 @@ class EditableMeshEditor {
         if (can_redo()) {
             cancel_stroke();
             cancel_uv_drag();
+            cancel_vertex_box();
             document_->redo();
             reconcile_selection();
             needs_publish_ = true;
@@ -145,8 +151,19 @@ class EditableMeshEditor {
         const bool expanded = ImGui::Begin(title.c_str(), &visible);
         if (!visible)
             request_close();
+        if (!document_) {
+            ImGui::End();
+            return;
+        }
         if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             ui::editor_context->task.focus_document("editable_mesh", "Editable Mesh");
+        if (vertex_box_.active &&
+            (!expanded || locked || pending() || ImGui::GetIO().AppFocusLost ||
+             vertex_box_.revision != document_->revision() ||
+             !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))) {
+            cancel_vertex_box();
+            reconcile_selection();
+        }
         if (expanded) {
             ImGui::TextWrapped("%s", path_utf8(document_->locator()).c_str());
             ImGui::TextDisabled("Shared Mesh asset; edits publish a new cooked revision.");
@@ -180,6 +197,7 @@ class EditableMeshEditor {
                 const auto uv_tab = ImGui::BeginTabItem("UV");
                 FORGE_UI_PROBE("mesh:uv_tab");
                 if (uv_tab) {
+                    cancel_vertex_box();
                     uv_workspace(locked);
                     ImGui::EndTabItem();
                 }
@@ -250,6 +268,22 @@ class EditableMeshEditor {
     std::string error_;
     SelectionMode mode_ = SelectionMode::Face;
     std::set<std::uint32_t> vertices_;
+    bool box_select_vertices_ = false;
+    struct VertexBox {
+        bool active = false, moved = false, add = false;
+        std::uint64_t revision = 0;
+        AssetId asset;
+        ImVec2 start{}, finish{}, origin{}, size{};
+        float yaw = 0, pitch = 0;
+        std::map<std::uint32_t, ImVec2> points;
+        std::set<std::uint32_t> original, preview;
+    } vertex_box_;
+    void cancel_vertex_box() {
+        if (vertex_box_.active)
+            vertices_ = std::move(vertex_box_.original);
+        vertex_box_ = {};
+    }
+
     std::pair<std::uint32_t, std::uint32_t> edge_{};
     std::uint32_t face_ = 13;
     std::set<MeshUvCorner> uv_selection_;
@@ -342,6 +376,7 @@ class EditableMeshEditor {
         uv_preview_.reset();
     }
     void finish_close() {
+        cancel_vertex_box();
         reset_uv_scope();
         uv_topology_.clear();
         uv_revision_ = std::numeric_limits<std::uint64_t>::max();
@@ -360,6 +395,7 @@ class EditableMeshEditor {
     template <class F> void mutate(std::string label, F operation) {
         if (!document_ || pending())
             return;
+        cancel_vertex_box();
         try {
             const auto previous = document_->revision();
             document_->edit(previous, std::move(label), [&](Json& draft) {
@@ -421,27 +457,67 @@ class EditableMeshEditor {
         }
         return result;
     }
-    void selection_list() {
+    void selection_list(bool locked) {
         const char* labels[] = {"Vertex", "Edge", "Face"};
         int mode = static_cast<int>(mode_);
         if (ImGui::Combo("Select", &mode, labels, 3)) {
+            cancel_vertex_box();
             mode_ = static_cast<SelectionMode>(mode);
             if (mode_ != SelectionMode::Face)
                 preview_extrude_ = preview_inset_ = false;
         }
+        FORGE_UI_PROBE("mesh:selection_mode");
+        if (mode_ == SelectionMode::Vertex) {
+            ImGui::BeginDisabled(locked || pending() || vertex_box_.active || stroke_active_);
+            if (ui::button("Select all vertices",
+                           "Select every source vertex without editing the Mesh.")) {
+                vertices_.clear();
+                for (const auto& vertex : document_->source().document.at("vertices"))
+                    vertices_.insert(vertex.at("id").get<std::uint32_t>());
+            }
+            ui::next_text_button("Clear vertex selection");
+            if (ui::button("Clear vertex selection", "Clear the selected vertices."))
+                vertices_.clear();
+            ui::next_text_button("Invert vertex selection");
+            if (ui::button("Invert vertex selection",
+                           "Select unselected vertices and clear selected ones.")) {
+                std::set<std::uint32_t> next;
+                for (const auto& vertex : document_->source().document.at("vertices")) {
+                    const auto id = vertex.at("id").get<std::uint32_t>();
+                    if (!vertices_.contains(id))
+                        next.insert(id);
+                }
+                vertices_ = std::move(next);
+            }
+            ImGui::Checkbox("Box select vertices", &box_select_vertices_);
+            FORGE_UI_PROBE("mesh:vertex_box_mode");
+            ImGui::EndDisabled();
+            ImGui::Text("%zu selected vertices", vertices_.size());
+            FORGE_UI_PROBE("mesh:vertex_count:" + std::to_string(vertices_.size()));
+            ui::help("Drag a rectangle on the wireframe; Ctrl adds to the selection. Points behind "
+                     "others are included. Escape cancels. Turn box mode off for ordinary clicks.");
+        }
         if (ImGui::BeginChild("Mesh elements", {0, 125 * ui::interface_scale},
                               ImGuiChildFlags_Borders)) {
             if (mode_ == SelectionMode::Vertex) {
-                for (const auto& vertex : document_->source().document.at("vertices")) {
-                    const auto key = vertex.at("id").get<std::uint32_t>();
-                    const auto label = "Vertex " + std::to_string(key);
-                    if (ImGui::Selectable(label.c_str(), vertices_.contains(key))) {
-                        if (!ImGui::GetIO().KeyCtrl)
-                            vertices_.clear();
-                        if (!vertices_.erase(key))
-                            vertices_.insert(key);
+                const auto& rows = document_->source().document.at("vertices");
+                ImGuiListClipper clipper;
+                clipper.Begin(static_cast<int>(rows.size()));
+                while (clipper.Step())
+                    for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+                        const auto& vertex = rows[row];
+                        const auto key = vertex.at("id").get<std::uint32_t>();
+                        const auto label = "Vertex " + std::to_string(key);
+                        const auto clicked =
+                            ImGui::Selectable(label.c_str(), vertices_.contains(key));
+                        FORGE_UI_PROBE("mesh:vertex:" + std::to_string(key));
+                        if (clicked) {
+                            if (!ImGui::GetIO().KeyCtrl)
+                                vertices_.clear();
+                            if (!vertices_.erase(key))
+                                vertices_.insert(key);
+                        }
                     }
-                }
             } else if (mode_ == SelectionMode::Edge) {
                 for (const auto key : edges()) {
                     const auto label =
@@ -460,6 +536,7 @@ class EditableMeshEditor {
                 }
         }
         ImGui::EndChild();
+        FORGE_UI_PROBE("mesh:vertex_list");
         ui::help("Select a face, edge or vertex. Ctrl-click adds vertices to the selection.");
     }
     void reverse_facing(bool connected) {
@@ -554,7 +631,7 @@ class EditableMeshEditor {
         if (!model_preview_error_.empty())
             ImGui::TextWrapped("Preview unavailable: %s", model_preview_error_.c_str());
         draw_model_wireframe(model_preview_ ? *model_preview_ : source, locked);
-        selection_list();
+        selection_list(locked);
         ImGui::BeginDisabled(locked || pending());
         ImGui::SeparatorText("Shading");
         const bool smooth = document_->source().document.value("smooth", false);
@@ -634,8 +711,10 @@ class EditableMeshEditor {
                  "new topology.");
         ImGui::SeparatorText("Transform selection");
         ImGui::InputFloat3("Move", translation_);
+        FORGE_UI_PROBE("mesh:model_move");
         ImGui::InputFloat3("Rotate (deg)", rotation_);
         ImGui::InputFloat3("Scale", scale_);
+        FORGE_UI_PROBE("mesh:model_scale");
         if (ImGui::Checkbox("Preview transform", &preview_transform_) && preview_transform_)
             preview_extrude_ = preview_inset_ = false;
         if (ui::button("Apply transform",
@@ -989,6 +1068,75 @@ class EditableMeshEditor {
             point.x = origin.x + size.x * 0.5f + (point.x - (min_x + max_x) * 0.5f) * fit;
             point.y = origin.y + size.y * 0.5f + (point.y - (min_y + max_y) * 0.5f) * fit;
         }
+        if (vertex_box_.active &&
+            (!box_select_vertices_ || mode_ != SelectionMode::Vertex || brush_mode_ || locked ||
+             pending() || preview_transform_ || preview_inset_ || preview_extrude_ ||
+             vertex_box_.asset != document_->source().asset() ||
+             vertex_box_.revision != document_->revision() || vertex_box_.yaw != yaw_ ||
+             vertex_box_.pitch != pitch_ || vertex_box_.origin.x != origin.x ||
+             vertex_box_.origin.y != origin.y || vertex_box_.size.x != size.x ||
+             vertex_box_.size.y != size.y))
+            cancel_vertex_box();
+        const bool vertex_box_mode =
+            box_select_vertices_ && mode_ == SelectionMode::Vertex && !brush_mode_;
+        if (vertex_box_mode && !locked && !pending() && !preview_transform_ && !preview_inset_ &&
+            !preview_extrude_) {
+            const auto mouse = ImGui::GetMousePos();
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
+                vertex_box_ = {};
+                vertex_box_.active = true;
+                vertex_box_.revision = document_->revision();
+                vertex_box_.asset = document_->source().asset();
+                vertex_box_.start = vertex_box_.finish = mouse;
+                vertex_box_.origin = origin;
+                vertex_box_.size = size;
+                vertex_box_.yaw = yaw_;
+                vertex_box_.pitch = pitch_;
+                vertex_box_.add = ImGui::GetIO().KeyCtrl;
+                vertex_box_.original = vertex_box_.preview = vertices_;
+                vertex_box_.points = projected;
+            }
+            if (vertex_box_.active) {
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape) || !ImGui::IsMousePosValid(&mouse) ||
+                    !std::isfinite(mouse.x) || !std::isfinite(mouse.y))
+                    cancel_vertex_box();
+                else if (ImGui::IsMouseDown(0) || ImGui::IsMouseReleased(0)) {
+                    vertex_box_.finish = {std::clamp(mouse.x, origin.x, origin.x + size.x),
+                                          std::clamp(mouse.y, origin.y, origin.y + size.y)};
+                    vertex_box_.moved |= std::abs(mouse.x - vertex_box_.start.x) >=
+                                             ImGui::GetIO().MouseDragThreshold ||
+                                         std::abs(mouse.y - vertex_box_.start.y) >=
+                                             ImGui::GetIO().MouseDragThreshold;
+                    if (vertex_box_.moved) {
+                        vertex_box_.preview =
+                            vertex_box_.add ? vertex_box_.original : std::set<std::uint32_t>{};
+                        const auto lo = ImVec2{std::min(vertex_box_.start.x, vertex_box_.finish.x),
+                                               std::min(vertex_box_.start.y, vertex_box_.finish.y)};
+                        const auto hi = ImVec2{std::max(vertex_box_.start.x, vertex_box_.finish.x),
+                                               std::max(vertex_box_.start.y, vertex_box_.finish.y)};
+                        for (const auto& [id, point] : vertex_box_.points)
+                            if (point.x >= lo.x && point.x <= hi.x && point.y >= lo.y &&
+                                point.y <= hi.y)
+                                vertex_box_.preview.insert(id);
+                    }
+                    if (ImGui::IsMouseReleased(0)) {
+                        if (vertex_box_.moved)
+                            vertices_ = std::move(vertex_box_.preview);
+                        vertex_box_ = {};
+                    }
+                }
+            }
+        }
+#ifdef FORGE_UI_FIXTURE
+        if (test::observe_ui)
+            for (const auto& [id, point] : projected)
+                test::ui_targets["mesh:projected_vertex:" + std::to_string(id)] = {
+                    {point.x - 3, point.y - 3},
+                    {point.x + 3, point.y + 3},
+                    !locked && !pending(),
+                    origin,
+                    {origin.x + size.x, origin.y + size.y}};
+#endif
         if (brush_mode_) {
             const auto mouse = ImGui::GetMousePos();
             if (ImGui::IsItemHovered()) {
@@ -1097,8 +1245,8 @@ class EditableMeshEditor {
             }
         }
         // Topology previews introduce temporary element IDs. Select them only after acceptance.
-        if (!brush_mode_ && !preview_extrude_ && !preview_inset_ && ImGui::IsItemHovered() &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        if (!vertex_box_mode && !brush_mode_ && !preview_extrude_ && !preview_inset_ &&
+            ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
             auto distance_sq = [&](ImVec2 point) {
                 const auto dx = point.x - mouse.x, dy = point.y - mouse.y;
@@ -1175,11 +1323,22 @@ class EditableMeshEditor {
                               selected ? IM_COL32(247, 193, 76, 255) : IM_COL32(125, 184, 206, 185),
                               ImDrawFlags_Closed, selected ? 2.5f : 1.2f);
         }
+        const auto& shown_vertices = vertex_box_.active ? vertex_box_.preview : vertices_;
+        if (vertex_box_.active) {
+            draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
+            const ImVec2 lo{std::min(vertex_box_.start.x, vertex_box_.finish.x),
+                            std::min(vertex_box_.start.y, vertex_box_.finish.y)};
+            const ImVec2 hi{std::max(vertex_box_.start.x, vertex_box_.finish.x),
+                            std::max(vertex_box_.start.y, vertex_box_.finish.y)};
+            draw->AddRectFilled(lo, hi, IM_COL32(90, 177, 229, 35));
+            draw->AddRect(lo, hi, IM_COL32(90, 177, 229, 230));
+            draw->PopClipRect();
+        }
         if (mode_ == SelectionMode::Vertex)
             for (const auto& [key, point] : projected)
-                draw->AddCircleFilled(point, vertices_.contains(key) ? 5.f : 3.f,
-                                      vertices_.contains(key) ? IM_COL32(255, 198, 72, 255)
-                                                              : IM_COL32(164, 215, 228, 255));
+                draw->AddCircleFilled(point, shown_vertices.contains(key) ? 5.f : 3.f,
+                                      shown_vertices.contains(key) ? IM_COL32(255, 198, 72, 255)
+                                                                   : IM_COL32(164, 215, 228, 255));
         if (mode_ == SelectionMode::Edge && edge_.first && edge_.second &&
             projected.contains(edge_.first) && projected.contains(edge_.second))
             draw->AddLine(projected.at(edge_.first), projected.at(edge_.second),

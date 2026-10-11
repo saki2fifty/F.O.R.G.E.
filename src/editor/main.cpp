@@ -3237,6 +3237,26 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 142: {
+                    // Original source; select vertices through real UI input below.
+                    animation_timeline = {};
+                    editable_mesh_editor = {};
+                    const auto source =
+                        forge::EditableMeshSource::create_cube(forge::AssetId::generate());
+                    forge::atomic_write(files.document.project() /
+                                            "Assets/CaptureSelection.mesh.json",
+                                        source.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CaptureSelection.mesh.json");
+                    forge::test::observe_ui = true;
+                    forge::ui::style(1);
+                    break;
+                }
+                case 143:
+                    forge::ui::style(1.5f);
+                    break;
+                case 144:
+                    forge::ui::style(2);
+                    break;
                 case 139: {
                     // Original reversed Cube staged for native control layout review.
                     editable_mesh_editor = {};
@@ -5284,6 +5304,61 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.stage >= 142 && fixture.stage <= 144) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->dirty() ||
+                        document->source().document.at("vertices").size() != 8 ||
+                        document->source().document.at("faces").size() != 6)
+                        throw std::runtime_error("Vertex-selection capture changed source");
+                    auto* w = ImGui::FindWindowByName("###Editable Mesh");
+                    if (!w)
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const int step = int(fixture.frames) - 4;
+                        auto& io = ImGui::GetIO();
+                        if (fixture.stage == 142 && step < 20)
+                            ImGui::SetScrollY(w, 0);
+                        auto click = [&](const char* name, int event) {
+                            const auto found = forge::test::ui_targets.find(name);
+                            if (found == forge::test::ui_targets.end())
+                                throw std::runtime_error(
+                                    "Vertex selection capture target missing: " +
+                                    std::string(name));
+                            const auto& target = found->second;
+                            io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
+                                                (target.minimum.y + target.maximum.y) * .5f);
+                            if (event)
+                                io.AddMouseButtonEvent(0, event == 1);
+                        };
+                        if (fixture.stage == 142) {
+                            if (step >= 0 && step <= 2)
+                                click("mesh:model_tab", step);
+                            if (step >= 4 && step <= 6)
+                                click("mesh:selection_mode", step - 4);
+                            if (step == 8 || step == 9)
+                                io.AddKeyEvent(ImGuiKey_Home, step == 8);
+                            if (step == 10 || step == 11)
+                                io.AddKeyEvent(ImGuiKey_Enter, step == 10);
+                            if (step >= 14 && step <= 16)
+                                click("button:Select all vertices", step - 14);
+                        }
+                        const auto count = forge::test::ui_targets.find("mesh:vertex_count:8");
+                        if (step >= 20 && count != forge::test::ui_targets.end()) {
+                            const auto& target = count->second;
+                            ImGui::SetScrollY(
+                                w, w->Scroll.y + (target.minimum.y + target.maximum.y -
+                                                  target.clip_minimum.y - target.clip_maximum.y) *
+                                                     .5f);
+                            captured_document_visible &=
+                                target.minimum.y >= target.clip_minimum.y &&
+                                target.maximum.y <= target.clip_maximum.y;
+                        } else
+                            captured_document_visible = false;
+                    }
+                }
                 if (fixture.stage >= 139 && fixture.stage <= 141) {
                     const auto* document = editable_mesh_editor.document();
                     if (!document || document->source().document.at("faces").size() != 6 ||
@@ -5500,7 +5575,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 142) {
+                    if (fixture.stage == 145) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

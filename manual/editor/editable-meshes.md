@@ -11,7 +11,11 @@ Use an editable Mesh when you want to shape a simple static object inside FORGE.
 
 ## Shape the Mesh
 
-Choose **Vertex**, **Edge** or **Face** in the Model tab. Click an element in the list or wireframe; Ctrl-click adds or removes vertices. Edge and face modes select one element. Enter **Move**, **Rotate (deg)** and **Scale** values, turn on **Preview transform** if useful, then **Apply transform**. **Cancel transform** clears those pending values. The operation is one source Undo step.
+Choose **Vertex**, **Edge** or **Face** in the Model tab. Click an element in the list or wireframe; Ctrl-click adds or removes vertices. Edge and face modes select one element. Enter **Move**, **Rotate (deg)** and **Scale** values, turn on **Preview transform** if useful, then **Apply transform**. **Cancel transform** clears those pending values. The operation is one source Undo step. Use **Triangulate Mesh** before deforming individual quad corners; faces still need to remain planar and convex.
+
+In **Vertex** mode, use **Select all vertices**, **Clear vertex selection**, or **Invert vertex selection** to choose a group. Turn on **Box select vertices**, then drag a rectangle in the wireframe. Ctrl adds the rectangle's vertices to your current selection. This includes projected vertices on both sides of the Mesh. The selection count appears beside the controls. Turn box mode off to use ordinary clicks again.
+
+Press Esc during a rectangle drag to cancel. Changing focus, the view, the source, Play state or publication also cancels an unfinished drag. Selecting vertices leaves the source and its Undo history untouched; **Apply transform** commits the edit. Closing or reopening a Mesh clears this temporary selection.
 
 Select a face, enter a positive **Inset distance**, and use **Preview inset** or **Inset selected face** to create a border. The inner face stays selected. **Cancel inset** drops the preview. The distance is measured inward from each edge in the Mesh’s own coordinates; an inset that collapses the face is rejected.
 

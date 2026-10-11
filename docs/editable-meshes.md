@@ -132,3 +132,27 @@ complete corner association, actual typed resources/material resolution/camera
 bounds and selected relocated source-free export. Native captures139–141 and final
 Windows package Gallery19 exported EXE startup are authored checks; native/physical
 acceptance is reported separately when executed.
+
+## Model vertex selection
+
+Model Vertex mode provides all/clear/invert, ordinary click/Ctrl toggle and explicit
+box selection. The rectangle contains projected vertex centers inclusively,
+including vertices behind other surfaces. Plain rectangles replace the captured
+selection; Ctrl rectangles union with it. The rectangle is clamped to the canvas,
+and the existing mouse drag threshold distinguishes a gesture from a no-move click.
+Release includes its final coordinates even without an intermediate held frame.
+
+The editor captures source asset/revision, original selected IDs, projected points,
+canvas origin/size, orbit and pointer once. Held frames draw temporary feedback;
+selection release changes editor state only. Escape, focus loss, collapsed/closed
+window, UV/source/project switch, source revision/history change, changed canvas or
+orbit, Play lock, publication or incompatible previews cancel it. Save requests
+cancel immediately before a worker can finish. Selected IDs still feed the existing
+validated source transform and one AssetSourceDocument history entry. Invalid edits
+retain geometry/history; planar/convex/manifold/count/byte rules are unchanged.
+
+Pinned ImGuiListClipper submits only visible Vertex rows, including the first and
+last IDs through ordinary list scrolling. Selection closes/reopens independently
+of authored geometry and the Scene owner. No selection is serialized or exported;
+published geometry uses the established resource/package route. Shared native SDK
+headers/fingerprint inputs are unchanged by these private editor controls.

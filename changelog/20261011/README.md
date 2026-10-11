@@ -218,3 +218,13 @@ scratch files. Native brush captures navigate the Model tab through real UI
 input after UV review. Gallery brush reference comparisons allow only bounded
 double-precision arithmetic variation; topology, identity and cooked-resource
 checks remain exact. Windows execution is pending the replacement delivery gate.
+
+## Model vertex selection
+
+Vertex mode adds rectangle selection, Select All, Clear, Invert and a visible count.
+Ctrl adds rectangle hits; Escape and view/document/Play/publication changes cancel
+unfinished gestures. The clipped Vertex list remains usable at the4096vertex bound.
+Existing source transforms/history/publication retain their correctness rules.
+Clean Mesh window close releases its document before subsequent drawing. Recent
+key-group, facing and selection suites are included explicitly in native CI.
+Windows capture/physical acceptance is pending a later numbered delivery.
