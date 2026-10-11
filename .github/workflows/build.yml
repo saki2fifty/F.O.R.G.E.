@@ -478,7 +478,17 @@ jobs:
           if ($LASTEXITCODE) { throw 'C++ loads example preparation failed' }
           python tests/physics_loads_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/loads-project"
           if ($LASTEXITCODE) { throw 'C++ loads runtime/recovery failed' }
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project"
+          cmake -S samples/projects/PhysicsVelocity/Native -B "$root/velocity-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl "-DForgeNativeSdk_DIR=$root/sdk/sdk"
+          if ($LASTEXITCODE) { throw 'C++ velocity example configure failed' }
+          cmake --build "$root/velocity-build" --parallel 2
+          if ($LASTEXITCODE) { throw 'C++ velocity example compile failed' }
+          cmake --install "$root/velocity-build" --component GameplayRuntime --prefix "$root/velocity-kits"
+          if ($LASTEXITCODE) { throw 'C++ velocity deployment failed' }
+          python tools/prepare_physics_loads.py --source samples/projects/PhysicsVelocity --output "$root/velocity-project" --runtime "$root/sdk/bin/forge_runtime.exe" --tools "$root/loads-editor/bin/forge_tools.exe" --module-kit "$root/velocity-kits/project.gameplay" --component project.velocity_control
+          if ($LASTEXITCODE) { throw 'C++ velocity example preparation failed' }
+          python tests/physics_velocity_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/velocity-project"
+          if ($LASTEXITCODE) { throw 'C++ velocity runtime/recovery failed' }
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }

@@ -22,6 +22,10 @@ it for thrust. An impulse is a single kick. An off-center push can also spin the
 object. The solver owns the resulting movement, mass response and collisions.
 See the packaged [C++ Physics Loads example](../samples/physics-loads.md).
 
+C++ can also set a body's movement or rotation speed directly, or stop one while
+the other continues. Speed limits, damping and collisions still apply. Try the
+[C++ Physics Velocity example](../samples/physics-velocity.md).
+
 **Static** uses the authored transform and ignores gravity. Use it for floors and walls.
 
 **Kinematic** follows a target supplied by gameplay. It can push dynamic objects. Merely choosing Kinematic does not add a movement controller.

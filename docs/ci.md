@@ -465,3 +465,19 @@ changing native body configuration after integration.
 The installed PhysicsLoads module reports six actual first-step speeds; the
 consumer checks those values independently under defaults and nondefault tuning,
 alongside existing numerical motion and fresh-worker recovery.
+
+The PhysicsVelocity exact-SDK probe checks copied velocity input, finite/channel/
+identity/owner/fixed guards, ordering with impulses, and pending tags6/7 restored
+in a new worker. The no-Physics fixture also calls both setters from an otherwise
+valid fixed tick and must reject them. Private recovery is now version4.
+
+The combined package compiles the original `PhysicsVelocity/Native` project with
+the same installed SDK, prepares schema/source identity through the existing
+example helper, and checks timed zero stops, preserved channels, caps/damping and
+fresh-process recovery. Assembly verifies the module kit and ships the ordinary
+editable project in `Examples/PhysicsVelocity`. Relocation uses the shipped exact
+schema worker for export, deletes the copied project and test runtime kit, then
+runs production startup and the separately inventoried graphical observer. The
+observer measures four actual solver channels and independent stop positions and
+captures `physics-velocity-running.ppm`. These are CI gates, not physical GPU
+acceptance; inspect actual evidence before promoting a new delivery.

@@ -78,6 +78,37 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert result.returncode == 0, (result.stdout, result.stderr)
         assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     assert len(json.loads((evidence / 'physics-loads-result.json').read_text())) == 6
+    from physics_velocity_example_test import verify as verify_velocity
+    velocity = root / 'C++ Velocity Copy'
+    shutil.copytree(root / 'Examples/PhysicsVelocity', velocity)
+    verify_velocity(root / 'NativeSdk/bin/forge_runtime.exe', velocity, env)
+    velocity_settings = json.loads((velocity / 'forge.project.json').read_text())
+    velocity_module, = velocity_settings['modules']
+    velocity_kit = root / 'Velocity Test Runtime Kit'
+    shutil.copytree(root / 'runtime-kits/shared-native-sdk', velocity_kit)
+    shutil.copyfile(observer, velocity_kit / 'forge_game_fixture.exe')
+    (velocity_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
+    velocity_export = root / 'Exported C++ Physics Velocity'
+    velocity_options = dict(destination=str(velocity_export), runtime_kit=str(velocity_kit),
+        inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'),
+        module_kits={'project.gameplay': str((velocity / velocity_module['library']).parent)})
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(velocity),
+        json.dumps(velocity_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    shutil.rmtree(velocity)
+    shutil.rmtree(velocity_kit)
+    assert not list(velocity_export.rglob('*.cpp')) and not list(velocity_export.rglob('*.hpp'))
+    velocity_evidence = evidence / 'velocity'
+    velocity_evidence.mkdir()
+    for executable, arguments, log in (
+        ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
+        ('forge_game_fixture.exe', ['--packaged-velocity', str(velocity_evidence)], 'capture-host.log')):
+        result = subprocess.run([str(velocity_export / executable), *arguments], cwd=velocity_export,
+            env=env, text=True, capture_output=True, timeout=180)
+        (velocity_evidence / log).write_text(result.stdout + '\n' + result.stderr)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+    assert len(json.loads((velocity_evidence / 'physics-velocity-result.json').read_text())) == 4
     # The user-facing gallery is a normal editable project. Copy it before export,
     # just as the manual instructs, so package hashes remain immutable.
     gallery = root/'Gallery Copy'

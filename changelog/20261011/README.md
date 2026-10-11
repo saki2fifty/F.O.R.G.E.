@@ -1,5 +1,28 @@
 # 2026-10-11
 
+## C++ rigid-body velocity control
+
+Project Code can queue world linear velocity in m/s and angular velocity in
+radians/s for Dynamic bodies. Zero stops the selected channel while preserving
+the other. Existing fixed-step command order, speed caps, damping, native sleep
+policy and motion ownership apply. Kinematic movement keeps its target API.
+The matching exact SDK adds a checked velocity-channel callback; rebuild project
+modules after updating. ABI1 and authored Scene/Prefab versions remain unchanged.
+Private exact-build physics recovery deliberately advances to version4 for the
+two pending velocity tags; prior ephemeral recovery envelopes reject.
+
+The original editable `PhysicsVelocity` project compares coasting and timed stops
+of movement, rotation, or both. Local normal and compiled exact-SDK checks pass,
+including independent full-quaternion motion, nondefault caps/damping, actual
+sensor commands, copied input/owner/fixed/capability guards, and fresh-process
+pending/timed-stop recovery. Both ordinary C++ examples also pass after their
+modules are instrumented with ASan/UBSan. Four core sanitizer suites pass; the
+final force/torque-order additions also pass a focused rebuilt policy check.
+The combined Windows gate compiles and
+packages the matching module and checks source-free export, production startup
+and actual graphical motion. Native Windows execution of this batch and physical
+GPU acceptance are pending; this entry does not claim a new delivered ZIP.
+
 ## Transform timeline local validation
 
 The transform animation bundle is implemented and locally validated. Six focused

@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "name": "FORGE C++ Physics Velocity",
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "3e16441a-5a64-4c11-a4ca-0465dcd757d9",
+    "source": "Scenes/body-velocity.scene.json"
+  },
+  "input": {
+    "version": 1,
+    "actions": []
+  },
+  "modules": [],
+  "game": {
+    "version": 1,
+    "application_id": "org.forge.physics-velocity",
+    "title": "FORGE C++ Physics Velocity",
+    "profile": "development",
+    "save_schema": 1,
+    "display": {
+      "mode": "windowed",
+      "width": 1280,
+      "height": 720,
+      "display": 0,
+      "vsync": false
+    },
+    "audio": {
+      "master_volume": 1.0
+    },
+    "input": {
+      "mouse_sensitivity": 1.0,
+      "gamepad_sensitivity": 1.0,
+      "invert_mouse_y": false,
+      "invert_gamepad_y": false,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    }
+  }
+}

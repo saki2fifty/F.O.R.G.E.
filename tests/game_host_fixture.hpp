@@ -12,7 +12,7 @@ struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
-         expect_module = false, loads = false;
+         expect_module = false, loads = false, velocity = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -66,8 +66,9 @@ struct GameHostFixture {
         reference_reopen = reference && std::string_view(argv[1]) == "--reference-load";
         mixed = argc == 3 && std::string_view(argv[1]) == "--packaged-mixed";
         loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
-        packaged =
-            reference || mixed || loads || (argc == 3 && std::string_view(argv[1]) == "--packaged");
+        velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
+        packaged = reference || mixed || loads || velocity ||
+                   (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
             throw std::runtime_error("Game fixture requires output directory");
@@ -207,6 +208,40 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (velocity) {
+            if (game.status().at("clock").at("tick").get<unsigned>() < 180)
+                return;
+            Json proof = Json::object();
+            const auto scene = game.active().scene.snapshot();
+            for (const auto& entity : scene.at("entities")) {
+                const auto& components = entity.at("components");
+                if (!components.contains("project.velocity_control"))
+                    continue;
+                const auto& control = components.at("project.velocity_control");
+                const auto channel = control.at("stop_channel").get<unsigned>();
+                const auto runtime_entity = game.active().scene.entity(entity.at("id"));
+                const auto ref = game.active().engine.world().reference(runtime_entity.id());
+                const auto state = ref ? game.active().physics()->body_state(*ref) : std::nullopt;
+                check(state && control.at("launched") == true &&
+                          control.at("stopped") == (channel != 0),
+                      "Exported C++ velocity example did not execute launch and timed stops");
+                check(std::abs(state->linear_velocity[1] - (channel & 1 ? 0 : 1)) < 1e-6 &&
+                          std::abs(state->angular_velocity[2] - (channel & 2 ? 0 : 1)) < 1e-6,
+                      "Exported zero velocity command lost the unselected channel");
+                proof[std::to_string(channel)] = components;
+            }
+            check(proof.size() == 4, "Exported C++ velocity example missing actors");
+            const auto y = [&](const char* channel) {
+                return proof.at(channel).at("forge.local_translation").at("y").get<double>();
+            };
+            check(std::abs(y("1") - 119. / 60) < 1e-5 && std::abs(y("1") - y("3")) < 1e-6 &&
+                      y("0") > 2.9 && std::abs(y("0") - y("2")) < 1e-6,
+                  "Exported C++ timed stop failed independent translation equation");
+            atomic_write(output / "physics-velocity-result.json", proof.dump(2));
+            capture("physics-velocity-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (loads) {
             if (game.status().at("clock").at("tick").get<unsigned>() < 30)
                 return;

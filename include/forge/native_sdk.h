@@ -29,6 +29,8 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_PHYSICS_IMPULSE 1u
 #define FORGE_SDK_PHYSICS_TORQUE 2u
 #define FORGE_SDK_PHYSICS_ANGULAR_IMPULSE 3u
+#define FORGE_SDK_PHYSICS_LINEAR_VELOCITY 0u
+#define FORGE_SDK_PHYSICS_ANGULAR_VELOCITY 1u
 #define FORGE_SDK_AUDIO 16u
 #define FORGE_SDK_NAVIGATION 32u
 #define FORGE_SDK_UI 64u
@@ -294,6 +296,12 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* physics_point_velocity)(void*, const char* scene, const char* entity,
                                                     const double world_point[3],
                                                     double out_velocity[3]);
+    /* Fixed owner-thread Physics command; enabled Dynamic body only. Channel
+       LINEAR(m/s) or ANGULAR(rad/s); world vector finite +/-1e6. Zero stops that
+       channel, preserving the other. Native magnitude caps/activation apply.
+       Queued in body-command order;1 accepted,0 invalid/context/unavailable. */
+    int32_t(FORGE_SDK_CALL* physics_set_velocity)(void*, const char* scene, const char* entity,
+                                                  uint32_t channel, const double velocity[3]);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

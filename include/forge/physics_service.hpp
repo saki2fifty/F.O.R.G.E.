@@ -60,6 +60,10 @@ class PhysicsService : public CharacterService {
                              std::optional<LocalTranslation> world_point = {}) = 0;
     virtual void add_torque(EntityRef, Double3) = 0;
     virtual void add_angular_impulse(EntityRef, Double3) = 0;
+    // Copied world velocity commands (m/s and rad/s), preserving the other
+    // channel. Zero stops motion; native limits and activation remain authoritative.
+    virtual void set_linear_velocity(EntityRef, Double3) = 0;
+    virtual void set_angular_velocity(EntityRef, Double3) = 0;
     // Reads do not flush pending commands or wake bodies. Unavailable/unrealized
     // identities return no value; configuration changes adopt at synchronization.
     virtual std::optional<PhysicsBodyState> body_state(EntityRef) const = 0;

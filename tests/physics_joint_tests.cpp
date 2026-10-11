@@ -305,7 +305,7 @@ void lifecycle_and_recovery() {
     f.tick();
     auto snapshot = f.scene.snapshot();
     auto checkpoint = f.physics->checkpoint();
-    require(checkpoint.at("version") == 3, "Joint recovery envelope version");
+    require(checkpoint.at("version") == 4, "Joint recovery envelope version");
     require(checkpoint.at("joints").at(0).at("entity") == Json(f.ref("j3")),
             "Native swapped index order was lost");
     Fixture restored;
@@ -539,6 +539,27 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
                         std::abs((*velocity)[2]) < 1e-6,
                     "Signed cooked point velocity failed angular cross actual COM equation");
         }
+        body.linear_damping = body.angular_damping = 0;
+        f.entity("b").set<PhysicsBody>(body);
+        f.physics->teleport(f.ref("b"), {.3, 3, .15}, {}, true);
+        f.tick();
+        const auto initial = f.physics->body_state(f.ref("b"));
+        f.physics->set_linear_velocity(f.ref("b"), {0, 1, 0});
+        f.physics->set_angular_velocity(f.ref("b"), {0, 0, 1});
+        f.tick();
+        const auto state = f.physics->body_state(f.ref("b"));
+        const double dt = double(1.f / 60);
+        require(initial && state && state->linear_velocity == Double3{0, 1, 0} &&
+                    state->angular_velocity == Double3{0, 0, 1} &&
+                    std::abs(state->centre_of_mass[1] - initial->centre_of_mass[1] - dt) < 1e-6,
+                "Signed cooked velocity setter failed actual center-of-mass motion");
+        const auto origin = point(f, "b");
+        const auto velocity =
+            f.physics->point_velocity(f.ref("b"), {origin[0], origin[1], origin[2]});
+        require(velocity &&
+                    std::abs((*velocity)[0] + origin[1] - state->centre_of_mass[1]) < 1e-6 &&
+                    std::abs((*velocity)[1] - 1 - origin[0] + state->centre_of_mass[0]) < 1e-6,
+                "Signed cooked velocity setter confused body origin with actual native COM");
     }
     require(std::filesystem::remove_all(root) > 0, "Offset fixture cleanup failed");
 }

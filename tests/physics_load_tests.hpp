@@ -131,7 +131,7 @@ void physics_load_tests() {
         original.physics->add_torque(ref, {0, 0, 2});
         original.physics->add_angular_impulse(ref, {0, 0, 1});
         const auto checkpoint = original.physics->checkpoint();
-        check(checkpoint.at("version") == 3 && checkpoint.at("commands").size() == 4,
+        check(checkpoint.at("version") == 4 && checkpoint.at("commands").size() == 4,
               "Pending loads absent from tagged native recovery");
         Fixture recovered;
         auto config = PhysicsConfig{};
@@ -243,7 +243,7 @@ void physics_load_tests() {
             auto& command = damaged["commands"][0];
             switch (mutation) {
             case 0:
-                command["kind"] = 6u;
+                command["kind"] = 8u;
                 break;
             case 1:
                 command["kind"] = -1;

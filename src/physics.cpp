@@ -692,7 +692,9 @@ struct PhysicsRuntime::Impl {
         Force,
         Impulse,
         Torque,
-        AngularImpulse
+        AngularImpulse,
+        LinearVelocity,
+        AngularVelocity
     };
     struct Command {
         EntityRef ref;
@@ -708,16 +710,17 @@ struct PhysicsRuntime::Impl {
         check();
         for (auto v : value)
             if (!std::isfinite(v) || std::abs(v) > 1000000)
-                throw std::runtime_error("Physics load must be finite and within +/-1000000");
+                throw std::runtime_error(
+                    "Physics command vector must be finite and within +/-1000000");
         if (point)
             valid_position(*point);
         const auto resolved = context.resolve(ref);
         if (resolved.state != WorldContext::ResolveState::Available)
-            throw std::runtime_error("Physics load target is unavailable or ambiguous");
+            throw std::runtime_error("Physics command target is unavailable or ambiguous");
         const auto entity = context.world().entity(resolved.entity);
         if (!entity.has<PhysicsBody>() || !entity.get<PhysicsBody>().enabled ||
             entity.get<PhysicsBody>().motion != 2)
-            throw std::runtime_error("Physics load requires an enabled Dynamic Body");
+            throw std::runtime_error("Physics vector command requires an enabled Dynamic Body");
         if (commands.size() >= 4096)
             throw std::runtime_error("Physics command queue full");
         commands.push_back(
@@ -1258,7 +1261,8 @@ void PhysicsRuntime::synchronize(float dt) {
         const auto id = resolved.entity;
         if (cmd.kind >= Impl::CommandKind::Force) {
             if (initial.at(id).first.body.motion != 2 || dt <= 0)
-                throw std::runtime_error("Physics load requires a Dynamic Body and fixed tick");
+                throw std::runtime_error(
+                    "Physics vector command requires a Dynamic Body and fixed tick");
             continue;
         }
         if (cmd.kind == Impl::CommandKind::Kinematic &&
@@ -1366,7 +1370,8 @@ void PhysicsRuntime::synchronize(float dt) {
                 throw std::runtime_error(
                     "Kinematic target requires a Kinematic Body and fixed tick");
             api.MoveKinematic(body.id, position(cmd.p), rotation(cmd.q), dt);
-        } else if (cmd.value != Double3{}) {
+        } else if (cmd.value != Double3{} || cmd.kind == Impl::CommandKind::LinearVelocity ||
+                   cmd.kind == Impl::CommandKind::AngularVelocity) {
             const JPH::Vec3 value(float(cmd.value[0]), float(cmd.value[1]), float(cmd.value[2]));
             switch (cmd.kind) {
             case Impl::CommandKind::Force:
@@ -1386,6 +1391,12 @@ void PhysicsRuntime::synchronize(float dt) {
                 break;
             case Impl::CommandKind::AngularImpulse:
                 api.AddAngularImpulse(body.id, value);
+                break;
+            case Impl::CommandKind::LinearVelocity:
+                api.SetLinearVelocity(body.id, value);
+                break;
+            case Impl::CommandKind::AngularVelocity:
+                api.SetAngularVelocity(body.id, value);
                 break;
             default:
                 throw std::logic_error("Invalid admitted physics load kind");
@@ -1664,6 +1675,12 @@ void PhysicsRuntime::add_torque(EntityRef ref, Double3 value) {
 void PhysicsRuntime::add_angular_impulse(EntityRef ref, Double3 value) {
     impl_->queue_effect(ref, value, Impl::CommandKind::AngularImpulse);
 }
+void PhysicsRuntime::set_linear_velocity(EntityRef ref, Double3 value) {
+    impl_->queue_effect(ref, value, Impl::CommandKind::LinearVelocity);
+}
+void PhysicsRuntime::set_angular_velocity(EntityRef ref, Double3 value) {
+    impl_->queue_effect(ref, value, Impl::CommandKind::AngularVelocity);
+}
 const std::vector<PhysicsContact>& PhysicsRuntime::contacts() const {
     impl_->check();
     return impl_->events;
@@ -1817,7 +1834,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 3},
+    Json out = {{"version", 4},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -1887,7 +1904,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 3 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 4 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -2008,7 +2025,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         if (!c.at("kind").is_number_unsigned())
             throw std::runtime_error("Recovery physics command kind mismatch");
         const auto kind_value = c.at("kind").get<std::uint64_t>();
-        if (kind_value > 5)
+        if (kind_value > static_cast<std::uint32_t>(Impl::CommandKind::AngularVelocity))
             throw std::runtime_error("Recovery physics command kind mismatch");
         const auto kind = static_cast<Impl::CommandKind>(kind_value);
         const auto value = c.at("value").get<Double3>();

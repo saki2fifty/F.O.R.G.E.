@@ -18,7 +18,8 @@ def run_json(*arguments):
     return json.loads(result.stdout)
 
 
-def prepare(source, output, runtime, tools, module=None, module_kit=None):
+def prepare(source, output, runtime, tools, module=None, module_kit=None,
+            component='project.body_loads'):
     source, output, runtime, tools = (Path(p).resolve() for p in (source, output, runtime, tools))
     if output.exists():
         raise ValueError('Example destination must be new')
@@ -50,14 +51,14 @@ def prepare(source, output, runtime, tools, module=None, module_kit=None):
     settings_path.write_text(json.dumps(settings, indent=2) + '\n')
     inspected = run_json(runtime, '--inspect-sdk', output)
     declaration, = inspected['components']
-    if declaration['id'] != 'project.body_loads':
+    if declaration['id'] != component:
         raise ValueError('Unexpected example schema')
     stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
                  schema_version=declaration['schema_version'], digest=declaration['digest'])
     scene_path = output / settings['startup_scene']['source']
     scene = json.loads(scene_path.read_text())
     for entity in scene['entities']:
-        data = entity['components'].get('project.body_loads')
+        data = entity['components'].get(component)
         if data is not None:
             if '$forge' in data and data['$forge'] != stamp:
                 raise ValueError('Example source schema needs explicit migration')
@@ -73,5 +74,6 @@ if __name__ == '__main__':
     modules = parser.add_mutually_exclusive_group(required=True)
     modules.add_argument('--module', type=Path)
     modules.add_argument('--module-kit', type=Path)
+    parser.add_argument('--component', default='project.body_loads')
     arguments = parser.parse_args()
     print(prepare(**vars(arguments)))

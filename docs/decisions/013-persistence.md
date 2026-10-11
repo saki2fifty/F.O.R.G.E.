@@ -74,3 +74,15 @@ include them. Public SDK layout/fingerprint changes mandate a matched rebuild;
 ABI1 and private checkpoint version3 remain unchanged. No second motion owner or
 durable save-game format is introduced. Angular authoring is degrees/s, converted
 once by the native owner. See [physics](../physics.md).
+
+## 2026-10-11 — queued body velocity
+
+Private exact-build physics checkpoint4 deliberately supersedes3 to add two
+strict existing-FIFO tags:6 linear velocity and7 angular velocity. Zero vectors
+retain command intent and stop the selected channel; they cannot be discarded
+using the load no-op rule. The owner validates the full bounded queue before
+native reconstruction and execution. Older ephemeral envelopes reject, while
+authored Scene/Prefab/project versions and durable save formats remain unchanged.
+The checked exact-SDK callback is a tail addition with explicit channel values;
+existing load-kind meanings and native ABI1 are unchanged. Matching SDK module
+rebuilds are required. PhysicsRuntime remains the only motion/queue/recovery owner.

@@ -34,6 +34,11 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
                                              velocity) != -1 ||
                 velocity[0] || velocity[1] || velocity[2])
                 throw std::runtime_error("SDK exposed solver state without Physics capability");
+            for (uint32_t channel :
+                 {FORGE_SDK_PHYSICS_LINEAR_VELOCITY, FORGE_SDK_PHYSICS_ANGULAR_VELOCITY})
+                if (host->physics_set_velocity(host->context, ref.scene_uuid, ref.entity_uuid,
+                                               channel, point) != 0)
+                    throw std::runtime_error("SDK accepted velocity without Physics capability");
             if (host->diagnostic(host->context, 1,
                                  "Body observation denied: Physics capability absent") != 1)
                 throw std::runtime_error("Denied observation fixture marker failed");

@@ -26,6 +26,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Projects](editor/projects.md): create, open, and return to projects.
 - [Project settings](editor/project-settings.md): shared simulation frequency, startup scene, and controls.
 - [Scenes](editor/scenes.md): create and switch scene files.
+- [C++ physics velocity example](samples/physics-velocity.md): launch bodies and stop movement or rotation independently.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
 - [Model import tools](editor/models.md): prepare static glTF asset families and resolve identity conflicts.
 - [Scene lighting](editor/lighting.md): environment maps, sky, intensity, rotation and exposure.

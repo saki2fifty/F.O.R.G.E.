@@ -58,7 +58,7 @@ is retained only when permitted; turning permission off wakes a previously
 sleeping Dynamic body and keeps it active without adding motion. Unchanged bodies
 are not rebuilt or reactivated. Native recovery mapping includes all five values;
 exact SDK fingerprint/layout changes require module rebuilds, while ABI1 and
-durable formats remain unchanged. Private recovery remains version3 and exact-build
+durable formats remain unchanged. Private recovery is version4 and exact-build
 compatible. The existing generic Inspector, history and prefab intent own edits.
 
 Original compiler-free Gallery 23 compares gravity-driven free fall, damping,
@@ -78,7 +78,7 @@ Contact callbacks append bounded token records under a mutex. After Update, the 
 
 Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
 
-At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version3 preserves authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending tagged FORGE body loads/movement, and Jolt StateRecorder bytes. It deliberately supersedes version2, which added joint ordering. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
+At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version4 preserves authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending tagged FORGE body loads/movement/velocity, and Jolt StateRecorder bytes. It deliberately supersedes version3 to admit the two velocity command tags; version3 added loads and version2 added joint ordering. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
 
 Restoration constructs an unpublished candidate world, validates metadata and expected source session/tick/content, restores scene/configuration, validates unique body indices/sequences and EntityRefs/configs, constructs bodies with **CreateBodyWithID**, reconstructs constraints in captured native index order, then calls Jolt **RestoreState**. Only successful restoration swaps the candidate into use. BodyID is a transient reconstruction token. Jolt owns the solver encoding. See upstream [PhysicsSystem](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/PhysicsSystem.cpp), [BodyManager](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/Body/BodyManager.cpp), and [StateRecorderImpl](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/StateRecorderImpl.h).
 
@@ -115,7 +115,43 @@ No native pointers, body handles, authored fields or new recovery state are adde
 Changed exact SDK headers require rebuilding project modules; ABI1 and durable
 document formats remain unchanged.
 
-### Forces and impulses
+### Setting body velocity
+
+`set_linear_velocity(EntityRef, Double3)` queues world center-of-mass velocity in
+m/s; `set_angular_velocity(EntityRef, Double3)` queues world angular velocity in
+radians/s. Enabled Dynamic bodies, including sensors, use the existing bounded
+4096-command FIFO and positive pre-physics boundary. Finite vector coordinates
+must be within +/-1e6. Identity, body settings, shape and role are preflighted
+before any mutation. Kinematic movement retains its target owner.
+
+Each setter preserves the opposite channel. Zero executes and stops that channel;
+zero force/impulse remains a no-op. Native magnitude caps apply when setting the
+velocity, followed by ordinary damping and other solver effects during the step.
+The selected Jolt setter activates an inactive body for a non-near-zero request,
+even if its speed cap reduces the result to zero. A zero request does not wake a
+sleeping body. FIFO order with impulses and clearing teleports is observable:
+setting 3 m/s then adding a 4 N*s impulse to a 2 kg body gives 5 m/s before damping;
+reversing those commands gives 3 m/s. A later clearing teleport clears velocity,
+while accumulated one-step force remains governed by the existing load contract.
+Forces and torques integrate after the queued commands; setters do not erase their
+accumulators. Setting 3 m/s and applying 4 N to a 2 kg body gives
+`3 + 2 * dt` m/s before damping in either submission order.
+
+The exact SDK tail `physics_set_velocity` accepts a copied three-double vector and
+channel `FORGE_SDK_PHYSICS_LINEAR_VELOCITY` or
+`FORGE_SDK_PHYSICS_ANGULAR_VELOCITY`. It returns1queued or0rejected and requires the
+fixed owner thread and Physics capability. PostPhysics queues for the following
+step. Existing load-kind meanings are unchanged. Private checkpoint4 adds strict
+tags6/7; old ephemeral envelopes reject. ABI1 and durable authoring formats stay
+unchanged; rebuild project modules against the matching SDK.
+
+The ordinary `Examples/PhysicsVelocity` C++ project demonstrates launch/coast,
+timed zero stops of each channel and both, and reflected one-shot recovery state.
+Its combined-package gate compiles the project with the installed SDK, measures
+independent motion and true fresh-process recovery, then exports and removes the
+editable source before checking production startup and actual graphical motion.
+
+### Applying forces and impulses
 
 `PhysicsService` exposes `add_force`, `add_impulse`, `add_torque` and
 `add_angular_impulse`. They queue copied world-space vectors in the existing FIFO

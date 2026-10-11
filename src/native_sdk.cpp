@@ -999,6 +999,25 @@ struct Bridge {
                 return -1;
             }
         };
+        host.physics_set_velocity = [](void* p, const char* scene, const char* entity,
+                                       uint32_t channel, const double* vector) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !vector || channel > FORGE_SDK_PHYSICS_ANGULAR_VELOCITY)
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const Double3 velocity{vector[0], vector[1], vector[2]};
+                auto physics = c.services.physics();
+                if (channel == FORGE_SDK_PHYSICS_LINEAR_VELOCITY)
+                    physics->set_linear_velocity(ref, velocity);
+                else
+                    physics->set_angular_velocity(ref, velocity);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;
