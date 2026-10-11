@@ -156,3 +156,21 @@ last IDs through ordinary list scrolling. Selection closes/reopens independently
 of authored geometry and the Scene owner. No selection is serialized or exported;
 published geometry uses the established resource/package route. Shared native SDK
 headers/fingerprint inputs are unchanged by these private editor controls.
+
+## Derived Model view cache
+
+The private editor cache scopes projected points, original positions, depths and
+ordered face drawing loops by source asset/revision, valid numeric/topology preview
+identity, orbit and canvas origin/size. Idle or selection-only frames reuse the
+geometry. Highlighting and selections stay outside the cache. Source/view/preview
+changes rebuild a candidate before replacement; close/load/project switch release
+it. Invalid previews use the original source view. The cache preserves the existing
+projection math, face draw order and click/sculpt/paint coordinates; source history,
+publication, runtime resources, format and native SDK ownership remain unchanged.
+
+Independent axis-coordinate/depth/order and invalidation tests, actual scaled
+selection and Model/UV/brush/facing/shading/triangulation gates pass locally with
+full sanitizer coverage for cache and selection. Same optimized widget fixture
+shows roughly11.4ms warmed idle CPU at4096vertices/3969faces, compared with15.8–17.1ms
+before caching. This is fixture CPU evidence, not a native GPU or physical FPS
+measurement. Native delivery and physical review remain separate acceptance gates.

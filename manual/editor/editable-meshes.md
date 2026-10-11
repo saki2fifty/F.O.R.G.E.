@@ -100,3 +100,9 @@ Open **19-mesh-facing** in the Feature Gallery. Two original open-front rooms
 have the same shape. The left has outward-facing surfaces; the right faces inward
 for viewing the room interior. Open **OutwardRoom.mesh.json** or
 **InwardRoom.mesh.json** in Content to reverse their facing.
+
+## Model responsiveness
+
+The Model workspace reuses its calculated wireframe while the Mesh and view stay
+still. It refreshes the view when you edit geometry, orbit, resize, switch sources
+or change a preview. Vertex selection and highlighting work with the same controls.

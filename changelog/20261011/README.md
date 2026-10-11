@@ -228,3 +228,11 @@ Existing source transforms/history/publication retain their correctness rules.
 Clean Mesh window close releases its document before subsequent drawing. Recent
 key-group, facing and selection suites are included explicitly in native CI.
 Windows capture/physical acceptance is pending a later numbered delivery.
+
+## Model view reuse
+
+The Model workspace caches derived projections and face loops between source/view
+changes. Same optimized4096vertex fixture idle CPU falls from15.8–17.1ms to about11.4ms;
+selection/previews/brush/history/publication and independent geometry/invalidation
+checks pass. No source schema/runtime/SDK ownership changes. Native delivery and
+physical performance acceptance remain pending.

@@ -5,6 +5,7 @@
 #include "../texture_authoring.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
+#include "model_wire_view.hpp"
 #include "widgets.hpp"
 #include <algorithm>
 #include <cmath>
@@ -309,6 +310,7 @@ class EditableMeshEditor {
     bool preview_transform_ = false, preview_extrude_ = false, preview_inset_ = false,
          preview_uv_ = false;
     std::string model_preview_key_, uv_preview_key_, model_preview_error_, uv_preview_error_;
+    ModelWireViewCache model_wire_view_;
     std::optional<EditableMeshSource> model_preview_, uv_preview_;
     float yaw_ = 40, pitch_ = 25;
     int brush_mode_ = 0; // 0 = Select, 1 = Sculpt, 2 = Paint
@@ -377,6 +379,7 @@ class EditableMeshEditor {
     }
     void finish_close() {
         cancel_vertex_box();
+        model_wire_view_.clear();
         reset_uv_scope();
         uv_topology_.clear();
         uv_revision_ = std::numeric_limits<std::uint64_t>::max();
@@ -1042,32 +1045,17 @@ class EditableMeshEditor {
                             IM_COL32(14, 34, 46, 255));
         const double yaw = yaw_ * 3.14159265358979323846 / 180.0;
         const double pitch = pitch_ * 3.14159265358979323846 / 180.0;
-        std::map<std::uint32_t, ImVec2> projected;
-        std::map<std::uint32_t, double> depth_by_vertex;
-        std::map<std::uint32_t, std::array<double, 3>> local_vertices;
-        float min_x = 1e9f, min_y = 1e9f, max_x = -1e9f, max_y = -1e9f;
-        for (const auto& vertex : source.document.at("vertices")) {
-            const auto& p = vertex.at("position");
-            const double x = p[0].get<double>(), y = p[1].get<double>(), z = p[2].get<double>();
-            const auto horizontal = std::cos(yaw) * x - std::sin(yaw) * z;
-            const auto depth = std::sin(yaw) * x + std::cos(yaw) * z;
-            const auto vertical = std::cos(pitch) * y - std::sin(pitch) * depth;
-            const auto key = vertex.at("id").get<std::uint32_t>();
-            projected[key] = {static_cast<float>(horizontal), static_cast<float>(-vertical)};
-            depth_by_vertex[key] = std::cos(pitch) * depth + std::sin(pitch) * y;
-            local_vertices[key] = {x, y, z};
-            min_x = std::min(min_x, projected[key].x);
-            min_y = std::min(min_y, projected[key].y);
-            max_x = std::max(max_x, projected[key].x);
-            max_y = std::max(max_y, projected[key].y);
-        }
-        const auto fit = std::min((size.x - 40) / std::max(0.01f, max_x - min_x),
-                                  (size.y - 40) / std::max(0.01f, max_y - min_y));
-        for (auto& [key, point] : projected) {
-            (void)key;
-            point.x = origin.x + size.x * 0.5f + (point.x - (min_x + max_x) * 0.5f) * fit;
-            point.y = origin.y + size.y * 0.5f + (point.y - (min_y + max_y) * 0.5f) * fit;
-        }
+        const bool preview = model_preview_ && &source == &*model_preview_;
+        model_wire_view_.refresh(source, {source.asset(), document_->revision(),
+                                          preview ? model_preview_key_ : std::string{}, yaw_,
+                                          pitch_, origin, size});
+        const auto& view = model_wire_view_.view();
+        const auto& projected = view.projected;
+        const auto& depth_by_vertex = view.depths;
+        const auto& local_vertices = view.positions;
+        const auto min_x = view.min_x, min_y = view.min_y;
+        const auto max_x = view.max_x, max_y = view.max_y;
+        const auto fit = view.fit;
         if (vertex_box_.active &&
             (!box_select_vertices_ || mode_ != SelectionMode::Vertex || brush_mode_ || locked ||
              pending() || preview_transform_ || preview_inset_ || preview_extrude_ ||
@@ -1310,12 +1298,9 @@ class EditableMeshEditor {
                 }
             }
         }
-        for (const auto& polygon : source.document.at("faces")) {
-            std::vector<ImVec2> loop;
-            for (const auto& corner : polygon.at("corners"))
-                loop.push_back(projected.at(corner.at("vertex").get<std::uint32_t>()));
-            const bool selected =
-                polygon.at("id").get<std::uint32_t>() == face_ && mode_ == SelectionMode::Face;
+        for (const auto& face : view.faces) {
+            const auto& loop = face.loop;
+            const bool selected = face.id == face_ && mode_ == SelectionMode::Face;
             draw->AddConvexPolyFilled(loop.data(), static_cast<int>(loop.size()),
                                       selected ? IM_COL32(176, 132, 42, 105)
                                                : IM_COL32(59, 117, 145, 34));
