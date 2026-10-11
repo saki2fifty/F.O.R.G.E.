@@ -1,4 +1,5 @@
 // A real matching-SDK consumer. Observations are copied and read after animation.
+#include "../projects/FeatureGallery/CodeExamples/OneShotReturn.hpp"
 #include <cstdio>
 #include <cstring>
 #include <flecs.h>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <thread>
 void forge_register_system_MarkerPulse(const ForgeSdkWorldV1* host);
 namespace {
 void check(bool ok, const char* message) {
@@ -36,6 +38,11 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t cap
         outside.size = sizeof(outside);
         check(h->animation_read_event(h->context, 0, &outside) == 0,
               "Markers readable outside fixed tick");
+        ForgeSdkAnimationPlaybackV1 outside_status{};
+        outside_status.size = sizeof(outside_status);
+        check(h->animation_playback(h->context, "00000000-0000-4000-8000-000000000001",
+                                    "00000000-0000-4000-8000-000000000002", &outside_status) == 0,
+              "Playback readable outside fixed callback");
         outside.size = 0;
         check(h->animation_read_event(h->context, 0, &outside) == -1,
               "Invalid event size accepted");
@@ -84,6 +91,48 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t cap
                                   event.value == again.value &&
                                   std::strcmp(event.name, again.name) == 0,
                               "Broadcast read consumed marker");
+                        ForgeSdkAnimationPlaybackV1 playback{};
+                        playback.size = sizeof(playback);
+                        check(h->animation_playback(h->context, event.scene_uuid, event.entity_uuid,
+                                                    &playback) == 1 &&
+                                  playback.version == 1 && playback.state == event.state &&
+                                  playback.duration > 0 && playback.progress >= 0 &&
+                                  playback.progress <= 1 && playback.native_entity &&
+                                  (!playback.loop || !playback.finished) &&
+                                  playback.state_name[0] &&
+                                  std::strcmp(playback.clip_uuid, event.clip_uuid) == 0,
+                              "Current incoming playback status invalid");
+                        if (event.tick == 1) {
+                            int32_t outside_result = -2;
+                            std::thread outsider([&] {
+                                ForgeSdkAnimationPlaybackV1 outside_copy{};
+                                outside_copy.size = sizeof(outside_copy);
+                                outside_result = h->animation_playback(
+                                    h->context, event.scene_uuid, event.entity_uuid, &outside_copy);
+                            });
+                            outsider.join();
+                            check(outside_result == -1, "Cross-thread playback read accepted");
+                        }
+                        ForgeSdkAnimationPlaybackV1 invalid{};
+                        invalid.size = 1;
+                        check(h->animation_playback(h->context, event.scene_uuid, event.entity_uuid,
+                                                    &invalid) == -1,
+                              "Invalid status size accepted");
+                        invalid.size = sizeof(invalid);
+                        invalid.time = 123;
+                        check(h->animation_playback(h->context, "not-a-uuid", event.entity_uuid,
+                                                    &invalid) == -1 &&
+                                  invalid.time == 0,
+                              "Invalid status arguments leaked output");
+                        invalid.size = sizeof(invalid);
+                        check(h->animation_playback(h->context, event.scene_uuid,
+                                                    "00000000-0000-4000-8000-000000000001",
+                                                    &invalid) == 0 &&
+                                  invalid.time == 0,
+                              "Missing playback target accepted");
+                        if (forge_return_on_animation_completion(h, it.world(), event.scene_uuid,
+                                                                 event.entity_uuid, 1))
+                            h->diagnostic(h->context, 1, "marker_probe: one-shot returned to Idle");
                         char text[256];
                         std::snprintf(text, sizeof(text), "marker_probe: %u %llu %s %.6f %.6f",
                                       event.marker, static_cast<unsigned long long>(event.tick),

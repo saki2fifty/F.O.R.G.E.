@@ -79,3 +79,7 @@ run. See **Choose named animation states** in the manual for a complete function
 The Quaternius clips are CC0; `Assets/Quaternius-PROVENANCE.md` identifies the
 original download and the three-clip derivative. `Quaternius-LICENSE.txt` is the
 creator's bundled license.
+
+During Play, select an animated root to see live clip progress in the Inspector.
+CodeExamples includes an optional original one-shot return-to-Idle helper; see its
+README before building/exporting compiled behavior.

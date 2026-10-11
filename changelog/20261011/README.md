@@ -86,3 +86,16 @@ ordinary publication/real-rig/source-free export; manual/package/hash/format che
 Windows delivery of the preceding animation batches is running as build152 after
 a CMake target-order correction. This marker batch is not included in build152.
 Windows D3D12 execution and physical acceptance of markers are not claimed here.
+
+## Animation playback status and live progress
+
+- C++ reads realized clip/state, fixed time/progress, completion and fade/mix through
+  the existing matching Animation service. Queries leave clocks unchanged.
+- Live Inspector shows a read-only progress section. The Gallery includes an
+  original one-shot return-to-Idle helper; it keeps no separate timer.
+- Correct animation UI test registration and link dependencies. Local precise UI
+  linkage no longer relies on a superset of cached libraries.
+- Local validation: affected sanitizer9/9, ordinary state/real-rig/export2/2,
+  matching SDK2/2, actual C++ completion and recovery, ImGui65/100/200% and timeline,
+  manual3/3/package1/1. Matching modules require rebuilding. Windows delivery and
+  physical acceptance are separate; failed152/cancelled153 produced no new ZIP.

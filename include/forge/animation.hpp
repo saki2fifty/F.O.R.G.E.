@@ -26,6 +26,7 @@ class AnimationRuntime : public AnimationService {
     void catalog(std::shared_ptr<const AssetCatalog>);
     void tick(float dt, std::uint64_t tick = 0);
     std::span<const AnimationEvent> events() const override;
+    std::optional<AnimationPlayback> playback(EntityRef) const override;
     // Host-owned copied editor previews never deliver gameplay markers.
     void event_delivery(bool enabled);
     void reset_presentation();

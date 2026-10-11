@@ -324,8 +324,28 @@ Json RuntimeSimulation::presentation(double alpha) const {
                 item["navigation_debug"] = std::move(nav);
         }
         if (animation_) {
-            auto pose = animation_->presentation(entity, alpha);
             const auto node = context_.world().entity(entity);
+            if (node.has<Animator>())
+                if (const auto reference = context_.reference(entity))
+                    if (const auto status = animation_->playback(*reference))
+                        item["animation_playback"] = {
+                            {"state", status->state},
+                            {"state_name", status->state_name},
+                            {"states", status->states ? Json(status->states) : Json()},
+                            {"clip", status->clip},
+                            {"blend_clip", status->blend_clip ? Json(status->blend_clip) : Json()},
+                            {"time", status->time},
+                            {"duration", status->duration},
+                            {"progress", status->progress},
+                            {"speed", status->speed},
+                            {"enabled", status->enabled},
+                            {"loop", status->loop},
+                            {"playing", status->playing},
+                            {"finished", status->finished},
+                            {"transitioning", status->transitioning},
+                            {"transition_weight", status->transition_weight},
+                            {"blend_weight", status->blend_weight}};
+            auto pose = animation_->presentation(entity, alpha);
             // Disabling the animation consumer does not disable its meshes.
             // Without a live animation selection, meshes use node morph defaults
             // and the current ECS transforms, as any ordinary model instance.

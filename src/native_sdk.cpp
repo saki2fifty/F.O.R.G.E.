@@ -137,6 +137,58 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.animation_playback = [](void* p, const char* scene, const char* entity,
+                                     ForgeSdkAnimationPlaybackV1* output) -> int32_t {
+            if (!output || output->size != sizeof(*output))
+                return -1;
+            *output = {};
+            output->size = sizeof(*output);
+            output->version = 1;
+            try {
+                if (!scene || !entity)
+                    return -1;
+                const EntityRef reference{AssetId::parse(scene), EntityId::parse(entity)};
+                auto& b = Bridge::get(p);
+                if (!b.context.owner->on_owner_thread() || !b.runtime_active() ||
+                    !b.context.input || !b.context.services.available(Capability::Animation))
+                    return 0;
+                const auto value = b.context.services.animation()->playback(reference);
+                if (!value)
+                    return 0;
+                const auto resolved = b.context.owner->resolve(reference);
+                if (resolved.state != WorldContext::ResolveState::Available)
+                    return 0;
+                auto copy_value = *output;
+                copy_value.native_entity = resolved.entity;
+                copy_value.state = value->state;
+                copy_value.enabled = value->enabled;
+                copy_value.loop = value->loop;
+                copy_value.playing = value->playing;
+                copy_value.finished = value->finished;
+                copy_value.transitioning = value->transitioning;
+                copy_value.time = value->time;
+                copy_value.duration = value->duration;
+                copy_value.progress = value->progress;
+                copy_value.speed = value->speed;
+                copy_value.transition_weight = value->transition_weight;
+                copy_value.blend_weight = value->blend_weight;
+                const auto copy = [](auto& to, const std::string& from) {
+                    std::memcpy(to, from.data(), std::min(from.size(), sizeof(to) - 1));
+                };
+                copy(copy_value.scene_uuid, reference.scene.str());
+                copy(copy_value.entity_uuid, reference.entity.str());
+                if (value->states)
+                    copy(copy_value.states_uuid, value->states.str());
+                copy(copy_value.clip_uuid, value->clip.str());
+                if (value->blend_clip)
+                    copy(copy_value.blend_clip_uuid, value->blend_clip.str());
+                copy(copy_value.state_name, value->state_name);
+                *output = copy_value;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.animation_read_event = [](void* p, uint32_t index,
                                        ForgeSdkAnimationEventV1* output) -> int32_t {
             if (!output || output->size != sizeof(*output))
@@ -146,8 +198,8 @@ struct Bridge {
             output->version = 1;
             try {
                 auto& b = Bridge::get(p);
-                if (!b.runtime_active() || !b.context.input ||
-                    !b.context.services.available(Capability::Animation))
+                if (!b.context.owner->on_owner_thread() || !b.runtime_active() ||
+                    !b.context.input || !b.context.services.available(Capability::Animation))
                     return 0;
                 const auto events = b.context.services.animation()->events();
                 if (index >= events.size() || events[index].tick != b.context.input->tick)

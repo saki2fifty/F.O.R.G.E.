@@ -62,6 +62,89 @@ struct Fixture {
         e.set(c);
     }
 };
+void playback_tests(const std::filesystem::path& root, const Json& doc, EntityId actor,
+                    const AnimationStatesSource& source) {
+    Fixture f(root, doc, actor);
+    const auto entity = f.scene.entity(actor.str());
+    const auto reference = *f.engine.world().reference(entity.id());
+    auto status = [&] {
+        const auto value = f.animation->playback(reference);
+        require(bool(value), "Realized playback unavailable");
+        return *value;
+    };
+    const auto initial = status();
+    require(initial.state == 1 && initial.state_name == "Idle" && initial.loop && initial.enabled &&
+                initial.playing && !initial.finished && !initial.transitioning,
+            "Initial named playback flags");
+    near(initial.time, 0, "Initial time");
+    near(initial.duration, 2, "Fixture duration");
+    f.animation->tick(.5f, 1);
+    near(status().time, .5, "Authoritative clip time");
+    near(status().progress, .25, "Normalized progress");
+    const auto checkpoint = f.animation->checkpoint();
+    for (unsigned i = 0; i < 10; ++i) {
+        (void)status();
+        (void)f.animation->presentation(entity.id(), .2);
+    }
+    require(checkpoint == f.animation->checkpoint(), "Status/presentation mutated fixed clocks");
+    Fixture restored(root, doc, actor);
+    restored.animation->restore(checkpoint);
+    near(restored.animation->playback(reference)->progress, .25, "Restored progress");
+    f.animation->tick(2.25f, 2);
+    near(status().time, .75, "Wrapped loop time");
+    require(!status().finished, "Loop reported complete");
+    auto request = entity.get<Animator>();
+    request.enabled = false;
+    entity.set(request);
+    f.animation->tick(.2f, 3);
+    near(status().time, .75, "Disabled clock advanced");
+    require(!status().enabled && !status().playing, "Disabled playback flags");
+    request.enabled = true;
+    request.playback_speed = 0;
+    entity.set(request);
+    f.animation->tick(.2f, 4);
+    near(status().time, .75, "Zero-speed clock advanced");
+    require(status().enabled && !status().playing, "Zero-speed playback flags");
+    request.state = 999;
+    entity.set(request);
+    f.animation->tick(.2f, 5);
+    require(status().state == 1, "Invalid request lost last-good realization");
+    request.state = 3;
+    request.playback_speed = 4;
+    entity.set(request);
+    f.animation->tick(.15f, 6);
+    require(status().finished && !status().loop && status().transitioning && status().playing,
+            "Nonloop completion conflated with longer fade");
+    near(status().progress, 1, "Nonloop endpoint progress");
+    near(status().transition_weight, .15 / .4, "Named incoming fade weight");
+    f.animation->tick(.3f, 7);
+    require(status().finished && !status().transitioning && !status().playing,
+            "Completed fade remains active");
+    entity.remove<Animator>();
+    require(!f.animation->playback(reference), "Removed Animator accepted");
+    require(!f.animation->playback({AssetId::generate(), EntityId::generate()}),
+            "Missing entity accepted");
+    f.animation->shutdown();
+    require(!f.animation->playback(reference), "Shutdown retained playback");
+
+    auto direct = doc;
+    auto& config = direct["entities"][0]["components"]["forge.animator"];
+    config["states"] = nullptr;
+    config["state"] = 0;
+    config["skeleton"] = source.document.at("skeleton");
+    config["clip"] = source.document.at("states")[0].at("clip");
+    config["blend_clip"] = source.document.at("states")[1].at("clip");
+    config["blend_weight"] = .6;
+    Fixture mixed(root, direct, actor);
+    mixed.animation->tick(.25f, 1);
+    const auto mix = mixed.animation->playback(reference);
+    require(mix && !mix->states && !mix->state && mix->state_name.empty() && mix->blend_clip &&
+                !mix->transitioning && !mix->finished,
+            "Direct blend mislabeled as named-state transition");
+    near(mix->blend_weight, .6, "Direct mix weight");
+    near(mix->transition_weight, 1, "Direct named fade default");
+    near(mix->progress, .125, "Direct incoming progress");
+}
 void marker_tests(const std::filesystem::path& root, const Json& doc, EntityId actor) {
     const auto ids = [&](Fixture& f) {
         std::vector<std::uint32_t> result;
@@ -444,7 +527,8 @@ int main(int argc, char** argv) {
             if (row.at("components").contains("forge.animator"))
                 row["components"]["forge.animator"]["states"] = marker_graph;
         if (argc != 6)
-            marker_tests(root, marker_doc, actor);
+            playback_tests(root, marker_doc, actor, marker_source);
+        marker_tests(root, marker_doc, actor);
         if (argc == 6) {
             const bool markers = std::string_view(argv[5]) == "--markers-prepare";
             require(markers || std::string_view(argv[5]) == "--prepare",

@@ -69,3 +69,6 @@ CodeExamples/MarkerPulseSystem.cpp consumer is registered. Normal Gallery playba
 shows the clips without needing a compiler. The example uses PostPhysics and
 ordinary LocalScale writes; it has no private timer or replacement animation owner.
 See the Gallery CodeExamples README and user manual for setup/export.
+
+[Playback status](animation-playback-status.md) uses the same owner/service for
+read-only incoming clip progress and completion.

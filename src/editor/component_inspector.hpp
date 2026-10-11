@@ -3,6 +3,7 @@
 #include "document.hpp"
 #include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
+#include <algorithm>
 #include <forge/authoring.hpp>
 #include <set>
 namespace forge {
@@ -12,6 +13,30 @@ class ComponentInspector {
 #ifdef FORGE_UI_FIXTURE
     std::string fixture_focus_component;
 #endif
+    void draw_animation_playback(const Json& status) {
+        if (!status.is_object())
+            return;
+        ui::heading("Animation playback",
+                    "Read-only realized animation. Progress uses fixed simulation time.");
+        const auto name = status.value("state_name", std::string());
+        ImGui::Text("State: %s", name.empty() ? "Direct clip" : name.c_str());
+        const auto time = status.value("time", 0.);
+        const auto duration = status.value("duration", 0.);
+        ImGui::Text("Time: %.3f / %.3f seconds", time, duration);
+        const auto progress = std::clamp(status.value("progress", 0.), 0., 1.);
+        ImGui::ProgressBar(float(progress), {-1, 0});
+        FORGE_UI_PROBE("animation_playback:progress");
+        const char* activity = !status.value("enabled", false)   ? "Disabled"
+                               : status.value("finished", false) ? "Clip finished"
+                               : status.value("playing", false)  ? "Playback active"
+                                                                 : "Held";
+        ImGui::Text("%s | %s | Speed %.3f", activity,
+                    status.value("loop", false) ? "Loop" : "One-shot", status.value("speed", 0.));
+        if (status.value("transitioning", false))
+            ImGui::Text("Incoming fade: %.1f%%", status.value("transition_weight", 1.) * 100);
+        if (!status.value("blend_clip", Json()).is_null())
+            ImGui::Text("Clip mix: %.1f%%", status.value("blend_weight", 0.) * 100);
+    }
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<void(const std::string&)> open_cpp_definition;
@@ -70,6 +95,8 @@ class ComponentInspector {
         ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
                                      "scene and prefab state.");
         ImGui::TextColored({0.61f, 0.93f, 0.89f, 1.0f}, "PLAY — temporary values");
+        if (entity->contains("animation_playback"))
+            draw_animation_playback(entity->at("animation_playback"));
         for (const auto& type : schema.at("components")) {
             if (!type.is_object() || !type.value("custom", false) || !type.contains("admission") ||
                 !type.contains("fields"))

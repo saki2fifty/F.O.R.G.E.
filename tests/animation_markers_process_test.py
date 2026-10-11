@@ -95,11 +95,18 @@ try:
     assert abs(root_actor['components']['forge.local_scale']['y'] - 1.12) < 1e-5, root_actor
     time.sleep(.03)
     assert ids(first.request('snapshot')) == [1, 2]
+    before = root_actor['animation_playback']
+    assert before['state'] == 1 and abs(before['progress'] - .25) < 1e-6, before
+    paused = first.request('snapshot')
+    assert next(e['animation_playback'] for e in paused['effective_scene']['entities']
+                if 'animation_playback' in e) == before
     checkpoint = stepped['recovery']
     second = Worker()
     second.request('hello', simulation_hz=60)
     recovered = restore(second, checkpoint)
     assert not occurrences(recovered), recovered
+    assert next(e['animation_playback'] for e in recovered['effective_scene']['entities']
+                if 'animation_playback' in e) == before
     for _ in range(90):
         advanced = second.request('step')
     assert ids(advanced) == [3, 1, 4], advanced
@@ -109,7 +116,24 @@ try:
         advanced = second.request('step')
     assert ids(advanced) == [3, 1, 4], advanced
     assert not any(d['severity'].lower() in ('error', 'fatal') for d in advanced['diagnostics']), advanced
-    print('Matching C++ PostPhysics marker copies, current-tick gating, broadcast reads, capabilities, Pause/Step, removed-target rejection and recovery passed')
+    one_shot = json.loads((root/'main.scene.json').read_text())
+    next(e['components']['forge.animator'] for e in one_shot['entities']
+         if 'forge.animator' in e['components']).update(state=3, playback_speed=4)
+    loaded = second.request('replace', scene=one_shot)
+    deadline = time.monotonic() + 15
+    while pose(loaded) is None and time.monotonic() < deadline:
+        time.sleep(.002)
+        loaded = second.request('snapshot')
+    assert pose(loaded) is not None, loaded
+    for _ in range(10):
+        advanced = second.request('step')
+    active = next(e for e in advanced['effective_scene']['entities']
+                  if 'animation_playback' in e)
+    assert active['components']['forge.animator']['state'] == 1, active
+    assert active['animation_playback']['state'] == 1, active
+    assert any('one-shot returned to Idle' in d['text'] for d in advanced['diagnostics']), advanced
+    assert not any(d['severity'].lower() in ('error', 'fatal') for d in advanced['diagnostics']), advanced
+    print('Matching C++ playback status, one-shot return, markers, Pause/Step, target lifetime and second-process recovery passed')
 finally:
     first.close()
     if second:

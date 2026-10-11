@@ -1058,6 +1058,41 @@ std::span<const AnimationEvent> AnimationRuntime::events() const {
     return impl_ ? std::span<const AnimationEvent>(impl_->events)
                  : std::span<const AnimationEvent>();
 }
+std::optional<AnimationPlayback> AnimationRuntime::playback(EntityRef reference) const {
+    if (!impl_ || !impl_->context.on_owner_thread())
+        return {};
+    const auto resolved = impl_->context.resolve(reference);
+    if (resolved.state != WorldContext::ResolveState::Available ||
+        !impl_->context.world().entity(resolved.entity).has<Animator>() ||
+        impl_->pending.contains(resolved.entity) || impl_->binding_errors.contains(resolved.entity))
+        return {};
+    const auto found = impl_->states.find(resolved.entity);
+    if (found == impl_->states.end())
+        return {};
+    const auto& p = found->second;
+    AnimationPlayback result;
+    result.entity = reference;
+    result.states = p.requested.states.id;
+    result.clip = p.config.clip.id;
+    result.blend_clip = p.config.blend_clip.id;
+    result.time = p.time;
+    result.duration = p.assets.clip->info().duration;
+    result.progress = std::clamp(result.time / result.duration, 0., 1.);
+    result.speed = p.config.playback_speed;
+    result.enabled = p.config.enabled;
+    result.loop = p.config.loop;
+    result.playing = p.config.enabled && p.playing && p.config.playback_speed > 0;
+    result.finished = !p.config.loop && p.time >= result.duration;
+    if (p.definition) {
+        result.state = p.config.state;
+        result.state_name = p.definition->state(p.config.state).name;
+        result.transition_weight = p.blend;
+        result.transitioning = p.blend < 1 && (p.outgoing_sampler || !p.frozen.empty());
+    } else {
+        result.blend_weight = p.blend;
+    }
+    return result;
+}
 void AnimationRuntime::event_delivery(bool enabled) {
     if (impl_) {
         impl_->deliver_events = enabled;

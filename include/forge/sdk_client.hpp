@@ -62,6 +62,14 @@ class Client {
                    ? host_->animation_read_event(host_->context, index, &out)
                    : 0;
     }
+    int32_t animation_playback(const char* scene, const char* entity,
+                               ForgeSdkAnimationPlaybackV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Animation) && host_->animation_playback
+                   ? host_->animation_playback(host_->context, scene, entity, &out)
+                   : 0;
+    }
     bool character(const char* scene, const char* entity, ForgeSdkCharacterV1& out) const {
         out = {};
         out.size = sizeof(out);

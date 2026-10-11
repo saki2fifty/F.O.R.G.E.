@@ -1,5 +1,6 @@
 #include "editor/animation_preview.hpp"
 #include "editor/animation_states_editor.hpp"
+#include "editor/component_inspector.hpp"
 #include <fstream>
 #include <imgui_internal.h>
 #include <iostream>
@@ -53,6 +54,8 @@ int main(int argc, char** argv) {
             bool state_document = false;
             std::string message;
             bool play = false;
+            ComponentInspector inspector;
+            bool playback_inspector = false;
             auto frame = [&] {
                 test::ui_targets.clear();
                 editor.poll(project, scene, play, io.DeltaTime);
@@ -60,7 +63,29 @@ int main(int argc, char** argv) {
                 ImGui::NewFrame();
                 ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
                 ImGui::SetNextWindowSize({1600, 1600}, ImGuiCond_Always);
-                if (state_document)
+                if (playback_inspector) {
+                    ImGui::Begin("Live Inspector test");
+                    const auto effective =
+                        Json{{"entities", Json::array({{{"id", actor},
+                                                        {"components", Json::object()},
+                                                        {"animation_playback",
+                                                         {{"state_name", "Walk"},
+                                                          {"time", .5},
+                                                          {"duration", 2.},
+                                                          {"progress", .25},
+                                                          {"speed", 1.},
+                                                          {"enabled", true},
+                                                          {"loop", true},
+                                                          {"playing", true},
+                                                          {"finished", false},
+                                                          {"transitioning", true},
+                                                          {"transition_weight", .5},
+                                                          {"blend_clip", nullptr}}}}})}};
+                    inspector.draw_runtime(
+                        effective, {{"components", Json::array()}}, root, actor,
+                        [](const auto&, const auto&, const auto&) { return false; });
+                    ImGui::End();
+                } else if (state_document)
                     states_editor.draw(project, scene, play);
                 else
                     editor.draw(project, scene, play);
@@ -108,6 +133,16 @@ int main(int argc, char** argv) {
                 io.AddKeyEvent(ImGuiKey_Enter, false);
                 frame();
             };
+            playback_inspector = true;
+            frame();
+            frame();
+            const auto progress_box = target("animation_playback:progress");
+            require(progress_box.maximum.x > progress_box.minimum.x &&
+                        progress_box.maximum.y > progress_box.minimum.y,
+                    "Live playback progress has no visible geometry");
+            require(scene.document() == before && scene.revision() == revision,
+                    "Read-only live status changed authoring");
+            playback_inspector = false;
             frame();
             frame();
             click("Play preview");
