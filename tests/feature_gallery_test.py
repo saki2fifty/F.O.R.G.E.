@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -102,8 +102,8 @@ try:
                       expected_revision=context['revision'], document=source)
         context = call('discover')['result']
         loaded = call('scene.read', target=context['target'])['result']
-        # Additive PhysicsBody setting: old sources retain their bytes while the
-        # admitted typed value explicitly exposes its default discrete choice.
+        # Additive builtin settings: old source bytes remain unchanged while
+        # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
             body = row['components'].get('forge.physics_body')
@@ -114,6 +114,10 @@ try:
                 body.setdefault('max_linear_velocity', 500.)
                 body.setdefault('max_angular_velocity', 2700.)
                 body.setdefault('allow_sleeping', True)
+            joint = row['components'].get('forge.physics_joint')
+            if joint is not None:
+                joint.setdefault('min_travel', -1.)
+                joint.setdefault('max_travel', 1.)
         same_authored_value(loaded, expected, str(path))
         assert context['revision'] == result['revision']
         for entity in loaded['entities']:

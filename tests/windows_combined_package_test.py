@@ -387,6 +387,40 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
     assert not (tuning_export/'Scenes').exists() and not (tuning_export/'Assets').exists()
+    # Run the ordinary slider gallery after deleting its editable source copy.
+    slider_source = root / 'Slider Gallery Copy'
+    shutil.copytree(gallery, slider_source)
+    slider_scene = 'Scenes/24-slider-joints.scene.json'
+    slider = json.loads((slider_source / slider_scene).read_text())
+    slider_settings = json.loads((slider_source / 'forge.project.json').read_text())
+    slider_settings['startup_scene'] = dict(asset=slider['asset_id'], source=slider_scene)
+    (slider_source / 'forge.project.json').write_text(json.dumps(slider_settings))
+    slider_kit = root / 'Slider Test Runtime Kit'
+    shutil.copytree(root / 'runtime-kit', slider_kit)
+    shutil.copyfile(observer, slider_kit / 'forge_game_fixture.exe')
+    slider_metadata = json.loads((slider_kit / 'forge.runtime-kit.json').read_text())
+    slider_metadata['files']['forge_game_fixture.exe'] = dict(bytes=len(observer_data),
+        sha256=hashlib.sha256(observer_data).hexdigest())
+    (slider_kit / 'forge.runtime-kit.json').write_text(json.dumps(slider_metadata))
+    slider_export = root / 'Slider Joint Standalone'
+    exported = subprocess.run([str(tools), '--assets', 'export-game', str(slider_source),
+        json.dumps(dict(destination=str(slider_export), runtime_kit=str(slider_kit)))],
+        cwd=root, env=env, text=True, capture_output=True, timeout=180)
+    assert exported.returncode == 0 and json.loads(exported.stdout)['ok'], (exported.stdout, exported.stderr)
+    shutil.rmtree(slider_source)
+    shutil.rmtree(slider_kit)
+    assert not (slider_export / 'Scenes').exists() and not (slider_export / 'Assets').exists()
+    slider_evidence = evidence.parent / 'Slider Joint'
+    slider_evidence.mkdir(parents=True, exist_ok=True)
+    for executable, arguments, log in (
+        ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
+        ('forge_game_fixture.exe', ['--packaged-slider', str(slider_evidence)], 'capture-host.log')):
+        result = subprocess.run([str(slider_export / executable), *arguments], cwd=slider_export,
+            env=env, text=True, capture_output=True, timeout=180)
+        (slider_evidence / log).write_text(result.stdout + result.stderr)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+    assert len(json.loads((slider_evidence / 'physics-slider-result.json').read_text())['carriages']) == 2
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

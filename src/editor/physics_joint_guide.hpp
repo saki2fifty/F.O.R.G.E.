@@ -14,7 +14,8 @@ struct PhysicsJointGuideFrame {
 };
 struct PhysicsJointGuide {
     bool enabled = true, valid = false;
-    unsigned kind = 4; // Invalid/unavailable settings until the shared codec admits them.
+    unsigned kind = 5; // Invalid/unavailable settings until the shared codec admits them.
+    float min_travel = 0, max_travel = 0;
     std::array<unsigned, 2> axis{}, normal{};
     std::array<PhysicsJointGuideFrame, 2> bodies;
     std::string error;
@@ -36,6 +37,8 @@ inline std::optional<PhysicsJointGuide> prepare_physics_joint_guide(const Json& 
             physics_detail::joint_from_value(joint_row->at("components").at("forge.physics_joint"));
         guide.enabled = joint.enabled;
         guide.kind = joint.kind;
+        guide.min_travel = joint.min_travel;
+        guide.max_travel = joint.max_travel;
         guide.axis = {joint.axis_a, joint.axis_b};
         guide.normal = {joint.normal_a, joint.normal_b};
         const std::array refs{joint.body_a, joint.body_b};

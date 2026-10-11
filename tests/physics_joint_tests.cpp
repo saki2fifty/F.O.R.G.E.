@@ -251,29 +251,31 @@ void four_type_recovery() {
         f.scene.entity(id).set<PhysicsJoint>(next);
         return id;
     };
-    const auto fixed = add("Fixed", 3), distance_id = add("Last distance", 0);
+    const auto fixed = add("Fixed", 3);
+    add("Slider", 4);
+    const auto distance_id = add("Last distance", 0);
     f.physics->teleport(f.ref("b"), {.2, 3, .1}, {0, 0, .1f, std::sqrt(.99f)}, true);
     f.tick(3);
-    require(f.physics->status().at("joints") == 5, "Four native joint types not realized");
+    require(f.physics->status().at("joints") == 6, "Five native joint types not realized");
     joint.enabled = false;
     f.entity("j").set<PhysicsJoint>(joint);
     f.tick();
     const auto snapshot = f.scene.snapshot(), checkpoint = f.physics->checkpoint();
-    require(checkpoint.at("joints").size() == 4 &&
+    require(checkpoint.at("joints").size() == 5 &&
                 checkpoint.at("joints").at(0).at("entity").at("entity") == distance_id,
-            "Four-type native swapped-order capture differs");
+            "Five-type native swapped-order capture differs");
     Fixture recovered;
     recovered.scene.restore_snapshot(snapshot);
     recovered.physics->restore(checkpoint);
     require(recovered.physics->checkpoint().at("joints") == checkpoint.at("joints"),
-            "Four-type native mapping/configuration not restored");
+            "Five-type native mapping/configuration not restored");
     for (unsigned i = 0; i < 45; ++i) {
         f.tick();
         recovered.tick();
         require(distance(point(f, "b"), point(recovered, "b")) < 1e-5 &&
                     distance(direction(f, "b", {1, 0, 0}), direction(recovered, "b", {1, 0, 0})) <
                         1e-5,
-                "Four-type restored trajectory/frame diverged");
+                "Five-type restored trajectory/frame diverged");
     }
     auto invalid = recovered.scene.entity(fixed).get<PhysicsJoint>();
     invalid.normal_a = invalid.axis_a;
@@ -282,7 +284,7 @@ void four_type_recovery() {
     rejects([&] { recovered.physics->synchronize(1.f / 60); });
     require(recovered.physics->status() == before, "Invalid fixed frame mutated native world");
     invalid = f.scene.entity(fixed).get<PhysicsJoint>();
-    invalid.kind = 4;
+    invalid.kind = 5;
     recovered.scene.entity(fixed).set<PhysicsJoint>(invalid);
     rejects([&] { recovered.physics->synchronize(1.f / 60); });
     require(recovered.physics->status() == before, "Unknown joint kind mutated native world");
@@ -472,6 +474,43 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
                             "Scene guide differs from actual solver body-origin anchor");
                 }
             }
+        }
+        {
+            auto joint = f.entity("j").get<PhysicsJoint>();
+            joint.kind = 4;
+            joint.axis_a = joint.axis_b = 0;
+            joint.normal_a = joint.normal_b = 1;
+            joint.min_travel = -.75f;
+            joint.max_travel = 1.25f;
+            f.entity("j").set<PhysicsJoint>(joint);
+            const auto original_body = f.entity("b").get<PhysicsBody>();
+            auto moving = original_body;
+            moving.gravity_factor = moving.linear_damping = moving.angular_damping = 0;
+            moving.allow_sleeping = false;
+            f.entity("b").set<PhysicsBody>(moving);
+            for (int sign : {-1, 1}) {
+                f.physics->teleport(f.ref("b"), {.3, 3, .15}, {}, true);
+                // The tiny shape has an anchor far from COM. Separate conversion
+                // from finite-iteration impact rebound by loading the stop steadily.
+                f.physics->set_linear_velocity(f.ref("b"), {sign * 1., 0, 0});
+                for (unsigned tick = 0; tick < 360; ++tick) {
+                    f.physics->add_force(f.ref("b"), {sign * .5, 0, 0});
+                    f.tick();
+                    const auto state = f.physics->body_state(f.ref("b"));
+                    require(state &&
+                                distance(state->centre_of_mass, point(f, "b", {.7, 0, 0})) < 1e-5,
+                            "Slider cooked signed COM no longer matches its actual body pose");
+                }
+                auto expected = point(f, "a");
+                expected[0] += sign < 0 ? joint.min_travel : joint.max_travel;
+                require(distance(point(f, "b", {.3f, .5f, -.2f}), expected) < .004,
+                        "Slider signed cooked COM conversion changed its linear endpoint");
+                const auto state = f.physics->body_state(f.ref("b"));
+                require(state && distance(state->linear_velocity, {}) < .001,
+                        "Slider cooked COM endpoint failed to settle under steady load");
+            }
+            f.entity("b").set<PhysicsBody>(original_body);
+            f.tick();
         }
         // Pinned ScaledShape retains signed scale in GetInnerRadius; CCD must
         // reject this opt-in before retiring the currently valid joint/body.
@@ -720,12 +759,14 @@ void authoring_and_identity() {
         }
     throw std::runtime_error("Joint absent from schema");
 }
+#include "physics_slider_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need joint scratch root");
         simulate();
         point_and_fixed();
+        slider_motion_and_recovery();
         four_type_recovery();
         lifecycle_and_recovery();
         rejection_and_scale();

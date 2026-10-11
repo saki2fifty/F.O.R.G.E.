@@ -3,16 +3,19 @@
 #include "material_graph_game_fixture.hpp"
 #include "reference_game_workflow.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/render_components.hpp>
+#include <numbers>
 namespace forge::test {
 struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
-         expect_module = false, loads = false, velocity = false, contacts = false, volumes = false;
+         expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
+         slider = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -69,7 +72,8 @@ struct GameHostFixture {
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
         volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
-        packaged = reference || mixed || loads || velocity || contacts || volumes ||
+        slider = argc == 3 && std::string_view(argv[1]) == "--packaged-slider";
+        packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
                    (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
@@ -144,11 +148,11 @@ struct GameHostFixture {
         std::size_t imported_pixels = 0;
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
-        if (loads || velocity || contacts || volumes)
+        if (loads || velocity || contacts || volumes || slider)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
-                    // Both authored physics examples use cyan actors. Sample the
+                    // Authored physics examples use cyan actors. Sample the
                     // actual scene, whose moving actors need not cover its center.
                     physics_actor_pixels += p[1] > 30 && p[2] > 30 && p[1] > unsigned(p[0]) + 15 &&
                                             p[2] > unsigned(p[0]) + 15;
@@ -173,9 +177,9 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        if (!reference && !loads && !velocity && !contacts && !volumes) // Original center cube.
+        if (!reference && !loads && !velocity && !contacts && !volumes && !slider)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
-        if (loads || velocity) {
+        if (loads || velocity || slider) {
             check(physics_actor_pixels > 100,
                   "Authored physics actors are not visible in standalone rendering");
             atomic_write(output / "physics-render-result.json",
@@ -237,6 +241,45 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (slider) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            if (tick < 180)
+                return;
+            const auto scene = game.active().scene.snapshot();
+            Json carriages = Json::array();
+            for (const auto& row : scene.at("entities")) {
+                const auto name = row.at("name").get<std::string>();
+                const bool vertical = name == "Vertical slider carriage";
+                if (!vertical && name != "Inclined slider carriage")
+                    continue;
+                const auto& components = row.at("components");
+                const auto& p = components.at("forge.local_translation");
+                const auto& q = components.at("forge.local_rotation");
+                const Double3 expected =
+                    vertical ? Double3{-2, 3, 0} : Double3{2 - std::sqrt(.5), 4 - std::sqrt(.5), 0};
+                double error = 0;
+                unsigned axis = 0;
+                for (const auto* field : {"x", "y", "z"}) {
+                    const double delta = p.at(field).get<double>() - expected[axis++];
+                    error += delta * delta;
+                }
+                const LocalRotation rotation{q.at("x"), q.at("y"), q.at("z"), q.at("w")};
+                const LocalRotation expected_rotation =
+                    vertical ? LocalRotation{}
+                             : LocalRotation{0, 0, float(std::sin(std::numbers::pi / 8)),
+                                             float(std::cos(std::numbers::pi / 8))};
+                check(error < .004 * .004 && equivalent(rotation, expected_rotation),
+                      "Exported slider carriage lost its signed limit or locked frame");
+                carriages.push_back({{"name", name}, {"components", components}});
+            }
+            check(carriages.size() == 2 && game.active().physics()->status().at("joints") == 2,
+                  "Exported slider constraints or carriages missing");
+            atomic_write(output / "physics-slider-result.json",
+                         Json{{"tick", tick}, {"carriages", carriages}}.dump(2));
+            capture("physics-slider-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (volumes) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             if (tick < 180)

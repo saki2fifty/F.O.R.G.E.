@@ -151,3 +151,15 @@ from contact friction. Large damping is sensitive to the fixed timestep.
 
 These are authored settings, not a live C++ control panel. Ordinary saved startup
 scene selection and export include all settings; no compiler is needed.
+
+
+## Slider joints
+
+Open `24-slider-joints` and press Play. The left carriage drops along its vertical
+guide; the right carriage moves down its inclined guide. Both stop at the lower
+travel limit and retain their rotation. Select either slider joint while stopped
+to see body anchors, frame axes and the signed travel interval in the Scene view.
+Edit `min_travel` and `max_travel` in metres; the interval must include zero.
+Axis/normal choices use each body's rigid frame. Travel limits remain metres even
+when bodies are scaled. Use Fixed for zero travel. Collisions between each small
+base and carriage are disabled with existing body masks. Motors are not included.

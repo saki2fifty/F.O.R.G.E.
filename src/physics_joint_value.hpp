@@ -10,15 +10,19 @@ inline void validate_joint(const PhysicsJoint& v) {
          {v.anchor_a_x, v.anchor_a_y, v.anchor_a_z, v.anchor_b_x, v.anchor_b_y, v.anchor_b_z})
         if (!std::isfinite(x) || std::abs(x) > 10000)
             throw std::runtime_error("Joint anchors must be finite within +/-10000 meters");
-    if (v.kind > 3 || v.axis_a > 2 || v.normal_a > 2 || v.axis_b > 2 || v.normal_b > 2 ||
+    if (v.kind > 4 || v.axis_a > 2 || v.normal_a > 2 || v.axis_b > 2 || v.normal_b > 2 ||
         !std::isfinite(v.min_distance) || !std::isfinite(v.max_distance) ||
         v.min_distance < .001f || v.max_distance > 10000 || v.min_distance > v.max_distance ||
         !std::isfinite(v.min_angle) || !std::isfinite(v.max_angle) || v.min_angle < -180 ||
-        v.min_angle > 0 || v.max_angle < 0 || v.max_angle > 180 ||
-        ((v.kind == 1 || v.kind == 3) && (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
+        v.min_angle > 0 || v.max_angle < 0 || v.max_angle > 180 || !std::isfinite(v.min_travel) ||
+        !std::isfinite(v.max_travel) || v.min_travel < -10000 || v.min_travel > 0 ||
+        v.max_travel < 0 || v.max_travel > 10000 ||
+        ((v.kind == 1 || v.kind == 3 || v.kind == 4) &&
+         (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
+        (v.kind == 4 && v.min_travel == v.max_travel) ||
         (v.kind == 1 && v.min_angle == v.max_angle))
         throw std::runtime_error(
-            "Invalid joint kind, distance interval, hinge axes or angle limits");
+            "Invalid joint kind, distance/travel interval, frame axes or angle limits");
 }
 inline nlohmann::json joint_value(const PhysicsJoint& v) {
     validate_joint(v);
@@ -34,6 +38,8 @@ inline nlohmann::json joint_value(const PhysicsJoint& v) {
             {"anchor_b_z", v.anchor_b_z},
             {"min_distance", v.min_distance},
             {"max_distance", v.max_distance},
+            {"min_travel", v.min_travel},
+            {"max_travel", v.max_travel},
             {"axis_a", v.axis_a},
             {"normal_a", v.normal_a},
             {"axis_b", v.axis_b},
@@ -57,6 +63,8 @@ inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     v.anchor_b_z = p.at("anchor_b_z");
     v.min_distance = p.at("min_distance");
     v.max_distance = p.at("max_distance");
+    v.min_travel = p.value("min_travel", -1.f);
+    v.max_travel = p.value("max_travel", 1.f);
     v.axis_a = p.at("axis_a").get<std::uint32_t>();
     v.normal_a = p.at("normal_a").get<std::uint32_t>();
     v.axis_b = p.at("axis_b").get<std::uint32_t>();

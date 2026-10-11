@@ -87,6 +87,10 @@ struct EditorFixture {
             return "###Scene";
         if (stage >= 163 && stage <= 168)
             return "Inspector";
+        if (stage >= 169 && stage <= 171)
+            return "Inspector";
+        if (stage >= 172 && stage <= 174)
+            return "###Scene";
         if (workflow)
             return nullptr;
         switch (stage) {
@@ -489,7 +493,13 @@ struct EditorFixture {
                                "physics-continuous-collision-200",
                                "physics-body-motion-tuning",
                                "physics-body-motion-tuning-150",
-                               "physics-body-motion-tuning-200"};
+                               "physics-body-motion-tuning-200",
+                               "physics-slider-limits",
+                               "physics-slider-limits-150",
+                               "physics-slider-limits-200",
+                               "physics-slider-guides",
+                               "physics-slider-guides-150",
+                               "physics-slider-guides-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

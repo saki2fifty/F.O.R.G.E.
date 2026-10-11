@@ -105,3 +105,14 @@ database. Existing body/character maps resolve current canonical generations.
 Game-owned counters and one-shot launch state use ordinary reflected components.
 Private checkpoint4, authored versions and durable game saves need no revision.
 The exact SDK tail changes the matching fingerprint; ABI1 remains unchanged.
+
+## 2026-10-11 — bounded slider joints
+
+Slider kind4 extends the existing reflected PhysicsJoint and native constraint
+owner. Separate defaulted min_travel/max_travel fields preserve legacy Distance,
+Hinge, Point and Fixed meanings. The existing builtin admission hook and codec
+backfill missing fields; older readers reject new kind4. No authored format or
+identity version changes. Public field layout/fingerprint changes require matching
+SDK/module rebuilds. Private exact-build checkpoint4 includes admitted settings
+and actual native manager order; ABI1 and private version remain unchanged.
+No additional constraint manager, recovery database or durable state is introduced.

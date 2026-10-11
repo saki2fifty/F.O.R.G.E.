@@ -7,6 +7,7 @@
 #include <forge/scene.hpp>
 #include <fstream>
 #include <functional>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
 
@@ -1505,8 +1506,12 @@ class EditorInputWorkflow {
         io.AddFocusEvent(true);
         if (done())
             return;
-        if (!since_)
+        if (!since_) {
             since_ = SDL_GetTicks();
+            const auto& next = steps_[index_];
+            std::cout << "Editor input step " << index_ << " begin kind=" << int(next.kind)
+                      << " target=" << next.value << std::endl;
+        }
         const auto& step = steps_[index_];
         const auto limit =
             step.kind == Kind::Check &&
@@ -1786,6 +1791,8 @@ class EditorInputWorkflow {
                           {"duration_ms", SDL_GetTicks() - since_},
                           {"control", step.control},
                           {"ok", true}});
+        std::cout << "Editor input step " << index_ << " complete in " << SDL_GetTicks() - since_
+                  << " ms" << std::endl;
         ++index_;
         frame_ = 0;
         since_ = 0;

@@ -284,9 +284,10 @@ class ComponentInspector {
                 if (key == "forge.physics_joint") {
                     const auto kind = values.at(key).at("kind").get<unsigned>();
                     if ((name.ends_with("distance") && kind != 0) ||
+                        (name.ends_with("travel") && kind != 4) ||
                         (name.ends_with("angle") && kind != 1) ||
                         ((name.starts_with("axis_") || name.starts_with("normal_")) && kind != 1 &&
-                         kind != 3))
+                         kind != 3 && kind != 4))
                         continue;
                 }
                 if (!component_match &&

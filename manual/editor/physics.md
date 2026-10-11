@@ -269,12 +269,26 @@ current relative orientation. Position bodies so the two anchors meet and their
 frames agree before Play. The Inspector shows fields relevant to the selected kind. Inactive values remain
 saved when switching kind but have no solver effect for Point or Fixed. Scene21 provides both examples.
 
+### Slider joints
+
+Choose **Slider** for a carriage that travels along one axis while keeping its
+rotation fixed. Assign both bodies, choose matching Axis and perpendicular Normal
+directions in their body frames, and position their anchors together before Play.
+**Minimum travel** and **Maximum travel** are signed meters along Body A's axis;
+the interval includes zero. Use Fixed for zero travel in both directions.
+
+Gallery **24-slider-joints** has vertical and inclined carriages. Play to see gravity
+move them to their lower stops, then export the scene to run it standalone. These
+engine components require no gameplay source or compiler. The Inspector shows
+travel settings for Slider; values for other kinds remain saved when hidden.
+
 ### Scene joint guides
 
 Select the joint entity in Scene to see its two anchors, connecting line and an
 anchor-gap readout. Blue is Body A; amber is Body B. Hinge shows each axis and
 normal; Fixed shows each rigid frame. Use **Scene → View → Joint guides** to
 show or hide them; this preference is saved independently of collision outlines.
+Slider also shows its allowed travel interval and current signed travel.
 
 These guides describe the current authored poses. They are inspection aids,
 with feedback for missing, disabled, sensor or invalid body pairs. Their axes
@@ -285,6 +299,8 @@ exported game. Press Play to validate the actual physical connection.
 Move kinematic supports continuously. A large one-tick move can cause joint
 oscillation with the current finite solver settings; a joint is not an exact
 transform parent. Position anchors and frames together before starting Play.
+Small collision shapes with far-offset anchors can rebound after abrupt impacts.
+Use proportionate geometry and gradual loads when testing stops.
 
 ## Continuous collision for fast objects
 

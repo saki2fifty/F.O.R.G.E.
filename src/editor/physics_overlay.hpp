@@ -240,14 +240,14 @@ class PhysicsOverlay {
     bool joint_selected_ = false;
     void draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
                     ImVec2 area) {
-        static constexpr const char* kinds[] = {"Distance", "Hinge", "Point", "Fixed"};
+        static constexpr const char* kinds[] = {"Distance", "Hinge", "Point", "Fixed", "Slider"};
         const auto color = !guide.error.empty() ? IM_COL32(255, 112, 120, 230)
                            : !guide.enabled     ? IM_COL32(160, 170, 185, 230)
                            : guide.valid        ? IM_COL32(74, 231, 187, 230)
                                                 : IM_COL32(255, 112, 120, 230);
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
-        std::string note = guide.kind < 4 ? std::string("Authored ") + kinds[guide.kind] + " joint"
+        std::string note = guide.kind < 5 ? std::string("Authored ") + kinds[guide.kind] + " joint"
                                           : "Authored joint";
         if (!guide.enabled)
             note += " | disabled";
@@ -266,7 +266,7 @@ class PhysicsOverlay {
                 SpatialHelpers::draw_line(draw, camera, origin, area,
                                           helper_add(body.anchor, axis, -.08),
                                           helper_add(body.anchor, axis, .08), marker);
-            if (guide.kind == 1 || guide.kind == 3) {
+            if (guide.kind == 1 || guide.kind == 3 || guide.kind == 4) {
                 SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
                                           helper_add(body.anchor, body.axes[guide.axis[i]], .6),
                                           marker);
@@ -281,6 +281,18 @@ class PhysicsOverlay {
                     SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
                                               helper_add(body.anchor, y, .35), marker);
                 }
+            }
+            if (guide.kind == 4 && i == 0) {
+                const auto low =
+                    helper_add(body.anchor, body.axes[guide.axis[0]], guide.min_travel);
+                const auto high =
+                    helper_add(body.anchor, body.axes[guide.axis[0]], guide.max_travel);
+                SpatialHelpers::draw_line(draw, camera, origin, area, low, high, color);
+                for (const auto& end : {low, high})
+                    SpatialHelpers::draw_line(draw, camera, origin, area,
+                                              helper_add(end, body.axes[guide.normal[0]], -.15),
+                                              helper_add(end, body.axes[guide.normal[0]], .15),
+                                              marker);
             }
             const auto p = project_point(
                 camera, Vec3{float(body.anchor[0]), float(body.anchor[1]), float(body.anchor[2])},
@@ -298,6 +310,13 @@ class PhysicsOverlay {
             std::snprintf(metric, sizeof(metric), " | anchor gap %.3f m",
                           std::sqrt(gap[0] * gap[0] + gap[1] * gap[1] + gap[2] * gap[2]));
             note += metric;
+            if (guide.kind == 4) {
+                const auto& axis = guide.bodies[0].axes[guide.axis[0]];
+                std::snprintf(metric, sizeof(metric), " | travel %.3f m [%.3f, %.3f]",
+                              gap[0] * axis[0] + gap[1] * axis[1] + gap[2] * axis[2],
+                              guide.min_travel, guide.max_travel);
+                note += metric;
+            }
         }
         const auto width = std::max(40.f, area.x - 28.f);
         const auto extent = ImGui::CalcTextSize(note.c_str(), nullptr, false, width);

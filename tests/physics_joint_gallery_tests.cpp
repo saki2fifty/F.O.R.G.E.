@@ -135,6 +135,22 @@ void continuous_motion(World& w) {
                 Json(tunneled).dump());
     render_actors(w, {continuous, discrete});
 }
+void slider_motion(World& w) {
+    require(w.physics->status().at("joints") == 2, "Gallery slider constraints missing");
+    const auto vertical_rotation = w.named("Vertical slider carriage").get<LocalRotation>();
+    const auto inclined_rotation = w.named("Inclined slider carriage").get<LocalRotation>();
+    for (unsigned i = 0; i < 180; ++i)
+        w.simulation.tick(1.f / 60);
+    require(distance(w.point("Vertical slider carriage"), {-2, 3, 0}) < .004 &&
+                distance(w.point("Inclined slider carriage"),
+                         {2 - std::sqrt(.5), 4 - std::sqrt(.5), 0}) < .004,
+            "Gallery slider gravity endpoints disagree with independently known frames");
+    require(
+        equivalent(w.named("Vertical slider carriage").get<LocalRotation>(), vertical_rotation) &&
+            equivalent(w.named("Inclined slider carriage").get<LocalRotation>(), inclined_rotation),
+        "Gallery slider carriage rotated away from its authored frame");
+    render_actors(w, {"Vertical slider carriage", "Inclined slider carriage"});
+}
 void tuned_motion(World& w) {
     const std::vector<std::string> names{
         "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
@@ -171,10 +187,13 @@ int main(int argc, char** argv) {
     try {
         require(argc == 3 || argc == 4, "Need Gallery and scratch roots, optional extended mode");
         const std::string mode = argc == 4 ? argv[3] : "joints";
-        require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning",
+        require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning" ||
+                    mode == "slider",
                 "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "tuning")
+            if (mode == "slider")
+                slider_motion(world);
+            else if (mode == "tuning")
                 tuned_motion(world);
             else if (mode == "ccd")
                 continuous_motion(world);
@@ -187,7 +206,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "tuning"     ? "Scenes/23-body-motion-tuning.scene.json"
+            read(root / (mode == "slider"     ? "Scenes/24-slider-joints.scene.json"
+                         : mode == "tuning"   ? "Scenes/23-body-motion-tuning.scene.json"
                          : mode == "ccd"      ? "Scenes/22-continuous-collision.scene.json"
                          : mode == "extended" ? "Scenes/21-point-fixed-joints.scene.json"
                                               : "Scenes/20-physics-joints.scene.json"));

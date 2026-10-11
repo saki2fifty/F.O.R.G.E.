@@ -554,6 +554,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("anchor_b_z")
             .template member<float>("min_distance")
             .template member<float>("max_distance")
+            .template member<float>("min_travel")
+            .template member<float>("max_travel")
             .template member<std::uint32_t>("axis_a")
             .template member<std::uint32_t>("normal_a")
             .template member<std::uint32_t>("axis_b")
@@ -648,7 +650,7 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) { return register_type<PhysicsBody>(w, "forge.physics_body"); }),
         descriptor<PhysicsJoint>(
             "forge.physics_joint",
-            "Connect two rigid bodies using distance, hinge, point or fixed constraints",
+            "Connect two rigid bodies using distance, hinge, point, fixed or slider constraints",
             "unitless", {}, {},
             [](flecs::world& w) { return register_type<PhysicsJoint>(w, "forge.physics_joint"); }),
         descriptor<BoxCollider>(
@@ -900,6 +902,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["minimum"] = .001;
             value["maximum"] = 10000;
             value["unit"] = "meters";
+        }
+        if (field == "min_travel" || field == "max_travel") {
+            value["minimum"] = field == "min_travel" ? -10000 : 0;
+            value["maximum"] = field == "min_travel" ? 0 : 10000;
+            value["unit"] = "meters";
+            value["description"] = "Signed slider displacement between anchors along Body A's axis";
         }
         if (field == "min_angle" || field == "max_angle") {
             value["minimum"] = field == "min_angle" ? -180 : 0;
@@ -1169,7 +1177,7 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
         names = {"Directional", "Point", "Spot"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
-        names = {"Distance", "Hinge", "Point", "Fixed"};
+        names = {"Distance", "Hinge", "Point", "Fixed", "Slider"};
     } else if (component == "forge.physics_joint" &&
                (field.starts_with("axis_") || field.starts_with("normal_"))) {
         type = "forge.JointAxis";
@@ -1431,6 +1439,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field :
              {"enabled", "sensor", "layer", "mask", "continuous_collision", "linear_damping",
               "angular_damping", "max_linear_velocity", "max_angular_velocity", "allow_sleeping"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
+    if (std::string_view(type.name) == "forge.physics_joint")
+        for (const auto* field : {"min_travel", "max_travel"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;

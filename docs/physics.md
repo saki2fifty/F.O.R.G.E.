@@ -521,6 +521,28 @@ but preserved and bounded for these kinds. The existing native2 recovery envelop
 and lifetime/admission/identity rules are unchanged. Public enum documentation
 updates the exactSDK fingerprint; native ABI1 and field layout remain unchanged.
 
+### Slider joints
+
+Kind4 Slider locks relative rotation and both transverse directions while allowing
+translation along Body A's selected rigid-frame axis. Perpendicular normal and axis
+choices define each body's matching frame. Explicit body-local anchors use the same
+signed-scale and COM conversion as other joints; automatic native point detection
+is disabled. Travel is the signed projection of Body B's anchor minus Body A's
+anchor onto Body A's axis, in world meters. Shape scale does not multiply limits.
+
+`min_travel` is finite in [-10000, 0] and `max_travel` in [0, 10000]. Zero belongs to
+the interval; zero-width travel is rejected in favor of Fixed. Inactive distance
+and angle values remain saved and bounded. Separate travel fields default to -1/+1
+when absent through the existing builtin admission hook and joint codec. Legacy
+kinds0..3 keep their meanings; older readers reject kind4. The added public fields
+change SDK layout and fingerprint, requiring a matching rebuild. Native ABI1,
+private checkpoint4 and authored formats remain unchanged. Native order, retirement
+and recovery use the existing joint owner.
+
+Scene24 contains vertical and inclined carriages under gravity. Inspector travel
+controls support ordinary Undo/save/reopen; Scene guides show the allowed interval
+and current signed travel. No slider motor, spring or break behavior is claimed.
+
 ### Editor joint guides and numerical limits
 
 The existing Scene PhysicsOverlay derives selected-joint guides from the effective
@@ -540,6 +562,14 @@ joint oscillation (147m/s implied target). Normal continuous 2.45m/s translation
 agreement after settling under gravity. Frame construction is separately checked
 without gravity to 0.003 unit-vector chord. These are attributable fixture bounds,
 not universal engine accuracy/performance guarantees or a solver-setting upgrade.
+
+A small mirrored cooked box with a distant attachment also rebounds between slider
+stops after an 8m/s impact under the current finite solver profile. Anchor/COM
+conversion is checked independently under a steady 0.5N load: both signed endpoints
+settle within4mm after six seconds, with speed below1mm/s. Centered/scaled/rotated/
+hierarchical fixtures separately check fast endpoints and locked frames. These are
+fixture-specific bounds; exact impact settling is not promised for arbitrary
+leverage, geometry or loads.
 
 ## Optional continuous collision
 

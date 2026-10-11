@@ -53,6 +53,15 @@ void check_guides() {
     const auto snapshot = scene.effective_document();
     const auto guide = ui::prepare_physics_joint_guide(snapshot, id);
     require(guide && guide->valid, "Valid selected joint guide unavailable");
+    auto slider_snapshot = snapshot;
+    auto& slider = row(slider_snapshot, id)["components"]["forge.physics_joint"];
+    slider["kind"] = 4;
+    slider["min_travel"] = -2;
+    slider["max_travel"] = 3;
+    const auto slider_guide = ui::prepare_physics_joint_guide(slider_snapshot, id);
+    require(slider_guide && slider_guide->valid && slider_guide->kind == 4 &&
+                slider_guide->min_travel == -2 && slider_guide->max_travel == 3,
+            "Slider guide lost signed travel bounds or current body frames");
     // Independent parent matrix: T(10,20,30) Rz(90) S(-2,3,4).
     require(error(guide->bodies[0].anchor, {1, 17, 41}) < 1e-5,
             "Guide anchor ignored rotated parent or signed scale");
@@ -160,6 +169,10 @@ void check_guides() {
         require(visible_vertices > 0 && overlay.status().find("Authored Fixed joint") == 0 &&
                     overlay.status().find("anchor gap") != std::string::npos && !overlay.ready(),
                 "Actual authored overlay absent or claims collision realization");
+        require(draw(slider_snapshot) > visible_vertices &&
+                    overlay.status().starts_with("Authored Slider joint") &&
+                    overlay.status().find("travel") != std::string::npos,
+                "Actual slider guide lacks travel interval geometry/status");
         require(draw(altered) > 0 && overlay.status().find("distinct bodies") != std::string::npos,
                 "Invalid pairing lost visible diagnostic");
         auto invalid = snapshot;

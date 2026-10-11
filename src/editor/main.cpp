@@ -3390,12 +3390,16 @@ int main(int argc, char** argv) {
                 case 162:
                 case 165:
                 case 168:
+                case 171:
+                case 174:
                     forge::ui::style(2);
                     break;
                 case 158:
                 case 161:
                 case 164:
                 case 167:
+                case 170:
+                case 173:
                     forge::ui::style(1.5f);
                     break;
                 case 157: {
@@ -3461,6 +3465,52 @@ int main(int argc, char** argv) {
                     forge::ui::style(1);
                     break;
                 }
+                case 169: {
+                    const auto create = [&](const char* name) {
+                        return forge::authoring_command(scene, "entity.create", {{"name", name}})
+                            .at("selected")
+                            .get<std::string>();
+                    };
+                    const auto a = create("Slider guide base"), b = create("Slider guide carriage");
+                    scene.entity(a).set<forge::PhysicsBody>({});
+                    forge::PhysicsBody moving;
+                    moving.motion = 2;
+                    scene.entity(b).set<forge::PhysicsBody>(moving);
+                    scene.entity(a).set<forge::LocalTranslation>({-1, 2, 0});
+                    scene.entity(b).set<forge::LocalTranslation>({0, 2, 0});
+                    forge::PhysicsJoint joint;
+                    joint.kind = 4;
+                    joint.axis_a = joint.axis_b = 0;
+                    joint.normal_a = joint.normal_b = 1;
+                    joint.body_a = {scene.asset_id(), forge::EntityId::parse(a)};
+                    joint.body_b = {scene.asset_id(), forge::EntityId::parse(b)};
+                    joint.min_travel = -2;
+                    joint.max_travel = 3;
+                    scene.entity(fixture.joint_entity).set<forge::PhysicsJoint>(joint);
+                    editor.selection.select_entity(fixture.joint_entity);
+                    component_inspector.fixture_focus_component = "forge.physics_joint";
+                    workspace.inspector = true;
+                    if (auto* w = ImGui::FindWindowByName("Inspector"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Inspector", {30, 55});
+                    ImGui::SetWindowSize("Inspector", {1400, 960});
+                    forge::ui::style(1);
+                    break;
+                }
+                case 172:
+                    physics_overlay.joint_visible = true;
+                    workspace.inspector = false;
+                    if (auto* w = ImGui::FindWindowByName("###Scene"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Scene", {30, 55});
+                    ImGui::SetWindowSize("###Scene", {1860, 990});
+                    scene_tools.move_tool = false;
+                    camera.target = {0, 2, 0};
+                    camera.yaw = .35f;
+                    camera.pitch = -.2f;
+                    camera.distance = 7;
+                    forge::ui::style(1);
+                    break;
                 case 151:
                 case 154:
                     forge::authoring_command(scene, "property.set",
@@ -5453,10 +5503,12 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
-                if (fixture.stage >= 145 && fixture.stage <= 156) {
+                if ((fixture.stage >= 145 && fixture.stage <= 156) ||
+                    (fixture.stage >= 169 && fixture.stage <= 171)) {
                     const auto key =
                         fixture.stage < 148 || (fixture.stage >= 151 && fixture.stage <= 153)
                             ? "component-field:forge.physics_joint:body_b"
+                        : fixture.stage >= 169 ? "component-field:forge.physics_joint:max_travel"
                         : fixture.stage >= 154 ? "component-field:forge.physics_joint:normal_b"
                                                : "component-field:forge.physics_joint:max_angle";
                     auto* w = ImGui::FindWindowByName("Inspector");
@@ -5481,6 +5533,12 @@ int main(int argc, char** argv) {
                         captured_document_visible &=
                             physics_overlay.status().find("Choose a body") != std::string::npos;
                 }
+                if (fixture.stage >= 172 && fixture.stage <= 174)
+                    captured_document_visible &=
+                        physics_overlay.joint_visible &&
+                        physics_overlay.status().starts_with("Authored Slider joint") &&
+                        physics_overlay.status().find("travel 1.000 m [-2.000, 3.000]") !=
+                            std::string::npos;
                 if (fixture.stage >= 163 && fixture.stage <= 165) {
                     const auto field = forge::test::ui_targets.find(
                         "component-field:forge.physics_body:continuous_collision");
@@ -5788,7 +5846,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 169) {
+                    if (fixture.stage == 175) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

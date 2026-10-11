@@ -169,29 +169,41 @@ int main(int argc, char** argv) {
                         "Reference clear failed");
                 require(scene.undo() && scene.entity(id).get<PhysicsJoint>().body_b == b,
                         "Reference clear undo");
-                for (const unsigned expected : {2u, 3u}) {
+                for (const unsigned expected : {2u, 3u, 4u}) {
                     click("component-field:forge.physics_joint:kind");
                     key(ImGuiKey_DownArrow);
                     key(ImGuiKey_Enter);
                     require(scene.entity(id).get<PhysicsJoint>().kind == expected,
                             "Actual Point/Fixed enum choice failed");
                     frame();
-                    require(
-                        !test::ui_targets.contains(
-                            "component-field:forge.physics_joint:min_distance") &&
-                            !test::ui_targets.contains(
-                                "component-field:forge.physics_joint:min_angle") &&
-                            test::ui_targets.contains(
-                                "component-field:forge.physics_joint:body_a") &&
-                            (test::ui_targets.contains(
-                                 "component-field:forge.physics_joint:axis_a") == (expected == 3)),
-                        "Actual Point/Fixed Inspector fields differ");
+                    require(!test::ui_targets.contains(
+                                "component-field:forge.physics_joint:min_distance") &&
+                                !test::ui_targets.contains(
+                                    "component-field:forge.physics_joint:min_angle") &&
+                                test::ui_targets.contains(
+                                    "component-field:forge.physics_joint:body_a") &&
+                                (test::ui_targets.contains(
+                                     "component-field:forge.physics_joint:axis_a") ==
+                                 (expected >= 3)) &&
+                                (test::ui_targets.contains(
+                                     "component-field:forge.physics_joint:min_travel") ==
+                                 (expected == 4)),
+                            "Actual Point/Fixed Inspector fields differ");
                     require(scene.undo() &&
                                 scene.entity(id).get<PhysicsJoint>().kind == expected - 1,
                             "Point/Fixed selection Undo failed");
                     require(scene.redo() && scene.entity(id).get<PhysicsJoint>().kind == expected,
                             "Point/Fixed selection Redo failed");
                 }
+                numeric("min_travel", "-2");
+                numeric("max_travel", "3");
+                require(scene.entity(id).get<PhysicsJoint>().min_travel == -2 &&
+                            scene.entity(id).get<PhysicsJoint>().max_travel == 3,
+                        "Actual slider travel controls failed");
+                require(scene.undo() && scene.entity(id).get<PhysicsJoint>().max_travel == 1,
+                        "Slider travel Undo failed");
+                require(scene.redo() && scene.entity(id).get<PhysicsJoint>().max_travel == 3,
+                        "Slider travel Redo failed");
                 click("component-field:forge.physics_joint:enabled");
                 require(!scene.entity(id).get<PhysicsJoint>().enabled, "Enabled checkbox failed");
                 const auto retained = scene.entity(id).get<PhysicsJoint>();

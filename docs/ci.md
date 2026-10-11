@@ -529,3 +529,21 @@ verifies production startup and runs a separately inventoried graphical observer
 The observer checks current count/native velocity/independent pose and saves actual
 D3D12 pixels, requiring visible cyan geometry and a red actor. Physical Windows
 GPU acceptance remains separate from CI and is not implied by these fixtures.
+
+### Slider joints
+
+Core joint tests check kind4 lower/upper endpoints, all principal axes, rotated and
+structural-parent frames, signed/scaled anchors, mirrored cooked COM under steady
+load, invalid-candidate atomic rejection and fresh recovery mixed with all previous
+constraint kinds. The expanded ASan/UBSan joint suite has a120second test allowance;
+its measured local execution was70.74seconds. Actual Inspector/guide fixtures check
+kind selection, field visibility, numeric edits, Undo/save/reopen and clipped interval
+rendering. Gallery24 runs through native motion, runtime-content export and relocation.
+
+The native editor capture appends slider Inspector and authored guide evidence at
+100/150/200percent scales. The combined package exports a separate editable Gallery
+copy with Gallery24 as startup, inventories its graphical observer, deletes that
+source and runtime kit, verifies production startup, and checks both independently
+known carriage endpoints and locked orientations before saving the D3D12 image.
+Visible cyan geometry is required across the actual image. These configured gates
+are not claims of Windows execution or physical GPU acceptance.

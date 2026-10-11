@@ -1,5 +1,16 @@
 # 2026-10-11
 
+## Slider joints
+
+PhysicsJoint now offers Slider with signed travel limits, body-local frames and
+locked rotation. Inspector controls use existing Undo/save/reopen; selected Scene
+guides show the travel interval and current signed distance. Original Gallery24
+provides vertical and inclined carriages that can be played and exported without
+C++ source. Legacy joint documents backfill separate travel defaults. Matching SDK
+rebuilds are required; authored formats, ABI1 and private checkpoint4 remain unchanged.
+Finite solver iterations can cause rebound with abrupt loads and far-offset anchors;
+the manual describes this limit. Windows delivery and physical review remain pending.
+
 ## C++ contact observations
 
 Project Code can read copied current-step native contact-cache Begin/End pairs

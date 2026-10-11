@@ -207,6 +207,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
             except subprocess.TimeoutExpired:
                 terminate_tree(process)
                 raise AssertionError('Fixture executable exceeded 300s watchdog')
+            finally:
+                if process.poll() is None:
+                    terminate_tree(process)
 
         if returncode != 0:
             # Surface test-only crash capture if the fixture installed one.
@@ -370,6 +373,11 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         except subprocess.TimeoutExpired:
             terminate_tree(starter)
             raise AssertionError('SDK onboarding exceeded 600s watchdog')
+        finally:
+            # Cancellation must reap the editor before TemporaryDirectory removes
+            # its loaded Windows DLLs, preserving the original failure evidence.
+            if starter.poll() is None:
+                terminate_tree(starter)
     starter_trace_path=onboarding/'workflow.json'
     if starter_trace_path.is_file():
         observed = json.loads(starter_trace_path.read_text())
