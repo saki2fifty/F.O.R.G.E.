@@ -36,6 +36,7 @@ struct PhysicsBody {
     float friction = .5f, restitution = 0, gravity_factor = 1;
     bool enabled = true, sensor = false;
     std::uint32_t layer = 0, mask = UINT32_MAX;
+    bool continuous_collision = false; // Linear sweep for Dynamic nonsensor solids only.
     bool operator==(const PhysicsBody&) const = default;
 };
 // Authored joint entity; solver handles stay in PhysicsRuntime. Body-local anchors

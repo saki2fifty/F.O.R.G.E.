@@ -407,3 +407,12 @@ ImGui draw without document/history or active-input mutation. Native157–162 sh
 Fixed guides and missing-body feedback at100/150/200%; review the captured images
 before claiming visual acceptance. Actual offset-COM native solver tests compare
 these derived guides to body-origin anchors for Hinge, Point and Fixed.
+
+Continuous collision extends existing `physics` / `physics_joints` tests and adds
+`physics_continuous_gallery`. The full Inspector test exercises the saved checkbox,
+Undo/Redo and mode-retained choice. The final assembled Windows package exports
+Gallery22 and executes the shipped EXE startup verification with its saved CCD flag.
+Native163–165 capture the actual Dynamic Physics Body checkbox at100/150/200%.
+These are Inspector render captures, not evidence that the Gallery animation was
+physically reviewed on a desktop GPU. The ordinary-gravity Gallery motion oracle
+and source-free relocated content test remain distinct gates.

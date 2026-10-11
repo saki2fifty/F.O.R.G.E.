@@ -123,6 +123,7 @@ struct Configuration {
                    {"sensor", body.sensor},
                    {"layer", body.layer},
                    {"mask", body.mask},
+                   {"continuous_collision", body.continuous_collision},
                    {"shape", shape},
                    {"dimensions", dimensions},
                    {"scale", {scale.x, scale.y, scale.z}}};
@@ -272,6 +273,12 @@ JPH::RefConst<JPH::Shape> shape(const Configuration& c) {
     return result.Get();
 }
 JPH::MassProperties mass_properties(const Configuration& c, const JPH::Shape& geometry) {
+    if (c.body.continuous_collision && c.body.motion == 2 && !c.body.sensor) {
+        const auto radius = geometry.GetInnerRadius();
+        if (!std::isfinite(radius) || radius <= 0)
+            throw std::runtime_error("Continuous collision requires a finite positive native inner "
+                                     "radius; mirrored scaled collision assets may not support it");
+    }
     auto value = geometry.GetMassProperties();
     if (c.body.motion == 0)
         return value;
@@ -1096,6 +1103,10 @@ struct PhysicsRuntime::Impl {
         settings.mCollisionGroup =
             JPH::CollisionGroup(group_filter.GetPtr(), c.body.mask, c.body.layer);
         settings.mIsSensor = c.body.sensor;
+        settings.mMotionQuality =
+            c.body.continuous_collision && c.body.motion == 2 && !c.body.sensor
+                ? JPH::EMotionQuality::LinearCast
+                : JPH::EMotionQuality::Discrete;
         settings.mCollideKinematicVsNonDynamic = c.body.sensor && c.body.motion == 1;
         settings.mFriction = c.body.friction;
         settings.mRestitution = c.body.restitution;

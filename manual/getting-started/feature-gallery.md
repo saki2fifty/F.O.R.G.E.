@@ -42,3 +42,8 @@ standalone export use the same engine-owned physics components.
 Scene21 demonstrates a point joint's freely rotating pendulum and a fixed joint's
 falling rigid pair. They use the normal Physics Joint component and saved scene
 body references, with no gameplay compiler required.
+
+Scene **22-continuous-collision** compares blue continuous and amber discrete cubes
+falling onto very thin platforms. Press Play and watch the landing area. The example
+uses normal project gravity and engine components; no C++ compilation is required.
+The camera starts below the falling cubes, so they enter from above.

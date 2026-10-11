@@ -7,6 +7,7 @@ def body(name,y,motion):
  return dict(id=name,name=name,components={'forge.position':dict(x=0,y=y,z=0),'forge.physics_body':dict(motion=motion,density=1000,mass=0,friction=.5,restitution=0,gravity_factor=1),'forge.box_collider':dict(x=1,y=1,z=1)})
 scene=dict(version=1,entities=[body('floor',-.5,0),body('cube',5,2)])
 scene['entities'][0]['components']['forge.box_collider']=dict(x=20,y=1,z=20)
+scene['entities'][1]['components']['forge.physics_body']['continuous_collision']=True
 def replace(worker,state):
  c=state['recovery'];return worker.request('replace',scene=state['scene'],recovery=c,recovery_session=c['session'],recovery_tick=c['tick'])
 def height(state):
@@ -14,6 +15,8 @@ def height(state):
 a=Runtime(runtime);b=Runtime(runtime)
 try:
  initial=a.request('replace',scene=scene)
+ assert next(e for e in initial['scene']['entities'] if e['name']=='cube')['components']['forge.physics_body']['continuous_collision'] is True
+ assert next(e for e in initial['scene']['entities'] if e['name']=='floor')['components']['forge.physics_body']['continuous_collision'] is False
  for _ in range(12):state=a.request('step')
  assert height(state)<5
  restored=replace(b,state)

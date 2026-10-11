@@ -252,3 +252,22 @@ exported game. Press Play to validate the actual physical connection.
 Move kinematic supports continuously. A large one-tick move can cause joint
 oscillation with the current finite solver settings; a joint is not an exact
 transform parent. Position anchors and frames together before starting Play.
+
+## Continuous collision for fast objects
+
+Enable **Physics Body → Continuous Collision** on a fast Dynamic solid to reduce
+passing through thin obstacles between fixed ticks. It costs extra physics work;
+leave it off for ordinary bodies unless needed. The stored choice is preserved for
+Static, Kinematic or sensor bodies, but has no continuous response in those modes.
+
+This is a linear sweep, not a full sweep of angular motion. Long fast-spinning
+objects can still miss contacts. Native collision handling can slightly penetrate
+or delay bounce at high speed; use appropriate sizes and a fixed simulation rate.
+Some mirrored scaled collision assets have no positive sweep radius in the pinned
+physics library. FORGE rejects that opt-in with a diagnostic before replacing the
+live body. Their default discrete collision remains supported. Inline symmetric
+primitive colliders can use mirrored scale with continuous collision.
+
+Old scenes default to discrete. Undo/Redo and Save preserve the checkbox. Exported
+games use the saved choice; gameplay code built against an older exact SDK must be
+rebuilt with the matching SDK. Gallery22 demonstrates the continuous/discrete case.

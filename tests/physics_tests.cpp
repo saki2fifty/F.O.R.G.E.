@@ -169,7 +169,52 @@ void signed_scale_physics() {
     }
 }
 #include "character_physics.hpp"
+#include "physics_continuous_policy.hpp"
 #include "physics_hierarchy.hpp"
+void continuous_collision_tests() {
+    for (unsigned axis = 0; axis < 3; ++axis)
+        for (bool continuous : {false, true}) {
+            Fixture f;
+            auto config = PhysicsConfig{};
+            config.gravity = {};
+            config.gravity[axis] = -10000;
+            f.physics->configure(config);
+            auto wall = body("wall", 0, 0), moving = body("fast", 0, 2);
+            static constexpr const char* coordinates[] = {"x", "y", "z"};
+            for (unsigned i = 0; i < 3; ++i) {
+                wall["components"]["forge.position"][coordinates[i]] = i == axis ? 1.5 : 0;
+                moving["components"]["forge.position"][coordinates[i]] = i == axis ? 3 : 0;
+                wall["components"]["forge.box_collider"][coordinates[i]] = i == axis ? .02 : 4;
+            }
+            moving["components"].erase("forge.box_collider");
+            moving["components"]["forge.sphere_collider"] = {{"radius", .05}};
+            moving["components"]["forge.physics_body"]["continuous_collision"] = continuous;
+            f.load({{"version", 1}, {"entities", Json::array({wall, moving})}});
+            f.tick();
+            const auto pose = f.scene.entity("fast").get<LocalTranslation>();
+            const double coordinate = axis == 0 ? pose.x : axis == 1 ? pose.y : pose.z;
+            if (continuous)
+                check(coordinate > 1.5 && coordinate < 1.7,
+                      "Continuous sphere tunneled through thin wall");
+            else
+                check(coordinate < .5, "Discrete control did not exercise tunneling");
+            check(f.scene.entity("fast").get<PhysicsBody>().continuous_collision == continuous,
+                  "Physics adoption lost authored CCD choice");
+            if (continuous && axis == 1) {
+                const auto checkpoint = f.physics->checkpoint();
+                Fixture restored;
+                restored.physics->configure(config);
+                restored.scene.restore_snapshot(f.scene.snapshot());
+                restored.physics->restore(checkpoint);
+                for (unsigned tick = 0; tick < 30; ++tick) {
+                    f.tick();
+                    restored.tick();
+                    check(std::abs(y(f, "fast") - y(restored, "fast")) < 1e-6,
+                          "Continuous collision recovery trajectory diverged");
+                }
+            }
+        }
+}
 int main(int argc, char** argv) {
     try {
         if (argc == 2 && std::string_view(argv[1]) == "--measure") {
@@ -183,6 +228,8 @@ int main(int argc, char** argv) {
         physics_hierarchy_tests();
         collision_filters();
         signed_scale_physics();
+        continuous_collision_tests();
+        continuous_collision_policy_tests();
         {
             EngineContext authoring;
             check(!authoring.services().available(Capability::Physics), "Authoring created solver");

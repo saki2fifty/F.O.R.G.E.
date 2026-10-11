@@ -119,13 +119,31 @@ void point_fixed_motion(World& w) {
             "Point/fixed Gallery actors did not move");
     render_actors(w, {"Point pendulum", "Fixed upper", "Fixed lower"});
 }
+void continuous_motion(World& w) {
+    const std::string continuous = "Continuous - fast falling cube",
+                      discrete = "Discrete - tunneling comparison";
+    require(w.named(continuous).get<PhysicsBody>().continuous_collision &&
+                !w.named(discrete).get<PhysicsBody>().continuous_collision,
+            "Gallery CCD choices not admitted");
+    for (unsigned tick = 0; tick < 240; ++tick)
+        w.simulation.tick(1.f / 60);
+    const auto stopped = w.point(continuous), tunneled = w.point(discrete);
+    const auto support = w.point("Continuous thin platform", {0, .5, 0});
+    require(std::abs(stopped[1] - support[1] - .1) < .025 && tunneled[1] < -2 && tunneled[1] > -2.3,
+            "Gallery thin-platform CCD comparison differs: " + Json(stopped).dump() + ", " +
+                Json(tunneled).dump());
+    render_actors(w, {continuous, discrete});
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         require(argc == 3 || argc == 4, "Need Gallery and scratch roots, optional extended mode");
-        const bool extended = argc == 4;
+        const std::string mode = argc == 4 ? argv[3] : "joints";
+        require(mode == "joints" || mode == "extended" || mode == "ccd", "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (extended)
+            if (mode == "ccd")
+                continuous_motion(world);
+            else if (mode == "extended")
                 point_fixed_motion(world);
             else
                 motion(world);
@@ -133,8 +151,10 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        const auto source = read(root / (extended ? "Scenes/21-point-fixed-joints.scene.json"
-                                                  : "Scenes/20-physics-joints.scene.json"));
+        const auto source =
+            read(root / (mode == "ccd"        ? "Scenes/22-continuous-collision.scene.json"
+                         : mode == "extended" ? "Scenes/21-point-fixed-joints.scene.json"
+                                              : "Scenes/20-physics-joints.scene.json"));
         World live(root, source);
         validate(live);
         const std::array roots{source.at("asset_id").get<AssetId>()};

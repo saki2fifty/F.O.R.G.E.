@@ -353,3 +353,14 @@ Constraints/PointConstraint.h/.cpp and FixedConstraint.h/.cpp, plus
 RotationEulerConstraintPart::sGetInvInitialOrientationXY. FORGE supplies explicit
 body-local COM anchors and fixed frames, without autocalculating runtime rest pose.
 No dependency/options/license change.
+
+### Continuous collision integration — 2026-10-11
+
+The same Jolt pin supplies `EMotionQuality::LinearCast`. Exact `MotionQuality.h`,
+`PhysicsSystem.cpp::JobIntegrateVelocity`, `ScaledShape.h/.cpp`, `CompoundShape.h`
+and the matching LinearCast unit tests were checked. FORGE selects this quality
+only for Dynamic nonsensor bodies; it does not implement an angular sweep.
+Native linear casting requires positive inner radius. Signed ScaledShape trees
+can return negative radius, so FORGE rejects those new CCD candidates before
+mutating realization instead of changing authored scale or patching Jolt.
+Existing discrete admission remains intact. No pin, options or license change.

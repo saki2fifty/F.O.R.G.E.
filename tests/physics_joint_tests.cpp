@@ -471,6 +471,26 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
                 }
             }
         }
+        // Pinned ScaledShape retains signed scale in GetInnerRadius; CCD must
+        // reject this opt-in before retiring the currently valid joint/body.
+        auto body = f.entity("b").get<PhysicsBody>();
+        body.continuous_collision = true;
+        f.entity("b").set<PhysicsBody>(body);
+        const auto before = f.physics->status();
+        bool rejected = false;
+        try {
+            f.physics->synchronize(1.f / 60);
+        } catch (const std::exception& e) {
+            rejected =
+                std::string(e.what()).find("positive native inner radius") != std::string::npos;
+        }
+        require(rejected && f.physics->status() == before,
+                "Invalid CCD radius was not rejected before body/joint mutation");
+        body.continuous_collision = false;
+        f.entity("b").set<PhysicsBody>(body);
+        f.tick();
+        require(f.physics->status().at("joints") == 1,
+                "Default discrete mode failed to preserve mirrored collision asset");
     }
     require(std::filesystem::remove_all(root) > 0, "Offset fixture cleanup failed");
 }

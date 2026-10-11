@@ -211,6 +211,25 @@ int main(int argc, char** argv) {
                         "Existing Dynamic body enum failed to navigate to Kinematic");
                 require(scene.undo() && scene.entity(selected).get<PhysicsBody>().motion == 2,
                         "Existing body enum history regressed");
+                click("component-field:forge.physics_body:continuous_collision");
+                require(scene.entity(selected).get<PhysicsBody>().continuous_collision,
+                        "Actual continuous-collision checkbox failed");
+                require(scene.undo() &&
+                            !scene.entity(selected).get<PhysicsBody>().continuous_collision,
+                        "Continuous-collision checkbox Undo failed");
+                require(scene.redo() &&
+                            scene.entity(selected).get<PhysicsBody>().continuous_collision,
+                        "Continuous-collision checkbox Redo failed");
+                click("component-field:forge.physics_body:motion");
+                key(ImGuiKey_UpArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(selected).get<PhysicsBody>().motion == 1 &&
+                            scene.entity(selected).get<PhysicsBody>().continuous_collision,
+                        "Changing body mode discarded its stored CCD choice");
+                scene.save(root / "joint.scene.json");
+                saved.load(root / "joint.scene.json");
+                require(saved.entity(selected).get<PhysicsBody>().continuous_collision,
+                        "Save/reopen lost the inactive continuous-collision choice");
                 bool solver_absent = false;
                 try {
                     (void)engine.services().physics();

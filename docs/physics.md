@@ -61,7 +61,11 @@ The exact fingerprint covers the callback table plus FORGE physics component def
 
 ## Deferred
 
-Heightfield collision, vehicles, joints, soft bodies, cloth, advanced material assets and additional query families remain future work. Durable game saves use explicit game-owned data; private solver checkpoints are not a save-game format. Compound, triangle-mesh, character, named-layer and collision-preview support are described below.
+Heightfield collision, vehicles, soft bodies, cloth, advanced material assets and
+additional query families remain future work. Durable game saves use explicit
+game-owned data; private solver checkpoints are not a save-game format. Compound,
+triangle-mesh, character, named-layer, collision-preview, joint and continuous
+collision support are described below.
 
 ### Signed visual scale versus collider admission
 
@@ -352,3 +356,32 @@ joint oscillation (147m/s implied target). Normal continuous 2.45m/s translation
 agreement after settling under gravity. Frame construction is separately checked
 without gravity to 0.003 unit-vector chord. These are attributable fixture bounds,
 not universal engine accuracy/performance guarantees or a solver-setting upgrade.
+
+## Optional continuous collision
+
+PhysicsBody's trailing boolean `continuous_collision` defaultsfalse and is backfilled
+by the existing admitted-builtin optional-field hook for old Scene/Prefab values.
+Reflection, generic authoring/UI/Undo, snapshots, body configuration equality and
+private checkpoint mappings include it. Matching exactSDK fingerprint/layout is
+required; scene versions and native ABI1 are unchanged. Configuration changes use
+the existing replacement path, preserving same-motion velocities and sleep policy.
+
+Native `EMotionQuality::LinearCast` is selected only for Dynamic nonsensor bodies;
+other modes preserve the authored flag but use Discrete. Before writes/retirements,
+the existing shape/mass admission validates a finite positive native inner radius.
+Resource replacement and detached transform-candidate checks share that admission.
+Pinned Jolt5.6.0 integrates step rotation then casts translation, not a full angular
+sweep. Native finite penetration/time-stealing/contact-cache behavior remains native;
+CCD is not a guarantee against every angular or repeated small-penetration failure.
+
+The exact ScaledShape implementation retains signed scale and returns signed minimum
+scale times child inner radius. Some mirrored AssetCollider/native compound trees
+therefore cannot use this CCD profile. Do not silentlyabs scales, vendorpatch or
+replace the native solver. Default discrete mirrored assets remain supported;
+inline symmetric shapes use their already-admitted positive native geometry.
+
+Original Gallery22 uses ordinary gravity and two thin platforms placed to expose a
+discrete fixed-step miss. Native tests use independent first-step thin-wall controls
+on X/Y/Z, continued checkpoint motion and explicit old-value default admission.
+Actual render bounds/resources and relocated source-free content consume the saved
+flag. Windows delivery/physical acceptance are separate from local proof.

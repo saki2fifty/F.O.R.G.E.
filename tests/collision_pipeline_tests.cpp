@@ -135,6 +135,7 @@ void runtime_collision(const std::filesystem::path& root, AssetId asset,
     }
     require(stopped, "Unloaded world's character service remained callable");
 }
+#include "collision_continuous_replacement.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -301,6 +302,7 @@ int main(int argc, char** argv) {
                 require(hit && old_hit && hit->fraction < old_hit->fraction,
                         "Live body kept old geometry after boundary");
             });
+            continuous_collision_replacement(root, source, service);
             catalog = AssetCatalog::open_project(root);
             // Runtime load is cooked-only: deleting the authored recipe does not
             // remove the selected artifact or force a source import.

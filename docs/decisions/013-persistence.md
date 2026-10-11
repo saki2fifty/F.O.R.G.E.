@@ -42,3 +42,13 @@ and reconstructs that order before native RestoreState. Old ephemeral checkpoint
 are rejected; no authored schema migration or persisted solver handle is introduced.
 Exact SDK fingerprint changes through the public physics settings header; ABI1 is
 unchanged. See [physics](../physics.md).
+
+## 2026-10-11 — continuous collision setting
+
+PhysicsBody adds a trailing `continuous_collision=false` field through the existing
+codec and reflected authoring schema. Missing saved fields are backfilled on
+admission; prior source documents require no rewrite or format revision. The
+stored choice survives inactive Static/Kinematic/sensor modes. Native selection
+and recovery remain owned by PhysicsRuntime. The public C++ layout and exact SDK
+fingerprint change, so modules require a matching SDK rebuild; native ABI1 remains
+unchanged. Recovery bytes remain private and exact-build compatible.

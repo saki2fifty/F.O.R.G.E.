@@ -123,3 +123,13 @@ bodies fall together as a fixed assembly and settle on the floor. The joint
 entities select body references and scaled local anchors; fixed reference frames
 use the normal axis as frame X and axis cross normal as frame Y. Open the scene,
 Play, Stop and export through the same compiler-free static runtime route.
+
+### 22 — continuous collision
+
+Two small cubes fall from24m onto thin platforms under ordinary project gravity.
+The blue cube uses continuous collision; the amber cube is the discrete comparison.
+The platform height deliberately exercises a missed discrete step in the fixed60Hz
+example. A lower floor catches the amber cube. The camera frames their landing area;
+the cubes enter from above after Play. Select the blue cube's Physics Body to change
+Continuous Collision, then stop/restart Play. This is a numerical example, not a
+promise of tunneling in every discrete scene or perfect angular collision detection.

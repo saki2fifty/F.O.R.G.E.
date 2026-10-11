@@ -270,3 +270,17 @@ core schema fixture is reconciled with the 26 builtin component types.
 Normal/sanitizer solver, real relocated Gallery export and full Inspector evidence
 are recorded in the batch review. Native Windows capture/EXE and physical acceptance
 remain separate delivery gates; these notes do not claim a new verified ZIP.
+
+## Optional continuous collision
+
+Physics Body exposes Continuous collision for fast Dynamic solid bodies. It uses
+the pinned native linear sweep, preserves the default discrete behavior and
+retains the saved choice in inactive Static/Kinematic/sensor modes. Ordinary
+Inspector editing, Undo/Redo, save, recovery and standalone export use existing
+owners. Gallery22 compares a blue continuous cube and amber discrete cube above
+thin platforms under ordinary gravity. This does not sweep all angular motion;
+incompatible native collision-asset radii reject before physics mutation. Rebuild
+native modules with the matching SDK because PhysicsBody's public layout changes.
+
+Automated local and Windows delivery evidence is tracked separately from physical
+desktop acceptance. These notes do not claim a newly verified Windows ZIP.

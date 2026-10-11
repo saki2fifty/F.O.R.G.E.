@@ -113,7 +113,8 @@ template <class T> Json encode(const T& p) {
                 {"enabled", p.enabled},
                 {"sensor", p.sensor},
                 {"layer", p.layer},
-                {"mask", p.mask}};
+                {"mask", p.mask},
+                {"continuous_collision", p.continuous_collision}};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
@@ -269,7 +270,8 @@ template <class T> Value decode(const Json& p) {
                  p.value("enabled", true),
                  p.value("sensor", false),
                  p.value("layer", std::uint32_t{0}),
-                 p.value("mask", UINT32_MAX)};
+                 p.value("mask", UINT32_MAX),
+                 p.value("continuous_collision", false)};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_from_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
@@ -521,7 +523,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("enabled")
             .template member<bool>("sensor")
             .template member<std::uint32_t>("layer")
-            .template member<std::uint32_t>("mask");
+            .template member<std::uint32_t>("mask")
+            .template member<bool>("continuous_collision");
     else if constexpr (std::is_same_v<T, PhysicsJoint>) {
         (void)authoring_value_adapters(w);
         c.template member<bool>("enabled")
@@ -891,7 +894,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.physics_body") {
-        if (field == "enabled" || field == "sensor") {
+        if (field == "enabled" || field == "sensor" || field == "continuous_collision") {
             value.erase("minimum");
             value.erase("maximum");
         }
@@ -907,6 +910,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = "Enable this body's collision and simulation";
         if (field == "sensor")
             value["description"] = "Report overlap contacts without solid collision response";
+        if (field == "continuous_collision")
+            value["description"] =
+                "Extra linear collision sweep for fast Dynamic solids with positive native inner "
+                "radius. Inactive for Static, Kinematic or sensor bodies; choice is preserved. "
+                "Does not sweep angular motion and costs additional physics work.";
         if (field == "motion") {
             value["maximum"] = 2;
         }
@@ -1384,7 +1392,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")
-        for (const auto* field : {"enabled", "sensor", "layer", "mask"})
+        for (const auto* field : {"enabled", "sensor", "layer", "mask", "continuous_collision"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;
