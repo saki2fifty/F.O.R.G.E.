@@ -1,6 +1,6 @@
 # Explore the Feature Gallery
 
-The packaged **Examples/FeatureGallery** project gives you eight short scenes to
+The packaged **Examples/FeatureGallery** project gives you eleven short scenes to
 open in the editor and export as standalone games. You can see how each effect is
 authored, change it, then compare the result in Play and in the exported game.
 
@@ -23,3 +23,11 @@ remains a separate combined gameplay example.
 Scene **09-animation-blending** compares Idle, an equal mix and Reach on three
 skinned columns. Select the middle root and open **Preview skeletal animation...**
 from Content to scrub or try smooth transitions. See [Preview and blend two animations](../editor/animation-blending.md). Both clips are included when you export this scene.
+
+## Named states and timing markers
+
+Scene10 compares Idle/Walk/Run on real characters. Scene11 carries editable Pulse
+markers on Walk/Run. The optional C++ example shows those timing points changing
+the character height; normal clip playback requires no compiler. See
+[Choose named states](../editor/animation-states.md) and
+[Trigger C++ actions](../editor/animation-markers.md).

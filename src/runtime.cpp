@@ -169,7 +169,7 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
                             .immediate()
                             .run([this](flecs::iter& it) {
                                 if (animation_)
-                                    stage([&] { animation_->tick(it.delta_time()); });
+                                    stage([&] { animation_->tick(it.delta_time(), input_tick_); });
                             });
     animation_system_.add<FixedSimulation>();
     navigation_phase_ =

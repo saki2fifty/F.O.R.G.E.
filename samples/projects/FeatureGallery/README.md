@@ -31,6 +31,8 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 | `09-animation-blending` | Press Play and compare the three skinned columns. Select **Half Idle / half Reach** and open **Preview skeletal animation...** from Content. Pause, scrub and adjust the blend target/duration. | Idle, an equal blend, and Reach share normalized phase. The center column bends between the two poses. Preview is temporary; Apply settings stores one Scene Undo step. Both clips play in standalone export. |
 | `10-animation-states` | Press Play to compare Idle, Walk and Run characters. Select a character root and use Animation Preview's named state selector. Open `Assets/Locomotion.states.json` to change names, loop, speed and incoming fade. | Real independently skinned Quaternius clips. C++ selects stable state IDs; ordinary export includes the entire set. CC0 license and immutable provenance are beside the GLB. |
 
+| `11-animation-markers` | Open `Assets/MarkerPulse.states.json` and inspect/edit Pulse timing on Walk/Run. For an actual action, build the optional [C++ example](CodeExamples/README.md). | Markers are published/exported with the clips. The compiled example alternates character height at the authored timing points. Preview is muted. These are illustrative timing points, not calibrated footsteps. |
+
 ## Export and run a scene
 
 1. Open the scene you want to export and save it.

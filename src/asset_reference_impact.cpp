@@ -174,14 +174,24 @@ struct Inspect {
                 for (const auto& [key, unused] : state.items()) {
                     (void)unused;
                     if (key != "id" && key != "name" && key != "clip" && key != "loop" &&
-                        key != "speed" && key != "transition_seconds")
+                        key != "speed" && key != "transition_seconds" && key != "markers")
                         unknown(scope + "." + key);
                 }
+                if (state.contains("markers"))
+                    for (const auto& marker : state.at("markers"))
+                        for (const auto& [key, unused] : marker.items()) {
+                            (void)unused;
+                            if (key != "id" && key != "name" && key != "phase" && key != "value")
+                                unknown(scope + ".markers." +
+                                        std::to_string(marker.at("id").get<std::uint32_t>()) + "." +
+                                        key);
+                        }
             }
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
                 if (key != "format" && key != "version" && key != "asset_id" && key != "skeleton" &&
-                    key != "entry" && key != "next_id" && key != "states")
+                    key != "entry" && key != "next_id" && key != "next_marker_id" &&
+                    key != "states")
                     unknown(key);
             }
         } else if (doc.contains("kind") && doc.at("kind").is_string() &&

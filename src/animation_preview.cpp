@@ -5,6 +5,7 @@ SkeletalAnimationPreview::PreviewWorld::PreviewWorld(const std::filesystem::path
                                                      const Json& source, EntityRef ref)
     : engine(WorldRole::Runtime, false, {animation_module(project)}), scene(engine.world()),
       animation(animation_runtime(engine.world())), target(ref) {
+    animation->event_delivery(false);
     scene.restore_snapshot(source);
     (void)actor();
 }
@@ -89,6 +90,8 @@ void SkeletalAnimationPreview::seek(double time) {
         throw std::runtime_error("Animation preview time exceeds clip duration");
     entry["time"] = time;
     entry["playing"] = true;
+    if (entry.contains("states"))
+        entry["states"]["entry_pending"] = false;
     world_->animation->restore(state);
     (void)world_->animation->prepare_initial_pose();
 }

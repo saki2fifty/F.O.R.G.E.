@@ -229,6 +229,8 @@ class AnimationStatesEditor {
                     });
                     selected_ = 0;
                 }
+                if (selected_)
+                    draw_markers();
                 break;
             }
             ImGui::SeparatorText("Scene object");
@@ -284,7 +286,8 @@ class AnimationStatesEditor {
     std::optional<std::filesystem::path> next_source_;
     AssetJobId job_ = 0;
     bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
-    std::uint32_t selected_ = 0;
+    std::uint32_t selected_ = 0, marker_selected_ = 0;
+    char marker_name_[65]{};
     Json new_clip_ = nullptr;
     char path_[256] = "Assets/Character.states.json", name_[65]{};
     std::string error_;
@@ -294,7 +297,7 @@ class AnimationStatesEditor {
         catalog_.reset();
         new_clip_ = nullptr;
         job_ = 0;
-        selected_ = 0;
+        selected_ = marker_selected_ = 0;
         needs_publish_ = save_ = close_ = open_error_ = false;
     }
     void load(SceneDocument& project, const std::filesystem::path& source) {
@@ -325,11 +328,14 @@ class AnimationStatesEditor {
             select(selected_);
     }
     void select(std::uint32_t id) {
+        if (selected_ != id)
+            marker_selected_ = 0;
         selected_ = id;
         for (const auto& s : document_->source().document.at("states"))
             if (s.at("id") == id) {
                 const auto name = s.at("name").get<std::string>();
                 std::snprintf(name_, sizeof(name_), "%s", name.c_str());
+                select_marker(marker_selected_);
                 return;
             }
         selected_ = 0;
@@ -349,6 +355,100 @@ class AnimationStatesEditor {
                 if (s.at("id") == selected_)
                     s[field] = value;
         });
+    }
+    void select_marker(std::uint32_t id) {
+        marker_selected_ = 0;
+        marker_name_[0] = 0;
+        for (const auto& state : document_->source().document.at("states"))
+            if (state.at("id") == selected_ && state.contains("markers"))
+                for (const auto& marker : state.at("markers"))
+                    if (marker.at("id") == id) {
+                        marker_selected_ = id;
+                        const auto name = marker.at("name").get<std::string>();
+                        std::snprintf(marker_name_, sizeof(marker_name_), "%s", name.c_str());
+                        return;
+                    }
+    }
+    template <class F> void mutate_markers(std::string label, F edit) {
+        mutate(std::move(label), [&](Json& draft) {
+            for (auto& state : draft["states"])
+                if (state.at("id") == selected_) {
+                    if (!state.contains("markers"))
+                        state["markers"] = Json::array();
+                    edit(draft, state["markers"]);
+                }
+        });
+    }
+    void mutate_marker(std::string label, const char* field, const Json& value) {
+        mutate_markers(std::move(label), [&](Json&, Json& markers) {
+            for (auto& marker : markers)
+                if (marker.at("id") == marker_selected_)
+                    marker[field] = value;
+        });
+    }
+    void draw_markers() {
+        const auto draft = document_->source().document;
+        Json markers = Json::array();
+        std::size_t total = 0;
+        for (const auto& state : draft.at("states")) {
+            total += state.contains("markers") ? state.at("markers").size() : 0;
+            if (state.at("id") == selected_ && state.contains("markers"))
+                markers = state.at("markers");
+        }
+        ImGui::SeparatorText("Timing markers");
+        ImGui::TextDisabled("C++ observes markers during Play. Preview is muted.");
+        const auto next = draft.value("next_marker_id", std::uint64_t(1));
+        ImGui::BeginDisabled(markers.size() >= 64 || total >= 512 || next > UINT32_MAX);
+        if (ui::button("Add marker", "Create a stable marker ID at half of the clip.")) {
+            mutate_markers("Add animation marker", [&](Json& d, Json& list) {
+                d["next_marker_id"] = next + 1;
+                list.push_back({{"id", next}, {"name", "Marker"}, {"phase", .5}, {"value", 0.}});
+            });
+            select_marker(std::uint32_t(next));
+        }
+        FORGE_UI_PROBE("animation_states:add_marker");
+        ImGui::EndDisabled();
+        for (const auto& marker : markers) {
+            const auto id = marker.at("id").get<std::uint32_t>();
+            const auto label =
+                marker.at("name").get<std::string>() + "##marker" + std::to_string(id);
+            if (ImGui::Selectable(label.c_str(), marker_selected_ == id))
+                select_marker(id);
+        }
+        for (const auto& state : document_->source().document.at("states"))
+            if (state.at("id") == selected_ && state.contains("markers"))
+                for (const auto& marker : state.at("markers")) {
+                    if (marker.at("id") != marker_selected_)
+                        continue;
+                    const auto current = marker;
+                    ImGui::Text("Marker ID: %u", marker_selected_);
+                    ImGui::InputText("Marker name", marker_name_, sizeof(marker_name_));
+                    FORGE_UI_PROBE("animation_states:marker_name");
+                    if (ImGui::IsItemDeactivatedAfterEdit())
+                        mutate_marker("Rename animation marker", "name", std::string(marker_name_));
+                    float phase = current.at("phase");
+                    if (ImGui::SliderFloat("Clip phase", &phase, 0, 1, "%.3f"))
+                        mutate_marker("Move animation marker", "phase", phase);
+                    FORGE_UI_PROBE("animation_states:marker_phase");
+                    double value = current.at("value");
+                    if (ImGui::InputDouble("Marker value", &value, 0, 0, "%.3f",
+                                           ImGuiInputTextFlags_EnterReturnsTrue))
+                        mutate_marker("Set animation marker value", "value", value);
+                    FORGE_UI_PROBE("animation_states:marker_value");
+                    if (ui::button("Remove marker",
+                                   "Remove this occurrence without recycling its ID.")) {
+                        mutate_markers("Remove animation marker", [&](Json&, Json& list) {
+                            for (auto i = list.begin(); i != list.end(); ++i)
+                                if (i->at("id") == marker_selected_) {
+                                    list.erase(i);
+                                    break;
+                                }
+                        });
+                        select_marker(0);
+                    }
+                    FORGE_UI_PROBE("animation_states:remove_marker");
+                    return;
+                }
     }
     void publish() {
         try {

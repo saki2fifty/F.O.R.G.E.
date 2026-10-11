@@ -602,6 +602,75 @@
       "type": "model_node"
     },
     {
+      "dependencies": [
+        "43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:1",
+          "target": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:3",
+          "target": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:2",
+          "target": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "18ed6dce-b225-450d-8377-0ddca5a754fa",
+      "metadata": {
+        "forge.animation_states": {
+          "bytes": 771,
+          "file": "states.json",
+          "sha256": "30e4ee01d7ee66117231f4af63eb844e16f39b2aae515a8dfd429aa1271907d2",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "9e665b96b184149be43570dfbfaad0f060491144feab3d9ed4fffbf01caaf9a0",
+          "backend": "d3d12",
+          "dependency_digest": "c87c206d35c7305d44c88245ea305abb3d459a04bfd9f9721a318271a4550df6",
+          "generation": 1,
+          "importer": "forge.animation.states",
+          "importer_revision": "forge.animation.states.v2",
+          "key": "0b86b8fcd76cf96e8f478651347ece96aa0c40a1438251433972277cf86b30df",
+          "output_format": "forge.animation-states",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6557bc8ae18ae969928a4b78362ab05441a2359f9b7afb64d60b56920060f50d",
+          "source_digest": "cc6cfd07fc69ef733c4dee77c844dc71a0e87794f665cfd1152da96ca3b0c778",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/MarkerPulse.states.json",
+      "source_dependencies": [],
+      "type": "animation_states"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",

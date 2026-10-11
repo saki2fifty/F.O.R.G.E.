@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-11](20261011/README.md) — Transform timeline local validation complete; Windows delivery pending.
+- [2026-10-11](20261011/README.md) — Animation timeline, blending, named states and C++ markers validated locally; Windows delivery pending.
 
 - [2026-10-10](20261010/README.md) — Transform animation timeline and Gallery example; Windows delivery pending.
 
@@ -11,7 +11,7 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
-| [2026-10-11](20261011/README.md) | Transform timeline runtime/UI/Gallery checks passed locally. |
+| [2026-10-11](20261011/README.md) | Animation runtime/UI/Gallery and C++ timing-marker checks passed locally. |
 | [2026-10-10](20261010/README.md) | Reusable transform clips, timeline editing/preview and standalone playback. |
 | [2026-10-04](20261004/README.md) | Build 261004-000148 delivered; compact Content search and complete C++ onboarding validated. |
 | [2026-10-03](20261003/README.md) | Unified Content browser for assets and C++ files, Build panel navigation, and C++ authoring workflow. |

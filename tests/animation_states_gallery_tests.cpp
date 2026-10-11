@@ -1,6 +1,7 @@
 #include "model_instance_pose.hpp"
 #include "model_render_resource.hpp"
 #include "runtime_package.hpp"
+#include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
@@ -31,6 +32,29 @@ struct World {
         simulation.reset_presentation();
     }
 };
+void inspect_markers(World& world, const Json& source) {
+    double duration = 0;
+    for (const auto& row : source.at("entities"))
+        if (row.at("components").contains("forge.animator")) {
+            const auto id = world.scene.entity(row.at("id")).id();
+            duration = std::max(duration,
+                                world.animation->presentation(id, 1).at("duration").get<double>());
+        }
+    std::set<std::uint32_t> observed;
+    for (unsigned i = 0; i <= unsigned(std::ceil(duration * 60)); ++i) {
+        world.simulation.tick(1.f / 60);
+        for (const auto& event : world.animation->events()) {
+            require(event.name == "Pulse" && event.state >= 2 && event.state <= 3,
+                    "Real-rig marker name/state differs");
+            require(event.entity.scene == source.at("asset_id").get<AssetId>() && event.tick > 0 &&
+                        event.offset >= 0 && event.offset <= 1. / 60 + 1e-6,
+                    "Real-rig marker identity or fixed offset differs");
+            require(event.value == (event.marker % 2 ? 1 : 0), "Real-rig marker payload differs");
+            observed.insert(event.marker);
+        }
+    }
+    require(observed == std::set<std::uint32_t>{1, 2, 3, 4}, "Real-rig marker coverage incomplete");
+}
 std::vector<Double3> vertices(const MeshData& data, const MeshInstancePose& pose) {
     std::vector<Double3> result;
     for (std::size_t p = 0; p < data.lods.front().parts.size(); ++p) {
@@ -194,7 +218,12 @@ int main(int argc, char** argv) {
                 "Direct clip did not admit after transition layers were released");
 
         auto lease = std::make_shared<ProjectLease>(root);
-        const std::array roots{source.at("asset_id").get<AssetId>()};
+        Json marker_source;
+        std::ifstream(root / "Scenes/11-animation-markers.scene.json") >> marker_source;
+        World marker_world(root, marker_source);
+        inspect_markers(marker_world, marker_source);
+        const std::array roots{source.at("asset_id").get<AssetId>(),
+                               marker_source.at("asset_id").get<AssetId>()};
         prepare_runtime_content_catalog(*lease, roots, {}, world.scene.schema());
         const auto output = root.parent_path() / ("export-" + AssetId::generate().str());
         package_runtime_content(root, output, roots, {"windows", "d3d12"}, {}, {},
@@ -222,6 +251,10 @@ int main(int argc, char** argv) {
         exported.simulation.tick(.1f);
         require(exported.animation->checkpoint_ready(),
                 "Relocated character state transition failed");
+        World exported_markers(relocated, marker_source);
+        inspect_markers(exported_markers, marker_source);
+        require(!std::filesystem::exists(relocated / "Assets/MarkerPulse.states.json"),
+                "Marker source shipped");
         std::cout << "Three Quaternius clips deform independent characters; all state dependencies "
                      "export and play after source removal/relocation\n";
         return 0;

@@ -17,6 +17,7 @@ struct AnimationStatesDocumentTraits {
         const auto next = current.document.at("next_id").get<std::uint64_t>();
         if (candidate.document.at("next_id").get<std::uint64_t>() < next)
             throw std::runtime_error("Animation state ID sequence cannot move backwards");
+        validate_markers(current, candidate);
         std::set<std::uint32_t> existing;
         for (const auto& state : current.document.at("states"))
             existing.insert(state.at("id").get<std::uint32_t>());
@@ -26,10 +27,31 @@ struct AnimationStatesDocumentTraits {
                 throw std::runtime_error("Animation state ID was already allocated");
         }
     }
+    static void validate_markers(const Source& current, const Source& candidate) {
+        const auto next = current.document.value("next_marker_id", std::uint64_t(1));
+        if (candidate.document.value("next_marker_id", std::uint64_t(1)) < next)
+            throw std::runtime_error("Animation marker ID sequence cannot move backwards");
+        std::set<std::uint32_t> existing;
+        for (const auto& state : current.document.at("states"))
+            if (state.contains("markers"))
+                for (const auto& marker : state.at("markers"))
+                    existing.insert(marker.at("id").get<std::uint32_t>());
+        for (const auto& state : candidate.document.at("states"))
+            if (state.contains("markers"))
+                for (const auto& marker : state.at("markers")) {
+                    const auto id = marker.at("id").get<std::uint32_t>();
+                    if (!existing.contains(id) && id < next)
+                        throw std::runtime_error("Animation marker ID was already allocated");
+                }
+    }
     static void restore_identity_metadata(Source& next, const Source& current) {
         // Undo restores authored rows, never the allocator's published high-water mark.
         next.document["next_id"] = std::max(next.document.at("next_id").get<std::uint64_t>(),
                                             current.document.at("next_id").get<std::uint64_t>());
+        if (next.document.contains("next_marker_id") || current.document.contains("next_marker_id"))
+            next.document["next_marker_id"] =
+                std::max(next.document.value("next_marker_id", std::uint64_t(1)),
+                         current.document.value("next_marker_id", std::uint64_t(1)));
         next.validate();
     }
 };

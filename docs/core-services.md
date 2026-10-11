@@ -72,3 +72,11 @@ ServiceAccess uses one typed world-slot publication policy for Physics/Audio/Nav
 ## Native ECS diagnostics
 
 Flecs Stats/Metrics/Alerts own ECS measurements and query-driven alert state. FORGE Problems projects active native alerts and clears resolved ones; compiler, filesystem, worker and device errors retain the existing services. Native diagnostic sampling never advances the runtime clock. Read-only ECS REST remains distinct from the validated authoring API. See [Flecs integration](flecs-integration.md).
+
+## Animation capability
+
+Animation (`4096`) uses the same weak world slot. `forge.animation` declares the
+runtime provider; a module requiring it declares that provider dependency.
+AnimationRuntime owns current-tick broadcast marker observations. The matching
+C-shaped SDK copies bounded values in PostPhysics and rejects stale targets.
+Preview worlds mute observations. See [Animation markers](animation-markers.md).

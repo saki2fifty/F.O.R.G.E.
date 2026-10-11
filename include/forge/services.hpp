@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <forge/animation_service.hpp>
 #include <forge/audio_service.hpp>
 #include <forge/game_control_service.hpp>
 #include <forge/identity.hpp>
@@ -36,10 +37,11 @@ enum class Capability : unsigned {
     Navigation = 32,
     Ui = 64,
     Resources = 256,
-    Game = 2048
+    Game = 2048,
+    Animation = 4096
 };
 constexpr unsigned capability(Capability value) { return static_cast<unsigned>(value); }
-inline constexpr unsigned subsystem_capabilities = 8u | 16u | 32u | 64u | 256u | 2048u;
+inline constexpr unsigned subsystem_capabilities = 8u | 16u | 32u | 64u | 256u | 2048u | 4096u;
 inline constexpr unsigned supplied_capabilities = 1u | 2u | subsystem_capabilities;
 inline constexpr unsigned known_capabilities = supplied_capabilities | 4u;
 struct ModuleRequirement {
@@ -75,6 +77,8 @@ class ServiceAccess {
   public:
     bool available(Capability capability) const;
     ServiceAccess world_scope() const;
+    void publish_animation(const std::shared_ptr<AnimationService>&) const;
+    std::shared_ptr<AnimationService> animation() const;
     void publish_game(const std::shared_ptr<GameControlService>&) const;
     std::shared_ptr<GameControlService> game() const;
     void publish_resources(const std::shared_ptr<RuntimeResourceService>&) const;
@@ -104,6 +108,7 @@ class ServiceAccess {
     template <class T>
     void publish(Capability, const std::shared_ptr<detail::ServiceSlot<T>>&,
                  const std::shared_ptr<T>&) const;
+    std::shared_ptr<detail::ServiceSlot<AnimationService>> animation_;
     std::shared_ptr<detail::ServiceSlot<PhysicsService>> physics_;
     std::shared_ptr<detail::ServiceSlot<AudioService>> audio_;
     std::shared_ptr<detail::ServiceSlot<NavigationService>> navigation_;

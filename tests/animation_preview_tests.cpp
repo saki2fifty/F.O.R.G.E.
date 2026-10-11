@@ -191,6 +191,33 @@ int main(int argc, char** argv) {
                 require(states_editor.document()->source().compiled().state(2).transition_seconds ==
                             .75f,
                         "State source Redo failed");
+                click_target("animation_states:add_marker");
+                number("animation_states:marker_name", "FootLeft");
+                number("animation_states:marker_phase", "0.25");
+                number("animation_states:marker_value", "0.75");
+                auto marker = states_editor.document()->source().compiled().state(2).markers.at(0);
+                require(marker.id == 1 && marker.name == "FootLeft" && marker.phase == .25 &&
+                            marker.value == .75,
+                        "Marker fields did not commit through actual UI");
+                click("Undo");
+                click("Undo");
+                click("Undo");
+                click("Redo");
+                click("Redo");
+                click("Redo");
+                click_target("animation_states:remove_marker");
+                require(states_editor.document()->source().compiled().state(2).markers.empty(),
+                        "Remove marker failed");
+                click("Undo");
+                require(states_editor.document()->source().compiled().state(2).markers.at(0).id ==
+                            1,
+                        "Marker Undo changed identity");
+                click("Redo");
+                click_target("animation_states:add_marker");
+                require(states_editor.document()->source().compiled().state(2).markers.at(0).id ==
+                                2 &&
+                            states_editor.document()->source().document.at("next_marker_id") == 3,
+                        "Marker ID was recycled by editor history");
                 states_editor.request_close();
                 frame();
                 frame();

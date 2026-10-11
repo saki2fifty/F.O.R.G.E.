@@ -14,6 +14,7 @@
 #include <future>
 #include <set>
 #include <thread>
+#include <tuple>
 namespace forge {
 namespace {
 using namespace animation_detail;
@@ -43,12 +44,43 @@ struct Playback {
     std::unique_ptr<Sampler> sampler, blend_sampler;
     double blend = 0, previous_blend = 0, blend_from = 0, blend_elapsed = 0;
     double time = 0, previous = 0, advance = 0;
-    bool playing = false;
+    // Snapshot of this tick's semantic interval; presentation snaps may reset advance.
+    double tick_begin = 0, tick_advance = 0;
+    bool playing = false, entry_pending = true;
     bool model_pose_applied = false, discontinuous = true;
 };
 std::size_t evaluated_joints(const Playback& p) {
     const bool two_layers = p.blend_sampler || (p.definition && p.blend < 1);
     return p.assets.skeleton->info().tracks * (two_layers ? 2 : 1);
+}
+void append_markers(const Playback& p, std::uint64_t tick, std::vector<AnimationEvent>& events) {
+    const auto& state = p.definition->state(p.config.state);
+    const double duration = p.assets.clip->info().duration;
+    const double begin = p.tick_begin, end = begin + p.tick_advance;
+    const auto emit = [&](const AnimationMarker& marker, double time) {
+        if (events.size() == 4096)
+            throw ArchiveError("Animation marker delivery exceeds 4096 occurrences per fixed tick");
+        events.push_back({p.reference, p.requested.states.id, p.config.clip.id, p.config.state,
+                          marker.id, tick, (time - begin) / p.config.playback_speed, marker.phase,
+                          marker.value, marker.name});
+    };
+    for (const auto& marker : state.markers) {
+        const double time = marker.phase * duration;
+        if (p.entry_pending && marker.phase == 0)
+            emit(marker, begin);
+        if (!p.config.loop) {
+            if (time > begin && time <= end)
+                emit(marker, time);
+            continue;
+        }
+        const double first = std::floor((begin - time) / duration) + 1;
+        const double last = std::floor((end - time) / duration);
+        const double count = std::max(0., last - first + 1);
+        if (count > 4096 - events.size())
+            throw ArchiveError("Animation marker delivery exceeds 4096 occurrences per fixed tick");
+        for (std::size_t i = 0; i < static_cast<std::size_t>(count); ++i)
+            emit(marker, time + (first + i) * duration);
+    }
 }
 struct SampledPose {
     std::vector<Matrix> model;
@@ -99,7 +131,8 @@ struct AnimationRuntime::Impl {
     WorldContext& context;
     std::filesystem::path project;
     TransformAnimationPlayback transforms;
-    bool initial_catalog_requested = false;
+    bool initial_catalog_requested = false, deliver_events = true;
+    std::vector<AnimationEvent> events, event_candidates;
     std::string catalog_error;
     std::map<AssetId, std::shared_ptr<const Skeleton>> skeletons;
     std::map<AssetId, std::shared_ptr<const Clip>> clips;
@@ -941,15 +974,18 @@ void AnimationRuntime::catalog(std::shared_ptr<const AssetCatalog> selected) {
     if (impl_)
         impl_->catalog(std::move(selected));
 }
-void AnimationRuntime::tick(float dt) {
+void AnimationRuntime::tick(float dt, std::uint64_t tick) {
     if (!impl_)
         return;
     if (!std::isfinite(dt) || dt <= 0)
         throw ArchiveError("Animation requires a positive fixed delta");
+    impl_->events.clear();
+    impl_->event_candidates.clear();
     auto profile = impl_->context.services().profile("animation", "FixedPlayback");
     impl_->synchronize(dt);
     for (auto& [id, p] : impl_->states) {
-        p.previous = p.time;
+        p.tick_begin = p.previous = p.time;
+        p.tick_advance = 0;
         p.previous_blend = p.blend;
         p.advance = 0;
         p.outgoing_previous = p.outgoing_time;
@@ -986,9 +1022,47 @@ void AnimationRuntime::tick(float dt) {
             p.advance = p.time - p.previous;
             p.playing = p.definition && p.blend < p.config.blend_weight;
         }
+        p.tick_advance = p.advance;
     }
     impl_->apply_model_poses();
     impl_->transforms.tick(dt);
+    if (impl_->deliver_events) {
+        try {
+            for (auto& [id, p] : impl_->states) {
+                if (!p.definition || !p.config.enabled || p.tick_advance <= 0 ||
+                    impl_->pending.contains(id) || impl_->binding_errors.contains(id))
+                    continue;
+                append_markers(p, tick, impl_->event_candidates);
+            }
+            std::sort(impl_->event_candidates.begin(), impl_->event_candidates.end(),
+                      [](const auto& a, const auto& b) {
+                          return std::tie(a.offset, a.entity, a.marker) <
+                                 std::tie(b.offset, b.entity, b.marker);
+                      });
+            impl_->events.swap(impl_->event_candidates);
+        } catch (const std::exception& ex) {
+            impl_->event_candidates.clear();
+            Diagnostic d{Severity::Error, "animation.markers", ex.what(), {}};
+            d.context.tick = tick;
+            d.context.module = "forge.animation";
+            impl_->context.services().emit(std::move(d));
+            throw;
+        }
+    }
+    for (auto& [id, p] : impl_->states)
+        if (p.config.enabled && p.tick_advance > 0 && !impl_->pending.contains(id) &&
+            !impl_->binding_errors.contains(id))
+            p.entry_pending = false;
+}
+std::span<const AnimationEvent> AnimationRuntime::events() const {
+    return impl_ ? std::span<const AnimationEvent>(impl_->events)
+                 : std::span<const AnimationEvent>();
+}
+void AnimationRuntime::event_delivery(bool enabled) {
+    if (impl_) {
+        impl_->deliver_events = enabled;
+        impl_->events.clear();
+    }
 }
 void AnimationRuntime::reset_presentation() {
     if (!impl_)
@@ -1148,6 +1222,7 @@ Json AnimationRuntime::checkpoint() const {
                     {"asset", p.requested.states.id},
                     {"revision", p.definition.identity().revision},
                     {"state", p.config.state},
+                    {"entry_pending", p.entry_pending},
                     {"outgoing_state", p.outgoing_sampler ? p.outgoing_config.state : 0},
                     {"outgoing_time", p.outgoing_time},
                     {"outgoing_speed", p.outgoing_sampler ? p.outgoing_config.playback_speed : 0},
@@ -1202,6 +1277,7 @@ void AnimationRuntime::restore(const Json& data) {
         Animator outgoing_config;
         double outgoing_time = 0;
         std::vector<LocalPose> frozen;
+        bool entry_pending = false;
     };
     std::vector<RestoreValue> values;
     std::map<flecs::entity_t, double> times, weights;
@@ -1245,6 +1321,12 @@ void AnimationRuntime::restore(const Json& data) {
                 state.at("revision") != p.definition.identity().revision ||
                 state.at("state") != p.config.state)
                 throw ArchiveError("Animation state recovery identity/revision differs");
+            if (state.contains("entry_pending") && !state.at("entry_pending").is_boolean())
+                throw ArchiveError("Animation marker recovery entry flag must be boolean");
+            value.entry_pending = state.value("entry_pending", false);
+            if (value.entry_pending && time != 0)
+                throw ArchiveError(
+                    "Animation marker recovery entry flag conflicts with playback time");
             const auto outgoing_id = state.at("outgoing_state").get<std::uint32_t>();
             value.outgoing_time = state.at("outgoing_time");
             const double speed = state.at("outgoing_speed");
@@ -1351,6 +1433,7 @@ void AnimationRuntime::restore(const Json& data) {
         const auto time = value.time;
         p.time = time;
         p.playing = value.playing;
+        p.entry_pending = value.entry_pending;
         p.previous = time;
         p.advance = 0;
         p.blend = p.previous_blend = value.blend;
@@ -1372,22 +1455,27 @@ void AnimationRuntime::restore(const Json& data) {
         p.model_pose_applied = false;
         p.discontinuous = true;
     }
+    impl_->events.clear();
+    impl_->event_candidates.clear();
     impl_->binding_errors.clear();
     impl_->discontinuities.clear();
 }
 EngineModule animation_module(std::filesystem::path project) {
     auto module = animation_schema_module();
     module.runtime_roles = role_mask(WorldRole::Runtime);
-    module.allowed_services =
-        capability(Capability::Diagnostics) | capability(Capability::Profiling);
+    module.provided_services = capability(Capability::Animation);
+    module.allowed_services = capability(Capability::Diagnostics) |
+                              capability(Capability::Profiling) | capability(Capability::Animation);
     module.start = [project = std::move(project)](ModuleContext& c) {
         auto state = std::make_shared<AnimationRuntime>(*c.owner, project);
         c.world.component<AnimationBridge>("forge.animation.private_bridge")
             .add(flecs::OnInstantiate, flecs::DontInherit);
         c.world.set<AnimationBridge>({state});
+        c.services.publish_animation(state);
         c.state = state;
     };
     module.stop = [](ModuleContext& c) {
+        c.services.publish_animation({});
         std::static_pointer_cast<AnimationRuntime>(c.state)->shutdown();
     };
     return module;

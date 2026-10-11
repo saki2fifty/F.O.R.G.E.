@@ -62,6 +62,112 @@ struct Fixture {
         e.set(c);
     }
 };
+void marker_tests(const std::filesystem::path& root, const Json& doc, EntityId actor) {
+    const auto ids = [&](Fixture& f) {
+        std::vector<std::uint32_t> result;
+        double previous = -1;
+        for (const auto& event : f.animation->events()) {
+            require(event.offset >= previous, "Marker occurrences not chronological");
+            previous = event.offset;
+            require(event.entity == *f.engine.world().reference(f.scene.entity(actor.str()).id()),
+                    "Marker entity identity changed");
+            require(!event.name.empty() && bool(event.clip) && bool(event.states),
+                    "Marker fields missing");
+            result.push_back(event.marker);
+        }
+        return result;
+    };
+    Fixture loop(root, doc, actor);
+    require(loop.animation->events().empty(), "Preparation emitted a marker");
+    loop.animation->tick(.5f, 1);
+    require(ids(loop) == std::vector<std::uint32_t>{1, 2}, "Entry and exact quarter marker");
+    near(loop.animation->events()[1].offset, .5, "Marker within-tick offset");
+    require(loop.animation->events()[1].tick == 1, "Marker tick identity");
+    loop.animation->tick(1.5f, 2);
+    require(ids(loop) == std::vector<std::uint32_t>{3, 1, 4}, "Endpoint and zero seam markers");
+    loop.animation->tick(4.f, 3);
+    require(ids(loop) == std::vector<std::uint32_t>{2, 3, 1, 4, 2, 3, 1, 4},
+            "Multiple loops lost markers");
+    const auto checkpoint = loop.animation->checkpoint();
+    Fixture restored(root, doc, actor);
+    restored.animation->restore(checkpoint);
+    require(restored.animation->events().empty(), "Restore replayed previous marker events");
+    restored.animation->tick(.5f, 4);
+    require(ids(restored) == std::vector<std::uint32_t>{2},
+            "Recovery root=" + root.filename().string() +
+                " marker IDs=" + Json(ids(restored)).dump() + " checkpoint pending=" +
+                checkpoint.at("entries")[0].at("states").at("entry_pending").dump() +
+                " saved_time=" + checkpoint.at("entries")[0].at("time").dump() +
+                " time=" + restored.pose().at("time").dump() + " pose=" + restored.pose().dump());
+    Fixture pending(root, doc, actor);
+    Fixture pending_restored(root, doc, actor);
+    pending_restored.animation->restore(pending.animation->checkpoint());
+    pending_restored.animation->tick(.5f, 1);
+    require(ids(pending_restored) == std::vector<std::uint32_t>{1, 2},
+            "Recovery lost pending entry");
+    Fixture transitions(root, doc, actor);
+    transitions.animation->tick(.4f, 1);
+    transitions.state(2);
+    transitions.animation->tick(.2f, 2);
+    require(ids(transitions) == std::vector<std::uint32_t>{5},
+            "Outgoing transition emitted duplicate markers");
+    transitions.state(3);
+    transitions.animation->tick(.5f, 3);
+    require(ids(transitions) == std::vector<std::uint32_t>{8, 9, 10},
+            "Interrupted nonloop markers");
+    near(transitions.animation->events()[1].offset, .125, "Scaled marker offset");
+    transitions.animation->tick(.5f, 4);
+    require(transitions.animation->events().empty(), "Completed nonloop replayed markers");
+    Fixture stopped(root, doc, actor);
+    auto entity = stopped.scene.entity(actor.str());
+    auto config = entity.get<Animator>();
+    config.playback_speed = 0;
+    entity.set(config);
+    stopped.animation->tick(2.f, 1);
+    require(stopped.animation->events().empty(), "Zero speed emitted markers");
+    config.playback_speed = 1;
+    config.enabled = false;
+    entity.set(config);
+    stopped.animation->tick(2.f, 2);
+    require(stopped.animation->events().empty(), "Disabled player emitted markers");
+    config.enabled = true;
+    entity.set(config);
+    stopped.animation->tick(.5f, 3);
+    require(ids(stopped) == std::vector<std::uint32_t>{1, 2}, "Pause lost pending entry markers");
+    Fixture muted(root, doc, actor);
+    muted.animation->event_delivery(false);
+    muted.animation->tick(4.f, 1);
+    require(muted.animation->events().empty(), "Muted preview emitted gameplay markers");
+    auto multiple = doc;
+    Json marker_config;
+    for (const auto& row : doc.at("entities"))
+        if (row.at("components").contains("forge.animator"))
+            marker_config = row.at("components").at("forge.animator");
+    const std::array<std::string, 3> entity_ids{"00000000-0000-4000-8000-000000000001",
+                                                "00000000-0000-4000-8000-000000000002",
+                                                "00000000-0000-4000-8000-000000000003"};
+    multiple["entities"] = Json::array();
+    for (auto i = entity_ids.rbegin(); i != entity_ids.rend(); ++i)
+        multiple["entities"].push_back({{"id", *i},
+                                        {"name", "Marker player"},
+                                        {"spatial", {{"mode", "world"}}},
+                                        {"components", {{"forge.animator", marker_config}}}});
+    Fixture together(root, multiple, Json(entity_ids[0]).get<EntityId>());
+    together.animation->tick(.5f, 1);
+    const auto events = together.animation->events();
+    require(events.size() == 6, "Multiple marker players did not broadcast");
+    for (std::size_t i = 0; i < events.size(); ++i)
+        require(events[i].entity.entity.str() == entity_ids[i % 3] &&
+                    events[i].marker == (i < 3 ? 1 : 2),
+                "Same-time markers did not use stable entity ordering");
+    rejects([&] { together.animation->tick(1000.f, 2); },
+            "Global marker budget only checked each player");
+    require(together.animation->events().empty(),
+            "Global overflow delivered earlier players' partial events");
+    Fixture overflow(root, doc, actor);
+    rejects([&] { overflow.animation->tick(4096.f, 1); }, "Marker overflow silently truncated");
+    require(overflow.animation->events().empty(), "Marker overflow published partial events");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -237,9 +343,113 @@ int main(int argc, char** argv) {
                                         {"value", graph}}}}}),
                         authored.revision());
         const auto doc = authored.document();
+        auto marker_source = source;
+        const auto marker_graph = AssetId::generate();
+        marker_source.document["asset_id"] = marker_graph;
+        marker_source.document["next_marker_id"] = 11;
+        for (auto& row : marker_source.document["states"]) {
+            const auto state = row.at("id").get<unsigned>();
+            auto& markers = row["markers"] = Json::array();
+            if (state == 1) {
+                for (auto [id, phase] : {std::pair{1, 0.}, {2, .25}, {3, .75}, {4, 1.}})
+                    markers.push_back(
+                        {{"id", id},
+                         {"name", id == 2 || id == 4 ? "Pulse" : "Idle" + std::to_string(id)},
+                         {"phase", phase},
+                         {"value", id == 2   ? 1.
+                                   : id == 4 ? 0.
+                                             : double(id)}});
+            } else {
+                const auto id = state == 2 ? 5 : 8;
+                for (auto [offset, phase] : {std::pair{0, 0.}, {1, .25}, {2, state == 2 ? .5 : 1.}})
+                    markers.push_back({{"id", id + offset},
+                                       {"name", "Action" + std::to_string(id + offset)},
+                                       {"phase", phase},
+                                       {"value", double(id + offset)}});
+            }
+        }
+        marker_source.validate();
+        for (const auto* field : {"phase", "value", "id"}) {
+            auto bad = marker_source;
+            bad.document["states"][0]["markers"][0][field] =
+                field == std::string_view("phase")   ? Json(1.1)
+                : field == std::string_view("value") ? Json(1e7)
+                                                     : Json(1.5);
+            rejects([&] { bad.validate(); }, "Invalid marker numeric field admitted");
+        }
+        auto duplicate = marker_source;
+        duplicate.document["states"][1]["markers"][0]["id"] = 1;
+        rejects([&] { duplicate.validate(); }, "Cross-state marker ID duplicated");
+        auto too_many = marker_source;
+        too_many.document["states"][0]["markers"] = Json::array();
+        too_many.document["next_marker_id"] = 100;
+        for (unsigned id = 11; id < 76; ++id)
+            too_many.document["states"][0]["markers"].push_back(
+                {{"id", id}, {"name", "Hit"}, {"phase", .5}, {"value", 0}});
+        rejects([&] { too_many.validate(); }, "Marker per-state limit ignored");
+        auto set_limit = marker_source;
+        set_limit.document["states"] = Json::array();
+        set_limit.document["next_id"] = 10;
+        set_limit.document["next_marker_id"] = 577;
+        for (unsigned i = 0; i < 9; ++i) {
+            auto row = source.document.at("states")[0];
+            row["id"] = i + 1;
+            row["name"] = "State" + std::to_string(i);
+            row["markers"] = Json::array();
+            for (unsigned j = 0; j < 64; ++j)
+                row["markers"].push_back(
+                    {{"id", i * 64 + j + 1}, {"name", "Hit"}, {"phase", .5}, {"value", 0}});
+            set_limit.document["states"].push_back(row);
+        }
+        rejects([&] { set_limit.validate(); }, "Marker set limit ignored");
+        auto old = source;
+        old.document.erase("next_marker_id");
+        old.validate();
+        auto marker_history_source = source;
+        marker_history_source.document["asset_id"] = AssetId::generate();
+        atomic_write(root / "Assets/MarkerHistory.states.json",
+                     marker_history_source.document.dump(2));
+        AnimationStatesDocument marker_history(lease, "Assets/MarkerHistory.states.json");
+        marker_history.edit(marker_history.revision(), "Allocate marker", [](Json& d) {
+            d["next_marker_id"] = 2;
+            d["states"][0]["markers"] =
+                Json::array({{{"id", 1}, {"name", "Hit"}, {"phase", .5}, {"value", 0}}});
+        });
+        marker_history.save();
+        marker_history.undo();
+        require(marker_history.source().document.at("next_marker_id") == 2,
+                "Saved marker ID reused by Undo");
+        rejects(
+            [&] {
+                marker_history.edit(marker_history.revision(), "Reuse marker", [](Json& d) {
+                    d["states"][0]["markers"] = Json::array(
+                        {{{"id", 1}, {"name", "Different"}, {"phase", .5}, {"value", 0}}});
+                });
+            },
+            "Previously allocated marker ID reused");
+        marker_history.redo();
+        require(marker_history.source().document.at("states")[0].at("markers")[0].at("id") == 1,
+                "Redo lost stable marker ID");
+        atomic_write(root / "Assets/Markers.states.json", marker_source.document.dump(2));
+        states.submit(
+            states.prepare("Assets/Markers.states.json", {}, marker_graph),
+            [](auto& c, const auto& p, const auto&) { prepare_animation_states_publication(c, p); },
+            [](const auto&, const auto&) {});
+        require(states.wait_idle(10s), "Marker publication timeout");
+        results = states.poll();
+        require(results.size() == 1 && results.front().published,
+                results.empty() ? "No marker publication" : results.front().diagnostic);
+        auto marker_doc = doc;
+        for (auto& row : marker_doc["entities"])
+            if (row.at("components").contains("forge.animator"))
+                row["components"]["forge.animator"]["states"] = marker_graph;
+        if (argc != 6)
+            marker_tests(root, marker_doc, actor);
         if (argc == 6) {
-            require(std::string_view(argv[5]) == "--prepare", "Unknown preparation mode");
-            atomic_write(root / "main.scene.json", doc.dump(2));
+            const bool markers = std::string_view(argv[5]) == "--markers-prepare";
+            require(markers || std::string_view(argv[5]) == "--prepare",
+                    "Unknown preparation mode");
+            atomic_write(root / "main.scene.json", (markers ? marker_doc : doc).dump(2));
             std::cout << root.string() << '\n';
             return 0;
         }
@@ -387,7 +597,11 @@ int main(int argc, char** argv) {
         preview.stop();
         require(authored.document() == doc, "State preview mutated authored scene");
         atomic_write(root / "main.scene.json", doc.dump(2));
-        const std::array roots{authored.asset_id()};
+        auto marker_export_doc = marker_doc;
+        const auto marker_scene = AssetId::generate();
+        marker_export_doc["asset_id"] = marker_scene;
+        atomic_write(root / "markers.scene.json", marker_export_doc.dump(2));
+        const std::array roots{authored.asset_id(), marker_scene};
         prepare_runtime_content_catalog(*lease, roots, {}, authored.schema());
         const auto package = root.parent_path() / ("states-package-" + AssetId::generate().str());
         package_runtime_content(root, package, roots, {"linux", "none"}, {}, {}, authored.schema());
@@ -407,6 +621,11 @@ int main(int argc, char** argv) {
         exported.animation->tick(.2f);
         require(exported.pose().at("state") == 2, "Relocated source-free state transition failed");
         near(exported.pose().at("blend_weight"), .5, "Exported state transition differs");
+        require(shipped.records().contains(marker_graph), "Export omitted marker state set");
+        require(!std::filesystem::exists(relocated / "Assets/Markers.states.json"),
+                "Marker authoring source shipped");
+        marker_tests(relocated, marker_export_doc, actor);
+
         std::cout << "State schema/history/publication, C++ selection, live/interrupted "
                      "transitions, pause/speed, recovery and preview passed\n";
         return 0;

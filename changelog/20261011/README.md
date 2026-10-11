@@ -58,3 +58,31 @@ three independent skins, editable state source, cooked Windows-target bundles,
 license and immutable provenance. Editor package selection includes its GLB and
 license. Windows execution/physical acceptance remains pending; no new ZIP or
 GitHub push is part of this local batch.
+
+
+## C++ animation timing markers
+
+Animation States now author stable named timing markers with numeric payloads.
+Incoming states produce fixed-tick observations across exact loop seams and
+multiple loops; fades suppress the outgoing source. Pause, Step, disabled/zero
+speed, interrupted switches, recovery and source-free export retain their existing
+owners. Presentation snaps preserve the semantic marker interval. Copied preview
+worlds mute gameplay delivery. Overflow faults explicitly without partial delivery.
+
+The matching C-shaped SDK adds Animation capability and bounded current-tick
+broadcast copies in PostPhysics. Rebuild modules with the matching SDK. Removed
+actors are rejected after the ordinary Flecs deferred merge. The central editor
+supports marker fields, source Undo/Redo and Save/Publish with IDs never recycled.
+
+Gallery scene11 includes real-rig Walk/Run Pulse markers and an optional compiled
+C++ System that alternates character height. Source and cooked artifacts, the C++
+example and its setup guide are admitted by the single editor ZIP inventory. Prior
+90 Gallery asset records are unchanged. No new third-party code or dependency pin.
+
+Local validation: ten affected ASan/UBSan/LSan suites; two existing shared SDK
+regressions; actual C++ marker copies/action, Pause/Step, stale-target and second-
+process recovery; actual marker editor at65/100/200% UI scale; timeline regression;
+ordinary publication/real-rig/source-free export; manual/package/hash/format checks.
+Windows delivery of the preceding animation batches is running as build152 after
+a CMake target-order correction. This marker batch is not included in build152.
+Windows D3D12 execution and physical acceptance of markers are not claimed here.

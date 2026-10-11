@@ -37,8 +37,11 @@ const AnimationState& AnimationStates::state(std::string_view name) const {
 }
 std::size_t AnimationStates::resident_bytes() const {
     std::size_t bytes = sizeof(*this) + states.capacity() * sizeof(AnimationState);
-    for (const auto& s : states)
-        bytes += s.name.capacity();
+    for (const auto& s : states) {
+        bytes += s.name.capacity() + s.markers.capacity() * sizeof(AnimationMarker);
+        for (const auto& marker : s.markers)
+            bytes += marker.name.capacity();
+    }
     return bytes;
 }
 AnimationStatesSource AnimationStatesSource::create(AssetId id) {
@@ -49,6 +52,7 @@ AnimationStatesSource AnimationStatesSource::create(AssetId id) {
              {"skeleton", nullptr},
              {"entry", 0},
              {"next_id", 1},
+             {"next_marker_id", 1},
              {"states", nlohmann::json::array()}}};
 }
 AnimationStatesSource AnimationStatesSource::parse(std::span<const std::byte> bytes) {
@@ -75,6 +79,14 @@ void AnimationStatesSource::validate() const {
     const auto next = d.at("next_id").get<std::uint64_t>();
     require(next && next <= std::uint64_t(UINT32_MAX) + 1,
             "Animation state ID sequence is invalid");
+    const auto marker_next_value = d.value("next_marker_id", nlohmann::json(1));
+    require(marker_next_value.is_number_unsigned() || (marker_next_value.is_number_integer() &&
+                                                       marker_next_value.get<std::int64_t>() > 0),
+            "Animation marker ID sequence must be an unsigned integer");
+    const auto marker_next = marker_next_value.get<std::uint64_t>();
+    require(marker_next && marker_next <= std::uint64_t(UINT32_MAX) + 1,
+            "Animation marker ID sequence is invalid");
+    std::set<std::uint32_t> marker_ids;
     std::set<std::uint32_t> ids;
     std::set<std::string> names;
     for (const auto& s : states) {
@@ -87,6 +99,27 @@ void AnimationStatesSource::validate() const {
                 "Animation state names must be unique and contain 1–64 printable bytes");
         require(bool(s.at("clip").get<AssetId>()), "Animation state needs a clip identity");
         require(s.at("loop").is_boolean(), "Animation state loop must be boolean");
+        if (s.contains("markers")) {
+            require(s.at("markers").is_array() && s.at("markers").size() <= 64,
+                    "Animation state supports at most 64 markers");
+            for (const auto& marker : s.at("markers")) {
+                const auto mid = number(marker.at("id"));
+                const auto label = marker.at("name").get<std::string>();
+                require(mid < marker_next && marker_ids.insert(mid).second &&
+                            marker_ids.size() <= 512,
+                        "Animation marker ID is reused/duplicated or set exceeds 512 markers");
+                require(!label.empty() && label.size() <= 64 &&
+                            std::none_of(label.begin(), label.end(),
+                                         [](unsigned char c) { return c < 32 || c == 127; }),
+                        "Animation marker name must contain 1–64 printable bytes");
+                require(marker.at("phase").is_number() && marker.at("value").is_number(),
+                        "Animation marker phase/value must be numeric");
+                const double phase = marker.at("phase"), value = marker.at("value");
+                require(std::isfinite(phase) && phase >= 0 && phase <= 1 && std::isfinite(value) &&
+                            std::abs(value) <= 1e6,
+                        "Animation marker phase/value outside supported range");
+            }
+        }
         for (const auto* field : {"speed", "transition_seconds"}) {
             require(s.at(field).is_number(), "Animation state speed/fade must be numeric");
             const double v = s.at(field).get<double>();
@@ -103,13 +136,18 @@ AnimationStates AnimationStatesSource::compiled() const {
             "Animation States needs a skeleton and at least one state before publishing");
     AnimationStates result{
         asset(), document.at("skeleton").get<AssetId>(), number(document.at("entry")), {}};
-    for (const auto& s : document.at("states"))
+    for (const auto& s : document.at("states")) {
         result.states.push_back({number(s.at("id")),
                                  s.at("name"),
                                  {s.at("clip").get<AssetId>()},
                                  s.at("loop"),
                                  s.at("speed"),
                                  s.at("transition_seconds")});
+        if (s.contains("markers"))
+            for (const auto& marker : s.at("markers"))
+                result.states.back().markers.push_back({number(marker.at("id")), marker.at("name"),
+                                                        marker.at("phase"), marker.at("value")});
+    }
     return result;
 }
 std::vector<std::byte> AnimationStatesSource::cook() const {

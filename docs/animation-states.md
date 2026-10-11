@@ -24,7 +24,7 @@ and a valid entry. Animator state zero selects that entry.
 The central document uses `AssetSourceDocument`, its source writer ownership,
 revision guards and history. Existing `AssetImportService` publishes one bounded
 `states.json` artifact and catalog metadata `forge.animation_states` through
-`forge.animation.states.v1`. Skeleton and every state clip are typed Runtime
+`forge.animation.states.v2`. Skeleton and every state clip are typed Runtime
 dependencies with selected recipe revisions. They must belong to one imported
 model owner and exact publication generation. Source discovery, copy/rename,
 reference-impact review and runtime export use their existing owners. Unknown
@@ -98,3 +98,5 @@ crosses the native ABI.
 Gallery scene 10 uses the CC0 Quaternius Idle/Walk/Sprint clips and independently
 skinned instances. Provenance is recorded beside the source. See the
 [user walkthrough](../manual/editor/animation-states.md).
+
+Optional [timing markers](animation-markers.md) attach named observations to these clips.

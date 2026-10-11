@@ -73,6 +73,7 @@ ServiceAccess EngineServices::access(unsigned allowed) const {
 }
 ServiceAccess ServiceAccess::world_scope() const {
     auto result = *this;
+    result.animation_ = std::make_shared<detail::ServiceSlot<AnimationService>>();
     result.physics_ = std::make_shared<detail::ServiceSlot<PhysicsService>>();
     result.audio_ = std::make_shared<detail::ServiceSlot<AudioService>>();
     result.navigation_ = std::make_shared<detail::ServiceSlot<NavigationService>>();
@@ -93,6 +94,13 @@ void ServiceAccess::publish(Capability cap, const std::shared_ptr<detail::Servic
     if (!slot->service.expired() && service)
         throw std::logic_error("Service provider already installed");
     slot->service = service;
+}
+void ServiceAccess::publish_animation(const std::shared_ptr<AnimationService>& service) const {
+    publish(Capability::Animation, animation_, service);
+}
+std::shared_ptr<AnimationService> ServiceAccess::animation() const {
+    require(Capability::Animation);
+    return animation_->service.lock();
 }
 void ServiceAccess::publish_physics(const std::shared_ptr<PhysicsService>& service) const {
     publish(Capability::Physics, physics_, service);
@@ -141,6 +149,7 @@ bool ServiceAccess::available(Capability c) const {
     const auto bit = capability(c);
     return bit && !(bit & (bit - 1)) && !(bit & ~known_capabilities) && (allowed_ & bit) && state &&
            state->owner == std::this_thread::get_id() && state->alive &&
+           (c != Capability::Animation || (animation_ && !animation_->service.expired())) &&
            (c != Capability::Physics || (physics_ && !physics_->service.expired())) &&
            (c != Capability::Audio || (audio_ && !audio_->service.expired())) &&
            (c != Capability::Navigation || (navigation_ && !navigation_->service.expired())) &&

@@ -1,0 +1,6919 @@
+{
+  "asset_id": "65d69337-571f-4574-9504-b8a632316d79",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "34dcc491-95e4-4ae0-8e2b-d58a2ca794c3",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d19ea0d1-925c-4f68-83e9-60479d0a99cb",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7a69028c-3190-4a6e-aa3f-51c4868fcd74",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_weight": 0.0,
+          "clip": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "state": 1,
+          "states": "18ed6dce-b225-450d-8377-0ddca5a754fa",
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c0f9e8cb-d2d8-47b4-9f5e-dc4911b9b988",
+      "name": "Idle - no markers",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0f6c5948-5f03-429d-a965-3afb69849a67"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c37e7185-b03e-473c-b258-ae350b2947d0",
+      "name": "Armature",
+      "parent": "c0f9e8cb-d2d8-47b4-9f5e-dc4911b9b988",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": -0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6fbe604b-3302-400b-8790-5bd2cab2c6a1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "29506d8b-328f-475a-95b5-2b361b1c730d",
+      "name": "root",
+      "parent": "c37e7185-b03e-473c-b258-ae350b2947d0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "584afd20-713c-451c-abec-123317e31199"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5ec60bd2-5fd2-4b4d-adeb-21f535039450",
+      "name": "Mannequin",
+      "parent": "c37e7185-b03e-473c-b258-ae350b2947d0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6125027537345886,
+          "x": 0.7904684543609619,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.05010002851486206,
+          "z": 0.916700005531311
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "af64d6ab-bc61-4000-861e-065712610ac8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8b7b344e-9f60-4362-b119-f4fd444d647d",
+      "name": "pelvis",
+      "parent": "29506d8b-328f-475a-95b5-2b361b1c730d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9979045987129211,
+          "x": -0.06470262259244919,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1381763368844986,
+          "z": -1.210719347000122e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "8440536b-d3ff-4591-ae49-a878ffbcaff6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "56070ebc-fa5d-4c66-98dd-aa8086c1e59d",
+      "name": "spine_01",
+      "parent": "8b7b344e-9f60-4362-b119-f4fd444d647d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.12237062305212021,
+          "x": 0.992484450340271,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": 0.08900000154972076,
+          "y": 0.027770841494202614,
+          "z": 0.04602379724383354
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "136a5419-75cb-4240-aeca-2467b149089a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "099bf8a5-b429-43ce-a0cc-76ce3079e913",
+      "name": "thigh_l",
+      "parent": "8b7b344e-9f60-4362-b119-f4fd444d647d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.12237062305212021,
+          "x": 0.992484450340271,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": -0.08900000154972076,
+          "y": 0.027770841494202614,
+          "z": 0.04602379724383354
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e00edc21-2c6b-4613-9c35-29fecc6b8147"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a2fc1fbc-ea4c-4b51-a0ff-d3a244e3692d",
+      "name": "thigh_r",
+      "parent": "8b7b344e-9f60-4362-b119-f4fd444d647d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9970094561576843,
+          "x": -0.07727984338998795,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.12403485178947449,
+          "z": 3.4924596548080444e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bb10601b-3d4c-43fd-a9c6-02015f966fc9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "954c0908-b501-4c8c-80d6-35a07cb709a3",
+      "name": "spine_02",
+      "parent": "56070ebc-fa5d-4c66-98dd-aa8086c1e59d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9993305206298828,
+          "x": 0.03658590838313103,
+          "y": -0.0001311732194153592,
+          "z": -4.802307103091152e-06
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999998807907104
+        },
+        "forge.local_translation": {
+          "x": 7.450580596923828e-09,
+          "y": 0.4003097712993622,
+          "z": -2.3283064365386963e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5453ba13-42f0-405f-b60e-d666c6256bc6",
+      "name": "calf_l",
+      "parent": "099bf8a5-b429-43ce-a0cc-76ce3079e913",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9993305206298828,
+          "x": 0.03658590838313103,
+          "y": -0.0001311732194153592,
+          "z": -4.802307103091152e-06
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999998807907104
+        },
+        "forge.local_translation": {
+          "x": -7.450580596923828e-09,
+          "y": 0.4003097712993622,
+          "z": -2.3283064365386963e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "00241fc4-e671-4181-8d19-dadfac1b6ae5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ffb3aa75-5d7e-4c73-9ecb-87812a5866e8",
+      "name": "calf_r",
+      "parent": "a2fc1fbc-ea4c-4b51-a0ff-d3a244e3692d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999999403953552,
+          "x": -0.0002685915678739548,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.14127187430858612,
+          "z": 5.587935447692871e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "689efd7e-f55a-4a52-ac67-7bf56b446fb1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1a73942f-b709-4ef8-a94b-f22d5ba9aa91",
+      "name": "spine_03",
+      "parent": "954c0908-b501-4c8c-80d6-35a07cb709a3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485769629478455,
+          "x": -0.5290717482566833,
+          "y": -0.00032809312688186765,
+          "z": 0.0003434529062360525
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -7.219114195322618e-09,
+          "y": 0.4294798970222473,
+          "z": 2.408341970294714e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e76dd771-8faf-4bb8-9930-2d7499f591ff",
+      "name": "foot_l",
+      "parent": "5453ba13-42f0-405f-b60e-d666c6256bc6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485769629478455,
+          "x": -0.5290717482566833,
+          "y": -0.00032809312688186765,
+          "z": 0.0003434529062360525
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 7.682046998525038e-09,
+          "y": 0.42947983741760254,
+          "z": 1.3169483281672e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "5515a646-7b78-4ff4-adfe-2796db4384c3"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "895c0a57-4a7d-4b93-be01-c3b11f6740e6",
+      "name": "foot_r",
+      "parent": "ffb3aa75-5d7e-4c73-9ecb-87812a5866e8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9938219785690308,
+          "x": 0.11098591238260269,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1728907823562622,
+          "z": -1.862645149230957e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "87f1123e-bbf8-434f-bf1a-daf76e426fa2",
+      "name": "neck_01",
+      "parent": "1a73942f-b709-4ef8-a94b-f22d5ba9aa91",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6235507726669312,
+          "x": -0.6040205955505371,
+          "y": -0.34510302543640137,
+          "z": -0.35671767592430115
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.018799999728798866,
+          "y": 0.1405535787343979,
+          "z": 0.08089503645896912
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e37e1ca3-8685-4639-a158-085b36435f9e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4a9a4646-0112-4d98-ac5b-0d89983a63f0",
+      "name": "clavicle_l",
+      "parent": "1a73942f-b709-4ef8-a94b-f22d5ba9aa91",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6235507726669312,
+          "x": -0.6040205955505371,
+          "y": 0.34510302543640137,
+          "z": 0.35671767592430115
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.018799999728798866,
+          "y": 0.1405535787343979,
+          "z": 0.08089503645896912
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6b14a22c-e4f4-4b36-9718-fec34439d379"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f3bdb9d1-9a7b-42de-b531-16037fa02661",
+      "name": "clavicle_r",
+      "parent": "1a73942f-b709-4ef8-a94b-f22d5ba9aa91",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0004994344199076295,
+          "x": 0.0001371279067825526,
+          "y": -0.9643067717552185,
+          "z": 0.26478710770606995
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000003576278687,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": 3.919922164641321e-09,
+          "y": 0.1733010858297348,
+          "z": -8.578354027122259e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "16566c91-7ea8-442b-9738-9181a84ddfd7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ef43d1f1-7b95-41e4-a940-682573f849e3",
+      "name": "ball_l",
+      "parent": "e76dd771-8faf-4bb8-9930-2d7499f591ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0004994344199076295,
+          "x": 0.0001371279067825526,
+          "y": -0.9643067717552185,
+          "z": 0.26478710770606995
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000003576278687,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": -3.5306584322825074e-09,
+          "y": 0.1733010858297348,
+          "z": -8.185452315956354e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "5a452923-a9ba-419b-ae20-6c377525e559"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "688b00dc-4fc0-4d19-a6d5-b85df7409947",
+      "name": "ball_r",
+      "parent": "895c0a57-4a7d-4b93-be01-c3b11f6740e6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9969003796577454,
+          "x": -0.07867422699928284,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.08258678019046783,
+          "z": -1.3969838619232178e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "9379ad87-06aa-46fe-81b6-541fc7952b1e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b64a418d-061a-404e-a3b7-9cd3799919ed",
+      "name": "Head",
+      "parent": "87f1123e-bbf8-434f-bf1a-daf76e426fa2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6837477087974548,
+          "x": 0.18026958405971527,
+          "y": 0.6838500499725342,
+          "z": -0.17983640730381012
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.03007233701646328,
+          "y": 0.21858175098896027,
+          "z": -0.01696845516562462
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6801ff15-2193-4b6b-873c-b9b904fd7883"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "195e1ea5-17da-4fe4-8c44-77077530168d",
+      "name": "upperarm_l",
+      "parent": "4a9a4646-0112-4d98-ac5b-0d89983a63f0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6837477087974548,
+          "x": 0.18026958405971527,
+          "y": -0.6838500499725342,
+          "z": 0.17983640730381012
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.03007233701646328,
+          "y": 0.21858175098896027,
+          "z": -0.01696845516562462
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "db5e6c73-94df-4051-b66f-4b2627c5f249"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3522623a-8c6a-4175-865d-61d6e27bbd82",
+      "name": "upperarm_r",
+      "parent": "f3bdb9d1-9a7b-42de-b531-16037fa02661",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.4901159417490817e-08,
+          "y": -2.043089253334074e-08,
+          "z": -3.0444404944326845e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.8294805366519995e-09,
+          "y": 0.07890003174543381,
+          "z": -5.368017141904602e-11
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "175016f6-3afc-4f18-8e22-d01d0b934aed",
+      "name": "ball_leaf_l",
+      "parent": "ef43d1f1-7b95-41e4-a940-682573f849e3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.4901159417490817e-08,
+          "y": -2.043089253334074e-08,
+          "z": -3.0444404944326845e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -8.071681101284867e-09,
+          "y": 0.07890003174543381,
+          "z": -2.2050139492080234e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d63f500a-54e2-4b1a-924a-034ac3ee7924"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9edf78f8-7793-42c6-b33f-78812a41d6c4",
+      "name": "ball_leaf_r",
+      "parent": "688b00dc-4fc0-4d19-a6d5-b85df7409947",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9998523592948914,
+          "x": 0.01718229055404663,
+          "y": -2.0353050786070526e-05,
+          "z": 3.670882904316386e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.1565142560575623e-08,
+          "y": 0.2744402587413788,
+          "z": -1.2878444977104664e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "9916bb5a-3d79-4f66-a719-d519f520db8f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c846e2b5-2cf6-45d1-b135-d178a70be083",
+      "name": "lowerarm_l",
+      "parent": "195e1ea5-17da-4fe4-8c44-77077530168d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9998523592948914,
+          "x": 0.017182305455207825,
+          "y": 2.0353050786070526e-05,
+          "z": -3.6919502122145786e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.4812334825364815e-07,
+          "y": 0.2744402289390564,
+          "z": -7.94170773588121e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "01e3e039-7714-48e1-a367-95be956ea174"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "41c45a29-34c7-4a67-ab0a-e7d3b90fa56c",
+      "name": "lowerarm_r",
+      "parent": "3522623a-8c6a-4175-865d-61d6e27bbd82",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999628663063049,
+          "x": -0.008619682863354683,
+          "y": -4.1722387322806753e-07,
+          "z": 2.1919726034269615e-09
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.2729826082136242e-08,
+          "y": 0.27264055609703064,
+          "z": -1.8102070953318616e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0cc18cd9-e1ed-41b6-8823-052a442b52a8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "94495c72-cfc7-458f-8a87-fe9d52424fd7",
+      "name": "hand_l",
+      "parent": "c846e2b5-2cf6-45d1-b135-d178a70be083",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999628663063049,
+          "x": -0.008619682863354683,
+          "y": 5.364287289921776e-07,
+          "z": -2.1920292248012174e-09
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -2.204334137445585e-08,
+          "y": 0.2726404666900635,
+          "z": 1.72497038875008e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d59ba58f-1655-4c42-858f-f6abe3519d9a",
+      "name": "hand_r",
+      "parent": "41c45a29-34c7-4a67-ab0a-e7d3b90fa56c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.707103967666626,
+          "x": -4.854115687180638e-08,
+          "y": 0.7071095705032349,
+          "z": -4.854154056488369e-08
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.001999831758439541,
+          "y": 0.1198999211192131,
+          "z": 0.030899997800588608
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "86349f74-d462-47b1-91dd-257707503c90"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b639dfda-ae22-4d7c-af7b-e9082905257a",
+      "name": "index_01_l",
+      "parent": "94495c72-cfc7-458f-8a87-fe9d52424fd7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069067358970642,
+          "x": -0.01670246012508869,
+          "y": 0.7069122791290283,
+          "z": -0.016702570021152496
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.00040022601024247706,
+          "y": 0.12159990519285202,
+          "z": 0.0052000004798173904
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6e2014ba-fe22-47d7-86db-42c88c391ea6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5f8d62fa-2b4b-4c5d-a9cb-44cdd92b3bb8",
+      "name": "middle_01_l",
+      "parent": "94495c72-cfc7-458f-8a87-fe9d52424fd7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7067065238952637,
+          "x": -0.023706039413809776,
+          "y": 0.7067120671272278,
+          "z": -0.02370619960129261
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0015997173031792045,
+          "y": 0.107699915766716,
+          "z": -0.040800001472234726
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "f6d23562-da1e-4265-9af5-c1cbe6e163b9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4996b0ad-3d41-4cef-b178-092244199dc3",
+      "name": "pinky_01_l",
+      "parent": "94495c72-cfc7-458f-8a87-fe9d52424fd7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069919109344482,
+          "x": -0.012588735669851303,
+          "y": 0.7069974541664124,
+          "z": -0.012588820420205593
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.00010019120236393064,
+          "y": 0.11909990012645721,
+          "z": -0.017100004479289055
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c5d0c60d-0c72-4a15-b6e8-be442f617a17"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c4dcfcbc-69bd-4d34-ad67-6b6b955a1a5d",
+      "name": "ring_01_l",
+      "parent": "94495c72-cfc7-458f-8a87-fe9d52424fd7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.05358405411243439,
+          "x": 0.2474130243062973,
+          "y": 0.9457945227622986,
+          "z": 0.20344115793704987
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000001192092896,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.02279982902109623,
+          "y": 0.02729993499815464,
+          "z": 0.03359999507665634
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "77cde8f8-34a3-4d4c-9e9c-352f38e04bb1",
+      "name": "thumb_01_l",
+      "parent": "94495c72-cfc7-458f-8a87-fe9d52424fd7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071039080619812,
+          "x": -4.8541142660951664e-08,
+          "y": -0.7071096301078796,
+          "z": 4.854153345945633e-08
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.0019998278003185987,
+          "y": 0.11989995837211609,
+          "z": 0.030899999663233757
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "129897d6-caec-4c9e-84b2-4586b9f5afb8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3b790e14-af74-4e8a-ad2d-d66ef4ac387f",
+      "name": "index_01_r",
+      "parent": "d59ba58f-1655-4c42-858f-f6abe3519d9a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069066762924194,
+          "x": -0.01670246012508869,
+          "y": -0.7069123387336731,
+          "z": 0.016702566295862198
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.00040023319888859987,
+          "y": 0.12159993499517441,
+          "z": 0.00520000234246254
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b20867f0-d20d-4d86-8f16-7d4e7f301b90"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "45ba9368-f035-453f-b801-2bd3eee5e610",
+      "name": "middle_01_r",
+      "parent": "d59ba58f-1655-4c42-858f-f6abe3519d9a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7067064642906189,
+          "x": -0.023706039413809776,
+          "y": -0.7067121267318726,
+          "z": 0.02370619773864746
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.0015997047303244472,
+          "y": 0.10769994556903839,
+          "z": -0.040800001472234726
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0d2d4a82-e1fa-4f64-845f-f75185018cfd"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "88b67cbf-e7ac-4aea-b6a9-55486bbbdb31",
+      "name": "pinky_01_r",
+      "parent": "d59ba58f-1655-4c42-858f-f6abe3519d9a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069919109344482,
+          "x": -0.012588738463819027,
+          "y": -0.7069974541664124,
+          "z": 0.01258881762623787
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.00010020103945862502,
+          "y": 0.1190999373793602,
+          "z": -0.017100002616643906
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8979503f-4e8b-47a7-915c-ac78f6f3b362",
+      "name": "ring_01_r",
+      "parent": "d59ba58f-1655-4c42-858f-f6abe3519d9a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.053584061563014984,
+          "x": 0.24741306900978088,
+          "y": -0.9457945227622986,
+          "z": -0.20344111323356628
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000001192092896,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.022799823433160782,
+          "y": 0.027299968525767326,
+          "z": 0.03359999507665634
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d17ffbfe-654b-45c8-ac8c-a092c222c923",
+      "name": "thumb_01_r",
+      "parent": "d59ba58f-1655-4c42-858f-f6abe3519d9a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -4.4818607104670644e-14,
+          "y": -9.671452971815597e-09,
+          "z": -2.7004171121447484e-10
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.128198976578346e-10,
+          "y": 0.04070001840591431,
+          "z": 1.136087224296034e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "00e73f0b-d782-4fb0-a0af-bd5657f42cfd",
+      "name": "index_02_l",
+      "parent": "b639dfda-ae22-4d7c-af7b-e9082905257a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999988675117493,
+          "x": -1.1900032070855104e-08,
+          "y": -9.910034570737025e-09,
+          "z": 0.0015135601861402392
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.637978807091713e-10,
+          "y": 0.042347248643636703,
+          "z": 2.018612121901242e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0b147dd2-5141-4999-ae7c-09e1c21c039a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "23df1f3b-cbb7-490b-91e6-562cbfebd85a",
+      "name": "middle_02_l",
+      "parent": "5f8d62fa-2b4b-4c5d-a9cb-44cdd92b3bb8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999996423721313,
+          "x": 5.882122788847255e-09,
+          "y": -1.0178268894378562e-08,
+          "z": -0.0008342716027982533
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.346940502524376e-09,
+          "y": 0.04029057174921036,
+          "z": -1.4873648979119025e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "f3d49347-2448-4491-8466-e8b5cd28bdf6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "20725d25-2d44-4a4d-bfb6-4a2375a58935",
+      "name": "pinky_02_l",
+      "parent": "4996b0ad-3d41-4cef-b178-092244199dc3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -8.660336892063469e-10,
+          "y": -9.627518338106711e-09,
+          "z": 1.2190081179141998e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.830749382264912e-10,
+          "y": 0.039324983954429626,
+          "z": -1.0246476733755117e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "201dca43-5bfa-41f0-979e-756ddda9eb36",
+      "name": "ring_02_l",
+      "parent": "c4dcfcbc-69bd-4d34-ad67-6b6b955a1a5d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -0.000135714202770032,
+          "y": -7.41071708034724e-05,
+          "z": 4.7934565372997895e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 5.90443960390985e-09,
+          "y": 0.0430297926068306,
+          "z": 4.284083843231201e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6232e2c5-b54a-4b8d-9bd8-d7651f589003",
+      "name": "thumb_02_l",
+      "parent": "77cde8f8-34a3-4d4c-9e9c-352f38e04bb1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -5.2394442679858794e-14,
+          "y": -3.824084160441998e-09,
+          "z": 2.7004842806377383e-10
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.3552526857458815e-09,
+          "y": 0.04070010781288147,
+          "z": -1.0784840043243094e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a8a3cc82-6045-456a-a65c-c4662edb6f56"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "59ebf4c2-76a6-4912-be8c-f20bd5d4c55c",
+      "name": "index_02_r",
+      "parent": "3b790e14-af74-4e8a-ad2d-d66ef4ac387f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999988675117493,
+          "x": -1.100992630398423e-08,
+          "y": -3.3837239676870468e-09,
+          "z": -0.0015135611174628139
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.311893230304122e-10,
+          "y": 0.04234728217124939,
+          "z": -9.737595974002033e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "866393ab-6952-4aee-8674-a6a188d3117a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "099f99d3-6131-412d-95ed-418c8481390f",
+      "name": "middle_02_r",
+      "parent": "45ba9368-f035-453f-b801-2bd3eee5e610",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999996423721313,
+          "x": 5.623980836588771e-09,
+          "y": -2.9140143631423143e-09,
+          "z": 0.0008342642686329782
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998211860657,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 8.576535037718713e-10,
+          "y": 0.04029053822159767,
+          "z": -1.963655904546613e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "25cf4078-3c50-4877-84a7-59901a59a3eb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "aef8bc00-c413-4d40-bd95-5c48893e753d",
+      "name": "pinky_02_r",
+      "parent": "88b67cbf-e7ac-4aea-b6a9-55486bbbdb31",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 7.371431243186066e-10,
+          "y": -3.438689111234794e-09,
+          "z": -1.2191012501716614e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5420376914553344e-09,
+          "y": 0.03932501748204231,
+          "z": -2.1878902600747097e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "8ce743c7-17e5-4148-9404-e69b23a3b961"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d325425a-bcb1-4abd-8783-de1ea7ef2663",
+      "name": "ring_02_r",
+      "parent": "8979503f-4e8b-47a7-915c-ac78f6f3b362",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -0.00013566949928645045,
+          "y": 7.40157556720078e-05,
+          "z": -4.7864316002232954e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -7.172275218181312e-09,
+          "y": 0.04302985966205597,
+          "z": -1.6763806343078613e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "46b1d4bf-7b23-4247-bf63-2b7a58db9c0c",
+      "name": "thumb_02_r",
+      "parent": "d17ffbfe-654b-45c8-ac8c-a092c222c923",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 7.348758588704803e-18,
+          "y": 1.1368683772161603e-13,
+          "z": -1.327914859583146e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 9.722498361952603e-10,
+          "y": 0.034800052642822266,
+          "z": 1.0693611329770647e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "38f4ac10-6a11-42c5-bd40-95f13abe56d4"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a9724402-fb55-4953-a3aa-630a111a5748",
+      "name": "index_03_l",
+      "parent": "00e73f0b-d782-4fb0-a0af-bd5657f42cfd",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999993443489075,
+          "x": 8.156294306616019e-09,
+          "y": -3.566927135600917e-12,
+          "z": -0.0011296597076579928
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.7830537874251604e-10,
+          "y": 0.03393314778804779,
+          "z": 1.605138209015422e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a55cd760-20b4-4917-8d64-91c452c79ae5",
+      "name": "middle_03_l",
+      "parent": "23df1f3b-cbb7-490b-91e6-562cbfebd85a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": -4.400461328657457e-09,
+          "y": 4.186874371508997e-12,
+          "z": 0.000609522860031575
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -3.58431861968711e-09,
+          "y": 0.027665333822369576,
+          "z": 2.2544884359376738e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "602177b9-36a2-45f1-97a2-673ae0873cd0",
+      "name": "pinky_03_l",
+      "parent": "20725d25-2d44-4a4d-bfb6-4a2375a58935",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999994039535522,
+          "x": 7.704945126363327e-09,
+          "y": -2.098988951398928e-12,
+          "z": -0.0010670634219422936
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.176378519739956e-09,
+          "y": 0.030919553712010384,
+          "z": -1.0190598231929471e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "81514a97-ac44-4020-b28f-01cb9553ec97"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a908887c-bf8b-45cb-92bb-c13b16f04052",
+      "name": "ring_03_l",
+      "parent": "201dca43-5bfa-41f0-979e-756ddda9eb36",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": 0.0002478846290614456,
+          "y": 8.091918425634503e-05,
+          "z": -0.0005353352753445506
+        },
+        "forge.local_scale": {
+          "x": 0.9999998807907104,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -1.2301234164624475e-07,
+          "y": 0.049077946692705154,
+          "z": -2.514570951461792e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "84848779-0291-4744-8ea6-565e16be5b5a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "556adc03-6b1c-4398-ae9d-353d3aa8f167",
+      "name": "thumb_03_l",
+      "parent": "6232e2c5-b54a-4b8d-9bd8-d7651f589003",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.1838301877415552e-16,
+          "y": -1.1368683772161603e-13,
+          "z": -4.1818744524883854e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.6966306399554014e-09,
+          "y": 0.03480002284049988,
+          "z": -1.0758446933323285e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b6cb4d19-c29f-4c72-9260-94ce73733118"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "49367c26-8f3b-4034-9402-471a709e1050",
+      "name": "index_03_r",
+      "parent": "59ebf4c2-76a6-4912-be8c-f20bd5d4c55c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999993443489075,
+          "x": 8.186298749990328e-09,
+          "y": 2.2575290595239217e-11,
+          "z": 0.0011296587763354182
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.141860022675246e-09,
+          "y": 0.03393318131566048,
+          "z": 4.189584501546051e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "2a964b7e-db29-4e5a-9448-7270b8234548"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "05ea6b74-be74-4a3e-a566-d187516cf661",
+      "name": "middle_03_r",
+      "parent": "099f99d3-6131-412d-95ed-418c8481390f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": -4.416420118502629e-09,
+          "y": -1.6191496060580235e-11,
+          "z": -0.0006095209391787648
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.58431861968711e-09,
+          "y": 0.027665363624691963,
+          "z": -1.1715911796272849e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9fbbb0c1-e8d6-495c-85d5-c46a9f078eab",
+      "name": "pinky_03_r",
+      "parent": "aef8bc00-c413-4d40-bd95-5c48893e753d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999994039535522,
+          "x": 7.732828599671393e-09,
+          "y": 2.1304747896411236e-11,
+          "z": 0.0010670634219422936
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.4510882212780416e-09,
+          "y": 0.03091958537697792,
+          "z": -1.0054915833279665e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "03bc559f-b92d-450f-9771-78a5b074322e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f2f6c8a9-3411-4c75-ab13-4a9ca36932ba",
+      "name": "ring_03_r",
+      "parent": "d325425a-bcb1-4abd-8783-de1ea7ef2663",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": 0.0002478510432410985,
+          "y": -8.09993507573381e-05,
+          "z": 0.0005353167071007192
+        },
+        "forge.local_scale": {
+          "x": 0.9999998807907104,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.5804321164032444e-08,
+          "y": 0.04907788336277008,
+          "z": 5.587935447692871e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6912d355-eff0-4614-91d1-2548bc94582f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "848409f1-b621-42e4-a419-00700ed1b2c0",
+      "name": "thumb_03_r",
+      "parent": "46b1d4bf-7b23-4247-bf63-2b7a58db9c0c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 4.1180931362579326e-16,
+          "y": 1.0,
+          "z": 1.4787951179418804e-17
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.697540134657174e-09,
+          "y": 0.030100105330348015,
+          "z": 1.0693611329770647e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "ded08da4-ba40-45bc-9b42-71297bea1d31"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "37d9d327-7d6f-46f3-bd99-6805a2fcb4b1",
+      "name": "index_04_leaf_l",
+      "parent": "a9724402-fb55-4953-a3aa-630a111a5748",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517760690912837e-06,
+          "x": 9.313227522511625e-09,
+          "y": 1.0,
+          "z": -5.5467012344376405e-15
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999997019767761,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.866240826435387e-09,
+          "y": 0.034437183290719986,
+          "z": 2.5992932251028833e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bd0ef129-9444-49a7-9bcd-f1362399e5d3"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3cf114e4-d6e5-4bf0-8bcb-31ec89e758dc",
+      "name": "middle_04_leaf_l",
+      "parent": "a55cd760-20b4-4917-8d64-91c452c79ae5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.65177675121231e-06,
+          "x": 2.421439049271612e-08,
+          "y": 1.0,
+          "z": 1.6284096602614886e-14
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -3.5834091249853373e-09,
+          "y": 0.028164202347397804,
+          "z": 1.1433525060056127e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4b7fbfde-39c9-41d8-bf3e-1431e548ae98",
+      "name": "pinky_04_leaf_l",
+      "parent": "602177b9-36a2-45f1-97a2-673ae0873cd0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.65177675121231e-06,
+          "x": 1.862645149230957e-09,
+          "y": 1.0,
+          "z": 5.017902800631517e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.2751115718856454e-09,
+          "y": 0.03182259574532509,
+          "z": -1.1624800322351803e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "03de2d4e-bc7f-4544-8b00-41d5f0ade55f",
+      "name": "ring_04_leaf_l",
+      "parent": "a908887c-bf8b-45cb-92bb-c13b16f04052",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8624290823936462,
+          "x": 2.3757428024850924e-08,
+          "y": 0.5061779022216797,
+          "z": 2.723667478221614e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0000001192092896,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.0787410903722048e-07,
+          "y": 0.0408623106777668,
+          "z": -1.862645149230957e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a2d19777-70d1-4e00-b1c0-89e0f544fafb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b5a2091d-ac8b-421a-b69f-43b685be7ddc",
+      "name": "thumb_04_leaf_l",
+      "parent": "556adc03-6b1c-4398-ae9d-353d3aa8f167",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 1.7660197551910774e-16,
+          "y": -1.0,
+          "z": 2.368324237555521e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -9.713403414934874e-10,
+          "y": 0.030099960044026375,
+          "z": 1.1624820217548404e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3b413040-a136-4a40-81bd-e740cd23c75c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "213a1144-3e9f-4d80-b2d9-f27774f699f0",
+      "name": "index_04_leaf_r",
+      "parent": "49367c26-8f3b-4034-9402-471a709e1050",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.651776296464959e-06,
+          "x": 9.313225746154785e-09,
+          "y": -1.0,
+          "z": -4.341538183106307e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.00359567720443e-09,
+          "y": 0.03443721681833267,
+          "z": 2.6527175123192137e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "08c9fa8f-b115-408c-888c-b6ddfde26ad9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e6c65365-12ed-47ba-b236-094e1a1eed7f",
+      "name": "middle_04_leaf_r",
+      "parent": "05ea6b74-be74-4a3e-a566-d187516cf661",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 2.60770320892334e-08,
+          "y": -1.0,
+          "z": -3.1884908667338674e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.5824996302835643e-09,
+          "y": 0.028164170682430267,
+          "z": -1.2279903671696957e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f441a449-6573-4bae-96fa-f647ee5a0c57",
+      "name": "pinky_04_leaf_r",
+      "parent": "9fbbb0c1-e8d6-495c-85d5-c46a9f078eab",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.651776296464959e-06,
+          "x": 3.725290742551124e-09,
+          "y": -1.0,
+          "z": -6.052667895150524e-15
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999997019767761,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.2760210665874183e-09,
+          "y": 0.031822629272937775,
+          "z": 4.2641943309718044e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d706b8ed-abcc-46c3-8ee2-5a2a81043792",
+      "name": "ring_04_leaf_r",
+      "parent": "f2f6c8a9-3411-4c75-ab13-4a9ca36932ba",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.862429141998291,
+          "x": 1.9437893072904444e-08,
+          "y": -0.5061777830123901,
+          "z": -2.737419038112421e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.444497557822615e-08,
+          "y": 0.040862299501895905,
+          "z": 1.4901161193847656e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c509c023-7210-4dbd-873c-1a278eafe19c",
+      "name": "thumb_04_leaf_r",
+      "parent": "848409f1-b621-42e4-a419-00700ed1b2c0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_weight": 0.0,
+          "clip": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "state": 2,
+          "states": "18ed6dce-b225-450d-8377-0ddca5a754fa",
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "137bd0b6-b8c1-49c8-b957-65e2339eeebb",
+      "name": "Walk - timing markers",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0f6c5948-5f03-429d-a965-3afb69849a67"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6d1e8858-3757-4a40-be2e-b66649273d17",
+      "name": "Armature",
+      "parent": "137bd0b6-b8c1-49c8-b957-65e2339eeebb",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": -0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6fbe604b-3302-400b-8790-5bd2cab2c6a1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "93c65b26-e6e6-4a20-83b8-778990f155ba",
+      "name": "root",
+      "parent": "6d1e8858-3757-4a40-be2e-b66649273d17",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "584afd20-713c-451c-abec-123317e31199"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4648910e-f1f5-4240-ba38-d976ee7be613",
+      "name": "Mannequin",
+      "parent": "6d1e8858-3757-4a40-be2e-b66649273d17",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6125027537345886,
+          "x": 0.7904684543609619,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.05010002851486206,
+          "z": 0.916700005531311
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "af64d6ab-bc61-4000-861e-065712610ac8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "65fe4f7e-5175-4e22-a057-86d840513cf4",
+      "name": "pelvis",
+      "parent": "93c65b26-e6e6-4a20-83b8-778990f155ba",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9979045987129211,
+          "x": -0.06470262259244919,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1381763368844986,
+          "z": -1.210719347000122e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "8440536b-d3ff-4591-ae49-a878ffbcaff6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "03a61a5a-5e2a-4e6f-95db-c497d85ce638",
+      "name": "spine_01",
+      "parent": "65fe4f7e-5175-4e22-a057-86d840513cf4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.12237062305212021,
+          "x": 0.992484450340271,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": 0.08900000154972076,
+          "y": 0.027770841494202614,
+          "z": 0.04602379724383354
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "136a5419-75cb-4240-aeca-2467b149089a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "930a86bf-17c3-40a1-9ac8-023b974597ed",
+      "name": "thigh_l",
+      "parent": "65fe4f7e-5175-4e22-a057-86d840513cf4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.12237062305212021,
+          "x": 0.992484450340271,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": -0.08900000154972076,
+          "y": 0.027770841494202614,
+          "z": 0.04602379724383354
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e00edc21-2c6b-4613-9c35-29fecc6b8147"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6a348b7c-5126-412a-a9ea-ab6ac896980f",
+      "name": "thigh_r",
+      "parent": "65fe4f7e-5175-4e22-a057-86d840513cf4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9970094561576843,
+          "x": -0.07727984338998795,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.12403485178947449,
+          "z": 3.4924596548080444e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bb10601b-3d4c-43fd-a9c6-02015f966fc9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "502401c8-8516-4e6b-94c9-5c829c3fb0a0",
+      "name": "spine_02",
+      "parent": "03a61a5a-5e2a-4e6f-95db-c497d85ce638",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9993305206298828,
+          "x": 0.03658590838313103,
+          "y": -0.0001311732194153592,
+          "z": -4.802307103091152e-06
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999998807907104
+        },
+        "forge.local_translation": {
+          "x": 7.450580596923828e-09,
+          "y": 0.4003097712993622,
+          "z": -2.3283064365386963e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ed4efe8c-7c58-4deb-a4fd-774b86858d64",
+      "name": "calf_l",
+      "parent": "930a86bf-17c3-40a1-9ac8-023b974597ed",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9993305206298828,
+          "x": 0.03658590838313103,
+          "y": -0.0001311732194153592,
+          "z": -4.802307103091152e-06
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999998807907104
+        },
+        "forge.local_translation": {
+          "x": -7.450580596923828e-09,
+          "y": 0.4003097712993622,
+          "z": -2.3283064365386963e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "00241fc4-e671-4181-8d19-dadfac1b6ae5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c730531e-cd48-48c9-afad-e6c77baf19d6",
+      "name": "calf_r",
+      "parent": "6a348b7c-5126-412a-a9ea-ab6ac896980f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999999403953552,
+          "x": -0.0002685915678739548,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.14127187430858612,
+          "z": 5.587935447692871e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "689efd7e-f55a-4a52-ac67-7bf56b446fb1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fef03be4-eee4-4616-a45b-69ed32e44c85",
+      "name": "spine_03",
+      "parent": "502401c8-8516-4e6b-94c9-5c829c3fb0a0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485769629478455,
+          "x": -0.5290717482566833,
+          "y": -0.00032809312688186765,
+          "z": 0.0003434529062360525
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -7.219114195322618e-09,
+          "y": 0.4294798970222473,
+          "z": 2.408341970294714e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c7d15599-ce8e-475d-a430-08c9c69df612",
+      "name": "foot_l",
+      "parent": "ed4efe8c-7c58-4deb-a4fd-774b86858d64",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485769629478455,
+          "x": -0.5290717482566833,
+          "y": -0.00032809312688186765,
+          "z": 0.0003434529062360525
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 7.682046998525038e-09,
+          "y": 0.42947983741760254,
+          "z": 1.3169483281672e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "5515a646-7b78-4ff4-adfe-2796db4384c3"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0ac484a8-81cc-4044-9962-684b8d014137",
+      "name": "foot_r",
+      "parent": "c730531e-cd48-48c9-afad-e6c77baf19d6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9938219785690308,
+          "x": 0.11098591238260269,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1728907823562622,
+          "z": -1.862645149230957e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "80ac7176-9315-4d2b-9358-20e4f20afc4d",
+      "name": "neck_01",
+      "parent": "fef03be4-eee4-4616-a45b-69ed32e44c85",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6235507726669312,
+          "x": -0.6040205955505371,
+          "y": -0.34510302543640137,
+          "z": -0.35671767592430115
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.018799999728798866,
+          "y": 0.1405535787343979,
+          "z": 0.08089503645896912
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e37e1ca3-8685-4639-a158-085b36435f9e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "32d3af01-ed41-4d65-99f2-41a481e7045d",
+      "name": "clavicle_l",
+      "parent": "fef03be4-eee4-4616-a45b-69ed32e44c85",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6235507726669312,
+          "x": -0.6040205955505371,
+          "y": 0.34510302543640137,
+          "z": 0.35671767592430115
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.018799999728798866,
+          "y": 0.1405535787343979,
+          "z": 0.08089503645896912
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6b14a22c-e4f4-4b36-9718-fec34439d379"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "55a89e35-6f10-4fec-bc4c-94558969e6f0",
+      "name": "clavicle_r",
+      "parent": "fef03be4-eee4-4616-a45b-69ed32e44c85",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0004994344199076295,
+          "x": 0.0001371279067825526,
+          "y": -0.9643067717552185,
+          "z": 0.26478710770606995
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000003576278687,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": 3.919922164641321e-09,
+          "y": 0.1733010858297348,
+          "z": -8.578354027122259e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "16566c91-7ea8-442b-9738-9181a84ddfd7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1245d72d-873e-4f13-9dbd-e1b06f77decf",
+      "name": "ball_l",
+      "parent": "c7d15599-ce8e-475d-a430-08c9c69df612",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0004994344199076295,
+          "x": 0.0001371279067825526,
+          "y": -0.9643067717552185,
+          "z": 0.26478710770606995
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000003576278687,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": -3.5306584322825074e-09,
+          "y": 0.1733010858297348,
+          "z": -8.185452315956354e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "5a452923-a9ba-419b-ae20-6c377525e559"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f65883bd-07a2-4169-b615-c874dff288fa",
+      "name": "ball_r",
+      "parent": "0ac484a8-81cc-4044-9962-684b8d014137",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9969003796577454,
+          "x": -0.07867422699928284,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.08258678019046783,
+          "z": -1.3969838619232178e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "9379ad87-06aa-46fe-81b6-541fc7952b1e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "987485ab-0e38-4b9b-ba80-7f5078e575fe",
+      "name": "Head",
+      "parent": "80ac7176-9315-4d2b-9358-20e4f20afc4d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6837477087974548,
+          "x": 0.18026958405971527,
+          "y": 0.6838500499725342,
+          "z": -0.17983640730381012
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.03007233701646328,
+          "y": 0.21858175098896027,
+          "z": -0.01696845516562462
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6801ff15-2193-4b6b-873c-b9b904fd7883"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1ebcac2b-5964-41b6-bfd4-cbd54af2c32a",
+      "name": "upperarm_l",
+      "parent": "32d3af01-ed41-4d65-99f2-41a481e7045d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6837477087974548,
+          "x": 0.18026958405971527,
+          "y": -0.6838500499725342,
+          "z": 0.17983640730381012
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.03007233701646328,
+          "y": 0.21858175098896027,
+          "z": -0.01696845516562462
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "db5e6c73-94df-4051-b66f-4b2627c5f249"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bc1bca98-1d80-4b50-a923-3ccc97b69a31",
+      "name": "upperarm_r",
+      "parent": "55a89e35-6f10-4fec-bc4c-94558969e6f0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.4901159417490817e-08,
+          "y": -2.043089253334074e-08,
+          "z": -3.0444404944326845e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.8294805366519995e-09,
+          "y": 0.07890003174543381,
+          "z": -5.368017141904602e-11
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f9cbafa7-6868-4334-b3d4-8ea7d941ff1a",
+      "name": "ball_leaf_l",
+      "parent": "1245d72d-873e-4f13-9dbd-e1b06f77decf",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.4901159417490817e-08,
+          "y": -2.043089253334074e-08,
+          "z": -3.0444404944326845e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -8.071681101284867e-09,
+          "y": 0.07890003174543381,
+          "z": -2.2050139492080234e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d63f500a-54e2-4b1a-924a-034ac3ee7924"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ecb44e0a-2fdb-438d-b6cb-e00b4df55083",
+      "name": "ball_leaf_r",
+      "parent": "f65883bd-07a2-4169-b615-c874dff288fa",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9998523592948914,
+          "x": 0.01718229055404663,
+          "y": -2.0353050786070526e-05,
+          "z": 3.670882904316386e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.1565142560575623e-08,
+          "y": 0.2744402587413788,
+          "z": -1.2878444977104664e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "9916bb5a-3d79-4f66-a719-d519f520db8f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e3ef4eb2-9f7c-47b1-957f-2f4ebe8434e9",
+      "name": "lowerarm_l",
+      "parent": "1ebcac2b-5964-41b6-bfd4-cbd54af2c32a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9998523592948914,
+          "x": 0.017182305455207825,
+          "y": 2.0353050786070526e-05,
+          "z": -3.6919502122145786e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.4812334825364815e-07,
+          "y": 0.2744402289390564,
+          "z": -7.94170773588121e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "01e3e039-7714-48e1-a367-95be956ea174"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "77bfcc74-c56f-4020-a461-4357386919d3",
+      "name": "lowerarm_r",
+      "parent": "bc1bca98-1d80-4b50-a923-3ccc97b69a31",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999628663063049,
+          "x": -0.008619682863354683,
+          "y": -4.1722387322806753e-07,
+          "z": 2.1919726034269615e-09
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.2729826082136242e-08,
+          "y": 0.27264055609703064,
+          "z": -1.8102070953318616e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0cc18cd9-e1ed-41b6-8823-052a442b52a8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "749a83f8-72e7-487a-8c1f-55e5fd3573da",
+      "name": "hand_l",
+      "parent": "e3ef4eb2-9f7c-47b1-957f-2f4ebe8434e9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999628663063049,
+          "x": -0.008619682863354683,
+          "y": 5.364287289921776e-07,
+          "z": -2.1920292248012174e-09
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -2.204334137445585e-08,
+          "y": 0.2726404666900635,
+          "z": 1.72497038875008e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a04e7161-057e-4787-b64d-6e516cea4e7a",
+      "name": "hand_r",
+      "parent": "77bfcc74-c56f-4020-a461-4357386919d3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.707103967666626,
+          "x": -4.854115687180638e-08,
+          "y": 0.7071095705032349,
+          "z": -4.854154056488369e-08
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.001999831758439541,
+          "y": 0.1198999211192131,
+          "z": 0.030899997800588608
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "86349f74-d462-47b1-91dd-257707503c90"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a5f6fc07-e1be-4e06-a0dc-4f4dedfcc9da",
+      "name": "index_01_l",
+      "parent": "749a83f8-72e7-487a-8c1f-55e5fd3573da",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069067358970642,
+          "x": -0.01670246012508869,
+          "y": 0.7069122791290283,
+          "z": -0.016702570021152496
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.00040022601024247706,
+          "y": 0.12159990519285202,
+          "z": 0.0052000004798173904
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6e2014ba-fe22-47d7-86db-42c88c391ea6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c11619d7-2b81-4857-935b-14b54e413531",
+      "name": "middle_01_l",
+      "parent": "749a83f8-72e7-487a-8c1f-55e5fd3573da",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7067065238952637,
+          "x": -0.023706039413809776,
+          "y": 0.7067120671272278,
+          "z": -0.02370619960129261
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0015997173031792045,
+          "y": 0.107699915766716,
+          "z": -0.040800001472234726
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "f6d23562-da1e-4265-9af5-c1cbe6e163b9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "de451e08-c4d5-4ea2-806d-ded0bdfbf347",
+      "name": "pinky_01_l",
+      "parent": "749a83f8-72e7-487a-8c1f-55e5fd3573da",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069919109344482,
+          "x": -0.012588735669851303,
+          "y": 0.7069974541664124,
+          "z": -0.012588820420205593
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.00010019120236393064,
+          "y": 0.11909990012645721,
+          "z": -0.017100004479289055
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c5d0c60d-0c72-4a15-b6e8-be442f617a17"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "75a8fc40-6e7a-411e-aabd-929e1633a26c",
+      "name": "ring_01_l",
+      "parent": "749a83f8-72e7-487a-8c1f-55e5fd3573da",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.05358405411243439,
+          "x": 0.2474130243062973,
+          "y": 0.9457945227622986,
+          "z": 0.20344115793704987
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000001192092896,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.02279982902109623,
+          "y": 0.02729993499815464,
+          "z": 0.03359999507665634
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c5bb9de7-0524-4061-b1ed-ad7f0e53d354",
+      "name": "thumb_01_l",
+      "parent": "749a83f8-72e7-487a-8c1f-55e5fd3573da",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071039080619812,
+          "x": -4.8541142660951664e-08,
+          "y": -0.7071096301078796,
+          "z": 4.854153345945633e-08
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.0019998278003185987,
+          "y": 0.11989995837211609,
+          "z": 0.030899999663233757
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "129897d6-caec-4c9e-84b2-4586b9f5afb8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6d046cbe-2dce-4150-ab04-d3c3aaa772ef",
+      "name": "index_01_r",
+      "parent": "a04e7161-057e-4787-b64d-6e516cea4e7a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069066762924194,
+          "x": -0.01670246012508869,
+          "y": -0.7069123387336731,
+          "z": 0.016702566295862198
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.00040023319888859987,
+          "y": 0.12159993499517441,
+          "z": 0.00520000234246254
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b20867f0-d20d-4d86-8f16-7d4e7f301b90"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "599fe894-2e88-4d5d-8210-9944c1784ac7",
+      "name": "middle_01_r",
+      "parent": "a04e7161-057e-4787-b64d-6e516cea4e7a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7067064642906189,
+          "x": -0.023706039413809776,
+          "y": -0.7067121267318726,
+          "z": 0.02370619773864746
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.0015997047303244472,
+          "y": 0.10769994556903839,
+          "z": -0.040800001472234726
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0d2d4a82-e1fa-4f64-845f-f75185018cfd"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7f97ee80-f50a-456b-ab4a-2febf51547f7",
+      "name": "pinky_01_r",
+      "parent": "a04e7161-057e-4787-b64d-6e516cea4e7a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069919109344482,
+          "x": -0.012588738463819027,
+          "y": -0.7069974541664124,
+          "z": 0.01258881762623787
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.00010020103945862502,
+          "y": 0.1190999373793602,
+          "z": -0.017100002616643906
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a2abe4b4-2f13-4a84-a732-a6a96b61afff",
+      "name": "ring_01_r",
+      "parent": "a04e7161-057e-4787-b64d-6e516cea4e7a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.053584061563014984,
+          "x": 0.24741306900978088,
+          "y": -0.9457945227622986,
+          "z": -0.20344111323356628
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000001192092896,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.022799823433160782,
+          "y": 0.027299968525767326,
+          "z": 0.03359999507665634
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2fa1e653-3b33-416e-9a09-b351448b89ff",
+      "name": "thumb_01_r",
+      "parent": "a04e7161-057e-4787-b64d-6e516cea4e7a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -4.4818607104670644e-14,
+          "y": -9.671452971815597e-09,
+          "z": -2.7004171121447484e-10
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.128198976578346e-10,
+          "y": 0.04070001840591431,
+          "z": 1.136087224296034e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ffbd4d23-8e00-4384-a69b-48ea1aa23039",
+      "name": "index_02_l",
+      "parent": "a5f6fc07-e1be-4e06-a0dc-4f4dedfcc9da",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999988675117493,
+          "x": -1.1900032070855104e-08,
+          "y": -9.910034570737025e-09,
+          "z": 0.0015135601861402392
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.637978807091713e-10,
+          "y": 0.042347248643636703,
+          "z": 2.018612121901242e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0b147dd2-5141-4999-ae7c-09e1c21c039a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "40fb278b-4aae-48a5-b128-023639001569",
+      "name": "middle_02_l",
+      "parent": "c11619d7-2b81-4857-935b-14b54e413531",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999996423721313,
+          "x": 5.882122788847255e-09,
+          "y": -1.0178268894378562e-08,
+          "z": -0.0008342716027982533
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.346940502524376e-09,
+          "y": 0.04029057174921036,
+          "z": -1.4873648979119025e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "f3d49347-2448-4491-8466-e8b5cd28bdf6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e40fc067-dc9e-4b5f-a6c1-35ca3573e559",
+      "name": "pinky_02_l",
+      "parent": "de451e08-c4d5-4ea2-806d-ded0bdfbf347",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -8.660336892063469e-10,
+          "y": -9.627518338106711e-09,
+          "z": 1.2190081179141998e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.830749382264912e-10,
+          "y": 0.039324983954429626,
+          "z": -1.0246476733755117e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a76a33e1-2c58-422a-991a-67db58597b75",
+      "name": "ring_02_l",
+      "parent": "75a8fc40-6e7a-411e-aabd-929e1633a26c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -0.000135714202770032,
+          "y": -7.41071708034724e-05,
+          "z": 4.7934565372997895e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 5.90443960390985e-09,
+          "y": 0.0430297926068306,
+          "z": 4.284083843231201e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "10d6b3b0-13a4-4bc7-bcd6-3deab6f511c1",
+      "name": "thumb_02_l",
+      "parent": "c5bb9de7-0524-4061-b1ed-ad7f0e53d354",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -5.2394442679858794e-14,
+          "y": -3.824084160441998e-09,
+          "z": 2.7004842806377383e-10
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.3552526857458815e-09,
+          "y": 0.04070010781288147,
+          "z": -1.0784840043243094e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a8a3cc82-6045-456a-a65c-c4662edb6f56"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d82f57b9-2217-4cab-b3c9-5f99543dbbc9",
+      "name": "index_02_r",
+      "parent": "6d046cbe-2dce-4150-ab04-d3c3aaa772ef",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999988675117493,
+          "x": -1.100992630398423e-08,
+          "y": -3.3837239676870468e-09,
+          "z": -0.0015135611174628139
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.311893230304122e-10,
+          "y": 0.04234728217124939,
+          "z": -9.737595974002033e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "866393ab-6952-4aee-8674-a6a188d3117a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5ff09c48-d921-49a9-91f3-8ac8afb600cc",
+      "name": "middle_02_r",
+      "parent": "599fe894-2e88-4d5d-8210-9944c1784ac7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999996423721313,
+          "x": 5.623980836588771e-09,
+          "y": -2.9140143631423143e-09,
+          "z": 0.0008342642686329782
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998211860657,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 8.576535037718713e-10,
+          "y": 0.04029053822159767,
+          "z": -1.963655904546613e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "25cf4078-3c50-4877-84a7-59901a59a3eb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "00adb4e7-0042-48a3-9ccf-fade20248a9e",
+      "name": "pinky_02_r",
+      "parent": "7f97ee80-f50a-456b-ab4a-2febf51547f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 7.371431243186066e-10,
+          "y": -3.438689111234794e-09,
+          "z": -1.2191012501716614e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5420376914553344e-09,
+          "y": 0.03932501748204231,
+          "z": -2.1878902600747097e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "8ce743c7-17e5-4148-9404-e69b23a3b961"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e8792d26-2316-4fc2-8916-280c3b161e7c",
+      "name": "ring_02_r",
+      "parent": "a2abe4b4-2f13-4a84-a732-a6a96b61afff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -0.00013566949928645045,
+          "y": 7.40157556720078e-05,
+          "z": -4.7864316002232954e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -7.172275218181312e-09,
+          "y": 0.04302985966205597,
+          "z": -1.6763806343078613e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e5324501-496b-4021-b5fe-ae284ce6f505",
+      "name": "thumb_02_r",
+      "parent": "2fa1e653-3b33-416e-9a09-b351448b89ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 7.348758588704803e-18,
+          "y": 1.1368683772161603e-13,
+          "z": -1.327914859583146e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 9.722498361952603e-10,
+          "y": 0.034800052642822266,
+          "z": 1.0693611329770647e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "38f4ac10-6a11-42c5-bd40-95f13abe56d4"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "14c1f54a-981b-4b32-80f1-9e1c5ec12964",
+      "name": "index_03_l",
+      "parent": "ffbd4d23-8e00-4384-a69b-48ea1aa23039",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999993443489075,
+          "x": 8.156294306616019e-09,
+          "y": -3.566927135600917e-12,
+          "z": -0.0011296597076579928
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.7830537874251604e-10,
+          "y": 0.03393314778804779,
+          "z": 1.605138209015422e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "10122a49-257a-4e55-809d-c980a1560198",
+      "name": "middle_03_l",
+      "parent": "40fb278b-4aae-48a5-b128-023639001569",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": -4.400461328657457e-09,
+          "y": 4.186874371508997e-12,
+          "z": 0.000609522860031575
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -3.58431861968711e-09,
+          "y": 0.027665333822369576,
+          "z": 2.2544884359376738e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9b22a8a3-049e-445d-b7e9-591c28911b97",
+      "name": "pinky_03_l",
+      "parent": "e40fc067-dc9e-4b5f-a6c1-35ca3573e559",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999994039535522,
+          "x": 7.704945126363327e-09,
+          "y": -2.098988951398928e-12,
+          "z": -0.0010670634219422936
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.176378519739956e-09,
+          "y": 0.030919553712010384,
+          "z": -1.0190598231929471e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "81514a97-ac44-4020-b28f-01cb9553ec97"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0c724c25-0294-4ace-9d00-46e5a3ccadeb",
+      "name": "ring_03_l",
+      "parent": "a76a33e1-2c58-422a-991a-67db58597b75",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": 0.0002478846290614456,
+          "y": 8.091918425634503e-05,
+          "z": -0.0005353352753445506
+        },
+        "forge.local_scale": {
+          "x": 0.9999998807907104,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -1.2301234164624475e-07,
+          "y": 0.049077946692705154,
+          "z": -2.514570951461792e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "84848779-0291-4744-8ea6-565e16be5b5a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b5c02dc2-2bb8-42ef-bec1-598e53ca187b",
+      "name": "thumb_03_l",
+      "parent": "10d6b3b0-13a4-4bc7-bcd6-3deab6f511c1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.1838301877415552e-16,
+          "y": -1.1368683772161603e-13,
+          "z": -4.1818744524883854e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.6966306399554014e-09,
+          "y": 0.03480002284049988,
+          "z": -1.0758446933323285e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b6cb4d19-c29f-4c72-9260-94ce73733118"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c3c2cb4a-8056-47ec-9ac1-8797a28cfb8e",
+      "name": "index_03_r",
+      "parent": "d82f57b9-2217-4cab-b3c9-5f99543dbbc9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999993443489075,
+          "x": 8.186298749990328e-09,
+          "y": 2.2575290595239217e-11,
+          "z": 0.0011296587763354182
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.141860022675246e-09,
+          "y": 0.03393318131566048,
+          "z": 4.189584501546051e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "2a964b7e-db29-4e5a-9448-7270b8234548"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1d77871f-190e-4970-8702-8280858f1928",
+      "name": "middle_03_r",
+      "parent": "5ff09c48-d921-49a9-91f3-8ac8afb600cc",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": -4.416420118502629e-09,
+          "y": -1.6191496060580235e-11,
+          "z": -0.0006095209391787648
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.58431861968711e-09,
+          "y": 0.027665363624691963,
+          "z": -1.1715911796272849e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "abb68fb5-a372-4036-a327-d6615f76108e",
+      "name": "pinky_03_r",
+      "parent": "00adb4e7-0042-48a3-9ccf-fade20248a9e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999994039535522,
+          "x": 7.732828599671393e-09,
+          "y": 2.1304747896411236e-11,
+          "z": 0.0010670634219422936
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.4510882212780416e-09,
+          "y": 0.03091958537697792,
+          "z": -1.0054915833279665e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "03bc559f-b92d-450f-9771-78a5b074322e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ebbf8900-0a58-413d-b2a5-8d7cb15252b8",
+      "name": "ring_03_r",
+      "parent": "e8792d26-2316-4fc2-8916-280c3b161e7c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": 0.0002478510432410985,
+          "y": -8.09993507573381e-05,
+          "z": 0.0005353167071007192
+        },
+        "forge.local_scale": {
+          "x": 0.9999998807907104,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.5804321164032444e-08,
+          "y": 0.04907788336277008,
+          "z": 5.587935447692871e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6912d355-eff0-4614-91d1-2548bc94582f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d01e43a8-d94f-410f-92cf-7d8c8a38fb6c",
+      "name": "thumb_03_r",
+      "parent": "e5324501-496b-4021-b5fe-ae284ce6f505",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 4.1180931362579326e-16,
+          "y": 1.0,
+          "z": 1.4787951179418804e-17
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.697540134657174e-09,
+          "y": 0.030100105330348015,
+          "z": 1.0693611329770647e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "ded08da4-ba40-45bc-9b42-71297bea1d31"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3a102cfb-179c-490d-b413-a1b35d657314",
+      "name": "index_04_leaf_l",
+      "parent": "14c1f54a-981b-4b32-80f1-9e1c5ec12964",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517760690912837e-06,
+          "x": 9.313227522511625e-09,
+          "y": 1.0,
+          "z": -5.5467012344376405e-15
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999997019767761,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.866240826435387e-09,
+          "y": 0.034437183290719986,
+          "z": 2.5992932251028833e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bd0ef129-9444-49a7-9bcd-f1362399e5d3"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "24b43ef4-d07e-4ff9-adff-a25f99c4f562",
+      "name": "middle_04_leaf_l",
+      "parent": "10122a49-257a-4e55-809d-c980a1560198",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.65177675121231e-06,
+          "x": 2.421439049271612e-08,
+          "y": 1.0,
+          "z": 1.6284096602614886e-14
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -3.5834091249853373e-09,
+          "y": 0.028164202347397804,
+          "z": 1.1433525060056127e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f19385af-dec4-409a-aa40-57d43e28c881",
+      "name": "pinky_04_leaf_l",
+      "parent": "9b22a8a3-049e-445d-b7e9-591c28911b97",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.65177675121231e-06,
+          "x": 1.862645149230957e-09,
+          "y": 1.0,
+          "z": 5.017902800631517e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.2751115718856454e-09,
+          "y": 0.03182259574532509,
+          "z": -1.1624800322351803e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "51e6c67f-cd8a-4eae-a1d1-971e5f4a2080",
+      "name": "ring_04_leaf_l",
+      "parent": "0c724c25-0294-4ace-9d00-46e5a3ccadeb",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8624290823936462,
+          "x": 2.3757428024850924e-08,
+          "y": 0.5061779022216797,
+          "z": 2.723667478221614e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0000001192092896,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.0787410903722048e-07,
+          "y": 0.0408623106777668,
+          "z": -1.862645149230957e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a2d19777-70d1-4e00-b1c0-89e0f544fafb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a2a99f2a-d294-4c55-afc5-6725bfa847a8",
+      "name": "thumb_04_leaf_l",
+      "parent": "b5c02dc2-2bb8-42ef-bec1-598e53ca187b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 1.7660197551910774e-16,
+          "y": -1.0,
+          "z": 2.368324237555521e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -9.713403414934874e-10,
+          "y": 0.030099960044026375,
+          "z": 1.1624820217548404e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3b413040-a136-4a40-81bd-e740cd23c75c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "90a2fa2e-aba3-4ed4-91cc-11e51567ee2c",
+      "name": "index_04_leaf_r",
+      "parent": "c3c2cb4a-8056-47ec-9ac1-8797a28cfb8e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.651776296464959e-06,
+          "x": 9.313225746154785e-09,
+          "y": -1.0,
+          "z": -4.341538183106307e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.00359567720443e-09,
+          "y": 0.03443721681833267,
+          "z": 2.6527175123192137e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "08c9fa8f-b115-408c-888c-b6ddfde26ad9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "afa233c9-a95b-41e3-9cfb-ea6bf8706200",
+      "name": "middle_04_leaf_r",
+      "parent": "1d77871f-190e-4970-8702-8280858f1928",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 2.60770320892334e-08,
+          "y": -1.0,
+          "z": -3.1884908667338674e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.5824996302835643e-09,
+          "y": 0.028164170682430267,
+          "z": -1.2279903671696957e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e1b121ea-fee0-47b2-bc15-6ae852a6658f",
+      "name": "pinky_04_leaf_r",
+      "parent": "abb68fb5-a372-4036-a327-d6615f76108e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.651776296464959e-06,
+          "x": 3.725290742551124e-09,
+          "y": -1.0,
+          "z": -6.052667895150524e-15
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999997019767761,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.2760210665874183e-09,
+          "y": 0.031822629272937775,
+          "z": 4.2641943309718044e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "38caa122-fe60-4a9a-9f2c-7bbba8a32079",
+      "name": "ring_04_leaf_r",
+      "parent": "ebbf8900-0a58-413d-b2a5-8d7cb15252b8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.862429141998291,
+          "x": 1.9437893072904444e-08,
+          "y": -0.5061777830123901,
+          "z": -2.737419038112421e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.444497557822615e-08,
+          "y": 0.040862299501895905,
+          "z": 1.4901161193847656e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e57b4a05-9345-4da0-8fed-f4695cdd6662",
+      "name": "thumb_04_leaf_r",
+      "parent": "d01e43a8-d94f-410f-92cf-7d8c8a38fb6c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_weight": 0.0,
+          "clip": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "state": 3,
+          "states": "18ed6dce-b225-450d-8377-0ddca5a754fa",
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "046cd5bb-1177-496e-a634-ebdf6918847c",
+      "name": "Run - timing markers",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0f6c5948-5f03-429d-a965-3afb69849a67"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a47ec71c-305d-4497-91b6-66a2e9926f17",
+      "name": "Armature",
+      "parent": "046cd5bb-1177-496e-a634-ebdf6918847c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": -0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6fbe604b-3302-400b-8790-5bd2cab2c6a1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "637c4424-1850-4382-9b95-2f88c9ba6a0b",
+      "name": "root",
+      "parent": "a47ec71c-305d-4497-91b6-66a2e9926f17",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "584afd20-713c-451c-abec-123317e31199"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "39102096-5d80-4fdf-9ccb-8ba2a05a348e",
+      "name": "Mannequin",
+      "parent": "a47ec71c-305d-4497-91b6-66a2e9926f17",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6125027537345886,
+          "x": 0.7904684543609619,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.05010002851486206,
+          "z": 0.916700005531311
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "af64d6ab-bc61-4000-861e-065712610ac8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "88f1cda9-f80c-4424-b459-0647dd5f1e6f",
+      "name": "pelvis",
+      "parent": "637c4424-1850-4382-9b95-2f88c9ba6a0b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9979045987129211,
+          "x": -0.06470262259244919,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1381763368844986,
+          "z": -1.210719347000122e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "8440536b-d3ff-4591-ae49-a878ffbcaff6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c2982942-544a-4070-a436-654a8a133245",
+      "name": "spine_01",
+      "parent": "88f1cda9-f80c-4424-b459-0647dd5f1e6f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.12237062305212021,
+          "x": 0.992484450340271,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": 0.08900000154972076,
+          "y": 0.027770841494202614,
+          "z": 0.04602379724383354
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "136a5419-75cb-4240-aeca-2467b149089a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "918bf345-b9ee-4cfa-ae5f-8ff2176f76fe",
+      "name": "thigh_l",
+      "parent": "88f1cda9-f80c-4424-b459-0647dd5f1e6f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.12237062305212021,
+          "x": 0.992484450340271,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": -0.08900000154972076,
+          "y": 0.027770841494202614,
+          "z": 0.04602379724383354
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e00edc21-2c6b-4613-9c35-29fecc6b8147"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bb998ab9-a79d-475e-a6ab-66ca69842a61",
+      "name": "thigh_r",
+      "parent": "88f1cda9-f80c-4424-b459-0647dd5f1e6f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9970094561576843,
+          "x": -0.07727984338998795,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.12403485178947449,
+          "z": 3.4924596548080444e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bb10601b-3d4c-43fd-a9c6-02015f966fc9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fa7bee58-6ebc-4b2a-b138-f1d6a8fcda62",
+      "name": "spine_02",
+      "parent": "c2982942-544a-4070-a436-654a8a133245",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9993305206298828,
+          "x": 0.03658590838313103,
+          "y": -0.0001311732194153592,
+          "z": -4.802307103091152e-06
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999998807907104
+        },
+        "forge.local_translation": {
+          "x": 7.450580596923828e-09,
+          "y": 0.4003097712993622,
+          "z": -2.3283064365386963e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a17ea22c-f8fe-45cc-856c-424b414b135f",
+      "name": "calf_l",
+      "parent": "918bf345-b9ee-4cfa-ae5f-8ff2176f76fe",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9993305206298828,
+          "x": 0.03658590838313103,
+          "y": -0.0001311732194153592,
+          "z": -4.802307103091152e-06
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999998807907104
+        },
+        "forge.local_translation": {
+          "x": -7.450580596923828e-09,
+          "y": 0.4003097712993622,
+          "z": -2.3283064365386963e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "00241fc4-e671-4181-8d19-dadfac1b6ae5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "71a4b0a7-595a-4907-b934-b20cbddbe77b",
+      "name": "calf_r",
+      "parent": "bb998ab9-a79d-475e-a6ab-66ca69842a61",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999999403953552,
+          "x": -0.0002685915678739548,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.14127187430858612,
+          "z": 5.587935447692871e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "689efd7e-f55a-4a52-ac67-7bf56b446fb1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3065670a-63c9-4258-ba96-c272fb5b37ff",
+      "name": "spine_03",
+      "parent": "fa7bee58-6ebc-4b2a-b138-f1d6a8fcda62",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485769629478455,
+          "x": -0.5290717482566833,
+          "y": -0.00032809312688186765,
+          "z": 0.0003434529062360525
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -7.219114195322618e-09,
+          "y": 0.4294798970222473,
+          "z": 2.408341970294714e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b21d6b5d-86c7-47b4-9217-7bb1841b7b6c",
+      "name": "foot_l",
+      "parent": "a17ea22c-f8fe-45cc-856c-424b414b135f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485769629478455,
+          "x": -0.5290717482566833,
+          "y": -0.00032809312688186765,
+          "z": 0.0003434529062360525
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 7.682046998525038e-09,
+          "y": 0.42947983741760254,
+          "z": 1.3169483281672e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "5515a646-7b78-4ff4-adfe-2796db4384c3"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a82cf38a-7683-4ac1-baaa-373fa17ad4bb",
+      "name": "foot_r",
+      "parent": "71a4b0a7-595a-4907-b934-b20cbddbe77b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9938219785690308,
+          "x": 0.11098591238260269,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1728907823562622,
+          "z": -1.862645149230957e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ebd27e41-5e88-45eb-a19b-a2a45e7979d9",
+      "name": "neck_01",
+      "parent": "3065670a-63c9-4258-ba96-c272fb5b37ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6235507726669312,
+          "x": -0.6040205955505371,
+          "y": -0.34510302543640137,
+          "z": -0.35671767592430115
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.018799999728798866,
+          "y": 0.1405535787343979,
+          "z": 0.08089503645896912
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e37e1ca3-8685-4639-a158-085b36435f9e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5b11fbd8-964c-48b7-a885-61d084d965e9",
+      "name": "clavicle_l",
+      "parent": "3065670a-63c9-4258-ba96-c272fb5b37ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6235507726669312,
+          "x": -0.6040205955505371,
+          "y": 0.34510302543640137,
+          "z": 0.35671767592430115
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.018799999728798866,
+          "y": 0.1405535787343979,
+          "z": 0.08089503645896912
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6b14a22c-e4f4-4b36-9718-fec34439d379"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7ceb62d5-076f-4e81-895e-403563e7fa2a",
+      "name": "clavicle_r",
+      "parent": "3065670a-63c9-4258-ba96-c272fb5b37ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0004994344199076295,
+          "x": 0.0001371279067825526,
+          "y": -0.9643067717552185,
+          "z": 0.26478710770606995
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000003576278687,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": 3.919922164641321e-09,
+          "y": 0.1733010858297348,
+          "z": -8.578354027122259e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "16566c91-7ea8-442b-9738-9181a84ddfd7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e24d9d55-3319-4954-a77c-80dbe84e82a9",
+      "name": "ball_l",
+      "parent": "b21d6b5d-86c7-47b4-9217-7bb1841b7b6c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0004994344199076295,
+          "x": 0.0001371279067825526,
+          "y": -0.9643067717552185,
+          "z": 0.26478710770606995
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000003576278687,
+          "z": 0.9999998211860657
+        },
+        "forge.local_translation": {
+          "x": -3.5306584322825074e-09,
+          "y": 0.1733010858297348,
+          "z": -8.185452315956354e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "5a452923-a9ba-419b-ae20-6c377525e559"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "252d9fb3-7ef9-49ba-8196-cf05c9a0afb5",
+      "name": "ball_r",
+      "parent": "a82cf38a-7683-4ac1-baaa-373fa17ad4bb",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9969003796577454,
+          "x": -0.07867422699928284,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.08258678019046783,
+          "z": -1.3969838619232178e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "9379ad87-06aa-46fe-81b6-541fc7952b1e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "426368d0-bd2c-4e7c-9695-63071dabc6c0",
+      "name": "Head",
+      "parent": "ebd27e41-5e88-45eb-a19b-a2a45e7979d9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6837477087974548,
+          "x": 0.18026958405971527,
+          "y": 0.6838500499725342,
+          "z": -0.17983640730381012
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.03007233701646328,
+          "y": 0.21858175098896027,
+          "z": -0.01696845516562462
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6801ff15-2193-4b6b-873c-b9b904fd7883"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "05295e70-13bb-45f5-85e5-b84833fc6cfa",
+      "name": "upperarm_l",
+      "parent": "5b11fbd8-964c-48b7-a885-61d084d965e9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6837477087974548,
+          "x": 0.18026958405971527,
+          "y": -0.6838500499725342,
+          "z": 0.17983640730381012
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.03007233701646328,
+          "y": 0.21858175098896027,
+          "z": -0.01696845516562462
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "db5e6c73-94df-4051-b66f-4b2627c5f249"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a4ce1cd2-987b-4143-9836-481fccc5ecf9",
+      "name": "upperarm_r",
+      "parent": "7ceb62d5-076f-4e81-895e-403563e7fa2a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.4901159417490817e-08,
+          "y": -2.043089253334074e-08,
+          "z": -3.0444404944326845e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.8294805366519995e-09,
+          "y": 0.07890003174543381,
+          "z": -5.368017141904602e-11
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fa15c4b8-5c26-46cb-b284-71092d279596",
+      "name": "ball_leaf_l",
+      "parent": "e24d9d55-3319-4954-a77c-80dbe84e82a9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.4901159417490817e-08,
+          "y": -2.043089253334074e-08,
+          "z": -3.0444404944326845e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -8.071681101284867e-09,
+          "y": 0.07890003174543381,
+          "z": -2.2050139492080234e-10
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d63f500a-54e2-4b1a-924a-034ac3ee7924"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "15276f80-a59d-4744-a3f2-3224dc2da0d4",
+      "name": "ball_leaf_r",
+      "parent": "252d9fb3-7ef9-49ba-8196-cf05c9a0afb5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9998523592948914,
+          "x": 0.01718229055404663,
+          "y": -2.0353050786070526e-05,
+          "z": 3.670882904316386e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.1565142560575623e-08,
+          "y": 0.2744402587413788,
+          "z": -1.2878444977104664e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "9916bb5a-3d79-4f66-a719-d519f520db8f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3a13147e-af28-4c48-8eff-e392c2eeca57",
+      "name": "lowerarm_l",
+      "parent": "05295e70-13bb-45f5-85e5-b84833fc6cfa",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9998523592948914,
+          "x": 0.017182305455207825,
+          "y": 2.0353050786070526e-05,
+          "z": -3.6919502122145786e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.4812334825364815e-07,
+          "y": 0.2744402289390564,
+          "z": -7.94170773588121e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "01e3e039-7714-48e1-a367-95be956ea174"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5c95ab45-06e0-4990-8eab-b2cd7e684590",
+      "name": "lowerarm_r",
+      "parent": "a4ce1cd2-987b-4143-9836-481fccc5ecf9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999628663063049,
+          "x": -0.008619682863354683,
+          "y": -4.1722387322806753e-07,
+          "z": 2.1919726034269615e-09
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.2729826082136242e-08,
+          "y": 0.27264055609703064,
+          "z": -1.8102070953318616e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0cc18cd9-e1ed-41b6-8823-052a442b52a8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bab4a69e-e231-4a9a-8535-48a2484f1a3e",
+      "name": "hand_l",
+      "parent": "3a13147e-af28-4c48-8eff-e392c2eeca57",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999628663063049,
+          "x": -0.008619682863354683,
+          "y": 5.364287289921776e-07,
+          "z": -2.1920292248012174e-09
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -2.204334137445585e-08,
+          "y": 0.2726404666900635,
+          "z": 1.72497038875008e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "aa940401-514a-4a39-b696-7552637da4fe",
+      "name": "hand_r",
+      "parent": "5c95ab45-06e0-4990-8eab-b2cd7e684590",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.707103967666626,
+          "x": -4.854115687180638e-08,
+          "y": 0.7071095705032349,
+          "z": -4.854154056488369e-08
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.001999831758439541,
+          "y": 0.1198999211192131,
+          "z": 0.030899997800588608
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "86349f74-d462-47b1-91dd-257707503c90"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b6895866-d3ba-4a93-a686-30041f787ffb",
+      "name": "index_01_l",
+      "parent": "bab4a69e-e231-4a9a-8535-48a2484f1a3e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069067358970642,
+          "x": -0.01670246012508869,
+          "y": 0.7069122791290283,
+          "z": -0.016702570021152496
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.00040022601024247706,
+          "y": 0.12159990519285202,
+          "z": 0.0052000004798173904
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6e2014ba-fe22-47d7-86db-42c88c391ea6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7b0d2818-b806-4b8d-8160-104080f0073f",
+      "name": "middle_01_l",
+      "parent": "bab4a69e-e231-4a9a-8535-48a2484f1a3e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7067065238952637,
+          "x": -0.023706039413809776,
+          "y": 0.7067120671272278,
+          "z": -0.02370619960129261
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0015997173031792045,
+          "y": 0.107699915766716,
+          "z": -0.040800001472234726
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "f6d23562-da1e-4265-9af5-c1cbe6e163b9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a77bda1e-d196-44ca-bba9-e5930159e6f3",
+      "name": "pinky_01_l",
+      "parent": "bab4a69e-e231-4a9a-8535-48a2484f1a3e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069919109344482,
+          "x": -0.012588735669851303,
+          "y": 0.7069974541664124,
+          "z": -0.012588820420205593
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.00010019120236393064,
+          "y": 0.11909990012645721,
+          "z": -0.017100004479289055
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c5d0c60d-0c72-4a15-b6e8-be442f617a17"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1c043593-856d-4026-b05e-2fc81c8a7d71",
+      "name": "ring_01_l",
+      "parent": "bab4a69e-e231-4a9a-8535-48a2484f1a3e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.05358405411243439,
+          "x": 0.2474130243062973,
+          "y": 0.9457945227622986,
+          "z": 0.20344115793704987
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000001192092896,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.02279982902109623,
+          "y": 0.02729993499815464,
+          "z": 0.03359999507665634
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d9467ab9-a6ce-435a-a28e-9cd9e6dd9582",
+      "name": "thumb_01_l",
+      "parent": "bab4a69e-e231-4a9a-8535-48a2484f1a3e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071039080619812,
+          "x": -4.8541142660951664e-08,
+          "y": -0.7071096301078796,
+          "z": 4.854153345945633e-08
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.0019998278003185987,
+          "y": 0.11989995837211609,
+          "z": 0.030899999663233757
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "129897d6-caec-4c9e-84b2-4586b9f5afb8"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9858c192-bf33-4f80-b74a-9443d9d8076d",
+      "name": "index_01_r",
+      "parent": "aa940401-514a-4a39-b696-7552637da4fe",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069066762924194,
+          "x": -0.01670246012508869,
+          "y": -0.7069123387336731,
+          "z": 0.016702566295862198
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.00040023319888859987,
+          "y": 0.12159993499517441,
+          "z": 0.00520000234246254
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b20867f0-d20d-4d86-8f16-7d4e7f301b90"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a2d0aeba-f356-44c6-9cfe-861b0d965733",
+      "name": "middle_01_r",
+      "parent": "aa940401-514a-4a39-b696-7552637da4fe",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7067064642906189,
+          "x": -0.023706039413809776,
+          "y": -0.7067121267318726,
+          "z": 0.02370619773864746
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.0015997047303244472,
+          "y": 0.10769994556903839,
+          "z": -0.040800001472234726
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0d2d4a82-e1fa-4f64-845f-f75185018cfd"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c443430c-4ba3-4a95-9727-3e6ddc883d15",
+      "name": "pinky_01_r",
+      "parent": "aa940401-514a-4a39-b696-7552637da4fe",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7069919109344482,
+          "x": -0.012588738463819027,
+          "y": -0.7069974541664124,
+          "z": 0.01258881762623787
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999997615814209,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.00010020103945862502,
+          "y": 0.1190999373793602,
+          "z": -0.017100002616643906
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "79a4e428-3caf-4e45-a590-b30d1ec032cd",
+      "name": "ring_01_r",
+      "parent": "aa940401-514a-4a39-b696-7552637da4fe",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.053584061563014984,
+          "x": 0.24741306900978088,
+          "y": -0.9457945227622986,
+          "z": -0.20344111323356628
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0000001192092896,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.022799823433160782,
+          "y": 0.027299968525767326,
+          "z": 0.03359999507665634
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "22a34162-2c3e-44f3-8c9d-f76efefe0300",
+      "name": "thumb_01_r",
+      "parent": "aa940401-514a-4a39-b696-7552637da4fe",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -4.4818607104670644e-14,
+          "y": -9.671452971815597e-09,
+          "z": -2.7004171121447484e-10
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.128198976578346e-10,
+          "y": 0.04070001840591431,
+          "z": 1.136087224296034e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "685e7058-6370-4065-8509-57bbfd738cc4",
+      "name": "index_02_l",
+      "parent": "b6895866-d3ba-4a93-a686-30041f787ffb",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999988675117493,
+          "x": -1.1900032070855104e-08,
+          "y": -9.910034570737025e-09,
+          "z": 0.0015135601861402392
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.637978807091713e-10,
+          "y": 0.042347248643636703,
+          "z": 2.018612121901242e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "0b147dd2-5141-4999-ae7c-09e1c21c039a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "eec337c0-fcf3-4d64-b546-ce4633f4b318",
+      "name": "middle_02_l",
+      "parent": "7b0d2818-b806-4b8d-8160-104080f0073f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999996423721313,
+          "x": 5.882122788847255e-09,
+          "y": -1.0178268894378562e-08,
+          "z": -0.0008342716027982533
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.346940502524376e-09,
+          "y": 0.04029057174921036,
+          "z": -1.4873648979119025e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "f3d49347-2448-4491-8466-e8b5cd28bdf6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "52587931-fa83-4807-b466-16e6fb2e25bb",
+      "name": "pinky_02_l",
+      "parent": "a77bda1e-d196-44ca-bba9-e5930159e6f3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -8.660336892063469e-10,
+          "y": -9.627518338106711e-09,
+          "z": 1.2190081179141998e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.830749382264912e-10,
+          "y": 0.039324983954429626,
+          "z": -1.0246476733755117e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e9cd6942-2976-4f4c-8027-4fd4f0280343",
+      "name": "ring_02_l",
+      "parent": "1c043593-856d-4026-b05e-2fc81c8a7d71",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -0.000135714202770032,
+          "y": -7.41071708034724e-05,
+          "z": 4.7934565372997895e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": 5.90443960390985e-09,
+          "y": 0.0430297926068306,
+          "z": 4.284083843231201e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ce5b51ee-df6d-4212-a9d0-79f26e955d91",
+      "name": "thumb_02_l",
+      "parent": "d9467ab9-a6ce-435a-a28e-9cd9e6dd9582",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -5.2394442679858794e-14,
+          "y": -3.824084160441998e-09,
+          "z": 2.7004842806377383e-10
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.3552526857458815e-09,
+          "y": 0.04070010781288147,
+          "z": -1.0784840043243094e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a8a3cc82-6045-456a-a65c-c4662edb6f56"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "33e0b708-2c5c-4f6a-ae64-c944e73bbce9",
+      "name": "index_02_r",
+      "parent": "9858c192-bf33-4f80-b74a-9443d9d8076d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999988675117493,
+          "x": -1.100992630398423e-08,
+          "y": -3.3837239676870468e-09,
+          "z": -0.0015135611174628139
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.311893230304122e-10,
+          "y": 0.04234728217124939,
+          "z": -9.737595974002033e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "866393ab-6952-4aee-8674-a6a188d3117a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ab5eb7f0-7eaf-4ed9-b43c-14c88521654c",
+      "name": "middle_02_r",
+      "parent": "a2d0aeba-f356-44c6-9cfe-861b0d965733",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999996423721313,
+          "x": 5.623980836588771e-09,
+          "y": -2.9140143631423143e-09,
+          "z": 0.0008342642686329782
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998211860657,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 8.576535037718713e-10,
+          "y": 0.04029053822159767,
+          "z": -1.963655904546613e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "25cf4078-3c50-4877-84a7-59901a59a3eb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b815766a-f0e3-418e-87ad-ede280e4ffbd",
+      "name": "pinky_02_r",
+      "parent": "c443430c-4ba3-4a95-9727-3e6ddc883d15",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 7.371431243186066e-10,
+          "y": -3.438689111234794e-09,
+          "z": -1.2191012501716614e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5420376914553344e-09,
+          "y": 0.03932501748204231,
+          "z": -2.1878902600747097e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "8ce743c7-17e5-4148-9404-e69b23a3b961"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "124eb336-a2c8-4a50-8b29-04a34edfa421",
+      "name": "ring_02_r",
+      "parent": "79a4e428-3caf-4e45-a590-b30d1ec032cd",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -0.00013566949928645045,
+          "y": 7.40157556720078e-05,
+          "z": -4.7864316002232954e-05
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -7.172275218181312e-09,
+          "y": 0.04302985966205597,
+          "z": -1.6763806343078613e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "39ccb107-6214-45bb-808b-fdaa1c16a9c3",
+      "name": "thumb_02_r",
+      "parent": "22a34162-2c3e-44f3-8c9d-f76efefe0300",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 7.348758588704803e-18,
+          "y": 1.1368683772161603e-13,
+          "z": -1.327914859583146e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 9.722498361952603e-10,
+          "y": 0.034800052642822266,
+          "z": 1.0693611329770647e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "38f4ac10-6a11-42c5-bd40-95f13abe56d4"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "479810f5-038f-4e44-88bc-c1e536161a41",
+      "name": "index_03_l",
+      "parent": "685e7058-6370-4065-8509-57bbfd738cc4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999993443489075,
+          "x": 8.156294306616019e-09,
+          "y": -3.566927135600917e-12,
+          "z": -0.0011296597076579928
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.7830537874251604e-10,
+          "y": 0.03393314778804779,
+          "z": 1.605138209015422e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2f039b35-c1c6-4f70-9d39-25364b644d8b",
+      "name": "middle_03_l",
+      "parent": "eec337c0-fcf3-4d64-b546-ce4633f4b318",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": -4.400461328657457e-09,
+          "y": 4.186874371508997e-12,
+          "z": 0.000609522860031575
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -3.58431861968711e-09,
+          "y": 0.027665333822369576,
+          "z": 2.2544884359376738e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6c84e941-4314-4362-b6b2-05798416df68",
+      "name": "pinky_03_l",
+      "parent": "52587931-fa83-4807-b466-16e6fb2e25bb",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999994039535522,
+          "x": 7.704945126363327e-09,
+          "y": -2.098988951398928e-12,
+          "z": -0.0010670634219422936
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.176378519739956e-09,
+          "y": 0.030919553712010384,
+          "z": -1.0190598231929471e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "81514a97-ac44-4020-b28f-01cb9553ec97"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "dc9ea7da-0574-429f-84d9-cb0be0e110a7",
+      "name": "ring_03_l",
+      "parent": "e9cd6942-2976-4f4c-8027-4fd4f0280343",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": 0.0002478846290614456,
+          "y": 8.091918425634503e-05,
+          "z": -0.0005353352753445506
+        },
+        "forge.local_scale": {
+          "x": 0.9999998807907104,
+          "y": 0.9999998807907104,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -1.2301234164624475e-07,
+          "y": 0.049077946692705154,
+          "z": -2.514570951461792e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "84848779-0291-4744-8ea6-565e16be5b5a"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b51180a6-118f-4aa3-b569-9d0bb947cc71",
+      "name": "thumb_03_l",
+      "parent": "ce5b51ee-df6d-4212-a9d0-79f26e955d91",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": -1.1838301877415552e-16,
+          "y": -1.1368683772161603e-13,
+          "z": -4.1818744524883854e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.6966306399554014e-09,
+          "y": 0.03480002284049988,
+          "z": -1.0758446933323285e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "b6cb4d19-c29f-4c72-9260-94ce73733118"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9a35c8a0-b00b-4ce1-a67f-5891cdcc4bc5",
+      "name": "index_03_r",
+      "parent": "33e0b708-2c5c-4f6a-ae64-c944e73bbce9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999993443489075,
+          "x": 8.186298749990328e-09,
+          "y": 2.2575290595239217e-11,
+          "z": 0.0011296587763354182
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.141860022675246e-09,
+          "y": 0.03393318131566048,
+          "z": 4.189584501546051e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "2a964b7e-db29-4e5a-9448-7270b8234548"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9087812c-02c8-4b02-b0e5-d0e91943f540",
+      "name": "middle_03_r",
+      "parent": "ab5eb7f0-7eaf-4ed9-b43c-14c88521654c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": -4.416420118502629e-09,
+          "y": -1.6191496060580235e-11,
+          "z": -0.0006095209391787648
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.58431861968711e-09,
+          "y": 0.027665363624691963,
+          "z": -1.1715911796272849e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "955ee8b6-f207-4141-9cdf-1f9a8dd00b74",
+      "name": "pinky_03_r",
+      "parent": "b815766a-f0e3-418e-87ad-ede280e4ffbd",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999994039535522,
+          "x": 7.732828599671393e-09,
+          "y": 2.1304747896411236e-11,
+          "z": 0.0010670634219422936
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.4510882212780416e-09,
+          "y": 0.03091958537697792,
+          "z": -1.0054915833279665e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "03bc559f-b92d-450f-9771-78a5b074322e"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ad7a4b8f-5ebe-4f5f-92a1-d3c1610f9652",
+      "name": "ring_03_r",
+      "parent": "124eb336-a2c8-4a50-8b29-04a34edfa421",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9999998211860657,
+          "x": 0.0002478510432410985,
+          "y": -8.09993507573381e-05,
+          "z": 0.0005353167071007192
+        },
+        "forge.local_scale": {
+          "x": 0.9999998807907104,
+          "y": 0.9999999403953552,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.5804321164032444e-08,
+          "y": 0.04907788336277008,
+          "z": 5.587935447692871e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "6912d355-eff0-4614-91d1-2548bc94582f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c75c6f04-063d-436f-b962-5610ce413d47",
+      "name": "thumb_03_r",
+      "parent": "39ccb107-6214-45bb-808b-fdaa1c16a9c3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 4.1180931362579326e-16,
+          "y": 1.0,
+          "z": 1.4787951179418804e-17
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.697540134657174e-09,
+          "y": 0.030100105330348015,
+          "z": 1.0693611329770647e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "ded08da4-ba40-45bc-9b42-71297bea1d31"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "76656603-c672-4f13-b8d7-5704da973b5c",
+      "name": "index_04_leaf_l",
+      "parent": "479810f5-038f-4e44-88bc-c1e536161a41",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517760690912837e-06,
+          "x": 9.313227522511625e-09,
+          "y": 1.0,
+          "z": -5.5467012344376405e-15
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999997019767761,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.866240826435387e-09,
+          "y": 0.034437183290719986,
+          "z": 2.5992932251028833e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "bd0ef129-9444-49a7-9bcd-f1362399e5d3"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f76b9f27-dbdc-4a75-a5f1-0300bbade6c6",
+      "name": "middle_04_leaf_l",
+      "parent": "2f039b35-c1c6-4f70-9d39-25364b644d8b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.65177675121231e-06,
+          "x": 2.421439049271612e-08,
+          "y": 1.0,
+          "z": 1.6284096602614886e-14
+        },
+        "forge.local_scale": {
+          "x": 0.9999999403953552,
+          "y": 0.9999999403953552,
+          "z": 0.9999999403953552
+        },
+        "forge.local_translation": {
+          "x": -3.5834091249853373e-09,
+          "y": 0.028164202347397804,
+          "z": 1.1433525060056127e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e586bc6e-4d93-4192-a2f5-68840cbe3b82",
+      "name": "pinky_04_leaf_l",
+      "parent": "6c84e941-4314-4362-b6b2-05798416df68",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.65177675121231e-06,
+          "x": 1.862645149230957e-09,
+          "y": 1.0,
+          "z": 5.017902800631517e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.2751115718856454e-09,
+          "y": 0.03182259574532509,
+          "z": -1.1624800322351803e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2d6acc3c-d2c5-4f0d-85ba-f8e9c69173ff",
+      "name": "ring_04_leaf_l",
+      "parent": "dc9ea7da-0574-429f-84d9-cb0be0e110a7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8624290823936462,
+          "x": 2.3757428024850924e-08,
+          "y": 0.5061779022216797,
+          "z": 2.723667478221614e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0000001192092896,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.0787410903722048e-07,
+          "y": 0.0408623106777668,
+          "z": -1.862645149230957e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a2d19777-70d1-4e00-b1c0-89e0f544fafb"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d2071416-876e-4751-aee0-44400c6bd4db",
+      "name": "thumb_04_leaf_l",
+      "parent": "b51180a6-118f-4aa3-b569-9d0bb947cc71",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 1.7660197551910774e-16,
+          "y": -1.0,
+          "z": 2.368324237555521e-16
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -9.713403414934874e-10,
+          "y": 0.030099960044026375,
+          "z": 1.1624820217548404e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "3b413040-a136-4a40-81bd-e740cd23c75c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bc93e1cb-554f-4e68-b1d6-aea026abe231",
+      "name": "index_04_leaf_r",
+      "parent": "9a35c8a0-b00b-4ce1-a67f-5891cdcc4bc5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.651776296464959e-06,
+          "x": 9.313225746154785e-09,
+          "y": -1.0,
+          "z": -4.341538183106307e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.00359567720443e-09,
+          "y": 0.03443721681833267,
+          "z": 2.6527175123192137e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "08c9fa8f-b115-408c-888c-b6ddfde26ad9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b3c06793-0d40-44c4-bfc5-f6941c175a64",
+      "name": "middle_04_leaf_r",
+      "parent": "9087812c-02c8-4b02-b0e5-d0e91943f540",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.6517765238386346e-06,
+          "x": 2.60770320892334e-08,
+          "y": -1.0,
+          "z": -3.1884908667338674e-14
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.5824996302835643e-09,
+          "y": 0.028164170682430267,
+          "z": -1.2279903671696957e-07
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5d3f76b4-61e9-42fa-8423-c7cd73d69f86",
+      "name": "pinky_04_leaf_r",
+      "parent": "955ee8b6-f207-4141-9cdf-1f9a8dd00b74",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 3.651776296464959e-06,
+          "x": 3.725290742551124e-09,
+          "y": -1.0,
+          "z": -6.052667895150524e-15
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.9999997019767761,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.2760210665874183e-09,
+          "y": 0.031822629272937775,
+          "z": 4.2641943309718044e-09
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "42c9629c-2bf1-49f9-a665-23541d3778e7",
+      "name": "ring_04_leaf_r",
+      "parent": "ad7a4b8f-5ebe-4f5f-92a1-d3c1610f9652",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.862429141998291,
+          "x": 1.9437893072904444e-08,
+          "y": -0.5061777830123901,
+          "z": -2.737419038112421e-07
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.444497557822615e-08,
+          "y": 0.040862299501895905,
+          "z": 1.4901161193847656e-08
+        },
+        "forge.model_source": {
+          "model": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+          "node": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "efeac297-3ea1-4a0a-9dcd-f29bfb6a1c84",
+      "name": "thumb_04_leaf_r",
+      "parent": "c75c6f04-063d-436f-b962-5610ce413d47",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

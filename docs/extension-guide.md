@@ -253,3 +253,12 @@ new unloaded AssetCollider. Optional failed preloads do not fault unrelated phys
 The sample `samples/native_sdk/physics_probe.cpp` executes controller/query callbacks;
 the physics acceptance runner checks all seven collision families through actual
 shared-SDK resource callbacks before and after source-free relocation.
+
+## Animation timing observations
+
+Declare `FORGE_SDK_ANIMATION` in allowed capabilities. Requiring it additionally
+needs dependency `forge.animation`. Register marker consumers on
+`host->post_physics_phase` and add `host->fixed_tag`. `Client::animation_event`
+returns bounded copied, current-tick broadcast observations; it does not consume
+an occurrence. See [Animation markers](animation-markers.md) for bounds, offsets,
+removed-target behavior, lifetime and recovery rules.

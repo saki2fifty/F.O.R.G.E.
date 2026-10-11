@@ -35,6 +35,7 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_RUNTIME_ENTITIES 512u
 #define FORGE_SDK_CONTROL_INPUT 1024u
 #define FORGE_SDK_GAME 2048u
+#define FORGE_SDK_ANIMATION 4096u
 #define FORGE_SDK_CAPABILITY_VERSION 1u
 #define FORGE_SDK_FIXED_ONLY 1u
 #define FORGE_SDK_OWNER_THREAD 2u
@@ -42,6 +43,13 @@ typedef struct ecs_world_t ecs_world_t;
 typedef struct ForgeSdkCapabilityV1 {
     uint32_t size, version, available, callable, flags;
 } ForgeSdkCapabilityV1;
+typedef struct ForgeSdkAnimationEventV1 {
+    uint32_t size, version, state, marker;
+    uint64_t tick;
+    uint64_t native_entity; /* Borrowed handle in this matching world/current tick only. */
+    double offset, phase, value;
+    char scene_uuid[37], entity_uuid[37], states_uuid[37], clip_uuid[37], name[65];
+} ForgeSdkAnimationEventV1;
 typedef struct ForgeSdkSaveSchemaV1 {
     uint32_t size, version;
     void* userdata;
@@ -228,6 +236,10 @@ typedef struct ForgeSdkWorldV1 {
        sufficient output buffer is supplied. 0 means no event/rejection. */
     uint32_t(FORGE_SDK_CALL* ui_poll_event)(void*, const char* command, char* output,
                                             uint32_t capacity);
+    /* Current fixed tick broadcast; read in post_physics_phase after animation.
+       1 copied event, 0 end/unavailable, -1 invalid argument or removed target.
+       Indexes remain stable for this tick. No consumption or native ownership. */
+    int32_t(FORGE_SDK_CALL* animation_read_event)(void*, uint32_t index, ForgeSdkAnimationEventV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

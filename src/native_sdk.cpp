@@ -2,10 +2,12 @@
 #include "bounded_json.hpp"
 #include "runtime_entity_creation.hpp"
 #include <cstring>
+#include <forge/animation_components.hpp>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project_paths.hpp>
+#include <forge/world.hpp>
 #include <set>
 #include <thread>
 #ifdef FORGE_ENABLE_NATIVE_SDK
@@ -135,6 +137,46 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.animation_read_event = [](void* p, uint32_t index,
+                                       ForgeSdkAnimationEventV1* output) -> int32_t {
+            if (!output || output->size != sizeof(*output))
+                return -1;
+            *output = {};
+            output->size = sizeof(*output);
+            output->version = 1;
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.runtime_active() || !b.context.input ||
+                    !b.context.services.available(Capability::Animation))
+                    return 0;
+                const auto events = b.context.services.animation()->events();
+                if (index >= events.size() || events[index].tick != b.context.input->tick)
+                    return 0;
+                const auto& event = events[index];
+                const auto resolved = b.context.owner->resolve(event.entity);
+                if (resolved.state != WorldContext::ResolveState::Available ||
+                    !b.context.world.entity(resolved.entity).has<Animator>())
+                    return -1;
+                output->tick = event.tick;
+                output->native_entity = resolved.entity;
+                output->state = event.state;
+                output->marker = event.marker;
+                output->offset = event.offset;
+                output->phase = event.phase;
+                output->value = event.value;
+                auto copy = [](auto& to, const std::string& from) {
+                    std::memcpy(to, from.data(), std::min(from.size(), sizeof(to) - 1));
+                };
+                copy(output->scene_uuid, event.entity.scene.str());
+                copy(output->entity_uuid, event.entity.entity.str());
+                copy(output->states_uuid, event.states.str());
+                copy(output->clip_uuid, event.clip.str());
+                copy(output->name, event.name);
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.game_query = [](void* p, char* output, uint32_t capacity) -> uint32_t {
             try {
                 auto& bridge = Bridge::get(p);
@@ -450,7 +492,8 @@ struct Bridge {
                 out->version = FORGE_SDK_CAPABILITY_VERSION;
                 out->flags = FORGE_SDK_OWNER_THREAD;
                 bool fixed = cap == FORGE_SDK_INPUT || cap == FORGE_SDK_PHYSICS ||
-                             cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION;
+                             cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION ||
+                             cap == FORGE_SDK_ANIMATION;
                 if (fixed)
                     out->flags |= FORGE_SDK_FIXED_ONLY;
                 if (cap == FORGE_SDK_CONTROL_INPUT)
@@ -939,8 +982,9 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
         result.start = [api](ModuleContext& c) {
             auto& bridge = *static_cast<Bridge*>(c.state.get());
             bridge.stage = Bridge::Stage::Starting;
-            for (auto cap : {Capability::Physics, Capability::Audio, Capability::Navigation,
-                             Capability::Ui, Capability::Resources, Capability::Game})
+            for (auto cap :
+                 {Capability::Physics, Capability::Audio, Capability::Navigation, Capability::Ui,
+                  Capability::Resources, Capability::Game, Capability::Animation})
                 if (c.services.available(cap))
                     static_cast<Bridge*>(c.state.get())->host.capabilities |= capability(cap);
             char error[1024]{};

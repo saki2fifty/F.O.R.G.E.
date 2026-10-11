@@ -366,6 +366,25 @@ static void service_tests() {
         auto access = owner.access();
         expired = access;
         access.require(Capability::Diagnostics);
+        struct Markers : AnimationService {
+            std::span<const AnimationEvent> events() const override { return {}; }
+        };
+        auto scoped = access.world_scope();
+        auto provider = std::make_shared<Markers>();
+        check(!scoped.available(Capability::Animation),
+              "Animation provider invented before publish");
+        scoped.publish_animation(provider);
+        check(scoped.available(Capability::Animation) && scoped.animation() == provider,
+              "Animation world service not published");
+        check(!access.world_scope().available(Capability::Animation),
+              "Animation leaked into another world");
+        check(!scoped.restricted(0).available(Capability::Animation),
+              "Animation permission ignored");
+        reject([&] { scoped.restricted(0).animation(); });
+        provider.reset();
+        check(!scoped.available(Capability::Animation),
+              "Animation service slot retained provider ownership");
+
         check(!access.available(static_cast<Capability>(3)) &&
                   !access.available(static_cast<Capability>(128)),
               "Invalid service capability accepted");

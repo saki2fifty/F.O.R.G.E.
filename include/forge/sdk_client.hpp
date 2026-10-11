@@ -15,7 +15,8 @@ enum class Capability : uint32_t {
     Resources = FORGE_SDK_RESOURCES,
     RuntimeEntities = FORGE_SDK_RUNTIME_ENTITIES,
     ControlInput = FORGE_SDK_CONTROL_INPUT,
-    Game = FORGE_SDK_GAME
+    Game = FORGE_SDK_GAME,
+    Animation = FORGE_SDK_ANIMATION
 };
 class Client {
   public:
@@ -52,6 +53,14 @@ class Client {
         return callable(Capability::Physics)
                    ? host_->raycast(host_->context, origin, displacement, &out)
                    : -1;
+    }
+    // Current-tick broadcast: 1 event, 0 end/unavailable, -1 invalid/removed target.
+    int32_t animation_event(uint32_t index, ForgeSdkAnimationEventV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Animation) && host_->animation_read_event
+                   ? host_->animation_read_event(host_->context, index, &out)
+                   : 0;
     }
     bool character(const char* scene, const char* entity, ForgeSdkCharacterV1& out) const {
         out = {};

@@ -7,12 +7,18 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t animation_states_byte_limit = 256 * 1024;
+struct AnimationMarker {
+    std::uint32_t id = 0;
+    std::string name;
+    double phase = 0, value = 0;
+};
 struct AnimationState {
     std::uint32_t id = 0;
     std::string name;
     AssetRef<AnimationClipAsset> clip;
     bool loop = true;
     float speed = 1, transition_seconds = .25f;
+    std::vector<AnimationMarker> markers;
 };
 struct AnimationStates {
     AssetId asset, skeleton;

@@ -1,11 +1,12 @@
 #pragma once
 #include <forge/animation_components.hpp>
+#include <forge/animation_service.hpp>
 #include <forge/world.hpp>
 #include <functional>
 namespace forge {
 class AssetCatalog;
 EngineModule animation_module(std::filesystem::path project);
-class AnimationRuntime {
+class AnimationRuntime : public AnimationService {
   public:
     AnimationRuntime(WorldContext&, std::filesystem::path project);
     ~AnimationRuntime();
@@ -23,7 +24,10 @@ class AnimationRuntime {
     // remains on the world owner. Neither operation edits the authored hierarchy.
     void refresh_assets();
     void catalog(std::shared_ptr<const AssetCatalog>);
-    void tick(float dt);
+    void tick(float dt, std::uint64_t tick = 0);
+    std::span<const AnimationEvent> events() const override;
+    // Host-owned copied editor previews never deliver gameplay markers.
+    void event_delivery(bool enabled);
     void reset_presentation();
     Json presentation(flecs::entity_t entity, double alpha);
     // Resource sampling can be ready while a newly loaded model still awaits
@@ -40,6 +44,6 @@ class AnimationRuntime {
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
-// Private host bridge, absent from SDK. Does not publish an animation service API.
+// Private host bridge to the module-owned runtime; absent from the SDK.
 std::shared_ptr<AnimationRuntime> animation_runtime(WorldContext&);
 } // namespace forge
