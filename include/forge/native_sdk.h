@@ -110,6 +110,10 @@ typedef struct ForgeSdkCharacterV1 {
     float rotation_xyzw[4];
     char support_scene[37], support_entity[37]; /* empty when unsupported */
 } ForgeSdkCharacterV1;
+typedef struct ForgeSdkPhysicsBodyStateV1 {
+    uint32_t size, motion, active;
+    double centre_of_mass[3], linear_velocity[3], angular_velocity[3];
+} ForgeSdkPhysicsBodyStateV1;
 typedef struct ForgeSdkActionV1 {
     uint32_t size;
     uint32_t held, pressed, released;
@@ -279,6 +283,17 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* physics_apply)(void*, const char* scene, const char* entity,
                                            uint32_t kind, const double vector[3],
                                            const double* world_point);
+    /* Fixed owner-thread read; realized state only, no wake/queue flush.
+       COM/linear velocity: world m / m/s. Angular velocity: world radians/s.
+       Motion0 Static,1 Kinematic,2 Dynamic. Inactive Static is not sleeping.
+       1 available,0 unavailable/unrealized,-1 invalid/context; exact output size. */
+    int32_t(FORGE_SDK_CALL* physics_body_state)(void*, const char* scene, const char* entity,
+                                                ForgeSdkPhysicsBodyStateV1*);
+    /* Absolute world point, finite +/-1e9m; copied point velocity in world m/s.
+       1 available,0 unavailable/unrealized,-1 invalid/context. No wake/queue flush. */
+    int32_t(FORGE_SDK_CALL* physics_point_velocity)(void*, const char* scene, const char* entity,
+                                                    const double world_point[3],
+                                                    double out_velocity[3]);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

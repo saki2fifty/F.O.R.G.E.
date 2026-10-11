@@ -62,6 +62,9 @@ int asset_tools_cli(int argc, char** argv) {
             request.inspection_runtime += ".exe";
             worker += ".exe";
 #endif
+            if (options.contains("inspection_runtime"))
+                request.inspection_runtime =
+                    std::filesystem::u8path(options.at("inspection_runtime").get<std::string>());
             // items() is a borrowing view; retain its JSON owner for the loop.
             const auto module_kits = options.value("module_kits", Json::object());
             if (!module_kits.is_object())

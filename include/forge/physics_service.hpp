@@ -30,6 +30,14 @@ struct PhysicsContact {
     bool begin{};
     std::uint64_t tick{};
 };
+// Copied realized solver state. Linear velocity is at the native center of mass;
+// angular velocity is a world vector in radians/s, not authored degrees/s.
+struct PhysicsBodyState {
+    std::uint32_t motion{}; // Static, Kinematic, Dynamic.
+    bool active{};          // An inactive Static body is not a sleeping Dynamic.
+    Double3 centre_of_mass{}, linear_velocity{}, angular_velocity{};
+    bool operator==(const PhysicsBodyState&) const = default;
+};
 // Owner-thread only; valid while this Runtime world's physics module is alive.
 class PhysicsService : public CharacterService {
   public:
@@ -52,6 +60,11 @@ class PhysicsService : public CharacterService {
                              std::optional<LocalTranslation> world_point = {}) = 0;
     virtual void add_torque(EntityRef, Double3) = 0;
     virtual void add_angular_impulse(EntityRef, Double3) = 0;
+    // Reads do not flush pending commands or wake bodies. Unavailable/unrealized
+    // identities return no value; configuration changes adopt at synchronization.
+    virtual std::optional<PhysicsBodyState> body_state(EntityRef) const = 0;
+    virtual std::optional<Double3> point_velocity(EntityRef,
+                                                  LocalTranslation world_point) const = 0;
     virtual const std::vector<PhysicsContact>& contacts() const = 0;
 };
 } // namespace forge

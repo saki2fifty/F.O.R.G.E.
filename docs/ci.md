@@ -447,3 +447,21 @@ is required separately from widget probes. The compiled C++ PhysicsLoads consume
 also runs nondefault tuning and fresh recovery against the matching installed SDK.
 The final ZIP acceptance exports Gallery23 and verifies its source-free startup.
 These gates do not claim physical GPU acceptance or a new ZIP before CI succeeds.
+
+## Copied rigid-body observation gate
+
+The physics policy suite checks independent impulse/force/inertia/COM equations,
+point velocity, true sleeping without wake or checkpoint mutation, pending command
+timing, unavailable/retired identities, native replacement and fresh recovery.
+The existing joint suite also checks signed cooked collision offsets against
+actual native COM and the angular cross-product equation.
+
+`native_sdk_physics` executes the matching compiled SDK's body/point callbacks,
+including fixed/owner/output-size guards, failure clearing and input/output aliasing.
+`native_sdk_physics_observation_denied` executes a separate compiled consumer with
+valid realized targets during PostPhysics but no Physics capability. Its checks
+must run; a diagnostic marker proves execution to the process test without
+changing native body configuration after integration.
+The installed PhysicsLoads module reports six actual first-step speeds; the
+consumer checks those values independently under defaults and nondefault tuning,
+alongside existing numerical motion and fresh-worker recovery.

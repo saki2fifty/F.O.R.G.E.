@@ -1,4 +1,5 @@
 // Exact-SDK physics boundary proof; no Jolt linkage or headers.
+#include <cmath>
 #include <cstdio>
 #include <flecs.h>
 #include <forge/character_components.hpp>
@@ -6,9 +7,96 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/physics_components.hpp>
 #include <forge/transform_components.hpp>
+#include <limits>
 #include <stdexcept>
 #include <thread>
 namespace {
+bool same_state(const ForgeSdkPhysicsBodyStateV1& a, const ForgeSdkPhysicsBodyStateV1& b) {
+    if (a.size != b.size || a.motion != b.motion || a.active != b.active)
+        return false;
+    for (unsigned i = 0; i < 3; ++i)
+        if (a.centre_of_mass[i] != b.centre_of_mass[i] ||
+            a.linear_velocity[i] != b.linear_velocity[i] ||
+            a.angular_velocity[i] != b.angular_velocity[i])
+            return false;
+    return true;
+}
+void observe(const ForgeSdkWorldV1* host, flecs::entity entity) {
+    ForgeSdkEntityRefV1 ref{};
+    ref.size = sizeof(ref);
+    ForgeSdkPhysicsBodyStateV1 state{};
+    state.size = sizeof(state);
+    if (host->entity_reference(host->context, entity.id(), &ref) != 1 ||
+        host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &state) != 1 ||
+        state.motion != 2 || !state.active)
+        throw std::runtime_error("SDK copied body state absent after physics");
+    const double offset[] = {1, 2, 3};
+    double point[3], velocity[3];
+    for (unsigned i = 0; i < 3; ++i)
+        point[i] = state.centre_of_mass[i] + offset[i];
+    if (host->physics_point_velocity(host->context, ref.scene_uuid, ref.entity_uuid, point,
+                                     velocity) != 1)
+        throw std::runtime_error("SDK point velocity failed");
+    for (unsigned i = 0; i < 3; ++i) {
+        const auto j = (i + 1) % 3, k = (i + 2) % 3;
+        const auto expected = state.linear_velocity[i] + state.angular_velocity[j] * offset[k] -
+                              state.angular_velocity[k] * offset[j];
+        if (std::abs(velocity[i] - expected) > 1e-5)
+            throw std::runtime_error("SDK point velocity failed COM cross-product equation");
+    }
+    if (host->physics_point_velocity(host->context, ref.scene_uuid, ref.entity_uuid, point,
+                                     point) != 1)
+        throw std::runtime_error("SDK point input/output alias failed");
+    for (unsigned i = 0; i < 3; ++i)
+        if (point[i] != velocity[i])
+            throw std::runtime_error("SDK point alias returned different velocity");
+    ForgeSdkPhysicsBodyStateV1 invalid{};
+    invalid.size = sizeof(invalid) - 1;
+    if (host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &invalid) != -1 ||
+        host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, nullptr) != -1)
+        throw std::runtime_error("SDK accepted invalid body-state output size");
+    invalid = state;
+    if (host->physics_body_state(host->context, "invalid", ref.entity_uuid, &invalid) != -1 ||
+        invalid.active || invalid.linear_velocity[0] || invalid.centre_of_mass[1])
+        throw std::runtime_error("SDK invalid identity retained output");
+    invalid = state;
+    if (host->physics_body_state(host->context, "12345678-1234-4234-8234-123456789abc",
+                                 ref.entity_uuid, &invalid) != 0 ||
+        invalid.active || invalid.angular_velocity[0])
+        throw std::runtime_error("SDK unavailable body fabricated motion");
+    velocity[0] = velocity[1] = velocity[2] = 42;
+    if (host->physics_point_velocity(host->context, "12345678-1234-4234-8234-123456789abc",
+                                     ref.entity_uuid, state.centre_of_mass, velocity) != 0 ||
+        velocity[0] || velocity[1] || velocity[2] ||
+        host->physics_point_velocity(host->context, ref.scene_uuid, ref.entity_uuid,
+                                     state.centre_of_mass, nullptr) != -1)
+        throw std::runtime_error("SDK unavailable point retained fabricated motion");
+    const double nonfinite[] = {std::numeric_limits<double>::quiet_NaN(), 0, 0};
+    for (const double* bad : {nonfinite, static_cast<const double*>(nullptr)}) {
+        velocity[0] = velocity[1] = velocity[2] = 42;
+        if (host->physics_point_velocity(host->context, ref.scene_uuid, ref.entity_uuid, bad,
+                                         velocity) != -1 ||
+            velocity[0] || velocity[1] || velocity[2])
+            throw std::runtime_error("SDK invalid point retained velocity");
+    }
+    bool rejected = false;
+    std::thread foreign([&] {
+        invalid = state;
+        velocity[0] = velocity[1] = velocity[2] = 42;
+        rejected = host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid,
+                                            &invalid) == -1 &&
+                   host->physics_point_velocity(host->context, ref.scene_uuid, ref.entity_uuid,
+                                                state.centre_of_mass, velocity) == -1 &&
+                   !invalid.active && !velocity[0] && !velocity[1] && !velocity[2];
+    });
+    foreign.join();
+    if (!rejected)
+        throw std::runtime_error("SDK body observation accepted foreign thread");
+    invalid.size = sizeof(invalid);
+    if (host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &invalid) != 1 ||
+        !same_state(state, invalid))
+        throw std::runtime_error("SDK body observation changed native state");
+}
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world w(host->world);
     w.component<forge::CharacterController>("forge.character_controller");
@@ -37,6 +125,12 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             ref.size = sizeof(ref);
             if (host->entity_reference(host->context, e.id(), &ref) != 1)
                 throw std::runtime_error("SDK physics body reference failed");
+            ForgeSdkPhysicsBodyStateV1 before{};
+            before.size = sizeof(before);
+            const auto available =
+                host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &before);
+            if (available < 0)
+                throw std::runtime_error("SDK PreFixed body read rejected valid fixed scope");
             const double force[] = {6000, 0, 0}, impulse[] = {0, 0, 6}, torque[] = {0, 0, 6},
                          angular[] = {6, 0, 0}, point[] = {0, 0, 0};
             if (host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
@@ -63,15 +157,22 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             other.join();
             if (foreign != 0)
                 throw std::runtime_error("SDK accepted foreign-thread physics load");
+            ForgeSdkPhysicsBodyStateV1 after{};
+            after.size = sizeof(after);
+            if (host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &after) !=
+                    available ||
+                !same_state(before, after))
+                throw std::runtime_error("SDK body read flushed queued PreFixed loads");
         })
         .add(host->fixed_tag);
     w.system<const forge::PhysicsBody>()
         .kind(host->post_physics_phase)
-        .each([host](flecs::iter& it, size_t, const forge::PhysicsBody& b) {
+        .each([host](flecs::iter& it, size_t row, const forge::PhysicsBody& b) {
             if (b.motion != 2)
                 return;
             if (it.delta_time() < .016f || it.delta_time() > .017f)
                 throw std::runtime_error("SDK fixed dt changed");
+            observe(host, it.entity(row));
             ForgeSdkActionV1 action{};
             action.size = sizeof(action);
             host->read_action(host->context, "12345678-1234-4234-8234-123456789abc", &action);
@@ -160,6 +261,15 @@ int32_t FORGE_SDK_CALL ready(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
                                     FORGE_SDK_PHYSICS_FORCE, force, nullptr) != 0)
                 throw std::runtime_error("SDK accepted physics load outside a fixed tick");
+            ForgeSdkPhysicsBodyStateV1 state{};
+            state.size = sizeof(state);
+            double velocity[] = {42, 42, 42};
+            if (host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &state) !=
+                    -1 ||
+                host->physics_point_velocity(host->context, ref.scene_uuid, ref.entity_uuid, force,
+                                             velocity) != -1 ||
+                velocity[0] || velocity[1] || velocity[2])
+                throw std::runtime_error("SDK accepted body observation outside a fixed tick");
         });
         return 1;
     } catch (const std::exception& e) {

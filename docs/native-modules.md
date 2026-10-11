@@ -103,3 +103,11 @@ Gameplay before Animation; PostPhysics supports observations. The intrinsic runt
 entity-reference callback obtains the registered canonical UUID pair for ordinary
 entity Systems. See [controls and identity](animation-playback-controls.md),
 [status](animation-playback-status.md) and [markers](animation-markers.md).
+
+Matching C++ code can also read copied rigid-body COM, linear/angular velocity,
+activation and velocity at an absolute world point through the existing Physics
+service during a fixed tick. PostPhysics observes that tick's completed native
+integration; PreFixed observes previously realized state. Reads do not wake a body
+or consume queued commands. See [body motion](physics.md). Angular observations
+use radians/s; authored angular limits use degrees/s. The PhysicsLoads example
+reports each cube's measured first-step speed through ordinary diagnostics.

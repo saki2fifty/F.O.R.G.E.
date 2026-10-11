@@ -948,6 +948,57 @@ struct Bridge {
                 return 0;
             }
         };
+        host.physics_body_state = [](void* p, const char* scene, const char* entity,
+                                     ForgeSdkPhysicsBodyStateV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return -1;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const auto state = c.services.physics()->body_state(ref);
+                if (!state)
+                    return 0;
+                out->motion = state->motion;
+                out->active = state->active;
+                for (unsigned i = 0; i < 3; ++i) {
+                    out->centre_of_mass[i] = state->centre_of_mass[i];
+                    out->linear_velocity[i] = state->linear_velocity[i];
+                    out->angular_velocity[i] = state->angular_velocity[i];
+                }
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.physics_point_velocity = [](void* p, const char* scene, const char* entity,
+                                         const double* point, double* out) -> int32_t {
+            if (!out)
+                return -1;
+            // Copy before clearing, so the caller may reuse its point array.
+            const LocalTranslation at =
+                point ? LocalTranslation{point[0], point[1], point[2]} : LocalTranslation{};
+            out[0] = out[1] = out[2] = 0;
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !point)
+                    return -1;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const auto velocity = c.services.physics()->point_velocity(ref, at);
+                if (!velocity)
+                    return 0;
+                for (unsigned i = 0; i < 3; ++i)
+                    out[i] = (*velocity)[i];
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;

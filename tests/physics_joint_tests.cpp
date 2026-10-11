@@ -525,6 +525,19 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
             require(std::abs(q.z - std::sin(angle * .5)) < 1e-6 &&
                         std::abs(q.w - std::cos(angle * .5)) < 1e-6,
                     "World point impulse used body origin in place of offset scaled COM/inertia");
+            const auto observed = f.physics->body_state(f.ref("b"));
+            const double angular = application == 2 ? .7 * .3 / inertia * damping : 0;
+            require(observed && observed->motion == 2 && observed->active &&
+                        distance(observed->centre_of_mass, com) < 1e-6 &&
+                        std::abs(observed->linear_velocity[1] - .3 / 2 * damping) < 1e-6 &&
+                        std::abs(observed->angular_velocity[2] - angular) < 1e-6,
+                    "Signed cooked body observation confused native COM/inertia with origin");
+            const auto velocity =
+                f.physics->point_velocity(f.ref("b"), {com[0] + .2, com[1] + .4, com[2] - .1});
+            require(velocity && std::abs((*velocity)[0] + angular * .4) < 1e-6 &&
+                        std::abs((*velocity)[1] - .3 / 2 * damping - angular * .2) < 1e-6 &&
+                        std::abs((*velocity)[2]) < 1e-6,
+                    "Signed cooked point velocity failed angular cross actual COM equation");
         }
     }
     require(std::filesystem::remove_all(root) > 0, "Offset fixture cleanup failed");

@@ -1,10 +1,11 @@
 import json,subprocess,sys,tempfile,shutil,uuid
 from pathlib import Path
-runtime,module=map(lambda x:Path(x).resolve(),sys.argv[1:])
+runtime,module=map(lambda x:Path(x).resolve(),sys.argv[1:3])
+denied=sys.argv[3:]==['--denied']
 fingerprint=json.loads(subprocess.check_output([runtime,'--sdk-info'],text=True))['fingerprint']
 with tempfile.TemporaryDirectory(dir=runtime.parent) as work:
  root=Path(work);shutil.copy2(module,root/module.name)
- project=dict(version=2,name='Physics SDK',startup_scene=None,input=dict(version=1,actions=[]),modules=[dict(id='project.physics_probe',implementation='1',sdk='experimental-1',fingerprint=fingerprint,library=module.name,dependencies=['forge.physics','forge.input'])])
+ project=dict(version=2,name='Physics SDK',startup_scene=None,input=dict(version=1,actions=[]),modules=[dict(id='project.physics_observation_denied' if denied else 'project.physics_probe',implementation='1',sdk='experimental-1',fingerprint=fingerprint,library=module.name,dependencies=['forge.physics','forge.input'])])
  (root/'forge.project.json').write_text(json.dumps(project))
  p=subprocess.Popen([runtime,'--sdk-project',root],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
  session='';sequence=0
@@ -16,6 +17,14 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as work:
   request('hello')
   scene=dict(version=1,entities=[dict(id='cube',name='Cube',components={'forge.position':dict(x=0,y=5,z=0),'forge.physics_body':dict(motion=2,density=1000,mass=0,friction=.5,restitution=0,gravity_factor=1),'forge.box_collider':dict(x=1,y=1,z=1)})])
   scene=request('replace',scene=scene)['scene']
+  if denied:
+   result=request('step')
+   assert result['physics']['bodies']==1 and result['timing']['tick']==1,result
+   markers=[d for d in result['diagnostics'] if d['text']=='Body observation denied: Physics capability absent']
+   assert len(markers)==1 and markers[0]['context']['tick']==1 and markers[0]['context']['module']=='project.physics_observation_denied',result
+   request('quit');assert p.wait(timeout=10)==0
+   print('Compiled fixed-tick body and point observations denied without Physics capability')
+   sys.exit(0)
   scene['entities'].append(dict(id=str(uuid.uuid4()),name='Character',spatial=dict(mode='world'),components={
    'forge.local_translation':dict(x=3,y=5,z=0),
    'forge.character_controller':dict(enabled=True,shape=0,radius=.35,height=1.1,crouch_height=.45,mass=70,max_strength=100,max_slope=50,step_height=.4,step_forward=.15,floor_probe=.5,gravity_factor=1,layer=0,mask=4294967295)}))
@@ -58,4 +67,4 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as work:
   request('quit');assert p.wait(timeout=10)==0
  finally:
   if p.poll() is None:p.kill();p.wait()
-print('Shared Flecs SDK physics schema, numerical loads, fixed/owner guards, input coexistence and raycast passed')
+print('Shared Flecs SDK physics: loads, copied body/point motion, fixed/owner/output guards, recovery and raycast passed')

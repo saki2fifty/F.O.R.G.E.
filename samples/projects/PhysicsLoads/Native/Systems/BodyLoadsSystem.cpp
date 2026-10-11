@@ -1,7 +1,9 @@
 #include "../Components/BodyLoads.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <forge/native_sdk_identity.h>
+#include <forge/physics_components.hpp>
 #include <forge/transform_components.hpp>
 #include <stdexcept>
 
@@ -32,6 +34,43 @@ void forge_register_system_BodyLoadsSystem(const ForgeSdkWorldV1* host) {
                 data.triggered = true;
             }
             data.elapsed += dt;
+        })
+        .add(host->fixed_tag);
+    // Sample observations run after integration. They are copied solver values,
+    // never authored state or values predicted from the command above.
+    world.component<forge::PhysicsBody>("forge.physics_body");
+    world.system<const BodyLoads, const forge::PhysicsBody>("gameplay.BodyLoadsObservation")
+        .kind(host->post_physics_phase)
+        .each([host](flecs::iter& it, size_t row, const BodyLoads& data,
+                     const forge::PhysicsBody& body) {
+            if (data.elapsed > it.delta_time() * 1.5)
+                return; // Six initial observations, rather than a per-frame log.
+            if (data.kind > FORGE_SDK_PHYSICS_ANGULAR_IMPULSE)
+                throw std::runtime_error("Body Loads observation has an invalid load kind");
+            const auto entity = it.entity(row);
+            ForgeSdkEntityRefV1 ref{};
+            ref.size = sizeof(ref);
+            ForgeSdkPhysicsBodyStateV1 state{};
+            state.size = sizeof(state);
+            if (host->entity_reference(host->context, entity.id(), &ref) != 1 ||
+                host->physics_body_state(host->context, ref.scene_uuid, ref.entity_uuid, &state) !=
+                    1)
+                throw std::runtime_error("Body Loads example could not observe its realized body");
+            const auto magnitude = [](const double* value) {
+                return std::hypot(value[0], value[1], value[2]);
+            };
+            char message[512];
+            const char* kinds[] = {"Force", "Impulse", "Torque", "Angular impulse"};
+            const auto label = data.at_point && data.kind == FORGE_SDK_PHYSICS_IMPULSE
+                                   ? "Off-center impulse"
+                                   : kinds[data.kind];
+            std::snprintf(
+                message, sizeof(message),
+                "Body motion: %s (mass %.3g kg) | linear %.9f m/s | angular %.9f rad/s | %s", label,
+                double(body.mass), magnitude(state.linear_velocity),
+                magnitude(state.angular_velocity), state.active ? "active" : "inactive");
+            if (host->diagnostic(host->context, 1, message) != 1)
+                throw std::runtime_error("Body Loads example motion diagnostic failed");
         })
         .add(host->fixed_tag);
 }

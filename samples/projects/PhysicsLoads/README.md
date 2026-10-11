@@ -21,6 +21,12 @@ positions and resets the example's progress. There is no gravity in these cubes.
 The scene camera is framed for the first two seconds. Free moving cubes eventually
 leave it; Stop and Play repeat the comparison. Native damping slowly reduces motion.
 
+Console receives six first-step `Body motion` messages from the C++ observation
+System: actual linear speed (m/s), angular speed (rad/s) and activity. It reads
+copied native state after physics and logs once, so it does not predict motion or
+produce per-frame log traffic. Angular velocity observations use radians/s even
+though the Physics Body's authored angular limit uses degrees/s.
+
 Select a cube and change **Body Loads** in the Inspector. `kind` is 0 force,
 1 impulse, 2 torque, or 3 angular impulse. `x/y/z` are world vector components in
 the units above. `duration` controls sustained force or torque; impulses happen

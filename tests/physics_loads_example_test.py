@@ -1,6 +1,7 @@
 """Execute the compiled C++ example and recover it in a fresh isolated runtime."""
 import json
 import math
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -37,6 +38,18 @@ def verify(runtime, project, env=None):
         return {e['name']: e['components'] for e in state['scene']['entities']
                 if 'project.body_loads' in e['components']}
 
+    def observe(state, expected):
+        rows = [d for d in state['diagnostics'] if d['text'].startswith('Body motion:')]
+        assert len(rows) == len(expected), rows
+        observed = {}
+        for row in rows:
+            match = re.fullmatch(r'Body motion: (.+) \| linear ([\d.]+) m/s \| angular ([\d.]+) rad/s \| active', row['text'])
+            assert match and row['context']['tick'] == 1, row
+            observed[match[1]] = tuple(map(float, (match[2], match[3])))
+        assert observed.keys() == expected.keys(), observed
+        for name, speeds in expected.items():
+            assert all(abs(a-b) < 1e-5 for a, b in zip(observed[name], speeds)), (name, observed, expected)
+
     settings = json.loads((project / 'forge.project.json').read_text())
     authored_path = project / settings['startup_scene']['source']
     authored_bytes = authored_path.read_bytes()
@@ -47,6 +60,11 @@ def verify(runtime, project, env=None):
         first = a.request('step')
         v = values(first)
         dt, damping = 1 / 60, 1 - .05 / 60
+        observe(first, {'Force (mass 1 kg)': (6*dt*damping, 0),
+            'Force (mass 2 kg)': (3*dt*damping, 0), 'Impulse (mass 1 kg)': (6*damping, 0),
+            'Torque (mass 1 kg)': (0, 6*dt*damping),
+            'Angular impulse (mass 1 kg)': (0, 6*damping),
+            'Off-center impulse (mass 1 kg)': (6*damping, 36*damping)})
         for name, expected in [('Force - 1 kg', 6 * dt * dt * damping),
                                ('Force - 2 kg', 3 * dt * dt * damping),
                                ('Impulse - 1 kg', 6 * dt * damping)]:
@@ -95,6 +113,11 @@ def verify(runtime, project, env=None):
         first = a.request('step')
         tv = values(first)
         ld, ad, angular_cap = 1 - 2 * dt, 1 - 3 * dt, math.pi / 6
+        observe(first, {'Force (mass 1 kg)': (min(.05, 6*dt*ld), 0),
+            'Force (mass 2 kg)': (min(.05, 3*dt*ld), 0), 'Impulse (mass 1 kg)': (.05*ld, 0),
+            'Torque (mass 1 kg)': (0, min(angular_cap, 6*dt*ad)),
+            'Angular impulse (mass 1 kg)': (0, angular_cap*ad),
+            'Off-center impulse (mass 1 kg)': (.05*ld, angular_cap*ad)})
         for name, speed in [('Force - 1 kg', min(.05, 6 * dt * ld)),
                             ('Force - 2 kg', min(.05, 3 * dt * ld)),
                             ('Impulse - 1 kg', .05 * ld)]:

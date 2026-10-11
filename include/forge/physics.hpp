@@ -41,6 +41,8 @@ class PhysicsRuntime : public PhysicsService {
     void add_impulse(EntityRef, Double3, std::optional<LocalTranslation> = {}) override;
     void add_torque(EntityRef, Double3) override;
     void add_angular_impulse(EntityRef, Double3) override;
+    std::optional<PhysicsBodyState> body_state(EntityRef) const override;
+    std::optional<Double3> point_velocity(EntityRef, LocalTranslation) const override;
     const std::vector<PhysicsContact>& contacts() const override;
     CharacterState character(EntityRef) const override;
     void move_character(EntityRef, Double3) override;

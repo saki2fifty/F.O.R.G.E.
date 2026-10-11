@@ -88,6 +88,33 @@ Limits: 8192 bodies, 16384 contact events, 2 MiB raw solver bytes, 6 MiB physics
 
 ## Experimental SDK
 
+### Copied body motion
+
+`PhysicsService::body_state(EntityRef)` returns an optional copied snapshot of the
+realized native body: motion kind, activation, absolute world center of mass,
+linear velocity at that center in m/s, and world angular velocity in radians/s.
+The authored maximum angular speed remains in degrees/s. Static bodies report
+zero velocity and inactive; distinguish their motion kind from sleeping Dynamic
+bodies. Kinematic values are the native target velocity, rather than Dynamic drag.
+
+`point_velocity(EntityRef, LocalTranslation)` copies world velocity at an absolute
+world point, using `linear + angular cross (point - COM)`. It uses actual native COM,
+including collision-asset offsets and signed scale. Points must be finite within
+the existing +/-1e9-meter bound. Reads neither wake bodies nor flush queued loads
+or pending configuration. Until synchronization they describe the currently
+realized body. Unrealized, unavailable or retired identities have no value;
+disabled bodies become unavailable when that configuration is adopted.
+
+The exact SDK exposes `physics_body_state` and `physics_point_velocity` on the
+owner thread during a fixed tick with Physics capability. Their results are
+1 available, 0 unavailable/unrealized, or -1 invalid context/arguments. Initialize
+`ForgeSdkPhysicsBodyStateV1::size` to its exact size. A correctly sized output is
+cleared before failures; an invalid size or null output is rejected without
+writing. Point output is cleared on failure and may alias the input point array.
+No native pointers, body handles, authored fields or new recovery state are added.
+Changed exact SDK headers require rebuilding project modules; ABI1 and durable
+document formats remain unchanged.
+
 ### Forces and impulses
 
 `PhysicsService` exposes `add_force`, `add_impulse`, `add_torque` and

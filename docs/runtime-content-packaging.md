@@ -230,7 +230,12 @@ See the [user instructions](../manual/editor/runtime-content.md).
 The UI-independent `export_standalone_game` operation is shared by Run > Export
 Game and `forge_tools --assets export-game PROJECT OPTIONS_JSON`. Options select
 `destination`, `runtime_kit`, and an optional `module_kits` map from configured
-module ID to deployment folder. Export reads saved project configuration; editor
+module ID to deployment folder. The CLI also accepts `inspection_runtime`, the
+matching SDK runtime executable for isolated native schema inspection. It defaults
+to the adjacent `forge_runtime`; combined packages use
+`NativeSdk/bin/forge_runtime.exe` for C++ projects. The worker's exact fingerprint
+is checked by the existing exporter. No project library loads in forge_tools or
+the editor. Export reads saved project configuration; editor
 unsaved authoring drafts must be saved or discarded first. It rebuilds the package
 from current selected cooked artifacts, without rebuilding arbitrary C++ projects.
 Missing/stale artifacts require Reimport or rebuilding the affected module first.

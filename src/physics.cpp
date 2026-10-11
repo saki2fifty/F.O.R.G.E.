@@ -72,6 +72,7 @@ struct PairFilter : JPH::ObjectLayerPairFilter {
     }
 };
 JPH::RVec3 position(LocalTranslation p) { return {p.x, p.y, p.z}; }
+Double3 copy_vector(const auto& value) { return {value.GetX(), value.GetY(), value.GetZ()}; }
 JPH::Quat rotation(LocalRotation q) {
     q = normalized(q);
     return {q.x, q.y, q.z, q.w};
@@ -862,6 +863,16 @@ struct PhysicsRuntime::Impl {
             throw std::runtime_error(
                 "Physics service is stopped or accessed outside its owning thread");
     }
+    const Body* find_body(EntityRef ref) const {
+        check();
+        const auto resolved = context.resolve(ref);
+        if (resolved.state != WorldContext::ResolveState::Available)
+            return nullptr;
+        const auto found = bodies.find(resolved.entity);
+        if (found == bodies.end() || found->second.ref != ref)
+            return nullptr;
+        return &found->second;
+    }
     void erase(std::map<std::uint64_t, Body>::iterator it) {
         // Native constraints borrow body pointers: retire them before body destruction.
         for (auto j = joints.begin(); j != joints.end();) {
@@ -1456,6 +1467,41 @@ std::vector<std::uint64_t> PhysicsRuntime::take_discontinuities() {
 std::optional<PhysicsHit> PhysicsRuntime::raycast(Double3 origin, Double3 displacement) const {
     return raycast_filtered(origin, displacement, {});
 }
+std::optional<PhysicsBodyState> PhysicsRuntime::body_state(EntityRef ref) const {
+    const auto& s = *impl_;
+    const auto* body = s.find_body(ref);
+    if (!body)
+        return {};
+    JPH::BodyLockRead lock(s.system.GetBodyLockInterface(), body->id);
+    if (!lock.Succeeded())
+        throw std::runtime_error("Physics observation body disappeared");
+    const auto& native = lock.GetBody();
+    const auto com = native.GetCenterOfMassPosition();
+    PhysicsBodyState state;
+    state.motion = static_cast<std::uint32_t>(native.GetMotionType());
+    state.active = native.IsActive();
+    state.centre_of_mass = {com.GetX(), com.GetY(), com.GetZ()};
+    if (!native.IsStatic()) {
+        state.linear_velocity = copy_vector(native.GetLinearVelocity());
+        state.angular_velocity = copy_vector(native.GetAngularVelocity());
+    }
+    return state;
+}
+std::optional<Double3> PhysicsRuntime::point_velocity(EntityRef ref,
+                                                      LocalTranslation world_point) const {
+    const auto& s = *impl_;
+    s.check();
+    valid_position(world_point);
+    const auto* body = s.find_body(ref);
+    if (!body)
+        return {};
+    JPH::BodyLockRead lock(s.system.GetBodyLockInterface(), body->id);
+    if (!lock.Succeeded())
+        throw std::runtime_error("Physics point-velocity body disappeared");
+    const auto& native = lock.GetBody();
+    return native.IsStatic() ? Double3{}
+                             : copy_vector(native.GetPointVelocity(position(world_point)));
+}
 std::optional<PhysicsHit> PhysicsRuntime::raycast_filtered(Double3 origin, Double3 displacement,
                                                            PhysicsQueryFilter filter) const {
     auto& s = *impl_;
@@ -1631,14 +1677,13 @@ CharacterState PhysicsRuntime::character(EntityRef ref) const {
         throw std::runtime_error("Character is unavailable or not yet realized");
     const auto& value = s.characters.at(found.entity);
     const auto& c = value.owner->native();
-    const auto copy = [](const auto& v) -> Double3 { return {v.GetX(), v.GetY(), v.GetZ()}; };
     CharacterState out;
     out.position = value.last.translation;
     out.rotation = value.last.rotation;
-    out.velocity = copy(c.GetLinearVelocity());
-    out.ground_normal = copy(c.GetGroundNormal());
-    out.ground_velocity = copy(c.GetGroundVelocity());
-    out.ground_position = copy(c.GetGroundPosition());
+    out.velocity = copy_vector(c.GetLinearVelocity());
+    out.ground_normal = copy_vector(c.GetGroundNormal());
+    out.ground_velocity = copy_vector(c.GetGroundVelocity());
+    out.ground_position = copy_vector(c.GetGroundPosition());
     switch (c.GetGroundState()) {
     case JPH::CharacterBase::EGroundState::OnGround:
         out.ground = CharacterGround::OnGround;

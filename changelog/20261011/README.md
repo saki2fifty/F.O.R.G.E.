@@ -312,3 +312,25 @@ formats remain unchanged.
 Compiler-free Gallery23 compares free fall, damping, speed limits and two resting
 sleep policies. Local numerical, sanitizer, compiled SDK and native Windows/visual
 acceptance evidence remain separate; this entry does not claim a new verified ZIP.
+
+## C++ rigid-body motion observations
+
+C++ can read copied native body COM, linear/angular velocity, motion kind and
+activity, or velocity at an absolute world point. Reads preserve sleeping state
+and pending commands, and unavailable/retired identities return no state. Angular
+observations use radians/s. The existing Physics owner, fixed/owner/capability
+boundaries and exact SDK fingerprint admission remain authoritative; rebuild
+project modules with the matching SDK. Authored formats and ABI1 are unchanged.
+
+The original PhysicsLoads example logs six actual first-step speeds once. Its
+compiled consumer checks those speeds independently under defaults and nondefault
+tuning, plus existing fresh-worker recovery. Normal body/point math and mirrored
+cooked COM, compiled SDK guards and capability denial are locally validated.
+Native Windows acceptance of this source remains pending the combined delivery.
+
+Actual Windows163 package acceptance exposed CLI export selecting an adjacent
+static schema runtime for C++ projects. The CLI now accepts the existing exporter's
+inspection runtime explicitly; combined C++ export selects the matching SDK
+worker. Fingerprint checks and isolated loading remain intact. The correction
+requires the next real Windows export/source-removal/render gate; no163 ZIP was
+delivered.

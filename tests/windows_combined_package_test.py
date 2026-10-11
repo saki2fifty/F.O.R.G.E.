@@ -58,6 +58,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     (loads_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
     loads_export = root / 'Exported C++ Physics Loads'
     loads_options = dict(destination=str(loads_export), runtime_kit=str(loads_kit),
+        inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'),
         module_kits={'project.gameplay': str((loads / module['library']).parent)})
     exported = subprocess.run([str(tools), '--assets', 'export-game', str(loads),
         json.dumps(loads_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
