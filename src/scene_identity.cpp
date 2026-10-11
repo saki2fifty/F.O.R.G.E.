@@ -1,3 +1,4 @@
+#include "builtins.hpp"
 #include "reflected_references.hpp"
 #include "spatial_document.hpp"
 #include <forge/scene.hpp>
@@ -83,6 +84,16 @@ Json duplicate_scene_asset(const Json& source, AssetId destination, const Json& 
         throw std::runtime_error("Migrate the scene before duplicating its asset");
     if (!destination || destination == source.at("asset_id").get<AssetId>())
         throw std::runtime_error("Duplicated scene requires a new asset identity");
+    auto effective_schema = schema;
+    if (!effective_schema.contains("components"))
+        effective_schema["components"] = Json::array();
+    std::set<std::string> registered;
+    for (const auto& type : effective_schema.at("components"))
+        registered.insert(type.at("id"));
+    const auto known_schema = detail::builtin_schema();
+    for (const auto& type : known_schema.at("components"))
+        if (!registered.contains(type.at("id")))
+            effective_schema["components"].push_back(type);
     auto result = source;
     result["asset_id"] = destination;
     std::map<std::string, std::string> remap;
@@ -128,8 +139,9 @@ Json duplicate_scene_asset(const Json& source, AssetId destination, const Json& 
                               result.at("asset_id").get<AssetId>(), typed_remap);
     remap_prefab_instances(result, typed_remap);
     for (auto& entity : result["entities"])
-        detail::remap_custom_entity_refs(entity, schema, source.at("asset_id").get<AssetId>(),
-                                         destination, typed_remap);
+        detail::remap_component_entity_refs(entity, effective_schema,
+                                            source.at("asset_id").get<AssetId>(), destination,
+                                            typed_remap);
     if (result.contains("legacy_ids"))
         for (auto& id : result["legacy_ids"])
             id = fresh(id.get<std::string>());

@@ -193,3 +193,34 @@ a changed Mesh must be deliberately reselected before collision can be recooked.
 Background refresh of a clean Collision source keeps the current editor focus and
 any open Shape menu. Explicitly opening a Collision document still brings its tab
 forward. Unsaved collision edits continue to block automatic source replacement.
+
+## Connect bodies with a joint
+
+Create two objects with Physics Body and a collider. Set at least one body's
+motion to **Dynamic**. Create an empty entity for the connection and use Inspector
+**Add Component → Physics → Physics Joint**. Assign **Body A** and **Body B** with
+the hierarchy pickers, which list entities with a Physics Body. The joint entity can be anywhere; its transform does not
+position the connection.
+
+Choose **Distance** for a tether. Set minimum and maximum distance in meters; the
+same value keeps a fixed length. Choose **Hinge** for a pivot. Enter an anchor on
+each body, choose matching world directions through each body's X/Y/Z hinge and
+normal axes, and set the minimum/maximum angle in degrees. The normal must differ
+from the hinge axis, and the angle limits include zero. Anchors are body-local
+coordinates and follow body scale. They begin at each object's origin, which can
+differ from its collider's center of mass.
+
+Press Play to test. Stop before saving authored changes. To remove a body, also
+remove or disable joints referencing it. Joints use the existing collision layers
+and masks: attached bodies can still collide. Place their colliders so the pivot
+works, or choose suitable masks for the supports. A joint creates a physical
+connection; it does not draw a rope or hinge mesh in the exported game.
+
+Gallery **20-physics-joints** contains a two-meter distance tether and a hinge
+pendulum limited to 45 degrees in each direction. Open the scene, change a joint in
+the Inspector, then Play or export it. The support masks deliberately prevent
+contacts at the pivots. No C++ compiler is needed for these engine components.
+
+Joint settings may be inherited from a prefab. Assign its Body A and Body B on the
+scene instance: these fields refer to scene objects. They do not automatically
+bind to new bodies inside a different instance of the same prefab.

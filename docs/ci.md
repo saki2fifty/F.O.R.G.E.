@@ -384,3 +384,13 @@ use finite scripted frame ranges; subsequent captures hide mouse and navigation
 hover again. The `editor_capture_input` test reproduces a platform position
 overwrite and proves a real widget receives mouse press/release. This fixture
 transport is compiled only into the automated capture executable.
+
+## Physics joint acceptance
+
+Native editor CI explicitly builds/runs physics_joints, physics_joint_editor and
+physics_joint_gallery. These cover solver behavior and recovery ordering, actual
+reflected Inspector controls, and relocated source-free Gallery20 content. Joint
+Inspector captures cover body references and hinge bounds at100/150/200% scale.
+The final assembled-package gate exports Gallery20 with the shipped runtime kit
+and executes its startup verification alongside the existing Gallery scenes.
+These automated results are separate from physical GPU/desktop acceptance.

@@ -39,6 +39,7 @@ struct EditorFixture {
     // user-data override so this run does not touch the real
     // user's saves.
     std::filesystem::path sdk_root, user_data;
+    std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
         sdk_onboarding = argc == 4 && std::string(argv[2]) == "--sdk-onboarding";
         if (sdk_onboarding)
@@ -80,6 +81,8 @@ struct EditorFixture {
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
+        if (stage >= 145 && stage <= 150)
+            return "Inspector";
         if (workflow)
             return nullptr;
         switch (stage) {
@@ -458,7 +461,13 @@ struct EditorFixture {
                                "editable-mesh-facing-tools-200",
                                "editable-mesh-vertex-selection",
                                "editable-mesh-vertex-selection-150",
-                               "editable-mesh-vertex-selection-200"};
+                               "editable-mesh-vertex-selection-200",
+                               "physics-joint-bodies",
+                               "physics-joint-bodies-150",
+                               "physics-joint-bodies-200",
+                               "physics-joint-hinge-limits",
+                               "physics-joint-hinge-limits-150",
+                               "physics-joint-hinge-limits-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

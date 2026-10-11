@@ -105,3 +105,13 @@ README before building/exporting compiled behavior.
   select a face in Model, then choose **Reverse connected surface** or **Reverse Mesh
   facing**. Undo, Save & Publish and export use the normal Mesh workflow. Geometry,
   corner UVs, colors and identities remain attached; facing controls the visible side.
+
+### 20 — Physics joints
+
+Open `Scenes/20-physics-joints.scene.json` and press Play. The blue bob swings at a
+two-meter distance from its support; the amber pendulum swings around its pivot
+with 45 degree limits. Select either joint entity in Edit to assign bodies and
+change settings. Anchors use each body's local origin and follow its scale. The
+support collision masks are zero to avoid contacts at attached pivots. Joints do
+not render ropes or hinge meshes. Save/select this startup scene and export it to
+see the same physical motion without the editor or a C++ compiler.

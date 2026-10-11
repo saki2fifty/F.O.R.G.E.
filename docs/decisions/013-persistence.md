@@ -30,3 +30,15 @@ Scene composition adds transient instance scope at simultaneous instantiation,
 not persistent DocumentId. Save games begin when real resumable-game requirements
 exist; networking begins with replication ownership/time/ID contracts. Neither may
 serialize raw Flecs IDs or reuse checkpoint bytes as a durable public format.
+
+## 2026-10-11 — physics joint recovery
+
+Authored PhysicsJoint settings use existing optional reflected scene/prefab
+containers and persistent EntityRefs. Shared admitted-reference traversal remaps
+builtin and custom component fields during scene/entity duplication, preserving
+opaque extension payloads. Native constraint indices remain private: physics
+checkpoint version 2 records joint identities/settings in actual Jolt manager order
+and reconstructs that order before native RestoreState. Old ephemeral checkpoints
+are rejected; no authored schema migration or persisted solver handle is introduced.
+Exact SDK fingerprint changes through the public physics settings header; ABI1 is
+unchanged. See [physics](../physics.md).

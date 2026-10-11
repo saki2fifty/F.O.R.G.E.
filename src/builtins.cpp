@@ -1,5 +1,7 @@
 #include "builtins.hpp"
+#include "authored_schema.hpp"
 #include "material_slot.hpp"
+#include "physics_joint_value.hpp"
 #include "reflected_extensions.hpp"
 #include "reflected_string.hpp"
 #include "reflected_value.hpp"
@@ -112,6 +114,8 @@ template <class T> Json encode(const T& p) {
                 {"sensor", p.sensor},
                 {"layer", p.layer},
                 {"mask", p.mask}};
+    else if constexpr (std::is_same_v<T, PhysicsJoint>)
+        return physics_detail::joint_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
         return {{"asset", p.asset.id ? Json(p.asset.id) : Json()}};
     else if constexpr (std::is_same_v<T, SphereCollider>)
@@ -266,6 +270,8 @@ template <class T> Value decode(const Json& p) {
                  p.value("sensor", false),
                  p.value("layer", std::uint32_t{0}),
                  p.value("mask", UINT32_MAX)};
+    else if constexpr (std::is_same_v<T, PhysicsJoint>)
+        return physics_detail::joint_from_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
         return T{p.at("asset").is_null() ? AssetRef<CollisionAsset>{}
                                          : p.at("asset").get<AssetRef<CollisionAsset>>()};
@@ -516,7 +522,27 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("sensor")
             .template member<std::uint32_t>("layer")
             .template member<std::uint32_t>("mask");
-    else if constexpr (std::is_same_v<T, AssetCollider>) {
+    else if constexpr (std::is_same_v<T, PhysicsJoint>) {
+        (void)authoring_value_adapters(w);
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("kind")
+            .template member<EntityRef>("body_a")
+            .template member<EntityRef>("body_b")
+            .template member<float>("anchor_a_x")
+            .template member<float>("anchor_a_y")
+            .template member<float>("anchor_a_z")
+            .template member<float>("anchor_b_x")
+            .template member<float>("anchor_b_y")
+            .template member<float>("anchor_b_z")
+            .template member<float>("min_distance")
+            .template member<float>("max_distance")
+            .template member<std::uint32_t>("axis_a")
+            .template member<std::uint32_t>("normal_a")
+            .template member<std::uint32_t>("axis_b")
+            .template member<std::uint32_t>("normal_b")
+            .template member<float>("min_angle")
+            .template member<float>("max_angle");
+    } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
     } else if constexpr (std::is_same_v<T, SphereCollider>)
@@ -602,6 +628,10 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.physics_body", "Body motion: Static, Kinematic, Dynamic. Mass 0 uses density.",
             "unitless", 0, 1000000,
             [](flecs::world& w) { return register_type<PhysicsBody>(w, "forge.physics_body"); }),
+        descriptor<PhysicsJoint>(
+            "forge.physics_joint", "Connect two rigid bodies using a distance or hinge joint",
+            "unitless", {}, {},
+            [](flecs::world& w) { return register_type<PhysicsJoint>(w, "forge.physics_joint"); }),
         descriptor<BoxCollider>(
             "forge.box_collider", "Centered box full dimensions in meters", "meters", .001, 10000,
             [](flecs::world& w) { return register_type<BoxCollider>(w, "forge.box_collider"); }),
@@ -833,6 +863,31 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 31;
         if (field == "mask")
             value["maximum"] = UINT32_MAX;
+    }
+    if (name == "forge.physics_joint") {
+        if (field == "body_a" || field == "body_b") {
+            value["nullable"] = true;
+            value["description"] =
+                "Distinct enabled rigid body in a loaded scene; at least one Dynamic";
+        }
+        if (field.starts_with("anchor_")) {
+            value["minimum"] = -10000;
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+            value["description"] =
+                "Body-origin local anchor, multiplied by effective signed body scale";
+        }
+        if (field.ends_with("distance")) {
+            value["minimum"] = .001;
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+        }
+        if (field == "min_angle" || field == "max_angle") {
+            value["minimum"] = field == "min_angle" ? -180 : 0;
+            value["maximum"] = field == "min_angle" ? 0 : 180;
+            value["unit"] = "degrees";
+            value["description"] = "Hinge angle bound relative to the two body-local normal axes";
+        }
     }
     if (name == "forge.physics_body") {
         if (field == "enabled" || field == "sensor") {
@@ -1067,6 +1122,13 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.light" && field == "kind") {
         type = "forge.LightKind";
         names = {"Directional", "Point", "Spot"};
+    } else if (component == "forge.physics_joint" && field == "kind") {
+        type = "forge.JointKind";
+        names = {"Distance", "Hinge"};
+    } else if (component == "forge.physics_joint" &&
+               (field.starts_with("axis_") || field.starts_with("normal_"))) {
+        type = "forge.JointAxis";
+        names = {"X", "Y", "Z"};
     } else if (component == "forge.character_controller" && field == "shape") {
         type = "forge.CharacterShape";
         names = {"Capsule", "Cylinder"};
@@ -1167,6 +1229,12 @@ const Json& validation_schema(const char* name) {
     return validation_catalog.at(name);
 }
 } // namespace
+Json builtin_schema() {
+    Json types = Json::array();
+    for (const auto& type : builtins())
+        types.push_back(validation_schema(type.name));
+    return {{"version", 1}, {"components", std::move(types)}};
+}
 Json register_builtins(flecs::world& world, unsigned family) {
     world.import<flecs::units>();
     world.component<ReflectedSequenceKey>(reflected_sequence_key_type);
@@ -1178,8 +1246,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             : name.starts_with("forge.navigation_")                            ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator") ? 3u
             : name.starts_with("forge.audio_")                                 ? 2u
-            : (name == "forge.physics_body" || name == "forge.character_controller" ||
-               name.ends_with("_collider"))
+            : (name == "forge.physics_body" || name == "forge.physics_joint" ||
+               name == "forge.character_controller" || name.ends_with("_collider"))
                 ? 1u
                 : 0u;
         if (category != family)
@@ -1189,6 +1257,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.mesh_renderer")
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
         std::vector<ReflectedAdapter> references;
+        if (name == "forge.physics_joint")
+            references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.
         auto add_reference = [&]<class T>() {

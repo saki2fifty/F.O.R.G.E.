@@ -57,6 +57,51 @@ int main() {
         input.queue(io, {std::numeric_limits<float>::quiet_NaN(), 50}, 0);
         frame(124, 5);
         require(!hover && !input.valid, "Nonfinite fixture pointer accepted");
+        require(EditorCaptureInput::document_focus_allowed(121, false) &&
+                    !EditorCaptureInput::document_focus_allowed(121, true) &&
+                    !EditorCaptureInput::document_focus_allowed(124, true) &&
+                    EditorCaptureInput::document_focus_allowed(122, true),
+                "Finite setup popup focus policy differs");
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        int mode = 0;
+        ImVec2 combo_at{};
+        auto combo_frame = [&] {
+            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            input.after_platform_update(io, 121, 12);
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0});
+            ImGui::SetNextWindowSize({300, 300});
+            ImGui::Begin("Tool capture", nullptr, ImGuiWindowFlags_NoTitleBar);
+            const char* modes[] = {"Select", "Sculpt", "Paint"};
+            ImGui::Combo("Tool", &mode, modes, 3);
+            const auto lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+            combo_at = {(lo.x + hi.x) / 2, (lo.y + hi.y) / 2};
+            ImGui::End();
+            if (EditorCaptureInput::document_focus_allowed(
+                    121, ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                         ImGuiPopupFlags_AnyPopupLevel)))
+                ImGui::SetWindowFocus("Tool capture");
+            ImGui::Render();
+        };
+        combo_frame();
+        combo_frame();
+        input.queue(io, combo_at, 0);
+        combo_frame();
+        input.queue(io, combo_at, 1);
+        combo_frame();
+        input.queue(io, combo_at, 2);
+        combo_frame();
+        combo_frame();
+        require(
+            ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel),
+            "Actual tool combo did not open");
+        for (const auto key : {ImGuiKey_Home, ImGuiKey_DownArrow, ImGuiKey_Enter}) {
+            io.AddKeyEvent(key, true);
+            combo_frame();
+            io.AddKeyEvent(key, false);
+            combo_frame();
+        }
+        require(mode == 1, "Parent focus stole actual combo selection");
         ImGui::DestroyContext();
         std::cout << "Platform overwrite/real widget click/static suppression/finite capture "
                      "bounds passed\n";

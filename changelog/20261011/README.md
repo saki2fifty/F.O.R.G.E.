@@ -239,3 +239,19 @@ physical performance acceptance remain pending.
 
 - Corrected automated native capture mouse transport so brush and vertex-selection
   setup clicks survive the platform input update; added a real-widget regression.
+
+## Authored physics joints
+
+Physics Joint connects two rigid bodies with a bounded distance tether or hinge.
+The Inspector uses typed body pickers and ordinary Undo/Redo and save ownership.
+Signed-scale and offset-center-of-mass anchors, body replacement, duplicate remapping,
+prefab inheritance and native constraint-order recovery have focused coverage.
+Gallery scene20 contains original swinging blue and amber examples and uses the
+same source-free standalone export route as other scenes. Rebuild gameplay modules
+against the matching SDK; private physics checkpoints now use version2. Durable
+scene/prefab formats and native ABI1 remain unchanged.
+
+Local runtime, actual scaled Inspector, export and SDK validation are recorded in
+the batch report. New native joint captures and Windows standalone acceptance are
+registered for the next numbered build; physical desktop testing remains pending.
+Automated brush captures now preserve tool-menu keyboard focus while it is open.

@@ -7,12 +7,14 @@
 #include "collision_shape.hpp"
 #include "physics_character.hpp"
 #include "physics_debug.hpp"
+#include "physics_joint_value.hpp"
 #include "physics_registration.hpp"
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Body/BodyLockMulti.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/CollisionGroup.h>
@@ -25,6 +27,8 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/ShapeCast.h>
 #include <Jolt/Physics/Collision/TransformedShape.h>
+#include <Jolt/Physics/Constraints/DistanceConstraint.h>
+#include <Jolt/Physics/Constraints/HingeConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/StateRecorderImpl.h>
 #include <algorithm>
@@ -35,6 +39,7 @@
 #include <future>
 #include <limits>
 #include <mutex>
+#include <numbers>
 #include <set>
 #include <thread>
 namespace forge {
@@ -474,6 +479,23 @@ struct PhysicsRuntime::Impl {
         LocalTransform last;
     };
     std::map<std::uint64_t, Body> bodies;
+    struct JointDesired {
+        PhysicsJoint config;
+        std::uint64_t a, b;
+    };
+    using JointDesiredMap = std::map<std::uint64_t, JointDesired>;
+    struct JointRecord {
+        EntityRef ref;
+        JointDesired desired;
+        JPH::Ref<JPH::Constraint> native;
+    };
+    std::map<std::uint64_t, JointRecord> joints;
+    void clear_joints() {
+        for (auto& [id, joint] : joints)
+            system.RemoveConstraint(joint.native.GetPtr());
+        joints.clear();
+    }
+
     struct CharacterRecord {
         EntityRef ref;
         CharacterController config;
@@ -797,6 +819,15 @@ struct PhysicsRuntime::Impl {
                 "Physics service is stopped or accessed outside its owning thread");
     }
     void erase(std::map<std::uint64_t, Body>::iterator it) {
+        // Native constraints borrow body pointers: retire them before body destruction.
+        for (auto j = joints.begin(); j != joints.end();) {
+            if (j->second.desired.a == it->first || j->second.desired.b == it->first) {
+                system.RemoveConstraint(j->second.native.GetPtr());
+                j = joints.erase(j);
+            } else
+                ++j;
+        }
+
         auto& api = system.GetBodyInterface();
         api.RemoveBody(it->second.id);
         api.DestroyBody(it->second.id);
@@ -857,8 +888,8 @@ struct PhysicsRuntime::Impl {
                                 label(ancestor) +
                                 "'. Separate Static/Kinematic bodies require independent "
                                 "World binding or a non-Dynamic spatial ancestry; "
-                                "physical attachments "
-                                "need future compound/constraint support.",
+                                "use independent body bindings and explicit joints for "
+                                "physical attachments.",
                             {}};
                         d.context.entity = ref->entity;
                         d.context.asset = ref->scene;
@@ -883,6 +914,145 @@ struct PhysicsRuntime::Impl {
         return result;
     }
     using Desired = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
+    JointDesiredMap desired_joints(const Desired& desired) {
+        JointDesiredMap result;
+        std::vector<std::pair<std::uint64_t, PhysicsJoint>> candidates;
+        auto query = context.world().query<const PhysicsJoint>();
+        query.each([&](flecs::entity e, const PhysicsJoint& v) {
+            if (v.enabled)
+                candidates.emplace_back(e.id(), v);
+        });
+        if (candidates.size() > 4096)
+            throw std::runtime_error("Physics joint capacity4096 exceeded");
+        for (const auto& [id, v] : candidates) {
+            const auto ref = context.reference(id);
+            try {
+                physics_detail::validate_joint(v);
+                if (!ref || context.resolve(*ref).state != WorldContext::ResolveState::Available)
+                    throw std::runtime_error(
+                        "Joint requires unambiguous authored scene membership");
+                const auto a = context.resolve(v.body_a), b = context.resolve(v.body_b);
+                if (a.state != WorldContext::ResolveState::Available ||
+                    b.state != WorldContext::ResolveState::Available || a.entity == b.entity ||
+                    !desired.contains(a.entity) || !desired.contains(b.entity))
+                    throw std::runtime_error(
+                        "Joint requires two distinct enabled rigid bodies in loaded scenes");
+                const auto& ca = desired.at(a.entity).first;
+                const auto& cb = desired.at(b.entity).first;
+                if (ca.body.sensor || cb.body.sensor ||
+                    (ca.body.motion != 2 && cb.body.motion != 2))
+                    throw std::runtime_error(
+                        "Joint requires nonsensor bodies and at least one Dynamic body");
+                auto anchor = [](float x, float y, float z, LocalScale scale) {
+                    for (auto value :
+                         {double(x) * scale.x, double(y) * scale.y, double(z) * scale.z})
+                        if (!std::isfinite(value) || std::abs(value) > 10000)
+                            throw std::runtime_error("Scaled joint anchor exceeds +/-10000 meters");
+                };
+                anchor(v.anchor_a_x, v.anchor_a_y, v.anchor_a_z, ca.scale);
+                anchor(v.anchor_b_x, v.anchor_b_y, v.anchor_b_z, cb.scale);
+                result.emplace(id, JointDesired{v, a.entity, b.entity});
+            } catch (const std::exception& e) {
+                Diagnostic d{Severity::Error, "physics.invalid_joint", e.what(), {}};
+                if (ref) {
+                    d.context.entity = ref->entity;
+                    d.context.asset = ref->scene;
+                }
+                if (v.body_b.scene && v.body_b.entity)
+                    d.context.related_entity = v.body_b;
+                d.context.module = "forge.physics";
+                d.context.property = "forge.physics_joint";
+                d.context.tick = tick;
+                context.services().emit(d);
+                throw PhysicsConfigurationError(std::move(d));
+            }
+        }
+        return result;
+    }
+    void retire_joints(const JointDesiredMap& desired) {
+        for (auto it = joints.begin(); it != joints.end();) {
+            auto next = desired.find(it->first);
+            if (next == desired.end() || next->second.config != it->second.desired.config ||
+                next->second.a != it->second.desired.a || next->second.b != it->second.desired.b) {
+                system.RemoveConstraint(it->second.native.GetPtr());
+                it = joints.erase(it);
+            } else
+                ++it;
+        }
+    }
+    JointRecord create_joint(std::uint64_t id, const JointDesired& v) {
+        const auto& a = bodies.at(v.a);
+        const auto& b = bodies.at(v.b);
+        JPH::Ref<JPH::Constraint> native;
+        {
+            JPH::BodyID ids[]{a.id, b.id};
+            JPH::BodyLockMultiWrite lock(system.GetBodyLockInterface(), ids, 2);
+            auto* ba = lock.GetBody(0);
+            auto* bb = lock.GetBody(1);
+            if (!ba || !bb)
+                throw std::runtime_error("Joint body disappeared before realization");
+            auto point = [](float x, float y, float z, const Body& body, const JPH::Body& native) {
+                return JPH::RVec3(x * body.config.scale.x, y * body.config.scale.y,
+                                  z * body.config.scale.z) -
+                       JPH::RVec3(native.GetShape()->GetCenterOfMass());
+            };
+            const auto& c = v.config;
+            const auto pa = point(c.anchor_a_x, c.anchor_a_y, c.anchor_a_z, a, *ba);
+            const auto pb = point(c.anchor_b_x, c.anchor_b_y, c.anchor_b_z, b, *bb);
+            if (c.kind == 0) {
+                JPH::DistanceConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
+                settings.mPoint1 = pa;
+                settings.mPoint2 = pb;
+                settings.mMinDistance = c.min_distance;
+                settings.mMaxDistance = c.max_distance;
+                native = settings.Create(*ba, *bb);
+            } else {
+                auto axis = [](unsigned i) {
+                    return i == 0   ? JPH::Vec3::sAxisX()
+                           : i == 1 ? JPH::Vec3::sAxisY()
+                                    : JPH::Vec3::sAxisZ();
+                };
+                JPH::HingeConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
+                settings.mPoint1 = pa;
+                settings.mPoint2 = pb;
+                settings.mHingeAxis1 = axis(c.axis_a);
+                settings.mNormalAxis1 = axis(c.normal_a);
+                settings.mHingeAxis2 = axis(c.axis_b);
+                settings.mNormalAxis2 = axis(c.normal_b);
+                settings.mLimitsMin = c.min_angle * std::numbers::pi_v<float> / 180;
+                settings.mLimitsMax = c.max_angle * std::numbers::pi_v<float> / 180;
+                native = settings.Create(*ba, *bb);
+            }
+            if (!native)
+                throw std::runtime_error("Jolt joint allocation failed");
+            system.AddConstraint(native.GetPtr());
+        }
+        auto& api = system.GetBodyInterface();
+        if (a.config.body.motion)
+            api.ActivateBody(a.id);
+        if (b.config.body.motion)
+            api.ActivateBody(b.id);
+        return {*context.reference(id), v, std::move(native)};
+    }
+    void realize_joints(const JointDesiredMap& desired) {
+        for (const auto& [id, v] : desired)
+            if (!joints.contains(id))
+                joints.emplace(id, create_joint(id, v));
+    }
+    Json joint_mapping() const {
+        std::map<const JPH::Constraint*, const JointRecord*> lookup;
+        for (const auto& [id, j] : joints)
+            lookup.emplace(j.native.GetPtr(), &j);
+        Json result = Json::array();
+        for (const auto& native : system.GetConstraints()) {
+            const auto& j = *lookup.at(native.GetPtr());
+            result.push_back({{"entity", j.ref},
+                              {"configuration", physics_detail::joint_value(j.desired.config)}});
+        }
+        return result;
+    }
     void validate_dynamic_writes(const Desired& desired,
                                  const std::set<std::uint64_t>& commanded = {}) {
         for (const auto& [entity, value] : desired) {
@@ -931,6 +1101,7 @@ PhysicsRuntime::~PhysicsRuntime() { stop(); }
 void PhysicsRuntime::stop() noexcept {
     if (!impl_ || !impl_->active)
         return;
+    impl_->clear_joints();
     impl_->characters.clear();
     impl_->character_commands.clear();
     impl_->collision_observers.clear();
@@ -958,6 +1129,7 @@ void PhysicsRuntime::validate_transform_candidate(
     auto& s = *impl_;
     s.check();
     const auto candidate = s.desired(&nodes);
+    (void)s.desired_joints(candidate);
     s.validate_dynamic_writes(candidate);
     const auto chars = s.desired_characters(&nodes), original_chars = s.desired_characters();
     for (const auto& [id, value] : chars) {
@@ -1016,6 +1188,7 @@ void PhysicsRuntime::synchronize(float dt) {
         commanded.insert(id);
     }
     const auto desired = s.desired(&nodes);
+    const auto desired_joints = s.desired_joints(desired);
     // Same solver ownership check used by reject-before-write animation admission.
     s.validate_dynamic_writes(desired, commanded);
     // Complete native shape admission before authored command writes or retiring
@@ -1042,6 +1215,7 @@ void PhysicsRuntime::synchronize(float dt) {
     s.context.evaluate_world_transforms();
     auto& api = s.system.GetBodyInterface();
     // Validate the complete candidate before touching live realization.
+    s.retire_joints(desired_joints);
     for (auto it = s.bodies.begin(); it != s.bodies.end();) {
         if (!desired.contains(it->first)) {
             auto old = it++;
@@ -1107,6 +1281,7 @@ void PhysicsRuntime::synchronize(float dt) {
             api.MoveKinematic(body.id, position(pose.translation), rotation(pose.rotation), dt);
     }
     s.commands.clear();
+    s.realize_joints(desired_joints);
     s.synchronize_characters();
 }
 void PhysicsRuntime::step(float dt) {
@@ -1422,10 +1597,15 @@ Json PhysicsRuntime::status() const {
              {"diagnostic",
               s.collision_errors.contains(id) ? s.collision_errors.at(id) : info.diagnostic}});
     }
-    return {{"characters", s.characters.size()}, {"collision_resources", std::move(resources)},
-            {"bodies", s.bodies.size()},         {"active_dynamic", active},
-            {"sleeping_dynamic", sleeping},      {"tick", s.tick},
-            {"gravity", s.config.gravity},       {"layers", s.config.layers}};
+    return {{"joints", s.joints.size()},
+            {"characters", s.characters.size()},
+            {"collision_resources", std::move(resources)},
+            {"bodies", s.bodies.size()},
+            {"active_dynamic", active},
+            {"sleeping_dynamic", sleeping},
+            {"tick", s.tick},
+            {"gravity", s.config.gravity},
+            {"layers", s.config.layers}};
 }
 Json PhysicsRuntime::checkpoint() const {
     auto& s = *impl_;
@@ -1440,6 +1620,13 @@ Json PhysicsRuntime::checkpoint() const {
             !equivalent(desired.at(id).second.rotation, b.last.rotation))
             throw std::runtime_error("Physics checkpoint configuration or pose changed after "
                                      "adoption; defer component/transform edits to Gameplay");
+    const auto joints = s.desired_joints(desired);
+    if (joints.size() != s.joints.size())
+        throw std::runtime_error("Joint checkpoint requires synchronized content");
+    for (const auto& [id, j] : s.joints)
+        if (!joints.contains(id) || joints.at(id).config != j.desired.config ||
+            joints.at(id).a != j.desired.a || joints.at(id).b != j.desired.b)
+            throw std::runtime_error("Joint configuration changed after adoption");
     const auto chars = s.desired_characters();
     if (chars.size() != s.characters.size())
         throw std::runtime_error("Character checkpoint requires synchronized content");
@@ -1459,7 +1646,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 1},
+    Json out = {{"version", 2},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -1468,6 +1655,7 @@ Json PhysicsRuntime::checkpoint() const {
                 {"layers", s.config.layers},
                 {"tick", s.tick},
                 {"mapping", mapping},
+                {"joints", s.joint_mapping()},
                 {"solver", hex(bytes)},
                 {"bytes", bytes.size()}};
     out["characters"] = Json::array();
@@ -1511,20 +1699,22 @@ Json PhysicsRuntime::checkpoint() const {
                                    {"teleport", c.teleport},
                                    {"clear", c.clear}});
     out["integrity"] = digest(out.dump());
+    if (out.dump().size() > 6 * 1024 * 1024)
+        throw std::runtime_error("Physics checkpoint exceeds envelope limit");
     return out;
 }
 void PhysicsRuntime::restore(const Json& payload) {
     auto& s = *impl_;
     s.check();
-    if (!s.bodies.empty() || !s.characters.empty() || s.tick || !s.commands.empty() ||
-        !s.character_commands.empty())
+    if (!s.bodies.empty() || !s.joints.empty() || !s.characters.empty() || s.tick ||
+        !s.commands.empty() || !s.character_commands.empty())
         throw std::runtime_error("Physics restoration requires a fresh unpublished world");
     if (payload.dump().size() > 6 * 1024 * 1024)
         throw std::runtime_error("Physics checkpoint exceeds envelope limit");
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 1 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 2 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -1558,6 +1748,22 @@ void PhysicsRuntime::restore(const Json& payload) {
             entry.at("configuration") != desired.at(resolution.entity).first.json())
             throw std::runtime_error("Physics checkpoint realization mapping mismatch");
         pending.push_back({resolution.entity, body});
+    }
+    const auto desired_joints = s.desired_joints(desired);
+    const auto& joint_data = checked.at("joints");
+    if (!joint_data.is_array() || joint_data.size() != desired_joints.size())
+        throw std::runtime_error("Joint checkpoint count mismatch");
+    std::vector<std::uint64_t> joint_order;
+    std::set<std::uint64_t> joint_entities;
+    for (const auto& item : joint_data) {
+        auto ref = item.at("entity").get<EntityRef>();
+        auto found = s.context.resolve(ref);
+        if (found.state != WorldContext::ResolveState::Available ||
+            !desired_joints.contains(found.entity) || !joint_entities.insert(found.entity).second ||
+            item.at("configuration") !=
+                physics_detail::joint_value(desired_joints.at(found.entity).config))
+            throw std::runtime_error("Joint checkpoint identity/configuration mismatch");
+        joint_order.push_back(found.entity);
     }
     const auto desired_chars = s.desired_characters();
     const auto& character_data = checked.at("characters");
@@ -1645,6 +1851,8 @@ void PhysicsRuntime::restore(const Json& payload) {
     JPH::StateRecorderImpl recorder;
     recorder.WriteBytes(bytes.data(), bytes.size());
     recorder.Rewind();
+    for (auto id : joint_order)
+        s.joints.emplace(id, s.create_joint(id, desired_joints.at(id)));
     if (!s.system.RestoreState(recorder) || recorder.IsFailed())
         throw std::runtime_error("Jolt rejected physics checkpoint");
     char extra{};

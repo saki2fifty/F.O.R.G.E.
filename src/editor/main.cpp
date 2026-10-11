@@ -3343,6 +3343,53 @@ int main(int argc, char** argv) {
                 case 129:
                     forge::ui::style(2);
                     break;
+                case 145: {
+                    play.stop();
+                    editable_mesh_editor = {};
+                    const auto create = [&](const char* name) {
+                        return forge::authoring_command(scene, "entity.create", {{"name", name}})
+                            .at("selected")
+                            .get<std::string>();
+                    };
+                    const auto a = create("Joint anchor"), b = create("Joint bob");
+                    scene.entity(a).set<forge::PhysicsBody>({});
+                    forge::PhysicsBody body;
+                    body.motion = 2;
+                    scene.entity(b).set<forge::PhysicsBody>(body);
+                    fixture.joint_entity = create("Joint");
+                    forge::PhysicsJoint joint;
+                    joint.body_a = {scene.asset_id(), forge::EntityId::parse(a)};
+                    joint.body_b = {scene.asset_id(), forge::EntityId::parse(b)};
+                    joint.min_distance = joint.max_distance = 2;
+                    joint.anchor_b_y = 1;
+                    scene.entity(fixture.joint_entity).set<forge::PhysicsJoint>(joint);
+                    editor.selection.select_entity(fixture.joint_entity);
+                    component_inspector.fixture_focus_component.clear();
+                    workspace.inspector = true;
+                    if (auto* w = ImGui::FindWindowByName("Inspector"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Inspector", {30, 55});
+                    ImGui::SetWindowSize("Inspector", {1400, 960});
+                    forge::test::observe_ui = true;
+                    forge::ui::style(1);
+                    break;
+                }
+                case 146:
+                case 149:
+                    forge::ui::style(1.5f);
+                    break;
+                case 147:
+                case 150:
+                    forge::ui::style(2);
+                    break;
+                case 148:
+                    forge::authoring_command(scene, "property.set",
+                                             {{"entity", fixture.joint_entity},
+                                              {"component", "forge.physics_joint"},
+                                              {"field", "kind"},
+                                              {"value", 1}});
+                    forge::ui::style(1);
+                    break;
                 case 121: {
                     // Original source setup; brush mode and axis controls below
                     // are driven by actual fixture mouse/key events.
@@ -4997,8 +5044,13 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 141))
-                        ImGui::SetWindowFocus(target);
+                        (fixture.stage >= 103 && fixture.stage <= 141) ||
+                        (fixture.stage >= 145 && fixture.stage <= 150))
+                        if (forge::test::EditorCaptureInput::document_focus_allowed(
+                                fixture.stage,
+                                ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                                ImGuiPopupFlags_AnyPopupLevel)))
+                            ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
             // another tile. A newly completed image appears on the next frame.
@@ -5305,6 +5357,25 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.stage >= 145 && fixture.stage <= 150) {
+                    const auto key = fixture.stage < 148
+                                         ? "component-field:forge.physics_joint:body_b"
+                                         : "component-field:forge.physics_joint:max_angle";
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    const auto field = forge::test::ui_targets.find(key);
+                    if (!w || field == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        const auto& target = field->second;
+                        ImGui::SetScrollY(w, w->Scroll.y +
+                                                 (target.minimum.y + target.maximum.y -
+                                                  target.clip_minimum.y - target.clip_maximum.y) *
+                                                     .5f);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 142 && fixture.stage <= 144) {
                     const auto* document = editable_mesh_editor.document();
                     if (!document || document->dirty() ||
@@ -5578,7 +5649,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 145) {
+                    if (fixture.stage == 151) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

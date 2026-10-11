@@ -1,6 +1,6 @@
 # Explore the Feature Gallery
 
-The packaged **Examples/FeatureGallery** project gives you eleven short scenes to
+The packaged **Examples/FeatureGallery** project gives you twenty short scenes to
 open in the editor and export as standalone games. You can see how each effect is
 authored, change it, then compare the result in Play and in the exported game.
 
@@ -31,3 +31,10 @@ markers on Walk/Run. The optional C++ example shows those timing points changing
 the character height; normal clip playback requires no compiler. See
 [Choose named states](../editor/animation-states.md) and
 [Trigger C++ actions](../editor/animation-markers.md).
+
+## Physics joints
+
+Scene **20-physics-joints** demonstrates a distance tether and hinged pendulum.
+Select a joint entity to assign bodies, adjust local anchors, and change distance
+or angle limits. See[Connect bodies with a joint](../editor/physics.md). Play and
+standalone export use the same engine-owned physics components.

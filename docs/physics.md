@@ -1,13 +1,13 @@
 # Physics module and transient recovery
 
 
-`forge.physics` separates reflected engine-owned authoring values from Jolt-owned simulation objects. `physics_components.hpp` contains POD settings; `physics_service.hpp` contains owner-thread queries/commands. `physics.hpp` is host composition/internal runtime infrastructure, excluded from the experimental SDK distribution.
+`forge.physics` separates reflected engine-owned authoring values from Jolt-owned simulation objects. `physics_components.hpp` contains engine-owned typed settings; `physics_service.hpp` contains owner-thread queries/commands. `physics.hpp` is host composition/internal runtime infrastructure, excluded from the experimental SDK distribution.
 
 ## Effective spatial ancestry
 
 Before body realization, each fixed-tick synchronization, checkpoint capture, and recovery reconstruction, Static/Kinematic bodies are checked against the existing Phase 3 effective spatial-parent graph. Traversal includes nonphysics intermediaries and Explicit links and stops at World binding. Reaching a Dynamic PhysicsBody raises `physics.unsupported_dynamic_ancestry`. The structured diagnostic carries the affected EntityId/scene AssetId, `related_entity` as the Dynamic ancestor's EntityRef, module, property, tick and an explanation. Runtime candidate failures retain this diagnostic after candidate destruction and leave the previous runtime unchanged while discarding the failed candidate.
 
-Validation covers body/configuration changes, spatial reparenting and prefab realization/reconciliation when runtime synchronization consumes those changes, including scene replacement and recovery. Authoring worlds still have no solver; authoring an unsupported arrangement does not silently repair it. Physics realization rejects it. Structural ChildOf with spatial World is allowed; nonphysics visual descendants may follow Dynamics; supported non-Dynamic ancestry remains allowed. This initial restriction leaves compound colliders, constraints and deliberate attachment semantics for future work.
+Validation covers body/configuration changes, spatial reparenting and prefab realization/reconciliation when runtime synchronization consumes those changes, including scene replacement and recovery. Authoring worlds still have no solver; authoring an unsupported arrangement does not silently repair it. Physics realization rejects it. Structural ChildOf with spatial World is allowed; nonphysics visual descendants may follow Dynamics; supported non-Dynamic ancestry remains allowed. Separate joint entities provide physical connections without changing the spatial graph. Compound collider assets already describe one rigid body; neither arrangement makes separate Static/Kinematic bodies valid descendants of Dynamics.
 
 Movement commands are prepared in FIFO order in detached transform values. Parent commands therefore affect subsequent child conversion, and final targets for all bodies are evaluated after the batch. Validation of ancestry, shear, shape scale and translation/rotation-only scale preservation precedes local-channel/Jolt mutation. Only changed local translation/rotation channels are written; LocalScale is never overridden by a pose target. Invalid batches preserve values and prefab channel ownership. Teleports are applied before final kinematic velocities are calculated. Derived WorldTransform remains owned exclusively by the transform system. These changes do not alter scene, identity, ABI1 or private recovery-envelope versions.
 
@@ -47,9 +47,9 @@ Contact callbacks append bounded token records under a mutex. After Update, the 
 
 Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
 
-At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics adds format version, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending FORGE commands, and Jolt StateRecorder bytes. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
+At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version 2 adds authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending FORGE commands, and Jolt StateRecorder bytes. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
 
-Restoration constructs an unpublished candidate world, validates metadata and expected source session/tick/content, restores scene/configuration, validates unique body indices/sequences and EntityRefs/configs, constructs bodies with **CreateBodyWithID**, then calls Jolt **RestoreState**. Only successful restoration swaps the candidate into use. BodyID is a transient reconstruction token. Jolt owns the solver encoding. See upstream [PhysicsSystem](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/PhysicsSystem.cpp), [BodyManager](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/Body/BodyManager.cpp), and [StateRecorderImpl](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/StateRecorderImpl.h).
+Restoration constructs an unpublished candidate world, validates metadata and expected source session/tick/content, restores scene/configuration, validates unique body indices/sequences and EntityRefs/configs, constructs bodies with **CreateBodyWithID**, reconstructs constraints in captured native index order, then calls Jolt **RestoreState**. Only successful restoration swaps the candidate into use. BodyID is a transient reconstruction token. Jolt owns the solver encoding. See upstream [PhysicsSystem](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/PhysicsSystem.cpp), [BodyManager](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/Body/BodyManager.cpp), and [StateRecorderImpl](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/StateRecorderImpl.h).
 
 Paused restoration performs no Update. Clock tick is restored; elapsed/accumulator debt is reset; input is released; previous/current presentation samples coincide. Step advances one tick. Controllers resume only when prior policy calls for it. A failure leaves the prior published runtime intact where it exists, or reports that recovery failed and clean Play is needed.
 
@@ -274,3 +274,50 @@ the authored AssetId, selects the platform's backend-neutral CPU profile, and re
 subasset correspondence decisions (collision members are authored identities). Failed
 cooking retains the previous catalog publication. Ordinary users can use the editor's
 Save workflow; this entry point serves automation and acceptance-project generation.
+
+## Distance and hinge joints
+
+`forge.physics_joint` is an optional reflected `PhysicsJoint` component. A joint
+entity selects two distinct enabled, nonsensor Physics Bodies by `EntityRef`, with
+at least one Dynamic body. Multiple joint entities may connect the same pair.
+Disabled joints create no native constraint and may keep empty or unavailable
+references. Enabled unresolved/ambiguous/missing references or invalid settings
+raise `physics.invalid_joint` with the joint identity and related body reference.
+The complete desired joint set is checked before body/command mutation, including
+animation transform candidate admission. Up to 4096 enabled joints are admitted.
+
+Distance preserves a finite min/max interval in meters (.001..10000); equal
+bounds make a fixed-length tether. Hinge joins two anchor points and allows
+rotation around one selected X/Y/Z axis in each rigid body frame. Each selected
+normal axis must differ from its hinge axis. The angle is zero when the two normal
+frames agree; degree limits enclose zero, from [-180, 0] and [0, 180]. Equal zero hinge
+limits are rejected; this batch does not expose a fixed joint. Motors, break force,
+ragdolls and joint-specific connected-pair collision exclusion are not implemented.
+Existing project layers/masks continue to own collision filtering.
+
+Anchor coordinates use each entity's local origin, including effective signed
+scale. Native construction converts them into Jolt COM-relative coordinates by
+subtracting each scaled shape's center of mass. Scaled anchors are finite within
++/-10000 meters. Axis/normal choices use the rigid body's rotation frame, independent
+of shape scale. The joint entity's transform is not a solver frame or an additional
+transform parent; an explicit joint does not relax existing ancestry restrictions.
+
+PhysicsRuntime owns all native constraints. Unchanged joints retain solver state;
+edits or body replacement rebuild affected joints at synchronization. Constraints
+retire before either body's destruction. A surviving enabled joint whose body was
+removed rejects the candidate, preserving the live realization until the joint is
+removed or disabled too. Adding/removing joints can swap Jolt's internal indices;
+checkpoint capture records actual native order and restoration validates the full
+joint identity/configuration set before native mutation. Version 1 ephemeral physics
+checkpoints are intentionally incompatible; authored scene/prefab versions and
+native ABI1 are unchanged. The exact SDK fingerprint changes because its public
+physics settings header now includes PhysicsJoint; gameplay modules require a
+matching SDK rebuild. Recovery retains the existing 2 MiB native/6 MiB envelope caps.
+
+Joint values can be inherited from a structured prefab and overridden on an
+instance. Its EntityRef fields still name explicit scene entities; they are not
+prefab-definition member IDs. Reusable rigs with automatic instance-local body
+binding require a separate typed prefab-member reference contract. The current
+body picker assigns the instance's body targets explicitly. Scene/subtree
+duplication remaps admitted intra-scene joint references; opaque extensions remain
+untouched. Source publication and snapshot reopening preserve normal inheritance.

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <forge/asset_ref.hpp>
+#include <forge/identity.hpp>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -36,6 +37,19 @@ struct PhysicsBody {
     bool enabled = true, sensor = false;
     std::uint32_t layer = 0, mask = UINT32_MAX;
     bool operator==(const PhysicsBody&) const = default;
+};
+// Authored joint entity; solver handles stay in PhysicsRuntime. Body-local anchors
+// use the entity origin (not center of mass) and include effective signed scale.
+struct PhysicsJoint {
+    bool enabled = true;
+    std::uint32_t kind = 0; // Distance, Hinge.
+    EntityRef body_a, body_b;
+    float anchor_a_x = 0, anchor_a_y = 0, anchor_a_z = 0;
+    float anchor_b_x = 0, anchor_b_y = 0, anchor_b_z = 0;
+    float min_distance = 1, max_distance = 1;
+    std::uint32_t axis_a = 2, normal_a = 0, axis_b = 2, normal_b = 0; // X, Y, Z.
+    float min_angle = -90, max_angle = 90; // Degrees enclosing the rest angle zero.
+    bool operator==(const PhysicsJoint&) const = default;
 };
 struct BoxCollider {
     float x = 1, y = 1, z = 1; // Full dimensions in meters, centered at entity origin.

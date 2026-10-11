@@ -1254,8 +1254,8 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
                 e[relation] = remap.at(e.at(relation).get<std::string>());
         detail::remap_spatial(e, doc.at("asset_id").get<AssetId>(),
                               doc.at("asset_id").get<AssetId>(), typed_remap);
-        detail::remap_custom_entity_refs(e, schema_, doc.at("asset_id").get<AssetId>(),
-                                         doc.at("asset_id").get<AssetId>(), typed_remap);
+        detail::remap_component_entity_refs(e, schema_, doc.at("asset_id").get<AssetId>(),
+                                            doc.at("asset_id").get<AssetId>(), typed_remap);
         copies.push_back(std::move(e));
     }
     Json copied_document = {{"entities", copies}};

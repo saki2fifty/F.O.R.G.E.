@@ -11,13 +11,13 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 25;
+inline constexpr std::size_t builtin_count = 26;
 using Value =
     std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
-                 BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider, AssetCollider,
-                 CharacterController, AudioSource, AudioListener, Animator, TransformAnimator,
-                 NavigationSurface, NavigationAgent, UiDocument, MeshRenderer, ModelSource, Camera,
-                 Light, NodeVisibility, NodeSelectability>;
+                 PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider,
+                 AssetCollider, CharacterController, AudioSource, AudioListener, Animator,
+                 TransformAnimator, NavigationSurface, NavigationAgent, UiDocument, MeshRenderer,
+                 ModelSource, Camera, Light, NodeVisibility, NodeSelectability>;
 struct Builtin {
     const char* name;
     const char* description;
@@ -32,6 +32,8 @@ struct Builtin {
 };
 const std::array<Builtin, builtin_count>& builtins();
 Json register_builtins(flecs::world& world, unsigned family = 0);
+// Copied projection of the existing immutable native validation catalog.
+Json builtin_schema();
 Json builtin_extensions(const Builtin&, const Json& source);
 Json merge_builtin_extensions(const Builtin&, const Json& known, const Json& extensions);
 Json merge_builtin_property_extensions(const Builtin&, const std::string& field, const Json& known,

@@ -30,9 +30,9 @@ inline nlohmann::json remap_reflected_entity_refs(const nlohmann::json& schema,
     reference_detail::remap(schema, candidate, source, destination, entities);
     return candidate;
 }
-inline void remap_custom_entity_refs(nlohmann::json& row, const nlohmann::json& schema,
-                                     AssetId source, AssetId destination,
-                                     const std::map<EntityId, EntityId>& entities) {
+inline void remap_component_entity_refs(nlohmann::json& row, const nlohmann::json& schema,
+                                        AssetId source, AssetId destination,
+                                        const std::map<EntityId, EntityId>& entities) {
     using Json = nlohmann::json;
     const auto components_schema = schema.find("components");
     if (components_schema == schema.end())
@@ -40,16 +40,16 @@ inline void remap_custom_entity_refs(nlohmann::json& row, const nlohmann::json& 
     // Borrow the admitted schema; copying every descriptor per entity makes
     // simple edits scale with unrelated component metadata.
     for (const auto& type : *components_schema) {
-        if (!type.value("custom", false))
-            continue;
+        const bool custom = type.value("custom", false);
         const auto key = type.at("id").get<std::string>();
         for (const char* channel : {"components", "property_overrides"}) {
             if (!row.contains(channel) || !row.at(channel).contains(key))
                 continue;
             auto& value = row[channel][key];
-            if (!value.is_object() || value.value("$forge", Json()) != type.at("admission"))
+            if (!value.is_object() ||
+                (custom && value.value("$forge", Json()) != type.at("admission")))
                 continue;
-            if (std::string_view(channel) == "components")
+            if (custom && std::string_view(channel) == "components")
                 value =
                     remap_reflected_entity_refs({{"type", "struct"}, {"fields", type.at("fields")}},
                                                 value, source, destination, entities);

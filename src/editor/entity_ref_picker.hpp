@@ -1,7 +1,9 @@
 #pragma once
 #include "editor_state.hpp"
 #include "search.hpp"
+#include "ui_probe.hpp"
 #include <array>
+#include <forge/physics_components.hpp>
 #include <forge/scene.hpp>
 #include <map>
 
@@ -81,7 +83,8 @@ inline std::string entity_ref_label(const Scene& scene, const Json& value) {
         return "Invalid entity reference";
     }
 }
-inline bool entity_ref_picker(const Scene& scene, Json& value, const char* title) {
+inline bool entity_ref_picker(const Scene& scene, Json& value, const char* title,
+                              bool physics_body_only = false) {
     ui::IdScope scope(title);
     bool changed = false;
     const auto label = entity_ref_label(scene, value);
@@ -98,8 +101,15 @@ inline bool entity_ref_picker(const Scene& scene, Json& value, const char* title
             value = nullptr;
             changed = true;
         }
+#ifdef FORGE_UI_FIXTURE
+        test::observe_item("entity-picker-clear");
+#endif
         ui::help("Clear this entity reference. The component's validation still applies.");
-        const auto rows = entity_picker_entries(scene.document(), search.data());
+        auto rows = entity_picker_entries(scene.document(), search.data());
+        if (physics_body_only)
+            std::erase_if(rows, [&](const auto& row) {
+                return !scene.entity(row.id.str()).template has<PhysicsBody>();
+            });
         const auto height = ImGui::GetTextLineHeight();
         ImGuiListClipper clipper;
         clipper.Begin(int(rows.size()), height + ImGui::GetStyle().ItemSpacing.y);
@@ -114,6 +124,9 @@ inline bool entity_ref_picker(const Scene& scene, Json& value, const char* title
                     value = reference;
                     changed = true;
                 }
+#ifdef FORGE_UI_FIXTURE
+                test::observe_item("entity-picker-row:" + row.id.str());
+#endif
                 ui::help((row.label + "\nEntity: " + row.id.str()).c_str());
                 auto* draw = ImGui::GetWindowDrawList();
                 draw->PushClipRect(pos, {pos.x + width, pos.y + height}, true);

@@ -197,6 +197,21 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert started.returncode == 0, (started.stdout, started.stderr)
     for name in ('OutwardRoom.mesh.json', 'InwardRoom.mesh.json'):
         assert not (facing_export/'Assets'/name).exists()
+    joint_scene = 'Scenes/20-physics-joints.scene.json'
+    joint = json.loads((gallery/joint_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=joint['asset_id'], source=joint_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    joint_export = root/'Physics Joint Standalone'
+    options['destination'] = str(joint_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(joint_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=joint_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    assert not (joint_export/'Scenes').exists() and not (joint_export/'Assets').exists()
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())
