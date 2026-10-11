@@ -69,7 +69,10 @@ template <class T> Json encode(const T& p) {
                 {"enabled", p.enabled},
                 {"play_on_start", p.play_on_start},
                 {"loop", p.loop},
-                {"playback_speed", p.playback_speed}};
+                {"playback_speed", p.playback_speed},
+                {"blend_clip", p.blend_clip.id ? Json(p.blend_clip.id) : Json()},
+                {"blend_weight", p.blend_weight},
+                {"transition_seconds", p.transition_seconds}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -206,6 +209,12 @@ template <class T> Value decode(const Json& p) {
         v.play_on_start = p.at("play_on_start");
         v.loop = p.at("loop");
         v.playback_speed = p.at("playback_speed");
+        if (p.contains("blend_clip") && !p.at("blend_clip").is_null())
+            v.blend_clip.id = p.at("blend_clip").get<AssetId>();
+        v.blend_weight = p.value("blend_weight", 0.f);
+        v.transition_seconds = p.value("transition_seconds", .25f);
+        if (!v.blend_clip.id && v.blend_weight != 0)
+            throw std::runtime_error("Animator blend target needs a second clip");
         return v;
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         AudioSource v;
@@ -450,7 +459,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("enabled")
             .template member<bool>("play_on_start")
             .template member<bool>("loop")
-            .template member<float>("playback_speed");
+            .template member<float>("playback_speed")
+            .template member<AssetRef<AnimationClipAsset>>("blend_clip")
+            .template member<float>("blend_weight")
+            .template member<float>("transition_seconds");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -628,8 +640,9 @@ const std::array<Builtin, builtin_count>& builtins() {
                 return register_type<TransformAnimator>(w, "forge.transform_animator");
             }),
         descriptor<Animator>(
-            "forge.animator", "Single-clip skeletal animation; derived poses only", "unitless", {},
-            {}, [](flecs::world& w) { return register_type<Animator>(w, "forge.animator"); }),
+            "forge.animator",
+            "Skeletal animation with an optional two-clip blend; derived poses only", "unitless",
+            {}, {}, [](flecs::world& w) { return register_type<Animator>(w, "forge.animator"); }),
         descriptor<NavigationSurface>(
             "forge.navigation_surface",
             "Include static primitive geometry when building navigation", "unitless", {}, {},
@@ -880,7 +893,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.animator" || name == "forge.transform_animator") {
-        if (field == "skeleton" || field == "clip") {
+        if (field == "skeleton" || field == "clip" || field == "blend_clip") {
             value["asset_type"] = field == "skeleton" ? SkeletonAsset::type
                                   : name == "forge.transform_animator"
                                       ? TransformAnimationAsset::type
@@ -892,6 +905,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 : name == "forge.transform_animator"
                     ? "Reusable local-transform animation clip"
                     : "Registered clip identity produced for the chosen skeleton";
+        } else if (field == "blend_weight" || field == "transition_seconds") {
+            value["minimum"] = 0;
+            value["maximum"] = field == "blend_weight" ? 1 : 10;
+            value["description"] =
+                field == "blend_weight"
+                    ? "Target mix: zero is the primary clip, one is the second clip"
+                    : "Seconds to reach a new blend target from the currently evaluated mix";
         } else if (field == "playback_speed") {
             value["minimum"] = 0;
             value["maximum"] = 4;
@@ -1269,6 +1289,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.mesh_renderer" &&
         !current.contains("material_variant"))
         current["material_variant"] = nullptr;
+    if (std::string_view(type.name) == "forge.animator")
+        for (const auto* field : {"blend_clip", "blend_weight", "transition_seconds"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")
         for (const auto* field : {"enabled", "sensor", "layer", "mask"})
             if (!current.contains(field))

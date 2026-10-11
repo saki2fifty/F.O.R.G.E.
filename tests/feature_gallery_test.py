@@ -23,7 +23,8 @@ scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',
-        '07-vertex-paint.scene.json', '08-transform-animation.scene.json'} <= {p.name for p in scenes}
+        '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
+        '09-animation-blending.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -115,6 +116,19 @@ try:
                       if 'forge.transform_animator' in row['components']]
             assert len(movers) == 1 and movers[0]['clip'] == by_source['Assets/Platform.animation.json']['id']
             assert movers[0]['loop'] and movers[0]['play_on_start']
+        if path.name.startswith('09-'):
+            players = [row['components']['forge.animator'] for row in loaded['entities']
+                       if 'forge.animator' in row['components']]
+            assert len(players) == 3 and sorted(p['blend_weight'] for p in players) == [0, .5, 1]
+            assert len({p['skeleton'] for p in players}) == 1
+            assert len({p['clip'] for p in players}) == 1
+            assert len({p['blend_clip'] for p in players}) == 1
+            assert players[0]['clip'] != players[0]['blend_clip']
+            model = next(row for row in assets
+                         if row['source'] == 'Assets/BlendColumn.gltf' and row['type'] == 'model')
+            cooked = project_root / '.forge/cache/derived' / model['metadata']['forge.import']['key']
+            assert (cooked/'skeleton.ozz').is_file()
+            assert (cooked/'clip-0.ozz').is_file() and (cooked/'clip-1.ozz').is_file()
         if path.name.startswith('04-'):
             cameras = [row['components']['forge.camera'] for row in loaded['entities']
                        if 'forge.camera' in row['components']]

@@ -15,6 +15,7 @@
 #include "ImGuiImplSDL3.hpp"
 #include "actions.hpp"
 #include "animation_debug.hpp"
+#include "animation_preview.hpp"
 #include "animation_timeline.hpp"
 #include "animation_tools.hpp"
 #include "asset_actions.hpp"
@@ -898,6 +899,7 @@ int main(int argc, char** argv) {
         forge::MaterialEditor material_editor;
         forge::EditableMeshEditor editable_mesh_editor;
         forge::AnimationTimelineEditor animation_timeline;
+        forge::AnimationPreviewEditor animation_preview;
         forge::MaterialGraphEditor graph_editor(
             std::filesystem::path(base) / "forge_shader_build.exe", [] {
                 return forge::asset_detail::ShaderCompilerProfile{
@@ -1045,6 +1047,7 @@ int main(int argc, char** argv) {
             material_editor.asset_catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
+            animation_preview.stop_preview();
             play.model_assets_changed();
             if (plan.request.action == forge::AssetFileAction::Delete) {
                 if (editor.selection.kind() == forge::ui::SelectionKind::Asset &&
@@ -1122,6 +1125,7 @@ int main(int argc, char** argv) {
             collision_editor.asset_catalog_changed(catalog);
             material_editor.asset_catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
+            animation_preview.stop_preview();
             if (mesh_resources)
                 mesh_resources->catalog(catalog);
             play.model_assets_changed();
@@ -1401,6 +1405,24 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { asset_view_document.close(); }});
+        documents.add({"animation_preview",
+                       "Animation Preview",
+                       "Animation Preview###Animation Preview",
+                       true,
+                       [&] { return animation_preview.is_open(); },
+                       [] { return false; },
+                       [&] {
+                           animation_preview.draw(files.document, scene,
+                                                  asset_document_locked || play.active());
+                       },
+                       {},
+                       {},
+                       {},
+                       [&] { animation_preview.close(); }});
+        asset_editors.add(
+            {"animation_clip", "Open Animation Preview", [&](const forge::AssetRecord& asset) {
+                 animation_preview.open(files.document, scene, asset.id);
+             }});
         documents.add({"animation_timeline",
                        "Animation Timeline",
                        "Animation Timeline###Animation Timeline",
@@ -3339,6 +3361,8 @@ int main(int argc, char** argv) {
                     content.refresh(files);
                 }
                 graph_editor.poll(files.document, message);
+                animation_preview.poll(files.document, scene, play.active(),
+                                       ImGui::GetIO().DeltaTime);
                 animation_timeline.poll(files.document, scene, play.active(),
                                         ImGui::GetIO().DeltaTime, message);
                 if (auto catalog = animation_timeline.take_catalog()) {
@@ -3395,6 +3419,7 @@ int main(int argc, char** argv) {
                 }
                 model_imports.poll(files.document, message);
                 if (auto catalog = model_imports.take_catalog()) {
+                    animation_preview.stop_preview();
                     content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
                     graph_editor.asset_catalog_changed(catalog);
@@ -3958,18 +3983,29 @@ int main(int argc, char** argv) {
                         ImGui::End();
                         continue;
                     }
-                    if (modal.active() || scene_tools.move.active() || blockout.active())
+                    if (modal.active() || scene_tools.move.active() || blockout.active()) {
                         animation_timeline.stop_preview();
+                        animation_preview.stop_preview();
+                    }
+                    if (animation_preview.preview_active() && animation_timeline.preview_active()) {
+                        if (editor.task.id() == "animation_timeline")
+                            animation_preview.stop_preview();
+                        else
+                            animation_timeline.stop_preview();
+                    }
                     auto read_preview = [&]() -> const forge::Json& {
                         return view_cache.get(
                             game_view ? play.snapshot_version() : scene.revision(), game_view,
                             blockout.active() || scene_tools.move.active() || modal.active() ||
-                                animation_timeline.preview_active(),
+                                animation_timeline.preview_active() ||
+                                animation_preview.preview_active(),
                             [&] {
                                 if (game_view)
                                     return play.ready() ? play.effective_snapshot()
                                                         : scene.effective_document();
                                 auto source = authoring_snapshot.document(scene);
+                                if (animation_preview.preview_active())
+                                    return animation_preview.snapshot(std::move(source));
                                 if (animation_timeline.preview_active())
                                     source = animation_timeline.preview(std::move(source));
                                 if (blockout.active())
@@ -4276,6 +4312,7 @@ int main(int argc, char** argv) {
                         material_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
                         animation_timeline.content(files.document, scene, edit_locked);
+                        animation_preview.content(files.document, scene, edit_locked);
                         graph_editor.content(files.document, edit_locked);
                         collision_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);

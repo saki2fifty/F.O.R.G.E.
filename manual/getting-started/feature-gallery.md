@@ -17,3 +17,9 @@ with another startup scene to export a different demonstration.
 
 The gallery contains ordinary saved project content. It needs no C++ compiler. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
+
+## Two-clip skeletal animation
+
+Scene **09-animation-blending** compares Idle, an equal mix and Reach on three
+skinned columns. Select the middle root and open **Preview skeletal animation...**
+from Content to scrub or try smooth transitions. See [Preview and blend two animations](../editor/animation-blending.md). Both clips are included when you export this scene.

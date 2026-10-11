@@ -247,3 +247,10 @@ fixed-boundary candidate validation and last-good playback retention are describ
 in [model import](model-import.md#runtime-publication-notifications). Presentation
 includes the selected model revision/publication generation for diagnostics; neither
 field is a new persistent identity or authored transform authority.
+
+## Two-clip skeletal transitions
+
+The existing Animator and AnimationRuntime now support an optional second clip,
+normalized phase and bounded blend transitions. The native Ozz local-space blend,
+exact rig/model compatibility, copied-world preview and additive recovery contract
+are specified in [two-clip skeletal blending](animation-blending.md).

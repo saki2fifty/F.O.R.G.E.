@@ -68,7 +68,7 @@ assets still have compatible exact revisions. FORGE reloads assets and rebuilds
 sampling state. If assets changed, recovery is rejected; start a fresh Play session.
 
 This foundation supports single-clip playback, skinned/morphed model drawing and
-debug bones. Animation graphs, blending, IK, retargeting and root-motion application
+debug bones. Animation graphs, IK, retargeting and root-motion application
 remain future work.
 
 See [Play mode](play-mode.md), [Prefabs](prefabs.md), and
@@ -157,3 +157,9 @@ visible with its current node transforms and the mesh's source-node morph defaul
 It does not rewrite transforms. Use **Pause** to hold the complete animated pose.
 Re-enabling Animator waits for the next successful fixed tick and then snaps to
 that tick's pose before normal interpolation resumes.
+
+## Two-clip transitions and editor preview
+
+Animator now has an optional **Blend Clip**, **Blend Weight** target and
+**Transition Seconds**. Preview/scrub both clips in the central Animation Preview
+document and control their mix from C++. See [Preview and blend two animations](animation-blending.md).

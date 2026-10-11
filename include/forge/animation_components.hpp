@@ -21,6 +21,9 @@ struct Animator {
     AssetRef<AnimationClipAsset> clip{};
     bool enabled = true, play_on_start = true, loop = true;
     float playback_speed = 1;
+    // Both clips share normalized phase. C++ may change blend_weight during Play.
+    AssetRef<AnimationClipAsset> blend_clip{};
+    float blend_weight = 0, transition_seconds = .25f;
     bool operator==(const Animator&) const = default;
 };
 } // namespace forge

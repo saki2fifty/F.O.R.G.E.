@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 #include <ozz/animation/runtime/animation.h>
+#include <ozz/animation/runtime/blending_job.h>
 #include <ozz/animation/runtime/local_to_model_job.h>
 #include <ozz/animation/runtime/sampling_job.h>
 #include <ozz/animation/runtime/skeleton.h>
@@ -120,7 +121,7 @@ struct Sampler::Impl {
     std::shared_ptr<const Skeleton> skeleton;
     std::shared_ptr<const Clip> clip;
     ozz::animation::SamplingJob::Context context;
-    std::vector<ozz::math::SoaTransform> local;
+    std::vector<ozz::math::SoaTransform> local, blended;
     std::vector<ozz::math::Float4x4> model;
     bool sampled = false;
     Impl(std::shared_ptr<const Skeleton> s, std::shared_ptr<const Clip> c)
@@ -137,7 +138,7 @@ void Sampler::reset() {
     impl_->context.Invalidate();
     impl_->sampled = false;
 }
-std::vector<Matrix> Sampler::sample(float ratio) {
+void Sampler::sample_local(float ratio) {
     impl_->sampled = false;
     if (!std::isfinite(ratio) || ratio < 0 || ratio > 1)
         throw ArchiveError("Invalid sample ratio");
@@ -148,6 +149,31 @@ std::vector<Matrix> Sampler::sample(float ratio) {
     sample.output = ozz::make_span(impl_->local);
     if (!sample.Run())
         throw ArchiveError("Ozz animation sampling failed");
+}
+std::vector<Matrix> Sampler::sample(float ratio) {
+    sample_local(ratio);
+    return evaluate_model();
+}
+std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float weight) {
+    if (this == &second || impl_->skeleton != second.impl_->skeleton || !std::isfinite(weight) ||
+        weight < 0 || weight > 1)
+        throw ArchiveError("Invalid skeletal blend weight or skeleton compatibility");
+    sample_local(ratio);
+    second.sample_local(ratio);
+    impl_->blended.resize(impl_->local.size());
+    const ozz::animation::BlendingJob::Layer layers[] = {
+        {1 - weight, ozz::make_span(impl_->local), {}},
+        {weight, ozz::make_span(second.impl_->local), {}}};
+    ozz::animation::BlendingJob blend;
+    blend.layers = ozz::make_span(layers);
+    blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();
+    blend.output = ozz::make_span(impl_->blended);
+    if (!blend.Run())
+        throw ArchiveError("Ozz skeletal blending failed");
+    impl_->local.swap(impl_->blended);
+    return evaluate_model();
+}
+std::vector<Matrix> Sampler::evaluate_model() {
     ozz::animation::LocalToModelJob model;
     model.skeleton = &impl_->skeleton->impl_->value;
     model.input = ozz::make_span(impl_->local);

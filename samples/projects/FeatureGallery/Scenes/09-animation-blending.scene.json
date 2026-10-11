@@ -1,0 +1,577 @@
+{
+  "asset_id": "fb2ec5a6-4940-4c57-b8ed-dad3ee268df5",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "d2976a17-1db3-4fd9-b075-78a224a2dcf3",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fbe6a907-853d-440d-91e4-8624cc2a9aa2",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2c8d390c-1705-45eb-b3c5-57c249d4a851",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": "3f70d142-9db3-40fc-8b1b-034179dcdddd",
+          "blend_weight": 0.0,
+          "clip": "074437cd-293c-49b8-81c3-b64d8cc18ad1",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "08e7e8fb-e562-43eb-84e2-da2617a5a983",
+          "transition_seconds": 0.5
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e916a627-6c59-4196-91e3-d56c6df0ed95",
+      "name": "Idle - primary clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "7bb9e435-c783-44b2-8080-1037ee06ecfc"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ace536c6-f584-4d09-9b15-7900b0357b1b",
+      "name": "Rig root",
+      "parent": "e916a627-6c59-4196-91e3-d56c6df0ed95",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "bc423b75-a886-47a4-a2d8-2426570ecede"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9b5a3d77-563e-42a7-9951-232a5bd1edb4",
+      "name": "Upper joint",
+      "parent": "ace536c6-f584-4d09-9b15-7900b0357b1b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "91597580-a799-4671-bd2f-3a3e350b68e4",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "fbdf0681-7bf3-42c4-bf33-cb196764017d"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "94abceba-1b93-4052-ad6b-b24ef5f8301c",
+      "name": "Skinned column",
+      "parent": "ace536c6-f584-4d09-9b15-7900b0357b1b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": "3f70d142-9db3-40fc-8b1b-034179dcdddd",
+          "blend_weight": 0.5,
+          "clip": "074437cd-293c-49b8-81c3-b64d8cc18ad1",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "08e7e8fb-e562-43eb-84e2-da2617a5a983",
+          "transition_seconds": 0.5
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a95b2631-d9b3-4dee-bef6-2c2649c23fb3",
+      "name": "Half Idle / half Reach",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "7bb9e435-c783-44b2-8080-1037ee06ecfc"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8764ba38-c578-459f-8f60-9b7a42e960a8",
+      "name": "Rig root",
+      "parent": "a95b2631-d9b3-4dee-bef6-2c2649c23fb3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "bc423b75-a886-47a4-a2d8-2426570ecede"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9f37a4c3-76b8-43f5-bd3c-a8791bf6ffd8",
+      "name": "Upper joint",
+      "parent": "8764ba38-c578-459f-8f60-9b7a42e960a8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "91597580-a799-4671-bd2f-3a3e350b68e4",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "fbdf0681-7bf3-42c4-bf33-cb196764017d"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "23a2fa3e-7c04-44b9-800d-4b39c94b187b",
+      "name": "Skinned column",
+      "parent": "8764ba38-c578-459f-8f60-9b7a42e960a8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": "3f70d142-9db3-40fc-8b1b-034179dcdddd",
+          "blend_weight": 1.0,
+          "clip": "074437cd-293c-49b8-81c3-b64d8cc18ad1",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "08e7e8fb-e562-43eb-84e2-da2617a5a983",
+          "transition_seconds": 0.5
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "708f1f19-cceb-41bd-8a5f-94c903e9a27d",
+      "name": "Reach - second clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "7bb9e435-c783-44b2-8080-1037ee06ecfc"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9beda3c2-7379-41e9-8494-a83907bedf4b",
+      "name": "Rig root",
+      "parent": "708f1f19-cceb-41bd-8a5f-94c903e9a27d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "bc423b75-a886-47a4-a2d8-2426570ecede"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3cbcfdc8-daaf-4950-9894-98f1692bba05",
+      "name": "Upper joint",
+      "parent": "9beda3c2-7379-41e9-8494-a83907bedf4b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "91597580-a799-4671-bd2f-3a3e350b68e4",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "22987994-51d7-4942-80bf-a4adb7adc34b",
+          "node": "fbdf0681-7bf3-42c4-bf33-cb196764017d"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3eb20b18-22b0-4d71-abdd-59b3a2884809",
+      "name": "Skinned column",
+      "parent": "9beda3c2-7379-41e9-8494-a83907bedf4b",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

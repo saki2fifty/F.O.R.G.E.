@@ -78,6 +78,22 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
     assert not (animated_export/'Assets/Platform.animation.json').exists()
+    # Two skeletal clips must be discovered through the saved Animator references.
+    blend_scene = 'Scenes/09-animation-blending.scene.json'
+    blended = json.loads((gallery/blend_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=blended['asset_id'], source=blend_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    blend_export = root/'Blend Standalone'
+    options['destination'] = str(blend_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(blend_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=blend_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    assert not (blend_export/'Assets/BlendColumn.gltf').exists()
     rendering = root/'Examples/Rendering'
     assert (rendering/'README.md').is_file()
     assert (root/'manual/editor/models.html').is_file()

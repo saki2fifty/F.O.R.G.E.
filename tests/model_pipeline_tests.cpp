@@ -5,6 +5,7 @@
 #include "gltf_lod_fixture.hpp"
 #include "model_authoring.hpp"
 #include "model_draw_candidate.hpp"
+#include "model_import_test.hpp"
 #include "model_importer.hpp"
 #include "model_render_resource.hpp"
 #include "model_selection.hpp"
@@ -44,37 +45,6 @@ void save(const std::filesystem::path& path, const Json& doc) {
     const auto text = doc.dump();
     write(path, std::as_bytes(std::span(text)));
 }
-class DirectImporter final : public AssetImporter {
-    std::shared_ptr<const AssetImporter> delegate_;
-    std::filesystem::path converter_;
-
-  public:
-    DirectImporter(std::shared_ptr<const AssetImporter> d, std::filesystem::path converter)
-        : AssetImporter(d->descriptor(), d->settings()), delegate_(std::move(d)),
-          converter_(std::move(converter)) {}
-    ImportProbeResult probe(const ImportProbe& p) const override { return delegate_->probe(p); }
-    AssetImportPlan discover(const AssetImportRequest& r, std::stop_token s) const override {
-        return delegate_->discover(r, s);
-    }
-    void validate(const CachedArtifact& a) const override { delegate_->validate(a); }
-    std::vector<ArtifactFile>
-    import_and_cook(const AssetImportRequest& r, const AssetImportPlan& p, std::stop_token s,
-                    const std::function<void(double, std::string)>&) const override {
-        const auto current = discover(r, s);
-        require(current.input.document() == p.input.document(), "Direct fixture input stale");
-        auto files = execute_model_recipe(
-            {{{"recipe", descriptor().id},
-              {"revision", model_recipe_revision()},
-              {"settings", r.settings},
-              {"source_digest", p.input.source_digest},
-              {"backend", r.target.backend}},
-             encode_gltf_snapshot(
-                 capture_gltf_source(r.project, r.source, model_cook_extensions(), {}, s), {}, s)},
-            s);
-        return finish_model_recipe(std::move(files), converter_, r.project, p.input.source_digest,
-                                   p.data.at("converter_sha256").get<std::string>(), s);
-    }
-};
 std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId root) {
     std::map<std::string, AssetId> result;
     for (const auto& edge : catalog.records().at(root).dependency_edges)
@@ -102,7 +72,7 @@ int main(int argc, char** argv) {
         const auto converter = std::filesystem::absolute(argv[5]);
         auto importer = model_importer(std::filesystem::absolute(argv[2]), converter);
         if (direct)
-            importer = std::make_shared<DirectImporter>(importer, converter);
+            importer = std::make_shared<forge::test::DirectModelImporter>(importer, converter);
         auto registry = std::make_shared<AssetImporterRegistry>();
         registry->add(importer);
         registry->seal();

@@ -51,12 +51,16 @@ class Sampler {
     Sampler(const Sampler&) = delete;
     // Per-Animator sampling context, never shared mutable playback state.
     std::vector<Matrix> sample(float ratio);
+    // Native Ozz local-space blending, before the single local-to-model pass.
+    std::vector<Matrix> sample_blended(float ratio, Sampler& second, float weight);
     // Copied directly from native sampled SoA lanes; valid after successful sample.
     // No matrix decomposition, including at zero or signed scale.
     std::vector<LocalPose> local_pose() const;
     void reset();
 
   private:
+    void sample_local(float ratio);
+    std::vector<Matrix> evaluate_model();
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

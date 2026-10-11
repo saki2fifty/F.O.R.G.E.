@@ -2,7 +2,7 @@
 
 This is an editable FORGE project. Each saved scene demonstrates one focused
 engine feature using normal authored entities. The first four scenes use built-in geometry. The remaining scenes include published
-editable Mesh sources, cooked Meshes and a checker Material. The eighth scene includes a published transform-animation clip. No
+editable Mesh sources, cooked Meshes and a checker Material. The eighth scene includes a published transform-animation clip; the ninth has an original two-clip skinned model. No
 gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
 ## Open and inspect
@@ -26,8 +26,9 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 | `05-editable-mesh` | Select **Editable extruded cube**. Find **Shape.mesh.json** in Content and open it to change its form or face-corner UVs. Save & Publish, then return to the scene. | The center cube has an extruded face; its edited geometry appears in Scene, Play and standalone export. The assigned checker Material makes the authored UV placement visible. |
 | `06-sculpt` | Open **SculptSphere.mesh.json** in Content. Choose **Sculpt** in Model and drag over the sphere preview, then Save & Publish. | A smooth, low-poly sphere starts with a raised area. Sculpt changes its geometry and is saved as one Undo step per stroke. |
 | `07-vertex-paint` | Open **PaintedSphere.mesh.json** in Content. Choose **Paint** in Model, change the color and drag over the sphere preview, then Save & Publish. | The sphere carries blue and warm painted vertex colors into Scene, Play and export. Paint applies to its vertices, so detail is limited by the Mesh resolution. |
-
 | `08-transform-animation` | Press Play to watch **Animated platform**. Open **Platform.animation.json** in Content, choose that object in Preview object, and scrub or change its keys. Save & Publish. | The blue platform moves between the two markers, turns and changes height over four seconds. Timeline preview restores the authored view when stopped. Play and export use the published clip. |
+
+| `09-animation-blending` | Press Play and compare the three skinned columns. Select **Half Idle / half Reach** and open **Preview skeletal animation...** from Content. Pause, scrub and adjust the blend target/duration. | Idle, an equal blend, and Reach share normalized phase. The center column bends between the two poses. Preview is temporary; Apply settings stores one Scene Undo step. Both clips play in standalone export. |
 
 ## Export and run a scene
 
@@ -51,3 +52,15 @@ These scenes are intentionally small. For a combined gameplay example with input
 menus, save/reload, audio, animation and navigation, see **FIELD TEST** in the
 included development tools. A future gallery scene should demonstrate a feature only
 when its authored content and standalone result can both be inspected directly.
+
+
+## Drive the two-clip mix from C++
+
+The Gallery needs no native module to run. In your own C++ System, copy the
+selected object's `forge::Animator`, set `blend_weight` to `0.f` or `1.f`, set
+`transition_seconds` (for example `.5f`), then call `actor.set(animator)`. FORGE
+advances the transition from its current mix. See the packaged manual's
+**Preview and blend two animations** page for a complete function.
+
+`BlendColumn.gltf` is an original FORGE fixture with a two-joint skinned column
+and Idle/Reach clips, built for this Gallery. It uses no external character art.
