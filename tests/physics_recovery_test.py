@@ -8,6 +8,9 @@ def body(name,y,motion):
 scene=dict(version=1,entities=[body('floor',-.5,0),body('cube',5,2)])
 scene['entities'][0]['components']['forge.box_collider']=dict(x=20,y=1,z=20)
 scene['entities'][1]['components']['forge.physics_body']['continuous_collision']=True
+scene['entities'][1]['components']['forge.physics_body'].update(
+ linear_damping=.75,angular_damping=.5,max_linear_velocity=1.5,
+ max_angular_velocity=90,allow_sleeping=False)
 def replace(worker,state):
  c=state['recovery'];return worker.request('replace',scene=state['scene'],recovery=c,recovery_session=c['session'],recovery_tick=c['tick'])
 def height(state):
@@ -17,6 +20,9 @@ try:
  initial=a.request('replace',scene=scene)
  assert next(e for e in initial['scene']['entities'] if e['name']=='cube')['components']['forge.physics_body']['continuous_collision'] is True
  assert next(e for e in initial['scene']['entities'] if e['name']=='floor')['components']['forge.physics_body']['continuous_collision'] is False
+ settings=next(e for e in initial['scene']['entities'] if e['name']=='cube')['components']['forge.physics_body']
+ assert all(settings[k]==v for k,v in dict(linear_damping=.75,angular_damping=.5,
+  max_linear_velocity=1.5,max_angular_velocity=90,allow_sleeping=False).items())
  for _ in range(12):state=a.request('step')
  assert height(state)<5
  restored=replace(b,state)
@@ -24,6 +30,7 @@ try:
  time.sleep(.05)
  assert b.request('snapshot')['timing']['tick']==12
  assert height(restored)==height(state)
+ assert next(e for e in restored['scene']['entities'] if e['name']=='cube')['components']['forge.physics_body']==settings
  for _ in range(12):
   left=a.request('step');right=b.request('step')
   assert abs(height(left)-height(right))<1e-8

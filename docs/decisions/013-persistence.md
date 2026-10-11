@@ -63,3 +63,14 @@ all command policies before reconstructing native bodies/constraints; older
 ephemeral envelopes reject. No authored Scene/Prefab/project schema or durable
 save format changes. The exact SDK callback table and PhysicsService header
 change; native ABI1 remains unchanged and matching module rebuilds are required.
+
+## 2026-10-11 — body motion tuning
+
+Five trailing PhysicsBody values expose existing native damping, speed limits and
+sleep permission through the existing reflected authoring codec. Missing fields
+backfill current native defaults; ordinary Scene/Prefab formats and identity are
+unchanged. Runtime configuration equality and private exact-build recovery mapping
+include them. Public SDK layout/fingerprint changes mandate a matched rebuild;
+ABI1 and private checkpoint version3 remain unchanged. No second motion owner or
+durable save-game format is introduced. Angular authoring is degrees/s, converted
+once by the native owner. See [physics](../physics.md).

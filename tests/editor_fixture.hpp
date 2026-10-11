@@ -85,7 +85,7 @@ struct EditorFixture {
             return "Inspector";
         if (stage >= 157 && stage <= 162)
             return "###Scene";
-        if (stage >= 163 && stage <= 165)
+        if (stage >= 163 && stage <= 168)
             return "Inspector";
         if (workflow)
             return nullptr;
@@ -486,7 +486,10 @@ struct EditorFixture {
                                "physics-joint-missing-body-200",
                                "physics-continuous-collision",
                                "physics-continuous-collision-150",
-                               "physics-continuous-collision-200"};
+                               "physics-continuous-collision-200",
+                               "physics-body-motion-tuning",
+                               "physics-body-motion-tuning-150",
+                               "physics-body-motion-tuning-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

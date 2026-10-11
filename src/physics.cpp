@@ -124,6 +124,11 @@ struct Configuration {
                    {"layer", body.layer},
                    {"mask", body.mask},
                    {"continuous_collision", body.continuous_collision},
+                   {"linear_damping", body.linear_damping},
+                   {"angular_damping", body.angular_damping},
+                   {"max_linear_velocity", body.max_linear_velocity},
+                   {"max_angular_velocity", body.max_angular_velocity},
+                   {"allow_sleeping", body.allow_sleeping},
                    {"shape", shape},
                    {"dimensions", dimensions},
                    {"scale", {scale.x, scale.y, scale.z}}};
@@ -1141,6 +1146,14 @@ struct PhysicsRuntime::Impl {
         settings.mFriction = c.body.friction;
         settings.mRestitution = c.body.restitution;
         settings.mGravityFactor = c.body.gravity_factor;
+        settings.mLinearDamping = c.body.linear_damping;
+        settings.mAngularDamping = c.body.angular_damping;
+        settings.mMaxLinearVelocity = c.body.max_linear_velocity;
+        // Authored degrees/s; convert once at native creation. 2700 reproduces
+        // the exact pinned native default float (.25f * JPH_PI * 60.f).
+        settings.mMaxAngularVelocity =
+            float(double(c.body.max_angular_velocity) * std::numbers::pi / 180.);
+        settings.mAllowSleeping = c.body.allow_sleeping;
         if (c.body.motion != 0) {
             settings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
             settings.mMassPropertiesOverride = mass_properties(c, *prepared);
@@ -1307,7 +1320,7 @@ void PhysicsRuntime::synchronize(float dt) {
             it = s.bodies.emplace(entity, std::move(next)).first;
             if (moving) {
                 api.SetLinearAndAngularVelocity(it->second.id, linear, angular);
-                if (!awake)
+                if (!awake && config.body.allow_sleeping)
                     api.DeactivateBody(it->second.id);
             }
             s.snaps.push_back(entity);

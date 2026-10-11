@@ -65,6 +65,29 @@ Scaled collider dimensions must stay between .001 and 10000 meters. Boxes suppor
 
 Press **Enter** to commit a numeric edit. Scene Undo/Redo includes these changes. In a prefab instance, editing a supported field records explicit override intent, including an edit equal to the source value. **Revert** restores the source value. the component header’s **Remove component / Revert component** removes local ownership; inherited prefab values can become visible again.
 
+## Damping, speed limits and sleep
+
+In Physics Body, `linear_damping` slows movement and `angular_damping` slows
+rotation. Both default to **0.05 per second**. Zero preserves free motion;
+higher values slow it faster. Damping works while the body moves through space;
+surface friction acts during contact. Very large damping can stop motion in one
+step, so the result depends on the fixed timestep.
+
+`max_linear_velocity` limits speed to **500 metres per second** by default.
+`max_angular_velocity` limits spin to **2700 degrees per second** by default.
+Both apply to total speed, rather than separately to X/Y/Z. A zero limit prevents
+that type of Dynamic motion. Contact solving can briefly exceed the integration
+limit. Kinematic gameplay targets still control their own movement.
+
+`allow_sleeping` is enabled by default. Settled bodies sleep to save physics work.
+Turning it off keeps the body active; this can cost more CPU and does not push it.
+These choices are stored in inactive body modes too. Press Enter to commit numeric
+changes; Undo, prefab overrides and saved standalone exports preserve them.
+
+Open **Feature Gallery → 23-body-motion-tuning** for six cube comparisons. The
+first four compare free fall, damping, a 2 m/s cap and a zero cap. The two resting
+cubes compare sleep permission: both look still. No C++ compiler is needed.
+
 ## Project gravity
 
 Open **Project Settings → Physics**. **Gravity XYZ** is acceleration in meters per second squared. The default is **(0, -9.81, 0)** because positive Y is up. Save settings, then start Play again. Project settings have their own save boundary; scene Undo does not reverse them.

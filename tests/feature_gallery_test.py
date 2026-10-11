@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -109,6 +109,11 @@ try:
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)
+                body.setdefault('linear_damping', .05)
+                body.setdefault('angular_damping', .05)
+                body.setdefault('max_linear_velocity', 500.)
+                body.setdefault('max_angular_velocity', 2700.)
+                body.setdefault('allow_sleeping', True)
         same_authored_value(loaded, expected, str(path))
         assert context['revision'] == result['revision']
         for entity in loaded['entities']:

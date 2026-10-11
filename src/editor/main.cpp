@@ -3389,11 +3389,13 @@ int main(int argc, char** argv) {
                 case 159:
                 case 162:
                 case 165:
+                case 168:
                     forge::ui::style(2);
                     break;
                 case 158:
                 case 161:
                 case 164:
+                case 167:
                     forge::ui::style(1.5f);
                     break;
                 case 157: {
@@ -3444,6 +3446,18 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                     ImGui::SetWindowPos("Inspector", {30, 55});
                     ImGui::SetWindowSize("Inspector", {1400, 960});
+                    forge::ui::style(1);
+                    break;
+                }
+                case 166: {
+                    auto entity = scene.entity(selected);
+                    auto body = entity.get<forge::PhysicsBody>();
+                    body.linear_damping = 1;
+                    body.angular_damping = 2;
+                    body.max_linear_velocity = 3;
+                    body.max_angular_velocity = 90;
+                    body.allow_sleeping = false;
+                    entity.set<forge::PhysicsBody>(body);
                     forge::ui::style(1);
                     break;
                 }
@@ -5127,7 +5141,7 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
-                        (fixture.stage >= 145 && fixture.stage <= 165))
+                        (fixture.stage >= 145 && fixture.stage <= 168))
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -5484,6 +5498,23 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.stage >= 166 && fixture.stage <= 168) {
+                    const auto field = forge::test::ui_targets.find(
+                        "component-field:forge.physics_body:allow_sleeping");
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    if (!w || field == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        const auto& target = field->second;
+                        ImGui::SetScrollY(w, w->Scroll.y +
+                                                 (target.minimum.y + target.maximum.y -
+                                                  target.clip_minimum.y - target.clip_maximum.y) *
+                                                     .5f);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 142 && fixture.stage <= 144) {
                     const auto* document = editable_mesh_editor.document();
                     if (!document || document->dirty() ||
@@ -5757,7 +5788,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 166) {
+                    if (fixture.stage == 169) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

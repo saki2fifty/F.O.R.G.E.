@@ -114,7 +114,12 @@ template <class T> Json encode(const T& p) {
                 {"sensor", p.sensor},
                 {"layer", p.layer},
                 {"mask", p.mask},
-                {"continuous_collision", p.continuous_collision}};
+                {"continuous_collision", p.continuous_collision},
+                {"linear_damping", p.linear_damping},
+                {"angular_damping", p.angular_damping},
+                {"max_linear_velocity", p.max_linear_velocity},
+                {"max_angular_velocity", p.max_angular_velocity},
+                {"allow_sleeping", p.allow_sleeping}};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
@@ -271,7 +276,12 @@ template <class T> Value decode(const Json& p) {
                  p.value("sensor", false),
                  p.value("layer", std::uint32_t{0}),
                  p.value("mask", UINT32_MAX),
-                 p.value("continuous_collision", false)};
+                 p.value("continuous_collision", false),
+                 p.value("linear_damping", .05f),
+                 p.value("angular_damping", .05f),
+                 p.value("max_linear_velocity", 500.f),
+                 p.value("max_angular_velocity", 2700.f),
+                 p.value("allow_sleeping", true)};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_from_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
@@ -524,7 +534,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("sensor")
             .template member<std::uint32_t>("layer")
             .template member<std::uint32_t>("mask")
-            .template member<bool>("continuous_collision");
+            .template member<bool>("continuous_collision")
+            .template member<float>("linear_damping")
+            .template member<float>("angular_damping")
+            .template member<float>("max_linear_velocity")
+            .template member<float>("max_angular_velocity")
+            .template member<bool>("allow_sleeping");
     else if constexpr (std::is_same_v<T, PhysicsJoint>) {
         (void)authoring_value_adapters(w);
         c.template member<bool>("enabled")
@@ -894,7 +909,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.physics_body") {
-        if (field == "enabled" || field == "sensor" || field == "continuous_collision") {
+        if (field == "enabled" || field == "sensor" || field == "continuous_collision" ||
+            field == "allow_sleeping") {
             value.erase("minimum");
             value.erase("maximum");
         }
@@ -930,6 +946,26 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 1;
         if (field == "gravity_factor")
             value["maximum"] = 10;
+        if (field == "linear_damping" || field == "angular_damping") {
+            value["minimum"] = 0;
+            value["maximum"] = 10000;
+            value["unit"] = "per second";
+            value["description"] =
+                "Dynamic velocity drag, applied once per physics step. Zero retains motion; "
+                "large damping can stop motion in one step. Independent of surface friction.";
+        }
+        if (field == "max_linear_velocity" || field == "max_angular_velocity") {
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+            value["unit"] = field == "max_linear_velocity" ? "m/s" : "degrees/s";
+            value["description"] =
+                "Dynamic speed magnitude limit at integration. Zero prevents that motion. "
+                "Solver contacts can temporarily exceed the integration limit.";
+        }
+        if (field == "allow_sleeping")
+            value["description"] =
+                "Permit automatic sleep when motion settles. Disabling keeps Dynamic bodies "
+                "active and uses more physics work; it does not apply a force.";
     }
     if (name == "forge.audio_source") {
         static const std::map<std::string, const char*> help = {
@@ -1392,7 +1428,9 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")
-        for (const auto* field : {"enabled", "sensor", "layer", "mask", "continuous_collision"})
+        for (const auto* field :
+             {"enabled", "sensor", "layer", "mask", "continuous_collision", "linear_damping",
+              "angular_damping", "max_linear_velocity", "max_angular_velocity", "allow_sleeping"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;

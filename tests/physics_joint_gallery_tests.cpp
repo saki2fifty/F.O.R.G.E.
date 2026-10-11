@@ -50,9 +50,10 @@ double distance(Double3 a, Double3 b) {
         sum += (a[i] - b[i]) * (a[i] - b[i]);
     return std::sqrt(sum);
 }
-void render_actors(World& w, const std::vector<std::string>& names) {
+void render_actors(World& w, const std::vector<std::string>& names, std::size_t mesh_count = 5) {
     const auto render = extract_render_scene(w.simulation.presentation(1));
-    require(render.cameras.size() == 1 && render.meshes.size() == 5 && !render.lights.empty(),
+    require(render.cameras.size() == 1 && render.meshes.size() == mesh_count &&
+                !render.lights.empty(),
             "Gallery render consumer missing actors/camera/light");
     const auto& camera = render.cameras.front();
     const auto view = camera_view(camera.camera, camera.world, 1280, 720);
@@ -134,14 +135,48 @@ void continuous_motion(World& w) {
                 Json(tunneled).dump());
     render_actors(w, {continuous, discrete});
 }
+void tuned_motion(World& w) {
+    const std::vector<std::string> names{
+        "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
+        "Zero linear speed limit", "Sleeping permitted",   "Sleeping disabled"};
+    // Before contact: independent native integration equations, not just order.
+    const double dt = double(1.f / 60);
+    double free_velocity = 0, damped_velocity = 0, capped_velocity = 0;
+    double free_y = 12, damped_y = 12, capped_y = 12;
+    for (unsigned tick = 0; tick < 60; ++tick) {
+        free_velocity -= 9.81 * dt;
+        damped_velocity = (damped_velocity - 9.81 * dt) * (1. - 3 * dt);
+        capped_velocity = std::max(-2., capped_velocity - 9.81 * dt);
+        free_y += free_velocity * dt;
+        damped_y += damped_velocity * dt;
+        capped_y += capped_velocity * dt;
+        w.simulation.tick(float(dt));
+        require(std::abs(w.point(names[0])[1] - free_y) < 2e-5 &&
+                    std::abs(w.point(names[1])[1] - damped_y) < 2e-5 &&
+                    std::abs(w.point(names[2])[1] - capped_y) < 2e-5 && w.point(names[3])[1] == 12,
+                "Gallery damping/speed/zero choices failed independent fall equations");
+    }
+    render_actors(w, names, 7);
+    for (unsigned tick = 60; tick < 600; ++tick)
+        w.simulation.tick(float(dt));
+    require(w.physics->status().at("active_dynamic") == 1 &&
+                w.physics->status().at("sleeping_dynamic") == 5 &&
+                std::abs(w.point(names[4])[1] - .5) < .02 &&
+                std::abs(w.point(names[5])[1] - .5) < .02,
+            "Gallery sleeping comparison did not preserve stationary active/settled bodies");
+    render_actors(w, names, 7);
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         require(argc == 3 || argc == 4, "Need Gallery and scratch roots, optional extended mode");
         const std::string mode = argc == 4 ? argv[3] : "joints";
-        require(mode == "joints" || mode == "extended" || mode == "ccd", "Unknown Gallery mode");
+        require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning",
+                "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "ccd")
+            if (mode == "tuning")
+                tuned_motion(world);
+            else if (mode == "ccd")
                 continuous_motion(world);
             else if (mode == "extended")
                 point_fixed_motion(world);
@@ -152,7 +187,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "ccd"        ? "Scenes/22-continuous-collision.scene.json"
+            read(root / (mode == "tuning"     ? "Scenes/23-body-motion-tuning.scene.json"
+                         : mode == "ccd"      ? "Scenes/22-continuous-collision.scene.json"
                          : mode == "extended" ? "Scenes/21-point-fixed-joints.scene.json"
                                               : "Scenes/20-physics-joints.scene.json"));
         World live(root, source);

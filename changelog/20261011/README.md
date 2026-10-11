@@ -298,3 +298,17 @@ System, with six cubes for mass response, one-shot kicks, spin and off-center
 pushes. Packaging builds the matching module; exported games use compiled code.
 Numerical, compiled module, sanitizer, Windows capture/export and physical
 acceptance evidence remain distinct. This entry does not claim a new verified ZIP.
+
+## Body damping, speed limits and sleep
+
+Physics Body exposes linear/angular damping, linear speed limits, angular speed
+limits in degrees per second, and sleep permission. Missing saved fields retain
+the existing native defaults. The ordinary Inspector, Undo/Redo, prefab overrides,
+recovery and source-free export use the existing owners. Disabling sleep wakes a
+stationary body without applying motion; lowering limits clamps retained velocity
+at replacement. Matching C++ SDK module rebuilds are required; ABI1 and authored
+formats remain unchanged.
+
+Compiler-free Gallery23 compares free fall, damping, speed limits and two resting
+sleep policies. Local numerical, sanitizer, compiled SDK and native Windows/visual
+acceptance evidence remain separate; this entry does not claim a new verified ZIP.

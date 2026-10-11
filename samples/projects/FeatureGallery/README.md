@@ -137,3 +137,17 @@ example. A lower floor catches the amber cube. The camera frames their landing a
 the cubes enter from above after Play. Select the blue cube's Physics Body to change
 Continuous Collision, then stop/restart Play. This is a numerical example, not a
 promise of tunneling in every discrete scene or perfect angular collision detection.
+
+## Body motion tuning
+
+Open `23-body-motion-tuning` and press Play. From left to right, blue falls freely,
+amber slows with damping3/s, green falls at at most2m/s, and violet has a zero
+linear speed limit and stays suspended. The two cubes already on the floor compare
+sleeping permitted and disabled; both look still, but the latter keeps consuming
+physics work. Select a cube's Physics Body to change damping, speed limits and
+sleep permission. Stop restores the authored positions. Angular speed uses
+**degrees per second**; linear speed uses **metres per second**. Drag is distinct
+from contact friction. Large damping is sensitive to the fixed timestep.
+
+These are authored settings, not a live C++ control panel. Ordinary saved startup
+scene selection and export include all settings; no compiler is needed.

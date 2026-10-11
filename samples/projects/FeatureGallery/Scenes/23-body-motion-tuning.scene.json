@@ -1,0 +1,444 @@
+{
+  "asset_id": "a796b87f-9ba9-4cda-a6a1-3245db078ce9",
+  "version": 3,
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05000000074505806,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975803375244,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 7.0,
+          "z": -24.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ad6bc934-7f34-4aca-b027-cbb37a3f6bc0",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981852531433,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "cbce026e-cfa6-4081-89a0-5b83ac0a3a78",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 1.0,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.5,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 500.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.2,
+          "g": 0.25,
+          "b": 0.3
+        }
+      },
+      "id": "c3a9633d-f197-444c-9a99-06ea06f34d65",
+      "name": "Static floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": 12.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 500.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.2,
+          "g": 0.6,
+          "b": 1.0
+        }
+      },
+      "id": "35cc9731-183a-4462-a26d-f155c50ab547",
+      "name": "No damping - free fall",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 12.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 3.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 500.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 1.0,
+          "g": 0.5,
+          "b": 0.125
+        }
+      },
+      "id": "395a7e43-a275-4769-8f51-86e6cea46bc1",
+      "name": "Damping 3 per second",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 12.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 2.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.2,
+          "g": 0.8,
+          "b": 0.3
+        }
+      },
+      "id": "17f1c109-5a1a-41ff-98ff-caa5619a2a67",
+      "name": "Speed limit 2 metres per second",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": 12.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 0.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.6,
+          "g": 0.3,
+          "b": 0.9
+        }
+      },
+      "id": "802b660e-9245-4b7b-b6ef-54f0054f1b21",
+      "name": "Zero linear speed limit",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": 0.5,
+          "z": 2.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 500.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.3,
+          "g": 0.8,
+          "b": 0.9
+        }
+      },
+      "id": "ddc7f73b-bae1-4a16-97b5-719232bf30a4",
+      "name": "Sleeping permitted",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": 0.5,
+          "z": 2.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "max_linear_velocity": 500.0,
+          "max_angular_velocity": 2700.0,
+          "allow_sleeping": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.9,
+          "g": 0.7,
+          "b": 0.2
+        }
+      },
+      "id": "50f745b8-a965-47ea-8acd-f1e4381c081f",
+      "name": "Sleeping disabled",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ]
+}

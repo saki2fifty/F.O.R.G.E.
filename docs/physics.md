@@ -35,6 +35,37 @@ Static placement comes from evaluated world transforms. Kinematic targets use up
 
 Config changes are compared against realized settings at a safe boundary. Compatible motion-type rebuilds preserve linear/angular velocity and activation. Motion-type changes initialize new state. Unchanged bodies are not recreated or reactivated. Invalid realization is diagnosed; no approximation discards shear. Dynamic direct transform writes are rejected; gameplay must use explicit teleport. Teleport writes supported local channels and resets existing presentation history after the tick.
 
+## Body motion tuning
+
+PhysicsBody's trailing `linear_damping` and `angular_damping` default to .05 per
+second. `max_linear_velocity` defaults to 500 m/s; `max_angular_velocity` defaults to 2700
+**degrees/s**, converted once at native creation. This yields the exact pinned
+native float 47.1238899230957 rad/s. `allow_sleeping` defaults to true. Missing authored
+fields use these defaults without rewriting old Scene/Prefab sources.
+
+Damping is independent of contact friction: at each Dynamic integration Jolt uses
+`v *= max(0,1-c*dt)` and the corresponding angular equation. Damping is admitted
+from 0..10000/s; both limits from 0..1000000 in their authored units. Limits clamp
+the vector magnitude, not each coordinate. Zero allows no velocity on that
+channel. Native impulses and same-motion replacement velocity adoption clamp too;
+contact solving can subsequently exceed the integration cap temporarily.
+Kinematic movement still follows its explicit native target, not Dynamic drag or
+an invented force. Inactive-mode choices remain authored for later use.
+
+Configuration changes use the existing replacement/preflight boundary. They
+preserve pose and compatible velocity, clamped to lowered limits. Sleeping state
+is retained only when permitted; turning permission off wakes a previously
+sleeping Dynamic body and keeps it active without adding motion. Unchanged bodies
+are not rebuilt or reactivated. Native recovery mapping includes all five values;
+exact SDK fingerprint/layout changes require module rebuilds, while ABI1 and
+durable formats remain unchanged. Private recovery remains version3 and exact-build
+compatible. The existing generic Inspector, history and prefab intent own edits.
+
+Original compiler-free Gallery 23 compares gravity-driven free fall, damping,
+linear caps and sleep policy. Numerical integration, camera/render-resource bounds
+and relocated source-free content are separate proof from native Windows images
+and physical desktop acceptance.
+
 ## Queries, commands and contacts
 
 Raycast returns closest hit EntityRef, point, normal and fraction; displacement defines ray length. Results are owning FORGE values and never expose BodyID. Teleport/kinematic commands are bounded to 4096 pending requests and processed at the next pre-physics boundary. PostPhysics commands therefore take effect next tick. Direct physics-component writes belong in Gameplay before synchronization; capture rejects unsynchronized component or world-pose changes after adoption, including movement inherited from nonphysics ancestors. Commands preserve world-space target semantics for supported parent transforms.

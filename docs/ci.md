@@ -433,3 +433,17 @@ the production EXE, and runs the separately inventoried graphical observer. Its
 six-actor motion results/capture are uploaded as `FORGE-Physics-Loads-Example`.
 The observer never enters the final editor ZIP. Native image review and physical
 GPU acceptance remain separate from those automated assertions.
+
+## Body motion tuning gate
+
+Existing physics and real-worker recovery tests include nondefault damping,
+speed limits, sleeping and pending commands. The full Inspector test commits all
+four numeric fields and the sleep checkbox with Undo/Redo/save/reopen at65/100/200%.
+The existing Gallery executable adds `physics_motion_tuning_gallery`, explicitly
+selected by native editor CI: six original actors, independent gravity/damping/cap
+math, sleep policy, real render bounds and relocated source-free content.
+Captures166–168 show the actual body tuning Inspector at100/150/200%; image review
+is required separately from widget probes. The compiled C++ PhysicsLoads consumer
+also runs nondefault tuning and fresh recovery against the matching installed SDK.
+The final ZIP acceptance exports Gallery23 and verifies its source-free startup.
+These gates do not claim physical GPU acceptance or a new ZIP before CI succeeds.

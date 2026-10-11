@@ -111,8 +111,9 @@ int main(int argc, char** argv) {
                     io.AddKeyEvent(k, false);
                     frame();
                 };
-                auto numeric = [&](const char* field, const char* text) {
-                    click(std::string("component-field:forge.physics_joint:") + field);
+                auto numeric = [&](const char* field, const char* text,
+                                   const char* component = "forge.physics_joint") {
+                    click(std::string("component-field:") + component + ":" + field);
                     io.AddKeyEvent(ImGuiMod_Ctrl, true);
                     key(ImGuiKey_A);
                     io.AddKeyEvent(ImGuiMod_Ctrl, false);
@@ -228,10 +229,33 @@ int main(int argc, char** argv) {
                 require(scene.entity(selected).get<PhysicsBody>().motion == 1 &&
                             scene.entity(selected).get<PhysicsBody>().continuous_collision,
                         "Changing body mode discarded its stored CCD choice");
+                for (const auto& [field, text] : {std::pair{"linear_damping", "2"},
+                                                  {"angular_damping", "3"},
+                                                  {"max_linear_velocity", "4"},
+                                                  {"max_angular_velocity", "90"}}) {
+                    const auto before = scene.entity(selected).get<PhysicsBody>();
+                    numeric(field, text, "forge.physics_body");
+                    const auto changed = scene.entity(selected).get<PhysicsBody>();
+                    require(changed != before, "Actual body tuning widget did not commit");
+                    require(scene.undo() && scene.entity(selected).get<PhysicsBody>() == before,
+                            "Body tuning widget Undo failed");
+                    require(scene.redo() && scene.entity(selected).get<PhysicsBody>() == changed,
+                            "Body tuning widget Redo failed");
+                }
+                click("component-field:forge.physics_body:allow_sleeping");
+                const auto tuning = scene.entity(selected).get<PhysicsBody>();
+                require(tuning.linear_damping == 2 && tuning.angular_damping == 3 &&
+                            tuning.max_linear_velocity == 4 && tuning.max_angular_velocity == 90 &&
+                            !tuning.allow_sleeping && tuning.motion == 1,
+                        "Inspector tuning lost numeric values, sleep policy or inactive mode");
+                require(scene.undo() && scene.entity(selected).get<PhysicsBody>().allow_sleeping,
+                        "Sleeping checkbox Undo failed");
+                require(scene.redo() && !scene.entity(selected).get<PhysicsBody>().allow_sleeping,
+                        "Sleeping checkbox Redo failed");
                 scene.save(root / "joint.scene.json");
                 saved.load(root / "joint.scene.json");
-                require(saved.entity(selected).get<PhysicsBody>().continuous_collision,
-                        "Save/reopen lost the inactive continuous-collision choice");
+                require(saved.entity(selected).get<PhysicsBody>() == tuning,
+                        "Save/reopen lost inactive body tuning or continuous-collision choices");
                 bool solver_absent = false;
                 try {
                     (void)engine.services().physics();

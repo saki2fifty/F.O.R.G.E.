@@ -83,12 +83,44 @@ def verify(runtime, project, env=None):
             assert abs(lv['Force - 1 kg']['forge.local_translation']['y'] - position) < 2e-5
             assert abs(2 * lv['Force - 2 kg']['forge.local_translation']['y'] -
                        lv['Force - 1 kg']['forge.local_translation']['y']) < 2e-5
+        # The same actual compiled systems must consume authored tuning too.
+        # This changes only an unpublished copied scene, not example source.
+        tuned = json.loads(authored_bytes)
+        for row in tuned['entities']:
+            if 'project.body_loads' in row['components']:
+                row['components']['forge.physics_body'].update(linear_damping=2.,
+                    angular_damping=3., max_linear_velocity=.05,
+                    max_angular_velocity=30., allow_sleeping=False)
+        a.request('replace', scene=tuned)
+        first = a.request('step')
+        tv = values(first)
+        ld, ad, angular_cap = 1 - 2 * dt, 1 - 3 * dt, math.pi / 6
+        for name, speed in [('Force - 1 kg', min(.05, 6 * dt * ld)),
+                            ('Force - 2 kg', min(.05, 3 * dt * ld)),
+                            ('Impulse - 1 kg', .05 * ld)]:
+            assert abs(tv[name]['forge.local_translation']['y'] - speed * dt) < 1e-6, tv[name]
+        for name, speed in [('Torque - 1 kg', min(angular_cap, 6 * dt * ad)),
+                            ('Angular impulse - 1 kg', angular_cap * ad),
+                            ('Off-center impulse - 1 kg', angular_cap * ad)]:
+            assert abs(tv[name]['forge.local_rotation']['z'] - math.sin(speed * dt / 2)) < 1e-6
+        for _ in range(29):
+            tuned_state = a.request('step')
+        checkpoint = tuned_state['recovery']
+        b.request('replace', scene=tuned_state['scene'], recovery=checkpoint,
+            recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
+        for _ in range(12):
+            lv, rv = values(a.request('step')), values(b.request('step'))
+            for name in lv:
+                assert lv[name]['forge.physics_body'] == rv[name]['forge.physics_body']
+                for component in ('forge.local_translation', 'forge.local_rotation'):
+                    for field, value in lv[name][component].items():
+                        assert abs(value - rv[name][component][field]) < 2e-6
         assert authored_path.read_bytes() == authored_bytes, 'Play/recovery wrote authored source'
     finally:
         a.close()
         b.close()
     print('Compiled C++ loads example: independent equations, mass comparison, one-shot recovery, '
-          'timed force and unchanged authored scene passed')
+          'timed force, authored tuning and unchanged authored scene passed')
 
 
 if __name__ == '__main__':
