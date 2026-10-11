@@ -305,7 +305,7 @@ void lifecycle_and_recovery() {
     f.tick();
     auto snapshot = f.scene.snapshot();
     auto checkpoint = f.physics->checkpoint();
-    require(checkpoint.at("version") == 2, "Joint recovery envelope version");
+    require(checkpoint.at("version") == 3, "Joint recovery envelope version");
     require(checkpoint.at("joints").at(0).at("entity") == Json(f.ref("j3")),
             "Native swapped index order was lost");
     Fixture restored;
@@ -457,6 +457,8 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
             f.entity("b").set<LocalScale>({-1, 2, .75f});
             f.physics->teleport(f.ref("b"), {.3, 3, .15}, {}, true);
             for (unsigned tick = 0; tick < 120; ++tick) {
+                if (tick % 20 == 0)
+                    f.physics->add_force(f.ref("b"), {0, 0, .1});
                 f.tick();
                 const auto anchor = point(f, "b", {.3f, .5f, -.2f});
                 require(distance(point(f, "a"), anchor) < .04,
@@ -491,6 +493,39 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
         f.tick();
         require(f.physics->status().at("joints") == 1,
                 "Default discrete mode failed to preserve mirrored collision asset");
+        // Exercise real prepared signed geometry and its offset center of mass.
+        // The impulse at COM must translate without spinning; body origin is
+        // .7m to the right of COM after the negative-X scale, so it adds +Z torque.
+        f.entity("j").remove<PhysicsJoint>();
+        body.gravity_factor = 0;
+        body.mass = 2;
+        f.entity("b").set<PhysicsBody>(body);
+        for (unsigned application = 0; application < 3; ++application) {
+            f.physics->teleport(f.ref("b"), {.3, 3, .15}, {}, true);
+            f.tick();
+            const auto initial_com = point(f, "b", {.7, 0, 0});
+            if (application == 0)
+                f.physics->add_impulse(f.ref("b"), {0, .3, 0});
+            else if (application == 1)
+                f.physics->add_impulse(
+                    f.ref("b"), {0, .3, 0},
+                    LocalTranslation{initial_com[0], initial_com[1], initial_com[2]});
+            else
+                f.physics->add_impulse(f.ref("b"), {0, .3, 0}, LocalTranslation{.3, 3, .15});
+            f.tick();
+            const auto com = point(f, "b", {.7, 0, 0});
+            const auto q = f.entity("b").get<LocalRotation>();
+            const double dt = double(1.f / 60), damping = 1 - .05 * dt;
+            require(std::abs(com[1] - initial_com[1] - .3 / 2 * damping * dt) < 1e-6 &&
+                        std::abs(com[0] - initial_com[0]) < 1e-6 &&
+                        std::abs(com[2] - initial_com[2]) < 1e-6,
+                    "Offset signed collider impulse failed actual COM translation");
+            const double inertia = 2. / 12 * (.3 * .3 + .6 * .6);
+            const double angle = application == 2 ? .7 * .3 / inertia * damping * dt : 0;
+            require(std::abs(q.z - std::sin(angle * .5)) < 1e-6 &&
+                        std::abs(q.w - std::cos(angle * .5)) < 1e-6,
+                    "World point impulse used body origin in place of offset scaled COM/inertia");
+        }
     }
     require(std::filesystem::remove_all(root) > 0, "Offset fixture cleanup failed");
 }

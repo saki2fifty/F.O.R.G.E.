@@ -26,7 +26,36 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as work:
   assert character['components']['forge.local_translation']['x']>3.03,character
   cube=next(e for e in r['scene']['entities'] if e['name']=='Cube')
   assert cube['components']['forge.physics_body']['friction']==.75
+  position=cube['components']['forge.local_translation']
+  assert .015<position['x']<.018 and .0009<position['z']<.0011,position
+  rotation=cube['components']['forge.local_rotation']
+  assert rotation['x']>.002 and rotation['z']>.00002,rotation
+  # PostPhysics queues all four kinds for the following fixed step and private
+  # recovery must preserve that pending intent, not only already integrated pose.
+  saved=r
+  commands=saved['recovery']['physics']['commands']
+  assert [c['kind'] for c in commands]==[2,3,4,5],commands
+  dt=1/60;damping=1-.05*dt;velocity=0;expected=5
+  for tick in range(4):
+   velocity=(velocity-9.81*dt+(60*dt+.1)/1000*(tick>0))*damping;expected+=velocity*dt
+  assert abs(position['y']-expected)<1e-6,(position,expected)
+  trajectory=[request('step')['scene'] for _ in range(12)]
+  request('quit');assert p.wait(timeout=10)==0
+  p=subprocess.Popen([runtime,'--sdk-project',root],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+  session='';sequence=0;request('hello')
+  checkpoint=saved['recovery']
+  recovered=request('replace',scene=saved['scene'],recovery=checkpoint,
+                    recovery_session=checkpoint['session'],recovery_tick=checkpoint['tick'])
+  assert recovered['timing']['paused'] and recovered['timing']['tick']==4,recovered
+  for expected_scene in trajectory:
+   result=request('step')['scene']
+   expected_entities={e['name']:e for e in expected_scene['entities']}
+   for e in result['entities']:
+    for component in ('forge.local_translation','forge.local_rotation'):
+     if component in e['components']:
+      for field,value in e['components'][component].items():
+       assert abs(value-expected_entities[e['name']]['components'][component][field])<1e-6,(e,component,field)
   request('quit');assert p.wait(timeout=10)==0
  finally:
   if p.poll() is None:p.kill();p.wait()
-print('Shared Flecs SDK physics schema, fixed tick, input coexistence, capability and raycast passed')
+print('Shared Flecs SDK physics schema, numerical loads, fixed/owner guards, input coexistence and raycast passed')

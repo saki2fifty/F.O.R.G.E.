@@ -1,0 +1,484 @@
+{
+  "asset_id": "dd522114-c77f-4172-8c67-00cd349ac39c",
+  "version": 3,
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05000000074505806,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975803375244,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -25.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a31eb5e1-bddb-41bf-afc7-18a2c400b3e1",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981852531433,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a8211051-036d-498e-bf78-b3a7b168c12b",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15000000596046448,
+          "g": 0.75,
+          "b": 0.949999988079071
+        },
+        "project.body_loads": {
+          "kind": 0,
+          "x": 0.0,
+          "y": 6.0,
+          "z": 0.0,
+          "duration": 2.0,
+          "at_point": false,
+          "offset_x": 1.0,
+          "offset_y": 0.0,
+          "offset_z": 0.0,
+          "elapsed": 0.0,
+          "triggered": false,
+          "$forge": {
+            "format": "forge.authored-component",
+            "version": 1,
+            "module": "project.gameplay",
+            "schema_version": 1,
+            "digest": "d2c89195b54510ee5eedab801130fed9770c9edc559d40fff3dfe8dc098bca81"
+          }
+        }
+      },
+      "id": "fcce4d05-fe62-47d0-b1fc-c3c70c125e8a",
+      "name": "Force - 1 kg",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 2,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15000000596046448,
+          "g": 0.75,
+          "b": 0.949999988079071
+        },
+        "project.body_loads": {
+          "kind": 0,
+          "x": 0.0,
+          "y": 6.0,
+          "z": 0.0,
+          "duration": 2.0,
+          "at_point": false,
+          "offset_x": 1.0,
+          "offset_y": 0.0,
+          "offset_z": 0.0,
+          "elapsed": 0.0,
+          "triggered": false,
+          "$forge": {
+            "format": "forge.authored-component",
+            "version": 1,
+            "module": "project.gameplay",
+            "schema_version": 1,
+            "digest": "d2c89195b54510ee5eedab801130fed9770c9edc559d40fff3dfe8dc098bca81"
+          }
+        }
+      },
+      "id": "aa6efbef-6b43-4e5c-b407-121efc69ed4f",
+      "name": "Force - 2 kg",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15000000596046448,
+          "g": 0.75,
+          "b": 0.949999988079071
+        },
+        "project.body_loads": {
+          "kind": 1,
+          "x": 0.0,
+          "y": 6.0,
+          "z": 0.0,
+          "duration": 2.0,
+          "at_point": false,
+          "offset_x": 1.0,
+          "offset_y": 0.0,
+          "offset_z": 0.0,
+          "elapsed": 0.0,
+          "triggered": false,
+          "$forge": {
+            "format": "forge.authored-component",
+            "version": 1,
+            "module": "project.gameplay",
+            "schema_version": 1,
+            "digest": "d2c89195b54510ee5eedab801130fed9770c9edc559d40fff3dfe8dc098bca81"
+          }
+        }
+      },
+      "id": "fcec81a3-2c7f-4ed0-aefc-eea713b11209",
+      "name": "Impulse - 1 kg",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15000000596046448,
+          "g": 0.75,
+          "b": 0.949999988079071
+        },
+        "project.body_loads": {
+          "kind": 2,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0,
+          "duration": 2.0,
+          "at_point": false,
+          "offset_x": 1.0,
+          "offset_y": 0.0,
+          "offset_z": 0.0,
+          "elapsed": 0.0,
+          "triggered": false,
+          "$forge": {
+            "format": "forge.authored-component",
+            "version": 1,
+            "module": "project.gameplay",
+            "schema_version": 1,
+            "digest": "d2c89195b54510ee5eedab801130fed9770c9edc559d40fff3dfe8dc098bca81"
+          }
+        }
+      },
+      "id": "b67d2e71-4d6f-490d-a128-b2e054098faa",
+      "name": "Torque - 1 kg",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15000000596046448,
+          "g": 0.75,
+          "b": 0.949999988079071
+        },
+        "project.body_loads": {
+          "kind": 3,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0,
+          "duration": 2.0,
+          "at_point": false,
+          "offset_x": 1.0,
+          "offset_y": 0.0,
+          "offset_z": 0.0,
+          "elapsed": 0.0,
+          "triggered": false,
+          "$forge": {
+            "format": "forge.authored-component",
+            "version": 1,
+            "module": "project.gameplay",
+            "schema_version": 1,
+            "digest": "d2c89195b54510ee5eedab801130fed9770c9edc559d40fff3dfe8dc098bca81"
+          }
+        }
+      },
+      "id": "69486f24-2d70-4e18-8232-50e15b421915",
+      "name": "Angular impulse - 1 kg",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 7.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15000000596046448,
+          "g": 0.75,
+          "b": 0.949999988079071
+        },
+        "project.body_loads": {
+          "kind": 1,
+          "x": 0.0,
+          "y": 6.0,
+          "z": 0.0,
+          "duration": 2.0,
+          "at_point": true,
+          "offset_x": 1.0,
+          "offset_y": 0.0,
+          "offset_z": 0.0,
+          "elapsed": 0.0,
+          "triggered": false,
+          "$forge": {
+            "format": "forge.authored-component",
+            "version": 1,
+            "module": "project.gameplay",
+            "schema_version": 1,
+            "digest": "d2c89195b54510ee5eedab801130fed9770c9edc559d40fff3dfe8dc098bca81"
+          }
+        }
+      },
+      "id": "52326bf1-ca6e-4867-85e4-e982d3727e7a",
+      "name": "Off-center impulse - 1 kg",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ]
+}

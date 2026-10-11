@@ -25,7 +25,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
     flecs::world w(host->world);
     w.system<const forge::PhysicsBody>()
         .kind(host->fixed_phase)
-        .each([](flecs::entity e, const forge::PhysicsBody& old) {
+        .each([host](flecs::entity e, const forge::PhysicsBody& old) {
             if (old.motion != 2)
                 return;
             auto next = old;
@@ -33,6 +33,36 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             e.set<forge::PhysicsBody>(next);
             e.remove<forge::BoxCollider>();
             e.set<forge::BoxCollider>({1, 1, 1});
+            ForgeSdkEntityRefV1 ref{};
+            ref.size = sizeof(ref);
+            if (host->entity_reference(host->context, e.id(), &ref) != 1)
+                throw std::runtime_error("SDK physics body reference failed");
+            const double force[] = {6000, 0, 0}, impulse[] = {0, 0, 6}, torque[] = {0, 0, 6},
+                         angular[] = {6, 0, 0}, point[] = {0, 0, 0};
+            if (host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_FORCE, force, nullptr) != 1 ||
+                host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_IMPULSE, impulse, nullptr) != 1 ||
+                host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_TORQUE, torque, nullptr) != 1 ||
+                host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_ANGULAR_IMPULSE, angular, nullptr) != 1)
+                throw std::runtime_error("SDK physics load was not queued");
+            if (host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid, 4, force,
+                                    nullptr) != 0 ||
+                host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_FORCE, nullptr, nullptr) != 0 ||
+                host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_TORQUE, torque, point) != 0)
+                throw std::runtime_error("SDK accepted invalid physics load arguments");
+            int foreign = -1;
+            std::thread other([&] {
+                foreign = host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                              FORGE_SDK_PHYSICS_FORCE, force, nullptr);
+            });
+            other.join();
+            if (foreign != 0)
+                throw std::runtime_error("SDK accepted foreign-thread physics load");
         })
         .add(host->fixed_tag);
     w.system<const forge::PhysicsBody>()
@@ -52,6 +82,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 throw std::runtime_error("SDK raycast failed");
             if (!hit.entity[0] || !hit.scene[0])
                 throw std::runtime_error("SDK raycast identity absent");
+            const double force[] = {0, 60, 0}, impulse[] = {0, .1, 0}, torque[] = {0, 0, .01},
+                         angular[] = {0, .01, 0};
+            for (const auto& load : {std::pair{FORGE_SDK_PHYSICS_FORCE, force},
+                                     std::pair{FORGE_SDK_PHYSICS_IMPULSE, impulse},
+                                     std::pair{FORGE_SDK_PHYSICS_TORQUE, torque},
+                                     std::pair{FORGE_SDK_PHYSICS_ANGULAR_IMPULSE, angular}})
+                if (host->physics_apply(host->context, hit.scene, hit.entity, load.first,
+                                        load.second, nullptr) != 1)
+                    throw std::runtime_error("SDK rejected next-tick PostPhysics load");
             host->diagnostic(host->context, 1, "Physics SDK raycast succeeded");
         })
         .add(host->fixed_tag);
@@ -108,6 +147,27 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
         .add(host->fixed_tag);
     return 1;
 }
+int32_t FORGE_SDK_CALL ready(const ForgeSdkWorldV1* host, char* error, uint32_t capacity) {
+    try {
+        flecs::world world(host->world);
+        world.each<const forge::PhysicsBody>([host](flecs::entity entity, const auto& body) {
+            if (body.motion != 2 || !body.enabled)
+                return;
+            ForgeSdkEntityRefV1 ref{};
+            ref.size = sizeof(ref);
+            const double force[] = {0, 1, 0};
+            if (host->entity_reference(host->context, entity.id(), &ref) != 1 ||
+                host->physics_apply(host->context, ref.scene_uuid, ref.entity_uuid,
+                                    FORGE_SDK_PHYSICS_FORCE, force, nullptr) != 0)
+                throw std::runtime_error("SDK accepted physics load outside a fixed tick");
+        });
+        return 1;
+    } catch (const std::exception& e) {
+        if (capacity)
+            std::snprintf(error, capacity, "%s", e.what());
+        return 0;
+    }
+}
 const char* dependencies[] = {"forge.physics", "forge.input"};
 const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
                               FORGE_NATIVE_SDK_ABI,
@@ -124,7 +184,10 @@ const ForgeNativeSdkV1 api = {sizeof(ForgeNativeSdkV1),
                               &ecs_os_api,
                               schemas,
                               start,
-                              nullptr};
+                              nullptr,
+                              nullptr,
+                              nullptr,
+                              ready};
 } // namespace
 extern "C" FORGE_SDK_EXPORT const ForgeNativeSdkV1* FORGE_SDK_CALL forge_native_sdk_v1() {
     return &api;

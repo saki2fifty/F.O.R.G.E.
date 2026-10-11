@@ -14,8 +14,10 @@ void require(bool value, const std::string& message) {
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need joint Inspector scratch root");
+        const auto scratch = std::filesystem::absolute(argv[1]);
+        std::filesystem::create_directories(scratch);
         for (float scale : {.65f, 1.f, 2.f}) {
-            const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
+            const auto root = scratch / AssetId::generate().str();
             SceneDocument::create_project(root, "Joint Inspector test");
             {
                 EngineContext engine;

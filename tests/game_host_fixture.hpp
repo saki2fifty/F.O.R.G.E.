@@ -12,7 +12,7 @@ struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
-         expect_module = false;
+         expect_module = false, loads = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -65,7 +65,9 @@ struct GameHostFixture {
             reference && (std::string_view(argv[1]) == "--reference-error" || reference_missing);
         reference_reopen = reference && std::string_view(argv[1]) == "--reference-load";
         mixed = argc == 3 && std::string_view(argv[1]) == "--packaged-mixed";
-        packaged = reference || mixed || (argc == 3 && std::string_view(argv[1]) == "--packaged");
+        loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
+        packaged =
+            reference || mixed || loads || (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
             throw std::runtime_error("Game fixture requires output directory");
@@ -205,6 +207,39 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (loads) {
+            if (game.status().at("clock").at("tick").get<unsigned>() < 30)
+                return;
+            Json proof = Json::object();
+            const auto scene = game.active().scene.snapshot();
+            for (const auto& entity : scene.at("entities"))
+                if (entity.at("components").contains("project.body_loads"))
+                    proof[entity.at("name").get<std::string>()] = entity.at("components");
+            check(proof.size() == 6, "Packaged C++ loads example missing actors");
+            const double force = proof.at("Force - 1 kg").at("forge.local_translation").at("y"),
+                         heavy = proof.at("Force - 2 kg").at("forge.local_translation").at("y"),
+                         impulse = proof.at("Impulse - 1 kg").at("forge.local_translation").at("y");
+            check(force > .7 && impulse > 2 && std::abs(force - 2 * heavy) < 1e-4,
+                  "Exported C++ force/impulse or mass comparison did not run");
+            const auto previous = game.active().simulation.presentation(0);
+            for (const auto& row : previous.at("entities")) {
+                const auto name = row.at("name").get<std::string>();
+                if (name != "Torque - 1 kg" && name != "Angular impulse - 1 kg" &&
+                    name != "Off-center impulse - 1 kg")
+                    continue;
+                const auto current = game.active().scene.entity(row.at("id")).get<WorldTransform>();
+                double change = 0;
+                for (unsigned i : {0u, 1u, 2u, 4u, 5u, 6u, 8u, 9u, 10u})
+                    change +=
+                        std::abs(row.at("world_affine").at(i).get<double>() - current.affine.m[i]);
+                check(change > .0001,
+                      "Exported C++ angular load did not rotate between fixed samples");
+            }
+            atomic_write(output / "physics-loads-result.json", proof.dump(2));
+            capture("physics-loads-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (stage == 0) {
             Json proof = {{"module_required", expect_module},
                           {"module_ticked", false},

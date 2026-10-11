@@ -39,6 +39,44 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     tools = root/'bin/forge_tools.exe'
+    # Execute the delivered C++ example, then export it with the existing exact
+    # shared runtime/module-kit path and a separately inventoried test observer.
+    from physics_loads_example_test import verify
+    loads = root / 'C++ Loads Copy'
+    shutil.copytree(root / 'Examples/PhysicsLoads', loads)
+    verify(root / 'NativeSdk/bin/forge_runtime.exe', loads, env)
+    loads_settings = json.loads((loads / 'forge.project.json').read_text())
+    module, = loads_settings['modules']
+    loads_kit = root / 'Loads Test Runtime Kit'
+    shutil.copytree(root / 'runtime-kits/shared-native-sdk', loads_kit)
+    observer = Path(sys.argv[2]).resolve()
+    observer_data = observer.read_bytes()
+    shutil.copyfile(observer, loads_kit / 'forge_game_fixture.exe')
+    kit_metadata = json.loads((loads_kit / 'forge.runtime-kit.json').read_text())
+    kit_metadata['files']['forge_game_fixture.exe'] = dict(bytes=len(observer_data),
+        sha256=hashlib.sha256(observer_data).hexdigest())
+    (loads_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
+    loads_export = root / 'Exported C++ Physics Loads'
+    loads_options = dict(destination=str(loads_export), runtime_kit=str(loads_kit),
+        module_kits={'project.gameplay': str((loads / module['library']).parent)})
+    exported = subprocess.run([str(tools), '--assets', 'export-game', str(loads),
+        json.dumps(loads_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
+    assert exported.returncode == 0 and json.loads(exported.stdout)['ok'], (exported.stdout, exported.stderr)
+    shutil.rmtree(loads)
+    shutil.rmtree(loads_kit)
+    loads_manifest = json.loads((loads_export / 'forge.standalone.json').read_text())
+    assert not list(loads_export.rglob('*.cpp')) and not list(loads_export.rglob('*.hpp'))
+    evidence = Path(sys.argv[3]).resolve()
+    evidence.mkdir(parents=True, exist_ok=True)
+    for executable, arguments, log in (
+        ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
+        ('forge_game_fixture.exe', ['--packaged-loads', str(evidence)], 'capture-host.log')):
+        result = subprocess.run([str(loads_export / executable), *arguments], cwd=loads_export,
+            env=env, text=True, capture_output=True, timeout=180)
+        (evidence / log).write_text(result.stdout + '\n' + result.stderr)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+    assert len(json.loads((evidence / 'physics-loads-result.json').read_text())) == 6
     # The user-facing gallery is a normal editable project. Copy it before export,
     # just as the manual instructs, so package hashes remain immutable.
     gallery = root/'Gallery Copy'

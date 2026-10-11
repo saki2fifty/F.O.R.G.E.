@@ -284,3 +284,17 @@ native modules with the matching SDK because PhysicsBody's public layout changes
 
 Automated local and Windows delivery evidence is tracked separately from physical
 desktop acceptance. These notes do not claim a newly verified Windows ZIP.
+## C++ body forces and impulses
+
+PhysicsService and the exact SDK add one-step force, impulse, torque and angular
+impulse commands through the existing ordered body queue. Optional world points
+use actual native center of mass and inertia. Shared bounds, Dynamic-role checks,
+zero-vector sleep preservation, preflight, movement ordering and queued private
+recovery are included. Private physics recovery deliberately advances to version3;
+ABI1 and authored formats remain unchanged. Exact SDK modules require rebuilds.
+
+The ordinary PhysicsLoads example uses reflected C++ Components and a fixed
+System, with six cubes for mass response, one-shot kicks, spin and off-center
+pushes. Packaging builds the matching module; exported games use compiled code.
+Numerical, compiled module, sanitizer, Windows capture/export and physical
+acceptance evidence remain distinct. This entry does not claim a new verified ZIP.

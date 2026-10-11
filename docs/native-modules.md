@@ -41,6 +41,12 @@ values, including prefab intent, scene persistence and Undo/Redo.
 
 ## Build and source identity
 
+`forge_tools --assets code-identity PROJECT SDK_FINGERPRINT` exposes the existing
+managed C++ source/build identity for packaging consumers. It reads bounded saved
+Native inputs and returns `source_identity`; it does not compile or load code.
+The packaged PhysicsLoads example uses this same owner when preparing its exact
+SDK module declaration. Native/Builds deployment is excluded from source inputs.
+
 `SdkBuild` is the single managed compiler task. It uses the installed matching
 SDK, selected CMake/Ninja/MSVC environment, incremental CMake build directory,
 isolated metadata inspection and immutable candidate deployment. A failed or

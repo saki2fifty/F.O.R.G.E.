@@ -25,6 +25,10 @@ typedef struct ecs_world_t ecs_world_t;
 /* Requirement marker only: headless composition does not supply rendering. */
 #define FORGE_SDK_RENDERING 4u
 #define FORGE_SDK_PHYSICS 8u
+#define FORGE_SDK_PHYSICS_FORCE 0u
+#define FORGE_SDK_PHYSICS_IMPULSE 1u
+#define FORGE_SDK_PHYSICS_TORQUE 2u
+#define FORGE_SDK_PHYSICS_ANGULAR_IMPULSE 3u
 #define FORGE_SDK_AUDIO 16u
 #define FORGE_SDK_NAVIGATION 32u
 #define FORGE_SDK_UI 64u
@@ -268,6 +272,13 @@ typedef struct ForgeSdkWorldV1 {
        Ordinary pending component selection takes precedence at synchronization. */
     int32_t(FORGE_SDK_CALL* animation_control)(void*, const char* scene, const char* entity,
                                                uint32_t operation);
+    /* Fixed owner thread. One-step world load on enabled Dynamic Body.
+       kind: FORCE(N), IMPULSE(N*s), TORQUE(N*m), ANGULAR_IMPULSE(N*m*s).
+       vector components finite, +/-1e6. Optional absolute world point for Force/
+       Impulse only; NULL means center of mass. 1 queued,0 invalid/unavailable. */
+    int32_t(FORGE_SDK_CALL* physics_apply)(void*, const char* scene, const char* entity,
+                                           uint32_t kind, const double vector[3],
+                                           const double* world_point);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

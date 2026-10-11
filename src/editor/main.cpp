@@ -3406,6 +3406,12 @@ int main(int argc, char** argv) {
                     scene.entity(fixture.joint_entity).set<forge::PhysicsJoint>(joint);
                     physics_overlay.joint_visible = true;
                     workspace.inspector = false;
+                    // Put the actual Scene in front of earlier floating documents.
+                    // A hidden draw/status is not native visual acceptance.
+                    if (auto* w = ImGui::FindWindowByName("###Scene"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("###Scene", {30, 55});
+                    ImGui::SetWindowSize("###Scene", {1860, 990});
                     scene_tools.move_tool = false;
                     camera.target = {0, 1.5f, 0};
                     camera.yaw = .35f;

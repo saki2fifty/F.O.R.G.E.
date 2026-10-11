@@ -43,6 +43,15 @@ class PhysicsService : public CharacterService {
     virtual bool release_collision_asset(std::uint64_t) = 0;
     virtual void teleport(EntityRef, LocalTranslation, LocalRotation, bool clear_velocity) = 0;
     virtual void move_kinematic(EntityRef, LocalTranslation, LocalRotation) = 0;
+    // World-space loads, queued in body-command order for one positive fixed tick.
+    // Force/torque: N / N*m. Impulse/angular impulse: N*s / N*m*s.
+    // Optional point is an absolute world position; omission means center of mass.
+    virtual void add_force(EntityRef, Double3,
+                           std::optional<LocalTranslation> world_point = {}) = 0;
+    virtual void add_impulse(EntityRef, Double3,
+                             std::optional<LocalTranslation> world_point = {}) = 0;
+    virtual void add_torque(EntityRef, Double3) = 0;
+    virtual void add_angular_impulse(EntityRef, Double3) = 0;
     virtual const std::vector<PhysicsContact>& contacts() const = 0;
 };
 } // namespace forge

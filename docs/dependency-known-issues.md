@@ -163,3 +163,14 @@ or suppressed by this patch. DXC shadow includes retain the same two upstream
 PCF comment-format warnings. The deliberately unpatched differential-reference
 shader retains its original X4000; production patched functions do not.
 Package publication remains subject to the separate complete delivery gate.
+## Body loads — pinned Jolt5.6.0
+
+At `e77f175595e64cb44218cc9d9d56fc365ad0e36a`, BodyInterface's AddForce,
+AddImpulse, AddTorque and AddAngularImpulse act on Dynamic bodies and activate
+them. Point variants use native COM/inertia. FORGE validates target roles and
+bounded copied values before calling these APIs, skips zero vectors to preserve
+sleep, and integrates queued force/torque at the next positive fixed step. Native
+damping, speed limits and solver behavior still apply; admission is not a promise
+of unbounded velocity or exact analytical behavior at every configuration.
+No vendor patch or dependency upgrade. Independent low-speed mass/dt/inertia and
+actual cooked signed-offset COM fixtures exercise the selected revision.

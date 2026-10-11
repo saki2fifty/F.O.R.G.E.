@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "name": "FORGE C++ Physics Loads",
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "dd522114-c77f-4172-8c67-00cd349ac39c",
+    "source": "Scenes/body-loads.scene.json"
+  },
+  "input": {
+    "version": 1,
+    "actions": []
+  },
+  "modules": [],
+  "game": {
+    "version": 1,
+    "application_id": "org.forge.physics-loads",
+    "title": "FORGE C++ Physics Loads",
+    "profile": "development",
+    "save_schema": 1,
+    "display": {
+      "mode": "windowed",
+      "width": 1280,
+      "height": 720,
+      "display": 0,
+      "vsync": false
+    },
+    "audio": {
+      "master_volume": 1.0
+    },
+    "input": {
+      "mouse_sensitivity": 1.0,
+      "gamepad_sensitivity": 1.0,
+      "invert_mouse_y": false,
+      "invert_gamepad_y": false,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    }
+  }
+}

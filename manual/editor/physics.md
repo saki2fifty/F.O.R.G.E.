@@ -16,6 +16,12 @@ Duplicate the falling cube and move the copy sideways to test several bodies. Yo
 
 ## Body motion
 
+C++ Project Code can push Dynamic bodies with forces and impulses and rotate them
+with torque or angular impulses. A force acts during one simulation step; repeat
+it for thrust. An impulse is a single kick. An off-center push can also spin the
+object. The solver owns the resulting movement, mass response and collisions.
+See the packaged [C++ Physics Loads example](../samples/physics-loads.md).
+
 **Static** uses the authored transform and ignores gravity. Use it for floors and walls.
 
 **Kinematic** follows a target supplied by gameplay. It can push dynamic objects. Merely choosing Kinematic does not add a movement controller.
@@ -69,7 +75,7 @@ A supported Play recovery restores both the scene/configuration and Jolt's simul
 
 Recovery is private to the current session and exact runtime build. It is not a saved game. Invalid, incompatible, incomplete, or oversized checkpoints are rejected; the editor reports failure and offers a clean Play restart. Native module globals and external resources are not automatically recovered.
 
-Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Character mechanics and selected collision outlines are described below; joints, vehicles and cloth are later work.
+Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Character mechanics, joints and selected collision outlines are described below; vehicles and cloth are later work.
 
 See [Play mode](play-mode.md), [Transforms](transforms.md), and [Prefabs](prefabs.md).
 

@@ -680,13 +680,43 @@ struct PhysicsRuntime::Impl {
         character_commands.push_back(std::move(command));
     }
 
+    enum class CommandKind : std::uint32_t {
+        Teleport,
+        Kinematic,
+        Force,
+        Impulse,
+        Torque,
+        AngularImpulse
+    };
     struct Command {
         EntityRef ref;
         LocalTranslation p;
         LocalRotation q;
-        bool teleport, clear;
+        CommandKind kind;
+        bool clear = false, at_point = false;
+        Double3 value{};
     };
     std::vector<Command> commands;
+    void queue_effect(EntityRef ref, Double3 value, CommandKind kind,
+                      std::optional<LocalTranslation> point = {}) {
+        check();
+        for (auto v : value)
+            if (!std::isfinite(v) || std::abs(v) > 1000000)
+                throw std::runtime_error("Physics load must be finite and within +/-1000000");
+        if (point)
+            valid_position(*point);
+        const auto resolved = context.resolve(ref);
+        if (resolved.state != WorldContext::ResolveState::Available)
+            throw std::runtime_error("Physics load target is unavailable or ambiguous");
+        const auto entity = context.world().entity(resolved.entity);
+        if (!entity.has<PhysicsBody>() || !entity.get<PhysicsBody>().enabled ||
+            entity.get<PhysicsBody>().motion != 2)
+            throw std::runtime_error("Physics load requires an enabled Dynamic Body");
+        if (commands.size() >= 4096)
+            throw std::runtime_error("Physics command queue full");
+        commands.push_back(
+            {ref, point.value_or(LocalTranslation{}), {}, kind, false, point.has_value(), value});
+    }
     std::vector<std::uint64_t> snaps;
     std::vector<PhysicsContact> events;
     std::uint64_t tick = 0;
@@ -1187,6 +1217,8 @@ void PhysicsRuntime::validate_transform_candidate(
 void PhysicsRuntime::synchronize(float dt) {
     auto& s = *impl_;
     s.check();
+    if (!std::isfinite(dt) || dt < 0)
+        throw std::runtime_error("Physics synchronization requires finite nonnegative dt");
     if (!s.prepare_assets(true))
         throw std::runtime_error("Required collision assets are still preparing");
     const auto initial = s.desired();
@@ -1200,7 +1232,13 @@ void PhysicsRuntime::synchronize(float dt) {
             !initial.contains(resolved.entity))
             throw std::runtime_error("Physics command target was removed or is unresolved");
         const auto id = resolved.entity;
-        if (!cmd.teleport && (initial.at(id).first.body.motion != 1 || dt <= 0))
+        if (cmd.kind >= Impl::CommandKind::Force) {
+            if (initial.at(id).first.body.motion != 2 || dt <= 0)
+                throw std::runtime_error("Physics load requires a Dynamic Body and fixed tick");
+            continue;
+        }
+        if (cmd.kind == Impl::CommandKind::Kinematic &&
+            (initial.at(id).first.body.motion != 1 || dt <= 0))
             throw std::runtime_error("Kinematic target requires a Kinematic Body and fixed tick");
         const auto evaluated = evaluate_transforms(nodes);
         auto target = decompose(evaluated.at(id).affine, &nodes.at(id).local);
@@ -1263,7 +1301,9 @@ void PhysicsRuntime::synchronize(float dt) {
                 it->second.config.body.motion == config.body.motion && config.body.motion != 0;
             bool awake = api.IsActive(it->second.id);
             s.erase(it);
-            auto next = s.create(entity, config, pose, {}, prepared.at(entity));
+            auto next = s.create(entity, config,
+                                 commanded.contains(entity) ? initial.at(entity).second : pose, {},
+                                 prepared.at(entity));
             it = s.bodies.emplace(entity, std::move(next)).first;
             if (moving) {
                 api.SetLinearAndAngularVelocity(it->second.id, linear, angular);
@@ -1273,8 +1313,13 @@ void PhysicsRuntime::synchronize(float dt) {
             s.snaps.push_back(entity);
         }
         if (it == s.bodies.end()) {
-            it = s.bodies.emplace(entity, s.create(entity, config, pose, {}, prepared.at(entity)))
-                     .first;
+            it =
+                s.bodies
+                    .emplace(entity,
+                             s.create(entity, config,
+                                      commanded.contains(entity) ? initial.at(entity).second : pose,
+                                      {}, prepared.at(entity)))
+                    .first;
             s.snaps.push_back(entity);
         }
         it->second.last = pose;
@@ -1286,17 +1331,41 @@ void PhysicsRuntime::synchronize(float dt) {
             it->second.ref != cmd.ref)
             throw std::runtime_error("Physics command target was removed or is unresolved");
         auto& body = it->second;
-        if (cmd.teleport) {
+        if (cmd.kind == Impl::CommandKind::Teleport) {
             api.SetPositionAndRotation(body.id, position(cmd.p), rotation(cmd.q),
                                        JPH::EActivation::Activate);
             if (cmd.clear && body.config.body.motion != 0)
                 api.SetLinearAndAngularVelocity(body.id, JPH::Vec3::sZero(), JPH::Vec3::sZero());
             s.snaps.push_back(found.entity);
-        } else {
+        } else if (cmd.kind == Impl::CommandKind::Kinematic) {
             if (body.config.body.motion != 1 || dt <= 0)
                 throw std::runtime_error(
                     "Kinematic target requires a Kinematic Body and fixed tick");
             api.MoveKinematic(body.id, position(cmd.p), rotation(cmd.q), dt);
+        } else if (cmd.value != Double3{}) {
+            const JPH::Vec3 value(float(cmd.value[0]), float(cmd.value[1]), float(cmd.value[2]));
+            switch (cmd.kind) {
+            case Impl::CommandKind::Force:
+                if (cmd.at_point)
+                    api.AddForce(body.id, value, position(cmd.p));
+                else
+                    api.AddForce(body.id, value);
+                break;
+            case Impl::CommandKind::Impulse:
+                if (cmd.at_point)
+                    api.AddImpulse(body.id, value, position(cmd.p));
+                else
+                    api.AddImpulse(body.id, value);
+                break;
+            case Impl::CommandKind::Torque:
+                api.AddTorque(body.id, value);
+                break;
+            case Impl::CommandKind::AngularImpulse:
+                api.AddAngularImpulse(body.id, value);
+                break;
+            default:
+                throw std::logic_error("Invalid admitted physics load kind");
+            }
         }
     }
     // Resolve every body's final target after FIFO intent, independent of entity-ID order.
@@ -1512,7 +1581,7 @@ void PhysicsRuntime::teleport(EntityRef ref, LocalTranslation p, LocalRotation q
     q = normalized(q);
     if (impl_->commands.size() >= 4096)
         throw std::runtime_error("Physics command queue full");
-    impl_->commands.push_back({ref, p, q, true, clear});
+    impl_->commands.push_back({ref, p, q, Impl::CommandKind::Teleport, clear});
 }
 void PhysicsRuntime::move_kinematic(EntityRef ref, LocalTranslation p, LocalRotation q) {
     impl_->check();
@@ -1520,7 +1589,21 @@ void PhysicsRuntime::move_kinematic(EntityRef ref, LocalTranslation p, LocalRota
     q = normalized(q);
     if (impl_->commands.size() >= 4096)
         throw std::runtime_error("Physics command queue full");
-    impl_->commands.push_back({ref, p, q, false, false});
+    impl_->commands.push_back({ref, p, q, Impl::CommandKind::Kinematic});
+}
+void PhysicsRuntime::add_force(EntityRef ref, Double3 value,
+                               std::optional<LocalTranslation> point) {
+    impl_->queue_effect(ref, value, Impl::CommandKind::Force, point);
+}
+void PhysicsRuntime::add_impulse(EntityRef ref, Double3 value,
+                                 std::optional<LocalTranslation> point) {
+    impl_->queue_effect(ref, value, Impl::CommandKind::Impulse, point);
+}
+void PhysicsRuntime::add_torque(EntityRef ref, Double3 value) {
+    impl_->queue_effect(ref, value, Impl::CommandKind::Torque);
+}
+void PhysicsRuntime::add_angular_impulse(EntityRef ref, Double3 value) {
+    impl_->queue_effect(ref, value, Impl::CommandKind::AngularImpulse);
 }
 const std::vector<PhysicsContact>& PhysicsRuntime::contacts() const {
     impl_->check();
@@ -1676,7 +1759,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 2},
+    Json out = {{"version", 3},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -1726,8 +1809,10 @@ Json PhysicsRuntime::checkpoint() const {
         out["commands"].push_back({{"entity", c.ref},
                                    {"position", {c.p.x, c.p.y, c.p.z}},
                                    {"rotation", {c.q.x, c.q.y, c.q.z, c.q.w}},
-                                   {"teleport", c.teleport},
-                                   {"clear", c.clear}});
+                                   {"kind", static_cast<std::uint32_t>(c.kind)},
+                                   {"clear", c.clear},
+                                   {"at_point", c.at_point},
+                                   {"value", c.value}});
     out["integrity"] = digest(out.dump());
     if (out.dump().size() > 6 * 1024 * 1024)
         throw std::runtime_error("Physics checkpoint exceeds envelope limit");
@@ -1744,7 +1829,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 2 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 3 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -1849,6 +1934,10 @@ void PhysicsRuntime::restore(const Json& payload) {
         throw std::runtime_error("Invalid recovery command queue");
     std::vector<Impl::Command> commands;
     for (const auto& c : queued) {
+        for (const auto& [field, size] :
+             {std::pair{"position", 3u}, std::pair{"rotation", 4u}, std::pair{"value", 3u}})
+            if (!c.at(field).is_array() || c.at(field).size() != size)
+                throw std::runtime_error("Recovery physics command vector size mismatch");
         const auto p = c.at("position").get<std::array<double, 3>>();
         const auto q = c.at("rotation").get<std::array<float, 4>>();
         LocalTranslation translation{p[0], p[1], p[2]};
@@ -1858,8 +1947,30 @@ void PhysicsRuntime::restore(const Json& payload) {
         if (resolved.state != WorldContext::ResolveState::Available ||
             !desired.contains(resolved.entity))
             throw std::runtime_error("Recovery command target mismatch");
-        commands.push_back({ref, translation, normalized({q[0], q[1], q[2], q[3]}),
-                            c.at("teleport").get<bool>(), c.at("clear").get<bool>()});
+        if (!c.at("kind").is_number_unsigned())
+            throw std::runtime_error("Recovery physics command kind mismatch");
+        const auto kind_value = c.at("kind").get<std::uint64_t>();
+        if (kind_value > 5)
+            throw std::runtime_error("Recovery physics command kind mismatch");
+        const auto kind = static_cast<Impl::CommandKind>(kind_value);
+        const auto value = c.at("value").get<Double3>();
+        for (auto component : value)
+            if (!std::isfinite(component) || std::abs(component) > 1000000)
+                throw std::runtime_error("Recovery physics load outside bounds");
+        const bool clear = c.at("clear").get<bool>(), at_point = c.at("at_point").get<bool>();
+        const auto command_rotation = normalized({q[0], q[1], q[2], q[3]});
+        if ((kind >= Impl::CommandKind::Force &&
+             desired.at(resolved.entity).first.body.motion != 2) ||
+            (kind == Impl::CommandKind::Kinematic &&
+             desired.at(resolved.entity).first.body.motion != 1) ||
+            (clear && kind != Impl::CommandKind::Teleport) ||
+            (at_point && kind != Impl::CommandKind::Force && kind != Impl::CommandKind::Impulse) ||
+            (kind < Impl::CommandKind::Force && value != Double3{}) ||
+            (kind >= Impl::CommandKind::Force &&
+             (!equivalent(command_rotation, LocalRotation{}) ||
+              (!at_point && translation != LocalTranslation{}))))
+            throw std::runtime_error("Recovery physics command policy mismatch");
+        commands.push_back({ref, translation, command_rotation, kind, clear, at_point, value});
     }
     for (const auto& item : pending) {
         const auto& [c, p] = desired.at(item.entity);

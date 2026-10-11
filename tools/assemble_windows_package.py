@@ -25,7 +25,7 @@ def verified(files, manifest, manifest_name):
             raise ValueError('File hash mismatch: ' + name)
 
 
-def assemble(editor, sdk, output, runtime_kit, reference_game):
+def assemble(editor, sdk, output, runtime_kit, reference_game, physics_loads=None):
     files = {}
     with zipfile.ZipFile(editor) as archive:
         for entry in archive.infolist():
@@ -113,6 +113,34 @@ def assemble(editor, sdk, output, runtime_kit, reference_game):
             raise ValueError('Reference game namespace collision')
         files[target] = value
     manifest['reference_game'] = {'path': 'ReferenceGame', 'executable': 'forge_game.exe'}
+    if physics_loads:
+        root = Path(physics_loads)
+        paths = list(root.rglob('*'))
+        if root.is_symlink() or any(p.is_symlink() or not (p.is_file() or p.is_dir()) for p in paths):
+            raise ValueError('C++ loads example contains a nonregular entry')
+        example = {safe_name(p.relative_to(root).as_posix()): p.read_bytes()
+                   for p in paths if p.is_file()}
+        settings = json.loads(example['forge.project.json'])
+        module, = settings['modules']
+        expected = engine['sdk_fingerprint']
+        if module['id'] != 'project.gameplay' or module['fingerprint'] != expected:
+            raise ValueError('C++ example SDK mismatch')
+        directory = PurePosixPath(safe_name(module['library'])).parent
+        deployment = json.loads(example[str(directory / 'forge.module-kit.json')])
+        if deployment['fingerprint'] != expected or deployment['library'] != PurePosixPath(module['library']).name:
+            raise ValueError('C++ example deployment mismatch')
+        for name, record in deployment['files'].items():
+            data = example[str(directory / safe_name(name))]
+            if len(data) != record['bytes'] or hashlib.sha256(data).hexdigest() != record['sha256']:
+                raise ValueError('C++ example module hash mismatch: ' + name)
+        # Replace the uncompiled source example with the same ordinary project
+        # plus matching deployment and admitted component metadata.
+        prefix = 'Examples/PhysicsLoads/'
+        for name in list(files):
+            if name.startswith(prefix):
+                files.pop(name)
+        for name, value in example.items():
+            files[prefix + name] = value
     for name, data in native.items():
         target = 'NativeSdk/' + name
         if target in files:
@@ -150,5 +178,6 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--runtime-kit', type=Path, required=True)
     parser.add_argument('--reference-game', type=Path, required=True)
+    parser.add_argument('--physics-loads', type=Path)
     args = parser.parse_args()
-    assemble(args.editor, args.sdk, args.output, args.runtime_kit, args.reference_game)
+    assemble(args.editor, args.sdk, args.output, args.runtime_kit, args.reference_game, args.physics_loads)

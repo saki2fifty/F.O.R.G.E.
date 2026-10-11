@@ -5,6 +5,10 @@ engine feature using normal authored entities. The first four scenes use built-i
 editable Mesh sources, cooked Meshes and a checker Material. The eighth scene includes a published transform-animation clip; the ninth has an original two-clip skinned model. No
 gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
+For compiled C++ physics forces, impulses and torque, open the separate
+[Physics Loads project](../PhysicsLoads/README.md). Its six-cube comparison uses
+the same editor and standalone export workflow with the matching native module.
+
 ## Open and inspect
 
 1. Copy the entire `Examples/FeatureGallery` folder to a writable place outside

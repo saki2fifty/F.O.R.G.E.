@@ -915,6 +915,39 @@ struct Bridge {
                 return 0;
             }
         };
+        host.physics_apply = [](void* p, const char* scene, const char* entity, uint32_t kind,
+                                const double* vector, const double* point) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !vector || kind > FORGE_SDK_PHYSICS_ANGULAR_IMPULSE ||
+                    (point && kind >= FORGE_SDK_PHYSICS_TORQUE))
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const Double3 value{vector[0], vector[1], vector[2]};
+                std::optional<LocalTranslation> at;
+                if (point)
+                    at = LocalTranslation{point[0], point[1], point[2]};
+                auto physics = c.services.physics();
+                switch (kind) {
+                case FORGE_SDK_PHYSICS_FORCE:
+                    physics->add_force(ref, value, at);
+                    break;
+                case FORGE_SDK_PHYSICS_IMPULSE:
+                    physics->add_impulse(ref, value, at);
+                    break;
+                case FORGE_SDK_PHYSICS_TORQUE:
+                    physics->add_torque(ref, value);
+                    break;
+                case FORGE_SDK_PHYSICS_ANGULAR_IMPULSE:
+                    physics->add_angular_impulse(ref, value);
+                    break;
+                }
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;

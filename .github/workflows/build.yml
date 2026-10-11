@@ -449,6 +449,12 @@ jobs:
           run-id: ${{ steps.compiled.outputs.run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-package/editor-sdk-project
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Standalone-Acceptance-Input
+          run-id: ${{ steps.compiled.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-package/game-fixture
       - name: Assemble and verify complete Windows package
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -458,10 +464,32 @@ jobs:
         run: |
           $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
           $root = Join-Path $env:RUNNER_TEMP 'forge-package'
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game"
+          # Build the editable C++ example against the exact installed SDK.
+          tar -xzf "$root/sdk/experimental-native-sdk.tar.gz" -C "$root/sdk"
+          if ($LASTEXITCODE) { throw 'Example SDK extraction failed' }
+          cmake -S samples/projects/PhysicsLoads/Native -B "$root/loads-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl "-DForgeNativeSdk_DIR=$root/sdk/sdk"
+          if ($LASTEXITCODE) { throw 'C++ loads example configure failed' }
+          cmake --build "$root/loads-build" --parallel 2
+          if ($LASTEXITCODE) { throw 'C++ loads example compile failed' }
+          cmake --install "$root/loads-build" --component GameplayRuntime --prefix "$root/loads-kits"
+          if ($LASTEXITCODE) { throw 'C++ loads deployment failed' }
+          Expand-Archive -LiteralPath "$root/editor/$name" -DestinationPath "$root/loads-editor"
+          python tools/prepare_physics_loads.py --source samples/projects/PhysicsLoads --output "$root/loads-project" --runtime "$root/sdk/bin/forge_runtime.exe" --tools "$root/loads-editor/bin/forge_tools.exe" --module-kit "$root/loads-kits/project.gameplay"
+          if ($LASTEXITCODE) { throw 'C++ loads example preparation failed' }
+          python tests/physics_loads_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/loads-project"
+          if ($LASTEXITCODE) { throw 'C++ loads runtime/recovery failed' }
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
-          python tests/windows_combined_package_test.py "$root/final/$name"
+          python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }
+      - name: Upload compiled physics example evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Physics-Loads-Example
+          path: ${{ runner.temp }}/forge-package/loads-evidence
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify final package with editor SDK fixture and editable project
         # Run the editor fixture EXE (downloaded separately) against the
         # matching SDK extracted from the final ZIP and the dedicated

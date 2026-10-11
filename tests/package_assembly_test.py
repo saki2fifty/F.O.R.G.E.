@@ -110,6 +110,29 @@ class Assembly(unittest.TestCase):
                 for name, expected in final['files'].items():
                     self.assertEqual(digest(archive.read(name)), expected, name)
 
+            example = root / 'example'
+            deployment = example / 'Native/Builds/example/project.gameplay'
+            deployment.mkdir(parents=True)
+            library = deployment / 'gameplay.dll'
+            library.write_bytes(b'compiled loads')
+            fingerprint = 'a' * 64
+            (example / 'forge.project.json').write_text(json.dumps(dict(modules=[dict(
+                id='project.gameplay', fingerprint=fingerprint,
+                library='Native/Builds/example/project.gameplay/gameplay.dll')])))
+            (deployment / 'forge.module-kit.json').write_text(json.dumps(dict(
+                fingerprint=fingerprint, library='gameplay.dll',
+                files={'gameplay.dll':dict(bytes=library.stat().st_size, sha256=digest(library.read_bytes()))})))
+            assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game, example)
+            with zipfile.ZipFile(output) as archive:
+                self.assertEqual(archive.read('Examples/PhysicsLoads/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
+            compiled = output.read_bytes()
+            library.write_bytes(b'corrupt loads')
+            with self.assertRaises(ValueError):
+                assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game, example)
+            self.assertEqual(output.read_bytes(), compiled, 'Rejected example replaced prior ZIP')
+            build()
+            original = output.read_bytes()
+
             for kwargs in (dict(change=True), dict(corrupt=True), dict(fixture=True)):
                 reference(**kwargs)
                 with self.assertRaises(ValueError):

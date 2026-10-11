@@ -2,6 +2,7 @@
 #include "bounded_json.hpp"
 #include "cache_maintenance.hpp"
 #include "game_export.hpp"
+#include "gameplay_source_identity.hpp"
 #include "install_paths.hpp"
 #include "runtime_package.hpp"
 #include "self_executable.hpp"
@@ -36,7 +37,16 @@ int asset_tools_cli(int argc, char** argv) {
         if (!std::filesystem::is_directory(project))
             throw std::runtime_error("Project root is not a directory");
         Json result{{"api", 1}, {"operation", operation}, {"ok", true}};
-        if (operation == "export-game" && argc == 5) {
+        if (operation == "code-identity" && argc == 5) {
+            const std::string fingerprint(argv[4]);
+            if (fingerprint.size() != 64 ||
+                !std::all_of(fingerprint.begin(), fingerprint.end(), [](unsigned char c) {
+                    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                }))
+                throw std::runtime_error("Expected a lowercase exact SDK fingerprint");
+            result["source_identity"] =
+                gameplay_build_identity(gameplay_source_digest(project), fingerprint);
+        } else if (operation == "export-game" && argc == 5) {
             const std::string_view text(argv[4]);
             const auto options =
                 asset_detail::parse_bounded_json(std::as_bytes(std::span(text)), 65536, 1024, 8);

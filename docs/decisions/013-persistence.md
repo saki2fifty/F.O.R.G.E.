@@ -52,3 +52,14 @@ stored choice survives inactive Static/Kinematic/sensor modes. Native selection
 and recovery remain owned by PhysicsRuntime. The public C++ layout and exact SDK
 fingerprint change, so modules require a matching SDK rebuild; native ABI1 remains
 unchanged. Recovery bytes remain private and exact-build compatible.
+
+## 2026-10-11 — queued body loads
+
+Physics checkpoint version3 deliberately supersedes version2 in the private,
+exact-build recovery domain. The existing ordered body-command queue now records
+tagged teleport, kinematic, force, impulse, torque and angular-impulse commands,
+including bounded copied vectors and optional world points. Restoration validates
+all command policies before reconstructing native bodies/constraints; older
+ephemeral envelopes reject. No authored Scene/Prefab/project schema or durable
+save format changes. The exact SDK callback table and PhysicsService header
+change; native ABI1 remains unchanged and matching module rebuilds are required.

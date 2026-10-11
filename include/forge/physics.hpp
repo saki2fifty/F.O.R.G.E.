@@ -37,6 +37,10 @@ class PhysicsRuntime : public PhysicsService {
     bool release_collision_asset(std::uint64_t) override;
     void teleport(EntityRef, LocalTranslation, LocalRotation, bool) override;
     void move_kinematic(EntityRef, LocalTranslation, LocalRotation) override;
+    void add_force(EntityRef, Double3, std::optional<LocalTranslation> = {}) override;
+    void add_impulse(EntityRef, Double3, std::optional<LocalTranslation> = {}) override;
+    void add_torque(EntityRef, Double3) override;
+    void add_angular_impulse(EntityRef, Double3) override;
     const std::vector<PhysicsContact>& contacts() const override;
     CharacterState character(EntityRef) const override;
     void move_character(EntityRef, Double3) override;

@@ -171,6 +171,7 @@ void signed_scale_physics() {
 #include "character_physics.hpp"
 #include "physics_continuous_policy.hpp"
 #include "physics_hierarchy.hpp"
+#include "physics_load_tests.hpp"
 void continuous_collision_tests() {
     for (unsigned axis = 0; axis < 3; ++axis)
         for (bool continuous : {false, true}) {
@@ -230,6 +231,7 @@ int main(int argc, char** argv) {
         signed_scale_physics();
         continuous_collision_tests();
         continuous_collision_policy_tests();
+        physics_load_tests();
         {
             EngineContext authoring;
             check(!authoring.services().available(Capability::Physics), "Authoring created solver");

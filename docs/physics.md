@@ -47,7 +47,7 @@ Contact callbacks append bounded token records under a mutex. After Update, the 
 
 Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
 
-At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version 2 adds authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending FORGE commands, and Jolt StateRecorder bytes. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
+At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version3 preserves authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending tagged FORGE body loads/movement, and Jolt StateRecorder bytes. It deliberately supersedes version2, which added joint ordering. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
 
 Restoration constructs an unpublished candidate world, validates metadata and expected source session/tick/content, restores scene/configuration, validates unique body indices/sequences and EntityRefs/configs, constructs bodies with **CreateBodyWithID**, reconstructs constraints in captured native index order, then calls Jolt **RestoreState**. Only successful restoration swaps the candidate into use. BodyID is a transient reconstruction token. Jolt owns the solver encoding. See upstream [PhysicsSystem](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/PhysicsSystem.cpp), [BodyManager](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/Body/BodyManager.cpp), and [StateRecorderImpl](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/StateRecorderImpl.h).
 
@@ -56,6 +56,41 @@ Paused restoration performs no Update. Clock tick is restored; elapsed/accumulat
 Limits: 8192 bodies, 16384 contact events, 2 MiB raw solver bytes, 6 MiB physics envelope, 8 MiB total checkpoint, existing 16 MiB transport. Exceeding limits is a diagnostic, not silent truncation. Checkpoints never enter scene/prefab/project files. No save/load-game UI, cross-build/platform compatibility, deterministic replay, or arbitrary native global/resource recovery is promised.
 
 ## Experimental SDK
+
+### Forces and impulses
+
+`PhysicsService` exposes `add_force`, `add_impulse`, `add_torque` and
+`add_angular_impulse`. They queue copied world-space vectors in the existing FIFO
+beside teleport/kinematic commands. Units are N, N*s, N*m and N*m*s, respectively.
+Force and torque act for one positive fixed step; repeat them for sustained loads.
+An impulse acts once. Do not multiply an impulse by frame time or multiply a force
+by dt before submitting it. The native solver applies mass and current inertia.
+Optional force/impulse application points are absolute world positions; omission
+means the body's native center of mass. An off-center point adds native torque.
+Body transform origin and COM can differ for collision assets and signed scale.
+
+Commands require available, enabled Dynamic bodies. Dynamic sensors accept loads.
+Finite vector components are bounded to +/-1e6 in the corresponding units; world
+points use the existing +/-1e9-meter position bound. Invalid commands never append.
+Zero vectors are validated no-ops and do not wake sleepers. Nonzero loads wake
+through the native API. All body commands share the4096 bound. Complete target,
+role, pose and shape admission precedes native writes. Pending loads reject
+zero-dt synchronization instead of being consumed while paused. Changing/removing
+a target before consumption rejects the candidate without losing valid queued
+intent. New/replaced bodies begin at the pre-command pose, so a point impulse
+before a later teleport uses the correct earlier COM. FIFO ordering includes
+impulse then clearing teleport versus clearing teleport then impulse. Teleport's
+clear flag clears velocity, not an already accumulated one-step force/torque.
+
+The exact SDK's tail `physics_apply` callback takes kind0Force/1Impulse/2Torque/
+3AngularImpulse, a three-double vector and optional three-double world point for
+Force/Impulse. It returns1queued or0invalid/unavailable. Existing owner-thread,
+fixed-tick, identity and Physics capability checks apply; no Jolt handle crosses
+the boundary. PostPhysics submission queues for the following fixed step.
+The public header/fingerprint changes require rebuilding exact SDK modules;
+native ABI1 and authored formats remain unchanged. The separate ordinary
+`Examples/PhysicsLoads` project uses a real compiled C++ System and reflected
+progress so one-shot intent survives supported runtime recovery.
 
 The exact fingerprint covers the callback table plus FORGE physics component definitions. The existing callback table has size-checked extensions for Physics capability, PostPhysics phase, raycast and movement. Modules still use one shared Flecs implementation, matched compiler/config/CRT, and startup-only code leases. No Jolt headers or static implementation enter a gameplay module. The former movement-only ABI1 gameplay contract was later retired.
 

@@ -416,3 +416,20 @@ Native163–165 capture the actual Dynamic Physics Body checkbox at100/150/200%.
 These are Inspector render captures, not evidence that the Gallery animation was
 physically reviewed on a desktop GPU. The ordinary-gravity Gallery motion oracle
 and source-free relocated content test remain distinct gates.
+## Compiled physics example gate
+
+The combined package job builds `samples/projects/PhysicsLoads/Native` using the
+same pinned MSVC/configuration and the SDK from that immutable source/build. The
+existing installed SDK helper creates its Windows module kit. Preparation copies
+the ordinary editable project, obtains the existing C++ source identity from
+forge_tools, and inspects its actual schema in an isolated runtime. The combined
+ZIP includes this complete project under `Examples/PhysicsLoads`, including the
+matching deployment; it does not include the compiler.
+
+The actual C++ runtime test checks independent mass/dt/inertia equations, timed
+loads and one-shot recovery. Final relocation repeats the worker check, exports
+with the shared native SDK runtime, removes the source project and kit, verifies
+the production EXE, and runs the separately inventoried graphical observer. Its
+six-actor motion results/capture are uploaded as `FORGE-Physics-Loads-Example`.
+The observer never enters the final editor ZIP. Native image review and physical
+GPU acceptance remain separate from those automated assertions.
