@@ -35,6 +35,7 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
 | `12-inset-panels` | Open **Frame.mesh.json**, **RaisedPanel.mesh.json** or **RecessedPanel.mesh.json** in Content. Select a face, preview Inset, then use a positive or negative Extrude distance. | Three original checker-textured panels show an inset border, a raised cap and a recessed cap. Save & Publish updates Scene, Play and source-free export. |
 | `13-transform-curves` | Press Play to compare the three platforms. Open **EasedPlatform.animation.json** or **ArcPlatform.animation.json**, select a key and expand **Vector curves**. Apply slopes, preview, then Save & Publish. | The existing linear clip, smooth eased clip and custom vertical arc share a four-second cycle on separate parent lanes. Play and export load both legacy and new cooked clips. |
+| `14-uv-islands` | Open **UvConnected.mesh.json**, **UvSplit.mesh.json** or **UvFitted.mesh.json** from Content, choose UV, select an island and drag, mirror or fit it. Save & Publish. | Three original checker-textured panels compare matching shared UV edges, a separate patch and a mirrored/fitted mapping. Play and standalone use the same published UV streams. |
 
 ## Export and run a scene
 

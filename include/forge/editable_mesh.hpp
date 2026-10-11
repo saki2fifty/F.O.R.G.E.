@@ -1,10 +1,12 @@
 #pragma once
 #include <array>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <forge/mesh_asset.hpp>
 #include <nlohmann/json.hpp>
 #include <span>
+#include <vector>
 
 namespace forge {
 // Small first-class authored mesh. Polygon/corner identities belong to this
@@ -13,6 +15,12 @@ inline constexpr std::size_t editable_mesh_source_byte_limit = 2 * 1024 * 1024;
 struct MeshBrushSample {
     std::array<double, 3> point{};
     double pressure = 1;
+};
+// Corner index is scoped to its authored face, and invalidated by topology edits.
+struct MeshUvCorner {
+    std::uint32_t face = 0;
+    std::size_t corner = 0;
+    auto operator<=>(const MeshUvCorner&) const = default;
 };
 struct EditableMeshSource {
     nlohmann::json document;
@@ -33,6 +41,11 @@ struct EditableMeshSource {
                      std::array<double, 4> color, double opacity);
     void transform_uv(std::uint32_t face, std::span<const std::size_t> corners,
                       std::array<double, 2> translation, double angle_radians, double scale);
+    // Shared geometric edges connect only when both endpoint UVs match exactly.
+    std::vector<MeshUvCorner> uv_island(std::uint32_t face) const;
+    void transform_uv(std::span<const MeshUvCorner> corners, std::array<double, 2> translation,
+                      double angle_radians, std::array<double, 2> scale);
+    void fit_uv(std::span<const MeshUvCorner> corners, double padding = .02);
     void project_face_uv(std::uint32_t face);
 };
 } // namespace forge

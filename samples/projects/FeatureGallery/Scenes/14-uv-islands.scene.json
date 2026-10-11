@@ -1,0 +1,286 @@
+{
+  "asset_id": "bae60ad3-c67d-43f3-8d42-9de4e18be9d5",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "018aac4b-cd81-4851-aa0e-cfaa012979a4",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9659258127212524,
+          "x": 0.258819043636322,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 8.0,
+          "z": -11.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "79fa9ce7-87ae-4dae-aff3-0d69054020e4",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "abfad08b-fe18-479e-94e1-f56dd2272be5",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 0.2800000011920929,
+          "color_g": 0.5799999833106995,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 70.0,
+          "kind": 1,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 8.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.8433914184570313,
+          "x": 0.537299633026123,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "be24dee2-af0e-41ed-b220-0cf37552964c",
+      "name": "Warm point light",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 0.5799999833106995,
+          "color_r": 0.3499999940395355,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 70.0,
+          "kind": 2,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 8.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.8433914184570313,
+          "x": 0.537299633026123,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e441630a-88f0-4127-89c5-69f8614b6742",
+      "name": "Cool spot light",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.3,
+          "y": 0.55,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "32766a10-d94d-43dd-b610-2df2701e69ea",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "d47bb9ae-f2c0-4461-a7a9-d061055dbcb9",
+      "name": "UV - continuous shared edge",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.55,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "c0876153-6f17-49b0-85ee-56abd3a68004",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "b7a9560c-15d4-4c04-8b73-b5c9159bf966",
+      "name": "UV - separate patch",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 3.3,
+          "y": 0.55,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "b749931c-09c4-4386-8a48-229eb5de68d8",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "b85bcc5f-c4fc-42d4-92d5-8c458fa739ce",
+      "name": "UV - mirrored and fitted",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 3
+}

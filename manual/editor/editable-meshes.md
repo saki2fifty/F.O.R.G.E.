@@ -25,11 +25,19 @@ Choose **Paint** to color Mesh vertices. Pick **Paint color**, **Paint opacity**
 
 ## Place the UVs
 
-The UV tab shows the selected face's independent corner coordinates. The outlined 0–1 tile has (0,0) at the top left, matching FORGE's texture convention. Click corners in the list or diagram; Ctrl-click adds corners. With no corners selected, a transform applies to all corners of that face. Enter **Move UV**, **Rotate UV (deg)** and **Scale UV**, preview if needed, then **Apply UV transform**. **Planar project face** projects the face along its dominant normal axis. **Cancel UV preview** clears pending values. Separate face corners can have different UVs, so seams remain independent.
+The UV tab shows the whole Mesh's texture coordinates. The outlined 0–1 tile has (0,0) at the top left. Gold corners and edges are selected; the remaining wireframe gives context. Choose **Pick UV → Corner**, **Face** or **Island**, then click the canvas. An island follows shared geometric edges with matching UV endpoints; it stops at authored seams. **Select face** and **Select island** use the active face. Ctrl-click toggles individual corners or adds faces/islands. Click empty canvas to clear the selection.
+
+Drag a selected corner, face or island to move its UVs. The preview leaves the source unchanged until release, then creates one Undo step. Press Esc during a drag to cancel. Use the mouse wheel to zoom around the pointer and middle-drag to pan. **Frame selection** fits the selected region in the view; **Frame tile** restores the 0–1 tile. These navigation actions do not change the Mesh.
+
+Enter **Move UV**, **Rotate UV (deg)** and two **Scale UV** values to transform the selection around its shared center. Negative scale mirrors an axis. **Preview UV** shows the candidate; **Apply UV transform** accepts it, and **Cancel UV preview** clears it. Finish a numeric preview before dragging. **Mirror U** / **Mirror V** flip the selection. **Fit selected UVs** centers the selection in the tile with the chosen **Tile padding**, preserving its proportions. This fits one selected region; it does not pack multiple islands into an atlas. Empty selections, zero scale, invalid coordinates and point-only fits report an error without changing the source.
+
+**Planar project face** still projects just the active face along its dominant normal axis. Face corners remain independent, so editing one side of a seam does not weld it to the other side. Stop Play before editing; navigation remains available when the Mesh is read-only.
 
 Choose **Save & Publish** after shape or UV edits. An accepted publication updates the shared Mesh resource used by scene entities; an invalid cook keeps the previous published revision. The scene's position, scale and material assignments are separate from Mesh source history. Stop Play before editing. Exported games contain the selected cooked Mesh and UVs, without `.mesh.json` or modeling tools.
 
 Element IDs stay reserved after Undo, so restoring the original shape can still leave the source needing a save. New edits never reuse those discarded IDs.
+
+Try **Feature Gallery → Scenes/14-uv-islands.scene.json** to compare connected, split and mirrored/fitted checker mappings. Open the three UV Mesh sources from Content to edit them.
 
 Try **Feature Gallery → Scenes/12-inset-panels.scene.json** for a flat frame, a raised panel and a recessed panel. Open their editable Meshes from Content to inspect the borders and UVs; Play and export use the published geometry.
 

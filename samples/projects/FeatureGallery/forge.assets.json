@@ -1015,6 +1015,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "32766a10-d94d-43dd-b610-2df2701e69ea",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd72b1e5264083cc53c3c1fbf5ddcac4fda2fc5a2915b921e5ba434ea7493891",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "d64ea5cea34938045d08ccaaf2bf333b79fec9690bda991aad35223ebca6d740",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6866f5607ac89ece1b8c0beee016627b499e339904e9ef1ea9e1f97d8082d554",
+          "source_digest": "ee9e6728ea8a23d109427b07d42c24d771a4fc95a28f90de96505ec3acdae755",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 798,
+          "file": "mesh.bin",
+          "sha256": "78d544ea99524e08943f9fbe1571ac99dbf2507db5842dc6f392566fe535f7cd",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UvConnected.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
       "metadata": {
         "forge.import": {
@@ -3633,6 +3668,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "b749931c-09c4-4386-8a48-229eb5de68d8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "62b3a3a69042901968d5448ae49e0776e6de79ebc9854e6585a1664f90047309",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "40a615e8dd100e6c42c76bc40d5620b3cc27e7f53a07a2972fd8cb5301fde6f6",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "dddb4f37123a6f65cad1572394cd7e257ef1cc3f0cfefbd4e454297d51b09684",
+          "source_digest": "1840147932be58b34da833820adb4b323804e571f7ca163aabf551ce7559d0b1",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 798,
+          "file": "mesh.bin",
+          "sha256": "ef7b304f21033564391e22b953a67c80d5fc305155fd4f384907130d0a6859f6",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UvFitted.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "bb10601b-3d4c-43fd-a9c6-02015f966fc9",
       "metadata": {
         "forge.import": {
@@ -3785,6 +3855,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c0876153-6f17-49b0-85ee-56abd3a68004",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "4ee4ae7ac45a1792649ea584f6a401403476f8c94a19180c4ef1853371146f97",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "829e1575032e240419679c1a6ce8b5402663c4031ec5a2c77d80fe5179b92570",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "506e6165d68afa2b40d2264aacb84d5269f80b082ec4fe051c3d3da453206797",
+          "source_digest": "123ce3f0e482a31a36ae4221d33c15a7a9e61396889fe1898d98dc78c9f5b26a",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 798,
+          "file": "mesh.bin",
+          "sha256": "8d86714413a7741ccdc4cd942b0acc38098e21bbecf1453232d9ffc6be283e53",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UvSplit.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

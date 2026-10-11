@@ -3237,6 +3237,47 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 115: {
+                    // Original source setup for native layout review; the
+                    // separate UV UI fixture performs actual authoring gestures.
+                    animation_timeline = {};
+                    auto source =
+                        forge::EditableMeshSource::create_cube(forge::AssetId::generate());
+                    source.document["vertices"] = forge::Json::array();
+                    source.document["faces"] = forge::Json::array();
+                    const std::array<std::array<double, 3>, 6> points{
+                        {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {2, 0, 0}, {2, 1, 0}}};
+                    for (unsigned i = 0; i < 6; ++i)
+                        source.document["vertices"].push_back(
+                            {{"id", i + 1}, {"position", points[i]}});
+                    const std::array<std::array<unsigned, 4>, 2> loops{
+                        {{1, 2, 3, 4}, {2, 5, 6, 3}}};
+                    for (unsigned f = 0; f < 2; ++f) {
+                        auto corners = forge::Json::array();
+                        for (const auto vertex : loops[f])
+                            corners.push_back(
+                                {{"vertex", vertex},
+                                 {"uv", {points[vertex - 1][0] / 2, points[vertex - 1][1]}}});
+                        source.document["faces"].push_back({{"id", f + 9}, {"corners", corners}});
+                    }
+                    source.validate();
+                    forge::atomic_write(files.document.project() / "Assets/CaptureUv.mesh.json",
+                                        source.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CaptureUv.mesh.json");
+                    forge::ui::style(1);
+                    break;
+                }
+                case 116:
+                case 119:
+                    forge::ui::style(1.5f);
+                    break;
+                case 117:
+                case 120:
+                    forge::ui::style(2);
+                    break;
+                case 118:
+                    forge::ui::style(1);
+                    break;
                 case 109: {
                     // Staged original data for native layout review. Actual
                     // authoring gestures run in animation_timeline_tests.
@@ -4826,7 +4867,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 114))
+                        (fixture.stage >= 103 && fixture.stage <= 120))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5088,6 +5129,29 @@ int main(int argc, char** argv) {
                         ImGui::SetScrollY(w, fixture.stage < 106 ? 0 : w->ScrollMax.y);
                     }
                 }
+                if (fixture.stage >= 115 && fixture.stage <= 120) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->source().uv_island(9).size() != 8)
+                        throw std::runtime_error("UV capture source differs");
+                    if (auto* w = ImGui::FindWindowByName("###Editable Mesh")) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        auto* tabs = ImGui::GetCurrentContext()->TabBars.GetByKey(
+                            w->GetID("Mesh workspaces"));
+                        bool selected = false;
+                        if (tabs)
+                            for (auto& tab : tabs->Tabs)
+                                if (std::string_view(ImGui::TabBarGetTabName(tabs, &tab)) == "UV") {
+                                    tabs->NextSelectedTabId = tab.ID;
+                                    selected = tabs->SelectedTabId == tab.ID;
+                                }
+                        captured_document_visible &= selected;
+                        ImGui::SetScrollY(w, fixture.stage < 118 ? 0 : w->ScrollMax.y);
+                    } else {
+                        captured_document_visible = false;
+                    }
+                }
                 if (fixture.stage >= 109 && fixture.stage <= 114) {
                     const auto* document = animation_timeline.document();
                     if (!document || document->source().document.at("version") != 2 ||
@@ -5178,7 +5242,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 115) {
+                    if (fixture.stage == 121) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

@@ -144,3 +144,9 @@ zero visual scale. Gallery scene13 compares the unchanged linear clip with origi
 eased and arc clips. Actual Timeline editing passes at65/100/200% interface scale;
 legacy/new published Gallery playback and relocated source-free export pass locally.
 Native Windows curve captures and physical acceptance remain pending.
+
+## UV island authoring
+
+The existing Editable Mesh UV workspace now shows whole-Mesh context and supports Corner/Face/Island canvas picking, multi-face selection, direct move preview/release, pointer zoom, pan and framing. Numeric signed nonuniform scale, Mirror U/V and padded aspect-preserving fit use one shared source operation. Exact authored seams stay separate. Drag cancel, source history, read-only locks and publication retain existing owners. Original Gallery14 demonstrates connected, split and fitted checker mappings. This slice adds no source schema, runtime code editor, automatic unwrap or atlas packing.
+
+Local and native evidence is recorded separately; the next Windows delivery includes these changes after its full gate. Build155 contains the earlier completed batches through face inset, not the curve/UV changes.

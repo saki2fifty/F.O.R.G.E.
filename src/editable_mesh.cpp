@@ -228,7 +228,7 @@ EditableMeshSource EditableMeshSource::create_sculpt_sphere(AssetId asset_id) {
 }
 EditableMeshSource EditableMeshSource::parse(std::span<const std::byte> bytes) {
     EditableMeshSource result{
-        asset_detail::parse_bounded_json(bytes, editable_mesh_source_byte_limit, 100000, 16)};
+        asset_detail::parse_bounded_json(bytes, editable_mesh_source_byte_limit, 500000, 16)};
     result.validate();
     return result;
 }
@@ -659,39 +659,137 @@ void EditableMeshSource::paint_color(std::span<const MeshBrushSample> samples, d
     candidate.validate();
     document = std::move(candidate.document);
 }
+namespace {
+std::vector<Json*> uv_selection(Json& document, std::span<const MeshUvCorner> corners) {
+    require(!corners.empty() && corners.size() <= corner_limit, "Select Mesh UV corners");
+    std::map<std::uint32_t, Json*> faces;
+    for (auto& face : document.at("faces"))
+        faces.emplace(id(face.at("id")), &face);
+    std::set<MeshUvCorner> unique;
+    std::vector<Json*> selected;
+    selected.reserve(corners.size());
+    for (const auto corner : corners) {
+        const auto face = faces.find(corner.face);
+        require(face != faces.end() && unique.insert(corner).second &&
+                    corner.corner < face->second->at("corners").size(),
+                "Selected Mesh UV corner is invalid");
+    }
+    for (const auto corner : unique)
+        selected.push_back(&faces.at(corner.face)->at("corners")[corner.corner]);
+    return selected;
+}
+} // namespace
+std::vector<MeshUvCorner> EditableMeshSource::uv_island(std::uint32_t wanted) const {
+    validate();
+    struct EdgeUse {
+        std::uint32_t face;
+        std::array<std::array<double, 2>, 2> endpoints;
+    };
+    std::map<std::pair<std::uint32_t, std::uint32_t>, std::vector<EdgeUse>> edges;
+    std::map<std::uint32_t, const Json*> faces;
+    for (const auto& face : document.at("faces")) {
+        const auto key = id(face.at("id"));
+        faces.emplace(key, &face);
+        const auto& corners = face.at("corners");
+        for (std::size_t i = 0; i < corners.size(); ++i) {
+            const auto& a = corners[i];
+            const auto& b = corners[(i + 1) % corners.size()];
+            const auto va = id(a.at("vertex")), vb = id(b.at("vertex"));
+            const auto ua = vector<2>(a.at("uv")), ub = vector<2>(b.at("uv"));
+            edges[std::minmax(va, vb)].push_back(
+                {key, va < vb ? std::array{ua, ub} : std::array{ub, ua}});
+        }
+    }
+    require(faces.contains(wanted), "Selected Mesh face is missing");
+    std::map<std::uint32_t, std::set<std::uint32_t>> adjacent;
+    for (const auto& [edge, uses] : edges) {
+        (void)edge;
+        if (uses.size() == 2 && uses[0].endpoints == uses[1].endpoints) {
+            adjacent[uses[0].face].insert(uses[1].face);
+            adjacent[uses[1].face].insert(uses[0].face);
+        }
+    }
+    std::set<std::uint32_t> selected{wanted};
+    std::vector<std::uint32_t> pending{wanted};
+    for (std::size_t i = 0; i < pending.size(); ++i)
+        for (const auto next : adjacent[pending[i]])
+            if (selected.insert(next).second)
+                pending.push_back(next);
+    std::vector<MeshUvCorner> result;
+    for (const auto face : selected)
+        for (std::size_t corner = 0; corner < faces.at(face)->at("corners").size(); ++corner)
+            result.push_back({face, corner});
+    return result;
+}
 void EditableMeshSource::transform_uv(std::uint32_t wanted, std::span<const std::size_t> corners,
                                       std::array<double, 2> translation, double angle,
                                       double scale) {
-    require(std::isfinite(angle) && std::isfinite(scale) && scale > 1e-5 && scale <= 10000,
-            "Mesh UV transform is invalid");
+    require(std::isfinite(scale) && scale > 1e-5 && scale <= 10000, "Mesh UV transform is invalid");
+    require(!corners.empty() && corners.size() <= 16, "Select Mesh UV corners");
+    std::vector<MeshUvCorner> selected;
+    selected.reserve(corners.size());
+    for (const auto corner : corners)
+        selected.push_back({wanted, corner});
+    transform_uv(selected, translation, angle, {scale, scale});
+}
+void EditableMeshSource::transform_uv(std::span<const MeshUvCorner> corners,
+                                      std::array<double, 2> translation, double angle,
+                                      std::array<double, 2> scale) {
+    validate();
+    require(std::isfinite(angle), "Mesh UV rotation is invalid");
+    for (const auto value : scale)
+        require(std::isfinite(value) && std::abs(value) > 1e-5 && std::abs(value) <= 10000,
+                "Mesh UV scale is invalid");
     for (const auto value : translation)
         require(std::isfinite(value), "Mesh UV translation is invalid");
     auto candidate = *this;
-    auto* target = find_face(candidate.document, wanted);
-    require(target, "Selected Mesh face is missing");
-    auto& values = target->at("corners");
-    require(!corners.empty() && corners.size() <= values.size(), "Select Mesh UV corners");
-    std::set<std::size_t> selected(corners.begin(), corners.end());
-    require(selected.size() == corners.size() && *selected.rbegin() < values.size(),
-            "Selected Mesh UV corner is invalid");
+    const auto selected = uv_selection(candidate.document, corners);
     std::array<double, 2> center{};
-    for (const auto i : selected) {
-        const auto uv = vector<2>(values[i].at("uv"));
+    for (const auto corner : selected) {
+        const auto uv = vector<2>(corner->at("uv"));
         center[0] += uv[0];
         center[1] += uv[1];
     }
     center[0] /= selected.size();
     center[1] /= selected.size();
     const auto c = std::cos(angle), s = std::sin(angle);
-    for (const auto i : selected) {
-        const auto old = vector<2>(values[i].at("uv"));
-        const auto x = (old[0] - center[0]) * scale;
-        const auto y = (old[1] - center[1]) * scale;
-        values[i]["uv"] = {center[0] + c * x - s * y + translation[0],
+    for (auto* corner : selected) {
+        const auto old = vector<2>(corner->at("uv"));
+        const auto x = (old[0] - center[0]) * scale[0];
+        const auto y = (old[1] - center[1]) * scale[1];
+        (*corner)["uv"] = {center[0] + c * x - s * y + translation[0],
                            center[1] + s * x + c * y + translation[1]};
     }
     candidate.validate();
-    document = std::move(candidate.document);
+    document.swap(candidate.document);
+}
+void EditableMeshSource::fit_uv(std::span<const MeshUvCorner> corners, double padding) {
+    validate();
+    require(std::isfinite(padding) && padding >= 0 && padding <= .49,
+            "Mesh UV padding must be within [0,0.49]");
+    auto candidate = *this;
+    const auto selected = uv_selection(candidate.document, corners);
+    std::array<double, 2> minimum{100000, 100000}, maximum{-100000, -100000};
+    for (const auto corner : selected) {
+        const auto uv = vector<2>(corner->at("uv"));
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            minimum[axis] = std::min(minimum[axis], uv[axis]);
+            maximum[axis] = std::max(maximum[axis], uv[axis]);
+        }
+    }
+    const auto extent = std::max(maximum[0] - minimum[0], maximum[1] - minimum[1]);
+    require(extent > 0, "Mesh UV selection has no extent to fit");
+    const auto width = 1 - 2 * padding;
+    std::array<double, 2> offset{};
+    for (unsigned axis = 0; axis < 2; ++axis)
+        offset[axis] = (1 - (maximum[axis] - minimum[axis]) / extent * width) / 2;
+    for (auto* corner : selected) {
+        const auto uv = vector<2>(corner->at("uv"));
+        (*corner)["uv"] = {offset[0] + (uv[0] - minimum[0]) / extent * width,
+                           offset[1] + (uv[1] - minimum[1]) / extent * width};
+    }
+    candidate.validate();
+    document.swap(candidate.document);
 }
 void EditableMeshSource::project_face_uv(std::uint32_t wanted) {
     auto candidate = *this;

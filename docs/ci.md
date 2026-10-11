@@ -306,3 +306,7 @@ its unchanged source-validated compiled artifacts. Earlier ordering produced two
 reference snapshot deadline failures despite successful onboarding. The passing
 isolation run does not prove a runtime cause or a performance correction; no
 shipping timing, deadlines or assertions were changed.
+
+### Editable Mesh UV acceptance
+
+The UV batch adds analytic/max-profile source checks to `editable_mesh`, multi-corner UV source history/reopen to `editable_mesh_pipeline`, and actual selected Windows-cook/resource/camera/source-free relocated export checks in `editable_mesh_uv_gallery`. `editable_mesh_uv_editor` performs mouse/keyboard selection, drag/release/cancel, numerical rejection, navigation, lock and publication routes at65/100/200%. The editor fixture's stages115–120 capture UV canvas/tools at100/150/200% using staged original source data and deliberate document layout/scroll; these images establish visual layout, not a performed authoring workflow. Final Windows package acceptance exports Gallery14 and starts its shipped standalone without Mesh source files.

@@ -12,6 +12,9 @@ assets = json.loads((project_root / 'forge.assets.json').read_text())['assets']
 by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Frame.mesh.json', 'mesh.bin'),
+                       ('Assets/UvConnected.mesh.json', 'mesh.bin'),
+                       ('Assets/UvSplit.mesh.json', 'mesh.bin'),
+                       ('Assets/UvFitted.mesh.json', 'mesh.bin'),
                        ('Assets/RaisedPanel.mesh.json', 'mesh.bin'),
                        ('Assets/RecessedPanel.mesh.json', 'mesh.bin'),
                        ('Assets/SculptSphere.mesh.json', 'mesh.bin'),
@@ -31,7 +34,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -88,6 +91,13 @@ try:
         loaded = call('scene.read', target=context['target'])['result']
         same_authored_value(loaded, source, str(path))
         assert context['revision'] == result['revision']
+        if path.name.startswith('14-'):
+            meshes = [row['components']['forge.mesh_renderer']['mesh']
+                      for row in loaded['entities']
+                      if 'forge.mesh_renderer' in row['components']]
+            assert len(meshes) == 3 and set(meshes) == {
+                by_source['Assets/' + name]['id'] for name in
+                ('UvConnected.mesh.json', 'UvSplit.mesh.json', 'UvFitted.mesh.json')}
         if path.name.startswith('13-'):
             players = [row['components']['forge.transform_animator']
                        for row in loaded['entities']

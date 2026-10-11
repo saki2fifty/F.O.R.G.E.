@@ -8,8 +8,10 @@
 #include "widgets.hpp"
 #include <algorithm>
 #include <cmath>
+#include <imgui_internal.h>
 #include <limits>
 #include <map>
+#include <numbers>
 #include <optional>
 #include <set>
 #include <utility>
@@ -28,6 +30,7 @@ class EditableMeshEditor {
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() { save_ = true; }
     void request_close() {
+        cancel_uv_drag();
         close_ = true;
         if (!dirty())
             finish_close();
@@ -36,6 +39,7 @@ class EditableMeshEditor {
         if (can_undo()) {
             stroke_active_ = false;
             stroke_.clear();
+            cancel_uv_drag();
             document_->undo();
             reconcile_selection();
             needs_publish_ = true;
@@ -45,6 +49,7 @@ class EditableMeshEditor {
         if (can_redo()) {
             stroke_active_ = false;
             stroke_.clear();
+            cancel_uv_drag();
             document_->redo();
             reconcile_selection();
             needs_publish_ = true;
@@ -167,10 +172,13 @@ class EditableMeshEditor {
                 ImGui::TextUnformatted("Save & Publish to update Scene and exported games.");
             if (ImGui::BeginTabBar("Mesh workspaces")) {
                 if (ImGui::BeginTabItem("Model")) {
+                    cancel_uv_drag();
                     model_workspace(locked);
                     ImGui::EndTabItem();
                 }
-                if (ImGui::BeginTabItem("UV")) {
+                const auto uv_tab = ImGui::BeginTabItem("UV");
+                FORGE_UI_PROBE("mesh:uv_tab");
+                if (uv_tab) {
                     uv_workspace(locked);
                     ImGui::EndTabItem();
                 }
@@ -243,10 +251,18 @@ class EditableMeshEditor {
     std::set<std::uint32_t> vertices_;
     std::pair<std::uint32_t, std::uint32_t> edge_{};
     std::uint32_t face_ = 13;
-    std::set<std::size_t> uv_corners_;
+    std::set<MeshUvCorner> uv_selection_;
+    bool uv_initialized_ = false, uv_drag_ = false;
+    std::uint64_t uv_revision_ = std::numeric_limits<std::uint64_t>::max(), uv_drag_revision_ = 0;
+    std::vector<std::uint32_t> uv_topology_;
+    std::vector<MeshUvCorner> uv_drag_selection_;
+    std::array<double, 2> uv_center_{.5, .5}, uv_drag_start_{}, uv_drag_delta_{};
+    double uv_zoom_ = 1;
+    int uv_mode_ = 0; // Corner, face, connected island.
+    float uv_padding_ = .02f;
     float translation_[3]{}, rotation_[3]{}, scale_[3]{1, 1, 1};
     float extrusion_ = 0.5f, inset_ = 0.1f;
-    float uv_translation_[2]{}, uv_angle_ = 0, uv_scale_ = 1;
+    float uv_translation_[2]{}, uv_angle_ = 0, uv_scale_[2]{1, 1};
     bool preview_transform_ = false, preview_extrude_ = false, preview_inset_ = false,
          preview_uv_ = false;
     std::string model_preview_key_, uv_preview_key_, model_preview_error_, uv_preview_error_;
@@ -277,7 +293,7 @@ class EditableMeshEditor {
         face_ = 13;
         vertices_.clear();
         edge_ = {};
-        uv_corners_.clear();
+        reset_uv_scope();
         reconcile_selection();
         preview_transform_ = preview_extrude_ = preview_inset_ = preview_uv_ = false;
         stroke_active_ = false;
@@ -289,6 +305,11 @@ class EditableMeshEditor {
         uv_preview_.reset();
     }
     void finish_close() {
+        reset_uv_scope();
+        uv_topology_.clear();
+        uv_revision_ = std::numeric_limits<std::uint64_t>::max();
+        uv_center_ = {.5, .5};
+        uv_zoom_ = 1;
         document_.reset();
         service_.reset();
         model_preview_.reset();
@@ -333,10 +354,9 @@ class EditableMeshEditor {
         });
         if (selected == faces.end()) {
             face_ = faces.front().at("id").get<std::uint32_t>();
-            uv_corners_.clear();
-        } else
-            std::erase_if(uv_corners_,
-                          [&](auto corner) { return corner >= selected->at("corners").size(); });
+            reset_uv_scope();
+        }
+        sync_uv_selection();
     }
     std::vector<std::uint32_t> selected_vertices() const {
         if (mode_ == SelectionMode::Vertex)
@@ -399,7 +419,7 @@ class EditableMeshEditor {
                     const auto label = "Face " + std::to_string(key);
                     if (ImGui::Selectable(label.c_str(), face_ == key) && face_ != key) {
                         face_ = key;
-                        uv_corners_.clear();
+                        reset_uv_scope();
                     }
                 }
         }
@@ -506,7 +526,7 @@ class EditableMeshEditor {
             mutate("Inset face",
                    [&](EditableMeshSource& source) { (void)source.inset_face(face_, inset_); });
             preview_inset_ = false;
-            uv_corners_.clear();
+            reset_uv_scope();
         }
         ImGui::EndDisabled();
         if (ui::button("Cancel inset", "Discard the inset preview without editing the Mesh."))
@@ -529,7 +549,7 @@ class EditableMeshEditor {
             if (cap) {
                 face_ = cap;
                 reconcile_selection();
-                uv_corners_.clear();
+                reset_uv_scope();
             }
             preview_extrude_ = false;
         }
@@ -538,98 +558,213 @@ class EditableMeshEditor {
             preview_extrude_ = false;
         ImGui::EndDisabled();
     }
+    void cancel_uv_drag() {
+        if (!uv_drag_)
+            return;
+        uv_drag_ = false;
+        uv_drag_selection_.clear();
+        uv_drag_delta_ = {};
+        uv_preview_.reset();
+        uv_preview_key_.clear();
+        uv_preview_error_.clear();
+    }
+    void reset_uv_scope() {
+        cancel_uv_drag();
+        uv_selection_.clear();
+        uv_initialized_ = false;
+    }
+    void sync_uv_selection() {
+        if (!document_ || uv_revision_ == document_->revision())
+            return;
+        std::vector<std::uint32_t> topology;
+        for (const auto& face : document_->source().document.at("faces")) {
+            topology.push_back(face.at("id").get<std::uint32_t>());
+            topology.push_back(std::uint32_t(face.at("corners").size()));
+            for (const auto& corner : face.at("corners"))
+                topology.push_back(corner.at("vertex").get<std::uint32_t>());
+        }
+        if (topology != uv_topology_) {
+            reset_uv_scope();
+            uv_topology_ = std::move(topology);
+        }
+        uv_revision_ = document_->revision();
+    }
+    std::vector<MeshUvCorner> selected_uv_corners() const {
+        return {uv_selection_.begin(), uv_selection_.end()};
+    }
+    void select_uv_face(std::uint32_t wanted, bool add = false, bool island = false) {
+        cancel_uv_drag();
+        if (!add)
+            uv_selection_.clear();
+        if (island) {
+            const auto connected = document_->source().uv_island(wanted);
+            uv_selection_.insert(connected.begin(), connected.end());
+        } else
+            for (const auto& face : document_->source().document.at("faces"))
+                if (face.at("id").get<std::uint32_t>() == wanted)
+                    for (std::size_t i = 0; i < face.at("corners").size(); ++i)
+                        uv_selection_.insert({wanted, i});
+        uv_initialized_ = true;
+        face_ = wanted;
+    }
+    void frame_uv(bool tile) {
+        if (tile) {
+            uv_center_ = {.5, .5};
+            uv_zoom_ = 1;
+            return;
+        }
+        if (uv_selection_.empty())
+            return;
+        std::array<double, 2> minimum{100000, 100000}, maximum{-100000, -100000};
+        for (const auto& face : document_->source().document.at("faces"))
+            for (std::size_t i = 0; i < face.at("corners").size(); ++i)
+                if (uv_selection_.contains({face.at("id").get<std::uint32_t>(), i}))
+                    for (unsigned axis = 0; axis < 2; ++axis) {
+                        const auto value = face.at("corners")[i].at("uv")[axis].get<double>();
+                        minimum[axis] = std::min(minimum[axis], value);
+                        maximum[axis] = std::max(maximum[axis], value);
+                    }
+        for (unsigned axis = 0; axis < 2; ++axis)
+            uv_center_[axis] = (minimum[axis] + maximum[axis]) * .5;
+        const auto extent = std::max(maximum[0] - minimum[0], maximum[1] - minimum[1]);
+        uv_zoom_ = std::clamp(extent > 0 ? .9 / extent : 1., 1e-6, 1e6);
+    }
     void uv_workspace(bool locked) {
         stroke_active_ = false;
         stroke_.clear();
+        sync_uv_selection();
+        if (!uv_initialized_)
+            select_uv_face(face_);
+        if (locked || pending() || (uv_drag_ && uv_drag_revision_ != document_->revision()))
+            cancel_uv_drag();
         const auto& source = document_->source();
-        const Json* selected = nullptr;
-        for (const auto& candidate : source.document.at("faces"))
-            if (candidate.at("id").get<std::uint32_t>() == face_)
-                selected = &candidate;
-        if (!selected) {
-            ImGui::TextUnformatted("Select a face in Model to edit its UVs.");
-            return;
-        }
-        ImGui::Text("Face %u | each corner has an independent UV", face_);
-        if (ImGui::BeginChild("UV corners", {0, 120 * ui::interface_scale},
-                              ImGuiChildFlags_Borders)) {
-            for (std::size_t i = 0; i < selected->at("corners").size(); ++i) {
-                const auto& point = selected->at("corners")[i].at("uv");
-                const auto label = "Corner " + std::to_string(i + 1) + "  (" +
-                                   std::to_string(point[0].get<double>()) + ", " +
-                                   std::to_string(point[1].get<double>()) + ")";
-                if (ImGui::Selectable(label.c_str(), uv_corners_.contains(i))) {
-                    if (!ImGui::GetIO().KeyCtrl)
-                        uv_corners_.clear();
-                    if (!uv_corners_.erase(i))
-                        uv_corners_.insert(i);
-                }
-            }
-        }
+        ImGui::Text("Face %u | %zu selected UV corners", face_, uv_selection_.size());
+        ImGui::Combo("Pick UV", &uv_mode_, "Corner\0Face\0Island\0");
+        FORGE_UI_PROBE("mesh:uv_mode");
+        if (ui::button("Select face", "Select every UV corner of the active Model face."))
+            select_uv_face(face_);
+        ImGui::SameLine();
+        if (ui::button("Select island",
+                       "Select connected UV faces without crossing authored seams."))
+            select_uv_face(face_, false, true);
+        ImGui::SameLine();
+        if (ui::button("Frame selection", "Center and fit the selected UV region in this view."))
+            frame_uv(false);
+        ImGui::SameLine();
+        if (ui::button("Frame tile", "Restore a view of the [0,1] texture tile."))
+            frame_uv(true);
+        if (ImGui::BeginChild("UV corners", {0, 100 * ui::interface_scale},
+                              ImGuiChildFlags_Borders))
+            for (const auto& face : source.document.at("faces"))
+                if (face.at("id").get<std::uint32_t>() == face_)
+                    for (std::size_t i = 0; i < face.at("corners").size(); ++i) {
+                        const auto& point = face.at("corners")[i].at("uv");
+                        const auto label = "Corner " + std::to_string(i + 1) + "  (" +
+                                           std::to_string(point[0].get<double>()) + ", " +
+                                           std::to_string(point[1].get<double>()) + ")";
+                        const MeshUvCorner corner{face_, i};
+                        const auto clicked =
+                            ImGui::Selectable(label.c_str(), uv_selection_.contains(corner));
+                        FORGE_UI_PROBE("mesh:uv_corner:" + std::to_string(face_) + ":" +
+                                       std::to_string(i));
+                        if (clicked) {
+                            cancel_uv_drag();
+                            if (!ImGui::GetIO().KeyCtrl)
+                                uv_selection_.clear();
+                            if (!uv_selection_.erase(corner))
+                                uv_selection_.insert(corner);
+                            uv_initialized_ = true;
+                        }
+                    }
         ImGui::EndChild();
-        if (preview_uv_) {
-            const auto ids = selected_uv_corners(selected->at("corners").size());
+        if (preview_uv_ && !uv_drag_) {
+            const auto ids = selected_uv_corners();
+            auto selection = Json::array();
+            for (const auto id : ids)
+                selection.push_back({id.face, id.corner});
             const auto key =
-                Json::array({document_->revision(), face_, ids,
+                Json::array({document_->revision(), selection,
                              std::array<float, 2>{uv_translation_[0], uv_translation_[1]},
-                             uv_angle_, uv_scale_})
+                             uv_angle_, std::array<float, 2>{uv_scale_[0], uv_scale_[1]}})
                     .dump();
             if (key != uv_preview_key_) {
                 uv_preview_key_ = key;
                 uv_preview_ = source;
                 uv_preview_error_.clear();
                 try {
-                    uv_preview_->transform_uv(face_, ids, {uv_translation_[0], uv_translation_[1]},
-                                              uv_angle_ * 3.14159265358979323846 / 180.0,
-                                              uv_scale_);
+                    uv_preview_->transform_uv(ids, {uv_translation_[0], uv_translation_[1]},
+                                              uv_angle_ * std::numbers::pi / 180.,
+                                              {uv_scale_[0], uv_scale_[1]});
                 } catch (const std::exception& e) {
                     uv_preview_error_ = e.what();
                     uv_preview_.reset();
                 }
             }
-        } else {
+        } else if (!uv_drag_) {
             uv_preview_key_.clear();
             uv_preview_.reset();
             uv_preview_error_.clear();
         }
+        draw_uv_wireframe(uv_preview_ ? *uv_preview_ : source, locked || pending());
         if (!uv_preview_error_.empty())
             ImGui::TextWrapped("UV preview unavailable: %s", uv_preview_error_.c_str());
-        draw_uv_wireframe(uv_preview_ ? *uv_preview_ : source);
-        ImGui::BeginDisabled(locked || pending());
+        ImGui::TextDisabled(
+            "Wheel: zoom | Middle drag: pan | Ctrl-click: toggle | Drag: move | Escape: cancel");
+        if (locked || pending())
+            ImGui::TextUnformatted(
+                "READ ONLY — UV edits are unavailable during Play or publication.");
+        else if (preview_uv_)
+            ImGui::TextUnformatted("NUMERIC PREVIEW — Apply or Cancel before dragging.");
+        else if (uv_drag_)
+            ImGui::TextUnformatted("DRAG PREVIEW — release to accept; Escape restores the source.");
+        ImGui::BeginDisabled(locked || pending() || uv_drag_ || uv_selection_.empty());
         ImGui::InputFloat2("Move UV", uv_translation_);
+        FORGE_UI_PROBE("mesh:uv_move");
         ImGui::InputFloat("Rotate UV (deg)", &uv_angle_);
-        ImGui::InputFloat("Scale UV", &uv_scale_);
+        ImGui::InputFloat2("Scale UV", uv_scale_);
+        FORGE_UI_PROBE("mesh:uv_scale");
         ImGui::Checkbox("Preview UV", &preview_uv_);
+        FORGE_UI_PROBE("mesh:uv_preview");
         if (ui::button("Apply UV transform",
-                       "Move, rotate or scale chosen face corners as one Undo step.")) {
-            const auto ids = selected_uv_corners(selected->at("corners").size());
+                       "Transform selected corners around one shared pivot as one Undo step.")) {
+            const auto ids = selected_uv_corners();
             mutate("Transform UV", [&, ids](EditableMeshSource& mesh) {
-                mesh.transform_uv(face_, ids, {uv_translation_[0], uv_translation_[1]},
-                                  uv_angle_ * 3.14159265358979323846 / 180.0, uv_scale_);
+                mesh.transform_uv(ids, {uv_translation_[0], uv_translation_[1]},
+                                  uv_angle_ * std::numbers::pi / 180.,
+                                  {uv_scale_[0], uv_scale_[1]});
             });
             preview_uv_ = false;
         }
-        if (ui::button("Planar project face",
-                       "Project this face along its dominant normal axis.")) {
-            mutate("Project face UV",
-                   [&](EditableMeshSource& mesh) { mesh.project_face_uv(face_); });
-            preview_uv_ = false;
+        ImGui::BeginDisabled(preview_uv_);
+        if (ui::button("Mirror U",
+                       "Reflect selected UVs horizontally around their common center.")) {
+            const auto ids = selected_uv_corners();
+            mutate("Mirror UV U", [&](auto& mesh) { mesh.transform_uv(ids, {}, 0, {-1, 1}); });
         }
-        if (ui::button("Cancel UV preview",
-                       "Discard pending UV values without editing the Mesh.")) {
-            uv_translation_[0] = uv_translation_[1] = uv_angle_ = 0;
-            uv_scale_ = 1;
-            preview_uv_ = false;
+        ImGui::SameLine();
+        if (ui::button("Mirror V", "Reflect selected UVs vertically around their common center.")) {
+            const auto ids = selected_uv_corners();
+            mutate("Mirror UV V", [&](auto& mesh) { mesh.transform_uv(ids, {}, 0, {1, -1}); });
+        }
+        ImGui::SliderFloat("Tile padding", &uv_padding_, 0, .49f, "%.3f");
+        if (ui::button("Fit selected UVs",
+                       "Fit this selection into one tile, keeping its proportions and seams.")) {
+            const auto ids = selected_uv_corners();
+            mutate("Fit UV selection", [&](auto& mesh) { mesh.fit_uv(ids, uv_padding_); });
+        }
+        if (ui::button("Planar project face",
+                       "Project only the active Model face along its dominant normal axis.")) {
+            mutate("Project face UV", [&](auto& mesh) { mesh.project_face_uv(face_); });
         }
         ImGui::EndDisabled();
-    }
-    std::vector<std::size_t> selected_uv_corners(std::size_t count) const {
-        if (!uv_corners_.empty())
-            return {uv_corners_.begin(), uv_corners_.end()};
-        std::vector<std::size_t> all;
-        for (std::size_t i = 0; i < count; ++i)
-            all.push_back(i);
-        return all;
+        ImGui::EndDisabled();
+        if (ui::button("Cancel UV preview",
+                       "Discard the drag or numeric preview without editing the Mesh.")) {
+            cancel_uv_drag();
+            uv_translation_[0] = uv_translation_[1] = uv_angle_ = 0;
+            uv_scale_[0] = uv_scale_[1] = 1;
+            preview_uv_ = false;
+        }
     }
     void draw_model_wireframe(const EditableMeshSource& source, bool locked) {
         const auto available = ImGui::GetContentRegionAvail();
@@ -806,7 +941,7 @@ class EditableMeshEditor {
                         const auto key = polygon.at("id").get<std::uint32_t>();
                         if (face_ != key) {
                             face_ = key;
-                            uv_corners_.clear();
+                            reset_uv_scope();
                         }
                     }
                 }
@@ -837,55 +972,187 @@ class EditableMeshEditor {
         draw->AddText({origin.x + 8, origin.y + 8}, IM_COL32(181, 216, 224, 255),
                       "Mesh source preview (orbit with sliders)");
     }
-    void draw_uv_wireframe(const EditableMeshSource& source) {
-        const auto available = ImGui::GetContentRegionAvail();
-        const ImVec2 size{std::max(180.f, available.x), 230.f * ui::interface_scale};
+    void draw_uv_wireframe(const EditableMeshSource& source, bool locked) {
+        const ImVec2 size{std::max(100.f, ImGui::GetContentRegionAvail().x),
+                          230.f * ui::interface_scale};
         const auto origin = ImGui::GetCursorScreenPos();
-        ImGui::InvisibleButton("UV preview", size);
+        ImGui::InvisibleButton("UV canvas", size,
+                               ImGuiButtonFlags_MouseButtonLeft |
+                                   ImGuiButtonFlags_MouseButtonMiddle);
+        FORGE_UI_PROBE("mesh:uv_canvas");
+        const bool hovered = ImGui::IsItemHovered();
+        ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+        const auto mouse = ImGui::GetMousePos();
+        const double base =
+            std::max(16., double(std::min(size.x, size.y) - 36 * ui::interface_scale));
+        const std::array<double, 2> middle{origin.x + size.x * .5, origin.y + size.y * .5};
+        auto to_uv = [&](ImVec2 point) {
+            return std::array<double, 2>{uv_center_[0] + (point.x - middle[0]) / (base * uv_zoom_),
+                                         uv_center_[1] + (point.y - middle[1]) / (base * uv_zoom_)};
+        };
+        if (hovered && !uv_drag_) {
+            if (ImGui::GetIO().MouseWheel != 0) {
+                const auto anchor = to_uv(mouse);
+                uv_zoom_ =
+                    std::clamp(uv_zoom_ * std::pow(1.2, ImGui::GetIO().MouseWheel), 1e-6, 1e6);
+                uv_center_ = {anchor[0] - (mouse.x - middle[0]) / (base * uv_zoom_),
+                              anchor[1] - (mouse.y - middle[1]) / (base * uv_zoom_)};
+            }
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+                uv_center_[0] -= ImGui::GetIO().MouseDelta.x / (base * uv_zoom_);
+                uv_center_[1] -= ImGui::GetIO().MouseDelta.y / (base * uv_zoom_);
+            }
+            for (auto& value : uv_center_)
+                value = std::clamp(value, -200000., 200000.);
+        }
+        auto screen = [&](const Json& uv) {
+            return std::array<double, 2>{
+                middle[0] + (uv[0].get<double>() - uv_center_[0]) * base * uv_zoom_,
+                middle[1] + (uv[1].get<double>() - uv_center_[1]) * base * uv_zoom_};
+        };
         auto* draw = ImGui::GetWindowDrawList();
         draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                             IM_COL32(20, 30, 41, 255));
-        const auto span = std::min(size.x, size.y) - 36.f;
-        const auto start =
-            ImVec2{origin.x + (size.x - span) * .5f, origin.y + (size.y - span) * .5f};
-        draw->AddRect(start, {start.x + span, start.y + span}, IM_COL32(97, 128, 145, 255));
-        for (const auto& polygon : source.document.at("faces"))
-            if (polygon.at("id").get<std::uint32_t>() == face_) {
-                std::vector<ImVec2> points;
-                for (const auto& corner : polygon.at("corners")) {
-                    const auto& uv = corner.at("uv");
-                    points.push_back({start.x + float(uv[0].get<double>()) * span,
-                                      start.y + float(uv[1].get<double>()) * span});
+        draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
+        // Clip original double-precision segments before conversion to draw floats.
+        auto line = [&](std::array<double, 2> a, std::array<double, 2> b, ImU32 color,
+                        float width) {
+            const auto dx = b[0] - a[0], dy = b[1] - a[1];
+            double low = 0, high = 1;
+            const std::array<double, 4> p{-dx, dx, -dy, dy},
+                q{a[0] - origin.x, origin.x + size.x - a[0], a[1] - origin.y,
+                  origin.y + size.y - a[1]};
+            for (unsigned i = 0; i < 4; ++i) {
+                if (p[i] == 0) {
+                    if (q[i] < 0)
+                        return;
+                } else {
+                    const auto t = q[i] / p[i];
+                    if (p[i] < 0)
+                        low = std::max(low, t);
+                    else
+                        high = std::min(high, t);
+                    if (low > high)
+                        return;
                 }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                    const auto mouse = ImGui::GetMousePos();
-                    float nearest = 100.f;
-                    std::optional<std::size_t> hit;
-                    for (std::size_t i = 0; i < points.size(); ++i) {
-                        const auto dx = mouse.x - points[i].x, dy = mouse.y - points[i].y;
-                        const auto distance = dx * dx + dy * dy;
-                        if (distance < nearest) {
-                            nearest = distance;
-                            hit = i;
-                        }
-                    }
-                    if (hit) {
-                        if (!ImGui::GetIO().KeyCtrl)
-                            uv_corners_.clear();
-                        if (!uv_corners_.erase(*hit))
-                            uv_corners_.insert(*hit);
-                    }
-                }
-                draw->AddPolyline(points.data(), static_cast<int>(points.size()),
-                                  IM_COL32(255, 195, 79, 255), ImDrawFlags_Closed, 2.f);
-                for (std::size_t i = 0; i < points.size(); ++i)
-                    draw->AddCircleFilled(points[i], uv_corners_.contains(i) ? 5.f : 3.f,
-                                          uv_corners_.contains(i) ? IM_COL32(255, 226, 136, 255)
-                                                                  : IM_COL32(164, 215, 228, 255));
-                break;
             }
+            draw->AddLine({float(a[0] + low * dx), float(a[1] + low * dy)},
+                          {float(a[0] + high * dx), float(a[1] + high * dy)}, color, width);
+        };
+        const auto tile0 = screen(Json::array({0, 0})), tile1 = screen(Json::array({1, 1}));
+        line(tile0, {tile1[0], tile0[1]}, IM_COL32(97, 128, 145, 255), 1);
+        line({tile1[0], tile0[1]}, tile1, IM_COL32(97, 128, 145, 255), 1);
+        line(tile1, {tile0[0], tile1[1]}, IM_COL32(97, 128, 145, 255), 1);
+        line({tile0[0], tile1[1]}, tile0, IM_COL32(97, 128, 145, 255), 1);
+        std::optional<MeshUvCorner> hit;
+        double nearest = std::pow(9 * ui::interface_scale, 2);
+        std::optional<std::uint32_t> face_hit;
+        for (const auto& face : source.document.at("faces")) {
+            const auto id = face.at("id").get<std::uint32_t>();
+            const auto& corners = face.at("corners");
+            std::vector<std::array<double, 2>> points;
+            for (const auto& corner : corners)
+                points.push_back(screen(corner.at("uv")));
+            bool inside = false;
+            for (std::size_t i = 0, j = points.size() - 1; i < points.size(); j = i++) {
+                const auto a = points[i], b = points[j];
+                if ((a[1] > mouse.y) != (b[1] > mouse.y) &&
+                    mouse.x < (b[0] - a[0]) * (mouse.y - a[1]) / (b[1] - a[1]) + a[0])
+                    inside = !inside;
+            }
+            if (inside && (!face_hit || id == face_ || (*face_hit != face_ && id < *face_hit)))
+                face_hit = id;
+            for (std::size_t i = 0; i < points.size(); ++i) {
+                const auto a = points[i], b = points[(i + 1) % points.size()];
+                const MeshUvCorner ref{id, i};
+                const bool selected = uv_selection_.contains(ref);
+                line(a, b, selected ? IM_COL32(255, 195, 79, 255) : IM_COL32(87, 126, 149, 180),
+                     selected ? 2.f : 1.f);
+                if (a[0] >= origin.x && a[0] <= origin.x + size.x && a[1] >= origin.y &&
+                    a[1] <= origin.y + size.y)
+                    draw->AddCircleFilled(
+                        {float(a[0]), float(a[1])}, (selected ? 4.f : 2.f) * ui::interface_scale,
+                        selected ? IM_COL32(255, 226, 136, 255) : IM_COL32(164, 215, 228, 255));
+                const auto dx = mouse.x - a[0], dy = mouse.y - a[1], distance = dx * dx + dy * dy;
+                if (distance < nearest ||
+                    (hit && distance == nearest && id == face_ && hit->face != face_)) {
+                    nearest = distance;
+                    hit = ref;
+                }
+            }
+        }
+        draw->PopClipRect();
         draw->AddText({origin.x + 8, origin.y + 8}, IM_COL32(181, 216, 224, 255),
-                      "Face-corner UVs (0,0 at top left)");
+                      "UV tile (0,0 at top left) | gold = selected");
+        if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            const bool add = ImGui::GetIO().KeyCtrl;
+            if (uv_mode_ == 0 && hit) {
+                if (add) {
+                    if (!uv_selection_.erase(*hit))
+                        uv_selection_.insert(*hit);
+                } else if (!uv_selection_.contains(*hit)) {
+                    uv_selection_.clear();
+                    uv_selection_.insert(*hit);
+                }
+                face_ = hit->face;
+                uv_initialized_ = true;
+            } else if (uv_mode_ != 0 && (hit || face_hit)) {
+                const auto selected = hit ? hit->face : *face_hit;
+                select_uv_face(selected, add, uv_mode_ == 2);
+            } else if (!hit && !face_hit && !add) {
+                uv_selection_.clear();
+                uv_initialized_ = true;
+            }
+            if (!locked && !preview_uv_ && !add && !uv_selection_.empty() &&
+                (hit || (uv_mode_ != 0 && face_hit))) {
+                uv_drag_ = true;
+                uv_drag_start_ = to_uv(mouse);
+                uv_drag_delta_ = {};
+                uv_drag_revision_ = document_->revision();
+                uv_drag_selection_ = selected_uv_corners();
+            }
+        }
+        if (uv_drag_ && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+            ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            cancel_uv_drag();
+            return;
+        }
+        const auto drag_pixels =
+            ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 2 * ui::interface_scale);
+        const auto position = to_uv(mouse);
+        const auto dx = (position[0] - uv_drag_start_[0]) * base * uv_zoom_;
+        const auto dy = (position[1] - uv_drag_start_[1]) * base * uv_zoom_;
+        const auto threshold = 2 * ui::interface_scale;
+        // ImGui updates maximum drag distance only while the button is held.
+        // Include release-only movement and refresh a drag that returns to its start.
+        const bool released_move = ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
+                                   dx * dx + dy * dy >= threshold * threshold;
+        if (uv_drag_ && ImGui::IsMousePosValid(&mouse) &&
+            (drag_pixels.x != 0 || drag_pixels.y != 0 || uv_preview_ || released_move)) {
+            uv_drag_delta_ = {position[0] - uv_drag_start_[0], position[1] - uv_drag_start_[1]};
+            const auto key = Json::array({uv_drag_revision_, uv_drag_delta_}).dump();
+            if (key != uv_preview_key_) {
+                uv_preview_key_ = key;
+                uv_preview_ = document_->source();
+                uv_preview_error_.clear();
+                try {
+                    uv_preview_->transform_uv(uv_drag_selection_, uv_drag_delta_, 0, {1, 1});
+                } catch (const std::exception& e) {
+                    uv_preview_error_ = e.what();
+                    uv_preview_.reset();
+                }
+            }
+        }
+        if (uv_drag_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            const auto selection = uv_drag_selection_;
+            const auto delta = uv_drag_delta_;
+            const bool accept = uv_preview_ && uv_preview_error_.empty() &&
+                                uv_drag_revision_ == document_->revision();
+            cancel_uv_drag();
+            if (accept)
+                mutate("Move UV corners",
+                       [&](auto& mesh) { mesh.transform_uv(selection, delta, 0, {1, 1}); });
+        }
     }
 };
 } // namespace forge

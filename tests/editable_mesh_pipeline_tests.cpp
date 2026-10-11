@@ -87,6 +87,33 @@ int main(int argc, char** argv) {
                         history->source().document.at("vertices").size() == 12,
                     "Redo lost geometry or identity high water");
         }
+        {
+            auto uv_history = EditableMeshDocument::create(lease, "Assets/UvHistory.mesh.json");
+            const auto baseline = uv_history->source().document;
+            auto operation = [](nlohmann::json& draft) {
+                EditableMeshSource mesh{draft};
+                const auto island = mesh.uv_island(13);
+                mesh.transform_uv(island, {.3, -.2}, .4, {-2, .5});
+                mesh.fit_uv(island, .1);
+                draft = std::move(mesh.document);
+            };
+            uv_history->edit(uv_history->revision(), "UV island", operation);
+            const auto edited = uv_history->source().document;
+            require(edited != baseline && edited.at("next_id") == baseline.at("next_id"),
+                    "UV-only history failed or allocated geometry identities");
+            uv_history->undo();
+            require(uv_history->source().document == baseline && uv_history->can_redo(),
+                    "UV Undo did not restore its source");
+            uv_history->redo();
+            require(uv_history->source().document == edited, "UV Redo differs");
+            uv_history->undo();
+            uv_history->edit(uv_history->revision(), "UV branch", operation);
+            require(!uv_history->can_redo() && uv_history->source().document == edited,
+                    "UV branch retained abandoned history");
+            uv_history->save();
+            EditableMeshDocument reopened_uv(lease, "Assets/UvHistory.mesh.json");
+            require(reopened_uv.source().document == edited, "UV source save/reopen differs");
+        }
         auto document = EditableMeshDocument::create(lease, source);
         const auto identity = document->source().asset();
         const auto initial = document->source().document;

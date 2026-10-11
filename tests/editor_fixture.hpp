@@ -88,6 +88,12 @@ struct EditorFixture {
         case 113:
         case 114:
             return "###Animation Timeline";
+        case 115:
+        case 116:
+        case 117:
+        case 118:
+        case 119:
+        case 120:
         case 103:
         case 104:
         case 105:
@@ -396,7 +402,13 @@ struct EditorFixture {
                                "timeline-curves-controls-200",
                                "timeline-curves-view",
                                "timeline-curves-view-150",
-                               "timeline-curves-view-200"};
+                               "timeline-curves-view-200",
+                               "editable-mesh-uv-canvas",
+                               "editable-mesh-uv-canvas-150",
+                               "editable-mesh-uv-canvas-200",
+                               "editable-mesh-uv-tools",
+                               "editable-mesh-uv-tools-150",
+                               "editable-mesh-uv-tools-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;
