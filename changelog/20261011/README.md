@@ -37,3 +37,24 @@ Source-free relocated playback is included in the numerical blending gate.
 
 Windows execution and physical acceptance remain pending a separately authorized
 delivery. No new Windows ZIP or GitHub push is part of this local batch.
+
+
+## Named skeletal animation states
+
+Reusable state sets now name clips and assign stable numeric IDs, an entry,
+loop/speed and incoming fade time. C++ selects IDs on the existing Animator.
+Ozz advances independent clip clocks, blends local poses and freezes the current
+pose when a fade is interrupted. Short nonlooping clips finish their fade before
+stopping. Existing direct/two-clip playback remains available.
+
+The central Animation States document supports source history, Save/Publish,
+reordering and atomic scene attachment. Animation Preview adds temporary named
+state selection. Typed set dependencies participate in source reference review,
+copy/rename and ordinary source-free export. Rebuild native modules with the
+matching SDK after updating.
+
+Gallery scene 10 contains actual CC0 Quaternius Idle/Walk/Sprint character clips,
+three independent skins, editable state source, cooked Windows-target bundles,
+license and immutable provenance. Editor package selection includes its GLB and
+license. Windows execution/physical acceptance remains pending; no new ZIP or
+GitHub push is part of this local batch.

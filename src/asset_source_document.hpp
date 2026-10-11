@@ -143,6 +143,8 @@ void AssetSourceDocument<Traits>::edit(std::uint64_t expected, std::string label
     auto candidate = current_;
     mutation(candidate.document);
     candidate.validate();
+    if constexpr (requires { Traits::validate_edit(current_, candidate); })
+        Traits::validate_edit(current_, candidate);
     if (candidate.asset() != current_.asset())
         throw std::runtime_error("Asset source edit cannot change persistent identity");
     if (candidate.document == current_.document)
@@ -160,6 +162,8 @@ void AssetSourceDocument<Traits>::history(std::vector<Entry>& from, std::vector<
         return;
     // Prepare all allocations before changing the active source/history.
     auto next = from.back().source;
+    if constexpr (requires { Traits::restore_identity_metadata(next, current_); })
+        Traits::restore_identity_metadata(next, current_);
     to.push_back({current_, from.back().label, current_.document.dump().size()});
     bound(to);
     from.pop_back();

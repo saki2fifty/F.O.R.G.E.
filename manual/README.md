@@ -18,6 +18,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Transform animation timeline](editor/transform-animation.md): keyframe an object, preview it and export its motion.
 - [Animation](editor/animation.md): convert glTF skeletons/clips and test Animator playback.
 - [Preview and blend two animations](editor/animation-blending.md)
+- [Choose named animation states](editor/animation-states.md)
 - [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
 
 - [Projects](editor/projects.md): create, open, and return to projects.

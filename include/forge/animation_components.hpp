@@ -7,6 +7,9 @@ struct SkeletonAsset {
 struct AnimationClipAsset {
     static constexpr const char* type = "animation_clip";
 };
+struct AnimationStatesAsset {
+    static constexpr const char* type = "animation_states";
+};
 struct TransformAnimationAsset {
     static constexpr const char* type = "transform_animation";
 };
@@ -24,6 +27,9 @@ struct Animator {
     // Both clips share normalized phase. C++ may change blend_weight during Play.
     AssetRef<AnimationClipAsset> blend_clip{};
     float blend_weight = 0, transition_seconds = .25f;
+    // Optional named clip set. Zero selects its entry state; IDs survive rename/reorder.
+    AssetRef<AnimationStatesAsset> states{};
+    std::uint32_t state = 0;
     bool operator==(const Animator&) const = default;
 };
 } // namespace forge

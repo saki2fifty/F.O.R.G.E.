@@ -72,7 +72,9 @@ template <class T> Json encode(const T& p) {
                 {"playback_speed", p.playback_speed},
                 {"blend_clip", p.blend_clip.id ? Json(p.blend_clip.id) : Json()},
                 {"blend_weight", p.blend_weight},
-                {"transition_seconds", p.transition_seconds}};
+                {"transition_seconds", p.transition_seconds},
+                {"states", p.states.id ? Json(p.states.id) : Json()},
+                {"state", p.state}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -213,6 +215,9 @@ template <class T> Value decode(const Json& p) {
             v.blend_clip.id = p.at("blend_clip").get<AssetId>();
         v.blend_weight = p.value("blend_weight", 0.f);
         v.transition_seconds = p.value("transition_seconds", .25f);
+        if (p.contains("states") && !p.at("states").is_null())
+            v.states.id = p.at("states").get<AssetId>();
+        v.state = p.value("state", std::uint32_t(0));
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
         return v;
@@ -454,6 +459,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     } else if constexpr (std::is_same_v<T, Animator>) {
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
+        register_asset_ref<AnimationStatesAsset>(w, "forge.animation_states_ref");
         c.template member<AssetRef<SkeletonAsset>>("skeleton")
             .template member<AssetRef<AnimationClipAsset>>("clip")
             .template member<bool>("enabled")
@@ -462,7 +468,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("playback_speed")
             .template member<AssetRef<AnimationClipAsset>>("blend_clip")
             .template member<float>("blend_weight")
-            .template member<float>("transition_seconds");
+            .template member<float>("transition_seconds")
+            .template member<AssetRef<AnimationStatesAsset>>("states")
+            .template member<std::uint32_t>("state");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -893,7 +901,16 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.animator" || name == "forge.transform_animator") {
-        if (field == "skeleton" || field == "clip" || field == "blend_clip") {
+        if (field == "states") {
+            value["asset_type"] = AnimationStatesAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Optional named clip set; C++ selects its stable state ID";
+        } else if (field == "state") {
+            value["minimum"] = 0;
+            value["maximum"] = UINT32_MAX;
+            value["description"] =
+                "Stable state ID in the selected set; zero selects its entry state";
+        } else if (field == "skeleton" || field == "clip" || field == "blend_clip") {
             value["asset_type"] = field == "skeleton" ? SkeletonAsset::type
                                   : name == "forge.transform_animator"
                                       ? TransformAnimationAsset::type
@@ -1187,6 +1204,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<AudioClipAsset>();
         add_reference.template operator()<SkeletonAsset>();
         add_reference.template operator()<AnimationClipAsset>();
+        add_reference.template operator()<AnimationStatesAsset>();
         add_reference.template operator()<TransformAnimationAsset>();
         add_reference.template operator()<NavMeshAsset>();
         add_reference.template operator()<UiDocumentAsset>();
@@ -1290,7 +1308,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         !current.contains("material_variant"))
         current["material_variant"] = nullptr;
     if (std::string_view(type.name) == "forge.animator")
-        for (const auto* field : {"blend_clip", "blend_weight", "transition_seconds"})
+        for (const auto* field :
+             {"blend_clip", "blend_weight", "transition_seconds", "states", "state"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

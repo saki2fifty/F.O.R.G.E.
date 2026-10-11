@@ -24,7 +24,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
-        '09-animation-blending.scene.json'} <= {p.name for p in scenes}
+        '09-animation-blending.scene.json', '10-animation-states.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -129,6 +129,16 @@ try:
             cooked = project_root / '.forge/cache/derived' / model['metadata']['forge.import']['key']
             assert (cooked/'skeleton.ozz').is_file()
             assert (cooked/'clip-0.ozz').is_file() and (cooked/'clip-1.ozz').is_file()
+        if path.name.startswith('10-'):
+            players = [row['components']['forge.animator'] for row in loaded['entities']
+                       if 'forge.animator' in row['components']]
+            assert sorted(p['state'] for p in players) == [1, 2, 3]
+            states = by_source['Assets/Locomotion.states.json']
+            assert all(p['states'] == states['id'] for p in players)
+            graph = json.loads((project_root/states['source']).read_text())
+            assert [(s['id'], s['name']) for s in graph['states']] == [(1, 'Idle'), (2, 'Walk'), (3, 'Run')]
+            assert (project_root/'Assets/Quaternius-LICENSE.txt').is_file()
+            assert (project_root/'Assets/QuaterniusLocomotion.glb').is_file()
         if path.name.startswith('04-'):
             cameras = [row['components']['forge.camera'] for row in loaded['entities']
                        if 'forge.camera' in row['components']]

@@ -1,6 +1,123 @@
 {
   "assets": [
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "00241fc4-e671-4181-8d19-dadfac1b6ae5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "calf_r",
+          "node": 61,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/00241fc4-e671-4181-8d19-dadfac1b6ae5",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "01e3e039-7714-48e1-a367-95be956ea174",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "lowerarm_r",
+          "node": 47,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/01e3e039-7714-48e1-a367-95be956ea174",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "03bc559f-b92d-450f-9771-78a5b074322e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_03_r",
+          "node": 39,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/03bc559f-b92d-450f-9771-78a5b074322e",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
       "dependencies": [
         "08e7e8fb-e562-43eb-84e2-da2617a5a983"
       ],
@@ -54,6 +171,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "08c9fa8f-b115-408c-888c-b6ddfde26ad9",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_04_leaf_r",
+          "node": 30,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/08c9fa8f-b115-408c-888c-b6ddfde26ad9",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "08e7e8fb-e562-43eb-84e2-da2617a5a983",
       "metadata": {
         "forge.import": {
@@ -91,6 +247,398 @@
         "removed": false
       },
       "type": "skeleton"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0b147dd2-5141-4999-ae7c-09e1c21c039a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_02_l",
+          "node": 8,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0b147dd2-5141-4999-ae7c-09e1c21c039a",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "hand_l",
+          "node": 22,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0cc18cd9-e1ed-41b6-8823-052a442b52a8",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0d2d4a82-e1fa-4f64-845f-f75185018cfd",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_01_r",
+          "node": 37,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0d2d4a82-e1fa-4f64-845f-f75185018cfd",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_01_r",
+          "node": 45,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0f6c5948-5f03-429d-a965-3afb69849a67",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Armature",
+          "node": 66,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0f6c5948-5f03-429d-a965-3afb69849a67",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "10be3be6-1de7-4465-8a50-733bf046bd4c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 761,
+          "file": "material-0.fmat",
+          "name": "M_Main",
+          "sha256": "a867f348db3ba635811db7107ec20208046f2cced07173cf9e2eb35bfdd6d4de",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/10be3be6-1de7-4465-8a50-733bf046bd4c",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "129897d6-caec-4c9e-84b2-4586b9f5afb8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_01_r",
+          "node": 29,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/129897d6-caec-4c9e-84b2-4586b9f5afb8",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "136a5419-75cb-4240-aeca-2467b149089a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thigh_l",
+          "node": 57,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/136a5419-75cb-4240-aeca-2467b149089a",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "16566c91-7ea8-442b-9738-9181a84ddfd7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ball_l",
+          "node": 54,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/16566c91-7ea8-442b-9738-9181a84ddfd7",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_02_l",
+          "node": 20,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [
@@ -242,6 +790,240 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "25cf4078-3c50-4877-84a7-59901a59a3eb",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_02_r",
+          "node": 36,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/25cf4078-3c50-4877-84a7-59901a59a3eb",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ball_leaf_l",
+          "node": 53,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "foot_l",
+          "node": 55,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "2a964b7e-db29-4e5a-9448-7270b8234548",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_03_r",
+          "node": 31,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/2a964b7e-db29-4e5a-9448-7270b8234548",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_04_leaf_r",
+          "node": 38,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "38f4ac10-6a11-42c5-bd40-95f13abe56d4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_03_l",
+          "node": 3,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/38f4ac10-6a11-42c5-bd40-95f13abe56d4",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece",
       "metadata": {
         "forge.import": {
@@ -273,6 +1055,123 @@
       "source": "Assets/Platform.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "calf_l",
+          "node": 56,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3b413040-a136-4a40-81bd-e740cd23c75c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_04_leaf_r",
+          "node": 26,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/3b413040-a136-4a40-81bd-e740cd23c75c",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_01_l",
+          "node": 21,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [
@@ -326,6 +1225,331 @@
       "type": "animation_clip"
     },
     {
+      "dependencies": [
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 7052,
+          "file": "clip-0.ozz",
+          "name": "Idle_Loop",
+          "sha256": "45572a91aeaeddc9a15f074c0064f4b3768e52c4db3d3c1eb62480b5d3a98639",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_04_leaf_r",
+          "node": 42,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "foot_r",
+          "node": 60,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/5515a646-7b78-4ff4-adfe-2796db4384c3",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "hand_r",
+          "node": 46,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:1",
+          "target": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:3",
+          "target": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:2",
+          "target": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "57fcff26-4c0c-4781-9607-708514e382c1",
+      "metadata": {
+        "forge.animation_states": {
+          "bytes": 527,
+          "file": "states.json",
+          "sha256": "8850a20d2798c640ed16f4ac202f2d26faca22f5339e87f501491c9a25116a72",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "b89a6ace0cf65909b852b23d7ed3cbf9154570c31356a669d4286c350a8c9062",
+          "backend": "d3d12",
+          "dependency_digest": "c87c206d35c7305d44c88245ea305abb3d459a04bfd9f9721a318271a4550df6",
+          "generation": 1,
+          "importer": "forge.animation.states",
+          "importer_revision": "forge.animation.states.v1",
+          "key": "6485fd321688d1f9a6b69c451e7a02fee94f97466f03ff58287f7e031c46ef27",
+          "output_format": "forge.animation-states",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "467ee16a291abd42e0d31dbb49b58c414b02dc3aa4caee971ac19f95827dd5cb",
+          "source_digest": "4d6e6b4053adc7cbeb303b328816021ffacdd162a82fcd798e92ea107acb9113",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Locomotion.states.json",
+      "source_dependencies": [],
+      "type": "animation_states"
+    },
+    {
+      "dependencies": [
+        "a3dbb4c7-393f-4f04-b20b-911a797e9c93"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "mesh",
+          "target": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+          "type": "mesh"
+        }
+      ],
+      "id": "584afd20-713c-451c-abec-123317e31199",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Mannequin",
+          "node": 65,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/584afd20-713c-451c-abec-123317e31199",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5a452923-a9ba-419b-ae20-6c377525e559",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ball_r",
+          "node": 59,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/5a452923-a9ba-419b-ae20-6c377525e559",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "639aaf22-5ce3-4062-8086-2c68d5faaa19",
@@ -369,6 +1593,240 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "6801ff15-2193-4b6b-873c-b9b904fd7883",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "upperarm_l",
+          "node": 24,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6801ff15-2193-4b6b-873c-b9b904fd7883",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "689efd7e-f55a-4a52-ac67-7bf56b446fb1",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "spine_03",
+          "node": 50,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/689efd7e-f55a-4a52-ac67-7bf56b446fb1",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6912d355-eff0-4614-91d1-2548bc94582f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_03_r",
+          "node": 43,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6912d355-eff0-4614-91d1-2548bc94582f",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6b14a22c-e4f4-4b36-9718-fec34439d379",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "clavicle_r",
+          "node": 49,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6b14a22c-e4f4-4b36-9718-fec34439d379",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6e2014ba-fe22-47d7-86db-42c88c391ea6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_01_l",
+          "node": 9,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6e2014ba-fe22-47d7-86db-42c88c391ea6",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6fbe604b-3302-400b-8790-5bd2cab2c6a1",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "root",
+          "node": 64,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6fbe604b-3302-400b-8790-5bd2cab2c6a1",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "7bb9e435-c783-44b2-8080-1037ee06ecfc",
       "metadata": {
         "forge.import": {
@@ -401,6 +1859,674 @@
       "subasset": {
         "key": "member/7bb9e435-c783-44b2-8080-1037ee06ecfc",
         "owner": "22987994-51d7-4942-80bf-a4adb7adc34b",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "00241fc4-e671-4181-8d19-dadfac1b6ae5",
+        "01e3e039-7714-48e1-a367-95be956ea174",
+        "03bc559f-b92d-450f-9771-78a5b074322e",
+        "08c9fa8f-b115-408c-888c-b6ddfde26ad9",
+        "0b147dd2-5141-4999-ae7c-09e1c21c039a",
+        "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
+        "0d2d4a82-e1fa-4f64-845f-f75185018cfd",
+        "0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
+        "0f6c5948-5f03-429d-a965-3afb69849a67",
+        "10be3be6-1de7-4465-8a50-733bf046bd4c",
+        "129897d6-caec-4c9e-84b2-4586b9f5afb8",
+        "136a5419-75cb-4240-aeca-2467b149089a",
+        "16566c91-7ea8-442b-9738-9181a84ddfd7",
+        "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
+        "25cf4078-3c50-4877-84a7-59901a59a3eb",
+        "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
+        "2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
+        "2a964b7e-db29-4e5a-9448-7270b8234548",
+        "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
+        "38f4ac10-6a11-42c5-bd40-95f13abe56d4",
+        "3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
+        "3b413040-a136-4a40-81bd-e740cd23c75c",
+        "3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
+        "43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
+        "5515a646-7b78-4ff4-adfe-2796db4384c3",
+        "570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
+        "584afd20-713c-451c-abec-123317e31199",
+        "5a452923-a9ba-419b-ae20-6c377525e559",
+        "6801ff15-2193-4b6b-873c-b9b904fd7883",
+        "689efd7e-f55a-4a52-ac67-7bf56b446fb1",
+        "6912d355-eff0-4614-91d1-2548bc94582f",
+        "6b14a22c-e4f4-4b36-9718-fec34439d379",
+        "6e2014ba-fe22-47d7-86db-42c88c391ea6",
+        "6fbe604b-3302-400b-8790-5bd2cab2c6a1",
+        "81514a97-ac44-4020-b28f-01cb9553ec97",
+        "8440536b-d3ff-4591-ae49-a878ffbcaff6",
+        "84848779-0291-4744-8ea6-565e16be5b5a",
+        "86349f74-d462-47b1-91dd-257707503c90",
+        "866393ab-6952-4aee-8674-a6a188d3117a",
+        "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "8ce743c7-17e5-4148-9404-e69b23a3b961",
+        "9379ad87-06aa-46fe-81b6-541fc7952b1e",
+        "9916bb5a-3d79-4f66-a719-d519f520db8f",
+        "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
+        "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+        "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
+        "a8a3cc82-6045-456a-a65c-c4662edb6f56",
+        "af64d6ab-bc61-4000-861e-065712610ac8",
+        "b20867f0-d20d-4d86-8f16-7d4e7f301b90",
+        "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
+        "b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
+        "b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
+        "b6cb4d19-c29f-4c72-9260-94ce73733118",
+        "bb10601b-3d4c-43fd-a9c6-02015f966fc9",
+        "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
+        "bd0ef129-9444-49a7-9bcd-f1362399e5d3",
+        "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
+        "c5d0c60d-0c72-4a15-b6e8-be442f617a17",
+        "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+        "c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
+        "d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
+        "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
+        "d63f500a-54e2-4b1a-924a-034ac3ee7924",
+        "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
+        "db5e6c73-94df-4051-b66f-4b2627c5f249",
+        "ded08da4-ba40-45bc-9b42-71297bea1d31",
+        "e00edc21-2c6b-4613-9c35-29fecc6b8147",
+        "e37e1ca3-8685-4639-a158-085b36435f9e",
+        "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
+        "f3d49347-2448-4491-8466-e8b5cd28bdf6",
+        "f6d23562-da1e-4265-9af5-c1cbe6e163b9",
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/61",
+          "target": "00241fc4-e671-4181-8d19-dadfac1b6ae5",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/47",
+          "target": "01e3e039-7714-48e1-a367-95be956ea174",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/39",
+          "target": "03bc559f-b92d-450f-9771-78a5b074322e",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/30",
+          "target": "08c9fa8f-b115-408c-888c-b6ddfde26ad9",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/8",
+          "target": "0b147dd2-5141-4999-ae7c-09e1c21c039a",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/22",
+          "target": "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/37",
+          "target": "0d2d4a82-e1fa-4f64-845f-f75185018cfd",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/45",
+          "target": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/66",
+          "target": "0f6c5948-5f03-429d-a965-3afb69849a67",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/materials/0",
+          "target": "10be3be6-1de7-4465-8a50-733bf046bd4c",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/29",
+          "target": "129897d6-caec-4c9e-84b2-4586b9f5afb8",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/57",
+          "target": "136a5419-75cb-4240-aeca-2467b149089a",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/54",
+          "target": "16566c91-7ea8-442b-9738-9181a84ddfd7",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/20",
+          "target": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/36",
+          "target": "25cf4078-3c50-4877-84a7-59901a59a3eb",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/53",
+          "target": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/55",
+          "target": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/31",
+          "target": "2a964b7e-db29-4e5a-9448-7270b8234548",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/38",
+          "target": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/3",
+          "target": "38f4ac10-6a11-42c5-bd40-95f13abe56d4",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/56",
+          "target": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/26",
+          "target": "3b413040-a136-4a40-81bd-e740cd23c75c",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/21",
+          "target": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/animations/0",
+          "target": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/42",
+          "target": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/60",
+          "target": "5515a646-7b78-4ff4-adfe-2796db4384c3",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/46",
+          "target": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/65",
+          "target": "584afd20-713c-451c-abec-123317e31199",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/59",
+          "target": "5a452923-a9ba-419b-ae20-6c377525e559",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/24",
+          "target": "6801ff15-2193-4b6b-873c-b9b904fd7883",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/50",
+          "target": "689efd7e-f55a-4a52-ac67-7bf56b446fb1",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/43",
+          "target": "6912d355-eff0-4614-91d1-2548bc94582f",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/49",
+          "target": "6b14a22c-e4f4-4b36-9718-fec34439d379",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/9",
+          "target": "6e2014ba-fe22-47d7-86db-42c88c391ea6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/64",
+          "target": "6fbe604b-3302-400b-8790-5bd2cab2c6a1",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/15",
+          "target": "81514a97-ac44-4020-b28f-01cb9553ec97",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/52",
+          "target": "8440536b-d3ff-4591-ae49-a878ffbcaff6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/19",
+          "target": "84848779-0291-4744-8ea6-565e16be5b5a",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/5",
+          "target": "86349f74-d462-47b1-91dd-257707503c90",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/32",
+          "target": "866393ab-6952-4aee-8674-a6a188d3117a",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/animations/1",
+          "target": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/40",
+          "target": "8ce743c7-17e5-4148-9404-e69b23a3b961",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/0",
+          "target": "9379ad87-06aa-46fe-81b6-541fc7952b1e",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/23",
+          "target": "9916bb5a-3d79-4f66-a719-d519f520db8f",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/18",
+          "target": "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/meshes/0",
+          "target": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/34",
+          "target": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/28",
+          "target": "a8a3cc82-6045-456a-a65c-c4662edb6f56",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/63",
+          "target": "af64d6ab-bc61-4000-861e-065712610ac8",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/33",
+          "target": "b20867f0-d20d-4d86-8f16-7d4e7f301b90",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/44",
+          "target": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/7",
+          "target": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/4",
+          "target": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/27",
+          "target": "b6cb4d19-c29f-4c72-9260-94ce73733118",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/51",
+          "target": "bb10601b-3d4c-43fd-a9c6-02015f966fc9",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/41",
+          "target": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/6",
+          "target": "bd0ef129-9444-49a7-9bcd-f1362399e5d3",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/1",
+          "target": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/17",
+          "target": "c5d0c60d-0c72-4a15-b6e8-be442f617a17",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/materials/1",
+          "target": "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/16",
+          "target": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/14",
+          "target": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/animations/2",
+          "target": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/35",
+          "target": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/58",
+          "target": "d63f500a-54e2-4b1a-924a-034ac3ee7924",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/11",
+          "target": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/48",
+          "target": "db5e6c73-94df-4051-b66f-4b2627c5f249",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/2",
+          "target": "ded08da4-ba40-45bc-9b42-71297bea1d31",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/62",
+          "target": "e00edc21-2c6b-4613-9c35-29fecc6b8147",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/25",
+          "target": "e37e1ca3-8685-4639-a158-085b36435f9e",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/10",
+          "target": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/12",
+          "target": "f3d49347-2448-4491-8466-e8b5cd28bdf6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/nodes/13",
+          "target": "f6d23562-da1e-4265-9af5-c1cbe6e163b9",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "model.member:/rig/skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 129227,
+          "file": "model.json",
+          "sha256": "4e1eac9c361f87b4931f4fcd5ee97608dfd26ccec60fa0c15c219dce04510b4f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "type": "model"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "81514a97-ac44-4020-b28f-01cb9553ec97",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_03_l",
+          "node": 15,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/81514a97-ac44-4020-b28f-01cb9553ec97",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
         "removed": false
       },
       "type": "model_node"
@@ -439,6 +2565,252 @@
       "source": "Assets/SculptSphere.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "8440536b-d3ff-4591-ae49-a878ffbcaff6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "spine_01",
+          "node": 52,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/8440536b-d3ff-4591-ae49-a878ffbcaff6",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "84848779-0291-4744-8ea6-565e16be5b5a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_03_l",
+          "node": 19,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/84848779-0291-4744-8ea6-565e16be5b5a",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "86349f74-d462-47b1-91dd-257707503c90",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_01_l",
+          "node": 5,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/86349f74-d462-47b1-91dd-257707503c90",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "866393ab-6952-4aee-8674-a6a188d3117a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_02_r",
+          "node": 32,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/866393ab-6952-4aee-8674-a6a188d3117a",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 6830,
+          "file": "clip-1.ozz",
+          "name": "Sprint_Loop",
+          "sha256": "a71ef992566ca41f35659ecc3987285c138fd094c943e6c4a4185ba64a1b2c16",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "8ce743c7-17e5-4148-9404-e69b23a3b961",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_02_r",
+          "node": 40,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/8ce743c7-17e5-4148-9404-e69b23a3b961",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [
@@ -494,6 +2866,260 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "9379ad87-06aa-46fe-81b6-541fc7952b1e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Head",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/9379ad87-06aa-46fe-81b6-541fc7952b1e",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "9916bb5a-3d79-4f66-a719-d519f520db8f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "lowerarm_l",
+          "node": 23,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/9916bb5a-3d79-4f66-a719-d519f520db8f",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_04_leaf_l",
+          "node": 18,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/a2d19777-70d1-4e00-b1c0-89e0f544fafb",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "10be3be6-1de7-4465-8a50-733bf046bd4c",
+        "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "material.1",
+          "target": "10be3be6-1de7-4465-8a50-733bf046bd4c",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "material.2",
+          "target": "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+          "type": "material"
+        }
+      ],
+      "id": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 836645,
+          "file": "mesh-0.fmesh",
+          "name": "Mannequin",
+          "sha256": "fa6314d6997c954910a63d9ffc6a84162aae62f8d0935b9d2248310098fef62e",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_04_leaf_r",
+          "node": 34,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a8a3cc82-6045-456a-a65c-c4662edb6f56",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_02_r",
+          "node": 28,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/a8a3cc82-6045-456a-a65c-c4662edb6f56",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "ac0f7797-6699-455b-9431-bc07eb513c2f",
       "metadata": {
         "forge.import": {
@@ -525,6 +3151,318 @@
       "source": "Assets/Shape.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "af64d6ab-bc61-4000-861e-065712610ac8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pelvis",
+          "node": 63,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/af64d6ab-bc61-4000-861e-065712610ac8",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b20867f0-d20d-4d86-8f16-7d4e7f301b90",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_01_r",
+          "node": 33,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/b20867f0-d20d-4d86-8f16-7d4e7f301b90",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thumb_02_r",
+          "node": 44,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_03_l",
+          "node": 7,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_02_l",
+          "node": 4,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b6cb4d19-c29f-4c72-9260-94ce73733118",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_03_r",
+          "node": 27,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/b6cb4d19-c29f-4c72-9260-94ce73733118",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "bb10601b-3d4c-43fd-a9c6-02015f966fc9",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "spine_02",
+          "node": 51,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bb10601b-3d4c-43fd-a9c6-02015f966fc9",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_01_r",
+          "node": 41,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [],
@@ -564,6 +3502,724 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "bd0ef129-9444-49a7-9bcd-f1362399e5d3",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "middle_04_leaf_l",
+          "node": 6,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bd0ef129-9444-49a7-9bcd-f1362399e5d3",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "neck_01",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c5d0c60d-0c72-4a15-b6e8-be442f617a17",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_01_l",
+          "node": 17,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/c5d0c60d-0c72-4a15-b6e8-be442f617a17",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 758,
+          "file": "material-1.fmat",
+          "name": "M_Joints",
+          "sha256": "7a10f944cbfa021efc881eafacb5a4840668b7069acda2a52ead6a884f1abb76",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_02_l",
+          "node": 16,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ring_04_leaf_l",
+          "node": 14,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 8818,
+          "file": "clip-2.ozz",
+          "name": "Walk_Loop",
+          "sha256": "01f4214b842afbd638ecb7b579e32a7c0da8fa7395d17080d2b55513e3114087",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_03_r",
+          "node": 35,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d63f500a-54e2-4b1a-924a-034ac3ee7924",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "ball_leaf_r",
+          "node": 58,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/d63f500a-54e2-4b1a-924a-034ac3ee7924",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_03_l",
+          "node": 11,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "db5e6c73-94df-4051-b66f-4b2627c5f249",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "upperarm_r",
+          "node": 48,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/db5e6c73-94df-4051-b66f-4b2627c5f249",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ded08da4-ba40-45bc-9b42-71297bea1d31",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "index_04_leaf_l",
+          "node": 2,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/ded08da4-ba40-45bc-9b42-71297bea1d31",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e00edc21-2c6b-4613-9c35-29fecc6b8147",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "thigh_r",
+          "node": 62,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/e00edc21-2c6b-4613-9c35-29fecc6b8147",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e37e1ca3-8685-4639-a158-085b36435f9e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "clavicle_l",
+          "node": 25,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/e37e1ca3-8685-4639-a158-085b36435f9e",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_04_leaf_l",
+          "node": 10,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f3d49347-2448-4491-8466-e8b5cd28bdf6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_02_l",
+          "node": 12,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/f3d49347-2448-4491-8466-e8b5cd28bdf6",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f6d23562-da1e-4265-9af5-c1cbe6e163b9",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "pinky_01_l",
+          "node": 13,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/f6d23562-da1e-4265-9af5-c1cbe6e163b9",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85d88b378c5f50dfe31a0012cafd801e335e0f7af2d44a676854116ec228d882",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+          "key": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "output_format": "forge.model-bundle",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "e1f5d8b7dbf4ab03a574f0ca0cd290500e137c9df0e1bb26c02a0a472c87503f",
+          "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 3858,
+          "file": "skeleton.ozz",
+          "name": "Model skeleton",
+          "sha256": "5e0b57933d22cbc47bf5d17a08628ef1a4f38a92131578b8e7301567a5145302",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/QuaterniusLocomotion.glb",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+        "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "skeleton"
     },
     {
       "dependencies": [

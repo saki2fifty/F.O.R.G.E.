@@ -29,6 +29,7 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 | `08-transform-animation` | Press Play to watch **Animated platform**. Open **Platform.animation.json** in Content, choose that object in Preview object, and scrub or change its keys. Save & Publish. | The blue platform moves between the two markers, turns and changes height over four seconds. Timeline preview restores the authored view when stopped. Play and export use the published clip. |
 
 | `09-animation-blending` | Press Play and compare the three skinned columns. Select **Half Idle / half Reach** and open **Preview skeletal animation...** from Content. Pause, scrub and adjust the blend target/duration. | Idle, an equal blend, and Reach share normalized phase. The center column bends between the two poses. Preview is temporary; Apply settings stores one Scene Undo step. Both clips play in standalone export. |
+| `10-animation-states` | Press Play to compare Idle, Walk and Run characters. Select a character root and use Animation Preview's named state selector. Open `Assets/Locomotion.states.json` to change names, loop, speed and incoming fade. | Real independently skinned Quaternius clips. C++ selects stable state IDs; ordinary export includes the entire set. CC0 license and immutable provenance are beside the GLB. |
 
 ## Export and run a scene
 
@@ -64,3 +65,15 @@ advances the transition from its current mix. See the packaged manual's
 
 `BlendColumn.gltf` is an original FORGE fixture with a two-joint skinned column
 and Idle/Reach clips, built for this Gallery. It uses no external character art.
+
+
+## Drive named states from C++
+
+Scene 10's set uses Idle `1`, Walk `2`, Run `3`; `0` selects its entry.
+Copy the character root's `forge::Animator`, set `state` and call `actor.set(animator)`
+from your C++ System. Repeating the same ID keeps time; a different ID starts its
+clip at zero and uses its incoming fade. The Gallery needs no native module to
+run. See **Choose named animation states** in the manual for a complete function.
+The Quaternius clips are CC0; `Assets/Quaternius-PROVENANCE.md` identifies the
+original download and the three-clip derivative. `Quaternius-LICENSE.txt` is the
+creator's bundled license.

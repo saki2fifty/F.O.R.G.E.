@@ -16,6 +16,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
         .each([](flecs::entity e, const forge::Animator& previous) {
             auto next = previous;
             next.playback_speed = 2;
+            if (next.states.id)
+                next.state = 2; // Named states use stable IDs in the matching SDK.
             e.set(next);
         })
         .add(h->fixed_tag);

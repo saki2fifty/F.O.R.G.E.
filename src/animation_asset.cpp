@@ -121,7 +121,7 @@ struct Sampler::Impl {
     std::shared_ptr<const Skeleton> skeleton;
     std::shared_ptr<const Clip> clip;
     ozz::animation::SamplingJob::Context context;
-    std::vector<ozz::math::SoaTransform> local, blended;
+    std::vector<ozz::math::SoaTransform> local, blended, transition_source;
     std::vector<ozz::math::Float4x4> model;
     bool sampled = false;
     Impl(std::shared_ptr<const Skeleton> s, std::shared_ptr<const Clip> c)
@@ -170,6 +170,79 @@ std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float 
     blend.output = ozz::make_span(impl_->blended);
     if (!blend.Run())
         throw ArchiveError("Ozz skeletal blending failed");
+    impl_->local.swap(impl_->blended);
+    return evaluate_model();
+}
+std::vector<Matrix> Sampler::sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,
+                                               float weight) {
+    if (this == &outgoing || impl_->skeleton != outgoing.impl_->skeleton)
+        throw ArchiveError("State transition skeleton mismatch");
+    if (!std::isfinite(weight) || weight < 0 || weight > 1)
+        throw ArchiveError("Invalid state transition weight");
+    outgoing.sample_local(outgoing_ratio);
+    sample_local(ratio);
+    impl_->blended.resize(impl_->local.size());
+    const ozz::animation::BlendingJob::Layer layers[] = {
+        {1 - weight, ozz::make_span(outgoing.impl_->local), {}},
+        {weight, ozz::make_span(impl_->local), {}}};
+    ozz::animation::BlendingJob blend;
+    blend.layers = ozz::make_span(layers);
+    blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();
+    blend.output = ozz::make_span(impl_->blended);
+    if (!blend.Run())
+        throw ArchiveError("Ozz state transition blending failed");
+    impl_->local.swap(impl_->blended);
+    return evaluate_model();
+}
+std::vector<Matrix> Sampler::sample_transition(float ratio, std::span<const LocalPose> from,
+                                               float weight) {
+    if (from.size() != impl_->model.size() || !std::isfinite(weight) || weight < 0 || weight > 1)
+        throw ArchiveError("State transition local pose/weight mismatch");
+    sample_local(ratio);
+    auto& source = impl_->transition_source;
+    source.resize(impl_->local.size());
+    for (std::size_t i = 0; i < source.size(); ++i) {
+        float values[10][4]{};
+        for (unsigned lane = 0; lane < 4; ++lane) {
+            LocalPose p;
+            if (i * 4 + lane < from.size())
+                p = from[i * 4 + lane];
+            double norm = 0;
+            for (unsigned j = 0; j < 4; ++j)
+                norm += double(p.rotation[j]) * p.rotation[j];
+            if (!std::isfinite(norm) || std::abs(norm - 1) > 1e-4)
+                throw ArchiveError("State transition quaternion is not normalized");
+            for (unsigned j = 0; j < 3; ++j) {
+                values[j][lane] = p.translation[j];
+                values[7 + j][lane] = p.scale[j];
+            }
+            for (unsigned j = 0; j < 4; ++j)
+                values[3 + j][lane] = p.rotation[j];
+            for (const auto& v : values)
+                if (!std::isfinite(v[lane]))
+                    throw ArchiveError("State transition local pose is not finite");
+        }
+        auto& p = source[i];
+        p.translation = {ozz::math::simd_float4::LoadPtrU(values[0]),
+                         ozz::math::simd_float4::LoadPtrU(values[1]),
+                         ozz::math::simd_float4::LoadPtrU(values[2])};
+        p.rotation = {ozz::math::simd_float4::LoadPtrU(values[3]),
+                      ozz::math::simd_float4::LoadPtrU(values[4]),
+                      ozz::math::simd_float4::LoadPtrU(values[5]),
+                      ozz::math::simd_float4::LoadPtrU(values[6])};
+        p.scale = {ozz::math::simd_float4::LoadPtrU(values[7]),
+                   ozz::math::simd_float4::LoadPtrU(values[8]),
+                   ozz::math::simd_float4::LoadPtrU(values[9])};
+    }
+    impl_->blended.resize(impl_->local.size());
+    const ozz::animation::BlendingJob::Layer layers[] = {
+        {1 - weight, ozz::make_span(source), {}}, {weight, ozz::make_span(impl_->local), {}}};
+    ozz::animation::BlendingJob blend;
+    blend.layers = ozz::make_span(layers);
+    blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();
+    blend.output = ozz::make_span(impl_->blended);
+    if (!blend.Run())
+        throw ArchiveError("Ozz state transition blending failed");
     impl_->local.swap(impl_->blended);
     return evaluate_model();
 }

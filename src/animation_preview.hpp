@@ -11,6 +11,7 @@ class SkeletalAnimationPreview {
     bool active() const { return bool(world_); }
     bool prepare();
     void configure(float weight, float seconds, bool loop, float speed);
+    void select_state(std::uint32_t);
     void seek(double time);
     void tick(float seconds);
     Json snapshot();

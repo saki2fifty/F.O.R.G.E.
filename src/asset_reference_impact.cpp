@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
+#include <forge/animation_states.hpp>
 #include <forge/material_source.hpp>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
@@ -159,6 +160,28 @@ struct Inspect {
                 if (key != "format" && key != "version" && key != "asset_id" && key != "entities" &&
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies"))
+                    unknown(key);
+            }
+        } else if (doc.value("format", std::string{}) == "forge.animation-states") {
+            AnimationStatesSource{doc}.validate();
+            if (!doc.at("skeleton").is_null())
+                reference(doc.at("skeleton"), "skeleton", "State-set skeleton",
+                          SkeletonAsset::type);
+            for (const auto& state : doc.at("states")) {
+                const auto scope = "states." + std::to_string(state.at("id").get<std::uint32_t>());
+                reference(state.at("clip"), scope + ".clip", "Animation state clip",
+                          AnimationClipAsset::type);
+                for (const auto& [key, unused] : state.items()) {
+                    (void)unused;
+                    if (key != "id" && key != "name" && key != "clip" && key != "loop" &&
+                        key != "speed" && key != "transition_seconds")
+                        unknown(scope + "." + key);
+                }
+            }
+            for (const auto& [key, unused] : doc.items()) {
+                (void)unused;
+                if (key != "format" && key != "version" && key != "asset_id" && key != "skeleton" &&
+                    key != "entry" && key != "next_id" && key != "states")
                     unknown(key);
             }
         } else if (doc.contains("kind") && doc.at("kind").is_string() &&

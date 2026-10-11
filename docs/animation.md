@@ -254,3 +254,5 @@ The existing Animator and AnimationRuntime now support an optional second clip,
 normalized phase and bounded blend transitions. The native Ozz local-space blend,
 exact rig/model compatibility, copied-world preview and additive recovery contract
 are specified in [two-clip skeletal blending](animation-blending.md).
+
+Named skeletal sets and fixed-tick state changes are described in [animation states](animation-states.md).

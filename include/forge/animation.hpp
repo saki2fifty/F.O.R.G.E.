@@ -17,6 +17,8 @@ class AnimationRuntime {
     // Unpublished scene only: admit initial assets and apply the current sample
     // without advancing time or running gameplay. False means workers still pending.
     bool prepare_initial_pose();
+    // Editor copied-world command: admit a named-state selection without advancing clocks.
+    void prepare_preview_state();
     // Development host notifications. Catalog IO runs off-thread; sampling/adoption
     // remains on the world owner. Neither operation edits the authored hierarchy.
     void refresh_assets();

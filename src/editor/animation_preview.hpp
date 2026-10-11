@@ -1,5 +1,6 @@
 #pragma once
 #include "../animation_preview.hpp"
+#include "../animation_states_resource.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
 #include <forge/authoring.hpp>
@@ -70,6 +71,8 @@ class AnimationPreviewEditor {
         try {
             if (preview_active() && preview_.prepare()) {
                 preview_.configure(weight_, seconds_, loop_, speed_);
+                if (states_asset_)
+                    preview_.select_state(state_);
                 if (playing_ && dt > 0)
                     preview_.tick(std::min(dt, .25f));
                 auto pose = preview_.pose();
@@ -145,6 +148,20 @@ class AnimationPreviewEditor {
                     fail(e);
                 }
             }
+            if (states_asset_) {
+                const bool states_open = ImGui::BeginCombo("Preview state", state_name().c_str());
+                FORGE_UI_PROBE("animation_preview:state_combo");
+                if (states_open) {
+                    for (const auto& item : named_states_.states) {
+                        if (ImGui::Selectable(item.name.c_str(), state_ == item.id))
+                            state_ = item.id;
+                        FORGE_UI_PROBE("animation_preview:state:" + std::to_string(item.id));
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::TextUnformatted(
+                    "Named states own clip, loop, speed and fade. Changes here are temporary.");
+            }
             const bool can_blend =
                 target_.entity && scene.entity(target_.entity.str()).has<Animator>() &&
                 bool(scene.entity(target_.entity.str()).get<Animator>().blend_clip.id);
@@ -154,7 +171,9 @@ class AnimationPreviewEditor {
             changed |= ImGui::SliderFloat("Transition (seconds)", &seconds_, 0, 10, "%.3f");
             FORGE_UI_PROBE("animation_preview:seconds");
             ImGui::EndDisabled();
+            ImGui::BeginDisabled(bool(states_asset_));
             changed |= ImGui::Checkbox("Loop preview", &loop_);
+            ImGui::EndDisabled();
             changed |= ImGui::SliderFloat("Preview speed", &speed_, 0, 4, "%.2fx");
             if (changed && preview_active()) {
                 try {
@@ -167,10 +186,12 @@ class AnimationPreviewEditor {
                            "Save these settings to the authored Scene as one Undo step.")) {
                 try {
                     auto commands = Json::array();
-                    const Json settings{{"blend_weight", weight_},
-                                        {"transition_seconds", seconds_},
-                                        {"loop", loop_},
-                                        {"playback_speed", speed_}};
+                    Json settings{{"blend_weight", weight_},
+                                  {"transition_seconds", seconds_},
+                                  {"loop", loop_},
+                                  {"playback_speed", speed_}};
+                    if (states_asset_)
+                        settings = {{"state", state_}, {"playback_speed", speed_}};
                     for (const auto& [field, value] : settings.items())
                         commands.push_back({{"operation", "property.set"},
                                             {"arguments",
@@ -204,6 +225,32 @@ class AnimationPreviewEditor {
         }
         target_ = scene.reference(id);
         const auto config = actor.get<Animator>();
+        states_asset_ = config.states.id;
+        state_ = config.state;
+        named_states_ = {};
+        if (states_asset_) {
+            try {
+                const auto catalog = AssetCatalog::open_project(project_);
+                const auto selected = catalog.resolve(config.states);
+                if (selected.state != AssetState::Available)
+                    throw std::runtime_error(selected.diagnostic);
+                const auto& record = *selected.record;
+                DerivedDataCache cache(project_, {animation_states_byte_limit,
+                                                  animation_states_byte_limit + 65536, 1});
+                cache.load_selected(
+                    record.metadata.at("forge.import").at("key").get<std::string>(),
+                    [&](const auto& artifact) {
+                        if (artifact.files.size() != 1 ||
+                            artifact.files.front().name != "states.json")
+                            throw std::runtime_error("Invalid Animation States preview artifact");
+                        named_states_ =
+                            decode_animation_states(artifact.files.front().bytes, states_asset_);
+                    });
+                state_ = named_states_.state(state_).id;
+            } catch (const std::exception& e) {
+                error_ = e.what();
+            }
+        }
         weight_ = config.blend_weight;
         seconds_ = config.transition_seconds;
         speed_ = config.playback_speed;
@@ -211,11 +258,22 @@ class AnimationPreviewEditor {
         revision_ = scene.revision();
         time_ = duration_ = 0;
         name_ = actor.name().c_str();
-        error_.clear();
+        if (!states_asset_)
+            error_.clear();
     }
 
   private:
     SkeletalAnimationPreview preview_;
+    AnimationStates named_states_;
+    AssetId states_asset_;
+    std::uint32_t state_ = 0;
+    std::string state_name() const {
+        try {
+            return named_states_.state(state_).name;
+        } catch (...) {
+            return "Unavailable";
+        }
+    }
     std::filesystem::path project_;
     EntityRef target_{};
     std::uint64_t revision_ = 0;

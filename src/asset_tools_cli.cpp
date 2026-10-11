@@ -8,6 +8,7 @@
 #include "ui_inspection.hpp"
 #include <forge/scene.hpp>
 #ifdef FORGE_ASSET_TOOLS
+#include "animation_states_authoring.hpp"
 #include "asset_bytes.hpp"
 #include "collision_authoring.hpp"
 #include "editable_mesh_authoring.hpp"
@@ -190,13 +191,15 @@ int asset_tools_cli(int argc, char** argv) {
             const auto source = std::filesystem::u8path(argv[4]);
             const bool collision = path_utf8(source).ends_with(".collision.json");
             const bool material = path_utf8(source).ends_with(".material.json");
+            const bool animation_states = path_utf8(source).ends_with(".states.json");
             const bool transform_animation = path_utf8(source).ends_with(".animation.json");
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
-            auto registry = transform_animation ? transform_animation_import_registry()
-                            : collision         ? collision_import_registry()
-                            : material          ? material_import_registry()
-                            : editable_mesh     ? editable_mesh_import_registry()
-                                                : asset_import_registry(worker);
+            auto registry = animation_states      ? animation_states_import_registry()
+                            : transform_animation ? transform_animation_import_registry()
+                            : collision           ? collision_import_registry()
+                            : material            ? material_import_registry()
+                            : editable_mesh       ? editable_mesh_import_registry()
+                                                  : asset_import_registry(worker);
             auto lease = std::make_shared<ProjectLease>(project);
             auto target = collision ? collision_import_target() : desktop_texture_target();
             if (operation == "import-target") {
@@ -223,7 +226,12 @@ int asset_tools_cli(int argc, char** argv) {
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         editable_mesh_source_byte_limit))
                                .asset();
-            if (transform_animation)
+            if (animation_states)
+                identity = AnimationStatesSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        animation_states_byte_limit))
+                               .asset();
+            else if (transform_animation)
                 identity = TransformAnimationSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         transform_animation_byte_limit))
@@ -263,9 +271,14 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions, collision, material, editable_mesh,
-                 transform_animation](auto& candidate, const auto& plan, const auto& catalog) {
-                    if (transform_animation) {
+                [decisions, collision, material, editable_mesh, transform_animation,
+                 animation_states](auto& candidate, const auto& plan, const auto& catalog) {
+                    if (animation_states) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Animation States has no subasset correspondence decisions");
+                        prepare_animation_states_publication(candidate, plan);
+                    } else if (transform_animation) {
                         if (!decisions.empty())
                             throw std::runtime_error(
                                 "Transform animation has no subasset correspondence decisions");

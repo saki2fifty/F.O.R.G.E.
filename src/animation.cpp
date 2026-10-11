@@ -1,5 +1,6 @@
 #include "animation_asset.hpp"
 #include "animation_resource.hpp"
+#include "animation_states_resource.hpp"
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
 #include "legacy_animation_provenance.hpp"
@@ -28,7 +29,14 @@ struct Pair {
     std::uint64_t model_generation = 0;
 };
 struct Playback {
-    Animator config;
+    Animator config, requested;
+    ResourceLease<AnimationStatesAsset> definition;
+    std::map<AssetId, Pair> state_clips;
+    std::unique_ptr<Sampler> outgoing_sampler;
+    Pair outgoing_assets;
+    Animator outgoing_config;
+    double outgoing_time = 0, outgoing_previous = 0, outgoing_advance = 0;
+    std::vector<LocalPose> frozen;
     EntityRef reference;
     Pair assets, blend_assets;
     std::vector<AnimatedTransformChannel> transform_channels;
@@ -38,11 +46,16 @@ struct Playback {
     bool playing = false;
     bool model_pose_applied = false, discontinuous = true;
 };
+std::size_t evaluated_joints(const Playback& p) {
+    const bool two_layers = p.blend_sampler || (p.definition && p.blend < 1);
+    return p.assets.skeleton->info().tracks * (two_layers ? 2 : 1);
+}
 struct SampledPose {
     std::vector<Matrix> model;
     std::vector<LocalPose> local;
 };
-SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false) {
+SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false,
+                        double outgoing_time = -1) {
     std::unique_ptr<Sampler> first, second;
     auto* sampler = p.sampler.get();
     auto* blend_sampler = p.blend_sampler.get();
@@ -55,8 +68,27 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
         }
     }
     const auto ratio = float(std::clamp(time / p.assets.clip->info().duration, 0., 1.));
-    auto model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend))
-                               : sampler->sample(ratio);
+    std::vector<Matrix> model;
+    if (p.definition && blend < 1 && (!p.frozen.empty() || p.outgoing_sampler)) {
+        if (!p.frozen.empty())
+            model = sampler->sample_transition(ratio, p.frozen, float(blend));
+        else {
+            std::unique_ptr<Sampler> outgoing;
+            auto* previous = p.outgoing_sampler.get();
+            if (temporary) {
+                outgoing = std::make_unique<Sampler>(p.assets.skeleton, p.outgoing_assets.clip);
+                previous = outgoing.get();
+            }
+            model = sampler->sample_transition(
+                ratio, *previous,
+                float(std::clamp((outgoing_time < 0 ? p.outgoing_time : outgoing_time) /
+                                     p.outgoing_assets.clip->info().duration,
+                                 0., 1.)),
+                float(blend));
+        }
+    } else
+        model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend))
+                              : sampler->sample(ratio);
     return {std::move(model), sampler->local_pose()};
 }
 const std::vector<AnimatedTransformChannel>& animated_channels(const Playback& p) {
@@ -75,6 +107,8 @@ struct AnimationRuntime::Impl {
     std::unique_ptr<ModelAnimationResources> model_resources;
     std::shared_ptr<const AssetCatalog> model_catalog;
     std::map<std::pair<AssetId, AssetId>, ModelAnimationRequest> model_requests;
+    ResourcePool<AnimationStatesAsset> state_pool{{1, 64, 64, 4 * 1024 * 1024}};
+    std::map<AssetId, ResourceTicket> state_requests;
     std::map<flecs::entity_t, Playback> states;
     std::set<flecs::entity_t> pending;
     std::map<flecs::entity_t, std::string> errors;
@@ -403,6 +437,7 @@ struct AnimationRuntime::Impl {
         transforms.catalog(selected);
         catalog_error.clear();
         model_catalog = std::move(selected);
+        state_requests.clear();
         reload_pending.swap(changed);
         reload_errors.clear();
         failed_configurations.clear();
@@ -431,18 +466,213 @@ struct AnimationRuntime::Impl {
         if (std::exchange(catalog_again, false))
             refresh_assets();
     }
-    void synchronize(float fixed_dt = 0) {
-        if (!model_catalog && transforms.has_players() && !initial_catalog_requested) {
+    template <class Retain>
+    void state_player(flecs::entity e, const Animator& requested, float fixed_dt,
+                      bool preview_command, Retain retain) {
+        auto old = states.find(e.id());
+        const bool reload = reload_pending.contains(e.id());
+        if (old != states.end() && old->second.definition && old->second.requested == requested &&
+            !reload) {
+            errors.erase(e.id());
+            failed_configurations.erase(e.id());
+            return;
+        }
+        if (!reload && failed_configurations.contains(e.id()) &&
+            failed_configurations.at(e.id()) == requested)
+            return;
+        try {
+            detail::validate_reflected_value(e, requested);
+            if (requested.blend_clip.id || requested.blend_weight != 0)
+                throw ArchiveError(
+                    "Named animation states cannot also use manual two-clip blending");
+            if (!model_catalog) {
+                if (!catalog_error.empty())
+                    throw ArchiveError(catalog_error);
+                if (old == states.end())
+                    pending.insert(e.id());
+                return;
+            }
+            const auto resolved = model_catalog->resolve(requested.states);
+            if (resolved.state != AssetState::Available)
+                throw ArchiveError("Animation States unavailable: " + resolved.diagnostic);
+            auto ticket = state_requests.find(requested.states.id);
+            if (ticket == state_requests.end())
+                ticket =
+                    state_requests
+                        .emplace(requested.states.id,
+                                 request_animation_states(state_pool, project, *resolved.record))
+                        .first;
+            const auto status = ticket->second.inspect();
+            if (status.state == ResourceState::Failed ||
+                status.state == ResourceState::DependencyFailed)
+                throw ArchiveError(status.diagnostic);
+            auto definition = state_pool.acquire(ticket->second);
+            if (!definition) {
+                if (old == states.end())
+                    pending.insert(e.id());
+                return;
+            }
+            const auto& target = definition->state(requested.state);
+            if (requested.skeleton.id && requested.skeleton.id != definition->skeleton)
+                throw ArchiveError("Animation States does not match the Animator skeleton");
+            Animator config = requested;
+            config.skeleton.id = definition->skeleton;
+            config.clip = target.clip;
+            config.blend_clip = {};
+            config.blend_weight = 1;
+            config.transition_seconds = target.transition_seconds;
+            config.loop = target.loop;
+            config.playback_speed *= target.speed;
+            config.state = target.id;
+            std::map<AssetId, Pair> clips;
+            std::vector<AnimatedTransformChannel> channels;
+            std::set<std::pair<std::size_t, AnimatedTransformPath>> seen;
+            std::optional<Pair> primary;
+            for (const auto& item : definition->states) {
+                auto c = config;
+                c.clip = item.clip;
+                c.blend_weight = 0;
+                retain(c);
+                auto pair = load(c);
+                if (!pair) {
+                    if (old == states.end())
+                        pending.insert(e.id());
+                    return;
+                }
+                if (!primary)
+                    primary = *pair;
+                if (pair->skeleton != primary->skeleton ||
+                    pair->skeleton_revision != primary->skeleton_revision ||
+                    bool(pair->model) != bool(primary->model) ||
+                    pair->model_generation != primary->model_generation)
+                    throw ArchiveError(
+                        "All animation states must use the same exact skeleton/model revision");
+                if (pair->model) {
+                    if (!pair->model.clip->morphs->sample(0).empty())
+                        throw ArchiveError(
+                            "Named skeletal states do not support morph-weight curves");
+                    for (const auto& channel : pair->model.clip->transform_channels)
+                        if (seen.emplace(channel.node, channel.path).second)
+                            channels.push_back(channel);
+                }
+                clips.emplace(item.clip.id, std::move(*pair));
+            }
+            const auto& selected = clips.at(config.clip.id);
+            if (old != states.end() && old->second.definition &&
+                old->second.requested == requested && reload &&
+                old->second.definition.identity().revision == definition.identity().revision &&
+                old->second.assets.skeleton_revision == selected.skeleton_revision &&
+                old->second.assets.clip_revision == selected.clip_revision) {
+                reload_pending.erase(e.id());
+                return;
+            }
+            if (old != states.end() && fixed_dt == 0 && !preview_command)
+                return;
+            if (old != states.end() && old->second.definition &&
+                old->second.definition.identity() == definition.identity() &&
+                old->second.config.state == target.id && old->second.assets.clip == selected.clip) {
+                if (old->second.config.enabled != config.enabled) {
+                    old->second.discontinuous = true;
+                    old->second.model_pose_applied = false;
+                }
+                old->second.requested = requested;
+                old->second.config = config;
+                if (old->second.outgoing_sampler)
+                    old->second.outgoing_config.playback_speed =
+                        requested.playback_speed *
+                        definition->state(old->second.outgoing_config.state).speed;
+                old->second.previous = old->second.time;
+                old->second.advance = 0;
+                old->second.outgoing_previous = old->second.outgoing_time;
+                old->second.outgoing_advance = 0;
+                old->second.previous_blend = old->second.blend;
+                errors.erase(e.id());
+                failed_configurations.erase(e.id());
+                reload_pending.erase(e.id());
+                return;
+            }
+            Playback next;
+            next.config = config;
+            next.requested = requested;
+            next.definition = std::move(definition);
+            next.state_clips = std::move(clips);
+            next.assets = selected;
+            next.transform_channels = std::move(channels);
+            next.reference = *context.reference(e.id());
+            next.sampler = std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
+            next.blend = next.previous_blend = next.blend_from = 1;
+            next.playing = requested.play_on_start;
+            if (old != states.end() && old->second.definition &&
+                old->second.definition.identity() == next.definition.identity() &&
+                old->second.assets.skeleton == next.assets.skeleton &&
+                old->second.assets.model_generation == next.assets.model_generation &&
+                config.transition_seconds > 0) {
+                next.blend = next.previous_blend = next.blend_from = 0;
+                if ((old->second.definition && old->second.blend < 1) ||
+                    old->second.blend_sampler) {
+                    next.frozen =
+                        sample_pose(old->second, old->second.time, old->second.blend, true).local;
+                } else {
+                    next.outgoing_assets = old->second.assets;
+                    next.outgoing_config = old->second.config;
+                    next.outgoing_config.playback_speed =
+                        requested.playback_speed *
+                        next.definition->state(next.outgoing_config.state).speed;
+                    next.outgoing_time = next.outgoing_previous = old->second.time;
+                    next.outgoing_sampler =
+                        std::make_unique<Sampler>(next.assets.skeleton, next.outgoing_assets.clip);
+                }
+            }
+            std::size_t joints = evaluated_joints(next);
+            for (const auto& [other, p] : states)
+                if (other != e.id())
+                    joints += evaluated_joints(p);
+            if (joints > 8192 || (old == states.end() && states.size() >= 256))
+                throw ArchiveError("Animation state transition exceeds player/joint budget");
+            (void)sample_pose(next, 0, next.blend);
+            if (old != states.end()) {
+                std::swap(old->second, next);
+                try {
+                    apply_model_poses(false, {{e.id(), 0}}, e.id());
+                } catch (...) {
+                    std::swap(old->second, next);
+                    throw;
+                }
+            } else
+                states.emplace(e.id(), std::move(next));
+            errors.erase(e.id());
+            failed_configurations.erase(e.id());
+            reload_pending.erase(e.id());
+            reload_errors.erase(e.id());
+        } catch (const std::exception& ex) {
+            if (errors[e.id()] != ex.what()) {
+                Diagnostic d{Severity::Error, "animation.state", ex.what(), {}};
+                d.context.entity = context.reference(e.id())->entity;
+                d.context.module = "forge.animation";
+                d.context.asset = requested.states.id;
+                context.services().emit(std::move(d));
+                errors[e.id()] = ex.what();
+            }
+            failed_configurations[e.id()] = requested;
+            reload_pending.erase(e.id());
+        }
+    }
+    void synchronize(float fixed_dt = 0, bool preview_command = false) {
+        bool needs_catalog = transforms.has_players();
+        if (!model_catalog && !initial_catalog_requested)
+            context.world().each([&](const Animator& c) { needs_catalog |= bool(c.states.id); });
+        if (!model_catalog && needs_catalog && !initial_catalog_requested) {
             initial_catalog_requested = true;
             refresh_assets();
         }
         poll_catalog();
+        state_pool.pump();
         if (model_resources)
             model_resources->pump();
         pending.clear();
         std::set<flecs::entity_t> alive;
         std::set<std::pair<AssetId, AssetId>> used;
-        std::set<AssetId> used_skeletons, used_clips;
+        std::set<AssetId> used_skeletons, used_clips, used_states;
         auto retain = [&](const Animator& config) {
             used.insert({config.skeleton.id, config.clip.id});
             used_skeletons.insert(config.skeleton.id);
@@ -456,6 +686,31 @@ struct AnimationRuntime::Impl {
             if (e.has(flecs::Prefab) || !context.reference(e.id()))
                 return;
             alive.insert(e.id());
+            if (config.states.id)
+                used_states.insert(config.states.id);
+            if (auto previous = states.find(e.id());
+                previous != states.end() && previous->second.definition)
+                used_states.insert(previous->second.requested.states.id);
+            if (config.states.id) {
+                auto old = states.find(e.id());
+                if (old != states.end()) {
+                    retain(old->second.config);
+                    for (const auto& [clip, pair] : old->second.state_clips) {
+                        auto c = old->second.config;
+                        c.clip.id = clip;
+                        retain(c);
+                    }
+                }
+                state_player(e, config, fixed_dt, preview_command, retain);
+                auto current = states.find(e.id());
+                if (current != states.end())
+                    for (const auto& [clip, pair] : current->second.state_clips) {
+                        auto c = current->second.config;
+                        c.clip.id = clip;
+                        retain(c);
+                    }
+                return;
+            }
             retain(config);
             auto old = states.find(e.id());
             if (old != states.end())
@@ -500,12 +755,10 @@ struct AnimationRuntime::Impl {
                     next.previous_blend = next.blend;
                     next.blend_from = old->second.blend_from;
                     next.blend_elapsed = old->second.blend_elapsed;
-                    std::size_t joints =
-                        next.assets.skeleton->info().tracks * (next.blend_sampler ? 2 : 1);
+                    std::size_t joints = evaluated_joints(next);
                     for (const auto& [other, state] : states)
                         if (other != e.id())
-                            joints += state.assets.skeleton->info().tracks *
-                                      (state.blend_sampler ? 2 : 1);
+                            joints += evaluated_joints(state);
                     if (joints > 8192)
                         throw ArchiveError("Animation replacement exceeds evaluated-joint budget");
                     next.sampler =
@@ -535,7 +788,8 @@ struct AnimationRuntime::Impl {
                     reload_errors.erase(e.id());
                 } else if (old != states.end() && old->second.config.skeleton == config.skeleton &&
                            old->second.config.clip == config.clip &&
-                           old->second.config.blend_clip == config.blend_clip) {
+                           old->second.config.blend_clip == config.blend_clip &&
+                           !old->second.definition) {
                     if (old->second.config.enabled != config.enabled) {
                         old->second.discontinuous = true;
                         old->second.model_pose_applied = false;
@@ -571,12 +825,10 @@ struct AnimationRuntime::Impl {
                         return;
                     }
                     next.blend = next.previous_blend = next.blend_from = config.blend_weight;
-                    std::size_t joints =
-                        next.assets.skeleton->info().tracks * (next.blend_sampler ? 2 : 1);
+                    std::size_t joints = evaluated_joints(next);
                     for (const auto& [other, state] : states)
                         if (other != e.id())
-                            joints += state.assets.skeleton->info().tracks *
-                                      (state.blend_sampler ? 2 : 1);
+                            joints += evaluated_joints(state);
                     if (joints > 8192 || (old == states.end() && states.size() >= 256))
                         throw ArchiveError(
                             "Animation world exceeds 256 players / 8192 evaluated joints");
@@ -625,6 +877,14 @@ struct AnimationRuntime::Impl {
                 model_resources->unload_skeleton(it->second.skeleton);
             it = model_requests.erase(it);
         }
+        for (auto it = state_requests.begin(); it != state_requests.end();) {
+            if (used_states.contains(it->first)) {
+                ++it;
+                continue;
+            }
+            state_pool.unload(AssetRef<AnimationStatesAsset>{it->first});
+            it = state_requests.erase(it);
+        }
         std::erase_if(states, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(errors, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(binding_errors,
@@ -667,6 +927,12 @@ bool AnimationRuntime::prepare_initial_pose() {
         throw ArchiveError("Scene preparation: invalid Animator model binding");
     return impl_->transforms.initial_pose();
 }
+void AnimationRuntime::prepare_preview_state() {
+    if (!impl_)
+        throw ArchiveError("Animation runtime is unavailable");
+    impl_->synchronize(0, true);
+    (void)prepare_initial_pose();
+}
 void AnimationRuntime::refresh_assets() {
     if (impl_)
         impl_->refresh_assets();
@@ -686,6 +952,8 @@ void AnimationRuntime::tick(float dt) {
         p.previous = p.time;
         p.previous_blend = p.blend;
         p.advance = 0;
+        p.outgoing_previous = p.outgoing_time;
+        p.outgoing_advance = 0;
         if (!p.config.enabled || !p.playing || impl_->pending.contains(id))
             continue;
         if (p.config.playback_speed > 0 && p.blend != p.config.blend_weight) {
@@ -693,6 +961,20 @@ void AnimationRuntime::tick(float dt) {
             const double ratio =
                 p.config.transition_seconds > 0 ? p.blend_elapsed / p.config.transition_seconds : 1;
             p.blend = p.blend_from + (p.config.blend_weight - p.blend_from) * ratio;
+        }
+        if (p.definition && p.outgoing_sampler && p.config.playback_speed > 0 &&
+            p.previous_blend < 1) {
+            p.outgoing_advance = double(dt) * p.outgoing_config.playback_speed;
+            p.outgoing_time += p.outgoing_advance;
+            const auto end = p.outgoing_assets.clip->info().duration;
+            p.outgoing_time = p.outgoing_config.loop ? std::fmod(p.outgoing_time, end)
+                                                     : std::min(p.outgoing_time, double(end));
+        }
+        if (p.definition && p.previous_blend >= 1 && p.blend >= 1) {
+            p.outgoing_sampler.reset();
+            p.outgoing_assets = {};
+            p.outgoing_time = p.outgoing_previous = p.outgoing_advance = 0;
+            p.frozen.clear();
         }
         auto duration = p.assets.clip->info().duration;
         p.advance = double(dt) * p.config.playback_speed;
@@ -702,7 +984,7 @@ void AnimationRuntime::tick(float dt) {
         else if (p.time >= duration) {
             p.time = duration;
             p.advance = p.time - p.previous;
-            p.playing = false;
+            p.playing = p.definition && p.blend < p.config.blend_weight;
         }
     }
     impl_->apply_model_poses();
@@ -718,6 +1000,8 @@ void AnimationRuntime::reset_presentation() {
         p.previous = p.time;
         p.advance = 0;
         p.previous_blend = p.blend;
+        p.outgoing_previous = p.outgoing_time;
+        p.outgoing_advance = 0;
         p.sampler->reset();
         if (p.blend_sampler)
             p.blend_sampler->reset();
@@ -738,7 +1022,13 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     if (p.config.loop)
         time = std::fmod(time, duration);
     const double weight = p.previous_blend + (p.blend - p.previous_blend) * alpha;
-    auto pose = sample_pose(p, time, weight);
+    auto outgoing_time = p.outgoing_previous + p.outgoing_advance * alpha;
+    if (p.outgoing_sampler) {
+        const auto end = p.outgoing_assets.clip->info().duration;
+        outgoing_time = p.outgoing_config.loop ? std::fmod(outgoing_time, end)
+                                               : std::min(outgoing_time, double(end));
+    }
+    auto pose = sample_pose(p, time, weight, false, outgoing_time);
     auto locals = Json::array();
     for (const auto& local : pose.local)
         locals.push_back({{"translation", local.translation},
@@ -758,6 +1048,11 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
                    {"blend_weight", weight},
                    {"local", std::move(locals)},
                    {"morphs", std::move(morphs)}};
+    if (p.definition) {
+        result["state"] = p.config.state;
+        result["state_name"] = p.definition->state(p.config.state).name;
+        result["states"] = p.requested.states.id;
+    }
     if (p.assets.model) {
         result["model_asset"] = p.assets.model.skeleton->model;
         result["model_revision"] = p.assets.skeleton_revision;
@@ -796,8 +1091,17 @@ std::vector<std::uint64_t> AnimationRuntime::take_discontinuities() {
     return result;
 }
 bool AnimationRuntime::checkpoint_ready() const {
-    return !impl_ || (impl_->pending.empty() && impl_->errors.empty() &&
-                      impl_->binding_errors.empty() && impl_->transforms.checkpoint_ready());
+    if (!impl_)
+        return true;
+    if (!impl_->pending.empty() || !impl_->errors.empty() || !impl_->binding_errors.empty() ||
+        !impl_->transforms.checkpoint_ready())
+        return false;
+    for (const auto& [id, p] : impl_->states) {
+        auto e = impl_->context.world().entity(id);
+        if (!e.has<Animator>() || e.get<Animator>() != (p.definition ? p.requested : p.config))
+            return false;
+    }
+    return true;
 }
 Json AnimationRuntime::checkpoint() const {
     // A partial binding is not a recoverable playback state. Runtime IPC preserves
@@ -814,6 +1118,10 @@ Json AnimationRuntime::checkpoint() const {
             if (impl_->errors.contains(id))
                 throw ArchiveError(
                     "Cannot checkpoint an Animator with invalid asset configuration");
+            auto actor = impl_->context.world().entity(id);
+            if (!actor.has<Animator>() ||
+                actor.get<Animator>() != (p.definition ? p.requested : p.config))
+                return nullptr;
             entries.push_back(
                 {{"entity", p.reference},
                  {"skeleton", p.config.skeleton.id},
@@ -830,6 +1138,21 @@ Json AnimationRuntime::checkpoint() const {
                    {"elapsed", p.blend_elapsed},
                    {"target", p.config.blend_weight},
                    {"seconds", p.config.transition_seconds}}}});
+            if (p.definition) {
+                auto frozen = Json::array();
+                for (const auto& pose : p.frozen)
+                    frozen.push_back({{"translation", pose.translation},
+                                      {"rotation", pose.rotation},
+                                      {"scale", pose.scale}});
+                entries.back()["states"] = {
+                    {"asset", p.requested.states.id},
+                    {"revision", p.definition.identity().revision},
+                    {"state", p.config.state},
+                    {"outgoing_state", p.outgoing_sampler ? p.outgoing_config.state : 0},
+                    {"outgoing_time", p.outgoing_time},
+                    {"outgoing_speed", p.outgoing_sampler ? p.outgoing_config.playback_speed : 0},
+                    {"frozen", frozen}};
+            }
         }
     return {{"version", 1},
             {"entries", entries},
@@ -843,14 +1166,27 @@ void AnimationRuntime::restore(const Json& data) {
         // Candidate recovery world is not published or ticking. Share one bounded
         // deadline across all model dependencies, not a timeout per entity.
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
-        for (const auto& [key, request] : impl_->model_requests) {
-            (void)key;
-            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-                deadline - std::chrono::steady_clock::now());
-            if (!impl_->model_resources->prepare_recovery(request, remaining))
-                throw ArchiveError("Model animation recovery resources failed or timed out");
+        while (!impl_->pending.empty() && std::chrono::steady_clock::now() < deadline) {
+            for (const auto& [asset, request] : impl_->state_requests) {
+                (void)asset;
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now());
+                if (!impl_->state_pool.wait(request, remaining))
+                    throw ArchiveError("Animation state recovery resources failed or timed out");
+            }
+            for (const auto& [key, request] : impl_->model_requests) {
+                (void)key;
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now());
+                if (!impl_->model_resources->prepare_recovery(request, remaining))
+                    throw ArchiveError("Model animation recovery resources failed or timed out");
+            }
+            impl_->synchronize();
+            if (!impl_->pending.empty())
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        impl_->synchronize();
+        if (!impl_->pending.empty())
+            throw ArchiveError("Animation recovery admission timed out");
     }
     if (data.at("version") != 1 || !data.at("entries").is_array() ||
         data.at("entries").size() != impl_->states.size() || !impl_->errors.empty())
@@ -861,6 +1197,11 @@ void AnimationRuntime::restore(const Json& data) {
         double time;
         bool playing;
         double blend, from, elapsed;
+        std::unique_ptr<Sampler> outgoing;
+        Pair outgoing_assets;
+        Animator outgoing_config;
+        double outgoing_time = 0;
+        std::vector<LocalPose> frozen;
     };
     std::vector<RestoreValue> values;
     std::map<flecs::entity_t, double> times, weights;
@@ -897,10 +1238,86 @@ void AnimationRuntime::restore(const Json& data) {
                 throw ArchiveError("Animation recovery blend progress is inconsistent");
         } else if (p.config.blend_clip.id || p.config.blend_weight != 0)
             throw ArchiveError("Animation recovery is missing its blend state");
-        (void)sample_pose(p, time, blend, true);
+        RestoreValue value{&p, time, entry.at("playing").get<bool>(), blend, from, elapsed};
+        if (p.definition) {
+            const auto& state = entry.at("states");
+            if (state.at("asset") != Json(p.requested.states.id) ||
+                state.at("revision") != p.definition.identity().revision ||
+                state.at("state") != p.config.state)
+                throw ArchiveError("Animation state recovery identity/revision differs");
+            const auto outgoing_id = state.at("outgoing_state").get<std::uint32_t>();
+            value.outgoing_time = state.at("outgoing_time");
+            const double speed = state.at("outgoing_speed");
+            if (!std::isfinite(value.outgoing_time) || value.outgoing_time < 0 ||
+                !std::isfinite(speed) || speed < 0 || speed > 16)
+                throw ArchiveError("Animation state recovery outgoing clock is invalid");
+            const auto& frozen = state.at("frozen");
+            if (!frozen.is_array() ||
+                (!frozen.empty() && frozen.size() != p.assets.skeleton->info().tracks))
+                throw ArchiveError("Animation state recovery frozen pose size differs");
+            for (const auto& pose : frozen)
+                value.frozen.push_back({pose.at("translation").get<std::array<float, 3>>(),
+                                        pose.at("scale").get<std::array<float, 3>>(),
+                                        pose.at("rotation").get<std::array<float, 4>>()});
+            if (!value.frozen.empty()) {
+                Sampler check(p.assets.skeleton, p.assets.clip);
+                (void)check.sample_transition(float(time / p.assets.clip->info().duration),
+                                              value.frozen, float(blend));
+            }
+            if (outgoing_id) {
+                const auto& outgoing = p.definition->state(outgoing_id);
+                value.outgoing_assets = p.state_clips.at(outgoing.clip.id);
+                if (!value.frozen.empty() ||
+                    value.outgoing_time > value.outgoing_assets.clip->info().duration)
+                    throw ArchiveError("Animation state recovery source is inconsistent");
+                value.outgoing_config = p.config;
+                value.outgoing_config.state = outgoing_id;
+                value.outgoing_config.clip = outgoing.clip;
+                value.outgoing_config.loop = outgoing.loop;
+                if (std::abs(speed - p.requested.playback_speed * outgoing.speed) > 1e-6)
+                    throw ArchiveError("Animation state recovery outgoing speed differs");
+                value.outgoing_config.playback_speed = float(speed);
+                value.outgoing =
+                    std::make_unique<Sampler>(p.assets.skeleton, value.outgoing_assets.clip);
+            } else if (value.outgoing_time != 0 || speed != 0)
+                throw ArchiveError("Animation state recovery has an orphan outgoing clock");
+            if (blend < 1 && !value.outgoing && value.frozen.empty())
+                throw ArchiveError("Animation state recovery is missing its transition source");
+            // Temporary candidate: validate frozen quaternions, complete local pose and model
+            // binding before any adoption.
+            auto old_source = std::move(p.outgoing_sampler);
+            auto old_assets = p.outgoing_assets;
+            auto old_frozen = std::move(p.frozen);
+            const auto old_time = p.outgoing_time;
+            p.outgoing_sampler = std::move(value.outgoing);
+            p.outgoing_assets = value.outgoing_assets;
+            p.frozen = value.frozen;
+            p.outgoing_time = value.outgoing_time;
+            try {
+                (void)sample_pose(p, time, blend, true);
+                impl_->apply_model_poses(false, {{entity.entity, time}}, entity.entity,
+                                         {{entity.entity, blend}});
+            } catch (...) {
+                value.outgoing = std::move(p.outgoing_sampler);
+                p.outgoing_sampler = std::move(old_source);
+                p.outgoing_assets = old_assets;
+                p.frozen = std::move(old_frozen);
+                p.outgoing_time = old_time;
+                throw;
+            }
+            value.outgoing = std::move(p.outgoing_sampler);
+            p.outgoing_sampler = std::move(old_source);
+            p.outgoing_assets = old_assets;
+            p.frozen = std::move(old_frozen);
+            p.outgoing_time = old_time;
+        } else {
+            if (entry.contains("states"))
+                throw ArchiveError("Unexpected named animation state recovery data");
+            (void)sample_pose(p, time, blend, true);
+        }
         times.emplace(entity.entity, time);
         weights.emplace(entity.entity, blend);
-        values.push_back({&p, time, entry.at("playing").get<bool>(), blend, from, elapsed});
+        values.push_back(std::move(value));
     }
     const auto transform_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     while (impl_->transforms.pending() && std::chrono::steady_clock::now() < transform_deadline) {
@@ -909,7 +1326,25 @@ void AnimationRuntime::restore(const Json& data) {
     }
     // Validate recovered channel values and instance scopes with temporary
     // samplers before replacing any playback state or mutating the world.
-    impl_->apply_model_poses(false, times, 0, weights);
+    auto swap_sources = [&] {
+        for (auto& value : values)
+            if (value.playback->definition) {
+                auto& p = *value.playback;
+                std::swap(p.outgoing_sampler, value.outgoing);
+                std::swap(p.outgoing_assets, value.outgoing_assets);
+                std::swap(p.outgoing_config, value.outgoing_config);
+                std::swap(p.outgoing_time, value.outgoing_time);
+                std::swap(p.frozen, value.frozen);
+            }
+    };
+    swap_sources();
+    try {
+        impl_->apply_model_poses(false, times, 0, weights);
+    } catch (...) {
+        swap_sources();
+        throw;
+    }
+    swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()));
     for (auto& value : values) {
         auto& p = *value.playback;
@@ -921,6 +1356,14 @@ void AnimationRuntime::restore(const Json& data) {
         p.blend = p.previous_blend = value.blend;
         p.blend_from = value.from;
         p.blend_elapsed = value.elapsed;
+        if (p.definition) {
+            p.outgoing_sampler = std::move(value.outgoing);
+            p.outgoing_assets = std::move(value.outgoing_assets);
+            p.outgoing_config = value.outgoing_config;
+            p.outgoing_time = p.outgoing_previous = value.outgoing_time;
+            p.outgoing_advance = 0;
+            p.frozen = std::move(value.frozen);
+        }
         p.sampler->reset();
         if (p.blend_sampler)
             p.blend_sampler->reset();

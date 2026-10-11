@@ -62,6 +62,23 @@ void SkeletalAnimationPreview::configure(float weight, float seconds, bool loop,
     world_->animation->synchronize();
     (void)world_->animation->prepare_initial_pose();
 }
+void SkeletalAnimationPreview::select_state(std::uint32_t state) {
+    if (!prepare())
+        return;
+    auto actor = world_->actor();
+    auto config = actor.get<Animator>();
+    if (!config.states.id)
+        throw std::runtime_error("Preview Animator has no named states");
+    if (config.state == state)
+        return;
+    config.state = state;
+    actor.set(config);
+    // Selecting a state is a preview command. Adopt at an explicit copied-world
+    // simulation boundary without advancing either clock, even while preview is paused.
+    world_->animation->prepare_preview_state();
+    if (!world_->animation->checkpoint_ready())
+        throw std::runtime_error("Preview state could not be admitted");
+}
 void SkeletalAnimationPreview::seek(double time) {
     if (!prepare())
         return;

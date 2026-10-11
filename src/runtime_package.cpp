@@ -13,6 +13,7 @@
 #include "runtime_raw_assets.hpp"
 #include "texture_bundle_validation.hpp"
 #include "ui_asset_catalog.hpp"
+#include <forge/animation_states.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
@@ -168,9 +169,9 @@ AssetRecord runtime_record(AssetRecord record) {
         return record;
     }
     Json metadata = Json::object();
-    for (const auto* name :
-         {"forge.import", "forge.model", "forge.mesh", "forge.material", "forge.shader",
-          "forge.audio", "forge.ui_source", "forge.collision", "forge.transform_animation"})
+    for (const auto* name : {"forge.import", "forge.model", "forge.mesh", "forge.material",
+                             "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
+                             "forge.transform_animation", "forge.animation_states"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -204,7 +205,18 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     const auto format = root.metadata.at("forge.import").at("output_format");
     if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
-    else if (root.type == TransformAnimationAsset::type && format == "forge.transform-clip") {
+    else if (root.type == AnimationStatesAsset::type && format == "forge.animation-states") {
+        require(root.metadata.at("forge.import").at("importer") == "forge.animation.states" &&
+                    root.metadata.at("forge.animation_states").at("version") == 1 &&
+                    root.metadata.at("forge.animation_states").at("file") == "states.json" &&
+                    artifact.files.size() == 1 && artifact.files.front().name == "states.json" &&
+                    root.metadata.at("forge.animation_states").at("sha256") ==
+                        content_digest(artifact.files.front().bytes) &&
+                    root.metadata.at("forge.animation_states").at("bytes") ==
+                        artifact.files.front().bytes.size(),
+                "Animation States selection differs from its cooked data");
+        (void)decode_animation_states(artifact.files.front().bytes, root.id);
+    } else if (root.type == TransformAnimationAsset::type && format == "forge.transform-clip") {
         require(root.metadata.at("forge.import").at("importer") == "forge.animation.transform" &&
                     root.metadata.at("forge.transform_animation").at("version") == 1 &&
                     artifact.files.size() == 1 && artifact.files.front().name == "animation.clip" &&

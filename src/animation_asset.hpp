@@ -53,6 +53,12 @@ class Sampler {
     std::vector<Matrix> sample(float ratio);
     // Native Ozz local-space blending, before the single local-to-model pass.
     std::vector<Matrix> sample_blended(float ratio, Sampler& second, float weight);
+    // State transitions use independent clip phases. Interrupted transitions can
+    // blend from an already evaluated local pose without another sampling layer.
+    std::vector<Matrix> sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,
+                                          float weight);
+    std::vector<Matrix> sample_transition(float ratio, std::span<const LocalPose> from,
+                                          float weight);
     // Copied directly from native sampled SoA lanes; valid after successful sample.
     // No matrix decomposition, including at zero or signed scale.
     std::vector<LocalPose> local_pose() const;

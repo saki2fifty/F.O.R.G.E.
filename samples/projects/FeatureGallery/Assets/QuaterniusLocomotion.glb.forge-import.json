@@ -1,0 +1,789 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.gltf",
+    "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "1d931ef96576c645eba57be33f525895cacf8feeb38714145072c000dfb3b468"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "e00773981999c78804d1df6f65982000cfc76e454aab482782b218112ff11f9e",
+        "display_name": "calf_r",
+        "exporter_key": "",
+        "id": "00241fc4-e671-4181-8d19-dadfac1b6ae5",
+        "key": "member/00241fc4-e671-4181-8d19-dadfac1b6ae5",
+        "removed": false,
+        "semantic_digest": "db67991e366d14761e61ce3c042e0f0aae748f74e2739a1a6e378edc7c673caf",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "fb8b2df37ea8ba991530e0087a61771dce09263b6674b286662529e4d219cfe1",
+        "display_name": "lowerarm_r",
+        "exporter_key": "",
+        "id": "01e3e039-7714-48e1-a367-95be956ea174",
+        "key": "member/01e3e039-7714-48e1-a367-95be956ea174",
+        "removed": false,
+        "semantic_digest": "ff6766dc55058e26d0a17b45fc472244be62c68ef0e3ce8910e03aaf3d351090",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "afc11e082ecfc8eaa94ffe50f6995fe6f602eb6a552a0da2548c9102bbaf9e43",
+        "display_name": "ring_03_r",
+        "exporter_key": "",
+        "id": "03bc559f-b92d-450f-9771-78a5b074322e",
+        "key": "member/03bc559f-b92d-450f-9771-78a5b074322e",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "b00a8a78fa1536c1c1bc3fd06ed330060df778fcc90fe5c91aec64962665d142",
+        "display_name": "middle_04_leaf_r",
+        "exporter_key": "",
+        "id": "08c9fa8f-b115-408c-888c-b6ddfde26ad9",
+        "key": "member/08c9fa8f-b115-408c-888c-b6ddfde26ad9",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "3a8993c15c6a38b6bb54cd36c075e6c4d9aa017269a2208fbb2db2d7831a38c7",
+        "display_name": "middle_02_l",
+        "exporter_key": "",
+        "id": "0b147dd2-5141-4999-ae7c-09e1c21c039a",
+        "key": "member/0b147dd2-5141-4999-ae7c-09e1c21c039a",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "991002df5e18da9746e03b22e8ef085fee7dafdefc59fbddcc4dee6701d869f4",
+        "display_name": "hand_l",
+        "exporter_key": "",
+        "id": "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
+        "key": "member/0cc18cd9-e1ed-41b6-8823-052a442b52a8",
+        "removed": false,
+        "semantic_digest": "d81ca8d7d01e0878014477edd89c6a70cae0ad2fe0c0ee809cb9057e1fdeef88",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "d7dd1d5e99a03b69f15a7c819d2c25a17aaf3107d192784283634b6e0738b659",
+        "display_name": "pinky_01_r",
+        "exporter_key": "",
+        "id": "0d2d4a82-e1fa-4f64-845f-f75185018cfd",
+        "key": "member/0d2d4a82-e1fa-4f64-845f-f75185018cfd",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "1856c654579ffb2f8e51e60d4d77aaad0243996f71f21c90032781bf4bb215de",
+        "display_name": "thumb_01_r",
+        "exporter_key": "",
+        "id": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
+        "key": "member/0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "01f398d92668d99fb88bc742b860f2cc5bb3f71310a4835a6a539f5237e3d492",
+        "display_name": "Armature",
+        "exporter_key": "",
+        "id": "0f6c5948-5f03-429d-a965-3afb69849a67",
+        "key": "member/0f6c5948-5f03-429d-a965-3afb69849a67",
+        "removed": false,
+        "semantic_digest": "c29f12de698f5c695f95eb551705360ea0850b388e2cf4965a4f6b332cde911b",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "00e91efe3f289b8bd4996abf77d179ad45f19bab1d1f34fe3e1555e088f76e15",
+        "display_name": "M_Main",
+        "exporter_key": "",
+        "id": "10be3be6-1de7-4465-8a50-733bf046bd4c",
+        "key": "member/10be3be6-1de7-4465-8a50-733bf046bd4c",
+        "removed": false,
+        "semantic_digest": "854ae2b87a8b6f17ca332bcc953591adb1ca7d1a6e50efc0a7bbbbfc4ab047ae",
+        "type": "material"
+      },
+      {
+        "content_digest": "fb4b63ab37ffeb285c8520ff4b913587f7d44a0dd2b04d5edf443b4d6a7fc78c",
+        "display_name": "index_01_r",
+        "exporter_key": "",
+        "id": "129897d6-caec-4c9e-84b2-4586b9f5afb8",
+        "key": "member/129897d6-caec-4c9e-84b2-4586b9f5afb8",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "aefd15b7498686a64a8a7ed4eb3f63c645dc0402752d2e62b46b7c3bd725b320",
+        "display_name": "thigh_l",
+        "exporter_key": "",
+        "id": "136a5419-75cb-4240-aeca-2467b149089a",
+        "key": "member/136a5419-75cb-4240-aeca-2467b149089a",
+        "removed": false,
+        "semantic_digest": "c1133fe98e8130c3b17c1858630bba90e00c4990db18e975bd149f20220cd8e4",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "65d8a4b31b493bbcd2777b4b7c49ed9c823a66cd73df88a20b1db9697c820b8d",
+        "display_name": "ball_l",
+        "exporter_key": "",
+        "id": "16566c91-7ea8-442b-9738-9181a84ddfd7",
+        "key": "member/16566c91-7ea8-442b-9738-9181a84ddfd7",
+        "removed": false,
+        "semantic_digest": "7a68d7461dbfb4467c1dbf02774f09a7a5f0a26e15f1204418b5d79fe1649c6b",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "1a2ce988cefb55d10936b562b8de881682ca739dcfa6afacb77d1fdad21f81a7",
+        "display_name": "thumb_02_l",
+        "exporter_key": "",
+        "id": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
+        "key": "member/20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "8403c5f3bb36e3df7ee201a5e5b2a683c7f9c83da3b586104e8d1588b6a15321",
+        "display_name": "pinky_02_r",
+        "exporter_key": "",
+        "id": "25cf4078-3c50-4877-84a7-59901a59a3eb",
+        "key": "member/25cf4078-3c50-4877-84a7-59901a59a3eb",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "83dc7df459c1dbcffd78d38d874b4b8a29f017b6053b637965a0d5068cc140e3",
+        "display_name": "ball_leaf_l",
+        "exporter_key": "",
+        "id": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
+        "key": "member/25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
+        "removed": false,
+        "semantic_digest": "92460346b6d232de632ef32f13c9a831a8cee0d20d316d9d7b1553e6c5615531",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "50a2a6eed4970ec5aff0a28fb568b9eafbd9253ef386b9d043494b019d75d610",
+        "display_name": "foot_l",
+        "exporter_key": "",
+        "id": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
+        "key": "member/2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
+        "removed": false,
+        "semantic_digest": "fad57b562fd2b9485b41b369987d9e3a85271382f272f109c3df053a70701f2f",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "472b5dfac26f26e39829e381811fd099ef6b415263c71bf0111a0bf23911dc9a",
+        "display_name": "middle_03_r",
+        "exporter_key": "",
+        "id": "2a964b7e-db29-4e5a-9448-7270b8234548",
+        "key": "member/2a964b7e-db29-4e5a-9448-7270b8234548",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "9099b3c0b5eaa64a733687f4eff950199bc9d91b156bbc927d5e3d5932f6b5a9",
+        "display_name": "ring_04_leaf_r",
+        "exporter_key": "",
+        "id": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
+        "key": "member/335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "067d9c3982ea89199283e449e84481cea046d7ca3aa458d95176bdeb2a88a99c",
+        "display_name": "index_03_l",
+        "exporter_key": "",
+        "id": "38f4ac10-6a11-42c5-bd40-95f13abe56d4",
+        "key": "member/38f4ac10-6a11-42c5-bd40-95f13abe56d4",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "bc04946d4aa2335638956ecbdede958e80b6aaeec4301bdc13abc3699d2622b1",
+        "display_name": "calf_l",
+        "exporter_key": "",
+        "id": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
+        "key": "member/3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
+        "removed": false,
+        "semantic_digest": "db67991e366d14761e61ce3c042e0f0aae748f74e2739a1a6e378edc7c673caf",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "9c94990d39c7b14510cd4b5f1e51f43e326bb7f521bd950c1cfef684e27ec9a3",
+        "display_name": "index_04_leaf_r",
+        "exporter_key": "",
+        "id": "3b413040-a136-4a40-81bd-e740cd23c75c",
+        "key": "member/3b413040-a136-4a40-81bd-e740cd23c75c",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "5719b8d0a94e933308efdaec1273021efa9f524ae2913887df7624d8ba125a7e",
+        "display_name": "thumb_01_l",
+        "exporter_key": "",
+        "id": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
+        "key": "member/3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "d19c998a2170d35407ae9370aab93f3fe5a7f8a9210b794b2a85d37b8849f50d",
+        "display_name": "Idle_Loop",
+        "exporter_key": "",
+        "id": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "key": "member/43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "removed": false,
+        "semantic_digest": "582cce8f79226ddf7f26aa66586fcf76f4b5719609171a26d9b73609fe78f203",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "7a785a1894dac470b0988eaf985bf6c2a373fe02c78ae79d4feb478a2c1d74c5",
+        "display_name": "thumb_04_leaf_r",
+        "exporter_key": "",
+        "id": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
+        "key": "member/4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "1d6edef34292b3ba81d1917bfbd382181a2760291b65805458d642d8bf53d4cc",
+        "display_name": "foot_r",
+        "exporter_key": "",
+        "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
+        "key": "member/5515a646-7b78-4ff4-adfe-2796db4384c3",
+        "removed": false,
+        "semantic_digest": "fad57b562fd2b9485b41b369987d9e3a85271382f272f109c3df053a70701f2f",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "2184d4d17e6aef31efa86e1545b3a6c0e13d23602e7af9bb5aecc96f053fe497",
+        "display_name": "hand_r",
+        "exporter_key": "",
+        "id": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
+        "key": "member/570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
+        "removed": false,
+        "semantic_digest": "d81ca8d7d01e0878014477edd89c6a70cae0ad2fe0c0ee809cb9057e1fdeef88",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "58e89dc11e44e7b1eda7bf371d839cab78b260a0bb52ec5680521545f1f13430",
+        "display_name": "Mannequin",
+        "exporter_key": "",
+        "id": "584afd20-713c-451c-abec-123317e31199",
+        "key": "member/584afd20-713c-451c-abec-123317e31199",
+        "removed": false,
+        "semantic_digest": "045437434b21bf2a712667938b607639ada917828f26c8d0dfdacb78a58bd660",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "3c13535d26bd170e070d91d60341aba2bf322f530aedb693416f888bd3c7c498",
+        "display_name": "ball_r",
+        "exporter_key": "",
+        "id": "5a452923-a9ba-419b-ae20-6c377525e559",
+        "key": "member/5a452923-a9ba-419b-ae20-6c377525e559",
+        "removed": false,
+        "semantic_digest": "7a68d7461dbfb4467c1dbf02774f09a7a5f0a26e15f1204418b5d79fe1649c6b",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "148e8baa23dd6fdd7011983e030f93e53f3e27f4fb24e4cc0369748186268b8f",
+        "display_name": "upperarm_l",
+        "exporter_key": "",
+        "id": "6801ff15-2193-4b6b-873c-b9b904fd7883",
+        "key": "member/6801ff15-2193-4b6b-873c-b9b904fd7883",
+        "removed": false,
+        "semantic_digest": "95f558dcecaee8f5ca728b65d1b1c5982833ad0d825ba36b448015b089da7aea",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "26d3a3726798a6d5262415b1391839b50859e37cc3041178d663295c3a834b62",
+        "display_name": "spine_03",
+        "exporter_key": "",
+        "id": "689efd7e-f55a-4a52-ac67-7bf56b446fb1",
+        "key": "member/689efd7e-f55a-4a52-ac67-7bf56b446fb1",
+        "removed": false,
+        "semantic_digest": "cba0d7e7b0fa46bf19af851067790ad3f25d937002ecfebf23499529cd746c96",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "446b65ca90882747219e6ae2f8101394877ac3be06b0cea45898e7da26dc7f78",
+        "display_name": "thumb_03_r",
+        "exporter_key": "",
+        "id": "6912d355-eff0-4614-91d1-2548bc94582f",
+        "key": "member/6912d355-eff0-4614-91d1-2548bc94582f",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "7e1023503e0fa1a70a4178c9cf09b35d25bbf4461c0ba92cb41b58d79ea067a4",
+        "display_name": "clavicle_r",
+        "exporter_key": "",
+        "id": "6b14a22c-e4f4-4b36-9718-fec34439d379",
+        "key": "member/6b14a22c-e4f4-4b36-9718-fec34439d379",
+        "removed": false,
+        "semantic_digest": "c38b76083a7676b72a4ed7a52ef54229e45e853193af4cf784ec7d7fc08d8730",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "e49c025f1901d81e5f345582b07f57ee9ac8e921e932a845c0cee09c4d2dab79",
+        "display_name": "middle_01_l",
+        "exporter_key": "",
+        "id": "6e2014ba-fe22-47d7-86db-42c88c391ea6",
+        "key": "member/6e2014ba-fe22-47d7-86db-42c88c391ea6",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "2180817ca33715ed8645a2f10a1683047ba53b8bd62cfb0c0d4ad5113956b2e8",
+        "display_name": "root",
+        "exporter_key": "",
+        "id": "6fbe604b-3302-400b-8790-5bd2cab2c6a1",
+        "key": "member/6fbe604b-3302-400b-8790-5bd2cab2c6a1",
+        "removed": false,
+        "semantic_digest": "16177ca060357d6dcf04b9d2b7f209c65e31e5b3ff6b05289e7cc06756e66fe5",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "77c5bada1cb21a83bb2a3a7e48892e208f945652069c8d9ab671e6672b22fc87",
+        "display_name": "ring_03_l",
+        "exporter_key": "",
+        "id": "81514a97-ac44-4020-b28f-01cb9553ec97",
+        "key": "member/81514a97-ac44-4020-b28f-01cb9553ec97",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "70ba3ac675ba84af997ab210cc15366dd159af0533795c837c07646871c69ebb",
+        "display_name": "spine_01",
+        "exporter_key": "",
+        "id": "8440536b-d3ff-4591-ae49-a878ffbcaff6",
+        "key": "member/8440536b-d3ff-4591-ae49-a878ffbcaff6",
+        "removed": false,
+        "semantic_digest": "be597a5c40c86c8d69962d293860129e9ed00f38d35115c06140cd5559ba0b3c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "87108f8db180c084b07f1b6f06fd725ef5c2f4525adc8477baa9619d0d5d15d5",
+        "display_name": "thumb_03_l",
+        "exporter_key": "",
+        "id": "84848779-0291-4744-8ea6-565e16be5b5a",
+        "key": "member/84848779-0291-4744-8ea6-565e16be5b5a",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "ef2cfdf59d8949acf0ef28a13bd757a6248104bf12fc02089c5844c9e491fe41",
+        "display_name": "index_01_l",
+        "exporter_key": "",
+        "id": "86349f74-d462-47b1-91dd-257707503c90",
+        "key": "member/86349f74-d462-47b1-91dd-257707503c90",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "877b1f1053e7ba72af115d742fc63ed2a6015053c4f54deba5813af80d133c25",
+        "display_name": "middle_02_r",
+        "exporter_key": "",
+        "id": "866393ab-6952-4aee-8674-a6a188d3117a",
+        "key": "member/866393ab-6952-4aee-8674-a6a188d3117a",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "abfadef65f34693e0adde42ad2ac983f8a00a00f78366dc063ea9fa3a74d0c35",
+        "display_name": "Sprint_Loop",
+        "exporter_key": "",
+        "id": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "key": "member/87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "removed": false,
+        "semantic_digest": "582cce8f79226ddf7f26aa66586fcf76f4b5719609171a26d9b73609fe78f203",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "44c9a22a653fc5c8c7b22096d68c378b369b07f32930749517db8e5bf3e6ddb4",
+        "display_name": "ring_02_r",
+        "exporter_key": "",
+        "id": "8ce743c7-17e5-4148-9404-e69b23a3b961",
+        "key": "member/8ce743c7-17e5-4148-9404-e69b23a3b961",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "9bbd820ce53ee40db0357a9b96902c25d266616a7a2622ac2bee434da06ff28e",
+        "display_name": "Head",
+        "exporter_key": "",
+        "id": "9379ad87-06aa-46fe-81b6-541fc7952b1e",
+        "key": "member/9379ad87-06aa-46fe-81b6-541fc7952b1e",
+        "removed": false,
+        "semantic_digest": "89ebaba745661b6a8035adaf90b9ffea2e32303d8c54432b1bcbd1e3500a4c3a",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "c2d3099c6a78f10003706d8ba8d2ae8a36d67ed60070cb7a90880e8d5c9fd656",
+        "display_name": "lowerarm_l",
+        "exporter_key": "",
+        "id": "9916bb5a-3d79-4f66-a719-d519f520db8f",
+        "key": "member/9916bb5a-3d79-4f66-a719-d519f520db8f",
+        "removed": false,
+        "semantic_digest": "ff6766dc55058e26d0a17b45fc472244be62c68ef0e3ce8910e03aaf3d351090",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "592097a355eeb3acb1689d023f539a4ebc7d6eb41de8b13ba1dff6ba39b6ef18",
+        "display_name": "thumb_04_leaf_l",
+        "exporter_key": "",
+        "id": "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
+        "key": "member/a2d19777-70d1-4e00-b1c0-89e0f544fafb",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "8191354bd7fffad10b6f0d4e1b8d6b752ad228e7ffb08ea0ba5800121fc4cba8",
+        "display_name": "Mannequin",
+        "exporter_key": "",
+        "id": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+        "key": "member/a3dbb4c7-393f-4f04-b20b-911a797e9c93",
+        "removed": false,
+        "semantic_digest": "daa8b152cd1a1bc49ea53e73af039b7ab2a016ddd96e7e3a9dd40915b147e6b0",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "ef3c8ae76337556e9bf48771708f1698777098a1f2b1056360f61df08f32e7dc",
+        "display_name": "pinky_04_leaf_r",
+        "exporter_key": "",
+        "id": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
+        "key": "member/a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "d2790bb5f530528d0196ca4d1fa9ae1e5dd5ecba71aec02d6c499b8dbd743374",
+        "display_name": "index_02_r",
+        "exporter_key": "",
+        "id": "a8a3cc82-6045-456a-a65c-c4662edb6f56",
+        "key": "member/a8a3cc82-6045-456a-a65c-c4662edb6f56",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "278b6f703ec6cc0b6852f4c6f6bd1f716c32f1e65f7932b5c89de97aaeeec469",
+        "display_name": "pelvis",
+        "exporter_key": "",
+        "id": "af64d6ab-bc61-4000-861e-065712610ac8",
+        "key": "member/af64d6ab-bc61-4000-861e-065712610ac8",
+        "removed": false,
+        "semantic_digest": "d434c8b0e6e3350e4985de1e90221acd409bc764d6f6dbf7f305a09e95769ecc",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "21f220daaa31862652c8b76d9910639994b8ea4669bb180321b287de6d2d0bf2",
+        "display_name": "middle_01_r",
+        "exporter_key": "",
+        "id": "b20867f0-d20d-4d86-8f16-7d4e7f301b90",
+        "key": "member/b20867f0-d20d-4d86-8f16-7d4e7f301b90",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "7eae7a7e10614d863f4a84d9487d787ac2f4fdceb520515e250b93bf184a7fcd",
+        "display_name": "thumb_02_r",
+        "exporter_key": "",
+        "id": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
+        "key": "member/b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "27fb9274219035b3363cfd096e355ba480f3865e83782e6e64a4e914cdcdbf6e",
+        "display_name": "middle_03_l",
+        "exporter_key": "",
+        "id": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
+        "key": "member/b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "3c91766e776b221cc9a2edafbf3c51dbed4f59fca945f4b31c02893f37b08f77",
+        "display_name": "index_02_l",
+        "exporter_key": "",
+        "id": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
+        "key": "member/b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "95c0570f02030b3ec3bc93f7e0a2c0cab328e8c0d095af3635bbe89c21062c6d",
+        "display_name": "index_03_r",
+        "exporter_key": "",
+        "id": "b6cb4d19-c29f-4c72-9260-94ce73733118",
+        "key": "member/b6cb4d19-c29f-4c72-9260-94ce73733118",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "086afb69290dca672a65240f2530f9722eb66ad71e9dc7b574db0a33f2f0ee43",
+        "display_name": "spine_02",
+        "exporter_key": "",
+        "id": "bb10601b-3d4c-43fd-a9c6-02015f966fc9",
+        "key": "member/bb10601b-3d4c-43fd-a9c6-02015f966fc9",
+        "removed": false,
+        "semantic_digest": "38f564d8d9c8408cfd9e71284a1447cd1877df021ff515febafad3104b5405ba",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "a2db8adec891fc6dddc53c484ef70dd27325098f7b88ad55c06e54384eb6098e",
+        "display_name": "ring_01_r",
+        "exporter_key": "",
+        "id": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
+        "key": "member/bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "de9f72030502a4f1da7a796f1b02d7b1c7ba7b3965c7ca6cc51a621b68983a56",
+        "display_name": "middle_04_leaf_l",
+        "exporter_key": "",
+        "id": "bd0ef129-9444-49a7-9bcd-f1362399e5d3",
+        "key": "member/bd0ef129-9444-49a7-9bcd-f1362399e5d3",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "3c708785c6ac87c974bedcda2762c6cc1ff2883c159cb256f3e96cbaafac9915",
+        "display_name": "neck_01",
+        "exporter_key": "",
+        "id": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
+        "key": "member/c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
+        "removed": false,
+        "semantic_digest": "aca72b3e11ddf2add751a95a19e40413d3e7cb2da048750965d66398ac71da4b",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "1eae4946781c537045375e68cb63f065ca35a139de9a02bcd284b240a5e2c084",
+        "display_name": "ring_01_l",
+        "exporter_key": "",
+        "id": "c5d0c60d-0c72-4a15-b6e8-be442f617a17",
+        "key": "member/c5d0c60d-0c72-4a15-b6e8-be442f617a17",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "14e328901fc005115476cc901112d7fc4b3a77ac9fb83adc1dd944af5f1bfb71",
+        "display_name": "M_Joints",
+        "exporter_key": "",
+        "id": "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+        "key": "member/c6c04d16-9e2e-4031-a6a7-c304ed8d50ba",
+        "removed": false,
+        "semantic_digest": "854ae2b87a8b6f17ca332bcc953591adb1ca7d1a6e50efc0a7bbbbfc4ab047ae",
+        "type": "material"
+      },
+      {
+        "content_digest": "e3cc123115ffd732700076818b2bac1ef81972063bb04c0db104b88fe8fcc67d",
+        "display_name": "ring_02_l",
+        "exporter_key": "",
+        "id": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
+        "key": "member/c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "8a9d3977192027c0531e842873c79076e5529fb3dada2d75e8f115cf1233622a",
+        "display_name": "ring_04_leaf_l",
+        "exporter_key": "",
+        "id": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
+        "key": "member/d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "02304562832f41db2fecd6a4e6abc4fefadc96bb7d9c17b3db7ddda018b38cd9",
+        "display_name": "Walk_Loop",
+        "exporter_key": "",
+        "id": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "key": "member/d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "removed": false,
+        "semantic_digest": "582cce8f79226ddf7f26aa66586fcf76f4b5719609171a26d9b73609fe78f203",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "de727473954a4371d0ff3589d58b8b137199b089811999017972d5908f35b54e",
+        "display_name": "pinky_03_r",
+        "exporter_key": "",
+        "id": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
+        "key": "member/d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "9539cc9c948deac1c1427d7ff7fe2bf27938821779d2f0c2964dbf24e4c919aa",
+        "display_name": "ball_leaf_r",
+        "exporter_key": "",
+        "id": "d63f500a-54e2-4b1a-924a-034ac3ee7924",
+        "key": "member/d63f500a-54e2-4b1a-924a-034ac3ee7924",
+        "removed": false,
+        "semantic_digest": "92460346b6d232de632ef32f13c9a831a8cee0d20d316d9d7b1553e6c5615531",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "3d23be7043ef0392adb16440555ee2807fa6dd9eb9fff604781ef0da29b1cf00",
+        "display_name": "pinky_03_l",
+        "exporter_key": "",
+        "id": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
+        "key": "member/d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
+        "removed": false,
+        "semantic_digest": "2deee96df86471107b3030e4f462babb4b9aed42da0a34df1388495439379a8c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "71fc6db35ed35ea3e9f8c20b7730268cbd04d65f839923a37d69d783efaf6e3d",
+        "display_name": "upperarm_r",
+        "exporter_key": "",
+        "id": "db5e6c73-94df-4051-b66f-4b2627c5f249",
+        "key": "member/db5e6c73-94df-4051-b66f-4b2627c5f249",
+        "removed": false,
+        "semantic_digest": "95f558dcecaee8f5ca728b65d1b1c5982833ad0d825ba36b448015b089da7aea",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "63f06c5404016df47f1e9ae0de396bf964b921510c5701c4c430e6b53811aa8a",
+        "display_name": "index_04_leaf_l",
+        "exporter_key": "",
+        "id": "ded08da4-ba40-45bc-9b42-71297bea1d31",
+        "key": "member/ded08da4-ba40-45bc-9b42-71297bea1d31",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "fc644ef3eaa0cfcce90b5007062c81bab8143abac4b45b2c12ab880d86519a2b",
+        "display_name": "thigh_r",
+        "exporter_key": "",
+        "id": "e00edc21-2c6b-4613-9c35-29fecc6b8147",
+        "key": "member/e00edc21-2c6b-4613-9c35-29fecc6b8147",
+        "removed": false,
+        "semantic_digest": "c1133fe98e8130c3b17c1858630bba90e00c4990db18e975bd149f20220cd8e4",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "09a8f5aa1727252037899fad0e6f9a0d91c9bd9244ab60b4ad7ec5f7f0d4e592",
+        "display_name": "clavicle_l",
+        "exporter_key": "",
+        "id": "e37e1ca3-8685-4639-a158-085b36435f9e",
+        "key": "member/e37e1ca3-8685-4639-a158-085b36435f9e",
+        "removed": false,
+        "semantic_digest": "c38b76083a7676b72a4ed7a52ef54229e45e853193af4cf784ec7d7fc08d8730",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "defc9af9d0e150645368dc1923d51564fe248a2c72a44d08a09192c3cd454a5b",
+        "display_name": "pinky_04_leaf_l",
+        "exporter_key": "",
+        "id": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
+        "key": "member/e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
+        "removed": false,
+        "semantic_digest": "6e882a40b6939adc9b7fb7ef3eb1ccd8e441c1799ef77df6c956dc74b79f4c5d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "707dcd1dddfd652b31a9dd720cba13b14ba37290fac7059c28920aefcd0c1462",
+        "display_name": "pinky_02_l",
+        "exporter_key": "",
+        "id": "f3d49347-2448-4491-8466-e8b5cd28bdf6",
+        "key": "member/f3d49347-2448-4491-8466-e8b5cd28bdf6",
+        "removed": false,
+        "semantic_digest": "0185f65527b77078205714a7112bb99f8785028bffa4f4aac8821ddff3f2b94c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "5858856e9d3886b9a99174ad0123217930f2a4896b2f092b5da9ed857e4d6de4",
+        "display_name": "pinky_01_l",
+        "exporter_key": "",
+        "id": "f6d23562-da1e-4265-9af5-c1cbe6e163b9",
+        "key": "member/f6d23562-da1e-4265-9af5-c1cbe6e163b9",
+        "removed": false,
+        "semantic_digest": "4d91d8bb51c35debe7a5ac65c3af575b7b5d7f4542bc924379149f169439c873",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "39d7e1d72e0bc7543e3e84a4fa47cd6f2741df2b660a7123bb14b19b7fe2af58",
+        "display_name": "Model skeleton",
+        "exporter_key": "",
+        "id": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+        "key": "member/f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      }
+    ],
+    "evidence_schema": "forge.gltf-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+    "source": "Assets/QuaterniusLocomotion.glb",
+    "source_digest": "4d18f077d349e8939dc5526f75301800f4b6c2e147cd90f3978a9341398918d4",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.gltf",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

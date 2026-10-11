@@ -1,8 +1,10 @@
 #include "asset_file_operations.hpp"
 #include "asset_file_service_tests.hpp"
+#include "asset_reference_impact.hpp"
 #include "asset_storage.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include <forge/animation_states.hpp>
 #include <forge/asset_publication.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
@@ -297,6 +299,59 @@ int main(int argc, char** argv) {
         check(read(project / "Assets/Copy.animation.json") == copied_animation.document &&
                   !std::filesystem::exists(project / "Moved/Copy.animation.json"),
               "Animation move changed clip/key identities");
+        auto states = AnimationStatesSource::create(AssetId::generate());
+        const auto rig = AssetId::generate(), state_clip = AssetId::generate();
+        states.document["skeleton"] = rig;
+        states.document["entry"] = 5;
+        states.document["next_id"] = 6;
+        states.document["states"] = Json::array({{{"id", 5},
+                                                  {"name", "Walk"},
+                                                  {"clip", state_clip},
+                                                  {"loop", true},
+                                                  {"speed", 1},
+                                                  {"transition_seconds", .4}}});
+        states.validate();
+        write(project / "Assets/Walk.states.json", states.document);
+        catalog = AssetCatalog::open_project(project);
+        catalog.add({states.asset(), "animation_states", "Assets/Walk.states.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(project));
+        rejects([&] {
+            prepare_asset_file_operation(
+                project, {AssetFileAction::Duplicate, states.asset(), "Moved/wrong.json"}, rewrite);
+        });
+        const auto states_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, states.asset(), "Moved/Copy.states.json"},
+            rewrite);
+        transaction.commit(states_copy.changes, false);
+        const AnimationStatesSource copied_states{read(project / "Moved/Copy.states.json")};
+        copied_states.validate();
+        check(copied_states.asset() == states_copy.result &&
+                  copied_states.asset() != states.asset() &&
+                  copied_states.document.at("states") == states.document.at("states") &&
+                  copied_states.document.at("next_id") == 6,
+              "State set duplicate changed local IDs or clip references");
+        const auto states_move = prepare_asset_file_operation(
+            project, {AssetFileAction::Move, states_copy.result, "Assets/Copy.states.json"},
+            rewrite);
+        transaction.commit(states_move.changes, false);
+        check(read(project / "Assets/Copy.states.json") == copied_states.document,
+              "State set move changed identities");
+        EngineContext reference_world;
+        Scene reference_scene(reference_world.world());
+        const std::array documents{
+            AssetReferenceDocument{"Assets/Walk.states.json", states.document}};
+        const auto impact =
+            inspect_asset_references(reference_scene.schema(), documents, {rig, state_clip});
+        check(impact.references.size() == 2 && impact.uninspected.empty(),
+              "State skeleton/clip impact review lost typed coverage");
+        auto opaque_states = states.document;
+        opaque_states["states"][0]["future"] = rig;
+        const std::array opaque_documents{
+            AssetReferenceDocument{"Assets/Walk.states.json", opaque_states}};
+        const auto opaque_impact =
+            inspect_asset_references(reference_scene.schema(), opaque_documents, {rig});
+        check(!opaque_impact.uninspected.empty(),
+              "State extensions falsely claimed complete reference coverage");
         test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;
