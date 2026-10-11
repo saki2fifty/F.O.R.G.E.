@@ -44,7 +44,9 @@ left a tiny Scene image; folding is a targeted correction, not a new document fr
 ## Consequences
 
 Inspector is selection-based, Content is asset discovery, asset editors are central
-documents. Future graph/terrain/animation tools register here, not in permanent global
+documents. The Animation Timeline registers a reusable clip source here and previews
+a copied Scene view without changing authored Scene history. Future graph/terrain
+tools register here, not in permanent global
 subsystem panels. Viewport gestures have one owner and explicit confirm/cancel.
 Machine layout is not an authored DocumentId.
 

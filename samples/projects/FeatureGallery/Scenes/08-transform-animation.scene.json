@@ -1,0 +1,209 @@
+{
+  "asset_id": "351d6f46-4eb6-4447-9270-e72f1868384a",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "d98fd0b9-153a-4c7d-aa5f-0862cf1ec71e",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ebf341e2-82c5-4f74-a4d8-ec220832b2a3",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "06403042-84ff-4486-ba04-700b48bf0e48",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "id": "ddbfbee5-f0d7-40bd-9075-830c25e26718",
+      "name": "Animated platform",
+      "spatial": {
+        "mode": "world"
+      },
+      "components": {
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 0.4,
+          "z": 1.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.1,
+          "g": 0.65,
+          "b": 1.0
+        },
+        "forge.transform_animator": {
+          "clip": "399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece",
+          "enabled": true,
+          "play_on_start": true,
+          "loop": true,
+          "playback_speed": 1.0
+        }
+      }
+    },
+    {
+      "id": "4851ffc4-90d6-4518-927c-478ac0b5b70f",
+      "name": "Start marker",
+      "spatial": {
+        "mode": "world"
+      },
+      "components": {
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.1,
+          "z": 0.5
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15,
+          "g": 0.9,
+          "b": 0.3
+        }
+      }
+    },
+    {
+      "id": "e5027d69-a048-4e55-9eaa-c18aa065616c",
+      "name": "End marker",
+      "spatial": {
+        "mode": "world"
+      },
+      "components": {
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.1,
+          "z": 0.5
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 1.0,
+          "g": 0.45,
+          "b": 0.1
+        }
+      }
+    }
+  ],
+  "version": 3
+}

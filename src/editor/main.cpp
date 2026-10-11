@@ -15,6 +15,7 @@
 #include "ImGuiImplSDL3.hpp"
 #include "actions.hpp"
 #include "animation_debug.hpp"
+#include "animation_timeline.hpp"
 #include "animation_tools.hpp"
 #include "asset_actions.hpp"
 #include "audio_imports.hpp"
@@ -896,6 +897,7 @@ int main(int argc, char** argv) {
             });
         forge::MaterialEditor material_editor;
         forge::EditableMeshEditor editable_mesh_editor;
+        forge::AnimationTimelineEditor animation_timeline;
         forge::MaterialGraphEditor graph_editor(
             std::filesystem::path(base) / "forge_shader_build.exe", [] {
                 return forge::asset_detail::ShaderCompilerProfile{
@@ -1012,6 +1014,12 @@ int main(int argc, char** argv) {
                 refresh_import(audio_imports);
                 refresh_import(model_imports);
                 refresh_import(shader_imports);
+                if (animation_timeline.document() &&
+                    animation_timeline.document()->source().asset() == id) {
+                    animation_timeline.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        animation_timeline.open(files.document, plan.request.destination);
+                }
                 if (material_editor.document() &&
                     material_editor.document()->source().asset() == id) {
                     material_editor.request_close();
@@ -1066,6 +1074,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& plan, const auto&) {
                                   forge::prepare_material_publication(c, plan);
                               }});
+            routes.push_back({"forge.animation.transform", forge::desktop_texture_target(),
+                              forge::transform_animation_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_transform_animation_publication(c, p);
+                              }});
             routes.push_back({"forge.mesh.editable", forge::desktop_texture_target(),
                               forge::editable_mesh_import_registry(),
                               [](auto& c, const auto& plan, const auto&) {
@@ -1080,6 +1093,9 @@ int main(int argc, char** argv) {
         };
         content_imports.blocked = [&](forge::AssetId id) {
             return files.busy() ||
+                   (animation_timeline.document() &&
+                    animation_timeline.document()->source().asset() == id &&
+                    animation_timeline.dirty()) ||
                    (graph_editor.document() && graph_editor.document()->source().asset() == id &&
                     graph_editor.dirty()) ||
                    (collision_editor.document() &&
@@ -1139,6 +1155,9 @@ int main(int argc, char** argv) {
             } else if (kind == "collision") {
                 if (open)
                     collision_editor.open(files.document, path);
+            } else if (kind == "transform_animation") {
+                if (open)
+                    animation_timeline.open(files.document, path);
             } else if (kind == "editable_mesh") {
                 if (open)
                     editable_mesh_editor.open(files.document, path);
@@ -1382,6 +1401,28 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { asset_view_document.close(); }});
+        documents.add({"animation_timeline",
+                       "Animation Timeline",
+                       "Animation Timeline###Animation Timeline",
+                       true,
+                       [&] { return animation_timeline.is_open(); },
+                       [&] { return animation_timeline.dirty(); },
+                       [&] {
+                           animation_timeline.draw(files.document, scene,
+                                                   asset_document_locked || play.active());
+                       },
+                       [&] { animation_timeline.request_save(); },
+                       [&] { animation_timeline.undo(); },
+                       [&] { animation_timeline.redo(); },
+                       [&] { animation_timeline.request_close(); },
+                       [&] { return animation_timeline.can_undo(); },
+                       [&] { return animation_timeline.can_redo(); },
+                       {},
+                       [&] { return std::exchange(animation_timeline.close_cancelled, false); }});
+        asset_editors.add({"transform_animation", "Open animation timeline",
+                           [&](const forge::AssetRecord& asset) {
+                               animation_timeline.open(files.document, asset.source);
+                           }});
         documents.add({"editable_mesh",
                        "Editable Mesh",
                        "Editable Mesh###Editable Mesh",
@@ -3298,6 +3339,15 @@ int main(int argc, char** argv) {
                     content.refresh(files);
                 }
                 graph_editor.poll(files.document, message);
+                animation_timeline.poll(files.document, scene, play.active(),
+                                        ImGui::GetIO().DeltaTime, message);
+                if (auto catalog = animation_timeline.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 editable_mesh_editor.poll(files.document, message);
                 if (auto catalog = editable_mesh_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -3908,14 +3958,20 @@ int main(int argc, char** argv) {
                         ImGui::End();
                         continue;
                     }
+                    if (modal.active() || scene_tools.move.active() || blockout.active())
+                        animation_timeline.stop_preview();
                     auto read_preview = [&]() -> const forge::Json& {
                         return view_cache.get(
                             game_view ? play.snapshot_version() : scene.revision(), game_view,
-                            blockout.active() || scene_tools.move.active() || modal.active(), [&] {
+                            blockout.active() || scene_tools.move.active() || modal.active() ||
+                                animation_timeline.preview_active(),
+                            [&] {
                                 if (game_view)
                                     return play.ready() ? play.effective_snapshot()
                                                         : scene.effective_document();
                                 auto source = authoring_snapshot.document(scene);
+                                if (animation_timeline.preview_active())
+                                    source = animation_timeline.preview(std::move(source));
                                 if (blockout.active())
                                     source = blockout.preview(source);
                                 if (scene_tools.move.active())
@@ -3923,7 +3979,7 @@ int main(int argc, char** argv) {
                                 if (modal.active())
                                     source = modal.preview(source);
                                 return (blockout.active() || scene_tools.move.active() ||
-                                        modal.active())
+                                        modal.active() || animation_timeline.preview_active())
                                            ? scene.preview_document(source)
                                            : authoring_snapshot.effective(scene);
                             });
@@ -4219,6 +4275,7 @@ int main(int argc, char** argv) {
                     [&] {
                         material_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
+                        animation_timeline.content(files.document, scene, edit_locked);
                         graph_editor.content(files.document, edit_locked);
                         collision_editor.content(files.document, edit_locked);
                         texture_imports.content(files.document, edit_locked);

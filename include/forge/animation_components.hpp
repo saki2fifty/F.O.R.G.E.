@@ -7,6 +7,15 @@ struct SkeletonAsset {
 struct AnimationClipAsset {
     static constexpr const char* type = "animation_clip";
 };
+struct TransformAnimationAsset {
+    static constexpr const char* type = "transform_animation";
+};
+struct TransformAnimator {
+    AssetRef<TransformAnimationAsset> clip{};
+    bool enabled = true, play_on_start = true, loop = true;
+    float playback_speed = 1;
+    bool operator==(const TransformAnimator&) const = default;
+};
 struct Animator {
     AssetRef<SkeletonAsset> skeleton{};
     AssetRef<AnimationClipAsset> clip{};

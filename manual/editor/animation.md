@@ -1,5 +1,7 @@
 # Animation
 
+For object position, rotation and size keyframes, use the [Transform animation timeline](transform-animation.md).
+
 An **Animator** plays one skeletal animation clip on an object during Play.
 FORGE can draw imported skinned and morphed model meshes during Play, and can
 also show joints and bones as a green-and-white debug overlay. Use the

@@ -3,6 +3,7 @@
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
 #include "legacy_animation_provenance.hpp"
+#include "transform_animation_runtime.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/animation.hpp>
@@ -11,6 +12,7 @@
 #include <forge/runtime_content_access.hpp>
 #include <future>
 #include <set>
+#include <thread>
 namespace forge {
 namespace {
 using namespace animation_detail;
@@ -38,6 +40,9 @@ struct Playback {
 struct AnimationRuntime::Impl {
     WorldContext& context;
     std::filesystem::path project;
+    TransformAnimationPlayback transforms;
+    bool initial_catalog_requested = false;
+    std::string catalog_error;
     std::map<AssetId, std::shared_ptr<const Skeleton>> skeletons;
     std::map<AssetId, std::shared_ptr<const Clip>> clips;
     std::map<AssetId, std::string> revisions;
@@ -57,7 +62,8 @@ struct AnimationRuntime::Impl {
     std::size_t cache_bytes = 0;
     AnimationRuntime::PoseValidator pose_validator;
     std::set<std::uint64_t> discontinuities;
-    Impl(WorldContext& c, std::filesystem::path p) : context(c), project(std::move(p)) {}
+    Impl(WorldContext& c, std::filesystem::path p)
+        : context(c), project(std::move(p)), transforms(c, project) {}
     ~Impl() {
         states.clear();
         if (model_resources)
@@ -341,6 +347,8 @@ struct AnimationRuntime::Impl {
         for (const auto& [id, state] : states)
             if (state.assets.model)
                 changed.insert(id);
+        transforms.catalog(selected);
+        catalog_error.clear();
         model_catalog = std::move(selected);
         reload_pending.swap(changed);
         reload_errors.clear();
@@ -362,6 +370,7 @@ struct AnimationRuntime::Impl {
         try {
             catalog(catalog_job.get());
         } catch (const std::exception& e) {
+            catalog_error = e.what();
             Diagnostic diagnostic{Severity::Error, "animation.catalog", e.what(), {}};
             diagnostic.context.module = "forge.animation";
             context.services().emit(std::move(diagnostic));
@@ -370,6 +379,10 @@ struct AnimationRuntime::Impl {
             refresh_assets();
     }
     void synchronize(float fixed_dt = 0) {
+        if (!model_catalog && transforms.has_players() && !initial_catalog_requested) {
+            initial_catalog_requested = true;
+            refresh_assets();
+        }
         poll_catalog();
         if (model_resources)
             model_resources->pump();
@@ -525,14 +538,18 @@ struct AnimationRuntime::Impl {
         std::erase_if(reload_pending, [&](auto id) { return !alive.contains(id); });
         std::erase_if(reload_errors,
                       [&](const auto& entry) { return !alive.contains(entry.first); });
+        transforms.catalog(model_catalog);
+        transforms.synchronize();
     }
 };
 AnimationRuntime::AnimationRuntime(WorldContext& c, std::filesystem::path p)
     : impl_(std::make_unique<Impl>(c, std::move(p))) {}
 AnimationRuntime::~AnimationRuntime() = default;
 void AnimationRuntime::pose_validator(PoseValidator validator) {
-    if (impl_)
+    if (impl_) {
+        impl_->transforms.pose_validator(validator);
         impl_->pose_validator = std::move(validator);
+    }
 }
 void AnimationRuntime::shutdown() noexcept { impl_.reset(); }
 void AnimationRuntime::synchronize() {
@@ -543,6 +560,8 @@ bool AnimationRuntime::prepare_initial_pose() {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
     impl_->synchronize();
+    if (impl_->transforms.has_players() && !impl_->catalog_error.empty())
+        throw ArchiveError("Transform animation catalog: " + impl_->catalog_error);
     if (!impl_->errors.empty())
         throw ArchiveError("Scene preparation: invalid Animator asset configuration");
     if (!impl_->pending.empty())
@@ -550,7 +569,7 @@ bool AnimationRuntime::prepare_initial_pose() {
     impl_->apply_model_poses();
     if (!impl_->binding_errors.empty())
         throw ArchiveError("Scene preparation: invalid Animator model binding");
-    return true;
+    return impl_->transforms.initial_pose();
 }
 void AnimationRuntime::refresh_assets() {
     if (impl_)
@@ -585,6 +604,7 @@ void AnimationRuntime::tick(float dt) {
         }
     }
     impl_->apply_model_poses();
+    impl_->transforms.tick(dt);
 }
 void AnimationRuntime::reset_presentation() {
     if (!impl_)
@@ -662,16 +682,20 @@ std::vector<std::uint64_t> AnimationRuntime::take_discontinuities() {
         return {};
     std::vector<std::uint64_t> result(impl_->discontinuities.begin(), impl_->discontinuities.end());
     impl_->discontinuities.clear();
+    const auto transforms = impl_->transforms.take_discontinuities();
+    result.insert(result.end(), transforms.begin(), transforms.end());
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
     return result;
 }
 bool AnimationRuntime::checkpoint_ready() const {
-    return !impl_ ||
-           (impl_->pending.empty() && impl_->errors.empty() && impl_->binding_errors.empty());
+    return !impl_ || (impl_->pending.empty() && impl_->errors.empty() &&
+                      impl_->binding_errors.empty() && impl_->transforms.checkpoint_ready());
 }
 Json AnimationRuntime::checkpoint() const {
     // A partial binding is not a recoverable playback state. Runtime IPC preserves
     // the null marker until all selected model resources have been adopted.
-    if (impl_ && !impl_->pending.empty())
+    if (impl_ && (!impl_->pending.empty() || !impl_->transforms.checkpoint_ready()))
         return nullptr;
     if (impl_ && !impl_->errors.empty())
         throw ArchiveError("Cannot checkpoint an Animator with invalid asset configuration");
@@ -691,7 +715,9 @@ Json AnimationRuntime::checkpoint() const {
                                {"time", p.time},
                                {"playing", p.playing}});
         }
-    return {{"version", 1}, {"entries", entries}};
+    return {{"version", 1},
+            {"entries", entries},
+            {"transform_entries", impl_ ? impl_->transforms.checkpoint() : Json::array()}};
 }
 void AnimationRuntime::restore(const Json& data) {
     if (!impl_)
@@ -741,9 +767,15 @@ void AnimationRuntime::restore(const Json& data) {
         times.emplace(entity.entity, time);
         values.push_back({&p, time, entry.at("playing").get<bool>(), std::move(sampler)});
     }
+    const auto transform_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (impl_->transforms.pending() && std::chrono::steady_clock::now() < transform_deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        impl_->synchronize();
+    }
     // Validate recovered channel values and instance scopes with temporary
     // samplers before replacing any playback state or mutating the world.
     impl_->apply_model_poses(false, times);
+    impl_->transforms.restore(data.value("transform_entries", Json::array()));
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

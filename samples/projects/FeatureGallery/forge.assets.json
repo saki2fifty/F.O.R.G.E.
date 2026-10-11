@@ -49,6 +49,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "d28174b6501918ef9bab8655e1a07562c4e46bd61f68d8362cdc30f508bbe9f0",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v1",
+          "key": "0f96b310e6e03e365af9636bc6b08e918f675490f0be6ac8e3a0f6e0f5498623",
+          "output_format": "forge.transform-clip",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "eeed74560277e357ab5d83cc183546857d6ca6b6ca6b27823caddbae34c039d9",
+          "source_digest": "9555d93678ac262a97257ba8d7a4e41eca42bc8d2d240a2f21d7cd0d4049a799",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 729,
+          "file": "animation.clip",
+          "sha256": "420273d00390c7d99cf6bea60cbaf7ea384a600d6d84e159a937ef8593cb5617",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Platform.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8156215d-8bd5-4016-8645-af3ee2755a40",
       "metadata": {
         "forge.import": {

@@ -7,6 +7,7 @@
 #include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
 #include <forge/scene_identity.hpp>
+#include <forge/transform_animation.hpp>
 #include <iostream>
 using namespace forge;
 namespace {
@@ -267,6 +268,35 @@ int main(int argc, char** argv) {
                       graph.document.at("graph").at("nodes")[0].at("id"),
               "Shader file duplicate did not remap graph identities");
         (void)compile_material_graph(copied_graph.document.at("graph"));
+        const auto animation = TransformAnimationSource::create(AssetId::generate());
+        write(project / "Assets/Motion.animation.json", animation.document);
+        catalog = AssetCatalog::open_project(project);
+        catalog.add(
+            {animation.asset(), "transform_animation", "Assets/Motion.animation.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(project));
+        rejects([&] {
+            prepare_asset_file_operation(
+                project, {AssetFileAction::Duplicate, animation.asset(), "Moved/bad.json"},
+                rewrite);
+        });
+        auto animation_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, animation.asset(), "Moved/Copy.animation.json"},
+            rewrite);
+        transaction.commit(animation_copy.changes, false);
+        const auto copied_animation =
+            TransformAnimationSource{read(project / "Moved/Copy.animation.json")};
+        copied_animation.validate();
+        check(copied_animation.asset() == animation_copy.result &&
+                  copied_animation.asset() != animation.asset() &&
+                  copied_animation.document.at("keys") == animation.document.at("keys"),
+              "Animation duplicate did not isolate asset identity and preserve scoped keys");
+        auto animation_move = prepare_asset_file_operation(
+            project, {AssetFileAction::Move, animation_copy.result, "Assets/Copy.animation.json"},
+            rewrite);
+        transaction.commit(animation_move.changes, false);
+        check(read(project / "Assets/Copy.animation.json") == copied_animation.document &&
+                  !std::filesystem::exists(project / "Moved/Copy.animation.json"),
+              "Animation move changed clip/key identities");
         test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;

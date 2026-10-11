@@ -253,3 +253,10 @@ visible while new loads report missing data. This window opens on demand.
 The Assets menu uses short operation names; the Command Palette keeps the
 **Assets /** category prefix for searching. Both routes use the same actions and
 availability rules.
+
+## Transform animation sources
+
+Choose **Create / Register → New transform animation...** to create a reusable
+`.animation.json` clip. Double-click its Content entry to open the central
+[Animation Timeline](transform-animation.md). Save & Publish the clip before
+attaching it to an object for Play and export.

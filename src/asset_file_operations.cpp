@@ -11,6 +11,7 @@
 #include <forge/scene.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/shader_asset.hpp>
+#include <forge/transform_animation.hpp>
 namespace forge {
 namespace {
 using Json = nlohmann::json;
@@ -192,12 +193,17 @@ AssetFilePlan prepare_asset_file_operation(const std::filesystem::path& project,
     return result;
 }
 static std::string rewrite_authored_with_schema(const AssetRecord& record, std::string_view bytes,
-                                                const std::filesystem::path&,
+                                                const std::filesystem::path& destination,
                                                 const std::map<AssetId, AssetId>& identities,
                                                 const Json& schema) {
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
-        record.type != "shader" && record.type != "collision")
+        record.type != "shader" && record.type != "collision" &&
+        record.type != "transform_animation")
         throw std::runtime_error("No authored-document copy adapter for this source format");
+    if (record.type == "transform_animation" &&
+        !path_utf8(destination).ends_with(".animation.json"))
+        throw std::runtime_error(
+            "Transform animation files must retain the .animation.json suffix");
     auto value =
         asset_detail::parse_bounded_json(std::as_bytes(std::span(bytes)), max_asset_index_bytes);
     if (value.at("asset_id").get<AssetId>() != record.id)
@@ -223,6 +229,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             MaterialSource{value}.validate();
         else if (record.type == "collision")
             CollisionSource{value}.validate();
+        else if (record.type == "transform_animation")
+            TransformAnimationSource{value}.validate();
         else
             (void)shader_program_source(value);
     }

@@ -19,6 +19,7 @@
 #include <forge/mesh_asset.hpp>
 #include <forge/scene.hpp>
 #include <forge/shader_resource.hpp>
+#include <forge/transform_animation.hpp>
 #include <fstream>
 #include <set>
 namespace forge {
@@ -167,8 +168,9 @@ AssetRecord runtime_record(AssetRecord record) {
         return record;
     }
     Json metadata = Json::object();
-    for (const auto* name : {"forge.import", "forge.model", "forge.mesh", "forge.material",
-                             "forge.shader", "forge.audio", "forge.ui_source", "forge.collision"})
+    for (const auto* name :
+         {"forge.import", "forge.model", "forge.mesh", "forge.material", "forge.shader",
+          "forge.audio", "forge.ui_source", "forge.collision", "forge.transform_animation"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -202,7 +204,18 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     const auto format = root.metadata.at("forge.import").at("output_format");
     if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
-    else if (root.type == MeshAsset::type && format == "forge.mesh-bundle") {
+    else if (root.type == TransformAnimationAsset::type && format == "forge.transform-clip") {
+        require(root.metadata.at("forge.import").at("importer") == "forge.animation.transform" &&
+                    root.metadata.at("forge.transform_animation").at("version") == 1 &&
+                    artifact.files.size() == 1 && artifact.files.front().name == "animation.clip" &&
+                    root.metadata.at("forge.transform_animation").at("file") == "animation.clip" &&
+                    root.metadata.at("forge.transform_animation").at("sha256") ==
+                        content_digest(artifact.files.front().bytes) &&
+                    root.metadata.at("forge.transform_animation").at("bytes") ==
+                        artifact.files.front().bytes.size(),
+                "Transform animation selection differs from its cooked clip");
+        (void)decode_transform_animation(artifact.files.front().bytes, root.id);
+    } else if (root.type == MeshAsset::type && format == "forge.mesh-bundle") {
         require(root.metadata.at("forge.import").at("importer") == "forge.mesh.editable" &&
                     root.metadata.at("forge.mesh").at("version") == 1 &&
                     root.metadata.at("forge.mesh").at("file") == "mesh.bin" &&

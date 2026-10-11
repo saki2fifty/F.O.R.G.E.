@@ -2,7 +2,7 @@
 
 This is an editable FORGE project. Each saved scene demonstrates one focused
 engine feature using normal authored entities. The first four scenes use built-in geometry. The remaining scenes include published
-editable Mesh sources, cooked Meshes and a checker Material. No
+editable Mesh sources, cooked Meshes and a checker Material. The eighth scene includes a published transform-animation clip. No
 gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
 ## Open and inspect
@@ -27,6 +27,8 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 | `06-sculpt` | Open **SculptSphere.mesh.json** in Content. Choose **Sculpt** in Model and drag over the sphere preview, then Save & Publish. | A smooth, low-poly sphere starts with a raised area. Sculpt changes its geometry and is saved as one Undo step per stroke. |
 | `07-vertex-paint` | Open **PaintedSphere.mesh.json** in Content. Choose **Paint** in Model, change the color and drag over the sphere preview, then Save & Publish. | The sphere carries blue and warm painted vertex colors into Scene, Play and export. Paint applies to its vertices, so detail is limited by the Mesh resolution. |
 
+| `08-transform-animation` | Press Play to watch **Animated platform**. Open **Platform.animation.json** in Content, choose that object in Preview object, and scrub or change its keys. Save & Publish. | The blue platform moves between the two markers, turns and changes height over four seconds. Timeline preview restores the authored view when stopped. Play and export use the published clip. |
+
 ## Export and run a scene
 
 1. Open the scene you want to export and save it.
@@ -47,5 +49,5 @@ game or package content** for details and error recovery.
 
 These scenes are intentionally small. For a combined gameplay example with input,
 menus, save/reload, audio, animation and navigation, see **FIELD TEST** in the
-optional Developer Kit. A future gallery scene should demonstrate a feature only
+included development tools. A future gallery scene should demonstrate a feature only
 when its authored content and standalone result can both be inspected directly.

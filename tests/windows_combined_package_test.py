@@ -62,6 +62,22 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              cwd=gallery_export, env=env, text=True,
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
+    # The authored timeline clip must survive the same shipped export path.
+    animated_scene = 'Scenes/08-transform-animation.scene.json'
+    animated = json.loads((gallery/animated_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=animated['asset_id'], source=animated_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    animated_export = root/'Timeline Standalone'
+    options['destination'] = str(animated_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(animated_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=animated_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    assert not (animated_export/'Assets/Platform.animation.json').exists()
     rendering = root/'Examples/Rendering'
     assert (rendering/'README.md').is_file()
     assert (root/'manual/editor/models.html').is_file()

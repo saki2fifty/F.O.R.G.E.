@@ -1,5 +1,8 @@
 # Skeletal animation foundation
 
+Object-transform clips use the [authored transform timeline](transform-animation.md),
+owned by the same AnimationRuntime. The Ozz implementation below remains unchanged.
+
 FORGE uses unmodified **Ozz Animation 0.17.0**, commit
 `744eb9d99f606eda849acb0b1204f7a3dc20bca1`, as a private runtime implementation.
 The runtime and official `gltf2ozz` converter are built from the same pin.

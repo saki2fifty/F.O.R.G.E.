@@ -15,6 +15,7 @@
 #include "material_authoring.hpp"
 #include "self_executable.hpp"
 #include "texture_authoring.hpp"
+#include "transform_animation_authoring.hpp"
 #endif
 #include <forge/asset_discovery.hpp>
 #include <forge/assets.hpp>
@@ -189,11 +190,13 @@ int asset_tools_cli(int argc, char** argv) {
             const auto source = std::filesystem::u8path(argv[4]);
             const bool collision = path_utf8(source).ends_with(".collision.json");
             const bool material = path_utf8(source).ends_with(".material.json");
+            const bool transform_animation = path_utf8(source).ends_with(".animation.json");
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
-            auto registry = collision       ? collision_import_registry()
-                            : material      ? material_import_registry()
-                            : editable_mesh ? editable_mesh_import_registry()
-                                            : asset_import_registry(worker);
+            auto registry = transform_animation ? transform_animation_import_registry()
+                            : collision         ? collision_import_registry()
+                            : material          ? material_import_registry()
+                            : editable_mesh     ? editable_mesh_import_registry()
+                                                : asset_import_registry(worker);
             auto lease = std::make_shared<ProjectLease>(project);
             auto target = collision ? collision_import_target() : desktop_texture_target();
             if (operation == "import-target") {
@@ -219,6 +222,11 @@ int asset_tools_cli(int argc, char** argv) {
                 identity = EditableMeshSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         editable_mesh_source_byte_limit))
+                               .asset();
+            if (transform_animation)
+                identity = TransformAnimationSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        transform_animation_byte_limit))
                                .asset();
             auto draft = service.prepare(source, {}, identity);
             if (operation == "import" && argc >= 6) {
@@ -255,9 +263,14 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions, collision, material, editable_mesh](auto& candidate, const auto& plan,
-                                                                const auto& catalog) {
-                    if (collision) {
+                [decisions, collision, material, editable_mesh,
+                 transform_animation](auto& candidate, const auto& plan, const auto& catalog) {
+                    if (transform_animation) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Transform animation has no subasset correspondence decisions");
+                        prepare_transform_animation_publication(candidate, plan);
+                    } else if (collision) {
                         if (!decisions.empty())
                             throw std::runtime_error(
                                 "Collision has no imported subasset correspondence decisions");

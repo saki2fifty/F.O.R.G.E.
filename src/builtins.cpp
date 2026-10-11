@@ -57,6 +57,12 @@ template <class T> Json encode(const T& p) {
                 {"destination_x", p.destination_x},
                 {"destination_y", p.destination_y},
                 {"destination_z", p.destination_z}};
+    else if constexpr (std::is_same_v<T, TransformAnimator>)
+        return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
+                {"enabled", p.enabled},
+                {"play_on_start", p.play_on_start},
+                {"loop", p.loop},
+                {"playback_speed", p.playback_speed}};
     else if constexpr (std::is_same_v<T, Animator>)
         return {{"skeleton", p.skeleton.id ? Json(p.skeleton.id) : Json()},
                 {"clip", p.clip.id ? Json(p.clip.id) : Json()},
@@ -181,6 +187,15 @@ template <class T> Value decode(const Json& p) {
         a.destination_y = p.at("destination_y");
         a.destination_z = p.at("destination_z");
         return a;
+    } else if constexpr (std::is_same_v<T, TransformAnimator>) {
+        TransformAnimator v;
+        if (!p.at("clip").is_null())
+            v.clip.id = p.at("clip").get<AssetId>();
+        v.enabled = p.at("enabled");
+        v.play_on_start = p.at("play_on_start");
+        v.loop = p.at("loop");
+        v.playback_speed = p.at("playback_speed");
+        return v;
     } else if constexpr (std::is_same_v<T, Animator>) {
         Animator v;
         if (!p.at("skeleton").is_null())
@@ -420,6 +435,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("destination_x")
             .template member<double>("destination_y")
             .template member<double>("destination_z");
+    } else if constexpr (std::is_same_v<T, TransformAnimator>) {
+        register_asset_ref<TransformAnimationAsset>(w, "forge.transform_animation_ref");
+        c.template member<AssetRef<TransformAnimationAsset>>("clip")
+            .template member<bool>("enabled")
+            .template member<bool>("play_on_start")
+            .template member<bool>("loop")
+            .template member<float>("playback_speed");
     } else if constexpr (std::is_same_v<T, Animator>) {
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
@@ -598,6 +620,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.audio_listener", "One enabled listener per runtime world", "unitless", {}, {},
             [](flecs::world& w) {
                 return register_type<AudioListener>(w, "forge.audio_listener");
+            }),
+        descriptor<TransformAnimator>(
+            "forge.transform_animator", "Authored local transform keyframes during Play",
+            "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<TransformAnimator>(w, "forge.transform_animator");
             }),
         descriptor<Animator>(
             "forge.animator", "Single-clip skeletal animation; derived poses only", "unitless", {},
@@ -851,14 +879,18 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["unit"] = "meters";
         }
     }
-    if (name == "forge.animator") {
+    if (name == "forge.animator" || name == "forge.transform_animator") {
         if (field == "skeleton" || field == "clip") {
-            value["asset_type"] =
-                field == "skeleton" ? SkeletonAsset::type : AnimationClipAsset::type;
+            value["asset_type"] = field == "skeleton" ? SkeletonAsset::type
+                                  : name == "forge.transform_animator"
+                                      ? TransformAnimationAsset::type
+                                      : AnimationClipAsset::type;
             value["nullable"] = true;
             value["description"] =
                 field == "skeleton"
                     ? "Registered skeleton identity; clip must bind to this exact skeleton revision"
+                : name == "forge.transform_animator"
+                    ? "Reusable local-transform animation clip"
                     : "Registered clip identity produced for the chosen skeleton";
         } else if (field == "playback_speed") {
             value["minimum"] = 0;
@@ -1105,10 +1137,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
     for (const auto& type : builtins()) {
         const std::string name = type.name;
         const unsigned category =
-            name == "forge.ui_document"             ? 5u
-            : name.starts_with("forge.navigation_") ? 4u
-            : name == "forge.animator"              ? 3u
-            : name.starts_with("forge.audio_")      ? 2u
+            name == "forge.ui_document"                                        ? 5u
+            : name.starts_with("forge.navigation_")                            ? 4u
+            : (name == "forge.animator" || name == "forge.transform_animator") ? 3u
+            : name.starts_with("forge.audio_")                                 ? 2u
             : (name == "forge.physics_body" || name == "forge.character_controller" ||
                name.ends_with("_collider"))
                 ? 1u
@@ -1135,6 +1167,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<AudioClipAsset>();
         add_reference.template operator()<SkeletonAsset>();
         add_reference.template operator()<AnimationClipAsset>();
+        add_reference.template operator()<TransformAnimationAsset>();
         add_reference.template operator()<NavMeshAsset>();
         add_reference.template operator()<UiDocumentAsset>();
         if (name == "forge.mesh_renderer") {

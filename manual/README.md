@@ -15,6 +15,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Runtime UI](editor/runtime-ui.md): create a game HUD, use buttons and text fields, and test Pause/Step.
 
 - [Navigation](editor/navigation.md): build static navmeshes and test nonphysics agents.
+- [Transform animation timeline](editor/transform-animation.md): keyframe an object, preview it and export its motion.
 - [Animation](editor/animation.md): convert glTF skeletons/clips and test Animator playback.
 - [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
 

@@ -1,12 +1,12 @@
 # Explore the Feature Gallery
 
-The packaged **Examples/FeatureGallery** project gives you seven short scenes to
+The packaged **Examples/FeatureGallery** project gives you eight short scenes to
 open in the editor and export as standalone games. You can see how each effect is
 authored, change it, then compare the result in Play and in the exported game.
 
 Copy the whole gallery folder to a writable location before editing it. Choose
 **File → Open project...** and select that copy. Use Content's scene list to open
-**Transforms**, **Lighting**, **Physics**, **Cameras**, **Editable Mesh**, **Sculpt**, or **Vertex Paint**. The project's `README.md`
+**Transforms**, **Lighting**, **Physics**, **Cameras**, **Editable Mesh**, **Sculpt**, **Vertex Paint**, or **Transform Animation**. The project's `README.md`
 gives a short experiment and expected result for each scene.
 
 To export one, open and save that scene. In **Tools → Project Settings**, select

@@ -13,7 +13,8 @@ by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/SculptSphere.mesh.json', 'mesh.bin'),
                        ('Assets/PaintedSphere.mesh.json', 'mesh.bin'),
-                       ('Assets/Checker.material.json', 'material.values')):
+                       ('Assets/Checker.material.json', 'material.values'),
+                       ('Assets/Platform.animation.json', 'animation.clip')):
     asset = by_source[source]
     assert json.loads((project_root / source).read_text())['asset_id'] == asset['id']
     assert (project_root / '.forge/cache/derived' /
@@ -22,7 +23,7 @@ scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',
-        '07-vertex-paint.scene.json'} <= {p.name for p in scenes}
+        '07-vertex-paint.scene.json', '08-transform-animation.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -109,6 +110,11 @@ try:
             assert meshes == [by_source['Assets/PaintedSphere.mesh.json']['id']]
             painted = json.loads((project_root / 'Assets/PaintedSphere.mesh.json').read_text())
             assert all('color' in vertex for vertex in painted['vertices'])
+        if path.name.startswith('08-'):
+            movers = [row['components']['forge.transform_animator'] for row in loaded['entities']
+                      if 'forge.transform_animator' in row['components']]
+            assert len(movers) == 1 and movers[0]['clip'] == by_source['Assets/Platform.animation.json']['id']
+            assert movers[0]['loop'] and movers[0]['play_on_start']
         if path.name.startswith('04-'):
             cameras = [row['components']['forge.camera'] for row in loaded['entities']
                        if 'forge.camera' in row['components']]
