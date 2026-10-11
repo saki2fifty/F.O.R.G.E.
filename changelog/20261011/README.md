@@ -190,3 +190,13 @@ separate from pending Windows execution and physical acceptance.
 - Added flat/smooth shading controls for authored Meshes, with ordinary Undo and
   publication. Geometry and UVs remain unchanged. Feature Gallery17 compares the
   two policies on identical sphere geometry.
+
+### Timeline key batches
+
+- Ctrl-select animation keys, select all or clear the selection; selected diamonds
+  use a distinct color. Move, duplicate or delete the selection as one source Undo.
+- Drag selected keys together while retaining their spacing and complete pose,
+  curve and held settings. Final release is sampled; Escape, focus, Play, close
+  and document changes cancel the capture. Newly authored keys become selected.
+- FeatureGallery18 compares original eased travel, a delayed group and duplicated
+  motion. The normal runtime and relocated source-free export use the cooked clips.

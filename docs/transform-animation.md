@@ -28,6 +28,35 @@ central Timeline registers with `DocumentWorkspace` and `AssetEditors` under
 ADR 004. Global Save/Undo/Redo routes to the focused document. Scene attachment
 uses existing atomic authoring commands and creates one Scene Undo entry.
 
+## Key selection and atomic batches
+
+`move_keys`, `duplicate_keys` and `erase_keys` operate on 1–4096 distinct existing
+key UUIDs. They validate the original source, build one final candidate and validate
+its count, unique times, complete curves, segment bounds and byte budget before
+replacement. Offset bounds use subtraction before addition, including extreme
+signed integers. Moving an overlapping group validates final times rather than
+intermediate single-key moves. Moves and copies preserve complete key objects,
+including held mode, slopes and unknown extension fields. Duplication uses fresh
+AssetIds; deleting all keys is rejected. Single-key retiming delegates to the same
+atomic path and preserves those fields. Source/cooked formats remain versions1/2.
+
+Timeline selection is ephemeral stable UUIDs, with one active key for fields. Ctrl
+click toggles; plain list clicks select one; a ruler click on a selected key keeps
+the group. Add/Update selects the authored key after a successful source revision.
+The existing `TransformAnimationDocument` owns one history entry per batch and
+prunes obsolete selections after source changes. Undo/Redo preserve duplicated
+identities; selection itself is not saved into the source or Scene.
+
+A group drag captures IDs, source revision, original time, pointer and group bounds.
+Held frames draw temporary ruler positions without replacing or copying the source.
+Relative offsets snap to1ms after the drag threshold; a click preserves fractional
+millisecond times. The final release position is sampled even without an intervening
+held frame. Offset clamping preserves spacing inside the duration. Escape, Play,
+pending publication, focus loss, close, project or revision changes cancel capture.
+Scene preview motion evaluates the applied clip until release. Numeric offsets are
+bounded to ±3600seconds, then checked against every selected time. No timeline time
+scaling, ripple edit, box selection or motion-preview retiming claim is made.
+
 The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v2`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
 It publishes `forge.transform-clip` version 2, validated by the same bounded
@@ -120,3 +149,9 @@ Gallery `13-transform-curves` compares the unchanged legacy linear clip with two
 original Windows-target version-2 clips: smooth easing and custom vertical arc
 slopes. Parent lanes separate their local motions. All three use normal scene
 references, independent clocks and source-free cooked export.
+
+Gallery `18-animation-key-batches` compares two eased keys, their one-second shift,
+and complete copies offset by three seconds in a six-second loop. The three original
+Windows-target sources use the normal publication owner and selected cooked roots.
+The gallery test independently computes cubic vector and linear shortest-arc
+rotation values through runtime ticks and relocated source-free export.

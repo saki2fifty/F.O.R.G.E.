@@ -1,0 +1,116 @@
+{
+  "asset_id": "6c53769b-bd0d-4faa-bfbf-8b3251d38bda",
+  "channels": [
+    "forge.local_translation",
+    "forge.local_rotation",
+    "forge.local_scale"
+  ],
+  "duration_us": 6000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "extension": {
+        "lesson": "Selected keys retain their complete data"
+      },
+      "id": "39587391-281e-4bb1-9353-dab4b2279cdf",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        2.0,
+        0.4000000059604645,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        -3.0,
+        1.5,
+        0.0
+      ]
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "extension": {
+        "lesson": "Selected keys retain their complete data"
+      },
+      "id": "4713ed11-38a0-43fd-93f1-1d9f7f961c09",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        1.0,
+        0.0,
+        6.123234262925839e-17
+      ],
+      "scale": [
+        2.0,
+        0.800000011920929,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        3.0,
+        1.5,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 2
+}

@@ -43,6 +43,10 @@ struct TransformAnimationSource {
                     std::optional<TransformAnimationCurves> curves = {});
     void erase_key(AssetId);
     void move_key(AssetId, std::int64_t time);
+    // Atomic final-state edits; complete key metadata and stable IDs are retained.
+    void move_keys(std::span<const AssetId>, std::int64_t offset_us);
+    std::vector<AssetId> duplicate_keys(std::span<const AssetId>, std::int64_t offset_us);
+    void erase_keys(std::span<const AssetId>);
 };
 TransformAnimationClip decode_transform_animation(std::span<const std::byte>, AssetId);
 nlohmann::json animation_pose_json(const LocalTransform&);

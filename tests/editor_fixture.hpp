@@ -81,6 +81,12 @@ struct EditorFixture {
         if (workflow)
             return nullptr;
         switch (stage) {
+        case 133:
+        case 134:
+        case 135:
+        case 136:
+        case 137:
+        case 138:
         case 109:
         case 110:
         case 111:
@@ -432,7 +438,13 @@ struct EditorFixture {
                                "editable-mesh-triangulation-tools-200",
                                "editable-mesh-shading-tools",
                                "editable-mesh-shading-tools-150",
-                               "editable-mesh-shading-tools-200"};
+                               "editable-mesh-shading-tools-200",
+                               "animation-key-batch-controls",
+                               "animation-key-batch-controls-150",
+                               "animation-key-batch-controls-200",
+                               "animation-key-batch-ruler",
+                               "animation-key-batch-ruler-150",
+                               "animation-key-batch-ruler-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

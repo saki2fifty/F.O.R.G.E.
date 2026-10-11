@@ -3237,6 +3237,34 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 133:
+                case 136: {
+                    // Original staged data; the actual scaled UI fixture proves editing.
+                    animation_timeline = {};
+                    auto source =
+                        forge::TransformAnimationSource::create(forge::AssetId::generate());
+                    source.document["duration_us"] = 6000000;
+                    forge::TransformAnimationCurves curve;
+                    curve.cubic = true;
+                    const auto first = source.document.at("keys")[0].at("id").get<forge::AssetId>();
+                    source.set_key(0, {}, false, first, curve);
+                    source.set_key(2000000, {{2, 0, 0}, {}, {1, 1, 1}}, false, {}, curve);
+                    source.set_key(4000000, {{4, 0, 0}, {}, {1, 1, 1}});
+                    forge::atomic_write(files.document.project() /
+                                            "Assets/CaptureBatch.animation.json",
+                                        source.document.dump(2));
+                    animation_timeline.open(files.document, "Assets/CaptureBatch.animation.json");
+                    forge::ui::style(1);
+                    break;
+                }
+                case 134:
+                case 137:
+                    forge::ui::style(1.5f);
+                    break;
+                case 135:
+                case 138:
+                    forge::ui::style(2);
+                    break;
                 case 130: {
                     // Original flat source staged for native shading control review.
                     editable_mesh_editor = {};
@@ -4929,7 +4957,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 132))
+                        (fixture.stage >= 103 && fixture.stage <= 138))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5237,6 +5265,31 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.stage >= 133 && fixture.stage <= 138) {
+                    const auto* document = animation_timeline.document();
+                    if (!document || document->source().clip().keys.size() != 3 ||
+                        document->dirty())
+                        throw std::runtime_error("Key batch capture source differs");
+                    auto* w = ImGui::FindWindowByName("###Animation Timeline");
+                    const auto control = forge::test::ui_targets.find(
+                        fixture.stage <= 135 ? "button:Duplicate selected keys"
+                                             : "animation:ruler");
+                    if (!w || control == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = control->second;
+                        const auto center = (target.minimum.y + target.maximum.y) * .5f;
+                        const auto visible_center =
+                            (target.clip_minimum.y + target.clip_maximum.y) * .5f;
+                        ImGui::SetScrollY(w, w->Scroll.y + center - visible_center);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 130 && fixture.stage <= 132) {
                     const auto* document = editable_mesh_editor.document();
                     if (!document || document->source().document.at("faces").size() != 6 ||
@@ -5398,7 +5451,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 133) {
+                    if (fixture.stage == 139) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <forge/transform_animation.hpp>
 #include <set>
@@ -327,12 +328,85 @@ void TransformAnimationSource::erase_key(AssetId id) {
     document.swap(candidate.document);
 }
 void TransformAnimationSource::move_key(AssetId id, std::int64_t time) {
+    const auto checked = time_value(Json(time));
     for (const auto& key : document.at("keys"))
         if (key.at("id") == Json(id)) {
-            set_key(time, animation_pose(key), key.at("interpolation") == "held", id);
+            move_keys(std::array<AssetId, 1>{id}, checked - time_value(key.at("time_us")));
             return;
         }
     throw std::runtime_error("Animation key no longer exists");
+}
+namespace {
+std::set<AssetId> selected_animation_keys(const TransformAnimationSource& source,
+                                          std::span<const AssetId> keys) {
+    source.validate();
+    require(!keys.empty() && keys.size() <= 4096, "Animation key selection is empty or too large");
+    std::set<AssetId> selected;
+    for (const auto identity : keys)
+        require(bool(identity) && selected.insert(identity).second,
+                "Animation key selection contains missing or duplicate identities");
+    std::size_t found = 0;
+    for (const auto& key : source.document.at("keys"))
+        found += selected.contains(key.at("id").get<AssetId>());
+    require(found == selected.size(), "Animation key selection no longer exists");
+    return selected;
+}
+std::int64_t offset_animation_time(const Json& key, std::int64_t offset, std::int64_t duration) {
+    const auto time = time_value(key.at("time_us"));
+    require(offset >= -time && offset <= duration - time,
+            "Animation key offset is outside the clip duration");
+    return time + offset;
+}
+void sort_animation_keys(Json& keys) {
+    std::sort(keys.begin(), keys.end(), [](const auto& left, const auto& right) {
+        return left.at("time_us") < right.at("time_us");
+    });
+}
+} // namespace
+void TransformAnimationSource::move_keys(std::span<const AssetId> keys, std::int64_t offset) {
+    const auto selected = selected_animation_keys(*this, keys);
+    if (offset == 0)
+        return;
+    auto candidate = *this;
+    const auto duration = time_value(document.at("duration_us"));
+    for (auto& key : candidate.document.at("keys"))
+        if (selected.contains(key.at("id").get<AssetId>()))
+            key["time_us"] = offset_animation_time(key, offset, duration);
+    sort_animation_keys(candidate.document.at("keys"));
+    candidate.validate();
+    document.swap(candidate.document);
+}
+std::vector<AssetId> TransformAnimationSource::duplicate_keys(std::span<const AssetId> keys,
+                                                              std::int64_t offset) {
+    const auto selected = selected_animation_keys(*this, keys);
+    require(document.at("keys").size() + selected.size() <= 4096,
+            "Animation duplication exceeds the key limit");
+    auto candidate = *this;
+    const auto duration = time_value(document.at("duration_us"));
+    std::vector<AssetId> identities;
+    for (const auto& original : document.at("keys")) {
+        if (!selected.contains(original.at("id").get<AssetId>()))
+            continue;
+        auto key = original;
+        key["time_us"] = offset_animation_time(original, offset, duration);
+        const auto identity = AssetId::generate();
+        key["id"] = identity;
+        identities.push_back(identity);
+        candidate.document.at("keys").push_back(std::move(key));
+    }
+    sort_animation_keys(candidate.document.at("keys"));
+    candidate.validate();
+    document.swap(candidate.document);
+    return identities;
+}
+void TransformAnimationSource::erase_keys(std::span<const AssetId> keys) {
+    const auto selected = selected_animation_keys(*this, keys);
+    require(selected.size() < document.at("keys").size(), "Animation must retain at least one key");
+    auto candidate = *this;
+    std::erase_if(candidate.document.at("keys").get_ref<Json::array_t&>(),
+                  [&](const Json& key) { return selected.contains(key.at("id").get<AssetId>()); });
+    candidate.validate();
+    document.swap(candidate.document);
 }
 TransformAnimationClip decode_transform_animation(std::span<const std::byte> bytes, AssetId id) {
     auto doc = asset_detail::parse_bounded_json(bytes, transform_animation_byte_limit, 500000, 12);

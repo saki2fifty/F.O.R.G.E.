@@ -20,9 +20,25 @@ object's name or contain C++ code.
 ## Edit and preview
 
 Select a diamond or a row in **Keys** to inspect its pose. Edit the fields and use
-**Add / Update key at playhead** to commit. Drag a diamond to change its time;
-release commits one Undo step. Escape cancels the drag. **Delete selected key**
-removes a key; the last key cannot be deleted.
+**Add / Update key at playhead** to commit. A new key becomes selected.
+
+Hold **Ctrl** while clicking diamonds or rows to add or remove keys from the
+selection. **Select all keys** and **Clear key selection** are in **Key selection**;
+gold diamonds identify selected keys. Pose and curve fields edit the active key.
+
+Drag a selected diamond to move the whole selection while preserving its spacing.
+The ruler shows temporary key positions while held; the preview motion uses the
+applied clip until release. Release commits one Undo step. Escape, changing window
+focus, losing application focus, entering Play, closing the timeline or changing
+the document cancels a held drag. Drag offsets snap to one millisecond; clicking a
+key without dragging preserves its exact saved time.
+
+Enter **Key offset (seconds)**, then choose **Move selected keys** or **Duplicate
+selected keys**. Positive offsets place keys later; negative offsets place them
+earlier. Duplicates retain their poses, curves and settings and get new identities.
+**Delete selected keys** removes the selection; at least one key must remain.
+Offsets outside the clip or landing two keys at the same time are rejected without
+replacing the clip. Each batch uses one source Undo step.
 
 Position and scale interpolate between keys. Rotation follows the shortest turn
 between the saved orientations. **Hold until next key** keeps this key's pose
@@ -89,3 +105,9 @@ Open `Platform.animation.json` in Content to inspect and change its keys.
 
 This timeline currently edits object transforms. Bone editing, IK, blending,
 reverse playback, event tracks and animation graphs remain future work.
+
+Try **FeatureGallery / Scenes / 18-animation-key-batches.scene.json**. Three lanes
+compare original eased travel, the same two keys moved one second later, and
+copies placed three seconds later. Open **BatchOriginal.animation.json**,
+**BatchShifted.animation.json** or **BatchRepeated.animation.json** in Content to
+inspect their key times. Play and export use the published clips.

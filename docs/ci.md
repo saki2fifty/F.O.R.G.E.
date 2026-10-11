@@ -344,3 +344,14 @@ Native editor captures130–132 stage an original flat cube and scroll to shadin
 controls at100/150/200%; these are layout evidence, separate from performed
 workflow and physical acceptance. The combined package exports Gallery17 and runs
 its shipped game with `--verify-startup`; source Mesh files must be absent.
+
+### Animation key batch gate
+
+`animation_key_batches` performs real scaled UI selection/drag/action/history/
+publication/reopen inputs. `animation_key_batch_gallery` checks complete key data,
+fresh copied IDs, analytic cubic vectors/slerp, selected cooked resources, camera/
+render admission and relocated source-free export. Native layout fixture captures
+133–138 stage original three-key data at100/150/200% with controlled scrolling;
+these captures alone do not prove performed edits or default docking usability.
+The combined Windows package check exports Gallery18 and runs its actual EXE with
+`--verify-startup`. Native SDK builds regenerate the existing header fingerprint.

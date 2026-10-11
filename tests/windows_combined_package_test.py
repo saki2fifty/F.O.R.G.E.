@@ -164,6 +164,23 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert started.returncode == 0, (started.stdout, started.stderr)
     for name in ('FlatSphere.mesh.json', 'SmoothSphere.mesh.json'):
         assert not (shading_export/'Assets'/name).exists()
+    batch_scene = 'Scenes/18-animation-key-batches.scene.json'
+    batch = json.loads((gallery/batch_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=batch['asset_id'], source=batch_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    batch_export = root/'Animation Key Batches Standalone'
+    options['destination'] = str(batch_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(batch_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=batch_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    for name in ('BatchOriginal.animation.json', 'BatchShifted.animation.json',
+                 'BatchRepeated.animation.json'):
+        assert not (batch_export/'Assets'/name).exists()
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

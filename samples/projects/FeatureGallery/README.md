@@ -35,6 +35,7 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 
 | `12-inset-panels` | Open **Frame.mesh.json**, **RaisedPanel.mesh.json** or **RecessedPanel.mesh.json** in Content. Select a face, preview Inset, then use a positive or negative Extrude distance. | Three original checker-textured panels show an inset border, a raised cap and a recessed cap. Save & Publish updates Scene, Play and source-free export. |
 | `13-transform-curves` | Press Play to compare the three platforms. Open **EasedPlatform.animation.json** or **ArcPlatform.animation.json**, select a key and expand **Vector curves**. Apply slopes, preview, then Save & Publish. | The existing linear clip, smooth eased clip and custom vertical arc share a four-second cycle on separate parent lanes. Play and export load both legacy and new cooked clips. |
+| `18-animation-key-batches` | Press Play to compare original eased travel, a one-second delay and duplicated travel. Open a **Batch*.animation.json** source, Ctrl-click keys, then drag or use **Key offset** and Move/Duplicate/Delete. Save & Publish. | Three lanes use original clips in a six-second loop. Every batch is one source Undo; exported games load the published motion. |
 | `14-uv-islands` | Open **UvConnected.mesh.json**, **UvSplit.mesh.json** or **UvFitted.mesh.json** from Content, choose UV, select an island and drag, mirror or fit it. Save & Publish. | Three original checker-textured panels compare matching shared UV edges, a separate patch and a mirrored/fitted mapping. Play and standalone use the same published UV streams. |
 | `15-brush-symmetry` | Open **SculptOneSide.mesh.json**, **SculptMirrored.mesh.json** or **PaintMirrored.mesh.json** in Content. Choose Sculpt or Paint and enable Mirror X/Y/Z before dragging. Save & Publish. | Three original spheres compare one-sided displacement, X-mirrored influence and XYZ-mirrored vertex color. Play and export use the same published Mesh streams. |
 | `16-authored-triangulation` | Open **PolygonCube.mesh.json**, **TriangleCube.mesh.json** or **TriangleSculpt.mesh.json** in Content. Compare polygon and triangle edges; use Triangulate face/Mesh, then sculpt or move vertices. Save & Publish. | Polygon and triangle cubes render equivalent shapes; the third has a sculpted, colored corner. Published geometry/UVs/colors survive Play and export. |
@@ -92,3 +93,9 @@ README before building/exporting compiled behavior.
 
 - **17-mesh-shading**: two identical original spheres show flat facets versus
   smooth lighting; open their Mesh sources to change shading and publish.
+
+- **18-animation-key-batches**: **BatchOriginal.animation.json** has two eased keys
+  at0 and2seconds; **BatchShifted.animation.json** moves both to1 and3seconds;
+  **BatchRepeated.animation.json** copies them to3 and5seconds. Organizational lane
+  parents explicitly use **None** as their primitive. The six-second loop holds the
+  nearest pose outside the key range. Play and source-free export use identical cooks.

@@ -61,10 +61,12 @@ struct Fixture {
     }
 };
 } // namespace
+#include "transform_animation_key_batch_tests.hpp"
 #include "transform_curve_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need animation scratch root");
+        animation_key_batch_tests();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
