@@ -127,11 +127,12 @@ class Assembly(unittest.TestCase):
                 self.assertEqual(archive.read('Examples/PhysicsLoads/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
             compiled = output.read_bytes()
             assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game,
-                     example, physics_velocity=example, physics_contacts=example)
+                     example, physics_velocity=example, physics_contacts=example, physics_volumes=example)
             with zipfile.ZipFile(output) as archive:
                 self.assertEqual(archive.read('Examples/PhysicsVelocity/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
                 self.assertIn('Examples/PhysicsLoads/forge.project.json', archive.namelist())
                 self.assertEqual(archive.read('Examples/PhysicsContacts/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
+                self.assertEqual(archive.read('Examples/PhysicsVolumes/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
             compiled = output.read_bytes()
             library.write_bytes(b'corrupt loads')
             with self.assertRaises(ValueError):
@@ -141,6 +142,10 @@ class Assembly(unittest.TestCase):
             with self.assertRaises(ValueError):
                 assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game,
                          physics_contacts=example)
+            self.assertEqual(output.read_bytes(), compiled)
+            with self.assertRaises(ValueError):
+                assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game,
+                         physics_volumes=example)
             self.assertEqual(output.read_bytes(), compiled)
             with self.assertRaises(ValueError):
                 assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game, example)

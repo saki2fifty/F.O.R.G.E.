@@ -24,9 +24,10 @@ void save(const std::filesystem::path& path, const CollisionSource& source) {
     out << source.document.dump();
     require(bool(out.flush()), "Collision fixture write failed");
 }
-AssetImportOutcome import(AssetImportService& service, const CollisionSource& source) {
+AssetImportOutcome import(AssetImportService& service, const CollisionSource& source,
+                          std::string source_path = "Assets/test.collision.json") {
     service.submit(
-        service.prepare("Assets/test.collision.json", {}, source.asset()),
+        service.prepare(source_path, {}, source.asset()),
         [](auto& candidate, const auto& plan, const auto&) {
             prepare_collision_publication(candidate, plan);
         },
@@ -180,6 +181,37 @@ int main(int argc, char** argv) {
             save(path, source);
             AssetImportService service(lease, collision_import_registry(),
                                        {"linux", "none", "cpu"});
+            {
+                auto compound = CollisionSource::create(AssetId::generate(), CollisionKind::Box);
+                auto left = compound.document["nodes"][0];
+                auto right = left;
+                left["id"] = CollisionMemberId::generate();
+                right["id"] = CollisionMemberId::generate();
+                left["translation"] = {-.25, 0, 0};
+                right["translation"] = {.25, 0, 0};
+                auto& parent = compound.document["nodes"][0];
+                parent["kind"] = "compound";
+                parent["dimensions"] = {0, 0, 0};
+                parent["children"] = {left["id"], right["id"]};
+                compound.document["nodes"].push_back(left);
+                compound.document["nodes"].push_back(right);
+                compound.validate();
+                save(root / "Assets/overlap.collision.json", compound);
+                const auto published = import(service, compound, "Assets/overlap.collision.json");
+                require(published.published, "Compound volume fixture did not publish");
+                runtime_collision(root, compound.asset(), [](GameSession& game) {
+                    PhysicsOverlap query;
+                    query.dimensions = {.2, 0, 0};
+                    const auto ref = *game.active().engine.world().reference(
+                        game.active().scene.entity("collision").id());
+                    const auto before = game.active().physics()->checkpoint();
+                    require(game.active().physics()->overlap_shape(query, {}) ==
+                                std::vector<EntityRef>{ref},
+                            "Compound overlap returned duplicate subshape targets");
+                    require(game.active().physics()->checkpoint() == before,
+                            "Compound volume read mutated native state");
+                });
+            }
             auto result = import(service, source);
             require(result.published, "Collision source failed publication: " + result.diagnostic);
             auto catalog = AssetCatalog::open_project(root);

@@ -96,3 +96,12 @@ restored through the private physics checkpoint; checked copied UUID pairs are
 not a durable overlap or event history. Reflected game-owned reaction progress
 uses existing component recovery. No Scene/Prefab or private checkpoint4 revision
 is needed. Exact SDK tail additions change the matching fingerprint, ABI1 unchanged.
+
+## 2026-10-11 — instantaneous physics volumes
+
+Volume queries are synchronous copied observations of the existing PhysicsRuntime
+owner. Results expire with the caller's values and have no persistent membership
+database. Existing body/character maps resolve current canonical generations.
+Game-owned counters and one-shot launch state use ordinary reflected components.
+Private checkpoint4, authored versions and durable game saves need no revision.
+The exact SDK tail changes the matching fingerprint; ABI1 remains unchanged.

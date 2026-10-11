@@ -1062,6 +1062,49 @@ struct Bridge {
                 return -1;
             }
         };
+        host.physics_overlap_shape = [](void* p, const ForgeSdkOverlapV1* request,
+                                        ForgeSdkEntityRefV1* out, uint32_t capacity) -> int32_t {
+            static_assert(physics_overlap_limit == FORGE_SDK_PHYSICS_OVERLAP_LIMIT);
+            if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_OVERLAP_LIMIT)
+                return -1;
+            for (uint32_t i = 0; i < capacity; ++i)
+                if (out[i].size != sizeof(out[i]))
+                    return -1;
+            const bool valid_request = request && request->size == sizeof(*request);
+            // Snapshot before clearing caller storage, including overlapping buffers.
+            const auto input = valid_request ? *request : ForgeSdkOverlapV1{};
+            const auto clear = [&] {
+                for (uint32_t i = 0; i < capacity; ++i) {
+                    out[i] = {};
+                    out[i].size = sizeof(out[i]);
+                }
+            };
+            clear();
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !valid_request || input.include_sensors > 1)
+                    return -1;
+                PhysicsOverlap shape;
+                shape.shape = PhysicsSweep::Shape(input.shape);
+                shape.origin = {input.origin[0], input.origin[1], input.origin[2]};
+                shape.rotation = {input.rotation[0], input.rotation[1], input.rotation[2],
+                                  input.rotation[3]};
+                std::copy_n(input.dimensions, 3, shape.dimensions.begin());
+                const auto values = c.services.physics()->overlap_shape(
+                    shape, {input.layer_mask, input.include_sensors != 0});
+                if (values.size() > capacity)
+                    return -2;
+                for (std::size_t i = 0; i < values.size(); ++i) {
+                    out[i].version = 1;
+                    std::memcpy(out[i].scene_uuid, values[i].scene.str().c_str(), 37);
+                    std::memcpy(out[i].entity_uuid, values[i].entity.str().c_str(), 37);
+                }
+                return static_cast<int32_t>(values.size());
+            } catch (...) {
+                clear();
+                return -1;
+            }
+        };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;

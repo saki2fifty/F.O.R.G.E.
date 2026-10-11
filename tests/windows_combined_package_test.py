@@ -139,6 +139,36 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert result.returncode == 0, (result.stdout, result.stderr)
         assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     assert json.loads((contacts_evidence / 'physics-contacts-result.json').read_text())['begin_tick'] > 0
+    from physics_volumes_example_test import verify as verify_volumes
+    volumes = root / 'C++ Volumes Copy'
+    shutil.copytree(root / 'Examples/PhysicsVolumes', volumes)
+    verify_volumes(root / 'NativeSdk/bin/forge_runtime.exe', volumes, env)
+    volumes_module, = json.loads((volumes / 'forge.project.json').read_text())['modules']
+    volumes_kit = root / 'Volumes Test Runtime Kit'
+    shutil.copytree(root / 'runtime-kits/shared-native-sdk', volumes_kit)
+    shutil.copyfile(observer, volumes_kit / 'forge_game_fixture.exe')
+    (volumes_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
+    volumes_export = root / 'Exported C++ Physics Volumes'
+    volumes_options = dict(destination=str(volumes_export), runtime_kit=str(volumes_kit),
+        inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'),
+        module_kits={'project.gameplay': str((volumes / volumes_module['library']).parent)})
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(volumes),
+        json.dumps(volumes_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    shutil.rmtree(volumes)
+    shutil.rmtree(volumes_kit)
+    assert not list(volumes_export.rglob('*.cpp')) and not list(volumes_export.rglob('*.hpp'))
+    volumes_evidence = evidence / 'volumes'
+    volumes_evidence.mkdir()
+    for executable, arguments, log in (
+        ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
+        ('forge_game_fixture.exe', ['--packaged-volumes', str(volumes_evidence)], 'capture-host.log')):
+        result = subprocess.run([str(volumes_export / executable), *arguments], cwd=volumes_export,
+            env=env, text=True, capture_output=True, timeout=180)
+        (volumes_evidence / log).write_text(result.stdout + '\n' + result.stderr)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+    assert json.loads((volumes_evidence / 'physics-volumes-result.json').read_text())['components']['project.volume_probe']['last_count'] == 3
     # The user-facing gallery is a normal editable project. Copy it before export,
     # just as the manual instructs, so package hashes remain immutable.
     gallery = root/'Gallery Copy'

@@ -26,7 +26,7 @@ def verified(files, manifest, manifest_name):
 
 
 def assemble(editor, sdk, output, runtime_kit, reference_game, physics_loads=None,
-             physics_velocity=None, physics_contacts=None):
+             physics_velocity=None, physics_contacts=None, physics_volumes=None):
     files = {}
     with zipfile.ZipFile(editor) as archive:
         for entry in archive.infolist():
@@ -115,7 +115,7 @@ def assemble(editor, sdk, output, runtime_kit, reference_game, physics_loads=Non
         files[target] = value
     manifest['reference_game'] = {'path': 'ReferenceGame', 'executable': 'forge_game.exe'}
     for folder, source in (('PhysicsLoads', physics_loads), ('PhysicsVelocity', physics_velocity),
-                           ('PhysicsContacts', physics_contacts)):
+                           ('PhysicsContacts', physics_contacts), ('PhysicsVolumes', physics_volumes)):
         if not source:
             continue
         root = Path(source)
@@ -185,6 +185,7 @@ if __name__ == '__main__':
     parser.add_argument('--physics-loads', type=Path)
     parser.add_argument('--physics-velocity', type=Path)
     parser.add_argument('--physics-contacts', type=Path)
+    parser.add_argument('--physics-volumes', type=Path)
     args = parser.parse_args()
     assemble(args.editor, args.sdk, args.output, args.runtime_kit, args.reference_game,
-             args.physics_loads, args.physics_velocity, args.physics_contacts)
+             args.physics_loads, args.physics_velocity, args.physics_contacts, args.physics_volumes)

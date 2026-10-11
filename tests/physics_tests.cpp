@@ -175,6 +175,7 @@ void signed_scale_physics() {
 #include "physics_hierarchy.hpp"
 #include "physics_load_tests.hpp"
 #include "physics_motion_tuning.hpp"
+#include "physics_overlap_tests.hpp"
 #include "physics_velocity_tests.hpp"
 void continuous_collision_tests() {
     for (unsigned axis = 0; axis < 3; ++axis)
@@ -240,6 +241,7 @@ int main(int argc, char** argv) {
         physics_body_state_tests();
         physics_velocity_tests();
         physics_contact_tests();
+        physics_overlap_tests();
         {
             EngineContext authoring;
             check(!authoring.services().available(Capability::Physics), "Authoring created solver");

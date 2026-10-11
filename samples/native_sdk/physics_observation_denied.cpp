@@ -48,6 +48,20 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
                 host->physics_contact_event(host->context, 0, &contact) != -1 || contact.begin ||
                 contact.tick || contact.first_scene_uuid[0])
                 throw std::runtime_error("SDK exposed contacts without Physics capability");
+            ForgeSdkOverlapV1 query{};
+            query.size = sizeof(query);
+            query.shape = 1;
+            query.dimensions[0] = 1;
+            query.rotation[3] = 1;
+            query.layer_mask = UINT32_MAX;
+            query.include_sensors = 1;
+            ForgeSdkEntityRefV1 hit{};
+            hit.size = sizeof(hit);
+            hit.version = 42;
+            hit.scene_uuid[0] = 'x';
+            if (host->physics_overlap_shape(host->context, &query, &hit, 1) != -1 || hit.version ||
+                hit.scene_uuid[0] || hit.entity_uuid[0])
+                throw std::runtime_error("SDK exposed volume query without Physics capability");
             if (host->diagnostic(host->context, 1,
                                  "Body observation denied: Physics capability absent") != 1)
                 throw std::runtime_error("Denied observation fixture marker failed");

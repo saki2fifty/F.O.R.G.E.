@@ -21,6 +21,15 @@ struct PhysicsSweep {
     LocalRotation rotation;
     Double3 displacement{};
 };
+// Instantaneous native volume query; geometry conventions match PhysicsSweep.
+struct PhysicsOverlap {
+    using Shape = PhysicsSweep::Shape;
+    Shape shape = Shape::Sphere;
+    Double3 dimensions{.5, 0, 0};
+    LocalTranslation origin;
+    LocalRotation rotation;
+};
+inline constexpr std::size_t physics_overlap_limit = 256;
 struct PhysicsHit {
     EntityRef entity;
     Double3 position{}, normal{};
@@ -75,5 +84,9 @@ class PhysicsService : public CharacterService {
     // Copied slot from the same adopted list. Current realized body/character
     // generations must still match both canonical references. No consumption.
     virtual std::optional<PhysicsContact> contact_event(std::size_t index) const = 0;
+    // Copied unique current realized references, sorted by canonical identity.
+    // Overflow rejects, never truncates. Surface meshes retain native semantics.
+    virtual std::vector<EntityRef> overlap_shape(const PhysicsOverlap&,
+                                                 PhysicsQueryFilter) const = 0;
 };
 } // namespace forge

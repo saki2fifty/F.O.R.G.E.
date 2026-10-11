@@ -498,7 +498,17 @@ jobs:
           if ($LASTEXITCODE) { throw 'C++ contacts example preparation failed' }
           python tests/physics_contacts_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/contacts-project"
           if ($LASTEXITCODE) { throw 'C++ contacts runtime/recovery failed' }
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project" --physics-contacts "$root/contacts-project"
+          cmake -S samples/projects/PhysicsVolumes/Native -B "$root/volumes-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl "-DForgeNativeSdk_DIR=$root/sdk/sdk"
+          if ($LASTEXITCODE) { throw 'C++ volumes example configure failed' }
+          cmake --build "$root/volumes-build" --parallel 2
+          if ($LASTEXITCODE) { throw 'C++ volumes example compile failed' }
+          cmake --install "$root/volumes-build" --component GameplayRuntime --prefix "$root/volumes-kits"
+          if ($LASTEXITCODE) { throw 'C++ volumes deployment failed' }
+          python tools/prepare_physics_loads.py --source samples/projects/PhysicsVolumes --output "$root/volumes-project" --runtime "$root/sdk/bin/forge_runtime.exe" --tools "$root/loads-editor/bin/forge_tools.exe" --module-kit "$root/volumes-kits/project.gameplay" --component project.volume_probe
+          if ($LASTEXITCODE) { throw 'C++ volumes example preparation failed' }
+          python tests/physics_volumes_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/volumes-project"
+          if ($LASTEXITCODE) { throw 'C++ volumes runtime/recovery failed' }
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project" --physics-contacts "$root/contacts-project" --physics-volumes "$root/volumes-project"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }

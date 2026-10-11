@@ -16,6 +16,7 @@
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Body/BodyLockMulti.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/CollisionGroup.h>
 #include <Jolt/Physics/Collision/ContactListener.h>
@@ -277,6 +278,27 @@ JPH::RefConst<JPH::Shape> shape(const Configuration& c) {
     if (result.HasError())
         throw std::runtime_error("Jolt collider: " + std::string(result.GetError().c_str()));
     return result.Get();
+}
+JPH::RefConst<JPH::Shape> query_shape(PhysicsSweep::Shape kind, const Double3& dimensions) {
+    if (unsigned(kind) > 3)
+        throw std::runtime_error("Unsupported query shape");
+    const unsigned count = kind == PhysicsSweep::Shape::Box      ? 3
+                           : kind == PhysicsSweep::Shape::Sphere ? 1
+                                                                 : 2;
+    for (unsigned i = 0; i < 3; ++i) {
+        const auto value = dimensions[i];
+        if (!std::isfinite(value) || (i < count ? (value < .001 || value > 10000) : value != 0))
+            throw std::runtime_error("Invalid query shape dimensions");
+    }
+    Configuration config;
+    config.shape = unsigned(kind);
+    config.scale = {1, 1, 1};
+    config.dimensions = dimensions;
+    if (config.shape == 1)
+        config.dimensions.fill(dimensions[0]);
+    else if (config.shape >= 2)
+        config.dimensions[2] = dimensions[0];
+    return shape(config);
 }
 JPH::MassProperties mass_properties(const Configuration& c, const JPH::Shape& geometry) {
     if (c.body.continuous_collision && c.body.motion == 2 && !c.body.sensor) {
@@ -876,7 +898,7 @@ struct PhysicsRuntime::Impl {
             return nullptr;
         return &found->second;
     }
-    bool has_contact_target(EntityRef ref) const {
+    bool has_realized_target(EntityRef ref) const {
         const auto resolved = context.resolve(ref);
         if (resolved.state != WorldContext::ResolveState::Available)
             return false;
@@ -1563,25 +1585,7 @@ std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request
     s.check();
     valid_position(request.origin);
     valid_position({request.displacement[0], request.displacement[1], request.displacement[2]});
-    if (unsigned(request.shape) > 3)
-        throw std::runtime_error("Unsupported query shape");
-    const unsigned count = request.shape == PhysicsSweep::Shape::Box      ? 3
-                           : request.shape == PhysicsSweep::Shape::Sphere ? 1
-                                                                          : 2;
-    for (unsigned i = 0; i < 3; ++i) {
-        const auto v = request.dimensions[i];
-        if (!std::isfinite(v) || (i < count ? (v < .001 || v > 10000) : v != 0))
-            throw std::runtime_error("Invalid query shape dimensions");
-    }
-    Configuration config;
-    config.shape = unsigned(request.shape);
-    config.scale = {1, 1, 1};
-    config.dimensions = request.dimensions;
-    if (config.shape == 1)
-        config.dimensions.fill(request.dimensions[0]);
-    else if (config.shape >= 2)
-        config.dimensions[2] = request.dimensions[0];
-    const auto geometry = shape(config);
+    const auto geometry = query_shape(request.shape, request.dimensions);
     const auto q = rotation(request.rotation);
     const JPH::RVec3 origin(request.origin.x, request.origin.y, request.origin.z);
     const auto cast = JPH::RShapeCast::sFromWorldTransform(
@@ -1612,6 +1616,62 @@ std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request
                       {point.GetX(), point.GetY(), point.GetZ()},
                       {normal.GetX(), normal.GetY(), normal.GetZ()},
                       hit.mFraction};
+}
+std::vector<EntityRef> PhysicsRuntime::overlap_shape(const PhysicsOverlap& request,
+                                                     PhysicsQueryFilter filter) const {
+    auto& s = *impl_;
+    s.check();
+    valid_position(request.origin);
+    const auto geometry = query_shape(request.shape, request.dimensions);
+    const auto q = rotation(request.rotation);
+    const JPH::RVec3 origin(request.origin.x, request.origin.y, request.origin.z);
+    struct Collector final : JPH::CollideShapeCollector {
+        std::set<std::uint32_t> tokens;
+        unsigned callbacks = 0;
+        bool overflow = false;
+        void AddHit(const JPH::CollideShapeResult& hit) override {
+            if (++callbacks > 16384) {
+                overflow = true;
+                ForceEarlyOut();
+                return;
+            }
+            tokens.insert(hit.mBodyID2.GetIndexAndSequenceNumber());
+            if (tokens.size() > physics_overlap_limit) {
+                overflow = true;
+                ForceEarlyOut();
+            }
+        }
+    } collector;
+    JPH::CollideShapeSettings settings;
+    settings.mActiveEdgeMode = JPH::EActiveEdgeMode::CollideWithAll;
+    settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+    s.system.GetNarrowPhaseQuery().CollideShape(
+        geometry, JPH::Vec3::sOne(), JPH::RMat44::sRotationTranslation(q, origin), settings, origin,
+        collector, {}, {}, QueryBodyFilter(filter));
+    if (collector.overflow)
+        throw std::runtime_error("Physics overlap query budget exceeded");
+    std::vector<EntityRef> result;
+    result.reserve(collector.tokens.size());
+    const auto adopt = [&](std::uint32_t token, EntityRef ref) {
+        const auto found = collector.tokens.find(token);
+        if (found == collector.tokens.end())
+            return;
+        collector.tokens.erase(found);
+        if (s.has_realized_target(ref))
+            result.push_back(ref);
+    };
+    // Resolve through existing authoritative maps after native callbacks return.
+    // One owner traversal avoids a full body-map scan for every collected hit.
+    for (const auto& [id, body] : s.bodies)
+        adopt(body.id.GetIndexAndSequenceNumber(), body.ref);
+    for (const auto& [id, character] : s.characters)
+        adopt(character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber(),
+              character.ref);
+    if (!collector.tokens.empty())
+        throw std::runtime_error("Physics overlap query hit an unowned native body");
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
 }
 std::uint64_t PhysicsRuntime::request_collision_asset(AssetId asset) {
     auto& s = *impl_;
@@ -1704,7 +1764,7 @@ std::optional<PhysicsContact> PhysicsRuntime::contact_event(std::size_t index) c
     if (index >= s.events.size())
         return {};
     const auto& event = s.events[index];
-    if (!s.has_contact_target(event.first) || !s.has_contact_target(event.second))
+    if (!s.has_realized_target(event.first) || !s.has_realized_target(event.second))
         return {};
     return event;
 }

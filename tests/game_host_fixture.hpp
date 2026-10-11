@@ -12,7 +12,7 @@ struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
-         expect_module = false, loads = false, velocity = false, contacts = false;
+         expect_module = false, loads = false, velocity = false, contacts = false, volumes = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -68,7 +68,8 @@ struct GameHostFixture {
         loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
-        packaged = reference || mixed || loads || velocity || contacts ||
+        volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
+        packaged = reference || mixed || loads || velocity || contacts || volumes ||
                    (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
@@ -143,7 +144,7 @@ struct GameHostFixture {
         std::size_t imported_pixels = 0;
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
-        if (loads || velocity || contacts)
+        if (loads || velocity || contacts || volumes)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
@@ -172,7 +173,7 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        if (!reference && !loads && !velocity && !contacts) // Original center-cube fixture only.
+        if (!reference && !loads && !velocity && !contacts && !volumes) // Original center cube.
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
         if (loads || velocity) {
             check(physics_actor_pixels > 100,
@@ -180,9 +181,9 @@ struct GameHostFixture {
             atomic_write(output / "physics-render-result.json",
                          Json{{"cyan_actor_pixels", physics_actor_pixels}}.dump(2));
         }
-        if (contacts) {
+        if (contacts || volumes) {
             check(physics_actor_pixels > 100 && contact_actor_pixels > 100,
-                  "Contact actor and blue sensor marker are not both visible");
+                  "Physics actor and cyan geometry are not both visible");
             atomic_write(output / "physics-render-result.json",
                          Json{{"cyan_marker_pixels", physics_actor_pixels},
                               {"red_actor_pixels", contact_actor_pixels}}
@@ -236,6 +237,37 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (volumes) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            if (tick < 180)
+                return;
+            check(tick < 250, "Volume render missed the known occupancy interval");
+            const auto scene = game.active().scene.snapshot();
+            unsigned actors = 0;
+            for (const auto& entity : scene.at("entities")) {
+                const auto& components = entity.at("components");
+                if (!components.contains("project.volume_probe"))
+                    continue;
+                ++actors;
+                const auto& control = components.at("project.volume_probe");
+                const auto ref = game.active().engine.world().reference(
+                    game.active().scene.entity(entity.at("id")).id());
+                const auto state = ref ? game.active().physics()->body_state(*ref) : std::nullopt;
+                const double expected = -3 + double(1.f / 60) * tick;
+                check(state && control.at("launched") == true && control.at("observed") == true &&
+                          control.at("last_count") == 3 &&
+                          std::abs(state->linear_velocity[0] - 1) < 1e-6 &&
+                          std::abs(components.at("forge.local_translation").at("x").get<double>() -
+                                   expected) < 2e-5,
+                      "Exported volume observation failed independent native motion/count proof");
+                atomic_write(output / "physics-volumes-result.json",
+                             Json{{"tick", tick}, {"components", components}}.dump(2));
+            }
+            check(actors == 1, "Exported volume example actor count changed");
+            capture("physics-volumes-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (contacts) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             if (tick < 90)

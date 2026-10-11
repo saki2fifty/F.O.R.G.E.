@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "name": "FORGE C++ Physics Volumes",
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "b643ba15-89de-4785-83e0-a18650f92128",
+    "source": "Scenes/body-volumes.scene.json"
+  },
+  "input": {
+    "version": 1,
+    "actions": []
+  },
+  "modules": [],
+  "game": {
+    "version": 1,
+    "application_id": "org.forge.physics-volumes",
+    "title": "FORGE C++ Physics Volumes",
+    "profile": "development",
+    "save_schema": 1,
+    "display": {
+      "mode": "windowed",
+      "width": 1280,
+      "height": 720,
+      "display": 0,
+      "vsync": false
+    },
+    "audio": {
+      "master_volume": 1.0
+    },
+    "input": {
+      "mouse_sensitivity": 1.0,
+      "gamepad_sensitivity": 1.0,
+      "invert_mouse_y": false,
+      "invert_gamepad_y": false,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    }
+  }
+}

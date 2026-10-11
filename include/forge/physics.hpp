@@ -47,6 +47,7 @@ class PhysicsRuntime : public PhysicsService {
     std::optional<Double3> point_velocity(EntityRef, LocalTranslation) const override;
     const std::vector<PhysicsContact>& contacts() const override;
     std::optional<PhysicsContact> contact_event(std::size_t) const override;
+    std::vector<EntityRef> overlap_shape(const PhysicsOverlap&, PhysicsQueryFilter) const override;
     CharacterState character(EntityRef) const override;
     void move_character(EntityRef, Double3) override;
     void jump_character(EntityRef, float) override;

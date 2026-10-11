@@ -383,3 +383,13 @@ inspection runtime explicitly; combined C++ export selects the matching SDK
 worker. Fingerprint checks and isolated loading remain intact. The correction
 requires the next real Windows export/source-removal/render gate; no163 ZIP was
 delivered.
+
+
+C++ physics volume queries now return copied sorted unique object identities for
+Box, Sphere, Capsule and Cylinder. Existing layer/sensor filters, owner/fixed
+capability guards and bounded complete-result admission apply. Sleeping bodies
+are observed without waking; query results add no persistent overlap manager or
+checkpoint format. The original editable PhysicsVolumes project demonstrates
+current object counts independently of transient contact-cache events. Matching
+SDK module rebuilds are required. Local validation and native Windows delivery
+are tracked separately; Windows acceptance for this source is pending.

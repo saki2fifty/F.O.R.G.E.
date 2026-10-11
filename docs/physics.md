@@ -98,6 +98,37 @@ reflected components; PostPhysics commands take effect at the next boundary.
 Private checkpoint4 and authored formats remain unchanged. The public header
 fingerprint changes, requiring a matching exact SDK/module rebuild; ABI1 remains.
 
+## Instantaneous volume queries
+
+`PhysicsService::overlap_shape` queries current realized geometry using centered
+Box, Sphere, Capsule or Cylinder, with the same dimensions and orientation as
+linear shape casts. It returns copied canonical `EntityRef` values, sorted and
+unique per object even when several compound children or mesh triangles hit.
+Static and sleeping bodies are eligible; reads do not wake bodies or create
+contact events. Layer masks and sensor inclusion use the existing query filter,
+independently of body pair masks. Retired or replaced Flecs generations are omitted.
+
+Native narrow-phase tolerances apply near boundaries. Mesh targets test their
+surfaces; a query wholly inside a closed mesh is not promised to hit. Queries are
+limited to256 unique native bodies and16384 subshape callbacks. Exceeding either
+budget rejects the query, without partial results. Resolution uses existing
+body/character owner maps after synchronous native callbacks, with no persistent
+overlap owner or hidden result lifetime.
+
+The matching SDK tail `physics_overlap_shape` requires Physics capability, owner
+thread and fixed scope. `ForgeSdkOverlapV1` and every output reference need exact
+sizes. Caller capacity is1..256. Success returns the complete count; -2 means
+insufficient caller capacity and -1 means invalid input/context or native budget.
+Valid output arrays clear on failure and unused slots clear on success. Invalid
+capacity or any wrong-size output slot rejects without writing that array. The
+request is copied before outputs are cleared. No pointers or native handles are
+returned. C++ consumers must rebuild against the matching SDK fingerprint; ABI1,
+private checkpoint4 and authored formats remain unchanged.
+
+The editable `PhysicsVolumes` C++ example counts two static objects and a moving
+sensor in a sphere. Reflected game-owned observation/launch progress uses normal
+component recovery; the query itself adds no checkpoint state.
+
 ## Private recovery
 
 Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.

@@ -106,6 +106,13 @@ typedef struct ForgeSdkSweepV1 {
     double dimensions[3], origin[3], displacement[3];
     float rotation[4]; /* normalized XYZW; identity is0,0,0,1 */
 } ForgeSdkSweepV1;
+typedef struct ForgeSdkOverlapV1 {
+    uint32_t size, shape, layer_mask, include_sensors;
+    double dimensions[3],
+        origin[3];     /* Box full XYZ; sphere radius; capsule/cylinder radius,height. Unused0. */
+    float rotation[4]; /* normalized XYZW; identity is0,0,0,1 */
+} ForgeSdkOverlapV1;
+#define FORGE_SDK_PHYSICS_OVERLAP_LIMIT 256u
 typedef struct ForgeSdkCharacterV1 {
     uint32_t size, ground, crouched, shape_change_blocked, jump_accepted;
     double position[3], velocity[3], ground_position[3], ground_normal[3], ground_velocity[3];
@@ -317,6 +324,13 @@ typedef struct ForgeSdkWorldV1 {
        0 unavailable/index/retired target, -1 bad context/output. UUIDs only. */
     int32_t(FORGE_SDK_CALL* physics_contact_event)(void*, uint32_t index,
                                                    ForgeSdkPhysicsContactV1*);
+    /* Fixed/owner/Physics. All output slots need exact size, capacity1..256.
+       Owning unique sorted UUID references;0..capacity complete results.
+       -2 insufficient caller capacity, -1 invalid/context/native budget overflow.
+       Valid-capacity/size arrays clear failures; invalid-capacity/size arrays are not written.
+       Native surfaces/tolerances, not enclosed-mesh containment or cache events. */
+    int32_t(FORGE_SDK_CALL* physics_overlap_shape)(void*, const ForgeSdkOverlapV1*,
+                                                   ForgeSdkEntityRefV1*, uint32_t capacity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

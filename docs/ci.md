@@ -509,3 +509,23 @@ physics actors can leave the center empty. These retain numerical execution,
 source-free export and production-startup checks. Saved captures require review.
 A configured gate does not itself claim Windows execution, physical GPU acceptance
 or a delivered ZIP.
+
+### Copied C++ physics volumes
+
+The exact SDK volume probe checks known sphere/box geometry, canonical sorted
+copies, repeated reads, sensor/mask policy, caller capacity without partial
+success, exact sizes, null/owner/fixed guards and fresh native worker recovery.
+The capability-denial fixture exercises the same valid input without Physics.
+Core policy covers all primitive shapes, rotation, static/sleeping/no-wake,
+retired generations, actual character inner bodies and native body-budget failure.
+Cooked compound publication tests deduplicate two hit children into one identity.
+
+The combined package builds `PhysicsVolumes/Native` against its installed SDK,
+prepares ordinary authored component metadata and verifies default/tuned movement,
+counts and change-only diagnostics with fresh worker recovery. Assembly validates
+its matching module kit and includes editable `Examples/PhysicsVolumes`.
+Relocation exports through the matching SDK schema worker, deletes authoring input,
+verifies production startup and runs a separately inventoried graphical observer.
+The observer checks current count/native velocity/independent pose and saves actual
+D3D12 pixels, requiring visible cyan geometry and a red actor. Physical Windows
+GPU acceptance remains separate from CI and is not implied by these fixtures.
