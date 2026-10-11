@@ -78,6 +78,24 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
     assert not (animated_export/'Assets/Platform.animation.json').exists()
+    # The exported game admits legacy linear and current cubic transform recipes.
+    curve_scene = 'Scenes/13-transform-curves.scene.json'
+    curves = json.loads((gallery/curve_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=curves['asset_id'], source=curve_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    curve_export = root/'Exported Curve Comparison'
+    options['output'] = str(curve_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(curve_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=curve_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    for name in ('Platform.animation.json', 'EasedPlatform.animation.json',
+                 'ArcPlatform.animation.json'):
+        assert not (curve_export/'Assets'/name).exists()
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

@@ -81,6 +81,13 @@ struct EditorFixture {
         if (workflow)
             return nullptr;
         switch (stage) {
+        case 109:
+        case 110:
+        case 111:
+        case 112:
+        case 113:
+        case 114:
+            return "###Animation Timeline";
         case 103:
         case 104:
         case 105:
@@ -383,7 +390,13 @@ struct EditorFixture {
                                "editable-mesh-panels-200",
                                "editable-mesh-tools",
                                "editable-mesh-tools-150",
-                               "editable-mesh-tools-200"};
+                               "editable-mesh-tools-200",
+                               "timeline-curves-controls",
+                               "timeline-curves-controls-150",
+                               "timeline-curves-controls-200",
+                               "timeline-curves-view",
+                               "timeline-curves-view-150",
+                               "timeline-curves-view-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

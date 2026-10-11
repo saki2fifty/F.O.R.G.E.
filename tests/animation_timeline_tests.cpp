@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
             io.DisplaySize = {1400, 1400};
             io.DeltaTime = 1.f / 60;
             io.FontGlobalScale = scale;
+            ui::interface_scale = scale;
             unsigned char* pixels;
             int width, height;
             io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
@@ -63,7 +64,17 @@ int main(int argc, char** argv) {
                 const auto at = test::ui_targets.find(name);
                 require(at != test::ui_targets.end(), "Missing widget " + name);
                 require(at->second.enabled, "Disabled widget " + name);
-                const auto& box = at->second;
+                auto box = at->second;
+                if (box.minimum.y < box.clip_minimum.y || box.maximum.y > box.clip_maximum.y) {
+                    auto* window = ImGui::FindWindowByName("###Animation Timeline");
+                    require(window != nullptr, "Timeline window missing");
+                    ImGui::SetScrollY(window, window->Scroll.y +
+                                                  (box.minimum.y + box.maximum.y) / 2 -
+                                                  (box.clip_minimum.y + box.clip_maximum.y) / 2);
+                    frame();
+                    frame();
+                    box = test::ui_targets.at(name);
+                }
                 require(box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y,
                         "Clipped widget " + name);
                 return box;
@@ -85,9 +96,15 @@ int main(int argc, char** argv) {
             };
             auto scrub = [&](double fraction) {
                 const auto p = ruler_point(fraction);
+                const auto ruler = target("animation:ruler");
                 mouse(p, false);
                 mouse(p, true);
                 mouse(p, false);
+                // ImGui floors pointer coordinates; use the performed scrub time.
+                return std::clamp(double(std::floor(p.x) - ruler.minimum.x) /
+                                      (ruler.maximum.x - ruler.minimum.x),
+                                  0., 1.) *
+                       editor.document()->source().clip().duration;
             };
             frame();
             frame();
@@ -133,7 +150,7 @@ int main(int argc, char** argv) {
                     "Ruler drag did not retime the stable key: scale=" + std::to_string(scale) +
                         " time=" +
                         std::to_string(editor.document()->source().clip().keys.front().time));
-            const auto retimed = editor.document()->source().document;
+            auto retimed = editor.document()->source().document;
             start = ruler_point(.25);
             finish = ruler_point(.4);
             mouse(start, false);
@@ -145,6 +162,78 @@ int main(int argc, char** argv) {
             mouse(finish, false);
             require(editor.document()->source().document == retimed,
                     "Cancelled ruler drag changed source");
+            auto widget_click = [&](const std::string& name) {
+                frame();
+                const auto box = target(name);
+                const ImVec2 p{(box.minimum.x + box.maximum.x) / 2,
+                               (box.minimum.y + box.maximum.y) / 2};
+                mouse(p, false);
+                mouse(p, true);
+                mouse(p, false);
+                frame();
+            };
+            widget_click("animation:curve_section");
+            widget_click("animation:curve_mode");
+            widget_click("animation:curve_choice:1");
+            click("Apply curve settings");
+            require(editor.document()->source().document.at("version") == 2 &&
+                        editor.document()->source().clip().keys.front().curves.cubic,
+                    "Cubic choice did not author the selected key");
+            const auto curved = editor.document()->source().document;
+            click("Undo");
+            require(editor.document()->source().document == retimed,
+                    "Curve apply was not one Undo step");
+            click("Redo");
+            require(editor.document()->source().document == curved,
+                    "Curve Redo lost key identity/slopes");
+            retimed = curved;
+            auto slope = [&](const char* text) {
+                frame();
+                const auto box = target("animation:curve_translation_out");
+                const ImVec2 p{box.minimum.x + 25, (box.minimum.y + box.maximum.y) / 2};
+                mouse(p, false);
+                mouse(p, true);
+                mouse(p, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
+                io.AddKeyEvent(ImGuiKey_A, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_A, false);
+                io.AddKeyEvent(ImGuiKey_LeftCtrl, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
+                io.AddInputCharactersUTF8(text);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, false);
+                frame();
+            };
+            const auto safe_revision = editor.document()->revision();
+            slope("3000000000");
+            click("Apply curve settings");
+            require(editor.document()->revision() == safe_revision &&
+                        editor.document()->source().document == curved,
+                    "Invalid curve edit changed source/history");
+            slope("0");
+            click("Apply curve settings");
+            const auto canvas = target("animation:curve_canvas");
+            require(canvas.maximum.y > canvas.minimum.y && canvas.maximum.x > canvas.minimum.x,
+                    "Curve view is empty");
+            const auto curve_time = scrub(.3125);
+            const auto keys = editor.document()->source().clip().keys;
+            const auto phase = (curve_time - keys[0].time) / (keys[1].time - keys[0].time);
+            const auto expected_ease = 6 * phase * phase * (3 - 2 * phase);
+            const auto eased = editor.preview(scene.effective_document());
+            for (const auto& row : eased.at("entities"))
+                if (row.at("id") == actor)
+                    require(std::abs(row.at("components")
+                                         .at("forge.local_translation")
+                                         .at("x")
+                                         .get<double>() -
+                                     expected_ease) < .001,
+                            "Curve preview differs: scale=" + std::to_string(scale) +
+                                " expected=" + std::to_string(expected_ease) + " actual=" +
+                                row.at("components").at("forge.local_translation").at("x").dump());
             scrub(.375);
             require(editor.preview_active(), "Scrubbing did not enable preview");
             const auto preview = editor.preview(scene.effective_document());
@@ -214,6 +303,7 @@ int main(int argc, char** argv) {
             test::observe_ui = false;
             ImGui::DestroyContext();
         }
+        ui::interface_scale = 1;
         std::cout << "timeline key editing, drag/cancel, preview restoration, publication, "
                      "attachment and draft guards passed at 65/100/200 percent\n";
     } catch (const std::exception& e) {

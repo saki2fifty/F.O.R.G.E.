@@ -284,7 +284,9 @@ class AnimationTimelineEditor {
     float preview_speed_ = 1;
     double position_[3]{};
     float rotation_[3]{}, scale_[3]{1, 1, 1};
-    bool held_ = false;
+    bool held_ = false, curve_dirty_ = false;
+    TransformAnimationCurves curves_;
+    int curve_channel_ = 0, curve_axis_ = 0;
     char path_[1024] = "Assets/NewAnimation.animation.json";
     std::string error_;
     static std::int64_t microseconds(double seconds) {
@@ -303,6 +305,8 @@ class AnimationTimelineEditor {
         service_.reset();
         target_ = {};
         key_ = drag_key_ = {};
+        curves_ = {};
+        curve_dirty_ = false;
         job_ = 0;
         save_ = close_ = needs_publish_ = false;
     }
@@ -340,6 +344,8 @@ class AnimationTimelineEditor {
                 key_ = {};
             else {
                 held_ = at->held;
+                curves_ = at->curves;
+                curve_dirty_ = false;
                 fields(at->pose);
             }
         }
@@ -377,6 +383,8 @@ class AnimationTimelineEditor {
                 key_ = id;
                 time_ = double(key.time);
                 held_ = key.held;
+                curves_ = key.curves;
+                curve_dirty_ = false;
                 fields(key.pose);
                 return;
             }
@@ -562,7 +570,9 @@ class AnimationTimelineEditor {
                     {position_[0], position_[1], position_[2]},
                     rotation_from_euler({rotation_[0], rotation_[1], rotation_[2]}),
                     checked_local_scale({scale_[0], scale_[1], scale_[2]})};
-                key_ = source.set_key(std::llround(time_), pose, held_);
+                key_ = source.set_key(
+                    std::llround(time_), pose, held_, {},
+                    curve_dirty_ ? std::optional<TransformAnimationCurves>(curves_) : std::nullopt);
             });
         }
         ImGui::BeginDisabled(!key_ || clip_->keys.size() == 1);
@@ -577,13 +587,167 @@ class AnimationTimelineEditor {
             for (const auto& key : clip_->keys) {
                 char label[64];
                 std::snprintf(label, sizeof(label), "%.3f s — %s",
-                              double(key.time) / animation_timebase, key.held ? "Held" : "Linear");
+                              double(key.time) / animation_timebase,
+                              key.held           ? "Held"
+                              : key.curves.cubic ? "Cubic vectors"
+                                                 : "Linear");
                 ImGui::PushID(key.id.str().c_str());
                 if (ImGui::Selectable(label, key.id == key_))
                     select_key(key.id);
                 ImGui::PopID();
             }
             ImGui::EndListBox();
+        }
+        curve_editor();
+    }
+
+    void curve_editor() {
+        const auto expanded = ImGui::CollapsingHeader("Vector curves");
+        FORGE_UI_PROBE("animation:curve_section");
+        if (!expanded)
+            return;
+        const auto selected = std::find_if(clip_->keys.begin(), clip_->keys.end(),
+                                           [&](const auto& key) { return key.id == key_; });
+        if (selected == clip_->keys.end()) {
+            ImGui::TextUnformatted("Select a key to edit its incoming and outgoing vector slopes.");
+            return;
+        }
+        const auto key = *selected;
+        const char* modes[] = {"Linear", "Cubic"};
+        if (ImGui::BeginCombo("Outgoing vectors", modes[curves_.cubic ? 1 : 0])) {
+            for (int mode = 0; mode < 2; ++mode) {
+                if (ImGui::Selectable(modes[mode], curves_.cubic == (mode == 1))) {
+                    curves_.cubic = mode == 1;
+                    curve_dirty_ = true;
+                }
+                FORGE_UI_PROBE("animation:curve_choice:" + std::to_string(mode));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("animation:curve_mode");
+        ImGui::TextDisabled(
+            "Position and scale use these curves; rotation keeps quaternion interpolation.");
+        if (key.held)
+            ImGui::TextWrapped("This key holds until the next key. Its outgoing curve takes effect "
+                               "after Hold is cleared.");
+        auto slopes = [&](const char* label, Double3& values, const char* probe) {
+            if (ImGui::InputScalarN(label, ImGuiDataType_Double, values.data(), 3, nullptr, nullptr,
+                                    "%.3f"))
+                curve_dirty_ = true;
+            FORGE_UI_PROBE(probe);
+        };
+        slopes("Position incoming (units/s)", curves_.incoming.translation,
+               "animation:curve_translation_in");
+        slopes("Position outgoing (units/s)", curves_.outgoing.translation,
+               "animation:curve_translation_out");
+        slopes("Scale incoming (units/s)", curves_.incoming.scale, "animation:curve_scale_in");
+        slopes("Scale outgoing (units/s)", curves_.outgoing.scale, "animation:curve_scale_out");
+        if (curve_dirty_)
+            ImGui::TextUnformatted(
+                "Pending slopes: apply the curve settings to update the authored curve.");
+        ImGui::Combo("Curve value", &curve_channel_, "Position\0Scale\0");
+        FORGE_UI_PROBE("animation:curve_channel");
+        ImGui::SameLine();
+        ImGui::Combo("Axis", &curve_axis_, "X\0Y\0Z\0");
+        FORGE_UI_PROBE("animation:curve_axis");
+        if (!(clip_->channels & (curve_channel_ == 0 ? 1 : 4)))
+            ImGui::TextDisabled("This value is not animated by the clip's enabled channels.");
+        const auto index = std::size_t(selected - clip_->keys.begin());
+        const double begin = clip_->keys.size() == 1 ? 0
+                             : index                 ? double(clip_->keys[index - 1].time)
+                                                     : double(key.time);
+        const double end = clip_->keys.size() == 1          ? double(clip_->duration)
+                           : index + 1 < clip_->keys.size() ? double(clip_->keys[index + 1].time)
+                                                            : double(key.time);
+        const auto origin = ImGui::GetCursorScreenPos();
+        const ImVec2 size{std::max(100.f, ImGui::GetContentRegionAvail().x),
+                          180 * ui::interface_scale};
+        ImGui::InvisibleButton("Curve view", size);
+        FORGE_UI_PROBE("animation:curve_canvas");
+        auto* draw = ImGui::GetWindowDrawList();
+        draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
+                            IM_COL32(17, 24, 32, 255));
+        draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
+        auto component = [&](const LocalTransform& pose) {
+            return curve_channel_ == 0
+                       ? std::array<double, 3>{pose.translation.x, pose.translation.y,
+                                               pose.translation.z}[curve_axis_]
+                       : double(std::array<float, 3>{pose.scale.x, pose.scale.y,
+                                                     pose.scale.z}[curve_axis_]);
+        };
+        std::array<double, 193> values{};
+        double minimum = component(key.pose), maximum = minimum;
+        for (unsigned i = 0; i < values.size(); ++i) {
+            values[i] =
+                component(clip_->sample(begin + (end - begin) * double(i) / (values.size() - 1)));
+            minimum = std::min(minimum, values[i]);
+            maximum = std::max(maximum, values[i]);
+        }
+        const double padding = std::max(.1, (maximum - minimum) * .1);
+        minimum -= padding;
+        maximum += padding;
+        auto point = [&](double time, double value) {
+            return ImVec2{origin.x + 12 +
+                              float((time - begin) / std::max(1., end - begin)) * (size.x - 24),
+                          origin.y + size.y - 12 -
+                              float((value - minimum) / (maximum - minimum)) * (size.y - 24)};
+        };
+        for (unsigned i = 1; i < values.size(); ++i)
+            draw->AddLine(
+                point(begin + (end - begin) * double(i - 1) / (values.size() - 1), values[i - 1]),
+                point(begin + (end - begin) * double(i) / (values.size() - 1), values[i]),
+                IM_COL32(83, 195, 237, 255), 2);
+        // Slopes are value/time derivatives. The corresponding cubic control
+        // points lie one third of the neighboring interval from this key.
+        auto guide = [&](double time, double slope, bool incoming) {
+            const double interval = std::abs(time - key.time);
+            const double control_time = double(key.time) + (incoming ? -interval : interval) / 3;
+            const double control_value = component(key.pose) + (incoming ? -1 : 1) * slope *
+                                                                   interval /
+                                                                   (3 * animation_timebase);
+            if (!std::isfinite(control_value))
+                return;
+            // Intersect the true slope with the view boundary. Clamping only
+            // Y at the original control time would draw an incorrect slope.
+            const auto start_value = component(key.pose);
+            const auto visible_value = std::clamp(control_value, minimum, maximum);
+            const auto fraction = control_value == start_value ? 1
+                                                               : (visible_value - start_value) /
+                                                                     (control_value - start_value);
+            const auto handle =
+                point(double(key.time) + (control_time - key.time) * fraction, visible_value);
+            draw->AddLine(point(double(key.time), component(key.pose)), handle,
+                          IM_COL32(244, 183, 82, 255), 1);
+            if (control_value >= minimum && control_value <= maximum)
+                draw->AddCircleFilled(handle, 3, IM_COL32(244, 183, 82, 255));
+        };
+        if (index && clip_->keys[index - 1].curves.cubic && !clip_->keys[index - 1].held)
+            guide(begin,
+                  (curve_channel_ == 0 ? curves_.incoming.translation
+                                       : curves_.incoming.scale)[curve_axis_],
+                  true);
+        if (index + 1 < clip_->keys.size() && curves_.cubic && !key.held)
+            guide(end,
+                  (curve_channel_ == 0 ? curves_.outgoing.translation
+                                       : curves_.outgoing.scale)[curve_axis_],
+                  false);
+        for (const auto i :
+             {index ? index - 1 : index, index, std::min(index + 1, clip_->keys.size() - 1)}) {
+            const auto& at = clip_->keys[i];
+            draw->AddCircleFilled(point(double(at.time), component(at.pose)), i == index ? 5 : 3,
+                                  i == index ? IM_COL32(255, 203, 78, 255)
+                                             : IM_COL32(120, 165, 193, 255));
+        }
+        draw->PopClipRect();
+        ImGui::TextDisabled("Selected key and neighboring segments; blue curve is authored, gold "
+                            "guides use the slope fields.");
+        ImGui::Text("%.3f–%.3f s | %.3f–%.3f", begin / animation_timebase, end / animation_timebase,
+                    minimum, maximum);
+        if (ui::button("Apply curve settings",
+                       "Apply only this key's vector curve mode/slopes as one source Undo step.")) {
+            mutate("Set vector curves", [&](auto& source) {
+                source.set_key(key.time, key.pose, key.held, key.id, curves_);
+            });
         }
     }
 };

@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v2",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "a4456c74b7f380b5b48e53b2a61da1ee36afef1aa155688cc277b9006e7d7333",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "775f0fd6-d6bf-494a-abbd-23ddcefd9c55",
+    "source": "Assets/ArcPlatform.animation.json",
+    "source_digest": "a4456c74b7f380b5b48e53b2a61da1ee36afef1aa155688cc277b9006e7d7333",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

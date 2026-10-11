@@ -1,5 +1,6 @@
 #include "transform_animation_runtime.hpp"
 #include "asset_bytes.hpp"
+#include "bounded_json.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/assets.hpp>
@@ -30,7 +31,8 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
     const auto revision = selected.at("key").get<std::string>();
     const auto generation = selected.at("generation");
     if (selected.at("version") != 1 || selected.at("output_format") != "forge.transform-clip" ||
-        selected.at("output_version") != 1 || !generation.is_number_unsigned() || generation == 0)
+        (selected.at("output_version") != 1 && selected.at("output_version") != 2) ||
+        !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(
         asset, revision, generation.get<std::uint64_t>(),
@@ -43,6 +45,10 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
             auto artifact = cache.load_selected(revision, [&](const auto& cooked) {
                 if (cooked.files.size() != 1 || cooked.files.front().name != "animation.clip")
                     throw std::runtime_error("Invalid transform animation bundle");
+                const auto document = asset_detail::parse_bounded_json(
+                    cooked.files.front().bytes, transform_animation_byte_limit);
+                if (document.at("version") != selected.at("output_version"))
+                    throw std::runtime_error("Transform clip/recipe version mismatch");
                 clip = decode_transform_animation(cooked.files.front().bytes, asset.id);
             });
             const auto& input = artifact.manifest.at("inputs");

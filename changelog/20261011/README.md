@@ -126,3 +126,21 @@ Gallery scene12 contains three original framed/raised/recessed panel sources,
 Windows-target cooked Meshes and checker Material bindings. Normal standalone
 content uses the cooked Meshes without modeling source or tools. Windows
 execution and physical acceptance remain subject to the delivery gate.
+
+## Authored vector curves
+
+Transform animation keys now support cubic position/scale curves with incoming and
+outgoing slopes in units per second. The Timeline shows the selected-axis curve
+and tangent guides; Apply creates one source Undo step. Preview, publication,
+playback, recovery, copied assets and source-free export retain their existing
+owners. Rotation keeps shortest-path quaternion interpolation; held keys retain
+their curves while overriding outgoing motion.
+
+Curve source/cooked version2 and importer recipe2 are explicit. Current readers
+also admit selected version1 clips without rewriting them; older readers reject
+new curve sources. Existing C++ modules need a matching SDK rebuild. Whole-segment
+extrema validation rejects invalid overshoot atomically while preserving signed/
+zero visual scale. Gallery scene13 compares the unchanged linear clip with original
+eased and arc clips. Actual Timeline editing passes at65/100/200% interface scale;
+legacy/new published Gallery playback and relocated source-free export pass locally.
+Native Windows curve captures and physical acceptance remain pending.

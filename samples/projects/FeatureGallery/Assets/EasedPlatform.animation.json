@@ -1,0 +1,158 @@
+{
+  "asset_id": "9e8d033f-751e-4bb8-99a4-8d8f4b3ebb51",
+  "channels": [
+    "forge.local_translation",
+    "forge.local_rotation",
+    "forge.local_scale"
+  ],
+  "duration_us": 4000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "id": "ac0c0d33-1a2f-451e-be0b-0a7af1238699",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        2.0,
+        0.4000000059604645,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        -3.0,
+        1.5,
+        0.0
+      ]
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "id": "cc62a2e7-e188-4207-afa2-f00cd1ea1d9a",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        1.0,
+        0.0,
+        6.123234262925839e-17
+      ],
+      "scale": [
+        2.0,
+        0.800000011920929,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        3.0,
+        1.5,
+        0.0
+      ]
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "id": "98d071f5-47ed-4b3e-b86b-ed2e0ae078c6",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        1.2246468525851679e-16,
+        0.0,
+        -1.0
+      ],
+      "scale": [
+        2.0,
+        0.4000000059604645,
+        1.0
+      ],
+      "time_us": 4000000,
+      "translation": [
+        -3.0,
+        1.5,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 2
+}

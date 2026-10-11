@@ -2,16 +2,26 @@
 #include <forge/animation_components.hpp>
 #include <forge/transform.hpp>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <span>
 #include <vector>
 namespace forge {
 inline constexpr std::size_t transform_animation_byte_limit = 2 * 1024 * 1024;
 inline constexpr std::int64_t animation_timebase = 1000000;
+struct TransformAnimationTangents {
+    // Local vector units per second. Rotation retains quaternion slerp.
+    Double3 translation{}, scale{};
+};
+struct TransformAnimationCurves {
+    bool cubic = false;
+    TransformAnimationTangents incoming, outgoing;
+};
 struct TransformAnimationKey {
     AssetId id;
     std::int64_t time = 0;
     LocalTransform pose;
     bool held = false;
+    TransformAnimationCurves curves;
 };
 struct TransformAnimationClip {
     AssetId asset;
@@ -29,7 +39,8 @@ struct TransformAnimationSource {
     void validate() const;
     TransformAnimationClip clip() const;
     std::vector<std::byte> cook() const;
-    AssetId set_key(std::int64_t time, const LocalTransform&, bool held = false, AssetId key = {});
+    AssetId set_key(std::int64_t time, const LocalTransform&, bool held = false, AssetId key = {},
+                    std::optional<TransformAnimationCurves> curves = {});
     void erase_key(AssetId);
     void move_key(AssetId, std::int64_t time);
 };

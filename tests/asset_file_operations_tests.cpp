@@ -270,7 +270,12 @@ int main(int argc, char** argv) {
                       graph.document.at("graph").at("nodes")[0].at("id"),
               "Shader file duplicate did not remap graph identities");
         (void)compile_material_graph(copied_graph.document.at("graph"));
-        const auto animation = TransformAnimationSource::create(AssetId::generate());
+        auto animation = TransformAnimationSource::create(AssetId::generate());
+        auto slopes = TransformAnimationCurves{true};
+        slopes.outgoing.translation = {2, 1, 0};
+        slopes.incoming.scale = {.2, 0, 0};
+        animation.set_key(0, {}, false, {}, slopes);
+        animation.set_key(1000000, {{3, 1, 0}, {}, {2, 1, 1}}, false, {}, slopes);
         write(project / "Assets/Motion.animation.json", animation.document);
         catalog = AssetCatalog::open_project(project);
         catalog.add(

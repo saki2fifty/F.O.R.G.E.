@@ -1,0 +1,436 @@
+{
+  "asset_id": "8334396a-3418-43f3-9458-3041fd0dfa7c",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "e751a670-81e5-44d4-a913-e5cc195de721",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bb97cd11-7246-4013-a772-f3ee3005702f",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7c9157fe-b4fd-4cd3-b5ca-dff05b431fa0",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -3.0
+        }
+      },
+      "id": "8a6e8265-7b58-4eb4-8439-870bdbb7ac22",
+      "name": "Linear - legacy clip lane",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 0.4000000059604645,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        },
+        "forge.transform_animator": {
+          "clip": "399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        }
+      },
+      "id": "cfd76920-4bdf-42ad-b3b1-46586b6df11f",
+      "name": "Linear - legacy clip",
+      "parent": "8a6e8265-7b58-4eb4-8439-870bdbb7ac22",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.10000000149011612,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.8999999761581421,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "dd0fa974-0709-49b3-be27-4a037b02780e",
+      "name": "Start marker",
+      "parent": "8a6e8265-7b58-4eb4-8439-870bdbb7ac22",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.10000000149011612,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.10000000149011612,
+          "g": 0.44999998807907104,
+          "r": 1.0
+        }
+      },
+      "id": "c49e70f7-2191-4786-9604-1cfaa6654c36",
+      "name": "End marker",
+      "parent": "8a6e8265-7b58-4eb4-8439-870bdbb7ac22",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "d7696772-8191-45cd-95de-9dfe8acdecef",
+      "name": "Cubic - smooth ease lane",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 0.4000000059604645,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        },
+        "forge.transform_animator": {
+          "clip": "9e8d033f-751e-4bb8-99a4-8d8f4b3ebb51",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        }
+      },
+      "id": "1ec76aca-9ecb-42c0-b69c-4b88ad6aa694",
+      "name": "Cubic - smooth ease",
+      "parent": "d7696772-8191-45cd-95de-9dfe8acdecef",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.10000000149011612,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.8999999761581421,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "167d3d77-5a3c-43ae-a5d5-82a781ede51b",
+      "name": "Start marker",
+      "parent": "d7696772-8191-45cd-95de-9dfe8acdecef",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.10000000149011612,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.10000000149011612,
+          "g": 0.44999998807907104,
+          "r": 1.0
+        }
+      },
+      "id": "97ed1519-4d04-4b07-b971-439e59483319",
+      "name": "End marker",
+      "parent": "d7696772-8191-45cd-95de-9dfe8acdecef",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        }
+      },
+      "id": "e1251478-95cb-42a4-8638-a9c908fdd89a",
+      "name": "Cubic - custom arc slopes lane",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 0.4000000059604645,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        },
+        "forge.transform_animator": {
+          "clip": "775f0fd6-d6bf-494a-abbd-23ddcefd9c55",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        }
+      },
+      "id": "198f151a-5849-433b-8c1c-12f43768c6d5",
+      "name": "Cubic - custom arc slopes",
+      "parent": "e1251478-95cb-42a4-8638-a9c908fdd89a",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.10000000149011612,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.8999999761581421,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "9e50e8e2-e0cb-4979-b932-1f4a72a7f9d6",
+      "name": "Start marker",
+      "parent": "e1251478-95cb-42a4-8638-a9c908fdd89a",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 0.5,
+          "y": 0.10000000149011612,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.10000000149011612,
+          "g": 0.44999998807907104,
+          "r": 1.0
+        }
+      },
+      "id": "b2883bce-18bb-428b-a01a-92e321358726",
+      "name": "End marker",
+      "parent": "e1251478-95cb-42a4-8638-a9c908fdd89a",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 3
+}

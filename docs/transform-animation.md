@@ -6,7 +6,7 @@ owned by `AnimationRuntime`; this feature adds no dependency or service manager.
 
 ## Source, publication and identity
 
-`TransformAnimationSource` uses `forge.transform-animation` version 1 in a bounded
+`TransformAnimationSource` reads `forge.transform-animation` versions 1 and 2 in a bounded
 2 MiB `.animation.json` document. It stores its AssetId, a 1,000,000-unit-per-second
 integer timebase, positive duration up to one hour, 1–4096 sorted keys at unique
 times within duration, and at least one qualified channel:
@@ -14,7 +14,13 @@ times within duration, and at least one qualified channel:
 Each key has a stable UUID, integer `time_us`, full local pose and `linear` or
 `held` interpolation. Quaternion rotations must be finite and normalized;
 translation is bounded to ±1e9 and scale follows the existing signed/zero visual
-scale contract. Invalid edits are rejected before source/history replacement.
+scale contract. Version 2 adds an explicit `curves` object on a key: `interpolation`
+(`linear` or `cubic`), plus `incoming`/`outgoing` objects containing three-component
+`translation` and `scale` slopes in local units per second. Omitted curves retain
+linear vectors; a held key overrides its outgoing curves without erasing slopes.
+Curve-bearing edits promote source to version 2; older readers reject that version
+instead of ignoring curve data. Pose updates and retiming preserve curve metadata.
+Invalid edits are rejected before source/history replacement.
 
 `TransformAnimationDocument` reuses `AssetSourceDocument` for writer ownership,
 revision guards, atomic save, on-disk conflict checks and bounded history. The
@@ -22,10 +28,14 @@ central Timeline registers with `DocumentWorkspace` and `AssetEditors` under
 ADR 004. Global Save/Undo/Redo routes to the focused document. Scene attachment
 uses existing atomic authoring commands and creates one Scene Undo entry.
 
-The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v1`
+The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v2`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-Its format is `forge.transform-clip` version 1, validated by the same bounded
-parser/evaluator. Source bytes, stable key IDs, selected recipe, file hashes and
+It publishes `forge.transform-clip` version 2, validated by the same bounded
+parser/evaluator. Previously selected version-1 artifacts remain readable without
+rewriting their catalog or DDC records. Runtime and export require the cooked root
+version to match the selected output version. Source and cooked readers allow
+500,000 parser events, depth 12 and 2 MiB, including the 4096-key curve profile.
+Source bytes, stable key IDs, selected recipe, file hashes and
 size are covered by the normal sidecar/catalog/DDC publication. Target recipes
 are Windows/D3D12/desktop and Linux/none/cpu. There are no runtime dependencies.
 Asset move/copy uses the existing authored-document adapter; copies mint the
@@ -39,12 +49,23 @@ channel omitted from the clip preserves the object's current local value.
 
 ## Evaluation and preview
 
-Position/scale use linear interpolation and rotation uses shortest-path normalized
+Position/scale use linear or original cubic Hermite interpolation. Slopes are
+scaled by the segment's duration in seconds; zero slopes ease into and out of a
+segment. Validation checks endpoints and all interior derivative roots against the
+existing translation/scale bounds before a candidate is committed or published.
+Signed and zero visual scale remain valid; existing physics pose validation still
+applies at runtime. Rotation uses shortest-path normalized
 quaternion slerp. A held key preserves its pose until the next exact key boundary.
 Sampling clamps before the first and after the last key. Runtime/preview loop time
 covers `[0,duration)`; nonloop playback holds duration and ends. Time accumulation
 uses double microseconds while authored key times remain integer microseconds.
 Speed is 0–4; there are no reverse, event, blending, bone-editing or IK tracks.
+
+Timeline's **Vector curves** section applies the selected key's vector mode/slopes
+as one source Undo step. Pending numeric fields do not replace the authored curve
+until Apply. The selected-axis view samples the same evaluator 193 times across the
+selected key and neighboring segments; gold tangent guides use pending slopes and
+clip the true slope at view boundaries. Rotation has no cubic tangent controls.
 
 Timeline preview substitutes local components in a copied scene and
 recomputes its render transforms through `Scene::preview_document`. It never
@@ -82,8 +103,9 @@ The existing private animation checkpoint v1 gains optional `transform_entries`:
 EntityRef, clip AssetId, exact selected revision, `time_us` and playing state.
 Recovery validates target/configuration/count/revision/time and candidate poses
 before replacing playback clocks. Older checkpoints lacking this field remain
-valid when there are no realized Transform Animators. There is no SDK ABI change;
-adding the reflected component updates the existing exact SDK header fingerprint.
+valid when there are no realized Transform Animators. Curve data changes the public transform-animation header. Native modules require
+a matching SDK rebuild; the existing exact header fingerprint enforces that
+requirement. This does not add an SDK service or claim binary compatibility.
 
 ## Standalone content
 
@@ -93,3 +115,8 @@ hashes, and omits the authoring source. Relocated packages use the same evaluato
 and loader. Windows ZIP assembly includes `.clip` Gallery data and the normal
 manual. The Gallery's `08-transform-animation` scene demonstrates a looping local
 position/rotation/scale clip on a platform.
+
+Gallery `13-transform-curves` compares the unchanged legacy linear clip with two
+original Windows-target version-2 clips: smooth easing and custom vertical arc
+slopes. Parent lanes separate their local motions. All three use normal scene
+references, independent clocks and source-free cooked export.

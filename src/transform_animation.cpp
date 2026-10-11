@@ -28,6 +28,97 @@ template <std::size_t N> std::array<double, N> numbers(const nlohmann::json& val
     }
     return result;
 }
+struct Cubic {
+    double a, b, c, d;
+    double at(double t) const { return ((a * t + b) * t + c) * t + d; }
+    std::array<double, 2> bounds() const {
+        std::array<double, 2> range{std::min(at(0), at(1)), std::max(at(0), at(1))};
+        auto include = [&](double t) {
+            if (t > 0 && t < 1) {
+                const auto y = at(t);
+                range[0] = std::min(range[0], y);
+                range[1] = std::max(range[1], y);
+            }
+        };
+        const auto qa = 3 * a, qb = 2 * b, qc = c;
+        if (qa == 0) {
+            if (qb != 0)
+                include(-qc / qb);
+            return range;
+        }
+        const auto discriminant = qb * qb - 4 * qa * qc;
+        if (discriminant < 0)
+            return range;
+        const auto q = -.5 * (qb + std::copysign(std::sqrt(discriminant), qb));
+        if (q == 0)
+            include(-qb / (2 * qa));
+        else {
+            include(q / qa);
+            include(qc / q);
+        }
+        return range;
+    }
+};
+Cubic segment(double p0, double p1, double m0, double m1, double seconds) {
+    const auto left = seconds * m0, right = seconds * m1;
+    return {2 * p0 - 2 * p1 + left + right, -3 * p0 + 3 * p1 - 2 * left - right, left, p0};
+}
+
+TransformAnimationTangents tangent(const Json& object, const char* name) {
+    const auto& data = object.at(name);
+    return {numbers<3>(data.at("translation")), numbers<3>(data.at("scale"))};
+}
+Json tangent_json(const TransformAnimationTangents& value) {
+    return {{"translation", {value.translation[0], value.translation[1], value.translation[2]}},
+            {"scale", {value.scale[0], value.scale[1], value.scale[2]}}};
+}
+Json curves_json(const TransformAnimationCurves& value) {
+    return {{"interpolation", value.cubic ? "cubic" : "linear"},
+            {"incoming", tangent_json(value.incoming)},
+            {"outgoing", tangent_json(value.outgoing)}};
+}
+TransformAnimationCurves curves(const Json& key) {
+    if (!key.contains("curves"))
+        return {};
+    const auto& object = key.at("curves");
+    const auto mode = object.at("interpolation");
+    require(mode == "linear" || mode == "cubic", "Invalid vector curve interpolation");
+    return {mode == "cubic", tangent(object, "incoming"), tangent(object, "outgoing")};
+}
+void validate_curve_segments(const TransformAnimationClip& clip) {
+    for (std::size_t i = 1; i < clip.keys.size(); ++i) {
+        const auto& left = clip.keys[i - 1];
+        const auto& right = clip.keys[i];
+        if (left.held || !left.curves.cubic)
+            continue;
+        const auto seconds = double(right.time - left.time) / animation_timebase;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            if (clip.channels & 1) {
+                const auto range =
+                    segment(std::array<double, 3>{left.pose.translation.x, left.pose.translation.y,
+                                                  left.pose.translation.z}[axis],
+                            std::array<double, 3>{right.pose.translation.x,
+                                                  right.pose.translation.y,
+                                                  right.pose.translation.z}[axis],
+                            left.curves.outgoing.translation[axis],
+                            right.curves.incoming.translation[axis], seconds)
+                        .bounds();
+                require(range[0] >= -1e9 && range[1] <= 1e9,
+                        "Translation curve overshoots source bounds");
+            }
+            if (clip.channels & 4) {
+                const std::array<float, 3> a{left.pose.scale.x, left.pose.scale.y,
+                                             left.pose.scale.z},
+                    b{right.pose.scale.x, right.pose.scale.y, right.pose.scale.z};
+                const auto range = segment(a[axis], b[axis], left.curves.outgoing.scale[axis],
+                                           right.curves.incoming.scale[axis], seconds)
+                                       .bounds();
+                require(range[0] >= -max_local_scale && range[1] <= max_local_scale,
+                        "Scale curve overshoots visual bounds");
+            }
+        }
+    }
+}
 LocalRotation slerp(LocalRotation a, LocalRotation b, double t) {
     double dot = double(a.x) * b.x + double(a.y) * b.y + double(a.z) * b.z + double(a.w) * b.w;
     if (dot < 0) {
@@ -75,6 +166,37 @@ LocalTransform TransformAnimationClip::sample(double time) const {
     const auto& a = left.pose;
     const auto& b = right->pose;
     auto mix = [t](double x, double y) { return x + (y - x) * t; };
+    if (left.curves.cubic && (channels & 5)) {
+        const auto seconds = double(right->time - left.time) / animation_timebase;
+        std::array<double, 3> translation{a.translation.x, a.translation.y, a.translation.z};
+        auto scale = a.scale;
+        const std::array<float, 3> av{a.scale.x, a.scale.y, a.scale.z},
+            bv{b.scale.x, b.scale.y, b.scale.z};
+        std::array<float, 3> sv{};
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            const std::array<double, 3> at{a.translation.x, a.translation.y, a.translation.z},
+                bt{b.translation.x, b.translation.y, b.translation.z};
+            if (channels & 1)
+                translation[axis] = segment(std::array<double, 3>{a.translation.x, a.translation.y,
+                                                                  a.translation.z}[axis],
+                                            std::array<double, 3>{b.translation.x, b.translation.y,
+                                                                  b.translation.z}[axis],
+                                            left.curves.outgoing.translation[axis],
+                                            right->curves.incoming.translation[axis], seconds)
+                                        .at(t);
+            else
+                translation[axis] = mix(at[axis], bt[axis]);
+            sv[axis] = (channels & 4)
+                           ? float(segment(av[axis], bv[axis], left.curves.outgoing.scale[axis],
+                                           right->curves.incoming.scale[axis], seconds)
+                                       .at(t))
+                           : float(mix(av[axis], bv[axis]));
+        }
+        scale = {sv[0], sv[1], sv[2]};
+        return {{translation[0], translation[1], translation[2]},
+                slerp(a.rotation, b.rotation, t),
+                scale};
+    }
     return {{mix(a.translation.x, b.translation.x), mix(a.translation.y, b.translation.y),
              mix(a.translation.z, b.translation.z)},
             slerp(a.rotation, b.rotation, t),
@@ -99,14 +221,15 @@ TransformAnimationSource TransformAnimationSource::create(AssetId id) {
 }
 TransformAnimationSource TransformAnimationSource::parse(std::span<const std::byte> bytes) {
     TransformAnimationSource result{
-        asset_detail::parse_bounded_json(bytes, transform_animation_byte_limit, 100000, 12)};
+        asset_detail::parse_bounded_json(bytes, transform_animation_byte_limit, 500000, 12)};
     result.validate();
     return result;
 }
 AssetId TransformAnimationSource::asset() const { return document.at("asset_id").get<AssetId>(); }
 TransformAnimationClip TransformAnimationSource::clip() const {
     require(document.at("format") == "forge.transform-animation" &&
-                document.at("version").is_number_integer() && document.at("version") == 1 &&
+                document.at("version").is_number_integer() &&
+                (document.at("version") == 1 || document.at("version") == 2) &&
                 document.at("timebase") == animation_timebase,
             "Unsupported transform animation schema/timebase");
     TransformAnimationClip result;
@@ -140,9 +263,12 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 "Animation key times must be unique, sorted and within duration");
         require(mode == "linear" || mode == "held", "Unsupported animation interpolation");
         const auto pose = animation_pose(key);
-        result.keys.push_back({id, time, pose, mode == "held"});
+        require(document.at("version") == 2 || !key.contains("curves"),
+                "Vector curves require transform animation version2");
+        result.keys.push_back({id, time, pose, mode == "held", curves(key)});
         previous = time;
     }
+    validate_curve_segments(result);
     return result;
 }
 void TransformAnimationSource::validate() const {
@@ -154,12 +280,14 @@ std::vector<std::byte> TransformAnimationSource::cook() const {
     validate();
     auto compiled = document;
     compiled["format"] = "forge.transform-clip";
+    compiled["version"] = 2;
     const auto text = compiled.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
 }
 AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransform& pose, bool held,
-                                          AssetId id) {
+                                          AssetId id,
+                                          std::optional<TransformAnimationCurves> curve) {
     auto candidate = *this;
     auto& keys = candidate.document.at("keys");
     if (!id)
@@ -169,6 +297,14 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
     if (!id)
         id = AssetId::generate();
     auto key = animation_pose_json(pose);
+    if (curve) {
+        key["curves"] = curves_json(*curve);
+        candidate.document["version"] = 2;
+    } else {
+        for (const auto& prior : keys)
+            if (prior.at("id") == Json(id) && prior.contains("curves"))
+                key["curves"] = prior.at("curves");
+    }
     key["id"] = id;
     key["time_us"] = time;
     key["interpolation"] = held ? "held" : "linear";
@@ -199,7 +335,7 @@ void TransformAnimationSource::move_key(AssetId id, std::int64_t time) {
     throw std::runtime_error("Animation key no longer exists");
 }
 TransformAnimationClip decode_transform_animation(std::span<const std::byte> bytes, AssetId id) {
-    auto doc = asset_detail::parse_bounded_json(bytes, transform_animation_byte_limit, 100000, 12);
+    auto doc = asset_detail::parse_bounded_json(bytes, transform_animation_byte_limit, 500000, 12);
     require(doc.at("format") == "forge.transform-clip", "Invalid cooked transform clip format");
     doc["format"] = "forge.transform-animation";
     TransformAnimationSource source{std::move(doc)};

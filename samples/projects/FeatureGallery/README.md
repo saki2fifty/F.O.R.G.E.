@@ -34,6 +34,7 @@ gameplay C++ module, SDK or compiler is needed to explore these scenes.
 | `11-animation-markers` | Open `Assets/MarkerPulse.states.json` and inspect/edit Pulse timing on Walk/Run. For an actual action, build the optional [C++ example](CodeExamples/README.md). | Markers are published/exported with the clips. The compiled example alternates character height at the authored timing points. Preview is muted. These are illustrative timing points, not calibrated footsteps. |
 
 | `12-inset-panels` | Open **Frame.mesh.json**, **RaisedPanel.mesh.json** or **RecessedPanel.mesh.json** in Content. Select a face, preview Inset, then use a positive or negative Extrude distance. | Three original checker-textured panels show an inset border, a raised cap and a recessed cap. Save & Publish updates Scene, Play and source-free export. |
+| `13-transform-curves` | Press Play to compare the three platforms. Open **EasedPlatform.animation.json** or **ArcPlatform.animation.json**, select a key and expand **Vector curves**. Apply slopes, preview, then Save & Publish. | The existing linear clip, smooth eased clip and custom vertical arc share a four-second cycle on separate parent lanes. Play and export load both legacy and new cooked clips. |
 
 ## Export and run a scene
 

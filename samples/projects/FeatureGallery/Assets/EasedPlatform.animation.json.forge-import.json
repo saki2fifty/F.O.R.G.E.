@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v2",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "31c5d5c240ec7f5a1c15cb3348ecea9fae9ffa0dc4589f604f1088d9fb9023ae",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "9e8d033f-751e-4bb8-99a4-8d8f4b3ebb51",
+    "source": "Assets/EasedPlatform.animation.json",
+    "source_digest": "31c5d5c240ec7f5a1c15cb3348ecea9fae9ffa0dc4589f604f1088d9fb9023ae",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

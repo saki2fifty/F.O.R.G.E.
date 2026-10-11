@@ -17,7 +17,9 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/SculptSphere.mesh.json', 'mesh.bin'),
                        ('Assets/PaintedSphere.mesh.json', 'mesh.bin'),
                        ('Assets/Checker.material.json', 'material.values'),
-                       ('Assets/Platform.animation.json', 'animation.clip')):
+                       ('Assets/Platform.animation.json', 'animation.clip'),
+                       ('Assets/EasedPlatform.animation.json', 'animation.clip'),
+                       ('Assets/ArcPlatform.animation.json', 'animation.clip')):
     asset = by_source[source]
     assert json.loads((project_root / source).read_text())['asset_id'] == asset['id']
     assert (project_root / '.forge/cache/derived' /
@@ -28,7 +30,8 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
-        '11-animation-markers.scene.json', '12-inset-panels.scene.json'} <= {p.name for p in scenes}
+        '11-animation-markers.scene.json', '12-inset-panels.scene.json',
+        '13-transform-curves.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -85,6 +88,15 @@ try:
         loaded = call('scene.read', target=context['target'])['result']
         same_authored_value(loaded, source, str(path))
         assert context['revision'] == result['revision']
+        if path.name.startswith('13-'):
+            players = [row['components']['forge.transform_animator']
+                       for row in loaded['entities']
+                       if 'forge.transform_animator' in row['components']]
+            assert len(players) == 3
+            assert {row['clip'] for row in players} == {
+                by_source['Assets/' + name]['id'] for name in
+                ('Platform.animation.json', 'EasedPlatform.animation.json',
+                 'ArcPlatform.animation.json')}
         if path.name.startswith('12-'):
             panels = [row['components']['forge.mesh_renderer']
                       for row in loaded['entities']

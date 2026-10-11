@@ -39,6 +39,32 @@ changing projects or deleting the preview object ends preview.
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
+## Shape motion with curves
+
+Select a key in **Keys**, then expand **Vector curves**. Choose **Cubic** in
+**Outgoing vectors** to ease position and scale toward the next key. Zero slopes
+slow the motion at each end. **Linear** keeps a constant change between values.
+Rotation still follows the shortest turn between orientations.
+
+**Position incoming/outgoing (units/s)** and **Scale incoming/outgoing (units/s)**
+set how quickly each value changes at the selected key. Incoming affects a cubic
+segment arriving from the previous key; outgoing affects the next cubic segment.
+For example, positive outgoing Y and negative incoming Y on the next key create
+an upward arc between equal heights. A longer segment produces a larger arc for
+the same slopes. **Hold until next key** overrides the outgoing curve.
+
+Choose **Curve value** and **Axis** to inspect position or scale. The blue curve
+shows the applied values; gold guides show the slope fields. Entering slopes leaves
+them pending. Choose **Apply curve settings** to commit one Undo step, then scrub
+or play the preview. Invalid or excessive curves are rejected without replacing
+the clip. **Save & Publish** updates Play and exported games.
+
+Try **FeatureGallery / Scenes / 13-transform-curves.scene.json**. Three platforms
+compare linear motion, smooth easing and an arc. Open **EasedPlatform.animation.json**
+or **ArcPlatform.animation.json** in Content to change the curves. Curve clips need
+a current FORGE build; older builds reject their format. Rebuild existing C++ modules
+against the matching SDK after updating FORGE.
+
 ## Use in Play and export
 
 Choose **Save & Publish**, then **Attach animation to object**. The Inspector's

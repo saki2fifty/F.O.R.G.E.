@@ -3237,6 +3237,37 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 109: {
+                    // Staged original data for native layout review. Actual
+                    // authoring gestures run in animation_timeline_tests.
+                    editable_mesh_editor = {};
+                    auto source =
+                        forge::TransformAnimationSource::create(forge::AssetId::generate());
+                    source.document["duration_us"] = 4000000;
+                    auto slopes = forge::TransformAnimationCurves{true};
+                    slopes.incoming.translation[1] = -2;
+                    slopes.outgoing.translation[1] = 2;
+                    source.set_key(0, {{-3, 1.5, 0}, {}, {2, .4f, 1}}, false, {}, slopes);
+                    source.set_key(2000000, {{3, 1.5, 0}, {}, {2, .8f, 1}}, false, {}, slopes);
+                    source.set_key(4000000, {{-3, 1.5, 0}, {}, {2, .4f, 1}}, false, {}, slopes);
+                    forge::atomic_write(files.document.project() /
+                                            "Assets/CaptureCurves.animation.json",
+                                        source.document.dump(2));
+                    animation_timeline.open(files.document, "Assets/CaptureCurves.animation.json");
+                    forge::ui::style(1);
+                    break;
+                }
+                case 110:
+                case 113:
+                    forge::ui::style(1.5f);
+                    break;
+                case 111:
+                case 114:
+                    forge::ui::style(2);
+                    break;
+                case 112:
+                    forge::ui::style(1);
+                    break;
                 case 106:
                     forge::ui::style(1);
                     break;
@@ -4795,7 +4826,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 108))
+                        (fixture.stage >= 103 && fixture.stage <= 114))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5057,6 +5088,19 @@ int main(int argc, char** argv) {
                         ImGui::SetScrollY(w, fixture.stage < 106 ? 0 : w->ScrollMax.y);
                     }
                 }
+                if (fixture.stage >= 109 && fixture.stage <= 114) {
+                    const auto* document = animation_timeline.document();
+                    if (!document || document->source().document.at("version") != 2 ||
+                        document->source().clip().keys.size() != 3)
+                        throw std::runtime_error("Timeline curve capture source differs");
+                    if (auto* w = ImGui::FindWindowByName("###Animation Timeline")) {
+                        w->StateStorage.SetInt(w->GetID("Vector curves"), 1);
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, fixture.stage < 112 ? 0 : w->ScrollMax.y);
+                    }
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -5134,7 +5178,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 109) {
+                    if (fixture.stage == 115) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();
