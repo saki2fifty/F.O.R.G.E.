@@ -62,6 +62,144 @@ struct Fixture {
         e.set(c);
     }
 };
+void control_tests(const std::filesystem::path& root, const Json& doc, EntityId actor,
+                   const AnimationStatesSource& source) {
+    auto held = doc;
+    held["entities"][0]["components"]["forge.animator"]["play_on_start"] = false;
+    Fixture f(root, held, actor);
+    const auto entity = f.scene.entity(actor.str());
+    const auto reference = *f.engine.world().reference(entity.id());
+    auto status = [&] { return *f.animation->playback(reference); };
+    auto command = [&](AnimationControl op, std::uint64_t tick) {
+        return f.animation->control(reference, op, tick);
+    };
+    require(!status().playing && status().time == 0, "Initially held player advanced");
+    require(command(AnimationControl::Play, 1), "Play held player rejected");
+    f.animation->tick(.5f, 1);
+    near(status().time, .5, "Play did not advance");
+    const auto before_late = f.animation->checkpoint();
+    require(!command(AnimationControl::Pause, 1) && before_late == f.animation->checkpoint(),
+            "Late control mutated completed tick");
+    require(command(AnimationControl::Pause, 2), "Pause rejected");
+    f.animation->tick(.5f, 2);
+    near(status().time, .5, "Pause advanced clip");
+    require(!status().playing && f.animation->events().empty(), "Paused player emitted");
+    const auto paused = f.animation->checkpoint();
+    Fixture recovery(root, held, actor);
+    recovery.animation->restore(paused);
+    require(!recovery.animation->playback(reference)->playing, "Recovery lost paused intent");
+    recovery.animation->tick(.5f, 3);
+    near(recovery.animation->playback(reference)->time, .5, "Recovered pause advanced");
+    require(command(AnimationControl::Play, 3), "Resume rejected");
+    f.animation->tick(.5f, 3);
+    near(status().time, 1, "Resume restarted instead of continuing");
+    const auto world_before = f.scene.document();
+    require(command(AnimationControl::Restart, 4), "Restart rejected");
+    near(status().time, 0, "Restart did not reset clock");
+    require(world_before == f.scene.document() && f.animation->events().empty(),
+            "Restart wrote callback pose/components or emitted immediately");
+    const auto restarted = f.animation->checkpoint();
+    require(restarted.at("entries")[0].at("states").at("entry_pending") == true,
+            "Restart lost entry marker intent");
+    Fixture replay_recovery(root, held, actor);
+    replay_recovery.animation->restore(restarted);
+    replay_recovery.animation->tick(.5f, 4);
+    f.animation->tick(.5f, 4);
+    require(f.animation->events().size() == 2 && f.animation->events()[0].marker == 1 &&
+                f.animation->events()[1].marker == 2 &&
+                replay_recovery.animation->events().size() == 2,
+            "Restart/recovery entry crossing differs");
+    auto config = entity.get<Animator>();
+    config.enabled = false;
+    config.playback_speed = 0;
+    entity.set(config);
+    f.animation->tick(.2f, 5);
+    require(command(AnimationControl::Restart, 6), "Disabled restart rejected");
+    f.animation->tick(.2f, 6);
+    near(status().time, 0, "Disabled restart advanced");
+    require(f.animation->events().empty(), "Disabled restart emitted");
+    config.enabled = true;
+    config.playback_speed = 1;
+    entity.set(config);
+    f.animation->tick(.1f, 7);
+    require(f.animation->events().size() == 1 && f.animation->events()[0].marker == 1,
+            "Enabled restart lost pending entry");
+    f.state(2);
+    f.animation->tick(.1f, 8);
+    require(status().transitioning, "Fixture did not enter fade");
+    require(command(AnimationControl::Restart, 9), "Fade restart rejected");
+    require(!status().transitioning && status().transition_weight == 1,
+            "Restart retained named outgoing fade");
+    f.animation->tick(.1f, 9);
+    near(status().time, .1, "Fade restart clock");
+    auto resumed_scene = f.scene.document();
+    Fixture fade_recovery(root, resumed_scene, actor);
+    fade_recovery.animation->restore(f.animation->checkpoint());
+    require(!fade_recovery.animation->playback(reference)->transitioning,
+            "Recovery recreated cleared fade");
+    f.state(3);
+    f.animation->tick(.1f, 10);
+    require(command(AnimationControl::Play, 11), "Play one-shot rejected");
+    f.animation->tick(.6f, 11);
+    require(status().finished, "Fixture nonloop did not finish");
+    require(!command(AnimationControl::Play, 12), "Completed Play implicitly restarted");
+    require(command(AnimationControl::Restart, 12), "Completed restart rejected");
+    f.animation->tick(.05f, 12);
+    require(!status().finished && f.animation->events().size() == 1 &&
+                f.animation->events()[0].marker == 8,
+            "Completed restart did not reenter once");
+    const auto safe = f.animation->checkpoint();
+    rejects([&] { command(static_cast<AnimationControl>(99), 13); }, "Invalid command accepted");
+    require(safe == f.animation->checkpoint(), "Invalid command mutated clock");
+    Fixture interrupted(root, doc, actor);
+    interrupted.animation->tick(.3f, 1);
+    interrupted.state(2);
+    interrupted.animation->tick(.1f, 2);
+    interrupted.state(3);
+    interrupted.animation->tick(.05f, 3);
+    require(!interrupted.animation->checkpoint().at("entries")[0].at("states").at("frozen").empty(),
+            "Fixture did not freeze interrupted fade");
+    require(interrupted.animation->control(reference, AnimationControl::Pause, 4),
+            "Interrupted fade pause rejected");
+    const auto frozen_time = interrupted.animation->playback(reference)->time;
+    const auto frozen_weight = interrupted.animation->playback(reference)->transition_weight;
+    interrupted.animation->tick(.2f, 4);
+    near(interrupted.animation->playback(reference)->time, frozen_time,
+         "Paused fade clip advanced");
+    near(interrupted.animation->playback(reference)->transition_weight, frozen_weight,
+         "Paused fade weight advanced");
+    require(interrupted.animation->control(reference, AnimationControl::Restart, 5),
+            "Interrupted fade restart rejected");
+    require(interrupted.animation->checkpoint().at("entries")[0].at("states").at("frozen").empty(),
+            "Restart retained frozen outgoing pose");
+    interrupted.animation->tick(.05f, 5);
+    require(!interrupted.animation->playback(reference)->transitioning,
+            "Restart recreated interrupted fade");
+
+    auto direct = doc;
+    auto& direct_config = direct["entities"][0]["components"]["forge.animator"];
+    direct_config["states"] = nullptr;
+    direct_config["state"] = 0;
+    direct_config["skeleton"] = source.document.at("skeleton");
+    direct_config["clip"] = source.document.at("states")[0].at("clip");
+    direct_config["blend_clip"] = source.document.at("states")[1].at("clip");
+    direct_config["blend_weight"] = .6;
+    Fixture mixed(root, direct, actor);
+    mixed.animation->tick(.5f, 1);
+    require(mixed.animation->control(reference, AnimationControl::Restart, 2),
+            "Direct mix restart rejected");
+    const auto mix_recovery = mixed.animation->checkpoint();
+    near(mixed.animation->playback(reference)->blend_weight, .6, "Restart lost direct mix");
+    Fixture mixed_restored(root, direct, actor);
+    mixed_restored.animation->restore(mix_recovery);
+    mixed_restored.animation->tick(.25f, 2);
+    mixed.animation->tick(.25f, 2);
+    near(mixed.animation->playback(reference)->time, .25, "Direct mix replay time");
+    same_pose(mixed.pose().at("local"), mixed_restored.pose().at("local"),
+              "Direct mix restart recovery pose differs");
+    entity.remove<Animator>();
+    require(!command(AnimationControl::Restart, 13), "Removed player controlled");
+}
 void playback_tests(const std::filesystem::path& root, const Json& doc, EntityId actor,
                     const AnimationStatesSource& source) {
     Fixture f(root, doc, actor);
@@ -527,7 +665,8 @@ int main(int argc, char** argv) {
             if (row.at("components").contains("forge.animator"))
                 row["components"]["forge.animator"]["states"] = marker_graph;
         if (argc != 6)
-            playback_tests(root, marker_doc, actor, marker_source);
+            control_tests(root, marker_doc, actor, marker_source);
+        playback_tests(root, marker_doc, actor, marker_source);
         marker_tests(root, marker_doc, actor);
         if (argc == 6) {
             const bool markers = std::string_view(argv[5]) == "--markers-prepare";

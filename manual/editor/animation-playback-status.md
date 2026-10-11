@@ -26,3 +26,25 @@ called from your C++ System, completion selects Idle state1. The normal Gallery
 still runs without a compiler; adding this behavior requires a matching built
 C++ module. Save your settings/scene and export with matching runtime/module kits.
 The exported game carries compiled behavior and needs no compiler installed.
+
+## Play, pause or restart a character from C++
+
+The Gallery's optional **CodeExamples / ClipControl.hpp** helper controls the
+animated entity your C++ System is currently processing. You do not have to copy
+its scene UUID into your code. The CodeExamples README shows how to connect your
+project's existing input actions.
+
+- **Play** resumes where the character stopped. It also starts a character whose Animator has **Play on Start** off.
+- **Pause** freezes that character's animation while the game keeps running.
+- **Restart** plays the current clip from the beginning. It ends an incoming state fade immediately. Use Restart to replay a finished one-shot.
+
+Run these commands from a fixed Gameplay System. A System running after animation
+has already updated, such as PostPhysics, cannot change playback that tick. Keep
+Animator Enabled on and Speed above zero to see movement. Changing the selected
+state still chooses that state's animation normally.
+
+Use pressed edges for buttons; restarting every tick keeps returning to the start.
+These runtime commands leave your saved scene settings unchanged. A recovered Play
+session retains a character's paused/resumed state. The exported game includes the
+compiled behavior and needs no compiler installed. This is C++ behavior; the live
+progress section in Inspector remains read-only.

@@ -133,6 +133,8 @@ struct AnimationRuntime::Impl {
     TransformAnimationPlayback transforms;
     bool initial_catalog_requested = false, deliver_events = true;
     std::vector<AnimationEvent> events, event_candidates;
+    // Phase guard only, copied from RuntimeSimulation's authoritative fixed tick.
+    std::optional<std::uint64_t> last_animation_tick;
     std::string catalog_error;
     std::map<AssetId, std::shared_ptr<const Skeleton>> skeletons;
     std::map<AssetId, std::shared_ptr<const Clip>> clips;
@@ -979,6 +981,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
         return;
     if (!std::isfinite(dt) || dt <= 0)
         throw ArchiveError("Animation requires a positive fixed delta");
+    impl_->last_animation_tick = tick;
     impl_->events.clear();
     impl_->event_candidates.clear();
     auto profile = impl_->context.services().profile("animation", "FixedPlayback");
@@ -1092,6 +1095,44 @@ std::optional<AnimationPlayback> AnimationRuntime::playback(EntityRef reference)
         result.blend_weight = p.blend;
     }
     return result;
+}
+bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
+                               std::uint64_t current_tick) {
+    if (command != AnimationControl::Play && command != AnimationControl::Pause &&
+        command != AnimationControl::Restart)
+        throw ArchiveError("Unknown animation playback control");
+    if (!impl_ || !impl_->context.on_owner_thread() ||
+        (impl_->last_animation_tick && current_tick <= *impl_->last_animation_tick))
+        return false;
+    if (!playback(reference))
+        return false;
+    const auto entity = impl_->context.resolve(reference).entity;
+    auto& p = impl_->states.at(entity);
+    if (command == AnimationControl::Pause) {
+        p.playing = false;
+        return true;
+    }
+    if (command == AnimationControl::Play) {
+        if (!p.config.loop && p.time >= p.assets.clip->info().duration &&
+            !(p.definition && p.blend < p.config.blend_weight))
+            return false;
+        p.playing = true;
+        return true;
+    }
+    p.time = p.previous = p.advance = p.tick_begin = p.tick_advance = 0;
+    p.blend = p.previous_blend = p.blend_from = p.config.blend_weight;
+    p.blend_elapsed = 0;
+    p.outgoing_sampler.reset();
+    p.outgoing_assets = {};
+    p.outgoing_config = {};
+    p.outgoing_time = p.outgoing_previous = p.outgoing_advance = 0;
+    p.frozen.clear();
+    p.sampler->reset();
+    if (p.blend_sampler)
+        p.blend_sampler->reset();
+    p.playing = p.entry_pending = p.discontinuous = true;
+    p.model_pose_applied = false;
+    return true;
 }
 void AnimationRuntime::event_delivery(bool enabled) {
     if (impl_) {
@@ -1492,6 +1533,7 @@ void AnimationRuntime::restore(const Json& data) {
     }
     impl_->events.clear();
     impl_->event_candidates.clear();
+    impl_->last_animation_tick.reset();
     impl_->binding_errors.clear();
     impl_->discontinuities.clear();
 }

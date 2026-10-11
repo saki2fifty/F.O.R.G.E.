@@ -67,3 +67,6 @@ never enters saved scene/component data. Runtime/GPU transforms are unchanged.
 
 No transform-animation status, cumulative loop count, automatic transitions,
 retargeting, root-motion movement or complete animation graph is claimed.
+
+[C++ playback controls](animation-playback-controls.md) use these same realized
+clocks for per-player Play, Pause and Restart before the Animation stage.

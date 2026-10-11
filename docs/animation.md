@@ -20,7 +20,8 @@ sampling context and transient playback state. The legacy bridge limits are256 p
 (the Ozz objects/caches add bounded working memory). Bones are not Flecs entities.
 The exact native SDK exposes the engine-owned Animator component; it exposes no
 Ozz headers or context pointers. Bounded [markers](animation-markers.md) and
-[playback status](animation-playback-status.md) use the matching Animation service;
+[playback status](animation-playback-status.md) and
+[play/pause/restart controls](animation-playback-controls.md) use the matching Animation service;
 public-header changes require module rebuilds. Experimental ABI1 remains unchanged.
 
 Animator fields are `skeleton`, `clip`, `enabled`, `play_on_start`, `loop`, and

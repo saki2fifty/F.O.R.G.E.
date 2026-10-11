@@ -27,6 +27,7 @@ class AnimationRuntime : public AnimationService {
     void tick(float dt, std::uint64_t tick = 0);
     std::span<const AnimationEvent> events() const override;
     std::optional<AnimationPlayback> playback(EntityRef) const override;
+    bool control(EntityRef, AnimationControl, std::uint64_t current_tick) override;
     // Host-owned copied editor previews never deliver gameplay markers.
     void event_delivery(bool enabled);
     void reset_presentation();

@@ -88,3 +88,12 @@ Game/Continue persists only the game-defined save schema.
 Native editor plugins are trusted, validated and restart-bound. Staging and
 manifest checks in `tools/forge_plugins.py` do not constitute a live editor DLL
 loader. This is separate from C++ gameplay modules.
+
+## Skeletal animation services
+
+Matching C++ code can read fixed playback status and timing markers, or control an
+admitted player through the existing Animation service. Play/Pause/Restart require
+Gameplay before Animation; PostPhysics supports observations. The intrinsic runtime
+entity-reference callback obtains the registered canonical UUID pair for ordinary
+entity Systems. See [controls and identity](animation-playback-controls.md),
+[status](animation-playback-status.md) and [markers](animation-markers.md).

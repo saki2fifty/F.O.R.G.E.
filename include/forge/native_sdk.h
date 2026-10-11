@@ -50,6 +50,13 @@ typedef struct ForgeSdkAnimationEventV1 {
     double offset, phase, value;
     char scene_uuid[37], entity_uuid[37], states_uuid[37], clip_uuid[37], name[65];
 } ForgeSdkAnimationEventV1;
+#define FORGE_SDK_ANIMATION_PLAY 1u
+#define FORGE_SDK_ANIMATION_PAUSE 2u
+#define FORGE_SDK_ANIMATION_RESTART 3u
+typedef struct ForgeSdkEntityRefV1 {
+    uint32_t size, version;
+    char scene_uuid[37], entity_uuid[37];
+} ForgeSdkEntityRefV1;
 typedef struct ForgeSdkAnimationPlaybackV1 {
     uint32_t size, version, state;
     uint32_t enabled, loop, playing, finished, transitioning;
@@ -253,6 +260,14 @@ typedef struct ForgeSdkWorldV1 {
        realization, PostPhysics sees this tick. 1 copied status,0 unavailable,-1 bad args. */
     int32_t(FORGE_SDK_CALL* animation_playback)(void*, const char* scene, const char* entity,
                                                 ForgeSdkAnimationPlaybackV1*);
+    /* Registered matching-world entity only. Intrinsic RuntimeEntities read.
+       1 canonical UUID pair,0 unavailable/unregistered/stale/ambiguous,-1 bad args/context. */
+    int32_t(FORGE_SDK_CALL* entity_reference)(void*, uint64_t native_entity, ForgeSdkEntityRefV1*);
+    /* Current admitted player; Gameplay before Animation only. No pose writes here.
+       1 applied,0 unavailable/late phase/completed Play,-1 bad args/context.
+       Ordinary pending component selection takes precedence at synchronization. */
+    int32_t(FORGE_SDK_CALL* animation_control)(void*, const char* scene, const char* entity,
+                                               uint32_t operation);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

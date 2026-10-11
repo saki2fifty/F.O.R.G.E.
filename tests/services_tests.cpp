@@ -367,6 +367,7 @@ static void service_tests() {
         expired = access;
         access.require(Capability::Diagnostics);
         struct Markers : AnimationService {
+            bool control(EntityRef, AnimationControl, std::uint64_t) override { return false; }
             std::optional<AnimationPlayback> playback(EntityRef) const override { return {}; }
             std::span<const AnimationEvent> events() const override { return {}; }
         };

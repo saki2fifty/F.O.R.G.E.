@@ -4,6 +4,7 @@
 #include "sdk_resource_tests.hpp"
 #include <cmath>
 #include <cstdlib>
+#include <forge/animation.hpp>
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/render_scene.hpp>
@@ -120,8 +121,9 @@ int main(int argc, char** argv) {
 #else
             setenv("FORGE_SDK_SPAWN_TEST", "1", 1);
 #endif
-            EngineContext engine(WorldRole::Runtime, true,
-                                 {sdk, late_ui(), runtime_resources_module(root)});
+            EngineContext engine(
+                WorldRole::Runtime, true,
+                {sdk, late_ui(), runtime_resources_module(root), animation_module(root)});
 #ifdef _WIN32
             _putenv_s("FORGE_SDK_SPAWN_TEST", "");
 #else
@@ -152,6 +154,19 @@ int main(int argc, char** argv) {
                       !client.callable(sdk::Capability::Input),
                   "Input availability must differ from current fixed-tick callability");
             check(!client.available(sdk::Capability::Physics), "Missing/restricted physics leaked");
+            check(engine.services().available(Capability::Animation) &&
+                      !client.available(sdk::Capability::Animation),
+                  "SDK Animation descriptor permission bypassed");
+            w.system("test.RestrictedAnimationControl")
+                .kind(host->fixed_phase)
+                .run([host](flecs::iter&) {
+                    check(host->animation_control(host->context,
+                                                  "00000000-0000-4000-8000-000000000001",
+                                                  "00000000-0000-4000-8000-000000000002",
+                                                  FORGE_SDK_ANIMATION_RESTART) == 0,
+                          "Restricted fixed-tick animation control accepted");
+                })
+                .add(host->fixed_tag);
             auto version = client.query(sdk::Capability::Ui, 99);
             check(version.version == 1 && !version.available && !version.callable,
                   "Wrong capability version accepted");
@@ -224,6 +239,10 @@ int main(int argc, char** argv) {
             check(scene.entity_count() == 1 && !client.request_entity("Stopped") &&
                       !client.available(sdk::Capability::RuntimeEntities),
                   "Stopped SDK retained/published entity creation requests");
+            ForgeSdkEntityRefV1 stopped_reference{};
+            stopped_reference.size = sizeof(stopped_reference);
+            check(host->entity_reference(host->context, entity.id(), &stopped_reference) == 0,
+                  "Stopped SDK retained canonical lookup");
             check(!client.available(sdk::Capability::Ui) &&
                       !client.available(sdk::Capability::Input),
                   "Stopped SDK retains gameplay capability");

@@ -23,6 +23,9 @@
 namespace forge {
 namespace {
 using Json = nlohmann::json;
+static_assert(unsigned(AnimationControl::Play) == FORGE_SDK_ANIMATION_PLAY &&
+              unsigned(AnimationControl::Pause) == FORGE_SDK_ANIMATION_PAUSE &&
+              unsigned(AnimationControl::Restart) == FORGE_SDK_ANIMATION_RESTART);
 static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
               unsigned(NavStatus::Partial) == FORGE_SDK_NAV_PARTIAL &&
               unsigned(NavStatus::Missing) == FORGE_SDK_NAV_MISSING &&
@@ -137,6 +140,56 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.entity_reference = [](void* p, uint64_t entity,
+                                   ForgeSdkEntityRefV1* output) -> int32_t {
+            if (!output || output->size != sizeof(*output))
+                return -1;
+            *output = {};
+            output->size = sizeof(*output);
+            output->version = 1;
+            try {
+                if (!entity || (entity & ECS_ID_FLAGS_MASK))
+                    return -1;
+                auto& b = Bridge::get(p);
+                if (!b.entities_callable())
+                    return 0;
+                const auto reference = b.context.owner->reference(entity);
+                if (!reference)
+                    return 0;
+                const auto resolved = b.context.owner->resolve(*reference);
+                if (resolved.state != WorldContext::ResolveState::Available ||
+                    resolved.entity != entity)
+                    return 0;
+                auto copy = *output;
+                const auto scene = reference->scene.str(), id = reference->entity.str();
+                std::memcpy(copy.scene_uuid, scene.c_str(), scene.size() + 1);
+                std::memcpy(copy.entity_uuid, id.c_str(), id.size() + 1);
+                *output = copy;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.animation_control = [](void* p, const char* scene, const char* entity,
+                                    uint32_t operation) -> int32_t {
+            try {
+                if (!scene || !entity || operation < FORGE_SDK_ANIMATION_PLAY ||
+                    operation > FORGE_SDK_ANIMATION_RESTART)
+                    return -1;
+                const EntityRef reference{AssetId::parse(scene), EntityId::parse(entity)};
+                auto& b = Bridge::get(p);
+                if (!b.runtime_active() || !b.context.input ||
+                    !b.context.services.available(Capability::Animation))
+                    return 0;
+                return b.context.services.animation()->control(
+                           reference, static_cast<AnimationControl>(operation),
+                           b.context.input->tick)
+                           ? 1
+                           : 0;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.animation_playback = [](void* p, const char* scene, const char* entity,
                                      ForgeSdkAnimationPlaybackV1* output) -> int32_t {
             if (!output || output->size != sizeof(*output))

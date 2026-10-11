@@ -99,3 +99,15 @@ Windows D3D12 execution and physical acceptance of markers are not claimed here.
   matching SDK2/2, actual C++ completion and recovery, ImGui65/100/200% and timeline,
   manual3/3/package1/1. Matching modules require rebuilding. Windows delivery and
   physical acceptance are separate; failed152/cancelled153 produced no new ZIP.
+
+
+## C++ character animation controls
+
+- Matching C++ Gameplay Systems can Play, Pause and Restart admitted skeletal
+  playback without editing saved Animator fields or keeping another timer.
+- Runtime entity handles can produce a copied registered canonical UUID reference;
+  stale, unregistered and ambiguous scene instances reject instead of guessing.
+- Restart resets sampling history and ends a named fade; existing recovery retains
+  pause/restart intent. Commands after Animation reject without mutation.
+- The Gallery includes an original per-entity control helper and input-action setup
+  guide. Rebuild C++ modules with the matching SDK. Windows acceptance is pending.

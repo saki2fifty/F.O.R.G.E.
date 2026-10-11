@@ -1,4 +1,4 @@
-# Optional C++ marker action
+# Optional C++ animation behaviors
 
 Scene11 plays without C++. To see its Pulse markers change the characters' height,
 register MarkerPulseSystem.cpp in a FORGE-created C++ project. Work on a writable
@@ -74,3 +74,54 @@ The helper requires an explicit state ID and respects a newer state request,
 including a request for the entry state0. The compiled behavior exports
 with the matching module kit. Actual SDK integration checks this helper using a
 nonloop fixture, not only a syntax example.
+
+## Optional per-character Play, Pause and Restart
+
+Copy `ClipControl.hpp` into `Native/Systems` and include it in a System source.
+This example takes three action UUIDs from your project's existing input map.
+Use digital actions and replace the three arguments in your startup call with
+those saved action UUIDs. Pressed edges apply once; held input does not restart
+every tick. The System controls every registered Animator it queries.
+
+```cpp
+#include "ClipControl.hpp"
+#include <flecs.h>
+#include <forge/animation_components.hpp>
+#include <string>
+void forge_register_clip_controls(const ForgeSdkWorldV1* host,
+                                 const char* play_action, const char* pause_action,
+                                 const char* restart_action) {
+    const std::string play = play_action, pause = pause_action, restart = restart_action;
+    flecs::world world(host->world);
+    world.component<forge::Animator>("forge.animator");
+    world.system<const forge::Animator>("gameplay.ClipControls")
+        .kind(host->fixed_phase)
+        .each([host, play, pause, restart](flecs::iter& it, size_t row,
+                                        const forge::Animator&) {
+            const forge::sdk::Client client(host);
+            ForgeSdkActionV1 action{};
+            uint32_t operation = 0;
+            if (client.action(play.c_str(), action) && action.pressed)
+                operation = FORGE_SDK_ANIMATION_PLAY;
+            if (client.action(pause.c_str(), action) && action.pressed)
+                operation = FORGE_SDK_ANIMATION_PAUSE;
+            if (client.action(restart.c_str(), action) && action.pressed)
+                operation = FORGE_SDK_ANIMATION_RESTART;
+            if (operation)
+                forge_control_clip(host, it.entity(row).id(), operation);
+        })
+        .add(host->fixed_tag);
+}
+```
+
+Register the source/start hook using the MarkerPulse target_sources pattern above;
+pass the three action UUID strings to this function. Allow Animation capability in
+Native/gameplay.cpp, ORing existing permissions. Input is an intrinsic query, so do
+not put FORGE_SDK_INPUT in descriptor permission fields. Keep the FORGE-created
+module dependency list unchanged; its managed builder already owns that declaration.
+Save, build, then Play. Turn Play on Start off to test explicit Play, and use a
+nonloop state to test Restart after completion. Enabled must be on and Speed must
+be positive for advancement. A pending Animator state change wins at synchronization.
+The helper controls the current admitted clip, never invents identity from names or
+stores a native handle. The real matching C++ integration fixture executes this
+helper and verifies pause/resume/restart through recovery in another process.

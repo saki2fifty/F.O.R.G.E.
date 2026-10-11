@@ -62,6 +62,18 @@ class Client {
                    ? host_->animation_read_event(host_->context, index, &out)
                    : 0;
     }
+    int32_t entity_reference(uint64_t native_entity, ForgeSdkEntityRefV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::RuntimeEntities) && host_->entity_reference
+                   ? host_->entity_reference(host_->context, native_entity, &out)
+                   : 0;
+    }
+    int32_t animation_control(const char* scene, const char* entity, uint32_t operation) const {
+        return callable(Capability::Animation) && host_->animation_control
+                   ? host_->animation_control(host_->context, scene, entity, operation)
+                   : 0;
+    }
     int32_t animation_playback(const char* scene, const char* entity,
                                ForgeSdkAnimationPlaybackV1& out) const {
         out = {};
