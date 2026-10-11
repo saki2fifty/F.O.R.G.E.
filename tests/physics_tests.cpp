@@ -170,6 +170,7 @@ void signed_scale_physics() {
 }
 #include "character_physics.hpp"
 #include "physics_body_state_tests.hpp"
+#include "physics_contact_tests.hpp"
 #include "physics_continuous_policy.hpp"
 #include "physics_hierarchy.hpp"
 #include "physics_load_tests.hpp"
@@ -238,6 +239,7 @@ int main(int argc, char** argv) {
         physics_motion_tuning_tests();
         physics_body_state_tests();
         physics_velocity_tests();
+        physics_contact_tests();
         {
             EngineContext authoring;
             check(!authoring.services().available(Capability::Physics), "Authoring created solver");

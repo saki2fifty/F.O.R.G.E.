@@ -39,6 +39,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
                 if (host->physics_set_velocity(host->context, ref.scene_uuid, ref.entity_uuid,
                                                channel, point) != 0)
                     throw std::runtime_error("SDK accepted velocity without Physics capability");
+            ForgeSdkPhysicsContactV1 contact{};
+            contact.size = sizeof(contact);
+            contact.begin = 42;
+            contact.tick = 42;
+            contact.first_scene_uuid[0] = 'x';
+            if (host->physics_contact_count(host->context) != -1 ||
+                host->physics_contact_event(host->context, 0, &contact) != -1 || contact.begin ||
+                contact.tick || contact.first_scene_uuid[0])
+                throw std::runtime_error("SDK exposed contacts without Physics capability");
             if (host->diagnostic(host->context, 1,
                                  "Body observation denied: Physics capability absent") != 1)
                 throw std::runtime_error("Denied observation fixture marker failed");

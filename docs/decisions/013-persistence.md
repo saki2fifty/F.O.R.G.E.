@@ -86,3 +86,13 @@ authored Scene/Prefab/project versions and durable save formats remain unchanged
 The checked exact-SDK callback is a tail addition with explicit channel values;
 existing load-kind meanings and native ABI1 are unchanged. Matching SDK module
 rebuilds are required. PhysicsRuntime remains the only motion/queue/recovery owner.
+
+## 2026-10-11 — copied contact observations
+
+Contact observations remain transient values in PhysicsRuntime's existing list.
+They expire at a successfully admitted synchronization before native realization
+changes, and fresh recovery does not replay them. The native cache is still
+restored through the private physics checkpoint; checked copied UUID pairs are
+not a durable overlap or event history. Reflected game-owned reaction progress
+uses existing component recovery. No Scene/Prefab or private checkpoint4 revision
+is needed. Exact SDK tail additions change the matching fingerprint, ABI1 unchanged.

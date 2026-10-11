@@ -58,6 +58,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Reference game](reference-game.md): standalone controls, menus, rebinding and saves.
 
 - [Physics](editor/physics.md): make bodies fall and collide, with Pause/Step and prefab support.
+- [C++ contact example](samples/physics-contacts.md): react to a sensor zone with editable speed and reversal settings.
 - [Play mode](editor/play-mode.md): run an isolated copy of your scene.
 - [Gameplay input](editor/input.md): bind actions and inspect fixed-tick input without writing code.
 - [Project Code](editor/native-gameplay.md): create, edit, and compile project C++ components and systems.

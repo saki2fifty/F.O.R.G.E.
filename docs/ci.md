@@ -481,3 +481,31 @@ runs production startup and the separately inventoried graphical observer. The
 observer measures four actual solver channels and independent stop positions and
 captures `physics-velocity-running.ppm`. These are CI gates, not physical GPU
 acceptance; inspect actual evidence before promoting a new delivery.
+
+## Copied contact observations and original C++ consumer
+
+The physics policy suite covers controlled Dynamic-sensor Begin/End without solid
+response, canonical copied pairs/ticks, stable nonconsuming readers, bounds and
+owner rejection, sleeping-solid cache End, failed-preflight retention, retired
+and same-UUID generations, and native recovery without transient Begin replay.
+`native_sdk_physics_contacts` compiles a real consumer and checks current-tick
+filtering, repeated copies, UUID pairs, exact output/null/size/bounds, outside-fixed
+and foreign-thread rejection, plus actual native motion/cache recovery in a new
+worker. The no-Physics consumer must execute and reject these reads as well.
+
+The combined package compiles `PhysicsContacts/Native` against the installed SDK,
+prepares existing schema/source identity, and checks both default reversal and
+tuned pass-through using independent trajectories. New workers restore before
+contact and with the PostPhysics reverse command still pending, without repeated
+launch, counters or Begin. Assembly verifies its module kit in
+`Examples/PhysicsContacts`. The final ZIP gate exports with the matching shared
+schema worker, deletes copied source/kit, checks production startup, then verifies
+the actual running native reversal/counters and captures
+`physics-contacts-running.ppm`. The readback checks both red actor and cyan marker.
+
+Physics loads/velocity captures check cyan actor pixels across the actual image.
+The original center-cube contrast assertion is scoped to its own scene; spaced
+physics actors can leave the center empty. These retain numerical execution,
+source-free export and production-startup checks. Saved captures require review.
+A configured gate does not itself claim Windows execution, physical GPU acceptance
+or a delivered ZIP.

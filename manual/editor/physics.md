@@ -304,3 +304,11 @@ primitive colliders can use mirrored scale with continuous collision.
 Old scenes default to discrete. Undo/Redo and Save preserve the checkbox. Exported
 games use the saved choice; gameplay code built against an older exact SDK must be
 rebuilt with the matching SDK. Gallery22 demonstrates the continuous/discrete case.
+
+## Reacting to contacts in C++
+
+Project Code can read copied current-step contact events after physics, then queue
+a reaction for the next step. See the [C++ contact example](../samples/physics-contacts.md)
+for an ordinary editable project. Sensors produce observations without blocking
+the moving body. Native cache End may also mean sleeping or removal; it does not
+always mean two objects moved apart.

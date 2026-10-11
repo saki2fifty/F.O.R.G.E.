@@ -876,6 +876,15 @@ struct PhysicsRuntime::Impl {
             return nullptr;
         return &found->second;
     }
+    bool has_contact_target(EntityRef ref) const {
+        const auto resolved = context.resolve(ref);
+        if (resolved.state != WorldContext::ResolveState::Available)
+            return false;
+        if (const auto found = bodies.find(resolved.entity); found != bodies.end())
+            return found->second.ref == ref;
+        const auto found = characters.find(resolved.entity);
+        return found != characters.end() && found->second.ref == ref;
+    }
     void erase(std::map<std::uint64_t, Body>::iterator it) {
         // Native constraints borrow body pointers: retire them before body destruction.
         for (auto j = joints.begin(); j != joints.end();) {
@@ -1299,6 +1308,10 @@ void PhysicsRuntime::synchronize(float dt) {
             prepared.emplace(entity, std::move(geometry));
         }
     }
+    // Adopted contacts belong to the preceding completed realization. A new
+    // admitted boundary can retire/recreate the same UUID, so expire that list
+    // before any writes; retain it if complete preflight rejected the boundary.
+    s.events.clear();
     for (auto id : commanded) {
         auto e = s.context.world().entity(id);
         const auto before = s.context.get_local_transform(e);
@@ -1684,6 +1697,16 @@ void PhysicsRuntime::set_angular_velocity(EntityRef ref, Double3 value) {
 const std::vector<PhysicsContact>& PhysicsRuntime::contacts() const {
     impl_->check();
     return impl_->events;
+}
+std::optional<PhysicsContact> PhysicsRuntime::contact_event(std::size_t index) const {
+    const auto& s = *impl_;
+    s.check();
+    if (index >= s.events.size())
+        return {};
+    const auto& event = s.events[index];
+    if (!s.has_contact_target(event.first) || !s.has_contact_target(event.second))
+        return {};
+    return event;
 }
 CharacterState PhysicsRuntime::character(EntityRef ref) const {
     auto& s = *impl_;

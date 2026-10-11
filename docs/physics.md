@@ -72,7 +72,31 @@ Raycast returns closest hit EntityRef, point, normal and fraction; displacement 
 
 Static and moving are internal filtering classes. Static/static pairs are excluded; moving bodies interact with static/moving. These Jolt layer numbers are not serialized. Authored layers use stable named project slots and symmetric masks through native CollisionGroup filtering, described below.
 
-Contact callbacks append bounded token records under a mutex. After Update, the owner thread resolves current tokens to EntityRefs, drops retired-body tokens and exposes `PhysicsContact` values until the next adoption. These are **solver contact-cache Begin/End**, not a promise of geometric overlap Begin/End: Jolt can remove contacts when bodies sleep. Events are transient; no generic bus or persisted contact entities. The narrow exact SDK currently exposes raycast and movement, not contact iteration.
+Contact callbacks append bounded token records under a mutex. After Update, the owner thread resolves current tokens to EntityRefs, drops retired-body tokens and exposes `PhysicsContact` values. The existing list expires at the next successfully admitted synchronization or is replaced by adoption; failed preflight preserves it. These are **solver contact-cache Begin/End**, not a promise of geometric overlap Begin/End: Jolt can remove contacts when bodies sleep, and complex shapes can yield multiple subshape events. Events are transient; no generic bus, overlap tracker or persisted contact entities.
+
+`contact_event(index)` returns a checked owning copy from that same list. Both
+targets must still resolve to the current realized body/character generation.
+Repeated reads do not consume slots or wake bodies. Retirement can make a slot
+unavailable; do not compact it while iterating. Expiration at an admitted
+synchronization prevents an old pair from being associated with newly realized
+bodies that reuse the same UUIDs.
+
+The exact SDK tail `physics_contact_count` and `physics_contact_event` requires
+owner thread, a fixed-step input context and Physics capability. Count is bounded
+to16384 stable slots; -1 means invalid context. A current tick with no observations
+returns0. Old-tick observations are filtered, including before physics on the next
+tick. Getter requires exact `ForgeSdkPhysicsContactV1` size, returns1 for a copied
+current event,0 for unavailable/index/retired, and-1 for invalid context/output.
+Correct-size output clears on failure; wrong-size output is not written. The DTO
+contains only Begin, tick and the canonical scene/entity UUID pair. It carries no
+native body handles, contact point, normal or impulse. An otherwise valid fixed
+consumer without Physics capability is denied.
+
+Fresh paused recovery restores native contact-cache state without replaying the
+transient adopted list. C++ game-owned counters/reaction state can use existing
+reflected components; PostPhysics commands take effect at the next boundary.
+Private checkpoint4 and authored formats remain unchanged. The public header
+fingerprint changes, requiring a matching exact SDK/module rebuild; ABI1 remains.
 
 ## Private recovery
 

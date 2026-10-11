@@ -1,0 +1,198 @@
+{
+  "asset_id": "1acdb2fe-b123-4fbc-8363-92e460e719dc",
+  "version": 3,
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05000000074505806,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975803375244,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0,
+          "y": 2,
+          "z": -12
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0423d5cd-9388-4a25-a89c-d93394b5537c",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981852531433,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2ec67848-6953-4d3c-8ded-b1a31a0a57d7",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3,
+          "y": 0,
+          "z": 0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "continuous_collision": false,
+          "linear_damping": 0,
+          "angular_damping": 0,
+          "allow_sleeping": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.95,
+          "g": 0.25,
+          "b": 0.12
+        },
+        "project.contact_reaction": {
+          "speed": 2,
+          "reverse_on_begin": true,
+          "launched": false,
+          "reacted": false,
+          "begin_count": 0,
+          "end_count": 0
+        }
+      },
+      "id": "3bb7ebe0-efba-4731-aa51-34af59afd54b",
+      "name": "Contact actor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1,
+          "y": 80,
+          "z": 1
+        },
+        "forge.local_scale": {
+          "x": 2,
+          "y": 0.05,
+          "z": 2
+        },
+        "forge.local_translation": {
+          "x": 0,
+          "y": -0.55,
+          "z": 0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": true,
+          "continuous_collision": false,
+          "linear_damping": 0,
+          "angular_damping": 0,
+          "allow_sleeping": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15,
+          "g": 0.75,
+          "b": 0.95
+        }
+      },
+      "id": "b0fbb2de-a7df-4a23-8baf-36d6ff7759df",
+      "name": "Sensor zone marker",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ]
+}

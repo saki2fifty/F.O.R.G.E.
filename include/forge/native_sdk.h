@@ -116,6 +116,12 @@ typedef struct ForgeSdkPhysicsBodyStateV1 {
     uint32_t size, motion, active;
     double centre_of_mass[3], linear_velocity[3], angular_velocity[3];
 } ForgeSdkPhysicsBodyStateV1;
+typedef struct ForgeSdkPhysicsContactV1 {
+    uint32_t size, begin;
+    uint64_t tick;
+    char first_scene_uuid[37], first_entity_uuid[37];
+    char second_scene_uuid[37], second_entity_uuid[37];
+} ForgeSdkPhysicsContactV1;
 typedef struct ForgeSdkActionV1 {
     uint32_t size;
     uint32_t held, pressed, released;
@@ -302,6 +308,15 @@ typedef struct ForgeSdkWorldV1 {
        Queued in body-command order;1 accepted,0 invalid/context/unavailable. */
     int32_t(FORGE_SDK_CALL* physics_set_velocity)(void*, const char* scene, const char* entity,
                                                   uint32_t channel, const double velocity[3]);
+    /* Current fixed-tick adopted contact-cache broadcast, intended for PostPhysics.
+       Count0..16384, -1 bad owner/fixed/Physics context. No prior-tick replay.
+       Stable slots, nonconsuming reads; sleeping/removal can cause cache End,
+       multiple subshape contacts can produce multiple Begin/End events. */
+    int32_t(FORGE_SDK_CALL* physics_contact_count)(void*);
+    /* Exact size required; correct-size output clears on failure.1 copied event,
+       0 unavailable/index/retired target, -1 bad context/output. UUIDs only. */
+    int32_t(FORGE_SDK_CALL* physics_contact_event)(void*, uint32_t index,
+                                                   ForgeSdkPhysicsContactV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

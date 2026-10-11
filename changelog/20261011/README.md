@@ -1,5 +1,31 @@
 # 2026-10-11
 
+## C++ contact observations
+
+Project Code can read copied current-step native contact-cache Begin/End pairs
+with canonical UUIDs and ticks. Repeated reads are nonconsuming; owner, fixed-step,
+Physics capability and exact output-size checks apply. Retired generations and
+prior ticks are unavailable. The existing physics list remains the owner and
+transient observations are not replayed after fresh recovery. Sleeping/removal
+can produce End; these are not geometric-overlap notifications.
+
+The original editable PhysicsContacts project reacts to a sensor zone by queuing
+a velocity reversal, with Inspector speed/reaction settings and runtime counters.
+It includes source and a gate for matched compilation, pending-reaction recovery
+and source-free export. Exact SDK modules require rebuilding; ABI1, authored
+formats and private checkpoint4 remain unchanged. Normal physics and compiled SDK guards/body+character/cache recovery pass. The
+original installed-SDK C++ examples pass with ASan/UBSan, independent reversal and
+pass-through equations, true pre-contact/pending-reversal recovery and unchanged
+authored scene. Four freshly rebuilt core sanitizer suites pass, including signed cooked
+collisions/joints and true native recovery. Windows export execution remains
+pending; this entry does not claim a new delivered ZIP or physical GPU acceptance.
+
+Windows164 passed core/SDK/editor and source-free C++ loads export/startup but its
+generic center-pixel capture assertion failed on the spaced scene. The saved
+readback shows all six actors. The observer now checks actual colored actors
+across physics scenes and retains its original center check for the center-cube
+scene. New final-package execution remains required.
+
 ## C++ rigid-body velocity control
 
 Project Code can queue world linear velocity in m/s and angular velocity in

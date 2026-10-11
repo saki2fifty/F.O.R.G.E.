@@ -109,6 +109,36 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert result.returncode == 0, (result.stdout, result.stderr)
         assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     assert len(json.loads((velocity_evidence / 'physics-velocity-result.json').read_text())) == 4
+    from physics_contacts_example_test import verify as verify_contacts
+    contacts = root / 'C++ Contacts Copy'
+    shutil.copytree(root / 'Examples/PhysicsContacts', contacts)
+    verify_contacts(root / 'NativeSdk/bin/forge_runtime.exe', contacts, env)
+    contacts_module, = json.loads((contacts / 'forge.project.json').read_text())['modules']
+    contacts_kit = root / 'Contacts Test Runtime Kit'
+    shutil.copytree(root / 'runtime-kits/shared-native-sdk', contacts_kit)
+    shutil.copyfile(observer, contacts_kit / 'forge_game_fixture.exe')
+    (contacts_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
+    contacts_export = root / 'Exported C++ Physics Contacts'
+    contacts_options = dict(destination=str(contacts_export), runtime_kit=str(contacts_kit),
+        inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'),
+        module_kits={'project.gameplay': str((contacts / contacts_module['library']).parent)})
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(contacts),
+        json.dumps(contacts_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    shutil.rmtree(contacts)
+    shutil.rmtree(contacts_kit)
+    assert not list(contacts_export.rglob('*.cpp')) and not list(contacts_export.rglob('*.hpp'))
+    contacts_evidence = evidence / 'contacts'
+    contacts_evidence.mkdir()
+    for executable, arguments, log in (
+        ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
+        ('forge_game_fixture.exe', ['--packaged-contacts', str(contacts_evidence)], 'capture-host.log')):
+        result = subprocess.run([str(contacts_export / executable), *arguments], cwd=contacts_export,
+            env=env, text=True, capture_output=True, timeout=180)
+        (contacts_evidence / log).write_text(result.stdout + '\n' + result.stderr)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+    assert json.loads((contacts_evidence / 'physics-contacts-result.json').read_text())['begin_tick'] > 0
     # The user-facing gallery is a normal editable project. Copy it before export,
     # just as the manual instructs, so package hashes remain immutable.
     gallery = root/'Gallery Copy'

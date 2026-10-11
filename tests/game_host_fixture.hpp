@@ -12,7 +12,7 @@ struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
-         expect_module = false, loads = false, velocity = false;
+         expect_module = false, loads = false, velocity = false, contacts = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -67,7 +67,8 @@ struct GameHostFixture {
         mixed = argc == 3 && std::string_view(argv[1]) == "--packaged-mixed";
         loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
-        packaged = reference || mixed || loads || velocity ||
+        contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
+        packaged = reference || mixed || loads || velocity || contacts ||
                    (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
@@ -140,6 +141,19 @@ struct GameHostFixture {
                         p[1] > 30 && p[1] > unsigned(p[0]) + 10 && p[1] > unsigned(p[2]) + 5;
                 }
         std::size_t imported_pixels = 0;
+        std::size_t physics_actor_pixels = 0;
+        std::size_t contact_actor_pixels = 0;
+        if (loads || velocity || contacts)
+            for (unsigned y = 0; y < desc.Height; ++y)
+                for (unsigned x = 0; x < desc.Width; ++x) {
+                    const auto* p = pixels + y * data.Stride + x * 4;
+                    // Both authored physics examples use cyan actors. Sample the
+                    // actual scene, whose moving actors need not cover its center.
+                    physics_actor_pixels += p[1] > 30 && p[2] > 30 && p[1] > unsigned(p[0]) + 15 &&
+                                            p[2] > unsigned(p[0]) + 15;
+                    contact_actor_pixels +=
+                        p[0] > 30 && p[0] > unsigned(p[1]) + 15 && p[0] > unsigned(p[2]) + 15;
+                }
         if (mixed && std::string_view(name) == "standalone-running.ppm")
             for (unsigned y = desc.Height * 4 / 10; y < desc.Height * 6 / 10; ++y)
                 for (unsigned x = desc.Width * 65 / 100; x < desc.Width * 9 / 10; ++x) {
@@ -158,8 +172,22 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        if (!reference) // This contrast probe belongs to the original cube fixture.
+        if (!reference && !loads && !velocity && !contacts) // Original center-cube fixture only.
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
+        if (loads || velocity) {
+            check(physics_actor_pixels > 100,
+                  "Authored physics actors are not visible in standalone rendering");
+            atomic_write(output / "physics-render-result.json",
+                         Json{{"cyan_actor_pixels", physics_actor_pixels}}.dump(2));
+        }
+        if (contacts) {
+            check(physics_actor_pixels > 100 && contact_actor_pixels > 100,
+                  "Contact actor and blue sensor marker are not both visible");
+            atomic_write(output / "physics-render-result.json",
+                         Json{{"cyan_marker_pixels", physics_actor_pixels},
+                              {"red_actor_pixels", contact_actor_pixels}}
+                             .dump(2));
+        }
         if (!reference && std::string_view(name) == "standalone-running.ppm") {
             check(graph_pixels > 100,
                   "The authored green graph material is not visible in standalone rendering");
@@ -208,6 +236,49 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (contacts) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            if (tick < 90)
+                return;
+            unsigned begin_tick = 0;
+            for (const auto& row : game.active().engine.services().diagnostics())
+                if (row.at("text").get<std::string>().starts_with(
+                        "Contact reaction: Begin | tick ")) {
+                    check(!begin_tick, "Exported contact example repeated its native Begin");
+                    begin_tick = row.at("context").at("tick").get<unsigned>();
+                    check(row.at("text") ==
+                              "Contact reaction: Begin | tick " + std::to_string(begin_tick),
+                          "Exported contact tick disagrees with its diagnostic context");
+                }
+            check(begin_tick > 0 && begin_tick < tick, "Exported C++ contact Begin missing");
+            const auto scene = game.active().scene.snapshot();
+            unsigned actors = 0;
+            for (const auto& entity : scene.at("entities")) {
+                const auto& components = entity.at("components");
+                if (!components.contains("project.contact_reaction"))
+                    continue;
+                ++actors;
+                const auto& control = components.at("project.contact_reaction");
+                const auto ref = game.active().engine.world().reference(
+                    game.active().scene.entity(entity.at("id")).id());
+                const auto state = ref ? game.active().physics()->body_state(*ref) : std::nullopt;
+                const double expected = -3 + 2 * double(1.f / 60) * (2 * double(begin_tick) - tick);
+                check(state && control.at("launched") == true && control.at("reacted") == true &&
+                          control.at("begin_count") == 1 && control.at("end_count") == 1 &&
+                          std::abs(state->linear_velocity[0] + 2) < 1e-6 &&
+                          std::abs(components.at("forge.local_translation").at("x").get<double>() -
+                                   expected) < 2e-5,
+                      "Exported C++ sensor reaction failed independent queued-reversal proof");
+                atomic_write(
+                    output / "physics-contacts-result.json",
+                    Json{{"begin_tick", begin_tick}, {"tick", tick}, {"components", components}}
+                        .dump(2));
+            }
+            check(actors == 1, "Exported contact example actor count changed");
+            capture("physics-contacts-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (velocity) {
             if (game.status().at("clock").at("tick").get<unsigned>() < 180)
                 return;

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <forge/character_service.hpp>
 #include <forge/identity.hpp>
 #include <forge/runtime_resource_service.hpp>
@@ -69,6 +70,10 @@ class PhysicsService : public CharacterService {
     virtual std::optional<PhysicsBodyState> body_state(EntityRef) const = 0;
     virtual std::optional<Double3> point_velocity(EntityRef,
                                                   LocalTranslation world_point) const = 0;
+    // Adopted observations expire at the next admitted synchronization/adoption.
     virtual const std::vector<PhysicsContact>& contacts() const = 0;
+    // Copied slot from the same adopted list. Current realized body/character
+    // generations must still match both canonical references. No consumption.
+    virtual std::optional<PhysicsContact> contact_event(std::size_t index) const = 0;
 };
 } // namespace forge

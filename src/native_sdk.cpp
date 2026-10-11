@@ -1018,6 +1018,50 @@ struct Bridge {
                 return 0;
             }
         };
+        host.physics_contact_count = [](void* p) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return -1;
+                const auto& events = c.services.physics()->contacts();
+                if (events.size() > 16384)
+                    return -1;
+                if (events.empty() || events.front().tick != c.input->tick)
+                    return 0;
+                return static_cast<int32_t>(events.size());
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.physics_contact_event = [](void* p, uint32_t index,
+                                        ForgeSdkPhysicsContactV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return -1;
+                const auto event = c.services.physics()->contact_event(index);
+                if (!event || event->tick != c.input->tick)
+                    return 0;
+                const auto copy = [](auto& to, const std::string& from) {
+                    std::memcpy(to, from.data(), std::min(from.size(), sizeof(to) - 1));
+                };
+                out->tick = event->tick;
+                out->begin = event->begin;
+                copy(out->first_scene_uuid, event->first.scene.str());
+                copy(out->first_entity_uuid, event->first.entity.str());
+                copy(out->second_scene_uuid, event->second.scene.str());
+                copy(out->second_entity_uuid, event->second.entity.str());
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
+                return -1;
+            }
+        };
         host.read_action = [](void* p, const char* id, ForgeSdkActionV1* out) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;

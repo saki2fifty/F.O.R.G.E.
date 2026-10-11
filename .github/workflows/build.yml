@@ -488,7 +488,17 @@ jobs:
           if ($LASTEXITCODE) { throw 'C++ velocity example preparation failed' }
           python tests/physics_velocity_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/velocity-project"
           if ($LASTEXITCODE) { throw 'C++ velocity runtime/recovery failed' }
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project"
+          cmake -S samples/projects/PhysicsContacts/Native -B "$root/contacts-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl "-DForgeNativeSdk_DIR=$root/sdk/sdk"
+          if ($LASTEXITCODE) { throw 'C++ contacts example configure failed' }
+          cmake --build "$root/contacts-build" --parallel 2
+          if ($LASTEXITCODE) { throw 'C++ contacts example compile failed' }
+          cmake --install "$root/contacts-build" --component GameplayRuntime --prefix "$root/contacts-kits"
+          if ($LASTEXITCODE) { throw 'C++ contacts deployment failed' }
+          python tools/prepare_physics_loads.py --source samples/projects/PhysicsContacts --output "$root/contacts-project" --runtime "$root/sdk/bin/forge_runtime.exe" --tools "$root/loads-editor/bin/forge_tools.exe" --module-kit "$root/contacts-kits/project.gameplay" --component project.contact_reaction
+          if ($LASTEXITCODE) { throw 'C++ contacts example preparation failed' }
+          python tests/physics_contacts_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/contacts-project"
+          if ($LASTEXITCODE) { throw 'C++ contacts runtime/recovery failed' }
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project" --physics-contacts "$root/contacts-project"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }
