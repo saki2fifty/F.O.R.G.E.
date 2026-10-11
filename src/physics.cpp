@@ -28,7 +28,9 @@
 #include <Jolt/Physics/Collision/ShapeCast.h>
 #include <Jolt/Physics/Collision/TransformedShape.h>
 #include <Jolt/Physics/Constraints/DistanceConstraint.h>
+#include <Jolt/Physics/Constraints/FixedConstraint.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/PointConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/StateRecorderImpl.h>
 #include <algorithm>
@@ -999,6 +1001,11 @@ struct PhysicsRuntime::Impl {
             const auto& c = v.config;
             const auto pa = point(c.anchor_a_x, c.anchor_a_y, c.anchor_a_z, a, *ba);
             const auto pb = point(c.anchor_b_x, c.anchor_b_y, c.anchor_b_z, b, *bb);
+            auto axis = [](unsigned i) {
+                return i == 0   ? JPH::Vec3::sAxisX()
+                       : i == 1 ? JPH::Vec3::sAxisY()
+                                : JPH::Vec3::sAxisZ();
+            };
             if (c.kind == 0) {
                 JPH::DistanceConstraintSettings settings;
                 settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
@@ -1007,12 +1014,7 @@ struct PhysicsRuntime::Impl {
                 settings.mMinDistance = c.min_distance;
                 settings.mMaxDistance = c.max_distance;
                 native = settings.Create(*ba, *bb);
-            } else {
-                auto axis = [](unsigned i) {
-                    return i == 0   ? JPH::Vec3::sAxisX()
-                           : i == 1 ? JPH::Vec3::sAxisY()
-                                    : JPH::Vec3::sAxisZ();
-                };
+            } else if (c.kind == 1) {
                 JPH::HingeConstraintSettings settings;
                 settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
                 settings.mPoint1 = pa;
@@ -1023,6 +1025,23 @@ struct PhysicsRuntime::Impl {
                 settings.mNormalAxis2 = axis(c.normal_b);
                 settings.mLimitsMin = c.min_angle * std::numbers::pi_v<float> / 180;
                 settings.mLimitsMax = c.max_angle * std::numbers::pi_v<float> / 180;
+                native = settings.Create(*ba, *bb);
+            } else if (c.kind == 2) {
+                JPH::PointConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
+                settings.mPoint1 = pa;
+                settings.mPoint2 = pb;
+                native = settings.Create(*ba, *bb);
+            } else {
+                JPH::FixedConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
+                settings.mAutoDetectPoint = false;
+                settings.mPoint1 = pa;
+                settings.mPoint2 = pb;
+                settings.mAxisX1 = axis(c.normal_a);
+                settings.mAxisY1 = axis(c.axis_a).Cross(settings.mAxisX1);
+                settings.mAxisX2 = axis(c.normal_b);
+                settings.mAxisY2 = axis(c.axis_b).Cross(settings.mAxisX2);
                 native = settings.Create(*ba, *bb);
             }
             if (!native)

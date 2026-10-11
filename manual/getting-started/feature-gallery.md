@@ -1,6 +1,6 @@
 # Explore the Feature Gallery
 
-The packaged **Examples/FeatureGallery** project gives you twenty short scenes to
+The packaged **Examples/FeatureGallery** project gives you twenty-one short scenes to
 open in the editor and export as standalone games. You can see how each effect is
 authored, change it, then compare the result in Play and in the exported game.
 
@@ -38,3 +38,7 @@ Scene **20-physics-joints** demonstrates a distance tether and hinged pendulum.
 Select a joint entity to assign bodies, adjust local anchors, and change distance
 or angle limits. See[Connect bodies with a joint](../editor/physics.md). Play and
 standalone export use the same engine-owned physics components.
+
+Scene21 demonstrates a point joint's freely rotating pendulum and a fixed joint's
+falling rigid pair. They use the normal Physics Joint component and saved scene
+body references, with no gameplay compiler required.

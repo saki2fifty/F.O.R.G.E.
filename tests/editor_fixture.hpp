@@ -81,8 +81,10 @@ struct EditorFixture {
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
-        if (stage >= 145 && stage <= 150)
+        if (stage >= 145 && stage <= 156)
             return "Inspector";
+        if (stage >= 157 && stage <= 162)
+            return "###Scene";
         if (workflow)
             return nullptr;
         switch (stage) {
@@ -467,7 +469,19 @@ struct EditorFixture {
                                "physics-joint-bodies-200",
                                "physics-joint-hinge-limits",
                                "physics-joint-hinge-limits-150",
-                               "physics-joint-hinge-limits-200"};
+                               "physics-joint-hinge-limits-200",
+                               "physics-joint-point",
+                               "physics-joint-point-150",
+                               "physics-joint-point-200",
+                               "physics-joint-fixed-frames",
+                               "physics-joint-fixed-frames-150",
+                               "physics-joint-fixed-frames-200",
+                               "physics-joint-fixed-guides",
+                               "physics-joint-fixed-guides-150",
+                               "physics-joint-fixed-guides-200",
+                               "physics-joint-missing-body",
+                               "physics-joint-missing-body-150",
+                               "physics-joint-missing-body-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

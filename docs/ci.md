@@ -394,3 +394,16 @@ Inspector captures cover body references and hinge bounds at100/150/200% scale.
 The final assembled-package gate exports Gallery20 with the shipped runtime kit
 and executes its startup verification alongside the existing Gallery scenes.
 These automated results are separate from physical GPU/desktop acceptance.
+
+Point/fixed acceptance extends the same targets with physics_joint_extended_gallery,
+original Gallery21 export and real shipped EXE startup. Native151–156 captures
+cover Point body references and Fixed reference-frame controls at100/150/200%.
+The numerical gate compares independent frame vectors and four-type native
+swapped-index recovery rather than relying on test counts or labels.
+
+Selected-joint guide acceptance adds `physics_joint_guides`: independent rotated
+parent/signed-scale anchors, explicit reference diagnostics and actual clipped
+ImGui draw without document/history or active-input mutation. Native157–162 show
+Fixed guides and missing-body feedback at100/150/200%; review the captured images
+before claiming visual acceptance. Actual offset-COM native solver tests compare
+these derived guides to body-origin anchors for Hinge, Point and Fixed.

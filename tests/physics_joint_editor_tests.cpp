@@ -1,5 +1,5 @@
 #include "../src/physics_joint_value.hpp"
-#include "property_drawer.hpp"
+#include "component_inspector.hpp"
 #include <forge/authoring.hpp>
 #include <forge/scene_identity.hpp>
 #include <imgui_internal.h>
@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need joint Inspector scratch root");
         for (float scale : {.65f, 1.f, 2.f}) {
             const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
-            std::filesystem::create_directories(root);
+            SceneDocument::create_project(root, "Joint Inspector test");
             {
                 EngineContext engine;
                 Scene scene{engine.world()};
@@ -31,6 +31,11 @@ int main(int argc, char** argv) {
                 PhysicsBody moving;
                 moving.motion = 2;
                 scene.entity("b").set<PhysicsBody>(moving);
+                const auto staged = scene.snapshot();
+                SceneDocument project(scene);
+                project.open_project(root);
+                scene.restore_snapshot(staged);
+                ComponentInspector inspector;
                 const auto id = scene.canonical_id("j");
                 authoring_command(scene, "component.add",
                                   {{"entity", id}, {"component", "forge.physics_joint"}});
@@ -58,39 +63,32 @@ int main(int argc, char** argv) {
                 context.scene = &scene;
                 ui::ContextScope scope(context);
                 test::observe_ui = true;
-                bool hinge = false;
+                std::string selected = id;
                 auto frame = [&] {
                     test::ui_targets.clear();
                     ImGui::NewFrame();
                     ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
                     ImGui::SetNextWindowSize({1500, 1000}, ImGuiCond_Always);
                     ImGui::Begin("Joint Inspector");
-                    const auto current = scene.entity(id).get<PhysicsJoint>();
-                    auto values = physics_detail::joint_value(current);
-                    for (const auto& field : joint_schema.at("fields")) {
-                        const std::string name = field.at("id");
-                        if (name != "body_a" && name != "body_b" && name != "kind" &&
-                            name != "enabled" &&
-                            (hinge ? name != "min_angle" && name != "max_angle"
-                                   : name != "min_distance" && name != "max_distance"))
-                            continue;
-                        ui::IdScope field_scope(name.c_str());
-                        auto value = values.at(name);
-                        if (property_field(root, field, value))
-                            authoring_command(scene, "property.set",
-                                              {{"entity", id},
-                                               {"component", "forge.physics_joint"},
-                                               {"field", name},
-                                               {"value", value}});
-                        test::observe_item("joint-property:" + name);
-                    }
+                    inspector.draw(scene, project, selected);
                     ImGui::End();
                     ImGui::Render();
                 };
                 auto target = [&](const std::string& name) {
                     frame();
                     require(test::ui_targets.contains(name), "Missing widget: " + name);
-                    const auto t = test::ui_targets.at(name);
+                    auto t = test::ui_targets.at(name);
+                    if (t.minimum.y < t.clip_minimum.y || t.maximum.y > t.clip_maximum.y) {
+                        auto* window = ImGui::FindWindowByName("Joint Inspector");
+                        require(window, "Joint Inspector window missing");
+                        ImGui::SetScrollY(window,
+                                          window->Scroll.y + (t.minimum.y + t.maximum.y -
+                                                              t.clip_minimum.y - t.clip_maximum.y) *
+                                                                 .5f);
+                        frame();
+                        frame();
+                        t = test::ui_targets.at(name);
+                    }
                     require(t.enabled && t.minimum.y >= t.clip_minimum.y &&
                                 t.maximum.y <= t.clip_maximum.y,
                             "Clipped widget: " + name);
@@ -112,7 +110,7 @@ int main(int argc, char** argv) {
                     frame();
                 };
                 auto numeric = [&](const char* field, const char* text) {
-                    click(std::string("joint-property:") + field);
+                    click(std::string("component-field:forge.physics_joint:") + field);
                     io.AddKeyEvent(ImGuiMod_Ctrl, true);
                     key(ImGuiKey_A);
                     io.AddKeyEvent(ImGuiMod_Ctrl, false);
@@ -123,13 +121,18 @@ int main(int argc, char** argv) {
                 };
                 frame();
                 frame();
-                click("joint-property:body_a");
+                frame();
+                require(
+                    !test::ui_targets.contains("component-field:forge.physics_joint:axis_a") &&
+                        !test::ui_targets.contains("component-field:forge.physics_joint:min_angle"),
+                    "Distance Inspector exposes inactive orientation/angle controls");
+                click("component-field:forge.physics_joint:body_a");
                 require(!test::ui_targets.contains("entity-picker-row:" + id),
                         "Joint picker offered a non-body entity");
                 click("entity-picker-row:" + a.entity.str());
                 require(scene.entity(id).get<PhysicsJoint>().body_a == a,
                         "Actual Body A picker failed");
-                click("joint-property:body_b");
+                click("component-field:forge.physics_joint:body_b");
                 click("entity-picker-row:" + b.entity.str());
                 require(scene.entity(id).get<PhysicsJoint>().body_b == b,
                         "Actual Body B picker failed");
@@ -142,25 +145,56 @@ int main(int argc, char** argv) {
                         "Joint Inspector undo");
                 require(scene.redo() && scene.entity(id).get<PhysicsJoint>().min_distance == 2,
                         "Joint Inspector redo");
-                click("joint-property:kind");
+                click("component-field:forge.physics_joint:kind");
                 key(ImGuiKey_DownArrow);
                 key(ImGuiKey_Enter);
                 require(scene.entity(id).get<PhysicsJoint>().kind == 1,
                         "Actual Hinge enum choice failed");
-                hinge = true;
+                frame();
+                require(!test::ui_targets.contains(
+                            "component-field:forge.physics_joint:min_distance") &&
+                            test::ui_targets.contains("component-field:forge.physics_joint:axis_a"),
+                        "Hinge Inspector exposes irrelevant distance fields or lacks axes");
                 numeric("min_angle", "-30");
                 numeric("max_angle", "60");
                 require(scene.entity(id).get<PhysicsJoint>().min_angle == -30 &&
                             scene.entity(id).get<PhysicsJoint>().max_angle == 60,
                         "Inspector angle edit");
-                click("joint-property:body_b");
+                click("component-field:forge.physics_joint:body_b");
                 click("entity-picker-clear");
                 require(!scene.entity(id).get<PhysicsJoint>().body_b.scene,
                         "Reference clear failed");
                 require(scene.undo() && scene.entity(id).get<PhysicsJoint>().body_b == b,
                         "Reference clear undo");
-                click("joint-property:enabled");
+                for (const unsigned expected : {2u, 3u}) {
+                    click("component-field:forge.physics_joint:kind");
+                    key(ImGuiKey_DownArrow);
+                    key(ImGuiKey_Enter);
+                    require(scene.entity(id).get<PhysicsJoint>().kind == expected,
+                            "Actual Point/Fixed enum choice failed");
+                    frame();
+                    require(
+                        !test::ui_targets.contains(
+                            "component-field:forge.physics_joint:min_distance") &&
+                            !test::ui_targets.contains(
+                                "component-field:forge.physics_joint:min_angle") &&
+                            test::ui_targets.contains(
+                                "component-field:forge.physics_joint:body_a") &&
+                            (test::ui_targets.contains(
+                                 "component-field:forge.physics_joint:axis_a") == (expected == 3)),
+                        "Actual Point/Fixed Inspector fields differ");
+                    require(scene.undo() &&
+                                scene.entity(id).get<PhysicsJoint>().kind == expected - 1,
+                            "Point/Fixed selection Undo failed");
+                    require(scene.redo() && scene.entity(id).get<PhysicsJoint>().kind == expected,
+                            "Point/Fixed selection Redo failed");
+                }
+                click("component-field:forge.physics_joint:enabled");
                 require(!scene.entity(id).get<PhysicsJoint>().enabled, "Enabled checkbox failed");
+                const auto retained = scene.entity(id).get<PhysicsJoint>();
+                require(retained.min_distance == 2 && retained.max_distance == 3 &&
+                            retained.min_angle == -30 && retained.max_angle == 60,
+                        "Switching joint kind discarded inactive authored settings");
                 scene.save(root / "joint.scene.json");
                 EngineContext reopened;
                 Scene saved{reopened.world()};
@@ -168,6 +202,15 @@ int main(int argc, char** argv) {
                 require(saved.entity(id).get<PhysicsJoint>() ==
                             scene.entity(id).get<PhysicsJoint>(),
                         "Inspector save/reopen lost settings");
+                // The shared enum focus correction also serves existing body fields.
+                selected = scene.canonical_id("b");
+                click("component-field:forge.physics_body:motion");
+                key(ImGuiKey_UpArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(selected).get<PhysicsBody>().motion == 1,
+                        "Existing Dynamic body enum failed to navigate to Kinematic");
+                require(scene.undo() && scene.entity(selected).get<PhysicsBody>().motion == 2,
+                        "Existing body enum history regressed");
                 bool solver_absent = false;
                 try {
                     (void)engine.services().physics();

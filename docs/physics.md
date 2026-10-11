@@ -275,7 +275,7 @@ subasset correspondence decisions (collision members are authored identities). F
 cooking retains the previous catalog publication. Ordinary users can use the editor's
 Save workflow; this entry point serves automation and acceptance-project generation.
 
-## Distance and hinge joints
+## Authored physics joints
 
 `forge.physics_joint` is an optional reflected `PhysicsJoint` component. A joint
 entity selects two distinct enabled, nonsensor Physics Bodies by `EntityRef`, with
@@ -291,7 +291,7 @@ bounds make a fixed-length tether. Hinge joins two anchor points and allows
 rotation around one selected X/Y/Z axis in each rigid body frame. Each selected
 normal axis must differ from its hinge axis. The angle is zero when the two normal
 frames agree; degree limits enclose zero, from [-180, 0] and [0, 180]. Equal zero hinge
-limits are rejected; this batch does not expose a fixed joint. Motors, break force,
+limits are rejected; use Fixed when zero angular freedom is required. Motors, break force,
 ragdolls and joint-specific connected-pair collision exclusion are not implemented.
 Existing project layers/masks continue to own collision filtering.
 
@@ -321,3 +321,34 @@ binding require a separate typed prefab-member reference contract. The current
 body picker assigns the instance's body targets explicitly. Scene/subtree
 duplication remaps admitted intra-scene joint references; opaque extensions remain
 untouched. Source publication and snapshot reopening preserve normal inheritance.
+
+Kinds2 Point and3 Fixed extend the same PhysicsJoint value; kinds0/1 retain their
+Distance/Hinge meaning. Point constrains only its two COM-converted body-origin
+anchors. Fixed additionally aligns two explicit body-local frames: normal as X,
+axis cross normal as Y. Perpendicular choices are required. The frames are stable
+authored data; arbitrary current relative pose is not implicitly captured during
+runtime realization or recovery. Both use exact pinned LocalToBodyCOM settings;
+Fixed disables automatic point detection. Distance/angle settings are inactive
+but preserved and bounded for these kinds. The existing native2 recovery envelope
+and lifetime/admission/identity rules are unchanged. Public enum documentation
+updates the exactSDK fingerprint; native ABI1 and field layout remain unchanged.
+
+### Editor joint guides and numerical limits
+
+The existing Scene PhysicsOverlay derives selected-joint guides from the effective
+snapshot using the same admitted world-pose decomposition hints as body realization.
+It applies signed scale to body-origin anchors and only rigid rotation to axes;
+collision center of mass does not move an authored anchor. The guide owns no native
+body, asset preparation job or document/history state. Missing/ambiguous/other-scene
+references and disabled/sensor/non-dynamic pairs receive authored-preview diagnostics.
+Other loaded runtime scenes are not resolved by the one-scene editor snapshot.
+Selected collision geometry and joint guides have separate saved visibility controls.
+All guide primitives/text are Scene-clipped; there is no gameplay/export overlay.
+
+Pinned Jolt's finite iteration profile is not an exact weld/transform-parent promise.
+A regression that moved a support 2.45m in one 1/60s tick excited persistent fixed
+joint oscillation (147m/s implied target). Normal continuous 2.45m/s translation plus
+0.4rad/s rotation instead passes a 4cm pivot bound on each tick, and one-degree frame
+agreement after settling under gravity. Frame construction is separately checked
+without gravity to 0.003 unit-vector chord. These are attributable fixture bounds,
+not universal engine accuracy/performance guarantees or a solver-setting upgrade.

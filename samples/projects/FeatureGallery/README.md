@@ -115,3 +115,11 @@ change settings. Anchors use each body's local origin and follow its scale. The
 support collision masks are zero to avoid contacts at attached pivots. Joints do
 not render ropes or hinge meshes. Save/select this startup scene and export it to
 see the same physical motion without the editor or a C++ compiler.
+
+## 21 — Point and fixed joints
+
+A blue pendulum swings around a free point joint in three dimensions. Two amber
+bodies fall together as a fixed assembly and settle on the floor. The joint
+entities select body references and scaled local anchors; fixed reference frames
+use the normal axis as frame X and axis cross normal as frame Y. Open the scene,
+Play, Stop and export through the same compiler-free static runtime route.

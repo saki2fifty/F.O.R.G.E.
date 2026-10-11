@@ -1,7 +1,9 @@
 #pragma once
 #include "../collision_selection.hpp"
 #include "../physics_debug.hpp"
+#include "physics_joint_guide.hpp"
 #include "spatial_helpers.hpp"
+#include <cstdio>
 #include <future>
 namespace forge::ui {
 // Selected-object, Scene-only inspection. Preparation uses immutable copied input;
@@ -9,9 +11,11 @@ namespace forge::ui {
 class PhysicsOverlay {
   public:
     bool visible = false;
+    bool joint_visible = true;
     const std::string& status() const { return status_; }
     bool ready() const {
-        return visible && !geometry_.triangles.empty() && good_ == key_ && error_.empty();
+        return visible && !joint_selected_ && !geometry_.triangles.empty() && good_ == key_ &&
+               error_.empty();
     }
     ~PhysicsOverlay() {
         if (job_.valid())
@@ -20,7 +24,8 @@ class PhysicsOverlay {
     void draw(const Json& scene, const std::string& selected, const EditorCamera& camera,
               ImVec2 origin, ImVec2 area, const std::filesystem::path& project,
               std::shared_ptr<const AssetCatalog> catalog, const Json& runtime = {}) {
-        if (!visible || selected.empty() || !catalog)
+        joint_selected_ = false;
+        if (selected.empty())
             return;
         const Json* row = nullptr;
         for (const auto& e : scene.at("entities"))
@@ -29,6 +34,15 @@ class PhysicsOverlay {
                 break;
             }
         if (!row)
+            return;
+        joint_selected_ = row->at("components").contains("forge.physics_joint");
+        if (joint_selected_) {
+            if (joint_visible)
+                if (const auto guide = prepare_physics_joint_guide(scene, selected))
+                    draw_joint(*guide, camera, origin, area);
+            return;
+        }
+        if (!visible || !catalog)
             return;
         if (entity_ != selected || project_ != project) {
             if (pool_ && asset_)
@@ -223,6 +237,81 @@ class PhysicsOverlay {
     }
 
   private:
+    bool joint_selected_ = false;
+    void draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
+                    ImVec2 area) {
+        static constexpr const char* kinds[] = {"Distance", "Hinge", "Point", "Fixed"};
+        const auto color = !guide.error.empty() ? IM_COL32(255, 112, 120, 230)
+                           : !guide.enabled     ? IM_COL32(160, 170, 185, 230)
+                           : guide.valid        ? IM_COL32(74, 231, 187, 230)
+                                                : IM_COL32(255, 112, 120, 230);
+        auto* draw = ImGui::GetWindowDrawList();
+        draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
+        std::string note = guide.kind < 4 ? std::string("Authored ") + kinds[guide.kind] + " joint"
+                                          : "Authored joint";
+        if (!guide.enabled)
+            note += " | disabled";
+        if (!guide.error.empty())
+            note += " | " + guide.error;
+        for (unsigned i = 0; i < 2; ++i) {
+            const auto& body = guide.bodies[i];
+            note += std::string(" | ") + (i ? "B: " : "A: ") +
+                    (body.name.empty() ? "unavailable" : body.name);
+            if (!body.error.empty())
+                note += " (" + body.error + ")";
+            if (!body.available)
+                continue;
+            const auto marker = i ? IM_COL32(255, 194, 88, 240) : IM_COL32(105, 185, 255, 240);
+            for (const auto& axis : body.axes)
+                SpatialHelpers::draw_line(draw, camera, origin, area,
+                                          helper_add(body.anchor, axis, -.08),
+                                          helper_add(body.anchor, axis, .08), marker);
+            if (guide.kind == 1 || guide.kind == 3) {
+                SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
+                                          helper_add(body.anchor, body.axes[guide.axis[i]], .6),
+                                          marker);
+                SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
+                                          helper_add(body.anchor, body.axes[guide.normal[i]], .35),
+                                          marker);
+                if (guide.kind == 3) {
+                    const auto& z = body.axes[guide.axis[i]];
+                    const auto& x = body.axes[guide.normal[i]];
+                    const Double3 y{z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2],
+                                    z[0] * x[1] - z[1] * x[0]};
+                    SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
+                                              helper_add(body.anchor, y, .35), marker);
+                }
+            }
+            const auto p = project_point(
+                camera, Vec3{float(body.anchor[0]), float(body.anchor[1]), float(body.anchor[2])},
+                area.x, area.y);
+            if (p && std::isfinite((*p)[0]) && std::isfinite((*p)[1]))
+                draw->AddText({origin.x + (*p)[0] + 6, origin.y + (*p)[1] + 6}, marker,
+                              i ? "B" : "A");
+        }
+        if (guide.bodies[0].available && guide.bodies[1].available) {
+            const auto& a = guide.bodies[0].anchor;
+            const auto& b = guide.bodies[1].anchor;
+            SpatialHelpers::draw_line(draw, camera, origin, area, a, b, color);
+            const auto gap = helper_add(b, a, -1);
+            char metric[64];
+            std::snprintf(metric, sizeof(metric), " | anchor gap %.3f m",
+                          std::sqrt(gap[0] * gap[0] + gap[1] * gap[1] + gap[2] * gap[2]));
+            note += metric;
+        }
+        const auto width = std::max(40.f, area.x - 28.f);
+        const auto extent = ImGui::CalcTextSize(note.c_str(), nullptr, false, width);
+        const auto text =
+            ImVec2{origin.x + 10, std::max(origin.y + 10, origin.y + area.y - extent.y -
+                                                              ImGui::GetTextLineHeight() - 12)};
+        draw->AddRectFilled({text.x - 4, text.y - 3},
+                            {origin.x + area.x - 10, text.y + extent.y + 3},
+                            IM_COL32(14, 20, 27, 225), 3);
+        draw->AddText(ImGui::GetFont(), ImGui::GetFontSize(), text, color, note.c_str(), nullptr,
+                      width);
+        draw->PopClipRect();
+        status_ = note;
+    }
     std::string entity_, key_, attempt_, good_, work_, error_, selection_, status_;
     std::string work_entity_;
     std::filesystem::path project_, work_project_;

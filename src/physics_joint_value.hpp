@@ -10,13 +10,13 @@ inline void validate_joint(const PhysicsJoint& v) {
          {v.anchor_a_x, v.anchor_a_y, v.anchor_a_z, v.anchor_b_x, v.anchor_b_y, v.anchor_b_z})
         if (!std::isfinite(x) || std::abs(x) > 10000)
             throw std::runtime_error("Joint anchors must be finite within +/-10000 meters");
-    if (v.kind > 1 || v.axis_a > 2 || v.normal_a > 2 || v.axis_b > 2 || v.normal_b > 2 ||
+    if (v.kind > 3 || v.axis_a > 2 || v.normal_a > 2 || v.axis_b > 2 || v.normal_b > 2 ||
         !std::isfinite(v.min_distance) || !std::isfinite(v.max_distance) ||
         v.min_distance < .001f || v.max_distance > 10000 || v.min_distance > v.max_distance ||
         !std::isfinite(v.min_angle) || !std::isfinite(v.max_angle) || v.min_angle < -180 ||
         v.min_angle > 0 || v.max_angle < 0 || v.max_angle > 180 ||
-        (v.kind == 1 &&
-         (v.axis_a == v.normal_a || v.axis_b == v.normal_b || v.min_angle == v.max_angle)))
+        ((v.kind == 1 || v.kind == 3) && (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
+        (v.kind == 1 && v.min_angle == v.max_angle))
         throw std::runtime_error(
             "Invalid joint kind, distance interval, hinge axes or angle limits");
 }

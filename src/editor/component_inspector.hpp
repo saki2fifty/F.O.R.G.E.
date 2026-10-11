@@ -281,6 +281,14 @@ class ComponentInspector {
                      "the prefab source.");
             for (const auto& field : type.at("fields")) {
                 const std::string name = field.at("id");
+                if (key == "forge.physics_joint") {
+                    const auto kind = values.at(key).at("kind").get<unsigned>();
+                    if ((name.ends_with("distance") && kind != 0) ||
+                        (name.ends_with("angle") && kind != 1) ||
+                        ((name.starts_with("axis_") || name.starts_with("normal_")) && kind != 1 &&
+                         kind != 3))
+                        continue;
+                }
                 if (!component_match &&
                     search_key(property_label(field)).find(search_key(filter_)) ==
                         std::string::npos)

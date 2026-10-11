@@ -475,11 +475,14 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
                 current = choice.at("label");
         if (ImGui::BeginCombo(label.c_str(), current.c_str())) {
             for (const auto& choice : field.at("choices")) {
+                const bool selected = choice.at("value") == value;
                 if (ImGui::Selectable(choice.at("label").get_ref<const std::string&>().c_str(),
-                                      choice.at("value") == value)) {
+                                      selected)) {
                     value = choice.at("value");
                     changed = true;
                 }
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
                 ui::help(field.value("description", std::string{}).c_str());
             }
             ImGui::EndCombo();

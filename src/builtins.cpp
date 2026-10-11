@@ -629,7 +629,8 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", 0, 1000000,
             [](flecs::world& w) { return register_type<PhysicsBody>(w, "forge.physics_body"); }),
         descriptor<PhysicsJoint>(
-            "forge.physics_joint", "Connect two rigid bodies using a distance or hinge joint",
+            "forge.physics_joint",
+            "Connect two rigid bodies using distance, hinge, point or fixed constraints",
             "unitless", {}, {},
             [](flecs::world& w) { return register_type<PhysicsJoint>(w, "forge.physics_joint"); }),
         descriptor<BoxCollider>(
@@ -1124,7 +1125,7 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
         names = {"Directional", "Point", "Spot"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
-        names = {"Distance", "Hinge"};
+        names = {"Distance", "Hinge", "Point", "Fixed"};
     } else if (component == "forge.physics_joint" &&
                (field.starts_with("axis_") || field.starts_with("normal_"))) {
         type = "forge.JointAxis";

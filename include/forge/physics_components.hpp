@@ -42,7 +42,7 @@ struct PhysicsBody {
 // use the entity origin (not center of mass) and include effective signed scale.
 struct PhysicsJoint {
     bool enabled = true;
-    std::uint32_t kind = 0; // Distance, Hinge.
+    std::uint32_t kind = 0; // Distance, Hinge, Point, Fixed.
     EntityRef body_a, body_b;
     float anchor_a_x = 0, anchor_a_y = 0, anchor_a_z = 0;
     float anchor_b_x = 0, anchor_b_y = 0, anchor_b_z = 0;

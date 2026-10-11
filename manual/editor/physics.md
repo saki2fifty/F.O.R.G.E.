@@ -32,13 +32,13 @@ To keep structural ownership while the bodies act independently, set the child's
 
 Objects without a Physics Body—such as a camera mount or visual mesh—can still follow a Dynamic parent. Static and Kinematic bodies can follow supported non-dynamic ancestors. A World-bound intermediary also breaks the spatial chain.
 
-This is an initial restriction on separate simulated bodies. Use one compound collision asset for multiple shapes belonging to the same body. Connecting separate bodies requires future joint support; transform parenting does not create that connection.
+This is an initial restriction on separate simulated bodies. Use one compound collision asset for multiple shapes belonging to the same body. Connect separate bodies with Physics Joint; transform parenting does not create that physical connection.
 
 Gameplay translation/rotation targets preserve the current local scale. A target that would require changing that scale, or creating shear, is rejected. Rejected target batches leave existing transforms unchanged.
 
 ## Collider sizes
 
-A body currently needs **exactly one** collider, centered on its transform:
+A body needs **exactly one** collider component. These inline primitives are centered on its transform:
 
 - **Box Collider:** `x`, `y`, and `z` are full dimensions in meters, before object scale.
 - **Sphere Collider:** `radius` is its radius in meters.
@@ -224,3 +224,31 @@ contacts at the pivots. No C++ compiler is needed for these engine components.
 Joint settings may be inherited from a prefab. Assign its Body A and Body B on the
 scene instance: these fields refer to scene objects. They do not automatically
 bind to new bodies inside a different instance of the same prefab.
+
+### Point and fixed joints
+
+Choose **Point** to keep the two anchors together while allowing free rotation.
+Choose **Fixed** to keep both anchors and their selected body frames together.
+For Fixed, each Normal axis is frame X; Axis crossed with Normal is frame Y.
+The two choices must differ on each body. Equal defaults align the body frames.
+Fixed follows these authored frames; it does not automatically capture the bodies'
+current relative orientation. Position bodies so the two anchors meet and their
+frames agree before Play. The Inspector shows fields relevant to the selected kind. Inactive values remain
+saved when switching kind but have no solver effect for Point or Fixed. Scene21 provides both examples.
+
+### Scene joint guides
+
+Select the joint entity in Scene to see its two anchors, connecting line and an
+anchor-gap readout. Blue is Body A; amber is Body B. Hinge shows each axis and
+normal; Fixed shows each rigid frame. Use **Scene → View → Joint guides** to
+show or hide them; this preference is saved independently of collision outlines.
+
+These guides describe the current authored poses. They are inspection aids,
+with feedback for missing, disabled, sensor or invalid body pairs. Their axes
+follow body rotation; anchors also follow signed body scale. The joint entity's
+own transform does not move either anchor. They never appear in the running or
+exported game. Press Play to validate the actual physical connection.
+
+Move kinematic supports continuously. A large one-tick move can cause joint
+oscillation with the current finite solver settings; a joint is not an exact
+transform parent. Position anchors and frames together before starting Play.

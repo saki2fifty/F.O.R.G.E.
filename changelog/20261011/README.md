@@ -255,3 +255,18 @@ Local runtime, actual scaled Inspector, export and SDK validation are recorded i
 the batch report. New native joint captures and Windows standalone acceptance are
 registered for the next numbered build; physical desktop testing remains pending.
 Automated brush captures now preserve tool-menu keyboard focus while it is open.
+
+## Point/fixed joints and Scene authoring guides
+
+Physics Joint adds Point for freely rotating attachments and Fixed for explicit
+body-local rigid frames, using the existing body references, signed-scale anchors,
+solver lifetime and native-order recovery. Gallery21 demonstrates a point pendulum
+and a fixed dynamic pair. The full Inspector shows each kind's relevant fields,
+preserves inactive settings and opens enum navigation at the current selection.
+Selected joint Scene guides show both anchors, axes and gap with invalid-reference
+feedback; the visibility preference is independent of collision wireframes. The
+core schema fixture is reconciled with the 26 builtin component types.
+
+Normal/sanitizer solver, real relocated Gallery export and full Inspector evidence
+are recorded in the batch review. Native Windows capture/EXE and physical acceptance
+remain separate delivery gates; these notes do not claim a new verified ZIP.

@@ -1,6 +1,7 @@
 #include "collision_authoring.hpp"
 #include "collision_bundle.hpp"
 #include "collision_document.hpp"
+#include "editor/physics_joint_guide.hpp"
 #include "physics_joint_value.hpp"
 #include <chrono>
 #include <cmath>
@@ -142,6 +143,149 @@ void simulate() {
         require(distance(point(f, "a"), point(f, "b", {0, 1, 0})) < .04,
                 "Angular stop lost hinge pivot");
     }
+}
+Double3 direction(Fixture& f, const char* name, Double3 axis) {
+    const auto origin = point(f, name), end = point(f, name, axis);
+    return {end[0] - origin[0], end[1] - origin[1], end[2] - origin[2]};
+}
+void point_and_fixed() {
+    for (unsigned kind : {2u, 3u}) {
+        Fixture f;
+        f.setup();
+        auto joint = f.entity("j").get<PhysicsJoint>();
+        joint.kind = kind;
+        joint.anchor_b_y = 1;
+        f.entity("j").set<PhysicsJoint>(joint);
+        auto support = f.entity("a").get<PhysicsBody>();
+        support.mask = 0;
+        f.entity("a").set<PhysicsBody>(support);
+        const float angle = kind == 2 ? 40 * std::numbers::pi_v<float> / 180 : 0;
+        const float diagonal = std::sqrt(.5f);
+        f.entity("b").set<LocalTranslation>(
+            {std::sin(angle) * diagonal, 4 - std::cos(angle), -std::sin(angle) * diagonal});
+        f.entity("b").set<LocalRotation>({std::sin(angle / 2) * diagonal, 0,
+                                          std::sin(angle / 2) * diagonal, std::cos(angle / 2)});
+        const auto initial = point(f, "b");
+        for (unsigned i = 0; i < 180; ++i) {
+            f.tick();
+            require(distance(point(f, "a"), point(f, "b", {0, 1, 0})) < .04,
+                    "Point/fixed pivot drift");
+            const auto q = f.entity("b").get<LocalRotation>();
+            if (kind == 2 && i < 10)
+                require(std::abs(q.x) > .1 && std::abs(q.z) > .1,
+                        "Point joint incorrectly locked rotation axes");
+            if (kind == 3)
+                require(std::abs(q.x) + std::abs(q.y) + std::abs(q.z) < .002,
+                        "Fixed joint allowed angular motion");
+        }
+        require(kind == 2 ? distance(initial, point(f, "b")) > .1
+                          : distance(initial, point(f, "b")) < .01,
+                "Point/fixed translational behavior differs");
+        if (kind == 3) {
+            // Nonmatching body-local frames require a known -90degree relative turn.
+            joint.normal_b = 1;
+            f.entity("j").set<PhysicsJoint>(joint);
+            // Isolate frame construction from finite-iteration gravity-load error.
+            auto moving = f.entity("b").get<PhysicsBody>();
+            moving.gravity_factor = 0;
+            f.entity("b").set<PhysicsBody>(moving);
+            f.physics->teleport(f.ref("b"), {-1, 4, 0}, {0, 0, -diagonal, diagonal}, true);
+            f.tick(120);
+            const auto dx = distance(direction(f, "a", {1, 0, 0}), direction(f, "b", {0, 1, 0}));
+            const auto dy = distance(direction(f, "a", {0, 1, 0}), direction(f, "b", {-1, 0, 0}));
+            if (!(dx < .003 && dy < .003)) {
+                const auto q = f.entity("b").get<LocalRotation>();
+                throw std::runtime_error("Fixed frame error " + std::to_string(dx) + "," +
+                                         std::to_string(dy) +
+                                         " q=" + Json::array({q.x, q.y, q.z, q.w}).dump());
+            }
+            support.motion = 1;
+            f.entity("a").set<PhysicsBody>(support);
+            moving.gravity_factor = 1;
+            f.entity("b").set<PhysicsBody>(moving);
+            // Unit-vector chord for one degree, under the normal gravity/solver profile.
+            const double loaded_frame_error = 2 * std::sin(std::numbers::pi_v<double> / 360);
+            f.tick();
+            // Move at 2.45 m/s over one second, rather than accelerating to
+            // 147 m/s for one tick and exciting the offset body's solver modes.
+            for (unsigned sample = 1; sample <= 60; ++sample) {
+                const float t = float(sample) / 60;
+                f.physics->move_kinematic(f.ref("a"), {t, 4 + t, 2 * t},
+                                          {0, std::sin(.2f * t), 0, std::cos(.2f * t)});
+                f.tick();
+                require(distance(point(f, "a"), point(f, "b", {0, 1, 0})) < .04,
+                        "Fixed attachment lost pivot while support moved");
+            }
+            f.tick(120);
+            require(distance(point(f, "a"), {1, 5, 2}) < .01 &&
+                        distance(point(f, "a"), point(f, "b", {0, 1, 0})) < .04 &&
+                        distance(direction(f, "a", {1, 0, 0}), direction(f, "b", {0, 1, 0})) <
+                            loaded_frame_error,
+                    "Fixed body failed to follow moving/rotating kinematic support");
+        }
+    }
+}
+void four_type_recovery() {
+    Fixture f;
+    f.setup();
+    auto support = f.entity("a").get<PhysicsBody>();
+    support.mask = 0;
+    f.entity("a").set<PhysicsBody>(support);
+    f.entity("b").set<LocalTranslation>({0, 3, 0});
+    auto joint = f.entity("j").get<PhysicsJoint>();
+    joint.min_distance = joint.max_distance = 1;
+    f.entity("j").set<PhysicsJoint>(joint);
+    for (const auto [name, kind] : {std::pair{"j2", 1u}, {"j3", 2u}}) {
+        auto next = joint;
+        next.kind = kind;
+        next.anchor_b_y = 1;
+        f.entity(name).set<PhysicsJoint>(next);
+    }
+    const auto add = [&](const char* name, unsigned kind) {
+        const auto id = authoring_command(f.scene, "entity.create", {{"name", name}})
+                            .at("selected")
+                            .get<std::string>();
+        auto next = joint;
+        next.kind = kind;
+        next.anchor_b_y = kind ? 1 : 0;
+        f.scene.entity(id).set<PhysicsJoint>(next);
+        return id;
+    };
+    const auto fixed = add("Fixed", 3), distance_id = add("Last distance", 0);
+    f.physics->teleport(f.ref("b"), {.2, 3, .1}, {0, 0, .1f, std::sqrt(.99f)}, true);
+    f.tick(3);
+    require(f.physics->status().at("joints") == 5, "Four native joint types not realized");
+    joint.enabled = false;
+    f.entity("j").set<PhysicsJoint>(joint);
+    f.tick();
+    const auto snapshot = f.scene.snapshot(), checkpoint = f.physics->checkpoint();
+    require(checkpoint.at("joints").size() == 4 &&
+                checkpoint.at("joints").at(0).at("entity").at("entity") == distance_id,
+            "Four-type native swapped-order capture differs");
+    Fixture recovered;
+    recovered.scene.restore_snapshot(snapshot);
+    recovered.physics->restore(checkpoint);
+    require(recovered.physics->checkpoint().at("joints") == checkpoint.at("joints"),
+            "Four-type native mapping/configuration not restored");
+    for (unsigned i = 0; i < 45; ++i) {
+        f.tick();
+        recovered.tick();
+        require(distance(point(f, "b"), point(recovered, "b")) < 1e-5 &&
+                    distance(direction(f, "b", {1, 0, 0}), direction(recovered, "b", {1, 0, 0})) <
+                        1e-5,
+                "Four-type restored trajectory/frame diverged");
+    }
+    auto invalid = recovered.scene.entity(fixed).get<PhysicsJoint>();
+    invalid.normal_a = invalid.axis_a;
+    recovered.scene.entity(fixed).set<PhysicsJoint>(invalid);
+    const auto before = recovered.physics->status();
+    rejects([&] { recovered.physics->synchronize(1.f / 60); });
+    require(recovered.physics->status() == before, "Invalid fixed frame mutated native world");
+    invalid = f.scene.entity(fixed).get<PhysicsJoint>();
+    invalid.kind = 4;
+    recovered.scene.entity(fixed).set<PhysicsJoint>(invalid);
+    rejects([&] { recovered.physics->synchronize(1.f / 60); });
+    require(recovered.physics->status() == before, "Unknown joint kind mutated native world");
 }
 void lifecycle_and_recovery() {
     Fixture f;
@@ -302,6 +446,30 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
             f.tick();
             require(std::abs(distance(point(f, "a"), point(f, "b")) - 2) < .04,
                     "Joint anchor used collider COM instead of entity origin");
+        }
+        for (unsigned kind : {1u, 2u, 3u}) {
+            auto joint = f.entity("j").get<PhysicsJoint>();
+            joint.kind = kind;
+            joint.anchor_b_x = .3f;
+            joint.anchor_b_y = .5f;
+            joint.anchor_b_z = -.2f;
+            f.entity("j").set<PhysicsJoint>(joint);
+            f.entity("b").set<LocalScale>({-1, 2, .75f});
+            f.physics->teleport(f.ref("b"), {.3, 3, .15}, {}, true);
+            for (unsigned tick = 0; tick < 120; ++tick) {
+                f.tick();
+                const auto anchor = point(f, "b", {.3f, .5f, -.2f});
+                require(distance(point(f, "a"), anchor) < .04,
+                        "Hinge/point/fixed scaled anchor confused body origin and offset COM");
+                if (tick % 20 == 0) {
+                    const auto guide = ui::prepare_physics_joint_guide(f.scene.effective_document(),
+                                                                       f.scene.canonical_id("j"));
+                    require(guide && guide->valid &&
+                                distance(guide->bodies[0].anchor, point(f, "a")) < 1e-5 &&
+                                distance(guide->bodies[1].anchor, anchor) < 1e-5,
+                            "Scene guide differs from actual solver body-origin anchor");
+                }
+            }
         }
     }
     require(std::filesystem::remove_all(root) > 0, "Offset fixture cleanup failed");
@@ -468,6 +636,8 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need joint scratch root");
         simulate();
+        point_and_fixed();
+        four_type_recovery();
         lifecycle_and_recovery();
         rejection_and_scale();
         authoring_and_identity();

@@ -429,6 +429,7 @@ int main(int argc, char** argv) {
                 content.load_settings(j.value("content_browser", forge::Json::object()));
                 orientation.visible = j.value("orientation_gizmo", true);
                 physics_overlay.visible = j.value("collision_overlay", false);
+                physics_overlay.joint_visible = j.value("joint_guides", true);
                 blockout.at_view_target = j.value("create_at_view_target", false);
                 scene_tools.grid = j.value("grid", true);
                 spatial_helpers.visible = j.value("spatial_helpers", true);
@@ -453,6 +454,7 @@ int main(int argc, char** argv) {
                                       {"content_browser", content.settings()},
                                       {"orientation_gizmo", orientation.visible},
                                       {"collision_overlay", physics_overlay.visible},
+                                      {"joint_guides", physics_overlay.joint_visible},
                                       {"interface_scale", forge::ui::interface_scale},
                                       {"cmake", cmake_path},
                                       {"ninja", ninja_path},
@@ -3376,11 +3378,56 @@ int main(int argc, char** argv) {
                 }
                 case 146:
                 case 149:
+                case 152:
+                case 155:
                     forge::ui::style(1.5f);
                     break;
                 case 147:
                 case 150:
+                case 153:
+                case 156:
+                case 159:
+                case 162:
                     forge::ui::style(2);
+                    break;
+                case 158:
+                case 161:
+                    forge::ui::style(1.5f);
+                    break;
+                case 157: {
+                    auto joint = scene.entity(fixture.joint_entity).get<forge::PhysicsJoint>();
+                    joint.kind = 3;
+                    auto a = scene.entity(joint.body_a.entity.str());
+                    auto b = scene.entity(joint.body_b.entity.str());
+                    a.set<forge::LocalTranslation>({-1, 2, 0});
+                    b.set<forge::LocalTranslation>({1, 1, 0});
+                    scene.entity(fixture.joint_entity).set<forge::PhysicsJoint>(joint);
+                    physics_overlay.joint_visible = true;
+                    workspace.inspector = false;
+                    scene_tools.move_tool = false;
+                    camera.target = {0, 1.5f, 0};
+                    camera.yaw = .35f;
+                    camera.pitch = -.2f;
+                    camera.distance = 5;
+                    forge::ui::style(1);
+                    break;
+                }
+                case 160: {
+                    auto joint = scene.entity(fixture.joint_entity).get<forge::PhysicsJoint>();
+                    joint.kind = 2;
+                    joint.body_b = {};
+                    scene.entity(fixture.joint_entity).set<forge::PhysicsJoint>(joint);
+                    forge::ui::style(1);
+                    break;
+                }
+                case 151:
+                case 154:
+                    forge::authoring_command(scene, "property.set",
+                                             {{"entity", fixture.joint_entity},
+                                              {"component", "forge.physics_joint"},
+                                              {"field", "kind"},
+                                              {"value", fixture.stage == 151 ? 2 : 3}});
+                    forge::ui::style(1);
                     break;
                 case 148:
                     forge::authoring_command(scene, "property.set",
@@ -4211,6 +4258,12 @@ int main(int argc, char** argv) {
                                     "character. Green: prepared geometry; amber: pending/stale; "
                                     "red: rejected; grey: disabled. This preview does not replace "
                                     "Play validation.");
+                                changed |=
+                                    ImGui::Checkbox("Joint guides", &physics_overlay.joint_visible);
+                                FORGE_UI_PROBE("physics:joint-guides");
+                                forge::ui::help("Scene-only selected joint anchors and rigid axes. "
+                                                "Blue: body A; amber: body B. The displayed gap "
+                                                "and frames describe the authored poses.");
                                 changed |= ImGui::Checkbox("Camera / light helpers",
                                                            &spatial_helpers.visible);
                                 forge::ui::help("Scene-only camera and light icons. Icons can be "
@@ -4466,10 +4519,12 @@ int main(int argc, char** argv) {
                             spatial_helpers.draw(view_camera, selected, image_origin, size,
                                                  modal.active() ? ImGui::GetTextLineHeight() + 20
                                                                 : 0);
-                        if (!game_view && mesh_resources)
+                        if (!game_view)
                             physics_overlay.draw(rendered, selected, view_camera, image_origin,
                                                  size, files.document.project(),
-                                                 mesh_resources->catalog(), play.physics_status());
+                                                 mesh_resources ? mesh_resources->catalog()
+                                                                : nullptr,
+                                                 play.physics_status());
                         play.physics_debug_selection =
                             physics_overlay.visible && !selected.empty()
                                 ? forge::Json{{"scene", scene.asset_id()}, {"entity", selected}}
@@ -5045,7 +5100,7 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
-                        (fixture.stage >= 145 && fixture.stage <= 150))
+                        (fixture.stage >= 145 && fixture.stage <= 162))
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -5357,10 +5412,12 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
-                if (fixture.stage >= 145 && fixture.stage <= 150) {
-                    const auto key = fixture.stage < 148
-                                         ? "component-field:forge.physics_joint:body_b"
-                                         : "component-field:forge.physics_joint:max_angle";
+                if (fixture.stage >= 145 && fixture.stage <= 156) {
+                    const auto key =
+                        fixture.stage < 148 || (fixture.stage >= 151 && fixture.stage <= 153)
+                            ? "component-field:forge.physics_joint:body_b"
+                        : fixture.stage >= 154 ? "component-field:forge.physics_joint:normal_b"
+                                               : "component-field:forge.physics_joint:max_angle";
                     auto* w = ImGui::FindWindowByName("Inspector");
                     const auto field = forge::test::ui_targets.find(key);
                     if (!w || field == forge::test::ui_targets.end())
@@ -5375,6 +5432,13 @@ int main(int argc, char** argv) {
                                                      target.minimum.y >= target.clip_minimum.y &&
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
+                }
+                if (fixture.stage >= 157 && fixture.stage <= 162) {
+                    captured_document_visible &= physics_overlay.joint_visible &&
+                                                 physics_overlay.status().starts_with("Authored ");
+                    if (fixture.stage >= 160)
+                        captured_document_visible &=
+                            physics_overlay.status().find("Choose a body") != std::string::npos;
                 }
                 if (fixture.stage >= 142 && fixture.stage <= 144) {
                     const auto* document = editable_mesh_editor.document();
@@ -5649,7 +5713,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 151) {
+                    if (fixture.stage == 163) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();
