@@ -132,9 +132,12 @@ The existing private animation checkpoint v1 gains optional `transform_entries`:
 EntityRef, clip AssetId, exact selected revision, `time_us` and playing state.
 Recovery validates target/configuration/count/revision/time and candidate poses
 before replacing playback clocks. Older checkpoints lacking this field remain
-valid when there are no realized Transform Animators. Curve data changes the public transform-animation header. Native modules require
-a matching SDK rebuild; the existing exact header fingerprint enforces that
-requirement. This does not add an SDK service or claim binary compatibility.
+valid when there are no realized Transform Animators. The transform-animation authoring header is outside the installed native-module
+header set in `cmake/native_sdk.cmake`. These authoring API/curve additions do not
+change the module ABI fingerprint or require a gameplay module rebuild by
+themselves. Modules still require an SDK matching the actual installed headers,
+bridge semantics, compiler and configuration when those inputs change.
+
 
 ## Standalone content
 

@@ -200,3 +200,13 @@ separate from pending Windows execution and physical acceptance.
   and document changes cancel the capture. Newly authored keys become selected.
 - FeatureGallery18 compares original eased travel, a delayed group and duplicated
   motion. The normal runtime and relocated source-free export use the cooked clips.
+
+### Connected Mesh facing
+
+- Reverse an edge-connected surface or every Mesh surface without changing
+  geometry, complete corner UV/extension association, colors or identities.
+  Shared-edge winding and smooth normal validity remain enforced atomically.
+- Model actions use one source Undo, clear changed UV corner scopes, obey Play/
+  publication/preview locks and save/reopen through the existing Mesh source owner.
+  Original Gallery19 compares outward and inward facing open-front rooms and their
+  source-free runtime export.

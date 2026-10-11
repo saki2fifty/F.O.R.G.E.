@@ -98,3 +98,37 @@ Current mode, locked/pending documents, active strokes and geometry previews dis
 mutation. Model wireframe previews geometry; Save & Publish changes normal streams
 for ordinary Scene/Play/render and selected source-free export. Gallery17 compares
 identical original sphere geometry with flat and smooth normals.
+
+## Connected-surface facing
+
+`connected_faces(seed)` validates the existing source and returns faces joined by
+shared undirected geometric edges in authored order. A vertex-only contact does
+not join surfaces. `reverse_faces(span)` validates a bounded unique existing
+selection and reverses complete corner objects after the existing first fan anchor.
+It preserves vertex/face IDs, allocator high-water, geometry, colors, UV/extension
+association, shading flag and root/face metadata. Whole-surface reversal reverses
+the existing fan triangles without changing their covered geometry; two reversals
+restore exact JSON.
+
+Candidate source validation continues to reject nonmanifold/inconsistent directed
+edge uses. Reversing an arbitrary connected face subset can fail this contract;
+Model deliberately offers **Reverse connected surface** and **Reverse Mesh facing**
+instead of silently detaching vertices or accepting inconsistent winding. Smooth
+candidates additionally validate averaged incident normals before replacing source;
+undefined averages leave source/history untouched. Source/cook versions and the
+normal weighting policy remain unchanged. No new service/owner or dependency.
+
+Model actions use existing SourceDoc mutation/history, locks, pending-publication
+and competing-preview guards. A successful revision resets UV corner scopes/cache
+and reconciles durable selection. Wireframe establishes geometry only; the published
+Scene/runtime Mesh normal and triangle winding establish facing. Native module
+compatibility uses the explicit installed header/bridge set; editable-Mesh
+authoring APIs are outside that set, so this change alone does not require a
+C++ gameplay module rebuild.
+
+Gallery19 publishes two original open-front room sources with identical geometry
+and opposite facing. Tests verify signed normal direction relative to the interior,
+complete corner association, actual typed resources/material resolution/camera
+bounds and selected relocated source-free export. Native captures139–141 and final
+Windows package Gallery19 exported EXE startup are authored checks; native/physical
+acceptance is reported separately when executed.

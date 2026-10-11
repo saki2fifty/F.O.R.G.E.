@@ -112,6 +112,9 @@ struct EditorFixture {
         case 130:
         case 131:
         case 132:
+        case 139:
+        case 140:
+        case 141:
         case 103:
         case 104:
         case 105:
@@ -444,7 +447,10 @@ struct EditorFixture {
                                "animation-key-batch-controls-200",
                                "animation-key-batch-ruler",
                                "animation-key-batch-ruler-150",
-                               "animation-key-batch-ruler-200"};
+                               "animation-key-batch-ruler-200",
+                               "editable-mesh-facing-tools",
+                               "editable-mesh-facing-tools-150",
+                               "editable-mesh-facing-tools-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

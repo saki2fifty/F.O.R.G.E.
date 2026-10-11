@@ -78,8 +78,9 @@ the clip. **Save & Publish** updates Play and exported games.
 Try **FeatureGallery / Scenes / 13-transform-curves.scene.json**. Three platforms
 compare linear motion, smooth easing and an arc. Open **EasedPlatform.animation.json**
 or **ArcPlatform.animation.json** in Content to change the curves. Curve clips need
-a current FORGE build; older builds reject their format. Rebuild existing C++ modules
-against the matching SDK after updating FORGE.
+a current FORGE build; older builds reject their format. These timeline editing
+changes do not themselves require rebuilding your C++ module. Use a matching SDK
+when an engine update changes the native module interface or build configuration.
 
 ## Use in Play and export
 

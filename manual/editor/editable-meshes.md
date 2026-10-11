@@ -76,3 +76,23 @@ change. Published shading is also included in exported games.
 
 Open **17-mesh-shading** in the Feature Gallery to compare two spheres with exactly
 the same shape. The left sphere uses flat normals; the right uses smooth normals.
+
+## Change which side faces outward
+
+In Model, select a face and choose **Reverse connected surface**. FORGE reverses
+that face and the faces joined to it by shared edges, keeping their winding
+consistent. Faces that only touch at a vertex belong to separate surfaces.
+**Reverse Mesh facing** reverses every surface in the source.
+
+The vertex positions, colors and corner UVs stay attached to the same geometry.
+Each action makes one Undo step. Reversing twice restores the original source.
+The visible side and lighting direction change; the wireframe keeps the same
+shape. Choose **Save & Publish** and inspect the result in Scene, Play or export.
+UV corner selection resets because the corner order changed. If smooth normals
+would cancel to an undefined direction at a shared vertex, FORGE rejects the edit
+without replacing the source.
+
+Open **19-mesh-facing** in the Feature Gallery. Two original open-front rooms
+have the same shape. The left has outward-facing surfaces; the right faces inward
+for viewing the room interior. Open **OutwardRoom.mesh.json** or
+**InwardRoom.mesh.json** in Content to reverse their facing.

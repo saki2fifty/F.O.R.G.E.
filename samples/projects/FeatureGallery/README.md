@@ -99,3 +99,9 @@ README before building/exporting compiled behavior.
   **BatchRepeated.animation.json** copies them to3 and5seconds. Organizational lane
   parents explicitly use **None** as their primitive. The six-second loop holds the
   nearest pose outside the key range. Play and source-free export use identical cooks.
+
+- **19-mesh-facing**: the same original open-front room appears with outward and
+  inward surface directions. Open **OutwardRoom.mesh.json** or **InwardRoom.mesh.json**,
+  select a face in Model, then choose **Reverse connected surface** or **Reverse Mesh
+  facing**. Undo, Save & Publish and export use the normal Mesh workflow. Geometry,
+  corner UVs, colors and identities remain attached; facing controls the visible side.

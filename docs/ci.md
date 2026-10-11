@@ -354,4 +354,17 @@ render admission and relocated source-free export. Native layout fixture capture
 133–138 stage original three-key data at100/150/200% with controlled scrolling;
 these captures alone do not prove performed edits or default docking usability.
 The combined Windows package check exports Gallery18 and runs its actual EXE with
-`--verify-startup`. Native SDK builds regenerate the existing header fingerprint.
+`--verify-startup`. The installed native SDK fingerprint inputs are unchanged by these authoring APIs.
+
+### Mesh facing gate
+
+Core `editable_mesh` checks connected/vertex-only surfaces, complete corner/UV/color
+association, independently oriented cooked triangle sets and normal signs,
+flat/smooth/double-reversal invariants and invalid partial winding/undefined smooth
+normal failure atomicity. `editable_mesh_facing_editor` performs scaled Model/UV/
+history/branch/locks/publication/reopen inputs. `editable_mesh_facing_gallery` uses
+actual public material/resource/camera consumers and selected relocated source-free
+content. Native fixture139–141 stages reversed original Cube controls at100/150/200%
+with controlled scrolling/undocking; capture increments the stage before exit142.
+The final combined package route exports Gallery19 and runs its actual EXE startup.
+These authored native routes are separate from executed evidence.

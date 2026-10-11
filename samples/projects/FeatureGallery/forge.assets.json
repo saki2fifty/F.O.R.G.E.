@@ -1761,6 +1761,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "615192ef-8278-4297-8384-fd6309314d65",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "bf279ec32cda05aa35f3d7ccc2d339df87d3f9b2a8e902247743b57d47ba98a2",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "0d8c856895a5597835e032416fc66a76fc6db5b824181664f3deda97feb9ea25",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6ee39c4772ca318fd908cd8310c014b78520d4b00de50ace73834974ba7ebc40",
+          "source_digest": "0a23344ec8fe20b175cd9eb81ee0b2076a5e4c8bb0a088261b9b45d38270aa6c",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1221,
+          "file": "mesh.bin",
+          "sha256": "368251b3acea8861b003beea16d6c01aa5743038dc490394ea2eae2a20a8e7c9",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/OutwardRoom.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "639aaf22-5ce3-4062-8086-2c68d5faaa19",
       "metadata": {
         "forge.import": {
@@ -2805,6 +2840,41 @@
       "source": "Assets/QuaterniusLocomotion.glb",
       "source_dependencies": [],
       "type": "model"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "80da52d9-3495-4ccf-b90e-f2db7323108c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "65e0842bcbcac832001f05bb51337d1f8e2ebb0d51736044a0040c6052d4ec14",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "b7e8fb130513f1accc28b668e364d6a57a5e2fea5ce5ec45b97792fe8f637d4b",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "3a0dfb39e196161be16b60a8487ffb53a69ae91455927c8fed9c36c456a71c18",
+          "source_digest": "2fc7a1a53b07f28cb1322cca33095ff0c0fb7ae10005e16663720ccee2e0661b",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1221,
+          "file": "mesh.bin",
+          "sha256": "dee58acf750e468bfc92944840f2df0db1894621e25df8196fcd160c8d73a281",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/InwardRoom.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

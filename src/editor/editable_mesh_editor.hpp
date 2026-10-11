@@ -170,7 +170,9 @@ class EditableMeshEditor {
             if (needs_publish_ && !document_->dirty() && !pending())
                 ImGui::TextUnformatted("Save & Publish to update Scene and exported games.");
             if (ImGui::BeginTabBar("Mesh workspaces")) {
-                if (ImGui::BeginTabItem("Model")) {
+                const auto model_tab = ImGui::BeginTabItem("Model");
+                FORGE_UI_PROBE("mesh:model_tab");
+                if (model_tab) {
                     cancel_uv_drag();
                     model_workspace(locked);
                     ImGui::EndTabItem();
@@ -460,6 +462,23 @@ class EditableMeshEditor {
         ImGui::EndChild();
         ui::help("Select a face, edge or vertex. Ctrl-click adds vertices to the selection.");
     }
+    void reverse_facing(bool connected) {
+        const auto revision = document_->revision();
+        mutate(connected ? "Reverse connected surface" : "Reverse Mesh facing",
+               [&](EditableMeshSource& source) {
+                   std::vector<std::uint32_t> faces;
+                   if (connected)
+                       faces = source.connected_faces(face_);
+                   else
+                       for (const auto& face : source.document.at("faces"))
+                           faces.push_back(face.at("id").get<std::uint32_t>());
+                   source.reverse_faces(faces);
+               });
+        if (document_->revision() != revision) {
+            reset_uv_scope();
+            reconcile_selection();
+        }
+    }
     void model_workspace(bool locked) {
         ImGui::SliderFloat("Orbit yaw", &yaw_, -180, 180);
         ImGui::SliderFloat("Orbit pitch", &pitch_, -75, 75);
@@ -554,6 +573,21 @@ class EditableMeshEditor {
         ImGui::EndDisabled();
         ui::help("The wireframe shows geometry. Save & Publish to see shading in Scene, Play and "
                  "export. Smooth shading keeps the same silhouette.");
+        ImGui::SeparatorText("Facing");
+        ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
+                             preview_extrude_);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !face_);
+        if (ui::button("Reverse connected surface",
+                       "Reverse the selected face and every face connected to it by shared edges."))
+            reverse_facing(true);
+        ImGui::EndDisabled();
+        if (ui::button("Reverse Mesh facing",
+                       "Reverse all surfaces while preserving geometry and complete corner data."))
+            reverse_facing(false);
+        ImGui::EndDisabled();
+        ui::help(
+            "Facing changes the visible side and normal direction. Connected faces reverse "
+            "together to preserve edge winding. Save & Publish to inspect the result in Scene.");
         ImGui::SeparatorText("Triangulate");
         const bool polygon_face =
             std::any_of(document_->source().document.at("faces").begin(),

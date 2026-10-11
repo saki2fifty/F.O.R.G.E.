@@ -674,6 +674,68 @@ void EditableMeshSource::triangulate_faces(std::span<const std::uint32_t> faces)
     *this = std::move(candidate);
 }
 
+std::vector<std::uint32_t> EditableMeshSource::connected_faces(std::uint32_t seed) const {
+    validate();
+    std::map<std::pair<std::uint32_t, std::uint32_t>, std::vector<std::uint32_t>> edges;
+    std::map<std::uint32_t, std::vector<std::uint32_t>> neighbors;
+    for (const auto& face : document.at("faces")) {
+        const auto face_id = id(face.at("id"));
+        neighbors.emplace(face_id, std::vector<std::uint32_t>{});
+        const auto& corners = face.at("corners");
+        for (std::size_t i = 0; i < corners.size(); ++i) {
+            const auto a = id(corners[i].at("vertex"));
+            const auto b = id(corners[(i + 1) % corners.size()].at("vertex"));
+            edges[std::minmax(a, b)].push_back(face_id);
+        }
+    }
+    require(neighbors.contains(seed), "Selected Mesh face is missing");
+    for (const auto& [edge, uses] : edges)
+        if (uses.size() == 2) {
+            neighbors.at(uses[0]).push_back(uses[1]);
+            neighbors.at(uses[1]).push_back(uses[0]);
+        }
+    std::set<std::uint32_t> selected{seed};
+    std::vector<std::uint32_t> pending{seed};
+    while (!pending.empty()) {
+        const auto face = pending.back();
+        pending.pop_back();
+        for (const auto next : neighbors.at(face))
+            if (selected.insert(next).second)
+                pending.push_back(next);
+    }
+    // Return canonical authored order, independently of edge traversal order.
+    std::vector<std::uint32_t> result;
+    for (const auto& face : document.at("faces"))
+        if (selected.contains(id(face.at("id"))))
+            result.push_back(id(face.at("id")));
+    return result;
+}
+void EditableMeshSource::reverse_faces(std::span<const std::uint32_t> faces) {
+    require(!faces.empty() && faces.size() <= face_limit,
+            "Mesh facing selection is empty or too large");
+    validate();
+    const std::set<std::uint32_t> selected(faces.begin(), faces.end());
+    require(selected.size() == faces.size(), "Mesh facing selection contains duplicate faces");
+    auto candidate = *this;
+    std::size_t found = 0;
+    for (auto& face : candidate.document.at("faces")) {
+        if (!selected.contains(id(face.at("id"))))
+            continue;
+        ++found;
+        auto& corners = face.at("corners").get_ref<Json::array_t&>();
+        std::reverse(corners.begin() + 1, corners.end());
+    }
+    require(found == selected.size(), "Selected Mesh face is missing");
+    candidate.validate();
+    if (candidate.document.value("smooth", false)) {
+        std::map<std::uint32_t, Vec3> positions;
+        for (const auto& vertex : candidate.document.at("vertices"))
+            positions.emplace(id(vertex.at("id")), vector<3>(vertex.at("position")));
+        (void)averaged_normals(candidate.document, positions);
+    }
+    *this = std::move(candidate);
+}
+
 void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double radius,
                                 double strength) {
     sculpt(samples, radius, strength, MeshBrushSymmetry::None);

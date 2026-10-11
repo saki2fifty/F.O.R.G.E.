@@ -181,6 +181,22 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     for name in ('BatchOriginal.animation.json', 'BatchShifted.animation.json',
                  'BatchRepeated.animation.json'):
         assert not (batch_export/'Assets'/name).exists()
+    facing_scene = 'Scenes/19-mesh-facing.scene.json'
+    facing = json.loads((gallery/facing_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=facing['asset_id'], source=facing_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    facing_export = root/'Mesh Facing Standalone'
+    options['destination'] = str(facing_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(facing_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=facing_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    for name in ('OutwardRoom.mesh.json', 'InwardRoom.mesh.json'):
+        assert not (facing_export/'Assets'/name).exists()
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

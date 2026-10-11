@@ -3237,6 +3237,25 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 139: {
+                    // Original reversed Cube staged for native control layout review.
+                    editable_mesh_editor = {};
+                    auto source =
+                        forge::EditableMeshSource::create_cube(forge::AssetId::generate());
+                    const auto faces = source.connected_faces(13);
+                    source.reverse_faces(faces);
+                    forge::atomic_write(files.document.project() / "Assets/CaptureFacing.mesh.json",
+                                        source.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CaptureFacing.mesh.json");
+                    forge::ui::style(1);
+                    break;
+                }
+                case 140:
+                    forge::ui::style(1.5f);
+                    break;
+                case 141:
+                    forge::ui::style(2);
+                    break;
                 case 133:
                 case 136: {
                     // Original staged data; the actual scaled UI fixture proves editing.
@@ -4957,7 +4976,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 138))
+                        (fixture.stage >= 103 && fixture.stage <= 141))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5265,6 +5284,29 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.stage >= 139 && fixture.stage <= 141) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->source().document.at("faces").size() != 6 ||
+                        document->dirty())
+                        throw std::runtime_error("Facing capture source differs");
+                    auto* w = ImGui::FindWindowByName("###Editable Mesh");
+                    const auto control = forge::test::ui_targets.find("button:Reverse Mesh facing");
+                    if (!w || control == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = control->second;
+                        const auto center = (target.minimum.y + target.maximum.y) * .5f;
+                        const auto visible_center =
+                            (target.clip_minimum.y + target.clip_maximum.y) * .5f;
+                        ImGui::SetScrollY(w, w->Scroll.y + center - visible_center);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 133 && fixture.stage <= 138) {
                     const auto* document = animation_timeline.document();
                     if (!document || document->source().clip().keys.size() != 3 ||
@@ -5451,7 +5493,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 139) {
+                    if (fixture.stage == 142) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();
