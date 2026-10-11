@@ -1,4 +1,5 @@
 #pragma once
+#include "editor_capture_input.hpp"
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -22,6 +23,7 @@ namespace forge::test {
 struct EditorFixture {
     std::filesystem::path output, project, config;
     unsigned stage = 0, frames = 0;
+    EditorCaptureInput capture_input;
     Uint64 started = SDL_GetTicks(), stage_started = started;
     bool prepared = false, workflow = false, physics = false, sdk_play = false,
          sdk_onboarding = false;

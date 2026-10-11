@@ -2055,12 +2055,13 @@ int main(int argc, char** argv) {
                 // Run the platform update once, then override its real desktop pointer
                 // before Dear ImGui consumes queued input for these static captures.
                 ImGui_ImplSDL3_NewFrame();
-                ImGui::GetIO().ConfigInputTrickleEventQueue = false;
-                ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+                fixture.capture_input.after_platform_update(ImGui::GetIO(), fixture.stage,
+                                                            fixture.frames);
                 gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
                 // Pinned IsItemHovered also considers the keyboard navigation cursor.
-                // Static captures have no active keyboard gesture; keep production help intact.
-                ImGui::SetNavCursorVisible(false);
+                // Scripted setup may use navigation keys; hide it only for static captures.
+                if (!fixture.capture_input.active(fixture.stage, fixture.frames))
+                    ImGui::SetNavCursorVisible(false);
             } else
 #endif
                 gui->NewFrame(width, height, swap->GetDesc().PreTransform);
@@ -5328,10 +5329,11 @@ int main(int argc, char** argv) {
                                     "Vertex selection capture target missing: " +
                                     std::string(name));
                             const auto& target = found->second;
-                            io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
-                                                (target.minimum.y + target.maximum.y) * .5f);
-                            if (event)
-                                io.AddMouseButtonEvent(0, event == 1);
+                            fixture.capture_input.queue(
+                                io,
+                                {(target.minimum.x + target.maximum.x) * .5f,
+                                 (target.minimum.y + target.maximum.y) * .5f},
+                                event);
                         };
                         if (fixture.stage == 142) {
                             if (step >= 0 && step <= 2)
@@ -5458,10 +5460,11 @@ int main(int argc, char** argv) {
                                     " stage=" + std::to_string(fixture.stage) +
                                     " step=" + std::to_string(step));
                             const auto& target = found->second;
-                            io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
-                                                (target.minimum.y + target.maximum.y) * .5f);
-                            if (event)
-                                io.AddMouseButtonEvent(0, event == 1);
+                            fixture.capture_input.queue(
+                                io,
+                                {(target.minimum.x + target.maximum.x) * .5f,
+                                 (target.minimum.y + target.maximum.y) * .5f},
+                                event);
                         };
                         if (setup) {
                             // The preceding UV capture leaves ImGui's tab state in UV.

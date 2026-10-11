@@ -236,3 +236,6 @@ changes. Same optimized4096vertex fixture idle CPU falls from15.8–17.1ms to ab
 selection/previews/brush/history/publication and independent geometry/invalidation
 checks pass. No source schema/runtime/SDK ownership changes. Native delivery and
 physical performance acceptance remain pending.
+
+- Corrected automated native capture mouse transport so brush and vertex-selection
+  setup clicks survive the platform input update; added a real-widget regression.

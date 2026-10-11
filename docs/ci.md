@@ -377,3 +377,10 @@ its complete core test suite and SDK installation. Other core matrix jobs retain
 and passing98of103 tests, while the catalog scale test was running. Individual test
 limits and acceptance requirements remain intact; a timed-out job never qualifies
 as passing delivery evidence.
+
+Static native layout captures apply their controlled mouse position after SDL's
+platform update and before ImGui consumes input. Brush and vertex-selection setup
+use finite scripted frame ranges; subsequent captures hide mouse and navigation
+hover again. The `editor_capture_input` test reproduces a platform position
+overwrite and proves a real widget receives mouse press/release. This fixture
+transport is compiled only into the automated capture executable.
