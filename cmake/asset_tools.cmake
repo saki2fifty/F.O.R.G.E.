@@ -351,3 +351,17 @@ if(BUILD_TESTING)
  set_tests_properties(animation_states_gallery PROPERTIES TIMEOUT 120)
 
 endif()
+
+# Editor UI fixtures require the asset-tool fixtures defined above.
+if(BUILD_TESTING AND TARGET forge_editor)
+  add_executable(forge_animation_preview_tests tests/animation_preview_tests.cpp)
+  target_include_directories(forge_animation_preview_tests PRIVATE src src/editor)
+  target_compile_definitions(forge_animation_preview_tests PRIVATE FORGE_UI_FIXTURE UNICODE _UNICODE NOMINMAX)
+  target_link_libraries(forge_animation_preview_tests PRIVATE forge_animation_preview imgui SDL3::SDL3)
+  add_dependencies(forge_animation_preview_tests forge_animation_blending_tests forge_animation_states_tests)
+  copy_required_dlls(forge_animation_preview_tests)
+  add_test(NAME animation_preview COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_preview_test.py $<TARGET_FILE:forge_animation_blending_tests> $<TARGET_FILE:forge_animation_preview_tests> "${CMAKE_BINARY_DIR}/animation-preview-tests" ${_forge_blend_test_worker} ${FORGE_TEST_ANIMATION_CONVERTER} "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery/Assets/BlendColumn.gltf")
+  set_tests_properties(animation_preview PROPERTIES TIMEOUT 240)
+  add_test(NAME animation_states_editor COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_preview_test.py $<TARGET_FILE:forge_animation_states_tests> $<TARGET_FILE:forge_animation_preview_tests> "${CMAKE_BINARY_DIR}/animation-states-editor-tests" ${_forge_blend_test_worker} ${FORGE_TEST_ANIMATION_CONVERTER} "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery/Assets/BlendColumn.gltf" --states)
+  set_tests_properties(animation_states_editor PROPERTIES TIMEOUT 240)
+endif()
