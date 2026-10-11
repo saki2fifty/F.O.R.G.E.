@@ -13,7 +13,9 @@ Use an editable Mesh when you want to shape a simple static object inside FORGE.
 
 Choose **Vertex**, **Edge** or **Face** in the Model tab. Click an element in the list or wireframe; Ctrl-click adds or removes vertices. Edge and face modes select one element. Enter **Move**, **Rotate (deg)** and **Scale** values, turn on **Preview transform** if useful, then **Apply transform**. **Cancel transform** clears those pending values. The operation is one source Undo step.
 
-Select a face, enter a positive **Distance**, and use **Preview extrusion** or **Extrude selected face**. The original face becomes a new cap with side walls; the cap remains selected. **Cancel extrusion** drops the preview. Invalid edits, such as a nonplanar face or zero scale, report an error and leave the source unchanged.
+Select a face, enter a positive **Inset distance**, and use **Preview inset** or **Inset selected face** to create a border. The inner face stays selected. **Cancel inset** drops the preview. The distance is measured inward from each edge in the Mesh’s own coordinates; an inset that collapses the face is rejected.
+
+Enter an **Extrude distance** and use **Preview extrusion** or **Extrude selected face**. A positive distance raises the face; a negative distance creates a recess. The original face becomes a new cap with side walls; the cap remains selected. **Cancel extrusion** drops the preview. Press Esc while the Model tab has focus to cancel a preview. Inset, extrusion and transform previews are exclusive. Invalid edits, such as a nonplanar face or zero scale, report an error and leave the source unchanged.
 
 ## Sculpt and paint
 
@@ -27,8 +29,12 @@ The UV tab shows the selected face's independent corner coordinates. The outline
 
 Choose **Save & Publish** after shape or UV edits. An accepted publication updates the shared Mesh resource used by scene entities; an invalid cook keeps the previous published revision. The scene's position, scale and material assignments are separate from Mesh source history. Stop Play before editing. Exported games contain the selected cooked Mesh and UVs, without `.mesh.json` or modeling tools.
 
+Element IDs stay reserved after Undo, so restoring the original shape can still leave the source needing a save. New edits never reuse those discarded IDs.
+
+Try **Feature Gallery → Scenes/12-inset-panels.scene.json** for a flat frame, a raised panel and a recessed panel. Open their editable Meshes from Content to inspect the borders and UVs; Play and export use the published geometry.
+
 Source Undo/Redo belongs to the active Editable Mesh document; Scene Undo/Redo remains separate. Close prompts offer **Save**, **Discard** and **Keep editing** when source changes have not been published. Reopen the registered Mesh from Content to continue editing.
 
 ## Current scope
 
-The first modeling workflow supports bounded, planar convex polygons with explicit vertex and face IDs, face extrusion, selection transforms and face-corner UV editing. It does not edit imported Model meshes, skin/morph targets, LODs, automatic subdivision, dense sculpting or texture-pixel painting. Complex or nonmanifold geometry is rejected rather than silently changed.
+The first modeling workflow supports bounded, planar convex polygons with explicit vertex and face IDs, face inset and signed extrusion, selection transforms and face-corner UV editing. It does not edit imported Model meshes, skin/morph targets, LODs, automatic subdivision, dense sculpting or texture-pixel painting. Complex or nonmanifold geometry is rejected rather than silently changed.

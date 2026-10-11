@@ -35,12 +35,65 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         const auto source = std::filesystem::path("Assets/Shape.mesh.json");
+        {
+            auto history = EditableMeshDocument::create(lease, "Assets/Branches.mesh.json");
+            const auto baseline = history->source().document;
+            history->edit(history->revision(), "Inset", [](nlohmann::json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.inset_face(13, .1);
+                draft = std::move(mesh.document);
+            });
+            const auto reserved = history->source().document.at("next_id").get<std::uint32_t>();
+            history->undo();
+            require(history->source().document.at("vertices") == baseline.at("vertices") &&
+                        history->source().document.at("next_id") == reserved,
+                    "Undo lowered the Mesh identity allocator");
+            history->edit(history->revision(), "Branch recess", [](nlohmann::json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.extrude_face(13, -.2);
+                draft = std::move(mesh.document);
+            });
+            for (const auto& vertex : history->source().document.at("vertices")) {
+                const auto id = vertex.at("id").get<std::uint32_t>();
+                require(id <= 8 || id >= reserved, "New branch reused discarded vertex ID");
+            }
+            const auto branch_floor = history->source().document.at("next_id");
+            history->undo();
+            const auto safe = history->source().document;
+            const auto revision = history->revision();
+            for (bool lower : {true, false}) {
+                bool rejected = false;
+                try {
+                    history->edit(revision, "Invalid identity", [&](nlohmann::json& draft) {
+                        if (lower)
+                            draft["next_id"] = 15;
+                        else
+                            draft["vertices"].push_back(
+                                {{"id", 15}, {"position", std::array<double, 3>{0, 0, 0}}});
+                    });
+                } catch (const std::runtime_error&) {
+                    rejected = true;
+                }
+                require(rejected && history->revision() == revision &&
+                            history->source().document == safe && history->can_redo(),
+                        "Invalid allocator edit changed history/source");
+            }
+            history->save();
+            EditableMeshDocument reopened_history(lease, "Assets/Branches.mesh.json");
+            require(reopened_history.source().document.at("next_id") == branch_floor,
+                    "Save/reopen lost reserved Mesh identities");
+            history->redo();
+            require(history->source().document.at("next_id") == branch_floor &&
+                        history->source().document.at("vertices").size() == 12,
+                    "Redo lost geometry or identity high water");
+        }
         auto document = EditableMeshDocument::create(lease, source);
         const auto identity = document->source().asset();
         const auto initial = document->source().document;
-        document->edit(document->revision(), "Extrude top", [](nlohmann::json& draft) {
+        document->edit(document->revision(), "Inset and recess top", [](nlohmann::json& draft) {
             EditableMeshSource mesh{draft};
-            const auto cap = mesh.extrude_face(13, .5);
+            mesh.inset_face(13, .1);
+            const auto cap = mesh.extrude_face(13, -.2);
             mesh.transform_uv(cap, std::array<std::size_t, 4>{0, 1, 2, 3}, {0.25, 0.125}, 0.0,
                               0.75);
             const auto point =
@@ -52,7 +105,9 @@ int main(int argc, char** argv) {
         require(document->dirty() && document->can_undo(),
                 "Editable Mesh edit did not enter source history");
         document->undo();
-        require(document->source().document == initial && !document->dirty() &&
+        auto restored = initial;
+        restored["next_id"] = extruded.at("next_id");
+        require(document->source().document == restored && document->dirty() &&
                     document->can_redo(),
                 "One Undo did not restore the original Mesh and UVs");
         document->redo();
@@ -94,7 +149,7 @@ int main(int argc, char** argv) {
         require(pool.wait(ticket, 5s),
                 "Published editable Mesh did not enter shared resource pool");
         auto geometry = pool.acquire(ticket);
-        require(geometry && geometry->mesh.lods[0].parts[0].indices.size() == 60,
+        require(geometry && geometry->mesh.lods[0].parts[0].indices.size() == 84,
                 "Published geometry differs from authored extrusion");
         require(std::get<std::vector<float>>(
                     geometry->mesh.lods[0].parts[0].find("TEXCOORD_0")->values) == authored_uv,

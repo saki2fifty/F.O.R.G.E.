@@ -11,6 +11,9 @@ project = json.loads((project_root / 'forge.project.json').read_text())
 assets = json.loads((project_root / 'forge.assets.json').read_text())['assets']
 by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
+                       ('Assets/Frame.mesh.json', 'mesh.bin'),
+                       ('Assets/RaisedPanel.mesh.json', 'mesh.bin'),
+                       ('Assets/RecessedPanel.mesh.json', 'mesh.bin'),
                        ('Assets/SculptSphere.mesh.json', 'mesh.bin'),
                        ('Assets/PaintedSphere.mesh.json', 'mesh.bin'),
                        ('Assets/Checker.material.json', 'material.values'),
@@ -24,7 +27,8 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
-        '09-animation-blending.scene.json', '10-animation-states.scene.json'} <= {p.name for p in scenes}
+        '09-animation-blending.scene.json', '10-animation-states.scene.json',
+        '11-animation-markers.scene.json', '12-inset-panels.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -81,6 +85,17 @@ try:
         loaded = call('scene.read', target=context['target'])['result']
         same_authored_value(loaded, source, str(path))
         assert context['revision'] == result['revision']
+        if path.name.startswith('12-'):
+            panels = [row['components']['forge.mesh_renderer']
+                      for row in loaded['entities']
+                      if 'forge.mesh_renderer' in row['components']]
+            assert len(panels) == 3
+            assert {row['mesh'] for row in panels} == {
+                by_source['Assets/' + name]['id'] for name in
+                ('Frame.mesh.json', 'RaisedPanel.mesh.json', 'RecessedPanel.mesh.json')}
+            assert all(row['materials'] == [{'slot': 'surface',
+                       'material': by_source['Assets/Checker.material.json']['id']}]
+                       for row in panels)
         if path.name.startswith('01-'):
             assert sum('parent' in row for row in loaded['entities']) == 3
         if path.name.startswith('02-'):

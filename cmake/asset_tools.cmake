@@ -354,6 +354,13 @@ endif()
 
 # Editor UI fixtures require the asset-tool fixtures defined above.
 if(BUILD_TESTING AND TARGET forge_editor)
+  add_executable(forge_editable_mesh_editor_tests tests/editable_mesh_editor_tests.cpp)
+  target_include_directories(forge_editable_mesh_editor_tests PRIVATE src src/editor)
+  target_compile_definitions(forge_editable_mesh_editor_tests PRIVATE FORGE_UI_FIXTURE UNICODE _UNICODE NOMINMAX)
+  target_link_libraries(forge_editable_mesh_editor_tests PRIVATE forge_editable_mesh_authoring forge_texture_authoring imgui SDL3::SDL3)
+  copy_required_dlls(forge_editable_mesh_editor_tests)
+  add_test(NAME editable_mesh_editor COMMAND forge_editable_mesh_editor_tests "${CMAKE_BINARY_DIR}/editable-mesh-editor-tests")
+  set_tests_properties(editable_mesh_editor PROPERTIES TIMEOUT 120)
   add_executable(forge_animation_preview_tests tests/animation_preview_tests.cpp)
   target_include_directories(forge_animation_preview_tests PRIVATE src src/editor)
   target_compile_definitions(forge_animation_preview_tests PRIVATE FORGE_UI_FIXTURE UNICODE _UNICODE NOMINMAX)

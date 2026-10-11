@@ -245,9 +245,10 @@ class EditableMeshEditor {
     std::uint32_t face_ = 13;
     std::set<std::size_t> uv_corners_;
     float translation_[3]{}, rotation_[3]{}, scale_[3]{1, 1, 1};
-    float extrusion_ = 0.5f;
+    float extrusion_ = 0.5f, inset_ = 0.1f;
     float uv_translation_[2]{}, uv_angle_ = 0, uv_scale_ = 1;
-    bool preview_transform_ = false, preview_extrude_ = false, preview_uv_ = false;
+    bool preview_transform_ = false, preview_extrude_ = false, preview_inset_ = false,
+         preview_uv_ = false;
     std::string model_preview_key_, uv_preview_key_, model_preview_error_, uv_preview_error_;
     std::optional<EditableMeshSource> model_preview_, uv_preview_;
     float yaw_ = 40, pitch_ = 25;
@@ -278,7 +279,7 @@ class EditableMeshEditor {
         edge_ = {};
         uv_corners_.clear();
         reconcile_selection();
-        preview_transform_ = preview_extrude_ = preview_uv_ = false;
+        preview_transform_ = preview_extrude_ = preview_inset_ = preview_uv_ = false;
         stroke_active_ = false;
         stroke_.clear();
         error_.clear();
@@ -367,8 +368,11 @@ class EditableMeshEditor {
     void selection_list() {
         const char* labels[] = {"Vertex", "Edge", "Face"};
         int mode = static_cast<int>(mode_);
-        if (ImGui::Combo("Select", &mode, labels, 3))
+        if (ImGui::Combo("Select", &mode, labels, 3)) {
             mode_ = static_cast<SelectionMode>(mode);
+            if (mode_ != SelectionMode::Face)
+                preview_extrude_ = preview_inset_ = false;
+        }
         if (ImGui::BeginChild("Mesh elements", {0, 125 * ui::interface_scale},
                               ImGuiChildFlags_Borders)) {
             if (mode_ == SelectionMode::Vertex) {
@@ -411,7 +415,7 @@ class EditableMeshEditor {
             stroke_active_ = false;
             stroke_.clear();
             if (brush_mode_)
-                preview_transform_ = preview_extrude_ = false;
+                preview_transform_ = preview_extrude_ = preview_inset_ = false;
         }
         if (brush_mode_) {
             ImGui::SliderFloat("Brush radius", &sculpt_radius_, .02f, 1.f);
@@ -424,15 +428,19 @@ class EditableMeshEditor {
             ImGui::TextDisabled("Drag on the Mesh; release to apply one Undo step. Esc cancels.");
         }
         ImGui::EndDisabled();
+        if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+            ImGui::IsKeyPressed(ImGuiKey_Escape))
+            preview_transform_ = preview_extrude_ = preview_inset_ = false;
         const auto& source = document_->source();
-        if (preview_extrude_ || preview_transform_) {
+        if (preview_extrude_ || preview_inset_ || preview_transform_) {
             const auto ids = selected_vertices();
             const auto key =
                 Json::array(
-                    {document_->revision(), preview_extrude_, static_cast<int>(mode_), face_, ids,
+                    {document_->revision(), preview_extrude_, preview_inset_,
+                     static_cast<int>(mode_), face_, ids,
                      std::array<float, 3>{translation_[0], translation_[1], translation_[2]},
                      std::array<float, 3>{rotation_[0], rotation_[1], rotation_[2]},
-                     std::array<float, 3>{scale_[0], scale_[1], scale_[2]}, extrusion_})
+                     std::array<float, 3>{scale_[0], scale_[1], scale_[2]}, extrusion_, inset_})
                     .dump();
             if (key != model_preview_key_) {
                 model_preview_key_ = key;
@@ -441,6 +449,8 @@ class EditableMeshEditor {
                 try {
                     if (preview_extrude_ && mode_ == SelectionMode::Face)
                         (void)model_preview_->extrude_face(face_, extrusion_);
+                    else if (preview_inset_ && mode_ == SelectionMode::Face)
+                        (void)model_preview_->inset_face(face_, inset_);
                     else
                         model_preview_->transform_vertices(
                             ids, {translation_[0], translation_[1], translation_[2]},
@@ -465,7 +475,8 @@ class EditableMeshEditor {
         ImGui::InputFloat3("Move", translation_);
         ImGui::InputFloat3("Rotate (deg)", rotation_);
         ImGui::InputFloat3("Scale", scale_);
-        ImGui::Checkbox("Preview transform", &preview_transform_);
+        if (ImGui::Checkbox("Preview transform", &preview_transform_) && preview_transform_)
+            preview_extrude_ = preview_inset_ = false;
         if (ui::button("Apply transform",
                        "Move, rotate and scale selected elements as one Undo step.")) {
             const auto ids = selected_vertices();
@@ -483,9 +494,32 @@ class EditableMeshEditor {
             std::fill(std::begin(scale_), std::end(scale_), 1);
             preview_transform_ = false;
         }
+        ImGui::SeparatorText("Inset face");
+        ImGui::InputFloat("Inset distance", &inset_);
+        FORGE_UI_PROBE("mesh:inset_distance");
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face);
+        if (ImGui::Checkbox("Preview inset", &preview_inset_) && preview_inset_)
+            preview_transform_ = preview_extrude_ = false;
+        FORGE_UI_PROBE("mesh:preview_inset");
+        if (ui::button("Inset selected face",
+                       "Create a border and keep the inner face selected as one Undo step.")) {
+            mutate("Inset face",
+                   [&](EditableMeshSource& source) { (void)source.inset_face(face_, inset_); });
+            preview_inset_ = false;
+            uv_corners_.clear();
+        }
+        ImGui::EndDisabled();
+        if (ui::button("Cancel inset", "Discard the inset preview without editing the Mesh."))
+            preview_inset_ = false;
+        ui::help("Inset uses a positive edge distance. Extrude the inner face afterward to raise "
+                 "or recess it.");
         ImGui::SeparatorText("Extrude face");
-        ImGui::InputFloat("Distance", &extrusion_);
-        ImGui::Checkbox("Preview extrusion", &preview_extrude_);
+        ImGui::InputFloat("Extrude distance", &extrusion_);
+        FORGE_UI_PROBE("mesh:extrude_distance");
+        if (ImGui::Checkbox("Preview extrusion", &preview_extrude_) && preview_extrude_)
+            preview_transform_ = preview_inset_ = false;
+        FORGE_UI_PROBE("mesh:preview_extrude");
+        ImGui::TextDisabled("Positive distance raises; negative distance recesses.");
         ImGui::BeginDisabled(mode_ != SelectionMode::Face);
         if (ui::button("Extrude selected face", "Add a cap and side walls as one Undo step.")) {
             std::uint32_t cap = 0;
@@ -602,6 +636,7 @@ class EditableMeshEditor {
         const ImVec2 size{std::max(180.f, available.x), 240.f * ui::interface_scale};
         const auto origin = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("Mesh preview", size);
+        FORGE_UI_PROBE("mesh:model_canvas");
         auto* draw = ImGui::GetWindowDrawList();
         draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                             IM_COL32(14, 34, 46, 255));
@@ -711,8 +746,8 @@ class EditableMeshEditor {
                 }
             }
         }
-        // Extrusion introduces preview-only element IDs. Wait until Apply before selecting them.
-        if (!brush_mode_ && !preview_extrude_ && ImGui::IsItemHovered() &&
+        // Topology previews introduce temporary element IDs. Select them only after acceptance.
+        if (!brush_mode_ && !preview_extrude_ && !preview_inset_ && ImGui::IsItemHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
             auto distance_sq = [&](ImVec2 point) {

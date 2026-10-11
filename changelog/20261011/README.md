@@ -111,3 +111,18 @@ Windows D3D12 execution and physical acceptance of markers are not claimed here.
   pause/restart intent. Commands after Animation reject without mutation.
 - The Gallery includes an original per-entity control helper and input-action setup
   guide. Rebuild C++ modules with the matching SDK. Windows acceptance is pending.
+
+## Face inset and recessed panels
+
+Editable Mesh now offsets a selected face inward by a uniform edge distance,
+retains its inner face selection and creates a border. Signed extrusion raises
+or recesses that face. Preview, Cancel, Escape and one-step source Undo retain
+the existing editor document owner. UVs and colors interpolate through the
+original face fan; invalid/collapsed operations leave source/history unchanged.
+Mesh IDs remain reserved through Undo branches and save/reopen; this corrects
+the existing documented no-reuse contract without changing the source schema.
+
+Gallery scene12 contains three original framed/raised/recessed panel sources,
+Windows-target cooked Meshes and checker Material bindings. Normal standalone
+content uses the cooked Meshes without modeling source or tools. Windows
+execution and physical acceptance remain subject to the delivery gate.

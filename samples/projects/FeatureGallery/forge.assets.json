@@ -1386,6 +1386,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "492d8aa7-cdf0-467d-89cc-b1eb3729d79c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "030f4e4816083c5c59ac6791355043a2cdaa3e151a1ef2651302265d0dc55a02",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "7d330e1189415387a1bf765ee15d84b8df405b4ec414670bbc029a5c8815b20c",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "115ecce0fc09a7e0f7ca5f98fe295f0637cf1cc22efd7c375e56fe00bb3482f9",
+          "source_digest": "22bc2a5c2235c47088c80ed24b4cc9198dc3617f9d4dac1c5516bb89688244a0",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 2730,
+          "file": "mesh.bin",
+          "sha256": "33bf29cf50280551b5f16650f14371d7ada57f1e574cb41893a0a66d64499a7b",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Frame.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
       "metadata": {
         "forge.import": {
@@ -1617,6 +1652,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5a55e77c-fd9f-49f7-bea3-c2e2e354ade8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dc125867517e47e04918444e08441f30d5ad3c7600749647d25a92ecba1109d5",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "08b34550c1ebc8c48af8070872ec83dbe6dc9630acda5d3f43dcf93c7c6d1773",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6342f04a20e0f7276156fbd56ce5ffbbf31bdbcb22374e4a1aa7ad2c4ac35ad4",
+          "source_digest": "4d2b7c81c96108f50e6ca24c9a647d8300af902cd8e92c382a4393e212e69f87",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 3547,
+          "file": "mesh.bin",
+          "sha256": "3cb12860ea3578f590118c3974b4d509bd2aa1fc1f15b96631a75bb7ce8985f6",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RecessedPanel.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],
@@ -3146,6 +3216,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a8531227-9d26-431b-bd51-c8d328065a07",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "82aad00090cad06bb32a42f54fe5119f6a375f591f4d4a731abe8273f4fa0cd0",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "d1f8cc33542da435925a20c1f8b5df92441d0700e1ddac68794dc9fb97d0439c",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "65f5457436b0fadf9fbb39d47fa7e64e004a6a7ef78315b18dbfc5b11a4d1b71",
+          "source_digest": "c754e07354d0b7b8c292cb794d3845a7c81d7157d9dd65b074273c98c31031a7",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 3545,
+          "file": "mesh.bin",
+          "sha256": "d57682b618e235d0b8fde54494803912f15d9021c818f657b849d8fac4edf14b",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RaisedPanel.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

@@ -18,8 +18,10 @@ template <class F> void rejects(F fn) {
     throw std::runtime_error("Invalid editable Mesh operation was accepted");
 }
 } // namespace
+#include "mesh_inset_tests.hpp"
 int main() {
     try {
+        mesh_inset_tests();
         const auto identity = AssetId::generate();
         auto source = EditableMeshSource::create_cube(identity);
         auto mesh = source.cook();

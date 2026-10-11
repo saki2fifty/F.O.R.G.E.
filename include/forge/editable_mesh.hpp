@@ -26,6 +26,8 @@ struct EditableMeshSource {
     void transform_vertices(std::span<const std::uint32_t> ids, std::array<double, 3> translation,
                             std::array<double, 3> rotation_degrees, std::array<double, 3> scale);
     std::uint32_t extrude_face(std::uint32_t face, double distance);
+    // Uniform inward edge offset; preserves the selected inner face identity.
+    std::uint32_t inset_face(std::uint32_t face, double distance);
     void sculpt(std::span<const MeshBrushSample> samples, double radius, double strength);
     void paint_color(std::span<const MeshBrushSample> samples, double radius,
                      std::array<double, 4> color, double opacity);

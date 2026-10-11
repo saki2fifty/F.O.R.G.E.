@@ -3215,6 +3215,31 @@ int main(int argc, char** argv) {
                     source_import.prepare();
                     ready = source_import.review_ready();
                     break;
+                case 103: {
+                    // Original source data sets up this staged native capture;
+                    // actual mouse/key edits run in editable_mesh_editor_tests.
+                    source_import.close();
+                    auto mesh = forge::EditableMeshSource::create_cube(forge::AssetId::generate());
+                    mesh.inset_face(13, .1);
+                    (void)mesh.extrude_face(13, -.2);
+                    forge::atomic_write(files.document.project() / "Assets/CapturePanel.mesh.json",
+                                        mesh.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CapturePanel.mesh.json");
+                    forge::ui::style(1);
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    break;
+                }
+                case 104:
+                case 107:
+                    forge::ui::style(1.5f);
+                    break;
+                case 105:
+                case 108:
+                    forge::ui::style(2);
+                    break;
+                case 106:
+                    forge::ui::style(1);
+                    break;
                 }
                 fixture.prepared = ready;
             }
@@ -4769,7 +4794,8 @@ int main(int argc, char** argv) {
                 if (const auto* target = fixture.focused_document())
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
-                        (fixture.stage >= 85 && fixture.stage <= 96))
+                        (fixture.stage >= 85 && fixture.stage <= 96) ||
+                        (fixture.stage >= 103 && fixture.stage <= 108))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5013,12 +5039,23 @@ int main(int argc, char** argv) {
                     captured_document_visible &= !authored_components.fixture_open_migration &&
                                                  popup && popup->Active && !popup->Hidden;
                 }
-                if (fixture.stage >= 97) {
+                if (fixture.stage >= 97 && fixture.stage <= 102) {
                     const auto* popup = ImGui::FindWindowByName("Import source files");
                     captured_document_visible &= popup && popup->Active && !popup->Hidden;
                     if (!source_import.diagnostic().empty())
                         throw std::runtime_error("Source import capture failed: " +
                                                  source_import.diagnostic());
+                }
+                if (fixture.stage >= 103 && fixture.stage <= 108) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->source().document.at("faces").size() != 14)
+                        throw std::runtime_error("Editable Mesh capture source differs");
+                    if (auto* w = ImGui::FindWindowByName("###Editable Mesh")) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, fixture.stage < 106 ? 0 : w->ScrollMax.y);
+                    }
                 }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
@@ -5097,7 +5134,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 103) {
+                    if (fixture.stage == 109) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

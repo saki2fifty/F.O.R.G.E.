@@ -418,9 +418,132 @@ void EditableMeshSource::transform_vertices(std::span<const std::uint32_t> ids,
     candidate.validate();
     document = std::move(candidate.document);
 }
+std::uint32_t EditableMeshSource::inset_face(std::uint32_t face_id, double distance) {
+    auto& source = *this;
+    source.validate();
+    require(std::isfinite(distance) && distance > 0 && distance <= 100000,
+            "Inset distance must be finite and positive");
+    const auto& doc = source.document;
+    const auto found = std::find_if(doc.at("faces").begin(), doc.at("faces").end(),
+                                    [&](const Json& f) { return id(f.at("id")) == face_id; });
+    require(found != doc.at("faces").end(), "Inset face does not exist");
+    const auto selected = *found;
+    const auto& corners = selected.at("corners");
+    const auto count = corners.size();
+    std::size_t total_corners = 0;
+    for (const auto& f : doc.at("faces"))
+        total_corners += f.at("corners").size();
+    const auto next_id = id(doc.at("next_id"));
+    require(doc.at("vertices").size() + count <= vertex_limit &&
+                doc.at("faces").size() + count <= face_limit &&
+                total_corners + 4 * count <= corner_limit &&
+                std::uint64_t(next_id) + 2 * count <= std::numeric_limits<std::uint32_t>::max(),
+            "Inset exceeds editable Mesh element limits");
+    std::map<std::uint32_t, Vec3> positions;
+    std::map<std::uint32_t, std::array<double, 4>> colors;
+    bool has_color = false;
+    for (const auto& v : doc.at("vertices")) {
+        const auto identity = id(v.at("id"));
+        positions.emplace(identity, vector<3>(v.at("position")));
+        colors.emplace(identity, v.contains("color") ? vertex_color(v.at("color"))
+                                                     : std::array<double, 4>{1, 1, 1, 1});
+        has_color |= v.contains("color");
+    }
+    const auto shape = polygon(selected, positions);
+    std::vector<Vec3> inward(count), inner(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        auto edge = sub(shape.points[(i + 1) % count], shape.points[i]);
+        const auto size = length(edge);
+        require(size > 1e-8, "Inset edge is too short");
+        for (auto& axis : edge)
+            axis /= size;
+        inward[i] = cross(shape.normal, edge);
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto previous = (i + count - 1) % count;
+        const auto denominator = 1 + dot(inward[previous], inward[i]);
+        require(denominator > 1e-10, "Inset corner is numerically unstable");
+        for (unsigned axis = 0; axis < 3; ++axis)
+            inner[i][axis] = shape.points[i][axis] +
+                             distance * (inward[previous][axis] + inward[i][axis]) / denominator;
+        (void)vector<3>(Json(inner[i]));
+        for (std::size_t j = 0; j < count; ++j)
+            require(dot(sub(inner[i], shape.points[j]), inward[j]) >=
+                        distance - std::max(1e-10, distance * 1e-9),
+                    "Inset collapses or crosses the face boundary");
+    }
+    auto candidate = source;
+    auto& edited = candidate.document;
+    std::vector<Json> inner_corners;
+    auto allocator = next_id;
+    for (std::size_t i = 0; i < count; ++i) {
+        std::array<double, 3> weights{};
+        std::size_t triangle_index = 0;
+        bool admitted = false;
+        for (std::size_t k = 1; k + 1 < count; ++k) {
+            const auto b = sub(shape.points[k], shape.points[0]);
+            const auto c = sub(shape.points[k + 1], shape.points[0]);
+            const auto p = sub(inner[i], shape.points[0]);
+            const auto area = dot(cross(b, c), shape.normal);
+            const auto wb = dot(cross(p, c), shape.normal) / area;
+            const auto wc = dot(cross(b, p), shape.normal) / area;
+            weights = {1 - wb - wc, wb, wc};
+            if (std::all_of(weights.begin(), weights.end(), [](double w) { return w >= -1e-9; })) {
+                for (auto& w : weights)
+                    w = std::max(0., w);
+                const auto sum = weights[0] + weights[1] + weights[2];
+                for (auto& w : weights)
+                    w /= sum;
+                triangle_index = k;
+                admitted = true;
+                break;
+            }
+        }
+        require(admitted, "Inset corner lies outside the source face");
+        const std::array<std::size_t, 3> indices{0, triangle_index, triangle_index + 1};
+        std::array<double, 2> uv{};
+        std::array<double, 4> color{};
+        for (unsigned j = 0; j < 3; ++j) {
+            const auto value = vector<2>(corners[indices[j]].at("uv"));
+            const auto rgba = colors.at(id(corners[indices[j]].at("vertex")));
+            for (unsigned axis = 0; axis < 2; ++axis)
+                uv[axis] += value[axis] * weights[j];
+            for (unsigned axis = 0; axis < 4; ++axis)
+                color[axis] += rgba[axis] * weights[j];
+        }
+        const auto identity = allocator++;
+        Json vertex{{"id", identity}, {"position", inner[i]}};
+        if (has_color) {
+            for (auto& channel : color)
+                channel = std::clamp(channel, 0., 1.);
+            vertex["color"] = color;
+        }
+        edited["vertices"].push_back(std::move(vertex));
+        auto corner = corners[i];
+        corner["vertex"] = identity;
+        corner["uv"] = uv;
+        inner_corners.push_back(std::move(corner));
+    }
+    for (auto& f : edited["faces"])
+        if (id(f.at("id")) == face_id)
+            f["corners"] = inner_corners;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto next = (i + 1) % count;
+        auto ring = selected;
+        ring["id"] = allocator++;
+        ring["corners"] =
+            Json::array({corners[i], corners[next], inner_corners[next], inner_corners[i]});
+        edited["faces"].push_back(std::move(ring));
+    }
+    edited["next_id"] = allocator;
+    candidate.validate();
+    source = std::move(candidate);
+    return face_id;
+}
+
 std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double distance) {
-    require(std::isfinite(distance) && distance > 1e-5 && distance <= 10000,
-            "Mesh extrusion distance must be positive and bounded");
+    require(std::isfinite(distance) && std::abs(distance) > 1e-5 && std::abs(distance) <= 10000,
+            "Mesh extrusion distance must be nonzero and bounded");
     auto candidate = *this;
     auto* source_face = find_face(candidate.document, wanted);
     require(source_face, "Selected Mesh face is missing");
@@ -467,11 +590,12 @@ std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double dist
         const auto j = (i + 1) % corners.size();
         const auto width =
             length(sub(positions.at(old_vertices[j]), positions.at(old_vertices[i])));
-        faces.push_back({{"id", next++},
-                         {"corners", Json::array({corner(old_vertices[i], {0, 0}),
-                                                  corner(old_vertices[j], {width, 0}),
-                                                  corner(new_vertices[j], {width, distance}),
-                                                  corner(new_vertices[i], {0, distance})})}});
+        faces.push_back(
+            {{"id", next++},
+             {"corners",
+              Json::array({corner(old_vertices[i], {0, 0}), corner(old_vertices[j], {width, 0}),
+                           corner(new_vertices[j], {width, std::abs(distance)}),
+                           corner(new_vertices[i], {0, std::abs(distance)})})}});
     }
     candidate.document["next_id"] = next;
     candidate.validate();

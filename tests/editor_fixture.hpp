@@ -81,6 +81,13 @@ struct EditorFixture {
         if (workflow)
             return nullptr;
         switch (stage) {
+        case 103:
+        case 104:
+        case 105:
+        case 106:
+        case 107:
+        case 108:
+            return "###Editable Mesh";
         case 41:
             return "###Texture import";
         case 42:
@@ -370,7 +377,13 @@ struct EditorFixture {
                                "source-import-choose-200",
                                "source-import-review",
                                "source-import-review-150",
-                               "source-import-review-200"};
+                               "source-import-review-200",
+                               "editable-mesh-panels",
+                               "editable-mesh-panels-150",
+                               "editable-mesh-panels-200",
+                               "editable-mesh-tools",
+                               "editable-mesh-tools-150",
+                               "editable-mesh-tools-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -1,0 +1,286 @@
+{
+  "asset_id": "b5863957-46a5-4b5b-8308-50ff78b5da3b",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "41528d9d-8ed1-41df-98c1-d738a3c42e8a",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9659258127212524,
+          "x": 0.258819043636322,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 8.0,
+          "z": -11.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e74a7d81-9c0e-4606-88c7-ce669be2e0d8",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9012ff76-c756-4fac-a95e-1214446a7a18",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 0.2800000011920929,
+          "color_g": 0.5799999833106995,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 70.0,
+          "kind": 1,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 8.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.8433914184570313,
+          "x": 0.537299633026123,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e1e11760-ed2e-447e-97aa-1c4935c8ce0f",
+      "name": "Warm point light",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 0.5799999833106995,
+          "color_r": 0.3499999940395355,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 70.0,
+          "kind": 2,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 8.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.8433914184570313,
+          "x": 0.537299633026123,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "82e73b47-c73a-43ec-ad5b-8c8798b50233",
+      "name": "Cool spot light",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.3,
+          "y": 0.225,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "492d8aa7-cdf0-467d-89cc-b1eb3729d79c",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "b7e34a25-b627-4732-b0be-5df6e92bf069",
+      "name": "Inset frame - flat",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.225,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "a8531227-9d26-431b-bd51-c8d328065a07",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "02cbe3a2-a2f4-4adc-9ea3-ab9bae964526",
+      "name": "Inset and extrude - raised",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 3.3,
+          "y": 0.225,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "5a55e77c-fd9f-49f7-bea3-c2e2e354ade8",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "6dd5d12c-68e8-423c-a12f-44cdb245c69d",
+      "name": "Inset and extrude - recessed",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 3
+}
