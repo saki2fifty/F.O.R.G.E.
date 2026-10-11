@@ -173,3 +173,16 @@ Source, actual editor workflow, publication, resource and relocated export check
 are distinct from pending native Windows/physical acceptance. Build156 uses the
 prior curve/UV source; the next combined delivery will include responsiveness and
 brush symmetry after its validation gate.
+
+## Authored triangulation
+
+Model now offers Triangulate face and Triangulate Mesh. Both use the existing
+source/history owner, preserve positions/colors/corner UVs, reserve new face IDs
+without recycling and support one Undo step. Smooth normals follow the resulting
+topology. Original Gallery16 compares polygons, equivalent triangles and a sculpted
+triangle corner. Source and actual UI/publication/relocated export checks are
+separate from pending Windows execution and physical acceptance.
+
+- Corrected authored Mesh material slot bindings in Feature Gallery05/06/12/14 so
+  their exported games resolve the intended materials. Added actual render material
+  selector checks; runtime validation remains unchanged.

@@ -82,6 +82,23 @@ int main(int argc, char** argv) {
                 const auto& mesh = row.at("components").at("forge.mesh_renderer");
                 referenced.insert(mesh.at("mesh").get<AssetId>());
                 require(mesh.at("materials").size() == 1, "Panel lacks checker material binding");
+                ResourcePool<MeshAsset> pool;
+                const auto ticket =
+                    request_model_mesh(pool, root, catalog, {mesh.at("mesh").get<AssetId>()});
+                require(pool.wait(ticket, 5s) && bool(pool.acquire(ticket)),
+                        "Panel material resource unavailable");
+                const auto loaded = pool.acquire(ticket);
+                const auto material = mesh.at("materials")[0].at("material").get<AssetId>();
+                const std::array override{MaterialSlotOverride{
+                    mesh.at("materials")[0].at("slot").get<std::string>(), {material}}};
+                const auto selected = select_mesh_materials(loaded.get(), override);
+                require(selected.unresolved.empty() &&
+                            selected.bindings.front().material.id == material,
+                        "Panel checker material binding unresolved");
+                const std::array wrong{MaterialSlotOverride{"surface", {material}}};
+                require(select_mesh_materials(loaded.get(), wrong).unresolved ==
+                            std::vector<std::string>{"surface"},
+                        "Root Mesh incorrectly accepts primitive-only surface slot");
             }
         require(referenced == std::set<AssetId>(meshes.begin(), meshes.end()),
                 "Scene panel references differ");

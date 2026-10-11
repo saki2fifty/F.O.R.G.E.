@@ -41,6 +41,8 @@ struct EditableMeshSource {
     std::uint32_t extrude_face(std::uint32_t face, double distance);
     // Uniform inward edge offset; preserves the selected inner face identity.
     std::uint32_t inset_face(std::uint32_t face, double distance);
+    // Author the existing ordered face fan; first triangle keeps its face ID.
+    void triangulate_faces(std::span<const std::uint32_t> faces);
     void sculpt(std::span<const MeshBrushSample> samples, double radius, double strength);
     void sculpt(std::span<const MeshBrushSample> samples, double radius, double strength,
                 MeshBrushSymmetry symmetry);

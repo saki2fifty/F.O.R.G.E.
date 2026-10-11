@@ -537,6 +537,50 @@ class EditableMeshEditor {
         draw_model_wireframe(model_preview_ ? *model_preview_ : source, locked);
         selection_list();
         ImGui::BeginDisabled(locked || pending());
+        ImGui::SeparatorText("Triangulate");
+        const bool polygon_face =
+            std::any_of(document_->source().document.at("faces").begin(),
+                        document_->source().document.at("faces").end(), [&](const Json& face) {
+                            return face.at("id") == face_ && face.at("corners").size() > 3;
+                        });
+        const bool polygon_mesh =
+            std::any_of(document_->source().document.at("faces").begin(),
+                        document_->source().document.at("faces").end(),
+                        [](const Json& face) { return face.at("corners").size() > 3; });
+        ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
+                             preview_extrude_);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !polygon_face);
+        if (ui::button("Triangulate face",
+                       "Split the selected polygon into its ordered triangles as one Undo step.")) {
+            const auto revision = document_->revision();
+            mutate("Triangulate face", [&](EditableMeshSource& source) {
+                source.triangulate_faces(std::array{face_});
+            });
+            if (document_->revision() != revision) {
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!polygon_mesh);
+        if (ui::button("Triangulate Mesh",
+                       "Split every polygon into its ordered triangles as one Undo step.")) {
+            const auto revision = document_->revision();
+            mutate("Triangulate Mesh", [](EditableMeshSource& source) {
+                std::vector<std::uint32_t> faces;
+                for (const auto& face : source.document.at("faces"))
+                    faces.push_back(face.at("id").get<std::uint32_t>());
+                source.triangulate_faces(faces);
+            });
+            if (document_->revision() != revision) {
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ui::help("Keeps positions, colors and corner UVs. Smooth normals are recalculated from the "
+                 "new topology.");
         ImGui::SeparatorText("Transform selection");
         ImGui::InputFloat3("Move", translation_);
         ImGui::InputFloat3("Rotate (deg)", rotation_);

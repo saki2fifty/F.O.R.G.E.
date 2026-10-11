@@ -55,3 +55,28 @@ Release includes the final in-canvas pointer sample, even without a prior held
 frame. It calls the existing operation and commits one validated source-document
 edit. Gallery15 compares one-sided sculpt, X-mirrored sculpt and XYZ-mirrored
 paint. Selected source-free relocated exports preserve exact cooked streams.
+
+## Authored triangulation
+
+`triangulate_faces` accepts1–4096unique existing face IDs. It uses the same ordered
+corner fan as cooking: (0,1,2), (0,2,3), and so on. It retains the polygon ID for
+the first triangle and reserves further face IDs in source/document order, using
+existing next_id. Positions, vertex colors, complete corner UV/extension data and
+face extension data are copied; unrelated faces and source extensions stay intact.
+Triangle-only selections are a no-op. Missing/duplicate faces, count/corner bounds
+and allocator exhaustion reject before replacement. Source and final candidate
+validation retain the existing manifold/convex/winding owner.
+
+Model actions **Triangulate face** and **Triangulate Mesh** commit one source Undo
+step and clear topology-scoped UV state. They honor read-only/pending/stroke and
+preview locks. The retained face stays selected. Undo/branch/reopen keep allocator
+high-water, so discarded triangle IDs are not recycled. Smooth normals are
+recomputed from new incident triangles; unchanged flat geometry preserves indexed
+render triangle attributes. No schema/cook revision/runtime ABI/dependency changes.
+Gallery16 compares polygon source, equivalent triangle source and a triangle cube
+with a sculpted/painted corner. All use ordinary selected Mesh/render/export paths.
+
+Root authored Mesh resources expose material slot `default`; built-in primitives
+expose `surface`. Inspector labels do not change the authored slot identity. Scene
+bindings must use the selected resource's actual slot key. Gallery/render consumer
+checks exercise the same material selector as runtime; unknown keys reject.

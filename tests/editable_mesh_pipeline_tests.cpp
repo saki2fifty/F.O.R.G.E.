@@ -165,6 +165,35 @@ int main(int argc, char** argv) {
                             actual.lods[0].parts[0].find(stream.semantic)->values == stream.values,
                         "Published brush stream differs");
         }
+        {
+            auto history = EditableMeshDocument::create(lease, "Assets/TriangleHistory.mesh.json");
+            const auto baseline = history->source().document;
+            history->edit(history->revision(), "Triangulate face", [](Json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.triangulate_faces(std::array<std::uint32_t, 1>{13});
+                draft = std::move(mesh.document);
+            });
+            const auto edited = history->source().document;
+            history->undo();
+            auto reserved = baseline;
+            reserved["next_id"] = edited.at("next_id");
+            require(history->source().document == reserved,
+                    "Triangle Undo lost geometry or allocator");
+            history->redo();
+            require(history->source().document == edited, "Triangle Redo differs");
+            history->undo();
+            history->edit(history->revision(), "Triangle branch", [](Json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.triangulate_faces(std::array<std::uint32_t, 1>{9});
+                draft = std::move(mesh.document);
+            });
+            require(!history->can_redo() && history->source().document.at("next_id") == 17,
+                    "Triangle branch reused discarded ID");
+            history->save();
+            EditableMeshDocument reopened(lease, "Assets/TriangleHistory.mesh.json");
+            require(reopened.source().document == history->source().document,
+                    "Triangle save/reopen differs");
+        }
         auto document = EditableMeshDocument::create(lease, source);
         const auto identity = document->source().asset();
         const auto initial = document->source().document;

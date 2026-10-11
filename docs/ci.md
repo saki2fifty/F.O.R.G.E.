@@ -325,3 +325,13 @@ set up original source and drive combo/checkbox input for100/150/200% sculpt/pai
 layout captures with explicit undocking/scrolling; they do not prove Content
 creation or default layout. Final Windows package acceptance exports Gallery15 and
 starts the shipped standalone without authored Mesh sources.
+
+### Authored triangulation acceptance
+
+`editable_mesh` verifies3–16corner fans, canonical IDs, complete UV/color/extension
+retention, indexed flat triangle parity, no-op behavior and atomic bad-selection/
+count/allocator rejection. `editable_mesh_pipeline` covers Undo/Redo/branch/reopen
+high-water. `editable_mesh_triangulation_editor` performs actual face/Mesh actions,
+lock, history, publication and reopen at65/100/200%. The Gallery16 suite validates
+source/cook/resource/camera and selected source-free relocated export. Final
+package acceptance exports and starts Gallery16 with shipped Windows executables.

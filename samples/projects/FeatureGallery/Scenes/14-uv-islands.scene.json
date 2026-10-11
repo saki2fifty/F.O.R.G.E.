@@ -135,7 +135,7 @@
           "shadow_normal_bias": 0.019999999552965164
         },
         "forge.local_rotation": {
-          "w": 0.8433914184570313,
+          "w": 0.8433914184570312,
           "x": 0.537299633026123,
           "y": 0.0,
           "z": 0.0
@@ -174,7 +174,7 @@
           "shadow_normal_bias": 0.019999999552965164
         },
         "forge.local_rotation": {
-          "w": 0.8433914184570313,
+          "w": 0.8433914184570312,
           "x": 0.537299633026123,
           "y": 0.0,
           "z": 0.0
@@ -209,7 +209,7 @@
           "materials": [
             {
               "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
-              "slot": "surface"
+              "slot": "default"
             }
           ],
           "mesh": "32766a10-d94d-43dd-b610-2df2701e69ea",
@@ -238,7 +238,7 @@
           "materials": [
             {
               "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
-              "slot": "surface"
+              "slot": "default"
             }
           ],
           "mesh": "c0876153-6f17-49b0-85ee-56abd3a68004",
@@ -267,7 +267,7 @@
           "materials": [
             {
               "material": "22f2531d-dc87-490f-befd-aaeecf0b888c",
-              "slot": "surface"
+              "slot": "default"
             }
           ],
           "mesh": "b749931c-09c4-4386-8a48-229eb5de68d8",

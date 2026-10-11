@@ -53,3 +53,15 @@ Source Undo/Redo belongs to the active Editable Mesh document; Scene Undo/Redo r
 ## Current scope
 
 The first modeling workflow supports bounded, planar convex polygons with explicit vertex and face IDs, face inset and signed extrusion, selection transforms and face-corner UV editing. It does not edit imported Model meshes, skin/morph targets, LODs, automatic subdivision, dense sculpting or texture-pixel painting. Complex or nonmanifold geometry is rejected rather than silently changed.
+
+## Make editable triangles
+
+In Model, select a face and choose **Triangulate face**, or choose **Triangulate
+Mesh** for all polygons. Each action makes one Undo step. Positions, colors and
+UVs stay in place. Triangles can bend independently when you sculpt or move their
+vertices; polygon faces must remain planar. Smooth shading may change because the
+triangle connections change. Save & Publish to update Scene, Play and export.
+
+Open **16-authored-triangulation** in the Feature Gallery. The first two cubes look
+the same in the game; open their Mesh sources to compare quad and triangle edges.
+The third cube has an edited, colored corner made possible by its triangle faces.

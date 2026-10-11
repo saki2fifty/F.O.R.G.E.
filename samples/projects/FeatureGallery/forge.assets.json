@@ -3929,6 +3929,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "bf30c67d-4500-4547-a935-88a1a4e50d50",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "2693304bb5064463b6f46d18f2481cb07d265af6ab333fc0d48fe0518724fb66",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "6ba4d1a0c1c6a31978df648dd8e6bdf96a67eaa1061362b071c345d08f26e2c4",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "428f1d68af37486742d0915da04e4d44143031efcae4bf1cf88d020096fc97ed",
+          "source_digest": "bb1f845bf4f1093c088f68129e42e85c9f86b18d9a1901b8299dedfd5e17b986",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 2447,
+          "file": "mesh.bin",
+          "sha256": "1a7c2a4f56faa608ff515021b19bc7c06e634c2fc0601e8d855ba1158fe11b1c",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TriangleSculpt.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c0876153-6f17-49b0-85ee-56abd3a68004",
       "metadata": {
         "forge.import": {
@@ -4559,6 +4594,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "e9cb332b-601e-44ad-8075-dc3d97d4411e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "d576e306c1663d2b9fac783ac101652f4518f9d818a52a33e997ae3568092a6b",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "4e4e89a0ede6cd412f762d73879a4ef42e69df9dd8a0320ae00be60c4bcc5c20",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "eb5198cc3fccb058ea6321d5c07ea680997655e5f084c93d2ec997631bb5178e",
+          "source_digest": "db3bd3d11a94bda9139430cd500af61a9660afe72f74822746f02fe576c025c9",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1748,
+          "file": "mesh.bin",
+          "sha256": "8e1129c01bc8e49c5eff2afe37b385933439cc901b34973821b3203c10072a45",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TriangleCube.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "f3d49347-2448-4491-8466-e8b5cd28bdf6",
       "metadata": {
         "forge.import": {
@@ -4594,6 +4664,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f650b673-0140-4625-917d-95a113b993ba",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "e656127ecee522a87fa02b88c956fae246adcae8a44a59f1cec8a44368487b7a",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "f744f8756b7b272e9af09a6eb2d10b21c8e5ed5f2a93ae3b92d3c31b073d0ace",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "b70b336672330b6902e9c4b51a1f8be50eb438af062bbdbdbe80b650d163cc76",
+          "source_digest": "8039c07af1f8d99f74a3f91e8abd1949df83e19febe18e1cd3cd5048fd98060d",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1361,
+          "file": "mesh.bin",
+          "sha256": "325766735bfef900779aecff1df762a2d09048258ac68d2fd326b28154e9238c",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/PolygonCube.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

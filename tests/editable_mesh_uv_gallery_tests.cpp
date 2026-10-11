@@ -89,6 +89,13 @@ int main(int argc, char** argv) {
                     "UV render consumer unavailable");
             const auto loaded = pool.acquire(ticket);
             const auto& resource = loaded.get();
+            const auto selected_materials = select_mesh_materials(resource, mesh.renderer.materials,
+                                                                  mesh.renderer.material_variant);
+            require(selected_materials.unresolved.empty(),
+                    "Gallery authored material slot unresolved in real render consumer");
+            require(selected_materials.bindings.size() == 1 &&
+                        selected_materials.bindings.front().key == "default",
+                    "Authored root Mesh slot key is not default");
             const auto geometry = prepare_mesh_pose_geometry(resource.mesh);
             const auto pose =
                 prepare_mesh_instance_pose(resource, geometry, mesh, ModelSceneIndex(render));

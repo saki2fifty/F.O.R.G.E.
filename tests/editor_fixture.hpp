@@ -100,6 +100,9 @@ struct EditorFixture {
         case 124:
         case 125:
         case 126:
+        case 127:
+        case 128:
+        case 129:
         case 103:
         case 104:
         case 105:
@@ -420,7 +423,10 @@ struct EditorFixture {
                                "editable-mesh-sculpt-symmetry-200",
                                "editable-mesh-paint-symmetry-view",
                                "editable-mesh-paint-symmetry-view-150",
-                               "editable-mesh-paint-symmetry-view-200"};
+                               "editable-mesh-paint-symmetry-view-200",
+                               "editable-mesh-triangulation-tools",
+                               "editable-mesh-triangulation-tools-150",
+                               "editable-mesh-triangulation-tools-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

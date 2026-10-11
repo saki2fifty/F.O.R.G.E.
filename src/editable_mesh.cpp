@@ -609,6 +609,55 @@ std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double dist
     document = std::move(candidate.document);
     return cap;
 }
+void EditableMeshSource::triangulate_faces(std::span<const std::uint32_t> faces) {
+    require(!faces.empty() && faces.size() <= face_limit,
+            "Mesh triangulation selection is empty or too large");
+    validate();
+    const std::set<std::uint32_t> selected(faces.begin(), faces.end());
+    require(selected.size() == faces.size(),
+            "Mesh triangulation selection contains duplicate faces");
+    std::size_t found = 0, added_faces = 0, added_corners = 0, old_corners = 0;
+    for (const auto& face : document.at("faces")) {
+        const auto count = face.at("corners").size();
+        old_corners += count;
+        if (selected.contains(id(face.at("id")))) {
+            ++found;
+            added_faces += count - 3;
+            added_corners += 2 * count - 6;
+        }
+    }
+    require(found == selected.size(), "Selected Mesh face is missing");
+    require(document.at("faces").size() + added_faces <= face_limit &&
+                old_corners + added_corners <= corner_limit,
+            "Mesh triangulation exceeds face or corner limits");
+    const auto first_new = id(document.at("next_id"));
+    require(std::uint64_t(first_new) + added_faces <= std::numeric_limits<std::uint32_t>::max(),
+            "Mesh element identities exhausted");
+    if (added_faces == 0)
+        return;
+    auto candidate = *this;
+    auto next = first_new;
+    auto triangles = Json::array();
+    for (const auto& face : document.at("faces")) {
+        const auto& corners = face.at("corners");
+        if (!selected.contains(id(face.at("id"))) || corners.size() == 3) {
+            triangles.push_back(face);
+            continue;
+        }
+        for (std::size_t corner = 1; corner + 1 < corners.size(); ++corner) {
+            auto triangle = face;
+            if (corner != 1)
+                triangle["id"] = next++;
+            triangle["corners"] = Json::array({corners[0], corners[corner], corners[corner + 1]});
+            triangles.push_back(std::move(triangle));
+        }
+    }
+    candidate.document["faces"] = std::move(triangles);
+    candidate.document["next_id"] = next;
+    candidate.validate();
+    *this = std::move(candidate);
+}
+
 void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double radius,
                                 double strength) {
     sculpt(samples, radius, strength, MeshBrushSymmetry::None);

@@ -3237,6 +3237,26 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 127: {
+                    // Staged original triangle source for native tool layout review.
+                    // Performed operations run in the separate scaled UI fixture.
+                    editable_mesh_editor = {};
+                    auto source =
+                        forge::EditableMeshSource::create_cube(forge::AssetId::generate());
+                    source.triangulate_faces(std::array<std::uint32_t, 1>{13});
+                    forge::atomic_write(files.document.project() /
+                                            "Assets/CaptureTriangles.mesh.json",
+                                        source.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CaptureTriangles.mesh.json");
+                    forge::ui::style(1);
+                    break;
+                }
+                case 128:
+                    forge::ui::style(1.5f);
+                    break;
+                case 129:
+                    forge::ui::style(2);
+                    break;
                 case 121: {
                     // Original source setup; brush mode and axis controls below
                     // are driven by actual fixture mouse/key events.
@@ -4891,7 +4911,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 126))
+                        (fixture.stage >= 103 && fixture.stage <= 129))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5176,6 +5196,29 @@ int main(int argc, char** argv) {
                         captured_document_visible = false;
                     }
                 }
+                if (fixture.stage >= 127 && fixture.stage <= 129) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->source().document.at("faces").size() != 7 ||
+                        document->dirty())
+                        throw std::runtime_error("Triangle capture source differs");
+                    auto* w = ImGui::FindWindowByName("###Editable Mesh");
+                    const auto control = forge::test::ui_targets.find("button:Triangulate Mesh");
+                    if (!w || control == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = control->second;
+                        const auto center = (target.minimum.y + target.maximum.y) * .5f;
+                        const auto visible_center =
+                            (target.clip_minimum.y + target.clip_maximum.y) * .5f;
+                        ImGui::SetScrollY(w, w->Scroll.y + center - visible_center);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 121 && fixture.stage <= 126) {
                     const auto* document = editable_mesh_editor.document();
                     if (!document || document->dirty() ||
@@ -5314,7 +5357,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 127) {
+                    if (fixture.stage == 130) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

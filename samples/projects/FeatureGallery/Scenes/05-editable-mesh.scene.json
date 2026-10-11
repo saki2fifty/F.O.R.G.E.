@@ -159,7 +159,7 @@
           "mesh": "ac0f7797-6699-455b-9431-bc07eb513c2f",
           "materials": [
             {
-              "slot": "surface",
+              "slot": "default",
               "material": "22f2531d-dc87-490f-befd-aaeecf0b888c"
             }
           ],
