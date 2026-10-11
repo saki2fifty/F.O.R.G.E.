@@ -114,6 +114,57 @@ int main(int argc, char** argv) {
             EditableMeshDocument reopened_uv(lease, "Assets/UvHistory.mesh.json");
             require(reopened_uv.source().document == edited, "UV source save/reopen differs");
         }
+        {
+            auto history = EditableMeshDocument::create(
+                lease, "Assets/MirrorHistory.mesh.json",
+                [](AssetId id) { return EditableMeshSource::create_sculpt_sphere(id); });
+            const auto baseline = history->source().document;
+            auto sculpt = [](Json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.sculpt(std::array{MeshBrushSample{{.5, 0, 0}, .8}}, .35, -.02,
+                            MeshBrushSymmetry::X);
+                draft = std::move(mesh.document);
+            };
+            history->edit(history->revision(), "Mirrored inward stroke", sculpt);
+            const auto sculpted = history->source().document;
+            history->undo();
+            require(history->source().document == baseline, "Mirror Undo differs");
+            history->redo();
+            require(history->source().document == sculpted, "Mirror Redo differs");
+            history->undo();
+            history->edit(history->revision(), "Mirrored paint branch", [](Json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.paint_color(
+                    std::array{MeshBrushSample{{.35, .2, .3}, .8}}, .35, {.1, .8, .2, 1}, .7,
+                    MeshBrushSymmetry::X | MeshBrushSymmetry::Y | MeshBrushSymmetry::Z);
+                draft = std::move(mesh.document);
+            });
+            require(!history->can_redo(), "Brush branch retained abandoned redo");
+            const auto painted = history->source().document;
+            history->save();
+            EditableMeshDocument reopened(lease, "Assets/MirrorHistory.mesh.json");
+            require(reopened.source().document == painted, "Mirror reopen differs");
+            AssetImportService brush_service(lease, editable_mesh_import_registry(),
+                                             {"windows", "d3d12", "desktop"});
+            require(
+                publish(brush_service, "Assets/MirrorHistory.mesh.json", reopened.source().asset())
+                    .published,
+                "Mirrored brush publication failed");
+            const auto selected =
+                std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+            ResourcePool<MeshAsset> pool;
+            auto ticket = request_model_mesh(pool, root, selected, {reopened.source().asset()});
+            require(pool.wait(ticket, 5s) && bool(pool.acquire(ticket)),
+                    "Published brush resource unavailable");
+            const auto expected = reopened.source().cook();
+            const auto& actual = pool.acquire(ticket)->mesh;
+            require(actual.lods[0].parts[0].indices == expected.lods[0].parts[0].indices,
+                    "Brush cooked indices differ");
+            for (const auto& stream : expected.lods[0].parts[0].streams)
+                require(actual.lods[0].parts[0].find(stream.semantic) &&
+                            actual.lods[0].parts[0].find(stream.semantic)->values == stream.values,
+                        "Published brush stream differs");
+        }
         auto document = EditableMeshDocument::create(lease, source);
         const auto identity = document->source().asset();
         const auto initial = document->source().document;

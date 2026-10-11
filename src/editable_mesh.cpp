@@ -53,11 +53,18 @@ void validate_brush(std::span<const MeshBrushSample> samples, double radius) {
                 "Mesh brush pressure must be within [0,1]");
     }
 }
-double brush_influence(Vec3 point, std::span<const MeshBrushSample> samples, double radius) {
+double brush_influence(Vec3 point, std::span<const MeshBrushSample> samples, double radius,
+                       MeshBrushSymmetry symmetry) {
     double influence = 0;
     for (const auto& sample : samples) {
-        const double dx = point[0] - sample.point[0], dy = point[1] - sample.point[1],
-                     dz = point[2] - sample.point[2];
+        const auto axes = static_cast<std::uint8_t>(symmetry);
+        auto difference = [&](unsigned axis) {
+            // Nearest of the independently reflected sample coordinates. The
+            // existing max influence is exactly the union of all mirror stamps.
+            return axes & (1u << axis) ? std::abs(point[axis]) - std::abs(sample.point[axis])
+                                       : point[axis] - sample.point[axis];
+        };
+        const double dx = difference(0), dy = difference(1), dz = difference(2);
         const auto distance = std::sqrt(dx * dx + dy * dy + dz * dz);
         if (distance < radius) {
             const auto falloff = 1 - distance / radius;
@@ -604,6 +611,11 @@ std::uint32_t EditableMeshSource::extrude_face(std::uint32_t wanted, double dist
 }
 void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double radius,
                                 double strength) {
+    sculpt(samples, radius, strength, MeshBrushSymmetry::None);
+}
+void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double radius,
+                                double strength, MeshBrushSymmetry symmetry) {
+    require(static_cast<std::uint8_t>(symmetry) <= 7, "Mesh brush symmetry axes are invalid");
     validate_brush(samples, radius);
     require(std::isfinite(strength) && std::abs(strength) <= radius,
             "Mesh sculpt strength exceeds brush radius");
@@ -618,7 +630,7 @@ void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double
     for (auto& vertex : candidate.document.at("vertices")) {
         const auto key = id(vertex.at("id"));
         const auto old = positions.at(key);
-        const auto influence = brush_influence(old, samples, radius);
+        const auto influence = brush_influence(old, samples, radius, symmetry);
         if (influence > 0) {
             auto next = old;
             for (unsigned axis = 0; axis < 3; ++axis)
@@ -638,6 +650,12 @@ void EditableMeshSource::sculpt(std::span<const MeshBrushSample> samples, double
 }
 void EditableMeshSource::paint_color(std::span<const MeshBrushSample> samples, double radius,
                                      std::array<double, 4> color, double opacity) {
+    paint_color(samples, radius, color, opacity, MeshBrushSymmetry::None);
+}
+void EditableMeshSource::paint_color(std::span<const MeshBrushSample> samples, double radius,
+                                     std::array<double, 4> color, double opacity,
+                                     MeshBrushSymmetry symmetry) {
+    require(static_cast<std::uint8_t>(symmetry) <= 7, "Mesh brush symmetry axes are invalid");
     validate_brush(samples, radius);
     for (const auto channel : color)
         require(std::isfinite(channel) && channel >= 0 && channel <= 1,
@@ -647,7 +665,7 @@ void EditableMeshSource::paint_color(std::span<const MeshBrushSample> samples, d
     auto candidate = *this;
     for (auto& vertex : candidate.document.at("vertices")) {
         const auto point = vector<3>(vertex.at("position"));
-        const auto amount = opacity * brush_influence(point, samples, radius);
+        const auto amount = opacity * brush_influence(point, samples, radius, symmetry);
         if (amount <= 0)
             continue;
         auto current = vertex.contains("color") ? vertex_color(vertex.at("color"))

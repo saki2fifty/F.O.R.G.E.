@@ -310,3 +310,18 @@ shipping timing, deadlines or assertions were changed.
 ### Editable Mesh UV acceptance
 
 The UV batch adds analytic/max-profile source checks to `editable_mesh`, multi-corner UV source history/reopen to `editable_mesh_pipeline`, and actual selected Windows-cook/resource/camera/source-free relocated export checks in `editable_mesh_uv_gallery`. `editable_mesh_uv_editor` performs mouse/keyboard selection, drag/release/cancel, numerical rejection, navigation, lock and publication routes at65/100/200%. The editor fixture's stages115–120 capture UV canvas/tools at100/150/200% using staged original source data and deliberate document layout/scroll; these images establish visual layout, not a performed authoring workflow. Final Windows package acceptance exports Gallery14 and starts its shipped standalone without Mesh source files.
+
+### Brush symmetry acceptance
+
+`editable_mesh` checks folded reflection against explicit stamps, overlap/pressure,
+signed displacement, symmetric versus asymmetric normal fields, bounds and retained
+source attributes. `editable_mesh_pipeline` exercises brush history/branch/reopen
+and published streams. `editable_mesh_brush_gallery` validates original Gallery15
+against independent stamps, exact cooked resources/camera visibility, selected
+closure and relocated source-free export. `editable_mesh_brush_editor` performs
+actual Tool/Mirror X/Y/Z input, ghost-ring drawing, hold/cancel/lock/release/history/
+publication/reopen and sparse-pointer parity at65/100/200%. Native stages121–126
+set up original source and drive combo/checkbox input for100/150/200% sculpt/paint
+layout captures with explicit undocking/scrolling; they do not prove Content
+creation or default layout. Final Windows package acceptance exports Gallery15 and
+starts the shipped standalone without authored Mesh sources.

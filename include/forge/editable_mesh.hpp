@@ -12,6 +12,11 @@ namespace forge {
 // Small first-class authored mesh. Polygon/corner identities belong to this
 // source; cooked MeshData remains an immutable runtime projection.
 inline constexpr std::size_t editable_mesh_source_byte_limit = 2 * 1024 * 1024;
+enum class MeshBrushSymmetry : std::uint8_t { None = 0, X = 1, Y = 2, Z = 4 };
+constexpr MeshBrushSymmetry operator|(MeshBrushSymmetry a, MeshBrushSymmetry b) {
+    return static_cast<MeshBrushSymmetry>(static_cast<std::uint8_t>(a) |
+                                          static_cast<std::uint8_t>(b));
+}
 struct MeshBrushSample {
     std::array<double, 3> point{};
     double pressure = 1;
@@ -37,8 +42,12 @@ struct EditableMeshSource {
     // Uniform inward edge offset; preserves the selected inner face identity.
     std::uint32_t inset_face(std::uint32_t face, double distance);
     void sculpt(std::span<const MeshBrushSample> samples, double radius, double strength);
+    void sculpt(std::span<const MeshBrushSample> samples, double radius, double strength,
+                MeshBrushSymmetry symmetry);
     void paint_color(std::span<const MeshBrushSample> samples, double radius,
                      std::array<double, 4> color, double opacity);
+    void paint_color(std::span<const MeshBrushSample> samples, double radius,
+                     std::array<double, 4> color, double opacity, MeshBrushSymmetry symmetry);
     void transform_uv(std::uint32_t face, std::span<const std::size_t> corners,
                       std::array<double, 2> translation, double angle_radians, double scale);
     // Shared geometric edges connect only when both endpoint UVs match exactly.

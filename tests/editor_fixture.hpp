@@ -94,6 +94,12 @@ struct EditorFixture {
         case 118:
         case 119:
         case 120:
+        case 121:
+        case 122:
+        case 123:
+        case 124:
+        case 125:
+        case 126:
         case 103:
         case 104:
         case 105:
@@ -408,7 +414,13 @@ struct EditorFixture {
                                "editable-mesh-uv-canvas-200",
                                "editable-mesh-uv-tools",
                                "editable-mesh-uv-tools-150",
-                               "editable-mesh-uv-tools-200"};
+                               "editable-mesh-uv-tools-200",
+                               "editable-mesh-sculpt-symmetry",
+                               "editable-mesh-sculpt-symmetry-150",
+                               "editable-mesh-sculpt-symmetry-200",
+                               "editable-mesh-paint-symmetry-view",
+                               "editable-mesh-paint-symmetry-view-150",
+                               "editable-mesh-paint-symmetry-view-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

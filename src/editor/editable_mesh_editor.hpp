@@ -30,6 +30,7 @@ class EditableMeshEditor {
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() { save_ = true; }
     void request_close() {
+        cancel_stroke();
         cancel_uv_drag();
         close_ = true;
         if (!dirty())
@@ -37,8 +38,7 @@ class EditableMeshEditor {
     }
     void undo() {
         if (can_undo()) {
-            stroke_active_ = false;
-            stroke_.clear();
+            cancel_stroke();
             cancel_uv_drag();
             document_->undo();
             reconcile_selection();
@@ -47,8 +47,7 @@ class EditableMeshEditor {
     }
     void redo() {
         if (can_redo()) {
-            stroke_active_ = false;
-            stroke_.clear();
+            cancel_stroke();
             cancel_uv_drag();
             document_->redo();
             reconcile_selection();
@@ -281,6 +280,35 @@ class EditableMeshEditor {
     float sculpt_radius_ = .25f, sculpt_strength_ = .05f;
     float paint_color_[3]{.9f, .2f, .1f}, paint_opacity_ = .8f;
     std::vector<MeshBrushSample> stroke_;
+    bool brush_mirror_[3]{};
+    struct BrushGestureSettings {
+        double radius = 0, strength = 0, opacity = 0;
+        std::array<double, 4> color{};
+        MeshBrushSymmetry symmetry = MeshBrushSymmetry::None;
+        std::uint64_t revision = 0;
+        int mode = 0;
+    } stroke_settings_;
+    MeshBrushSymmetry brush_symmetry() const {
+        unsigned bits = 0;
+        for (unsigned axis = 0; axis < 3; ++axis)
+            if (brush_mirror_[axis])
+                bits |= 1u << axis;
+        return static_cast<MeshBrushSymmetry>(bits);
+    }
+    void cancel_stroke() {
+        stroke_active_ = false;
+        stroke_.clear();
+        stroke_settings_ = {};
+    }
+    void begin_stroke(MeshBrushSample point) {
+        stroke_active_ = true;
+        stroke_.assign(1, point);
+        stroke_settings_ = {
+            sculpt_radius_,   sculpt_strength_,
+            paint_opacity_,   {paint_color_[0], paint_color_[1], paint_color_[2], 1},
+            brush_symmetry(), document_->revision(),
+            brush_mode_};
+    }
 
     void load(SceneDocument& project, const std::filesystem::path& source) {
         auto next = std::make_unique<EditableMeshDocument>(project.writer_guard(), source);
@@ -304,8 +332,7 @@ class EditableMeshEditor {
         reset_uv_scope();
         reconcile_selection();
         preview_transform_ = preview_extrude_ = preview_inset_ = preview_uv_ = false;
-        stroke_active_ = false;
-        stroke_.clear();
+        cancel_stroke();
         error_.clear();
         model_preview_key_.clear();
         uv_preview_key_.clear();
@@ -322,8 +349,7 @@ class EditableMeshEditor {
         service_.reset();
         model_preview_.reset();
         uv_preview_.reset();
-        stroke_active_ = false;
-        stroke_.clear();
+        cancel_stroke();
         model_preview_key_.clear();
         uv_preview_key_.clear();
         needs_publish_ = save_ = close_ = false;
@@ -438,13 +464,14 @@ class EditableMeshEditor {
         ImGui::SliderFloat("Orbit yaw", &yaw_, -180, 180);
         ImGui::SliderFloat("Orbit pitch", &pitch_, -75, 75);
         ImGui::BeginDisabled(locked || pending());
+        ImGui::BeginDisabled(stroke_active_);
         const char* brush_modes[] = {"Select", "Sculpt", "Paint"};
         if (ImGui::Combo("Tool", &brush_mode_, brush_modes, 3)) {
-            stroke_active_ = false;
-            stroke_.clear();
+            cancel_stroke();
             if (brush_mode_)
                 preview_transform_ = preview_extrude_ = preview_inset_ = false;
         }
+        FORGE_UI_PROBE("mesh:brush_tool");
         if (brush_mode_) {
             ImGui::SliderFloat("Brush radius", &sculpt_radius_, .02f, 1.f);
             if (brush_mode_ == 1)
@@ -453,8 +480,19 @@ class EditableMeshEditor {
                 ImGui::ColorEdit3("Paint color", paint_color_);
                 ImGui::SliderFloat("Paint opacity", &paint_opacity_, 0.f, 1.f);
             }
+            ImGui::Checkbox("Mirror X", &brush_mirror_[0]);
+            FORGE_UI_PROBE("mesh:brush_mirror_x");
+            ImGui::SameLine();
+            ImGui::Checkbox("Mirror Y", &brush_mirror_[1]);
+            FORGE_UI_PROBE("mesh:brush_mirror_y");
+            ImGui::SameLine();
+            ImGui::Checkbox("Mirror Z", &brush_mirror_[2]);
+            FORGE_UI_PROBE("mesh:brush_mirror_z");
+            ImGui::TextDisabled(
+                "Mirror about Mesh local-origin planes. Overlapping stamps do not add strength.");
             ImGui::TextDisabled("Drag on the Mesh; release to apply one Undo step. Esc cancels.");
         }
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
             ImGui::IsKeyPressed(ImGuiKey_Escape))
@@ -684,8 +722,7 @@ class EditableMeshEditor {
         uv_zoom_ = std::clamp(extent > 0 ? .9 / extent : 1., 1e-6, 1e6);
     }
     void uv_workspace(bool locked) {
-        stroke_active_ = false;
-        stroke_.clear();
+        cancel_stroke();
         sync_uv_selection();
         if (!uv_initialized_)
             select_uv_face(face_);
@@ -881,19 +918,51 @@ class EditableMeshEditor {
                 }
                 return result;
             };
+            if (ImGui::IsItemHovered()) {
+                if (const auto hover = hit();
+                    hover && brush_symmetry() != MeshBrushSymmetry::None) {
+                    const auto axes = static_cast<unsigned>(brush_symmetry());
+                    std::vector<std::array<double, 3>> shown{hover->point};
+                    draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
+                    for (unsigned reflection = 1; reflection < 8; ++reflection) {
+                        if (reflection & ~axes)
+                            continue;
+                        auto point = hover->point;
+                        for (unsigned axis = 0; axis < 3; ++axis)
+                            if (reflection & (1u << axis))
+                                point[axis] = -point[axis];
+                        if (std::find(shown.begin(), shown.end(), point) != shown.end())
+                            continue;
+                        shown.push_back(point);
+                        const auto horizontal = std::cos(yaw) * point[0] - std::sin(yaw) * point[2];
+                        const auto depth = std::sin(yaw) * point[0] + std::cos(yaw) * point[2];
+                        const auto vertical = std::cos(pitch) * point[1] - std::sin(pitch) * depth;
+                        const ImVec2 stamp{origin.x + size.x * .5f +
+                                               float(horizontal - (min_x + max_x) * .5f) * fit,
+                                           origin.y + size.y * .5f +
+                                               float(-vertical - (min_y + max_y) * .5f) * fit};
+                        draw->AddCircle(stamp, std::max(3.f, sculpt_radius_ * fit),
+                                        brush_mode_ == 1 ? IM_COL32(111, 231, 198, 150)
+                                                         : IM_COL32(245, 167, 109, 150),
+                                        0, 1.5f);
+                    }
+                    draw->PopClipRect();
+                }
+            }
             if (stroke_active_ &&
-                (locked || pending() || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+                (locked || pending() || stroke_settings_.revision != document_->revision() ||
+                 stroke_settings_.mode != brush_mode_ || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
                  !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))) {
-                stroke_active_ = false;
-                stroke_.clear();
+                cancel_stroke();
             }
             if (!stroke_active_ && !locked && !pending() && ImGui::IsItemHovered() &&
                 ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 if (auto point = hit()) {
-                    stroke_active_ = true;
-                    stroke_.assign(1, *point);
+                    begin_stroke(*point);
                 }
-            } else if (stroke_active_ && ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
+            } else if (stroke_active_ &&
+                       (ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
+                        ImGui::IsMouseReleased(ImGuiMouseButton_Left)) &&
                        ImGui::IsItemHovered()) {
                 if (auto point = hit(); point && stroke_.size() < 256) {
                     const auto from = stroke_.back().point;
@@ -901,7 +970,7 @@ class EditableMeshEditor {
                     for (unsigned axis = 0; axis < 3; ++axis)
                         distance_sq += std::pow(point->point[axis] - from[axis], 2);
                     const auto distance = std::sqrt(distance_sq);
-                    const auto spacing = std::max(.005, double(sculpt_radius_) * .25);
+                    const auto spacing = std::max(.005, stroke_settings_.radius * .25);
                     if (distance >= spacing) {
                         const auto count = std::min<std::size_t>(
                             256 - stroke_.size(), std::size_t(std::ceil(distance / spacing)));
@@ -917,22 +986,19 @@ class EditableMeshEditor {
             }
             if (stroke_active_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 auto samples = std::exchange(stroke_, {});
-                stroke_active_ = false;
-                const double radius = sculpt_radius_, strength = sculpt_strength_;
-                if (brush_mode_ == 1)
-                    mutate("Sculpt stroke", [samples = std::move(samples), radius,
-                                             strength](EditableMeshSource& mesh) {
-                        mesh.sculpt(samples, radius, strength);
+                const auto settings = stroke_settings_;
+                cancel_stroke();
+                if (settings.mode == 1)
+                    mutate("Sculpt stroke", [samples = std::move(samples),
+                                             settings](EditableMeshSource& mesh) {
+                        mesh.sculpt(samples, settings.radius, settings.strength, settings.symmetry);
                     });
-                else {
-                    const std::array<double, 4> color{paint_color_[0], paint_color_[1],
-                                                      paint_color_[2], 1};
-                    const double opacity = paint_opacity_;
-                    mutate("Paint stroke", [samples = std::move(samples), radius, color,
-                                            opacity](EditableMeshSource& mesh) {
-                        mesh.paint_color(samples, radius, color, opacity);
-                    });
-                }
+                else
+                    mutate("Paint stroke",
+                           [samples = std::move(samples), settings](EditableMeshSource& mesh) {
+                               mesh.paint_color(samples, settings.radius, settings.color,
+                                                settings.opacity, settings.symmetry);
+                           });
             }
         }
         // Topology previews introduce temporary element IDs. Select them only after acceptance.

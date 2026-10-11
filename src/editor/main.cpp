@@ -3237,6 +3237,30 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 121: {
+                    // Original source setup; brush mode and axis controls below
+                    // are driven by actual fixture mouse/key events.
+                    editable_mesh_editor = {};
+                    const auto source =
+                        forge::EditableMeshSource::create_sculpt_sphere(forge::AssetId::generate());
+                    forge::atomic_write(files.document.project() / "Assets/CaptureBrush.mesh.json",
+                                        source.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CaptureBrush.mesh.json");
+                    forge::test::observe_ui = true;
+                    forge::ui::style(1);
+                    break;
+                }
+                case 122:
+                case 125:
+                    forge::ui::style(1.5f);
+                    break;
+                case 123:
+                case 126:
+                    forge::ui::style(2);
+                    break;
+                case 124:
+                    forge::ui::style(1);
+                    break;
                 case 115: {
                     // Original source setup for native layout review; the
                     // separate UV UI fixture performs actual authoring gestures.
@@ -4867,7 +4891,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 120))
+                        (fixture.stage >= 103 && fixture.stage <= 126))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5138,7 +5162,7 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
                         ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
                         auto* tabs = ImGui::GetCurrentContext()->TabBars.GetByKey(
-                            w->GetID("Mesh workspaces"));
+                            ImHashStr("Mesh workspaces", 0, w->ID));
                         bool selected = false;
                         if (tabs)
                             for (auto& tab : tabs->Tabs)
@@ -5152,13 +5176,61 @@ int main(int argc, char** argv) {
                         captured_document_visible = false;
                     }
                 }
+                if (fixture.stage >= 121 && fixture.stage <= 126) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->dirty() ||
+                        document->source().document.at("vertices").size() != 114)
+                        throw std::runtime_error("Brush capture source differs");
+                    auto* w = ImGui::FindWindowByName("###Editable Mesh");
+                    if (!w)
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        // Setup uses real tool-combo keys and checkbox clicks,
+                        // no private brush-state injection. Repeated stages keep
+                        // the selected tool and axes from the preceding scale.
+                        const bool setup = fixture.stage == 121 || fixture.stage == 124;
+                        const int step = int(fixture.frames) - 4;
+                        ImGui::SetScrollY(w,
+                                          fixture.stage >= 124 && step >= 20 ? w->ScrollMax.y : 0);
+                        auto& io = ImGui::GetIO();
+                        auto click = [&](const char* name, int event) {
+                            const auto found = forge::test::ui_targets.find(name);
+                            if (found == forge::test::ui_targets.end())
+                                throw std::runtime_error("Brush capture target missing");
+                            const auto& target = found->second;
+                            io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
+                                                (target.minimum.y + target.maximum.y) * .5f);
+                            if (event)
+                                io.AddMouseButtonEvent(0, event == 1);
+                        };
+                        if (setup) {
+                            if (step >= 0 && step <= 2)
+                                click("mesh:brush_tool", step);
+                            if (step == 4 || step == 5)
+                                io.AddKeyEvent(ImGuiKey_Home, step == 4);
+                            if (step == 6 || step == 7)
+                                io.AddKeyEvent(ImGuiKey_DownArrow, step == 6);
+                            if (fixture.stage == 124 && (step == 8 || step == 9))
+                                io.AddKeyEvent(ImGuiKey_DownArrow, step == 8);
+                            if (step == 10 || step == 11)
+                                io.AddKeyEvent(ImGuiKey_Enter, step == 10);
+                            if (fixture.stage == 121 && step >= 14 && step <= 16)
+                                click("mesh:brush_mirror_x", step - 14);
+                        }
+                        captured_document_visible &=
+                            step >= 22 && forge::test::ui_targets.contains("mesh:brush_mirror_x");
+                    }
+                }
                 if (fixture.stage >= 109 && fixture.stage <= 114) {
                     const auto* document = animation_timeline.document();
                     if (!document || document->source().document.at("version") != 2 ||
                         document->source().clip().keys.size() != 3)
                         throw std::runtime_error("Timeline curve capture source differs");
                     if (auto* w = ImGui::FindWindowByName("###Animation Timeline")) {
-                        w->StateStorage.SetInt(w->GetID("Vector curves"), 1);
+                        w->StateStorage.SetInt(ImHashStr("Vector curves", 0, w->ID), 1);
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
                         ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
@@ -5242,7 +5314,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 121) {
+                    if (fixture.stage == 127) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

@@ -3512,6 +3512,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "b24701fb-07cc-4c35-828d-73f2a79a19fe",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "6ea060dcfcf3c9a61d26382ea4be6327a24d94e10092fe7cb23bc30190cb1028",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "d454906bd9c8bcea457330a763c6af91a74d0a43b816b8b3e8e3a7e6c5dcc891",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "a6d354b5bbcb42b4e4f69aae28ad9f22c414b562afd6675007ce591343d8421c",
+          "source_digest": "897a7e31f7e5c428a5a66803bc4cc77cba09ece324543c1da93de2d472da7a1e",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 23412,
+          "file": "mesh.bin",
+          "sha256": "4da889abf1afc02cd14e277effdfbe60dc8102a0ccf8268ee9442bf4cc46819c",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/SculptMirrored.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
       "metadata": {
         "forge.import": {
@@ -3697,6 +3732,41 @@
       },
       "schema_version": 1,
       "source": "Assets/UvFitted.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b9ce8654-1df9-4bf8-848d-3843ff880838",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c8201c32f6eb33608671dd01466b7a4995c0c8bc2933d0580051b2cd9a40e427",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "9bbe6cb48d8a87edd5051d6e3177fba890017a8c8a479ea7c6e88119f315d651",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "20f2573445fbc84ed316ab58c77b52dacdff43b85e48840ed8a6269d4da43448",
+          "source_digest": "94ed2c9bcfb7ffc7cd68aacdecc71e277a162cdaa756e0b365ca8454243cfa2b",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 23397,
+          "file": "mesh.bin",
+          "sha256": "b772e0f743159c284f44af4580729c308250aa9a45ace89b3c353ce63ceba93e",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/SculptOneSide.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
     },
@@ -4087,6 +4157,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d2ca0eb0-1c3b-46c5-810c-db466ffcb780",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c4c5180d60f0b3b49eff2e5aca5e609fd9654ad18bea41179938a518e7ee7fc7",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "e524bd0e7c5102ba3fd0eed8853cbf117a71eb2cca41aaf880588225e1e2e231",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4d2c10ba493a072b45351d2d61c8ff59807beae3c1e8c5fc87d0fdad3cc85666",
+          "source_digest": "048a639528ca17c787664fa17fe22dff72f3749a6b76ea8788650b318b4bf53f",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 34214,
+          "file": "mesh.bin",
+          "sha256": "e3aa16886dc659b15b2a8ccfb01087d5b7e25fd05648db8f029cc1ae25cff4bf",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/PaintMirrored.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [

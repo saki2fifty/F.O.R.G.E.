@@ -159,3 +159,17 @@ on release. On the same optimized Linux test host, actual pointer-movement frame
 for the 4,096-vertex sample decreased from115ms to16.5ms; release remains about200ms
 at that limit. This measures editor CPU work, not physical GPU/game FPS. Drawn
 preview, invalid movement, cancellation, source parity and sanitizer checks pass.
+
+## Sculpt and vertex-paint symmetry
+
+Model brushes now offer local Mirror X/Y/Z controls and reflected hover rings.
+Overlapping reflections retain the same strength. Parameters are captured once
+per stroke, cancellation preserves the source, and release remains one Undo step.
+The existing normal field guides sculpting; no topology mirroring or welding is
+introduced. Gallery15 supplies original one-sided/mirrored sculpt and mirrored
+paint examples through the existing published Mesh/render/export path.
+
+Source, actual editor workflow, publication, resource and relocated export checks
+are distinct from pending native Windows/physical acceptance. Build156 uses the
+prior curve/UV source; the next combined delivery will include responsiveness and
+brush symmetry after its validation gate.

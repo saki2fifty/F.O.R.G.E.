@@ -29,3 +29,29 @@ The UV workspace holds one transient multi-face selection and a revision/topolog
 A drag keeps a fixed source revision and selection, captures canonical selected UV doubles/shared mean once, and evaluates bounded transient pairs for display. Held movement does not copy or validate the entire JSON source. Release still calls the full existing source transform and commits one validated source-document edit. Transient coordinates are not an authoritative UV database or persisted mesh representation. Final release coordinates are included even if no held frame observed the movement. Returning to the start refreshes the candidate instead of retaining an old displacement. Focused Escape, close/project/tab switch, changed revision/topology, Play lock or pending publication cancels it. Numeric preview has explicit Apply/Cancel and disables direct dragging. No source history, resource adoption, renderer ABI or format version is added.
 
 Gallery14 uses original connected/split/mirrored-fitted meshes, the existing checker Material, selected Windows/D3D12 cooks and ordinary Mesh Renderer/export closure. Source-free relocated package checks compare the exact cooked UV, normal, color and topology streams. Automatic unwrap, welding, atlas packing and texture-pixel editing remain outside this slice.
+
+## Local brush symmetry
+
+`MeshBrushSymmetry` combines X/Y/Z local-origin reflection planes. Old sculpt and
+paint signatures delegate to None, preserving their symbols and behavior. The
+new overloads reject unknown bits and retain the256-sample admission limit.
+For a selected axis, influence evaluates `abs(vertex)-abs(sample)`; otherwise it
+uses the ordinary difference. Euclidean distance equals the nearest of all
+axis-reflected stamps. Maximum pressure-weighted squared falloff combines the
+stamps, so overlapping/on-plane stamps do not add strength or opacity. Work stays
+one distance per source vertex/sample, without expanded sample arrays.
+
+Sculpt uses each vertex's existing averaged source normal; a symmetric point set
+with asymmetric triangle incidence can have different paired normal directions.
+This mirrors influence, not topology or normal ownership. Paint changes only
+vertex color. Source/cooked formats, IDs, corner UVs, immutable resource adoption
+and runtime ABI are unchanged.
+
+The Model tools expose Mirror X/Y/Z and project reflected hover stamps. A stroke
+captures its radius, strength/color/opacity, axes, mode and source revision once;
+those controls are disabled while dragging. Lock, pending publication, focus loss,
+Escape, Undo/Redo, close/load, UV switch or changed source revision cancels it.
+Release includes the final in-canvas pointer sample, even without a prior held
+frame. It calls the existing operation and commits one validated source-document
+edit. Gallery15 compares one-sided sculpt, X-mirrored sculpt and XYZ-mirrored
+paint. Selected source-free relocated exports preserve exact cooked streams.

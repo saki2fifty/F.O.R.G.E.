@@ -23,6 +23,13 @@ Create a **Sculpt sphere** for a small smooth Mesh, or open any editable Mesh. I
 
 Choose **Paint** to color Mesh vertices. Pick **Paint color**, **Paint opacity** and **Brush radius**, then drag across the preview. Save & Publish to see the color in Scene, Play and exported games. This colors existing vertices; it does not edit texture image pixels. A low-poly Mesh gives broad color patches. Paint and sculpt both preserve the existing source and cooked Mesh workflow.
 
+Enable **Mirror X**, **Mirror Y** or **Mirror Z** to repeat a brush across that Mesh's
+local origin planes. You can combine axes. Reflected hover rings show the other
+brush locations; overlapping locations keep the same strength. Brush settings are
+held for the whole drag. Symmetry follows the existing shape and surface normals;
+it does not make an asymmetric Mesh symmetric. Open **15-brush-symmetry** in the
+Feature Gallery for a comparison of one-sided sculpt, mirrored sculpt and paint.
+
 ## Place the UVs
 
 The UV tab shows the whole Mesh's texture coordinates. The outlined 0–1 tile has (0,0) at the top left. Gold corners and edges are selected; the remaining wireframe gives context. Choose **Pick UV → Corner**, **Face** or **Island**, then click the canvas. An island follows shared geometric edges with matching UV endpoints; it stops at authored seams. **Select face** and **Select island** use the active face. Ctrl-click toggles individual corners or adds faces/islands. Click empty canvas to clear the selection.

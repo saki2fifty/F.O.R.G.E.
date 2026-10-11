@@ -18,6 +18,7 @@ template <class F> void rejects(F fn) {
     throw std::runtime_error("Invalid editable Mesh operation was accepted");
 }
 } // namespace
+#include "editable_mesh_brush_symmetry_tests.hpp"
 #include "editable_mesh_uv_tests.hpp"
 #include "mesh_inset_tests.hpp"
 int main() {
@@ -25,6 +26,7 @@ int main() {
         mesh_inset_tests();
         const auto identity = AssetId::generate();
         mesh_uv_tests();
+        brush_symmetry_tests();
         auto source = EditableMeshSource::create_cube(identity);
         auto mesh = source.cook();
         require(mesh.lods.size() == 1 && mesh.lods[0].parts.size() == 1 &&

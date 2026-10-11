@@ -113,6 +113,23 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert started.returncode == 0, (started.stdout, started.stderr)
     for name in ('UvConnected.mesh.json', 'UvSplit.mesh.json', 'UvFitted.mesh.json'):
         assert not (uv_export/'Assets'/name).exists()
+    # Authored brush symmetry use the same selected Mesh/material export path.
+    brush_scene = 'Scenes/15-brush-symmetry.scene.json'
+    brush = json.loads((gallery/brush_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=brush['asset_id'], source=brush_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    brush_export = root/'Brush Symmetry Standalone'
+    options['destination'] = str(brush_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(brush_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=brush_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    for name in ('SculptOneSide.mesh.json', 'SculptMirrored.mesh.json', 'PaintMirrored.mesh.json'):
+        assert not (brush_export/'Assets'/name).exists()
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())
