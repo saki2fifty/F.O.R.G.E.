@@ -1,4 +1,7 @@
 #pragma once
+#include <cmath>
+#include <limits>
+#include <numbers>
 namespace {
 EditableMeshSource uv_grid(unsigned side);
 void mesh_triangulation_tests() {

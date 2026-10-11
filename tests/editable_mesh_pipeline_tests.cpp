@@ -194,6 +194,31 @@ int main(int argc, char** argv) {
             require(reopened.source().document == history->source().document,
                     "Triangle save/reopen differs");
         }
+        {
+            auto shading = EditableMeshDocument::create(lease, "Assets/ShadingHistory.mesh.json");
+            const auto baseline = shading->source().document;
+            auto revision = shading->revision();
+            shading->edit(revision, "Flat no-op", [](Json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.set_smooth_shading(false);
+                draft = std::move(mesh.document);
+            });
+            require(shading->revision() == revision && !shading->can_undo(),
+                    "Effective flat no-op changed history");
+            shading->edit(revision, "Smooth", [](Json& draft) {
+                EditableMeshSource mesh{draft};
+                mesh.set_smooth_shading(true);
+                draft = std::move(mesh.document);
+            });
+            const auto smooth = shading->source().document;
+            shading->undo();
+            require(shading->source().document == baseline, "Shading Undo differs");
+            shading->redo();
+            require(shading->source().document == smooth, "Shading Redo differs");
+            shading->save();
+            EditableMeshDocument reopened(lease, "Assets/ShadingHistory.mesh.json");
+            require(reopened.source().document == smooth, "Shading source save/reopen differs");
+        }
         auto document = EditableMeshDocument::create(lease, source);
         const auto identity = document->source().asset();
         const auto initial = document->source().document;

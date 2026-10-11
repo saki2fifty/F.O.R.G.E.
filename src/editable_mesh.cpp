@@ -298,6 +298,22 @@ void EditableMeshSource::validate() const {
     require(document.dump().size() <= editable_mesh_source_byte_limit,
             "Editable Mesh source exceeds its byte limit");
 }
+void EditableMeshSource::set_smooth_shading(bool smooth) {
+    validate();
+    if (document.value("smooth", false) == smooth)
+        return;
+    auto candidate = *this;
+    candidate.document["smooth"] = smooth;
+    candidate.validate();
+    if (smooth) {
+        std::map<std::uint32_t, Vec3> positions;
+        for (const auto& vertex : candidate.document.at("vertices"))
+            positions.emplace(id(vertex.at("id")), vector<3>(vertex.at("position")));
+        (void)averaged_normals(candidate.document, positions);
+    }
+    *this = std::move(candidate);
+}
+
 MeshData EditableMeshSource::cook() const {
     validate();
     std::map<std::uint32_t, Vec3> positions;

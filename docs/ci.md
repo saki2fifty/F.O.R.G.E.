@@ -335,3 +335,12 @@ high-water. `editable_mesh_triangulation_editor` performs actual face/Mesh actio
 lock, history, publication and reopen at65/100/200%. The Gallery16 suite validates
 source/cook/resource/camera and selected source-free relocated export. Final
 package acceptance exports and starts Gallery16 with shipped Windows executables.
+
+Mesh shading authoring adds `editable_mesh_shading_editor` (actual mouse controls
+at65/100/200%, mode/locks/history/publication/reopen) and
+`editable_mesh_shading_gallery` (equal geometry/distinct normals, real root material
+selector, resource/camera and exact three-record relocated source-free closure).
+Native editor captures130–132 stage an original flat cube and scroll to shading
+controls at100/150/200%; these are layout evidence, separate from performed
+workflow and physical acceptance. The combined package exports Gallery17 and runs
+its shipped game with `--verify-startup`; source Mesh files must be absent.

@@ -147,6 +147,23 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert started.returncode == 0, (started.stdout, started.stderr)
     for name in ('PolygonCube.mesh.json', 'TriangleCube.mesh.json', 'TriangleSculpt.mesh.json'):
         assert not (triangle_export/'Assets'/name).exists()
+    # Flat and smooth shading use the same selected Mesh/material export path.
+    shading_scene = 'Scenes/17-mesh-shading.scene.json'
+    shading = json.loads((gallery/shading_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=shading['asset_id'], source=shading_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    shading_export = root/'Mesh Shading Standalone'
+    options['destination'] = str(shading_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    started = subprocess.run([str(shading_export/'forge_game.exe'), '--verify-startup'],
+                             cwd=shading_export, env=env, text=True,
+                             capture_output=True, timeout=180)
+    assert started.returncode == 0, (started.stdout, started.stderr)
+    for name in ('FlatSphere.mesh.json', 'SmoothSphere.mesh.json'):
+        assert not (shading_export/'Assets'/name).exists()
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

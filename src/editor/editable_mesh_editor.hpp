@@ -537,6 +537,23 @@ class EditableMeshEditor {
         draw_model_wireframe(model_preview_ ? *model_preview_ : source, locked);
         selection_list();
         ImGui::BeginDisabled(locked || pending());
+        ImGui::SeparatorText("Shading");
+        const bool smooth = document_->source().document.value("smooth", false);
+        ImGui::TextUnformatted(smooth ? "Smooth normals" : "Flat normals");
+        ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
+                             preview_extrude_);
+        ImGui::BeginDisabled(!smooth);
+        if (ui::button("Shade flat", "Use each face normal without changing the Mesh geometry."))
+            mutate("Shade flat", [](auto& source) { source.set_smooth_shading(false); });
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(smooth);
+        if (ui::button("Shade smooth", "Average incident face normals at shared source vertices."))
+            mutate("Shade smooth", [](auto& source) { source.set_smooth_shading(true); });
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ui::help("The wireframe shows geometry. Save & Publish to see shading in Scene, Play and "
+                 "export. Smooth shading keeps the same silhouette.");
         ImGui::SeparatorText("Triangulate");
         const bool polygon_face =
             std::any_of(document_->source().document.at("faces").begin(),

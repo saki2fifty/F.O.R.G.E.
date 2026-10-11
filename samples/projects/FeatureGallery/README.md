@@ -89,3 +89,6 @@ creator's bundled license.
 During Play, select an animated root to see live clip progress in the Inspector.
 CodeExamples includes an optional original one-shot return-to-Idle helper; see its
 README before building/exporting compiled behavior.
+
+- **17-mesh-shading**: two identical original spheres show flat facets versus
+  smooth lighting; open their Mesh sources to change shading and publish.

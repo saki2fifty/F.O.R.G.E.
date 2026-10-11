@@ -186,3 +186,7 @@ separate from pending Windows execution and physical acceptance.
 - Corrected authored Mesh material slot bindings in Feature Gallery05/06/12/14 so
   their exported games resolve the intended materials. Added actual render material
   selector checks; runtime validation remains unchanged.
+
+- Added flat/smooth shading controls for authored Meshes, with ordinary Undo and
+  publication. Geometry and UVs remain unchanged. Feature Gallery17 compares the
+  two policies on identical sphere geometry.

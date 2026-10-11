@@ -3237,6 +3237,24 @@ int main(int argc, char** argv) {
                 case 108:
                     forge::ui::style(2);
                     break;
+                case 130: {
+                    // Original flat source staged for native shading control review.
+                    editable_mesh_editor = {};
+                    const auto source =
+                        forge::EditableMeshSource::create_cube(forge::AssetId::generate());
+                    forge::atomic_write(files.document.project() /
+                                            "Assets/CaptureShading.mesh.json",
+                                        source.document.dump(2));
+                    editable_mesh_editor.open(files.document, "Assets/CaptureShading.mesh.json");
+                    forge::ui::style(1);
+                    break;
+                }
+                case 131:
+                    forge::ui::style(1.5f);
+                    break;
+                case 132:
+                    forge::ui::style(2);
+                    break;
                 case 127: {
                     // Staged original triangle source for native tool layout review.
                     // Performed operations run in the separate scaled UI fixture.
@@ -4911,7 +4929,7 @@ int main(int argc, char** argv) {
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
-                        (fixture.stage >= 103 && fixture.stage <= 129))
+                        (fixture.stage >= 103 && fixture.stage <= 132))
                         ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
@@ -5219,6 +5237,29 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.stage >= 130 && fixture.stage <= 132) {
+                    const auto* document = editable_mesh_editor.document();
+                    if (!document || document->source().document.at("faces").size() != 6 ||
+                        document->source().document.value("smooth", false) || document->dirty())
+                        throw std::runtime_error("Shading capture source differs");
+                    auto* w = ImGui::FindWindowByName("###Editable Mesh");
+                    const auto control = forge::test::ui_targets.find("button:Shade smooth");
+                    if (!w || control == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = control->second;
+                        const auto center = (target.minimum.y + target.maximum.y) * .5f;
+                        const auto visible_center =
+                            (target.clip_minimum.y + target.clip_maximum.y) * .5f;
+                        ImGui::SetScrollY(w, w->Scroll.y + center - visible_center);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 121 && fixture.stage <= 126) {
                     const auto* document = editable_mesh_editor.document();
                     if (!document || document->dirty() ||
@@ -5357,7 +5398,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 130) {
+                    if (fixture.stage == 133) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

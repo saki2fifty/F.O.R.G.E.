@@ -65,3 +65,14 @@ triangle connections change. Save & Publish to update Scene, Play and export.
 Open **16-authored-triangulation** in the Feature Gallery. The first two cubes look
 the same in the game; open their Mesh sources to compare quad and triangle edges.
 The third cube has an edited, colored corner made possible by its triangle faces.
+
+## Choose flat or smooth shading
+
+In Model, choose **Shade flat** for distinct facets or **Shade smooth** for blended
+lighting across shared vertices. Each change makes one Undo step. Smooth shading
+adds no polygons and keeps the same outline. The wireframe shows the geometry;
+choose **Save & Publish**, then view the Mesh in Scene or Play to see the lighting
+change. Published shading is also included in exported games.
+
+Open **17-mesh-shading** in the Feature Gallery to compare two spheres with exactly
+the same shape. The left sphere uses flat normals; the right uses smooth normals.

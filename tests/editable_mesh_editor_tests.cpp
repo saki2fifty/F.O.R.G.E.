@@ -119,7 +119,23 @@ int main(int argc, char** argv) {
                 frame();
             };
             auto geometry = [&] {
-                const auto box = reveal("mesh:model_canvas");
+                (void)reveal("mesh:model_canvas");
+                // Neutral cursor excludes transient tooltips from canvas draw evidence.
+                io.AddMousePosEvent(-1000, -1000);
+                frame();
+                frame();
+                auto box = target("mesh:model_canvas");
+                if (box.minimum.y < box.clip_minimum.y || box.maximum.y > box.clip_maximum.y) {
+                    auto* window = ImGui::FindWindowByName("###Editable Mesh");
+                    require(window, "Model canvas window missing");
+                    ImGui::SetScrollY(window,
+                                      window->Scroll.y + box.minimum.y - box.clip_minimum.y - 4);
+                    frame();
+                    frame();
+                    box = target("mesh:model_canvas");
+                }
+                require(box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y,
+                        "Geometry evidence requires the whole canvas visible");
                 int vertices = 0;
                 const auto* data = ImGui::GetDrawData();
                 for (int i = 0; i < data->CmdListsCount; ++i)
@@ -138,9 +154,12 @@ int main(int argc, char** argv) {
             require(editor.document()->source().document == before && !editor.can_undo(),
                     "Preview authored source/history");
             click("button:Cancel inset");
-            require(geometry() == original_geometry &&
+            const auto canceled_geometry = geometry();
+            require(canceled_geometry == original_geometry &&
                         editor.document()->source().document == before,
-                    "Cancel retained inset preview/source");
+                    "Cancel retained inset preview/source: actual=" +
+                        std::to_string(canceled_geometry) +
+                        " baseline=" + std::to_string(original_geometry));
             click("mesh:preview_inset");
             io.AddKeyEvent(ImGuiKey_Escape, true);
             frame();

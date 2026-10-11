@@ -35,6 +35,8 @@ struct EditableMeshSource {
     static EditableMeshSource parse(std::span<const std::byte> bytes);
     void validate() const;
     MeshData cook() const;
+    // Preserve geometry; reject undefined averaged normals before replacing source.
+    void set_smooth_shading(bool smooth);
     void translate_vertices(std::span<const std::uint32_t> ids, std::array<double, 3> translation);
     void transform_vertices(std::span<const std::uint32_t> ids, std::array<double, 3> translation,
                             std::array<double, 3> rotation_degrees, std::array<double, 3> scale);

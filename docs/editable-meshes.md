@@ -80,3 +80,21 @@ Root authored Mesh resources expose material slot `default`; built-in primitives
 expose `surface`. Inspector labels do not change the authored slot identity. Scene
 bindings must use the selected resource's actual slot key. Gallery/render consumer
 checks exercise the same material selector as runtime; unknown keys reject.
+
+## Flat and smooth shading authoring
+
+`set_smooth_shading(bool)` changes only the existing optional source `smooth` flag
+(default false); current effective policy is a no-op. Flat cooking uses each face
+normal. Smooth cooking normalizes the equal-weight sum of incident face normals
+for each shared source vertex, including across independent UV seams. There is no
+area weighting, angle threshold or smoothing group. It does not alter silhouette,
+positions, topology, UVs, colors, identities or extensions. Candidate source
+validation and averaged normal definition checks precede replacement; cancelling
+incident normals reject enabling smooth atomically. Flat can recover such a prior
+smooth source. Existing cooker behavior, source version and runtime ABI stay intact.
+
+Model **Shade flat / Shade smooth** use one SourceDoc Undo step and publication.
+Current mode, locked/pending documents, active strokes and geometry previews disable
+mutation. Model wireframe previews geometry; Save & Publish changes normal streams
+for ordinary Scene/Play/render and selected source-free export. Gallery17 compares
+identical original sphere geometry with flat and smooth normals.

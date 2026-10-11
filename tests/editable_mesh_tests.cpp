@@ -19,6 +19,7 @@ template <class F> void rejects(F fn) {
 }
 } // namespace
 #include "editable_mesh_brush_symmetry_tests.hpp"
+#include "editable_mesh_shading_tests.hpp"
 #include "editable_mesh_triangulation_tests.hpp"
 #include "editable_mesh_uv_tests.hpp"
 #include "mesh_inset_tests.hpp"
@@ -29,6 +30,7 @@ int main() {
         mesh_uv_tests();
         brush_symmetry_tests();
         mesh_triangulation_tests();
+        mesh_shading_tests();
         auto source = EditableMeshSource::create_cube(identity);
         auto mesh = source.cook();
         require(mesh.lods.size() == 1 && mesh.lods[0].parts.size() == 1 &&
