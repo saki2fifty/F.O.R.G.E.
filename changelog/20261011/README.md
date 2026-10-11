@@ -210,3 +210,11 @@ separate from pending Windows execution and physical acceptance.
   publication/preview locks and save/reopen through the existing Mesh source owner.
   Original Gallery19 compares outward and inward facing open-front rooms and their
   source-free runtime export.
+
+## Windows validation corrections
+
+Mesh and animation UI fixtures release all project writer leases before removing
+scratch files. Native brush captures navigate the Model tab through real UI
+input after UV review. Gallery brush reference comparisons allow only bounded
+double-precision arithmetic variation; topology, identity and cooked-resource
+checks remain exact. Windows execution is pending the replacement delivery gate.

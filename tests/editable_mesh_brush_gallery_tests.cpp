@@ -1,11 +1,13 @@
 #include "model_instance_pose.hpp"
 #include "model_render_resource.hpp"
 #include "runtime_package.hpp"
+#include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/editable_mesh.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <limits>
 using namespace forge;
 using namespace forge::asset_detail;
 using namespace std::chrono_literals;
@@ -18,6 +20,34 @@ Json read(const std::filesystem::path& path) {
     Json j;
     std::ifstream(path) >> j;
     return j;
+}
+// The stored Gallery was authored on Linux. Only floating-point fields may vary
+// by a few ulps with the platform's trigonometric library; topology/IDs stay exact.
+bool equivalent(const Json& actual, const Json& expected) {
+    if (actual.is_number_float() && expected.is_number_float()) {
+        const auto a = actual.get<double>(), e = expected.get<double>();
+        return std::isfinite(a) && std::isfinite(e) &&
+               std::abs(a - e) <= 64 * std::numeric_limits<double>::epsilon() *
+                                      std::max({1., std::abs(a), std::abs(e)});
+    }
+    // JSON parsing stores positive integers as unsigned; compare their exact value.
+    if (actual.is_number_integer() && expected.is_number_integer())
+        return actual == expected;
+    if (actual.type() != expected.type() || actual.size() != expected.size())
+        return false;
+    if (actual.is_object()) {
+        for (const auto& [key, value] : expected.items())
+            if (!actual.contains(key) || !equivalent(actual.at(key), value))
+                return false;
+        return true;
+    }
+    if (actual.is_array()) {
+        for (std::size_t i = 0; i < expected.size(); ++i)
+            if (!equivalent(actual[i], expected[i]))
+                return false;
+        return true;
+    }
+    return actual == expected;
 }
 void parity(const MeshData& actual, const MeshData& expected) {
     const auto& a = actual.lods.front().parts.front();
@@ -32,6 +62,12 @@ void parity(const MeshData& actual, const MeshData& expected) {
 int main(int argc, char** argv) {
     try {
         require(argc == 3, "Need Gallery and scratch root");
+        require(equivalent(Json(0.5), Json(std::nextafter(0.5, 1.))),
+                "Numerical oracle rejected one-ulp platform variation");
+        require(!equivalent(Json(0.5), Json(0.500001)) &&
+                    !equivalent(Json{{"id", 1}}, Json{{"id", 2}}) &&
+                    !equivalent(Json{{"corner", 1}}, Json{{"vertex", 1}}),
+                "Numerical oracle hid a geometry/identity/structure mismatch");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
@@ -74,7 +110,7 @@ int main(int argc, char** argv) {
                 }
                 expected.paint_color(reflected, .35, {.9, .2, .1, 1}, .9);
             }
-            require(sources[i].document == expected.document,
+            require(equivalent(sources[i].document, expected.document),
                     "Gallery authored brush differs from independent explicit-stamp oracle");
             require(sources[i].document.at("faces") == original.at("faces") &&
                         sources[i].document.at("next_id") == original.at("next_id"),

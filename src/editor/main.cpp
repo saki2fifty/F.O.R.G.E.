@@ -5378,7 +5378,10 @@ int main(int argc, char** argv) {
                         auto click = [&](const char* name, int event) {
                             const auto found = forge::test::ui_targets.find(name);
                             if (found == forge::test::ui_targets.end())
-                                throw std::runtime_error("Brush capture target missing");
+                                throw std::runtime_error(
+                                    "Brush capture target missing: " + std::string(name) +
+                                    " stage=" + std::to_string(fixture.stage) +
+                                    " step=" + std::to_string(step));
                             const auto& target = found->second;
                             io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
                                                 (target.minimum.y + target.maximum.y) * .5f);
@@ -5386,21 +5389,25 @@ int main(int argc, char** argv) {
                                 io.AddMouseButtonEvent(0, event == 1);
                         };
                         if (setup) {
+                            // The preceding UV capture leaves ImGui's tab state in UV.
+                            // Navigate the actual tab before accessing Model controls.
                             if (step >= 0 && step <= 2)
-                                click("mesh:brush_tool", step);
-                            if (step == 4 || step == 5)
-                                io.AddKeyEvent(ImGuiKey_Home, step == 4);
-                            if (step == 6 || step == 7)
-                                io.AddKeyEvent(ImGuiKey_DownArrow, step == 6);
-                            if (fixture.stage == 124 && (step == 8 || step == 9))
-                                io.AddKeyEvent(ImGuiKey_DownArrow, step == 8);
+                                click("mesh:model_tab", step);
+                            if (step >= 4 && step <= 6)
+                                click("mesh:brush_tool", step - 4);
+                            if (step == 8 || step == 9)
+                                io.AddKeyEvent(ImGuiKey_Home, step == 8);
                             if (step == 10 || step == 11)
-                                io.AddKeyEvent(ImGuiKey_Enter, step == 10);
-                            if (fixture.stage == 121 && step >= 14 && step <= 16)
-                                click("mesh:brush_mirror_x", step - 14);
+                                io.AddKeyEvent(ImGuiKey_DownArrow, step == 10);
+                            if (fixture.stage == 124 && (step == 12 || step == 13))
+                                io.AddKeyEvent(ImGuiKey_DownArrow, step == 12);
+                            if (step == 14 || step == 15)
+                                io.AddKeyEvent(ImGuiKey_Enter, step == 14);
+                            if (fixture.stage == 121 && step >= 18 && step <= 20)
+                                click("mesh:brush_mirror_x", step - 18);
                         }
                         captured_document_visible &=
-                            step >= 22 && forge::test::ui_targets.contains("mesh:brush_mirror_x");
+                            step >= 26 && forge::test::ui_targets.contains("mesh:brush_mirror_x");
                     }
                 }
                 if (fixture.stage >= 109 && fixture.stage <= 114) {
